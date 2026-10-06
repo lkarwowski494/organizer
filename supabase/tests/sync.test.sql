@@ -54,9 +54,10 @@ select is((select op_id from public.activity where entity_id = '77777777-0000-70
   '0192aaaa-0000-7000-8000-000000000003'::uuid, '10: aktywność zna op_id operacji');
 reset role;
 select is((select count(*)::int from realtime.messages where topic = 'group:55555555-0000-7000-8000-000000000001'), 2, '11: jeden poke na grupę na paczkę');
-select is((select (payload ->> 'v')::bigint from realtime.messages where topic = 'group:55555555-0000-7000-8000-000000000001' order by id desc limit 1),
+select is((select max((payload ->> 'v')::bigint) from realtime.messages where topic = 'group:55555555-0000-7000-8000-000000000001'),
   (select version from public.groups where id = '55555555-0000-7000-8000-000000000001'), '12: poke niesie tylko wersję grupy');
-select is((select payload - 'v' from realtime.messages where topic like 'group:%' order by id desc limit 1), '{}'::jsonb, '13: poke bez danych');
+-- Prawdziwy realtime.send dokłada własny identyfikator wiadomości „id” (sprawdzone w CI na Supabase CLI 2.119.0).
+select ok((select bool_and(payload - 'v' - 'id' = '{}'::jsonb) from realtime.messages where topic like 'group:%'), '13: każdy poke bez danych (poza wersją i id wiadomości)');
 select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000a', true);
 set local role authenticated;
 
