@@ -8,6 +8,20 @@ export const config = {
   /** D4: maksymalna głębokość zagnieżdżenia podzadań (0 = zadanie główne, 2 = pod-podzadanie). */
   MAX_TASK_DEPTH: 2,
 
+  /**
+   * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
+   * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.
+   * Źródło wartości: raport „Organizer grup architektura MVP” (paczka do ok. 100 operacji, porcja pull
+   * ok. 1 000 wierszy, kosz 30 dni) — to wybrane limity projektowe, nie wymogi zewnętrzne.
+   */
+  sync: {
+    PUSH_BATCH_MAX: 100,
+    PULL_LIMIT_MAX: 1000,
+    TOMBSTONE_DAYS: 30,
+    /** Wersja protokołu; klient ze starszą dostaje upgrade_required. */
+    SCHEMA_VERSION: 1,
+  },
+
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',
   TIME_ZONE: 'Europe/Warsaw',
