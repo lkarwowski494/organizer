@@ -34,7 +34,8 @@
     "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json",
     "test:mutation": "stryker run",
     "test:coverage": "jest --coverage",
-    "check:audit": "node scripts/audit-check.mjs"
+    "check:audit": "node scripts/audit-check.mjs",
+    "test:db": "bash scripts/db/test-db.sh"
   },
   "private": true
 }
