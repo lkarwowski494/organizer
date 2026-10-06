@@ -99,6 +99,8 @@ export class FakeServer {
       }
     } else {
       if (!r.deleted_at) return g;
+      // Zadania nie przywraca się do usuniętej listy (jak tasks_guard: deleted:list).
+      if (op.entity === 'tasks' && this.lists.get(String(r.list_id))?.deleted_at) throw new Error('deleted:list');
       t.set(op.id, { ...r, deleted_at: null, version: this.bump(g) });
       if (op.entity === 'lists') {
         for (const [id, task] of this.tasks) {
