@@ -99,7 +99,7 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
           await db.query('rollback');
         }
       }),
-      { numRuns: 150 },
+      { numRuns: 500 },
     );
-  });
+  }, 120_000);
 });
