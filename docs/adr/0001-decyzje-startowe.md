@@ -22,7 +22,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D3 | Współdzielenie | grupa jako kontener + widoczność group/restricted/private |
 | D4 | Podzadania | do 2 poziomów (`config.MAX_TASK_DEPTH`) |
 | D5 | Logowanie | Sign in with Apple + magic link; usuwanie konta w aplikacji |
-| D6 | Push | bezpośrednio APNs z Edge Function (do potwierdzenia spike S1) |
+| D6 | Push | bezpośrednio APNs z Edge Function (potwierdzone spike'iem S1, ADR 0002) |
 | D7 | Kalendarz iPhone | „Dodaj do kalendarza” (zapis); ICS po MVP |
 | D8/D24 | SDK | nowy projekt, Expo SDK 57; 58 po Etapie 1 |
 | D9 | Buildy | GitHub Actions + fastlane, repo publiczne po audycie |
