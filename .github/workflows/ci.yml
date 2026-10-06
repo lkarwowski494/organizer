@@ -30,7 +30,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test -- --ci
+      - run: npm run test:coverage -- --ci
       - run: npm run check:functions
       - run: npm run check:corpus
 

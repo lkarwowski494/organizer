@@ -4,6 +4,12 @@
  *  - app: ekrany i integracja z Expo (preset jest-expo).
  */
 module.exports = {
+  // Progi pokrycia (decyzja właściciela 6.10.2026, docs/testing.md): logika 100% linii i gałęzi.
+  collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', '!**/__tests__/**'],
+  coverageThreshold: {
+    './src/domain/': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/config/': { lines: 100, branches: 100, functions: 100, statements: 100 },
+  },
   projects: [
     {
       displayName: 'domain',

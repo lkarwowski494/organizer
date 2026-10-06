@@ -49,3 +49,10 @@ describe('uuidv7', () => {
     expect(() => uuidv7(() => new Uint8Array(3))).toThrow(RangeError);
   });
 });
+
+describe('uuidv7Timestamp', () => {
+  it('odrzuca identyfikator, który nie jest UUIDv7', () => {
+    expect(() => uuidv7Timestamp('not-a-uuid')).toThrow(TypeError);
+    expect(() => uuidv7Timestamp('00000000-0000-4000-8000-000000000000')).toThrow(TypeError);
+  });
+});

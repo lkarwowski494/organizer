@@ -11,6 +11,8 @@
     "react-native": "0.86.3"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/jest-runner": "10.0.0",
     "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "deno": "2.9.6",
@@ -27,9 +29,12 @@
     "lint": "eslint . --max-warnings 0",
     "test": "jest",
     "test:domain": "jest --selectProjects domain",
-    "check": "npm run typecheck && npm run lint && npm test && npm run check:functions && npm run check:corpus",
+    "check": "npm run typecheck && npm run lint && npm run test:coverage && npm run check:functions && npm run check:corpus",
     "check:functions": "deno check supabase/functions && deno lint supabase/functions",
-    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json"
+    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json",
+    "test:mutation": "stryker run",
+    "test:coverage": "jest --coverage",
+    "check:audit": "node scripts/audit-check.mjs"
   },
   "private": true
 }

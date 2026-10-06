@@ -65,7 +65,7 @@ export type QuickAddOptions = {
 
 /** Zamiana polskich liter na łacińskie 1:1 — długość tekstu i pozycje się nie zmieniają. */
 const FOLD: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' };
-const fold = (s: string) => s.toLowerCase().replace(/[ąćęłńóśźż]/g, (c) => FOLD[c] ?? c);
+const fold = (s: string) => s.toLowerCase().replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!);
 
 const isWordChar = (c: string | undefined) => c !== undefined && /[a-z0-9]/.test(c);
 
@@ -166,11 +166,11 @@ function findCandidates(folded: string): Candidate[] {
 const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) =>
   a.start < b.end && b.start < a.end;
 
-/** Wybiera nienachodzące na siebie fragmenty: wcześniejszy wygrywa, przy remisie dłuższy. */
+/** Wybiera nienachodzące na siebie fragmenty: wcześniejszy wygrywa (sortowanie stabilne). */
 function selectCandidates(candidates: Candidate[], ignore: QuickAddOptions['ignore']): Candidate[] {
   const sorted = candidates
     .filter((c) => !(ignore ?? []).some((i) => overlaps(c, i)))
-    .sort((a, b) => a.start - b.start || b.end - a.end);
+    .sort((a, b) => a.start - b.start);
   const chosen: Candidate[] = [];
   const usedKinds = new Set<TokenKind>();
   for (const c of sorted) {
@@ -182,7 +182,7 @@ function selectCandidates(candidates: Candidate[], ignore: QuickAddOptions['igno
   return chosen.sort((a, b) => a.start - b.start);
 }
 
-function resolveDate(spec: DateSpec, today: CivilDate): CivilDate | null {
+function resolveDate(spec: DateSpec, today: CivilDate): CivilDate {
   switch (spec.type) {
     case 'relative':
       return addDays(today, spec.days);
@@ -191,13 +191,15 @@ function resolveDate(spec: DateSpec, today: CivilDate): CivilDate | null {
       return addDays(today, diff === 0 ? QUICKADD_RULES.SAME_WEEKDAY_OFFSET_DAYS : diff);
     }
     case 'explicit': {
-      if (spec.y !== null) return isValidDate(spec.y, spec.m, spec.d) ? { y: spec.y, m: spec.m, d: spec.d } : null;
+      // Poprawność daty z rokiem sprawdza już explicitDate().
+      if (spec.y !== null) return { y: spec.y, m: spec.m, d: spec.d };
       // D44: najbliższy rok (bieżący lub późniejszy), w którym data istnieje i nie jest w przeszłości.
-      for (let y = today.y; y <= today.y + 8; y++) {
+      // Pętla się kończy: explicitDate() przepuszcza tylko dni istniejące w roku przestępnym,
+      // a taki rok wypada najpóźniej za 8 lat.
+      for (let y = today.y; ; y++) {
         const date = { y, m: spec.m, d: spec.d };
         if (isValidDate(y, spec.m, spec.d) && compareDates(date, today) >= 0) return date;
       }
-      return null;
     }
   }
 }
@@ -224,7 +226,8 @@ function resolveTime(
   const options: { date: CivilDate; h: number }[] = [{ date: today, h }];
   if (ambiguous) options.push({ date: today, h: h + 12 });
   options.push({ date: addDays(today, 1), h });
-  return options.find((o) => isFuture(o.date, o.h, min, now)) ?? options[options.length - 1]!;
+  // Ostatnia opcja (jutro) jest zawsze w przyszłości, więc find() zawsze coś znajdzie.
+  return options.find((o) => isFuture(o.date, o.h, min, now))!;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -245,7 +248,6 @@ function cleanTitle(text: string, tokens: Token[]): string {
 
 export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAddOptions = {}): QuickAddResult {
   const folded = fold(text);
-  if (folded.length !== text.length) throw new Error('quickadd: zamiana znaków zmieniła długość tekstu');
   const chosen = selectCandidates(findCandidates(folded), options.ignore);
 
   const dateC = chosen.find((c) => c.kind === 'date');
@@ -254,8 +256,6 @@ export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAd
 
   const today: CivilDate = { y: now.y, m: now.m, d: now.d };
   let date = dateC ? resolveDate(dateC.spec, today) : null;
-  // Data, której nie da się rozstrzygnąć, nie jest tokenem — zostaje w tytule.
-  const tokensC = chosen.filter((c) => !(c === dateC && date === null));
 
   let due: Due | null = null;
   if (timeC) {
@@ -276,6 +276,6 @@ export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAd
     rrule = `${recC.rrule};BYDAY=${RRULE_WEEKDAYS[isoWeekday(start)]}`;
   }
 
-  const tokens: Token[] = tokensC.map((c) => ({ kind: c.kind, start: c.start, end: c.end, text: text.slice(c.start, c.end) }));
+  const tokens: Token[] = chosen.map((c) => ({ kind: c.kind, start: c.start, end: c.end, text: text.slice(c.start, c.end) }));
   return { title: cleanTitle(text, tokens), due, rrule, tokens };
 }
