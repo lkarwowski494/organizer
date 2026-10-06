@@ -18,6 +18,13 @@ module.exports = {
       testMatch: ['<rootDir>/src/domain/**/*.test.ts', '<rootDir>/src/config/**/*.test.ts'],
     },
     {
+      // Testy na prawdziwym Postgresie (npm run test:db:diff); bez PGHOST są pomijane.
+      displayName: 'db',
+      testEnvironment: 'node',
+      preset: 'jest-expo',
+      testMatch: ['<rootDir>/tests/db/**/*.test.ts'],
+    },
+    {
       displayName: 'app',
       preset: 'jest-expo/ios',
       testMatch: ['<rootDir>/src/**/*.test.tsx'],

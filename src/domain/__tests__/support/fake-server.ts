@@ -65,7 +65,11 @@ export class FakeServer {
     const t = this.table(op.entity);
     const row = t.get(op.id);
     if (op.kind === 'create') {
-      if (row) return String(row.group_id); // powtórzone utworzenie (id nadaje klient)
+      if (row) {
+        // Powtórzone utworzenie (id nadaje klient) — o ile wiersz widzę; cudzy, niewidoczny = konflikt klucza.
+        if (!this.canSee(user, op.entity, row)) throw new Error('invalid:23505');
+        return String(row.group_id);
+      }
       const g = this.groups.get(op.group_id);
       if (!g?.members.has(user)) throw new Error('forbidden');
       if (op.entity === 'tasks') {

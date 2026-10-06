@@ -14,12 +14,14 @@
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/jest-runner": "10.0.0",
     "@types/jest": "29.5.14",
+    "@types/pg": "8.23.1",
     "@types/react": "~19.2.2",
     "deno": "2.9.6",
     "eslint": "^9.39.5",
     "fast-check": "^4.10.2",
     "jest": "~29.7.0",
     "jest-expo": "~57.0.5",
+    "pg": "8.23.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -35,7 +37,7 @@
     "test:mutation": "stryker run",
     "test:coverage": "jest --coverage",
     "check:audit": "node scripts/audit-check.mjs",
-    "test:db": "bash scripts/db/test-db.sh"
+    "test:db": "bash scripts/db/test-db.sh && PGHOST=${PGHOST:-/tmp} PGPORT=${PGPORT:-54329} PGUSER=${PGUSER:-postgres} jest --selectProjects db"
   },
   "private": true
 }
