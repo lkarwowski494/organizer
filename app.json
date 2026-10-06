@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Organizer",
+    "slug": "organizer",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "io.github.lkarwowski494.organizer",
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.io.github.lkarwowski494.organizer"
+        ]
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "pl",
+        "CFBundleLocalizations": ["pl"]
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

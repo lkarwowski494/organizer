@@ -1,0 +1,22 @@
+# Konfiguracja gitleaks: domyślne reguły + reguły dla sekretów specyficznych dla projektu.
+# https://github.com/gitleaks/gitleaks#configuration
+[extend]
+useDefault = true
+
+[[rules]]
+id = "apple-p8-private-key"
+description = "Klucz prywatny Apple (.p8: APNs lub App Store Connect API)"
+regex = '''-----BEGIN PRIVATE KEY-----[\s\S]{40,}?-----END PRIVATE KEY-----'''
+keywords = ["BEGIN PRIVATE KEY"]
+
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Klucz service_role Supabase (JWT z rolą service_role)"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*c2VydmljZV9yb2xl[A-Za-z0-9_-]*\.[A-Za-z0-9_-]{10,}'''
+keywords = ["eyJ"]
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Nowy klucz sekretny Supabase (sb_secret_...)"
+regex = '''sb_secret_[A-Za-z0-9_-]{20,}'''
+keywords = ["sb_secret_"]
