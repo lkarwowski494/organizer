@@ -45,6 +45,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D32 | Kursor | wersja per grupa |
 | D33 | Przypomnienia | lokalne na telefonie przypisanej osoby |
 | D38–D39 | Repozytorium | publiczne po audycie; bez pliku licencji |
+| D42–D45 | Szybkie dodawanie | reguły rozstrzygania parsera (ADR 0003) |
 | D40 | Linki głębokie | schemat `io.github.lkarwowski494.organizer://` (`config.URL_SCHEME`) |
 | D35–D37 | Identyfikacja | iOS 16.4+; bundle `io.github.lkarwowski494.organizer`; nazwa robocza „Organizer” |
 
