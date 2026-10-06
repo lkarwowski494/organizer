@@ -15,6 +15,8 @@ export const config = {
   /** Identyfikatory Apple (D36) — jawne, nie są sekretami. */
   BUNDLE_ID: 'io.github.lkarwowski494.organizer',
   APP_GROUP: 'group.io.github.lkarwowski494.organizer',
+  /** D40: schemat linków głębokich (magic link, zaproszenia) = bundle ID, żeby nie kolidował z innymi aplikacjami. */
+  URL_SCHEME: 'io.github.lkarwowski494.organizer',
 
   /**
    * Progi ostrzeżeń dla darmowych limitów (ok. 70% limitu).
