@@ -361,6 +361,7 @@ create policy activity_select on public.activity for select to authenticated
   using (group_id in (select private.my_group_ids())
          and (scope_id is null or private.can_see_list(scope_id)));
 
+revoke all on public.lists, public.object_members, public.tasks, public.activity from anon, authenticated;
 grant select, insert (id, group_id, kind, name, visibility, sort_key),
   update (name, visibility, sort_key, deleted_at) on public.lists to authenticated;
 grant select, insert (scope_entity, scope_id, member_id, group_id), update (deleted_at)
@@ -371,3 +372,6 @@ grant select, insert (id, group_id, list_id, parent_id, title, note, sort_key, a
           completed_at, deleted_at) on public.tasks to authenticated;
 grant select on public.activity to authenticated;
 grant execute on function private.can_see_list(uuid) to authenticated;
+
+-- Funkcje w private nie są dla nikogo poza jawnie wymienionymi wyżej (domyślnie Postgres daje EXECUTE roli PUBLIC).
+revoke all on all functions in schema private from public, anon;

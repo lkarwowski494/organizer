@@ -314,3 +314,6 @@ grant execute on function private.claim_client(uuid), private.set_client_seq(uui
   private.apply_op(jsonb), private.group_rows_since(uuid, bigint, int), private.push_batch_max(),
   private.pull_limit_max(), private.schema_version() to authenticated;
 grant select on private.sync_entities to authenticated;
+
+-- Funkcje w private nie są dla nikogo poza jawnie wymienionymi wyżej (domyślnie Postgres daje EXECUTE roli PUBLIC).
+revoke all on all functions in schema private from public, anon;

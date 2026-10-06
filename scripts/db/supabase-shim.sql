@@ -43,3 +43,11 @@ returns void language sql security definer as $$
   insert into realtime.messages (topic, event, payload, private) values (topic, event, payload, private)
 $$;
 grant usage on schema realtime to anon, authenticated, service_role;
+
+-- Najgorszy przypadek uprawnień domyślnych: starsze projekty Supabase i lokalny stos nadawały rolom
+-- aplikacji wszystko na nowych tabelach i funkcjach w public. Od 30.05.2026 nowe projekty tego nie robią
+-- (https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically),
+-- ale migracje muszą być bezpieczne w obu wariantach, więc testy lokalne idą na wariancie otwartym.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

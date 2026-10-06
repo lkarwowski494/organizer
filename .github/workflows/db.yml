@@ -1,0 +1,55 @@
+# Testy bazy danych (docs/testing.md): migracje od zera + pgTAP (RLS, synchronizacja, uprawnienia, kontrakty).
+# Dwa warianty, oba na darmowych runnerach Linux w repo publicznym:
+#  - local:    zwykły Postgres 16 + nakładka scripts/db/supabase-shim.sql (ten sam zestaw co `npm run test:db`),
+#              z „otwartymi” uprawnieniami domyślnymi starszych projektów — sprawdza, że migracje same się zamykają;
+#  - supabase: prawdziwy stos Supabase CLI (Postgres 17, auth, realtime) — sprawdza zgodność z oryginałem.
+name: db
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/db/**', '.github/workflows/db.yml']
+  pull_request:
+    paths: ['supabase/**', 'scripts/db/**', '.github/workflows/db.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Postgres 16 + pgTAP
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+          sudo mkdir -p /var/tmp/pg && sudo chown postgres /var/tmp/pg
+          sudo -u postgres /usr/lib/postgresql/16/bin/initdb -D /var/tmp/pg -A trust -U postgres >/dev/null
+          sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pg -o "-p 54329 -k /tmp" -l /var/tmp/pg/log start
+      - run: bash scripts/db/test-db.sh
+
+  supabase:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      # CLI z npm, wersja przypięta (bez dodatkowej akcji spoza GitHuba na liście dozwolonych).
+      - name: Supabase (tylko baza, auth i realtime)
+        run: npx --yes supabase@2.119.0 start -x studio,imgproxy,storage-api,mailpit,logflare,vector,supavisor,edge-runtime,postgres-meta,kong,postgrest
+      - run: npx --yes supabase@2.119.0 test db
+      - if: always()
+        run: npx --yes supabase@2.119.0 stop --no-backup

@@ -259,7 +259,9 @@ create policy profiles_select on public.profiles for select to authenticated
 create policy profiles_update on public.profiles for update to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
--- D41: jawne uprawnienia. Brak DELETE — usuwanie jest miękkie (deleted_at). Grupy powstają przez funkcję.
+-- D41: najpierw odebranie wszystkiego (niezależnie od uprawnień domyślnych projektu), potem jawne nadanie.
+revoke all on public.groups, public.group_members, public.profiles from anon, authenticated;
+-- Brak DELETE — usuwanie jest miękkie (deleted_at). Grupy powstają przez funkcję.
 grant select, update (name) on public.groups to authenticated;
 grant select, insert (member_id, group_id, display_name, color, role),
   update (display_name, color, role, deleted_at) on public.group_members to authenticated;
