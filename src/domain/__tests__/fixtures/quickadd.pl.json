@@ -1,0 +1,5567 @@
+[
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "dziś zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dzisiaj",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "dzisiaj zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "jutro zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko pojutrze",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-08",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "pojutrze zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-08",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na jutro",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "na jutro zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dzis",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "dzis zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w poniedziałek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-12",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko we wtorek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-13",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w środę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko we czwartek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-08",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w piątek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w sobotę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w niedzielę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-11",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na środę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w srode",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy w poniedziałek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-12",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy we wtorek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-13",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy w środę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-07",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy we czwartek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-08",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy w piątek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy w sobotę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "zadzwonić do mamy w niedzielę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-11",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 1 stycznia",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 1.01",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 1.1",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 15 października",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 15.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 15.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 6 października",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 6.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 6.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 29 lutego",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 29.02",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 29.2",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 31 grudnia",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 31.12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 31.12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 3 maja",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 3.05",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko na 3.5",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 15.10.2027",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 15 października 2027",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 1.01.2026",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 1 stycznia 2026",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 29.02.2028",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 29 lutego 2028",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "19:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "19:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "21:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "21:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "20:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "20:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko dziś 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=TU"
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w piątek co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 17 co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-07",
+    "time": "17:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=WE"
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko co tydzien o 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-10-06",
+    "time": "20:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=TU"
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko do piątku",
+  "expected": {
+   "title": "kupić mleko do piątku",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 2 litry",
+  "expected": {
+   "title": "kupić mleko 2 litry",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko 31.04",
+  "expected": {
+   "title": "kupić mleko 31.04",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutrzejsze",
+  "expected": {
+   "title": "kupić mleko jutrzejsze",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "dziś odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dzisiaj",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "dzisiaj odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "jutro odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy pojutrze",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-11",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "pojutrze odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-11",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na jutro",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "na jutro odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dzis",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "dzis odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w poniedziałek",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-12",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy we wtorek",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-13",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w środę",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-14",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy we czwartek",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w piątek",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-16",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w sobotę",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w niedzielę",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-11",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na środę",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-14",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w srode",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-14",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę w poniedziałek o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-12",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę we wtorek o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-13",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę w środę o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-14",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę we czwartek o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-15",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę w piątek o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-16",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę w sobotę o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-10",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "odebrać paczkę w niedzielę o 18",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-10-11",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 1 stycznia",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 1.01",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 1.1",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 15 października",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 15.10",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 15.10",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 6 października",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 6.10",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 6.10",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 29 lutego",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 29.02",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 29.2",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 31 grudnia",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 31.12",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 31.12",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 3 maja",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 3.05",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy na 3.5",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 15.10.2027",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 15 października 2027",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 1.01.2026",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 1 stycznia 2026",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 29.02.2028",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 29 lutego 2028",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 7",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 7",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 7",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 9:30",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "21:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 9:30",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "21:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 9:30",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 11",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "23:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 11",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "23:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 11",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 12",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 12",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 12",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 17.45",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 17.45",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 17.45",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o godz. 8",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o godz. 8",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o godz. 8",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o godzinie 6",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o godzinie 6",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o godzinie 6",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 0",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 0",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 0",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy o 23:59",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś o 23:59",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 23:59",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 20:15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy dziś 20:15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro 20:15",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy co tydzień",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w piątek co tydzień",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-16",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 17 co tydzień",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "17:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=SA"
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy co tydzien o 8",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2026-10-10",
+    "time": "08:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=SA"
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy do piątku",
+  "expected": {
+   "title": "zadzwonić do mamy do piątku",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 2 litry",
+  "expected": {
+   "title": "zadzwonić do mamy 2 litry",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy 31.04",
+  "expected": {
+   "title": "zadzwonić do mamy 31.04",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutrzejsze",
+  "expected": {
+   "title": "zadzwonić do mamy jutrzejsze",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "dziś wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dzisiaj",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "dzisiaj wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "jutro wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę pojutrze",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-02",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "pojutrze wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-02",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na jutro",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "na jutro wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dzis",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "dzis wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w poniedziałek",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-04",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę we wtorek",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-05",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w środę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę we czwartek",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-07",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w piątek",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w sobotę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-02",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w niedzielę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na środę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w srode",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty w poniedziałek o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-04",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty we wtorek o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-05",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty w środę o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-06",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty we czwartek o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-07",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty w piątek o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-01",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty w sobotę o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-02",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "wizyta u dentysty w niedzielę o 18",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-01-03",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 1 stycznia",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 1.01",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 1.1",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 15 października",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 15.10",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 15.10",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 6 października",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 6.10",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 6.10",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 29 lutego",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 29.02",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 29.2",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 31 grudnia",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 31.12",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 31.12",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 3 maja",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 3.05",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę na 3.5",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 15.10.2027",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 15 października 2027",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 1.01.2026",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 1 stycznia 2026",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 29.02.2028",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 29 lutego 2028",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 7",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 7",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 7",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 9:30",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 9:30",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 9:30",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 11",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 11",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 11",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 12",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 12",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 12",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 17.45",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 17.45",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 17.45",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o godz. 8",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o godz. 8",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o godz. 8",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o godzinie 6",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o godzinie 6",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o godzinie 6",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 0",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 0",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 0",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę o 23:59",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś o 23:59",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 23:59",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 20:15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę dziś 20:15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro 20:15",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę co tydzień",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=TH"
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w piątek co tydzień",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 17 co tydzień",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "17:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę co tydzien o 8",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": {
+    "date": "2027-01-01",
+    "time": "08:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę",
+  "expected": {
+   "title": "odebrać paczkę",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę do piątku",
+  "expected": {
+   "title": "odebrać paczkę do piątku",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 2 litry",
+  "expected": {
+   "title": "odebrać paczkę 2 litry",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę 31.04",
+  "expected": {
+   "title": "odebrać paczkę 31.04",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutrzejsze",
+  "expected": {
+   "title": "odebrać paczkę jutrzejsze",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "dziś kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dzisiaj",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "dzisiaj kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "jutro kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty pojutrze",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "pojutrze kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na jutro",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "na jutro kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dzis",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "dzis kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w poniedziałek",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty we wtorek",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w środę",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty we czwartek",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-02",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w piątek",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w sobotę",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-04",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w niedzielę",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-05",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na środę",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w srode",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko w poniedziałek o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-06",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko we wtorek o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko w środę o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-01",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko we czwartek o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-02",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko w piątek o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-03",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko w sobotę o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-04",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "kupić mleko w niedzielę o 18",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-03-05",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 1 stycznia",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2029-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 1.01",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2029-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 1.1",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2029-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 15 października",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 15.10",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 15.10",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 6 października",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 6.10",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 6.10",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 29 lutego",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 29.02",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 29.2",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 31 grudnia",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 31.12",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 31.12",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 3 maja",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 3.05",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty na 3.5",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 15.10.2027",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 15 października 2027",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 1.01.2026",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 1 stycznia 2026",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 29.02.2028",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 29 lutego 2028",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 7",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "19:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 7",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "19:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 7",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 9:30",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 9:30",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 9:30",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 11",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 11",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 11",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 12",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 12",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 12",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 17.45",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 17.45",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 17.45",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o godz. 8",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "20:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o godz. 8",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "20:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o godz. 8",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o godzinie 6",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o godzinie 6",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o godzinie 6",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 0",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 0",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 0",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty o 23:59",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś o 23:59",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 23:59",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 20:15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty dziś 20:15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro 20:15",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty co tydzień",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=MO"
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w piątek co tydzień",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-03-03",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 17 co tydzień",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-29",
+    "time": "17:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=TU"
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty co tydzien o 8",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": {
+    "date": "2028-02-28",
+    "time": "20:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=MO"
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty",
+  "expected": {
+   "title": "wizyta u dentysty",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty do piątku",
+  "expected": {
+   "title": "wizyta u dentysty do piątku",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 2 litry",
+  "expected": {
+   "title": "wizyta u dentysty 2 litry",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty 31.04",
+  "expected": {
+   "title": "wizyta u dentysty 31.04",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutrzejsze",
+  "expected": {
+   "title": "wizyta u dentysty jutrzejsze",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "dziś zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dzisiaj",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "dzisiaj zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "jutro zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko pojutrze",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-30",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "pojutrze zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-30",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na jutro",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "na jutro zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dzis",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "dzis zadzwonić do mamy",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w poniedziałek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko we wtorek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-30",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w środę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko we czwartek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-04-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w piątek",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-04-02",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w sobotę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-04-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w niedzielę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-04-04",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na środę",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w srode",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy w poniedziałek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-29",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy we wtorek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-30",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy w środę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-03-31",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy we czwartek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-04-01",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy w piątek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-04-02",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy w sobotę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-04-03",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "zadzwonić do mamy w niedzielę o 18",
+  "expected": {
+   "title": "zadzwonić do mamy",
+   "due": {
+    "date": "2027-04-04",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 1 stycznia",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 1.01",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 1.1",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 15 października",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 15.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 15.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 6 października",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 6.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 6.10",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 29 lutego",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 29.02",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 29.2",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 31 grudnia",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 31.12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 31.12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 3 maja",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 3.05",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko na 3.5",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-05-03",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 15.10.2027",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 15 października 2027",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-10-15",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 1.01.2026",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 1 stycznia 2026",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2026-01-01",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 29.02.2028",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 29 lutego 2028",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2028-02-29",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 7",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "07:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 9:30",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "09:30"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 11",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "11:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 12",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "12:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "15:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 17.45",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "17:45"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o godz. 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "08:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o godzinie 6",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "06:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 0",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "00:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 23:59",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "23:59"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko dziś 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro 20:15",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "20:15"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=SU"
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w piątek co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-04-02",
+    "time": null
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=FR"
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 17 co tydzień",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-29",
+    "time": "17:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=MO"
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko co tydzien o 8",
+  "expected": {
+   "title": "kupić mleko",
+   "due": {
+    "date": "2027-03-28",
+    "time": "08:00"
+   },
+   "rrule": "FREQ=WEEKLY;BYDAY=SU"
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko",
+  "expected": {
+   "title": "kupić mleko",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko do piątku",
+  "expected": {
+   "title": "kupić mleko do piątku",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 2 litry",
+  "expected": {
+   "title": "kupić mleko 2 litry",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko 31.04",
+  "expected": {
+   "title": "kupić mleko 31.04",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutrzejsze",
+  "expected": {
+   "title": "kupić mleko jutrzejsze",
+   "due": null,
+   "rrule": null
+  }
+ }
+]

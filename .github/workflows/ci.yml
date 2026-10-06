@@ -32,6 +32,7 @@ jobs:
       - run: npm run lint
       - run: npm test -- --ci
       - run: npm run check:functions
+      - run: npm run check:corpus
 
   secrets-scan:
     runs-on: ubuntu-24.04

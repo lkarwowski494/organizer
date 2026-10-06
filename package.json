@@ -27,8 +27,9 @@
     "lint": "eslint . --max-warnings 0",
     "test": "jest",
     "test:domain": "jest --selectProjects domain",
-    "check": "npm run typecheck && npm run lint && npm test && npm run check:functions",
-    "check:functions": "deno check supabase/functions && deno lint supabase/functions"
+    "check": "npm run typecheck && npm run lint && npm test && npm run check:functions && npm run check:corpus",
+    "check:functions": "deno check supabase/functions && deno lint supabase/functions",
+    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json"
   },
   "private": true
 }

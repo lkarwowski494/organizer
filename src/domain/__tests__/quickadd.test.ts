@@ -1,0 +1,126 @@
+import * as fc from 'fast-check';
+
+import { type LocalDateTime } from '../civil-date';
+import { parseQuickAdd } from '../quickadd';
+import corpus from './fixtures/quickadd.pl.json';
+
+const at = (iso: string): LocalDateTime => {
+  const [date, time] = iso.split('T') as [string, string];
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const [hh, mm] = time.split(':').map(Number) as [number, number];
+  return { y, m, d, hh, mm };
+};
+
+describe('parseQuickAdd — korpus (oczekiwania liczone niezależnie w Pythonie)', () => {
+  it('ma co najmniej 200 fraz', () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(200);
+  });
+
+  it.each(corpus.map((c) => [`${c.now} | ${c.text}`, c] as const))('%s', (_, c) => {
+    const r = parseQuickAdd(c.text, at(c.now));
+    expect({ title: r.title, due: r.due, rrule: r.rrule }).toEqual(c.expected);
+  });
+});
+
+describe('parseQuickAdd — tokeny i odklikiwanie', () => {
+  const now = at('2026-10-06T10:00'); // wtorek
+
+  it('zwraca pozycje fragmentów w oryginalnym tekście', () => {
+    const text = 'Kupić prezent w Piątek o 17 co tydzień';
+    const r = parseQuickAdd(text, now);
+    expect(r.tokens.map((t) => [t.kind, t.text])).toEqual([
+      ['date', 'w Piątek'],
+      ['time', 'o 17'],
+      ['recurrence', 'co tydzień'],
+    ]);
+    for (const t of r.tokens) expect(text.slice(t.start, t.end)).toBe(t.text);
+    expect(r).toMatchObject({ title: 'Kupić prezent', due: { date: '2026-10-09', time: '17:00' }, rrule: 'FREQ=WEEKLY;BYDAY=FR' });
+  });
+
+  it('odklikany fragment zostaje w tytule', () => {
+    const text = 'kino w piątek o 20';
+    const first = parseQuickAdd(text, now);
+    const dateToken = first.tokens.find((t) => t.kind === 'date')!;
+    const r = parseQuickAdd(text, now, { ignore: [dateToken] });
+    expect(r.title).toBe('kino w piątek');
+    expect(r.due).toEqual({ date: '2026-10-06', time: '20:00' });
+  });
+
+  it('drugi termin w tekście zostaje w tytule', () => {
+    const r = parseQuickAdd('jutro przenieść spotkanie na pojutrze', now);
+    expect(r.due).toEqual({ date: '2026-10-07', time: null });
+    expect(r.title).toBe('przenieść spotkanie na pojutrze');
+  });
+
+  it('nie rozpoznaje słów zawierających frazy', () => {
+    for (const text of ['jutrzejsze zakupy', 'dzisiejszy plan', 'kupić 2,5 kg', 'pokój nr 12:30a', 'bilet 1.15.10']) {
+      expect(parseQuickAdd(text, now).tokens.filter((t) => t.kind === 'date')).toHaveLength(0);
+    }
+  });
+
+  it('pusty tekst', () => {
+    expect(parseQuickAdd('', now)).toEqual({ title: '', due: null, rrule: null, tokens: [] });
+  });
+});
+
+describe('parseQuickAdd — własności', () => {
+  const nowArb = fc
+    .record({
+      day: fc.integer({ min: 0, max: 365 * 40 }),
+      hh: fc.integer({ min: 0, max: 23 }),
+      mm: fc.integer({ min: 0, max: 59 }),
+    })
+    .map(({ day, hh, mm }): LocalDateTime => {
+      const dt = new Date(Date.UTC(2000, 0, 1) + day * 86_400_000);
+      return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate(), hh, mm };
+    });
+
+  it('data słowna z rokiem → fraza → parse = ta sama data', () => {
+    const months = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+    fc.assert(
+      fc.property(nowArb, fc.integer({ min: 0, max: 365 * 50 }), (now, day) => {
+        const dt = new Date(Date.UTC(2000, 0, 1) + day * 86_400_000);
+        const iso = dt.toISOString().slice(0, 10);
+        const text = `spotkanie ${dt.getUTCDate()} ${months[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
+        expect(parseQuickAdd(text, now).due).toEqual({ date: iso, time: null });
+      }),
+    );
+  });
+
+  it('termin z dniem tygodnia jest zawsze 1–7 dni po dziś i ma ten dzień tygodnia', () => {
+    const words = ['poniedziałek', 'wtorek', 'środę', 'czwartek', 'piątek', 'sobotę', 'niedzielę'];
+    fc.assert(
+      fc.property(nowArb, fc.integer({ min: 0, max: 6 }), (now, wd) => {
+        const due = parseQuickAdd(`zadanie w ${words[wd]}`, now).due!;
+        const todayMs = Date.UTC(now.y, now.m - 1, now.d);
+        const dueMs = Date.parse(`${due.date}T00:00:00Z`);
+        const diff = (dueMs - todayMs) / 86_400_000;
+        expect(diff).toBeGreaterThanOrEqual(1);
+        expect(diff).toBeLessThanOrEqual(7);
+        expect((new Date(dueMs).getUTCDay() + 6) % 7).toBe(wd);
+      }),
+    );
+  });
+
+  it('godzina bez dnia jest zawsze w przyszłości i najpóźniej jutro', () => {
+    fc.assert(
+      fc.property(nowArb, fc.integer({ min: 0, max: 23 }), fc.integer({ min: 0, max: 59 }), (now, h, m) => {
+        const due = parseQuickAdd(`zadanie o ${h}:${String(m).padStart(2, '0')}`, now).due!;
+        const nowMs = Date.UTC(now.y, now.m - 1, now.d, now.hh, now.mm);
+        const dueMs = Date.parse(`${due.date}T${due.time}:00Z`);
+        expect(dueMs).toBeGreaterThan(nowMs);
+        expect(dueMs - nowMs).toBeLessThanOrEqual(24 * 3_600_000);
+      }),
+    );
+  });
+
+  it('tytuł nigdy nie jest dłuższy od tekstu, a tokeny wskazują swój tekst', () => {
+    fc.assert(
+      fc.property(nowArb, fc.string({ maxLength: 60 }), (now, text) => {
+        const r = parseQuickAdd(text, now);
+        expect(r.title.length).toBeLessThanOrEqual(text.length);
+        for (const t of r.tokens) expect(text.slice(t.start, t.end)).toBe(t.text);
+      }),
+    );
+  });
+});
