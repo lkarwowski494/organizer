@@ -124,3 +124,58 @@ describe('parseQuickAdd — własności', () => {
     );
   });
 });
+
+describe('parseQuickAdd — przypadki brzegowe', () => {
+  const now = at('2026-10-06T10:00'); // wtorek
+  const due = (text: string) => parseQuickAdd(text, now).due;
+
+  it('skróty miesięcy (CLDR), z kropką i rokiem', () => {
+    expect(due('urodziny 15 paź')).toEqual({ date: '2026-10-15', time: null });
+    expect(due('urodziny 3 lis. 2027')).toEqual({ date: '2027-11-03', time: null });
+    expect(due('ferie 1 sty')).toEqual({ date: '2027-01-01', time: null });
+    expect(due('rocznica 29 lut')).toEqual({ date: '2028-02-29', time: null });
+  });
+
+  it('nieistniejące godziny nie są rozpoznawane', () => {
+    expect(due('zadanie o 25')).toBeNull();
+    expect(due('zadanie o 7:61')).toBeNull();
+    expect(due('zadanie 24:00')).toBeNull();
+  });
+
+  it('nieistniejąca data z rokiem nie jest rozpoznawana', () => {
+    expect(due('zadanie 29.02.2027')).toBeNull();
+    expect(due('zadanie 31 kwietnia 2027')).toBeNull();
+  });
+
+  it('liczba poprzedzona kropką nie jest datą', () => {
+    expect(due('wersja v.15.10')).toBeNull();
+  });
+
+  it('godzina z kropką wygrywa z nakładającą się datą', () => {
+    const r = parseQuickAdd('telefon o 3.10', now);
+    expect(r.tokens.map((t) => t.kind)).toEqual(['time']);
+    expect(r.due).toEqual({ date: '2026-10-06', time: '15:10' });
+  });
+
+  it('„dziś o 7” po 19:00 zostaje 7:00 tego dnia (dzień podany wprost)', () => {
+    expect(parseQuickAdd('dziś o 7', at('2026-10-06T20:00')).due).toEqual({ date: '2026-10-06', time: '07:00' });
+  });
+
+  it('polskie litery w tytule nie przesuwają pozycji fragmentów', () => {
+    const text = 'Żółw do weterynarza, kupić żółtą miskę jutro o 9';
+    const r = parseQuickAdd(text, now);
+    expect(r.title).toBe('Żółw do weterynarza, kupić żółtą miskę');
+    for (const t of r.tokens) expect(text.slice(t.start, t.end)).toBe(t.text);
+    expect(r.due).toEqual({ date: '2026-10-07', time: '09:00' });
+  });
+
+  it('„o godz.7” bez spacji', () => {
+    expect(due('zadanie jutro o godz.7')).toEqual({ date: '2026-10-07', time: '07:00' });
+  });
+
+  it('interpunkcja po usuniętym fragmencie', () => {
+    expect(parseQuickAdd('zakupy jutro, potem kino', now).title).toBe('zakupy, potem kino');
+    expect(parseQuickAdd('jutro: przegląd auta', now).title).toBe('przegląd auta');
+    expect(parseQuickAdd('przegląd auta ,; jutro', now).title).toBe('przegląd auta');
+  });
+});

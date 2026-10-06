@@ -39,6 +39,17 @@ ma w komentarzu adres źródła.
 - Usuwając mechanikę, przeszukaj cały projekt (kod, komentarze, dokumentację) pod kątem jej nazwy.
 - Liczby nieznanego pochodzenia oznaczaj jako otwarte pytanie, nie wymyślaj uzasadnień.
 
+## Testy (obowiązkowe — decyzja właściciela z 6.10.2026, szczegóły: docs/testing.md)
+
+- Każda funkcja testowana automatycznie w najszerszym możliwym zakresie, we wszystkich warstwach, które
+  jej dotyczą (logika, własności, korpusy z niezależnym wzorcem, mutacje, kontrakty, synchronizacja, RLS,
+  migracje, ekrany, dostępność, wygląd, E2E, wydajność, bezpieczeństwo). Bez testów funkcja nie jest zrobiona.
+- Progi: logika (`src/domain`, `src/config`, później `src/sync`, `src/data`) 100% pokrycia linii i gałęzi
+  oraz ≥ 90% wykrytych mutacji; każdy ekran ma test RNTL, każda funkcja scenariusz E2E.
+- Błąd najpierw dostaje test, który go odtwarza, potem poprawkę.
+- Oczekiwania w korpusach liczy niezależna implementacja (inny język lub biblioteka), nie testowany kod.
+- Kod nieosiągalny usuń zamiast wyłączać z pokrycia; `istanbul ignore` tylko z uzasadnieniem w komentarzu.
+
 ## Architektura (skrót — szczegóły w dokumencie „Architektura i plan MVP”)
 
 - Ekrany czytają wyłącznie z lokalnej bazy SQLite (expo-sqlite + Drizzle, D25). Każda zmiana zapisuje się
