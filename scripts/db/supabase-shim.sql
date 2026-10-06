@@ -40,7 +40,9 @@ create table if not exists realtime.messages (
 );
 create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true)
 returns void language sql security definer as $$
-  insert into realtime.messages (topic, event, payload, private) values (topic, event, payload, private)
+  -- Jak oryginał: do treści dokładany jest identyfikator wiadomości „id”.
+  insert into realtime.messages (topic, event, payload, private)
+  values (topic, event, payload || jsonb_build_object('id', gen_random_uuid()), private)
 $$;
 grant usage on schema realtime to anon, authenticated, service_role;
 
