@@ -3,6 +3,12 @@
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["jest", "node"]
-  }
+    "types": [
+      "jest",
+      "node"
+    ]
+  },
+  "exclude": [
+    "supabase/functions"
+  ]
 }
