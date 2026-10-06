@@ -57,10 +57,9 @@ export function rowKey(e: Entity, row: Row): string {
 
 /** Zakres widoczności wiersza (lista), jeśli wiersz należy do listy — do czyszczenia po utracie dostępu. */
 function rowScope(e: Entity, row: Row): string | undefined {
-  if (e === 'lists') return String(row.id);
-  if (e === 'tasks') return String(row.list_id);
-  if (e === 'object_members' || e === 'activity') return row.scope_id == null ? undefined : String(row.scope_id);
-  return undefined;
+  const scope = e === 'lists' ? row.id : e === 'tasks' ? row.list_id : row.scope_id;
+  // Grupy i członkowie nie mają zakresu; aktywność grupowa ma scope_id = null.
+  return scope == null ? undefined : String(scope);
 }
 
 const groupOf = (e: Entity, row: Row) => String(e === 'groups' ? row.id : row.group_id);
@@ -89,10 +88,9 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
       if (current && current.deleted_at == null) table[op.id] = { ...current, ...op.set };
       return;
     case 'delete':
-      if (current && current.deleted_at == null) table[op.id] = { ...current, deleted_at: 'pending' };
-      return;
     case 'restore':
-      if (current && current.deleted_at != null) table[op.id] = { ...current, deleted_at: null };
+      // Idempotentne: usunięty zostaje usunięty (z pierwotnym znacznikiem), przywrócony — przywrócony.
+      if (current) table[op.id] = { ...current, deleted_at: op.kind === 'delete' ? (current.deleted_at ?? 'pending') : null };
       return;
   }
 }
@@ -150,7 +148,7 @@ export function onPullResponse(state: ClientState, res: PullResponse, ackedAtSta
     for (const [id, row] of Object.entries(rows)) {
       const g = groupOf(e as Entity, row);
       const scope = rowScope(e as Entity, row);
-      if (!visibleGroups.has(g) || resyncGroups.has(g) || (scope !== undefined && lostScopes.has(scope))) {
+      if (!visibleGroups.has(g) || resyncGroups.has(g) || lostScopes.has(scope!)) {
         delete rows[id];
       }
     }

@@ -114,12 +114,14 @@ describe('klient synchronizacji — scenariusze', () => {
     op({ kind: 'restore', entity: 'tasks', id: 'none' });
     op({ kind: 'create', entity: 'tasks', id: 't', group_id: 'g', set: { title: 'a' } });
     op({ kind: 'create', entity: 'tasks', id: 't', group_id: 'g', set: { title: 'DUP' } }); // powtórne utworzenie: bez skutku
+    expect(materialize(a).tasks?.t?.title).toBe('a');
     op({ kind: 'restore', entity: 'tasks', id: 't' }); // nieusunięte: bez skutku
     op({ kind: 'patch', entity: 'tasks', id: 't', set: { title: 'b' } });
     op({ kind: 'delete', entity: 'tasks', id: 't' });
     op({ kind: 'patch', entity: 'tasks', id: 't', set: { title: 'po usunięciu' } }); // usunięcie wygrywa
     op({ kind: 'delete', entity: 'tasks', id: 't' }); // już usunięte
     op({ kind: 'cmd', cmd: 'grant_scope', args: {} }); // komenda: skutek tylko na serwerze
+    expect(Object.keys(materialize(a))).toEqual(['tasks']);
     expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: 'pending' } });
     op({ kind: 'restore', entity: 'tasks', id: 't' });
     expect(materialize(a).tasks?.t?.deleted_at).toBeNull();
@@ -144,5 +146,38 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(Object.keys(out.state.base.activity ?? {})).toEqual(['a2']);
     expect(Object.keys(out.state.base.group_members ?? {})).toEqual(['m']);
     expect(onFetchScope(initialState('x'), [{ e: 'lists', v: 1, row: { id: 'l', group_id: 'g' } }]).base.lists).toEqual({ l: { id: 'l', group_id: 'g' } });
+  });
+
+  it('stan początkowy jest pusty', () => {
+    expect(initialState('c1')).toEqual({ clientId: 'c1', nextSeq: 1, ackedSeq: 0, base: {}, pending: [], cursors: {}, scopes: [], rejected: [] });
+  });
+
+  it('udane i powtórzone operacje nie trafiają do odrzuconych', () => {
+    let a = mutate(initialState('ca'), { kind: 'patch', entity: 'tasks', id: 't', set: { title: 'x' } }, newId);
+    a = mutate(a, { kind: 'patch', entity: 'tasks', id: 't', set: { title: 'y' } }, newId);
+    a = onPushResponse(a, { last_seq: 2, results: [{ seq: 1, status: 'ok' }, { seq: 2, status: 'duplicate' }] });
+    expect(a.rejected).toEqual([]);
+  });
+
+  it('kilka grup: „pobierz więcej”, gdy którakolwiek ma has_more; znane zakresy nie są pobierane ponownie', () => {
+    const g = (group_id: string, has_more: boolean) => ({ group_id, cursor: 1, has_more, resync: false, rows: [] });
+    let out = onPullResponse(initialState('c'), { groups: [g('g1', false), g('g2', true)], scopes: ['s1'] }, 0);
+    expect(out.needMore).toBe(true);
+    expect(out.fetchScopes).toEqual(['s1']);
+    out = onPullResponse(out.state, { groups: [g('g1', false), g('g2', false)], scopes: ['s1', 's2'] }, 0);
+    expect(out.needMore).toBe(false);
+    expect(out.fetchScopes).toEqual(['s2']);
+  });
+
+  it('utrata grupy usuwa także wiersz samej grupy', () => {
+    let a = onPullResponse(initialState('c'), { groups: [{ group_id: 'g1', cursor: 1, has_more: false, resync: false,
+      rows: [{ e: 'groups', v: 1, row: { id: 'g1', version: 1 } }] }], scopes: [] }, 0).state;
+    expect(Object.keys(a.base.groups ?? {})).toEqual(['g1']);
+    // Kolejne pobranie bez zmian: grupa nadal widoczna, jej wiersz zostaje.
+    a = onPullResponse(a, { groups: [{ group_id: 'g1', cursor: 1, has_more: false, resync: false, rows: [] }], scopes: [] }, 0).state;
+    expect(Object.keys(a.base.groups ?? {})).toEqual(['g1']);
+    a = onPullResponse(a, { groups: [], scopes: [] }, 0).state;
+    expect(a.base.groups).toEqual({});
+    expect(a.cursors).toEqual({});
   });
 });
