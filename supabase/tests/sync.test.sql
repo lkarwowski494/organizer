@@ -1,6 +1,6 @@
 -- Protokół synchronizacji (migracja 20261006120200_sync): sync_push, sync_pull, sync_fetch_scope, purge.
 begin;
-select plan(46);
+select plan(48);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-00000000000a', 'a@x.test'), ('00000000-0000-7000-8000-00000000000b', 'b@x.test');
@@ -173,6 +173,12 @@ select is((select (g ->> 'resync')::boolean from jsonb_array_elements(public.syn
   true, '45: kursor sprzed czyszczenia → resync');
 select ok(not exists (select 1 from jsonb_array_elements(public.sync_pull('{}') -> 'groups') g, jsonb_array_elements(g -> 'rows') x
   where x -> 'row' ->> 'id' = '77777777-0000-7000-8000-000000000003'), '46: wyczyszczone zadanie nie wraca');
+
+-- Regresja (test różnicowy): „cofnij dostęp” osobie bez dostępu NIE może jej go dać.
+select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000a', true);
+select is((public.sync_push('aaaaaaaa-0000-7000-8000-000000000001', 1, '[{"seq":26,"kind":"cmd","cmd":"revoke_scope","args":{"list_id":"66666666-0000-7000-8000-000000000002","member_id":"55555555-0000-7000-8000-0000000000a1"}}]') -> 'results' -> 0 ->> 'status'), 'ok', '47: cofnięcie bez wpisu — bez błędu');
+reset role;
+select is((select count(*)::int from public.object_members where scope_id = '66666666-0000-7000-8000-000000000002' and member_id = '55555555-0000-7000-8000-0000000000a1'), 0, '48: cofnięcie bez wpisu niczego nie wstawia');
 
 select * from finish();
 rollback;

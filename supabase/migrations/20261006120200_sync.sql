@@ -84,10 +84,21 @@ begin
       when 'grant_scope', 'revoke_scope' then
         select l.group_id into gid from public.lists l where l.id = (args ->> 'list_id')::uuid;
         if gid is null then raise exception 'not_found' using errcode = 'P0001'; end if;
-        insert into public.object_members (scope_entity, scope_id, member_id, group_id)
-          values ('lists', (args ->> 'list_id')::uuid, (args ->> 'member_id')::uuid, gid)
-          on conflict (scope_entity, scope_id, member_id) do update
-          set deleted_at = case when op ->> 'cmd' = 'grant_scope' then null else now() end;
+        if op ->> 'cmd' = 'grant_scope' then
+          insert into public.object_members (scope_entity, scope_id, member_id, group_id)
+            values ('lists', (args ->> 'list_id')::uuid, (args ->> 'member_id')::uuid, gid)
+            on conflict (scope_entity, scope_id, member_id) do update set deleted_at = null;
+        else
+          -- Cofnięcie tylko aktualizuje istniejący wpis. (Błąd znaleziony testem różnicowym: wcześniejsze
+          -- „wstaw albo zaktualizuj” przy braku wpisu WSTAWIAŁO aktywny wpis, czyli dawało dostęp.)
+          -- Uprawnienie (tylko właściciel listy) sprawdza wyzwalacz object_members_guard także przy UPDATE.
+          update public.object_members set deleted_at = clock_timestamp()
+            where scope_entity = 'lists' and scope_id = (args ->> 'list_id')::uuid
+              and member_id = (args ->> 'member_id')::uuid and deleted_at is null;
+          if not found and private.my_member_id(gid) is distinct from (select owner_member_id from public.lists where id = (args ->> 'list_id')::uuid) then
+            raise exception 'forbidden:not_list_owner' using errcode = 'P0001';
+          end if;
+        end if;
         return gid;
       else
         raise exception 'unknown_cmd' using errcode = 'P0001';
@@ -131,8 +142,10 @@ begin
     end if;
   elsif kind in ('delete', 'restore') then
     if not e.soft_delete then raise exception 'unsupported' using errcode = 'P0001'; end if;
+    -- clock_timestamp(), nie now(): now() jest stałe w transakcji, więc dwa usunięcia w jednej paczce
+    -- dostałyby ten sam znacznik i przywrócenie listy przywróciłoby zadanie usunięte wcześniej osobno.
     execute format('update public.%I set deleted_at = %s where %I = $1 and deleted_at is %s',
-                   ent, case when kind = 'delete' then 'now()' else 'null' end, e.pk,
+                   ent, case when kind = 'delete' then 'clock_timestamp()' else 'null' end, e.pk,
                    case when kind = 'delete' then 'null' else 'not null' end)
       using (op ->> 'id')::uuid;
     get diagnostics n = row_count;
