@@ -58,3 +58,6 @@ reports/
 .stryker-tmp/
 supabase/.temp/
 supabase/.branches/
+
+# Prywatne materiały (raporty z danymi osobowymi, notatki) — nigdy w publicznym repo
+docs/private/
