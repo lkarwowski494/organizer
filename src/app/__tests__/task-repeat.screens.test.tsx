@@ -1,0 +1,99 @@
+/** Powtarzanie zadań i historia na ekranie zadania (D76). */
+import { fireEvent, screen, within } from '@testing-library/react-native';
+
+import { nextId } from '../../domain/views/task-repeat';
+import { RootStack } from '../navigation';
+import { answerAlert, put, sampleBase, setup } from './harness';
+
+const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
+
+async function openTask(base = sampleBase(), title = 'Odebrać paczkę') {
+  const s = setup({ base });
+  await s.renderApp(<RootStack />);
+  await screen.findByTestId('screen-today');
+  await press(screen.getByLabelText(`Otwórz: ${title}`));
+  await screen.findByTestId('screen-task');
+  return s;
+}
+
+describe('powtarzanie zadania', () => {
+  it('ustawienie: co tydzień (dzień z terminu, wybór dni), co miesiąc, od wykonania co N, wyłączenie', async () => {
+    const { store } = await openTask();
+    const ed = screen.getByTestId('repeat-editor');
+    await press(within(ed).getByLabelText('Co tydzień'));
+    // Termin 7.10.2026 to środa.
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    expect(screen.getByText('Po odhaczeniu pojawi się następne z kolejnym terminem.')).toBeTruthy();
+    await press(screen.getByLabelText('W poniedziałek'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=MO,WE' } });
+    await press(screen.getByLabelText('W poniedziałek'));
+    await press(screen.getByLabelText('W środę'));
+    // Ostatniego dnia nie da się odznaczyć.
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    await press(within(ed).getByLabelText('Co miesiąc'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=MONTHLY' } });
+    await press(within(ed).getByLabelText('Codziennie'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=DAILY' } });
+    await press(within(ed).getByLabelText('Od wykonania'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=DAILY;INTERVAL=7' } });
+    await press(screen.getByLabelText('tygodnie'));
+    await press(screen.getByLabelText('2'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=WEEKLY;INTERVAL=2' } });
+    await press(within(ed).getByLabelText('Nie'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: null } });
+  });
+
+  it('bez terminu: podpowiedź zamiast wyboru', async () => {
+    const s = setup();
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Otwórz: Oddać książki do biblioteki'));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByTestId('repeat-editor')).toBeNull();
+    expect(screen.getByText('Ustaw termin, żeby zadanie mogło się powtarzać.')).toBeTruthy();
+  });
+
+  it('odhaczenie dokłada następne zadanie; cofnięcie zdejmuje nietknięte', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-paczka', { ...base.tasks!['t-paczka']!, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
+    const { store } = await openTask(base);
+    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    await answerAlert('Zrobione');
+    expect(store.dispatched.at(-2)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: expect.any(String) } });
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', id: nextId('t-paczka'), set: { title: 'Odebrać paczkę', due_date: '2026-10-14', due_time: '18:00:00', repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    await press(screen.getByLabelText('Oznacz jako niezrobione'));
+    expect(store.dispatched.slice(-2)).toEqual([
+      { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: null } },
+      { kind: 'delete', entity: 'tasks', id: nextId('t-paczka') },
+    ]);
+  });
+
+  it('zdjęcie terminu zdejmuje też powtarzanie', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-kwiaty', { ...base.tasks!['t-kwiaty']!, assignee_member_id: 'mf', repeat: 'FREQ=DAILY' });
+    const s = setup({ base });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Następny dzień'));
+    await press(await screen.findByLabelText('Otwórz: Kupić kwiaty'));
+    await press(await screen.findByLabelText('Usuń termin'));
+    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null, repeat: null } });
+  });
+});
+
+describe('historia zadania', () => {
+  it('kto, co, kiedy — najnowsze na górze; bez wpisów: „Brak zmian.”', async () => {
+    const base = sampleBase();
+    const a = (id: string, extra: Record<string, unknown>) => put(base, 'activity', id, { id, group_id: 'gf', entity: 'tasks', entity_id: 't-paczka', actor_name: 'Ala', verb: 'update', changes: {}, created_at: '2026-10-07T06:00:00Z', version: 1, ...extra });
+    a('h1', { verb: 'create', created_at: '2026-10-06T16:05:00Z' });
+    a('h2', { changes: { due_date: ['2026-10-06', '2026-10-07'], repeat: [null, 'FREQ=DAILY'], parent_id: [null, null], weird: [1, 2] } });
+    a('h3', { actor_name: null, created_at: '2026-10-07T07:30:00Z', changes: { completed_at: [null, 'x'] } });
+    await openTask(base);
+    const h = screen.getByTestId('task-history');
+    const lines = within(h).getAllByText(/ · /).map((n) => [n.props.children].flat().map((x: unknown) => (typeof x === 'string' ? x : (x as { props: { children: string } }).props.children)).join(''));
+    expect(lines).toEqual(['Ktoś odhacza · Środa, 7 października, 09:30', 'Ala zmienia: termin, powtarzanie, inne · Środa, 7 października, 08:00', 'Ala dodaje · Wtorek, 6 października, 18:05']);
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Otwórz: Przynieść korki na trening'));
+    expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();
+  });
+});

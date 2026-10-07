@@ -11,6 +11,9 @@ export const config = {
   /** Jak długo widać pasek „Cofnij” po usunięciu (ms). Wybór projektowy, bez źródła zewnętrznego. */
   UNDO_MS: 6000,
 
+  /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
+  HISTORY_LIMIT: 15,
+
   /** Na ile tygodni naprzód telefon dokłada kopie stałych zadań serii (D65). Wybór projektowy, bez źródła. */
   SERIES_TASK_WEEKS: 8,
 

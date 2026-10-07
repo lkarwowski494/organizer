@@ -336,7 +336,7 @@ describe('operacje ekranów', () => {
 
   it('pozostałe operacje mają kształt zgodny z private.sync_entities', () => {
     expect(cmd.patchTask('t', { title: 'x' })).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { title: 'x' } });
-    expect(cmd.setDue('t', null)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'none', due_date: null, due_time: null } });
+    expect(cmd.setDue('t', null)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } });
     expect(cmd.setDue('t', { date: '2026-10-09', time: null })).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: null } });
     expect(cmd.remove('lists', 'l')).toEqual({ kind: 'delete', entity: 'lists', id: 'l' });
     expect(cmd.restore('tasks', 't')).toEqual({ kind: 'restore', entity: 'tasks', id: 't' });

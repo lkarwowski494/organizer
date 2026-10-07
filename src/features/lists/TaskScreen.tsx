@@ -9,8 +9,8 @@ import { Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
-import { isValidDate , formatIsoDate } from '../../domain/civil-date';
-import { formatDue } from '../../domain/format';
+import { formatIsoDate, isoWeekday, isValidDate } from '../../domain/civil-date';
+import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
@@ -19,6 +19,10 @@ import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
+import { repeatOf, setRepeat } from '../../domain/views/task-repeat';
+import { taskHistory } from '../../domain/views/history';
+import { RepeatEditor } from './RepeatEditor';
+import { TaskHistory } from './TaskHistory';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
@@ -158,6 +162,16 @@ export function TaskScreen({ route, navigation }: Props) {
           ]}
         />
       ) : null}
+      {canEdit && !linked && task.parent_id === null ? (
+        task.deadline_mode === 'own' && task.due_date ? (
+          <>
+            <RepeatEditor value={repeatOf(tables, task.id)} weekday={isoWeekday(parseIsoDate(task.due_date))} onChange={(r) => store.dispatch(setRepeat(task.id, r))} />
+            {repeatOf(tables, task.id) ? <Body muted>{strings['repeat.info']}</Body> : null}
+          </>
+        ) : (
+          <Body muted>{strings['repeat.needsDue']}</Body>
+        )
+      ) : null}
       {canEdit ? (
         <View style={{ gap: 8 }}>
           {linked ? (
@@ -225,6 +239,7 @@ export function TaskScreen({ route, navigation }: Props) {
       ) : null}
       <Button label={strings['task.save']} onPress={save} testID="task-save" />
       <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} />
+      <TaskHistory entries={taskHistory(tables, task.id, config.HISTORY_LIMIT)} today={today} />
     </Screen>
   );
 }
