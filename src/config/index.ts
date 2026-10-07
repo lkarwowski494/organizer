@@ -33,7 +33,7 @@ export const config = {
   },
 
   /**
-   * Zaproszenia linkiem. Wartości TYMCZASOWE do decyzji właściciela (D48): ważność 7 dni (maks. 30),
+   * Zaproszenia linkiem (D48, decyzja właściciela z 7.10.2026): ważność 7 dni (maks. 30),
    * domyślnie 10 użyć (maks. 50). Serwer egzekwuje je funkcjami private.invite_* (test kontraktowy).
    */
   invites: {

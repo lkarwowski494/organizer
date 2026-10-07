@@ -5,6 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { strings } from '../../i18n/strings.pl';
 import { config } from '../index';
 
 const dir = join(__dirname, '../../../supabase/migrations');
@@ -35,6 +36,11 @@ describe('src/config zgodny z SQL', () => {
     ['invite_max_uses_limit', config.invites.MAX_USES_LIMIT],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
+  });
+
+  it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {
+    const found = [...sql.matchAll(/function private\.deleted_user_label\(\)[^$]*\$\$\s*select\s+'([^']*)'::text\s*\$\$/gi)];
+    expect(found.map((m) => m[1])).toEqual([strings['member.deleted']]);
   });
 
   it('brak definicji zgłaszany wprost', () => {
