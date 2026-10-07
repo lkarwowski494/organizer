@@ -54,6 +54,8 @@ export type GroupDetail = {
   group: GroupItem;
   members: Member[];
   canInvite: boolean;
+  /** Admina zaprasza tylko owner (private.create_invite). */
+  canInviteAdmin: boolean;
   canManageMembers: boolean;
   canLeave: boolean;
   canRename: boolean;
@@ -69,7 +71,7 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   const shared = group.kind === 'shared';
   // Zgodnie ze strażnikiem członkostw (migracja invites): owner nie wychodzi (najpierw przekazuje grupę),
   // zaproszenia tylko w grupach wspólnych, nazwę grupy zmienia owner/admin.
-  return { group, members, canInvite: shared && manager, canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager };
+  return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager };
 }
 
 export type ListItem = List & { line: number; groupName: string; open: number };

@@ -125,12 +125,12 @@ describe('grupy', () => {
     const t = world();
     const d = groupDetail(t, ME, 'gf')!;
     expect(d.members.map((m) => m.member_id)).toEqual(['ala', 'mf', 'kuba']);
-    expect(d).toMatchObject({ canInvite: true, canManageMembers: true, canLeave: true, canRename: true });
+    expect(d).toMatchObject({ canInvite: true, canInviteAdmin: false, canManageMembers: true, canLeave: true, canRename: true });
     expect(groupDetail(t, ME, 'gk')).toMatchObject({ canInvite: false, canManageMembers: false, canLeave: true, canRename: false });
     expect(groupDetail(t, ME, 'gp')).toMatchObject({ canInvite: false, canLeave: false, canRename: false });
     expect(groupDetail(t, ME, 'gx')).toBeNull();
     put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'owner' });
-    expect(groupDetail(t, ME, 'gf')).toMatchObject({ canInvite: true, canLeave: false });
+    expect(groupDetail(t, ME, 'gf')).toMatchObject({ canInvite: true, canInviteAdmin: true, canLeave: false });
   });
 
   it('członkowie tej samej roli po imieniu (polska kolejność)', () => {
