@@ -58,3 +58,34 @@ Deno.test('błąd usuwania i brak konfiguracji; starsze nazwy kluczy działają'
   const empty = fakeFetch();
   assertEq((await handle(post('Bearer jwt'), env({ SUPABASE_URL: 'https://x', SUPABASE_PUBLISHABLE_KEYS: '{}', SUPABASE_ANON_KEY: 'a', SUPABASE_SECRET_KEYS: '{}', SUPABASE_SERVICE_ROLE_KEY: 's' }), empty.f)).status, 200);
 });
+
+Deno.test('konto z Apple: unieważnienie tokenu przed usunięciem; bez klucza — usuwa i mówi „not_configured”', async () => {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+  const der = new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
+  let b = '';
+  for (const x of der) b += String.fromCharCode(x);
+  const tag = (edge: string) => `-----${edge} ${'PRIVATE'} KEY-----`;
+  const withApple = env({
+    SUPABASE_URL: 'https://x.supabase.co', SUPABASE_PUBLISHABLE_KEYS: '{"default":"pub"}', SUPABASE_SECRET_KEYS: '{"default":"sec"}',
+    APPLE_SIWA_KEY_P8: `${tag('BEGIN')}\n${btoa(b)}\n${tag('END')}`, APPLE_SIWA_KEY_ID: 'K', APNS_TEAM_ID: 'T', APNS_BUNDLE_ID: 'io.x',
+  });
+  const urls: string[] = [];
+  const f = ((url: string) => {
+    urls.push(url);
+    if (url.endsWith('/auth/v1/user')) return Promise.resolve(new Response(JSON.stringify({ id: ID }), { status: 200 }));
+    if (url.endsWith('/auth/token')) return Promise.resolve(new Response('{"refresh_token":"r"}', { status: 200 }));
+    return Promise.resolve(new Response('{}', { status: 200 }));
+  }) as typeof fetch;
+  const req = (body?: object) => new Request('https://fn/delete-account', { method: 'POST', headers: { authorization: 'Bearer jwt' }, body: body ? JSON.stringify(body) : undefined });
+  let r = await handle(req({ appleAuthorizationCode: 'c1' }), withApple, f);
+  assertEq(await r.json(), { deleted: true, apple: 'revoked' });
+  assertEq(urls, ['https://x.supabase.co/auth/v1/user', 'https://appleid.apple.com/auth/token', 'https://appleid.apple.com/auth/revoke', `https://x.supabase.co/auth/v1/admin/users/${ID}`]);
+  r = await handle(req({ appleAuthorizationCode: 'c1' }), ENV, fakeFetch().f);
+  assertEq(await r.json(), { deleted: true, apple: 'not_configured' });
+  r = await handle(req({ appleAuthorizationCode: '' }), withApple, fakeFetch().f);
+  assertEq(await r.json(), { deleted: true, apple: 'not_apple' });
+  // Wyjątek po drodze (np. zły klucz) nie blokuje usunięcia konta.
+  const broken = { get: (k: string) => (k === 'APPLE_SIWA_KEY_P8' ? 'zły' : withApple.get(k)) };
+  r = await handle(req({ appleAuthorizationCode: 'c1' }), broken, fakeFetch().f);
+  assertEq(await r.json(), { deleted: true, apple: 'revoke_failed' });
+});

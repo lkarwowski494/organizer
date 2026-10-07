@@ -13,6 +13,8 @@ function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, 
     signInWithIdToken: jest.fn(async () => ({ error: null as { message: string } | null })),
     signInWithOtp: jest.fn(async () => ({ error: null as { message: string } | null })),
     signOut: jest.fn(async () => ({ error: null as { message: string } | null })),
+    updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
+    getSession: jest.fn(async () => ({ data: { session: null as { user: { app_metadata?: { provider?: string } } } | null } })),
   };
   const functions = { invoke: jest.fn(async () => ({ error: null as { message: string } | null })) };
   const client: SupabaseLike = {
@@ -94,6 +96,14 @@ describe('Supabase: konto', () => {
     await expect(supabaseAccount(client, async () => ({ identityToken: null })).signInWithApple()).rejects.toThrow('apple:no_identity_token');
     auth.signInWithIdToken.mockResolvedValueOnce({ error: { message: 'invalid' } });
     await expect(supabaseAccount(client, async () => ({ identityToken: 'x' })).signInWithApple()).rejects.toThrow('invalid');
+    expect(auth.updateUser).not.toHaveBeenCalled();
+    // Pierwsze logowanie: Apple podaje imię — trafia do profilu (O-036); bez imienia — profil bez zmian.
+    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: ' Łukasz ', familyName: 'Karwowski' } })).signInWithApple();
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { display_name: 'Łukasz', full_name: 'Łukasz Karwowski' } });
+    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: 'Ala', familyName: null } })).signInWithApple();
+    expect(auth.updateUser).toHaveBeenLastCalledWith({ data: { display_name: 'Ala', full_name: 'Ala' } });
+    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: null } })).signInWithApple();
+    expect(auth.updateUser).toHaveBeenCalledTimes(2);
   });
 
   it('magic link z adresem powrotu w schemacie aplikacji, wylogowanie, usunięcie konta', async () => {
@@ -108,6 +118,16 @@ describe('Supabase: konto', () => {
     expect(auth.signOut).toHaveBeenLastCalledWith({ scope: 'local' });
     functions.invoke.mockResolvedValueOnce({ error: { message: 'unauthorized' } });
     await expect(a.deleteAccount()).rejects.toThrow('unauthorized');
+    // Konto z Apple: świeży kod autoryzacji do unieważnienia tokenu; bez kodu — nie usuwamy.
+    const appleFn = jest.fn(async () => ({ identityToken: 'jwt', authorizationCode: 'code-1' }));
+    auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { provider: 'apple' } } } } });
+    await supabaseAccount(client, appleFn).deleteAccount();
+    expect(appleFn).toHaveBeenCalledWith('none');
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1' } });
+    await expect(supabaseAccount(client, async () => ({ identityToken: 'jwt', authorizationCode: null })).deleteAccount()).rejects.toThrow('apple:no_authorization_code');
+    auth.getSession.mockResolvedValue({ data: { session: { user: {} } } });
+    await a.deleteAccount();
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST' });
     await a.notifyHandoff('h1');
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
   });

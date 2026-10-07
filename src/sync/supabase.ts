@@ -24,11 +24,17 @@ export type SupabaseLike = {
     signInWithIdToken(a: { provider: 'apple'; token: string }): Promise<{ error: { message: string } | null }>;
     signInWithOtp(a: { email: string; options: { emailRedirectTo: string } }): Promise<{ error: { message: string } | null }>;
     signOut(a?: { scope: 'local' | 'global' }): Promise<{ error: { message: string } | null }>;
+    updateUser(a: { data: Record<string, string> }): Promise<{ error: { message: string } | null }>;
+    getSession(): Promise<{ data: { session: { user: { app_metadata?: { provider?: string } } } | null } }>;
   };
   functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ error: { message: string } | null }> };
 };
 
-export type AppleSignIn = () => Promise<{ identityToken: string | null }>;
+/**
+ * Sign in with Apple na iPhonie. `fullName` Apple podaje tylko przy pierwszym logowaniu; `authorizationCode` (ważny
+ * 5 min, jednorazowy) służy przy usuwaniu konta do unieważnienia tokenu Apple (wymóg Apple, ADR 0016).
+ */
+export type AppleSignIn = (scopes?: 'none') => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
 
 /** Adres, na który wraca link z e-maila (Supabase: lista „Redirect URLs” = io.github.lkarwowski494.organizer://**). */
 export const AUTH_REDIRECT = `${config.URL_SCHEME}://auth/callback`;
@@ -67,6 +73,10 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       const credential = await apple();
       if (!credential.identityToken) throw new Error('apple:no_identity_token');
       check(await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }));
+      // O-036: imię z Apple (tylko przy pierwszym logowaniu) do profilu — w grupach widać imię, nie „Ja”.
+      const given = credential.fullName?.givenName?.trim();
+      const full = [given, credential.fullName?.familyName?.trim()].filter(Boolean).join(' ');
+      if (given) check(await client.auth.updateUser({ data: { display_name: given, full_name: full } }));
     },
     async sendMagicLink(email) {
       check(await client.auth.signInWithOtp({ email, options: { emailRedirectTo: AUTH_REDIRECT } }));
@@ -75,8 +85,12 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       check(await client.auth.signOut());
     },
     async deleteAccount() {
+      // Konto z Apple: świeży kod autoryzacji, żeby serwer unieważnił token Apple (wymóg Apple, O-036, ADR 0016).
+      const provider = (await client.auth.getSession()).data.session?.user.app_metadata?.provider;
+      const code = provider === 'apple' ? (await apple('none')).authorizationCode : null;
+      if (provider === 'apple' && !code) throw new Error('apple:no_authorization_code');
       // Funkcja serwerowa sprawdza JWT i usuwa użytkownika; dane sprząta wyzwalacz bazy (D49, ADR 0004).
-      check(await client.functions.invoke('delete-account', { method: 'POST' }));
+      check(await client.functions.invoke('delete-account', { method: 'POST', ...(code ? { body: { appleAuthorizationCode: code } } : {}) }));
       // Konto już nie istnieje, więc tylko lokalne wylogowanie (globalne wymagałoby ważnej sesji na serwerze).
       check(await client.auth.signOut({ scope: 'local' }));
     },
