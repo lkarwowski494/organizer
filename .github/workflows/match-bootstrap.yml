@@ -1,0 +1,41 @@
+# Certyfikaty iOS (D28). Runner macos-26 — w repo publicznym bez opłat.
+# Bezpieczeństwo: tylko tag v* albo ręczne uruchomienie; środowisko ios-release z wymaganym zatwierdzeniem
+# właściciela (sekrety dostępne dopiero po zatwierdzeniu); BEZ artefaktów (w repo publicznym może je
+# pobrać każdy zalogowany). Wersja Xcode przypięta (obraz macos-26: 26.6 domyślny, sprawdzone 7.10.2026
+# w actions/runner-images, images/macos/macos-26-arm64-Readme.md; SDK 57 wymaga Xcode ≥ 26.4).
+name: match-bootstrap
+
+# JEDNORAZOWO: tworzy certyfikat dystrybucyjny i profil App Store w prywatnym organizer-certs.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: match-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  signing:
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: ios-release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bundle install
+      - name: fastlane bootstrap_signing
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_USER: ${{ secrets.MATCH_GIT_USER }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+        run: |
+          # Nagłówek Basic liczony w kroku i maskowany w logach (dane złożone psują maskowanie sekretów).
+          auth=$(printf '%s:%s' "$MATCH_GIT_USER" "$MATCH_GIT_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::$auth"
+          MATCH_GIT_BASIC_AUTHORIZATION="$auth" bundle exec fastlane ios bootstrap_signing
