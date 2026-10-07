@@ -8,33 +8,14 @@
  *  - token dostawcy: ES256, kid = Key ID, iss = Team ID, iat; odświeżać nie częściej niż co 20 min, nie starszy niż 1 h:
  *    https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns
  */
+import { signEs256 } from './jwt.ts';
+
 export const APNS_HOSTS = { sandbox: 'api.sandbox.push.apple.com', production: 'api.push.apple.com' } as const;
 export type ApnsEnv = keyof typeof APNS_HOSTS;
 
-function base64url(bytes: Uint8Array): string {
-  let s = '';
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
-}
-
-/** Klucz .p8 to PKCS#8 w PEM. Wklejony do sekretu mógł stracić znaki nowej linii — bierzemy samo base64. */
-function pemToPkcs8(pem: string): Uint8Array<ArrayBuffer> {
-  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\\n/g, '').replace(/\s+/g, '');
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-export async function providerToken(p8: string, keyId: string, teamId: string, nowSec: number): Promise<string> {
-  const key = await crypto.subtle.importKey('pkcs8', pemToPkcs8(p8), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-  const enc = new TextEncoder();
-  const header = base64url(enc.encode(JSON.stringify({ alg: 'ES256', kid: keyId })));
-  const claims = base64url(enc.encode(JSON.stringify({ iss: teamId, iat: nowSec })));
-  const input = `${header}.${claims}`;
-  // WebCrypto zwraca podpis ECDSA jako r||s (64 bajty) — dokładnie format JWS ES256.
-  const sig = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(input)));
-  return `${input}.${base64url(sig)}`;
+/** Token dostawcy APNs: ES256, kid = Key ID, iss = Team ID, iat. */
+export function providerToken(p8: string, keyId: string, teamId: string, nowSec: number): Promise<string> {
+  return signEs256(p8, { alg: 'ES256', kid: keyId }, { iss: teamId, iat: nowSec });
 }
 
 /** Token dostawcy trzymany w ciepłej instancji funkcji przez 30 min (Apple: nie częściej niż co 20 min, nie dłużej niż 1 h). */

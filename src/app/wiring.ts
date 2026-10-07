@@ -35,8 +35,8 @@ type User = { id: string; email?: string; user_metadata?: { full_name?: string; 
 const toSession = (u: User | null | undefined): Session | null =>
   u ? { userId: u.id, displayName: u.user_metadata?.display_name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'Ja' } : null;
 
-const apple = async () =>
-  AppleAuthentication.signInAsync({ requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
+const apple = async (scopes?: 'none') =>
+  AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
 export function realDeps(): RootDeps {
   const sb = client as unknown as SupabaseLike;
