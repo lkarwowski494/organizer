@@ -19,7 +19,8 @@ export const HOLIDAYS_FROM_YEAR = 2011;
 
 export const HOLIDAYS_PL: readonly (FixedHoliday | EasterHoliday | SingleHoliday)[] = [
   { kind: 'fixed', month: 1, day: 1, name: 'Nowy Rok' },
-  { kind: 'fixed', month: 1, day: 6, name: 'Święto Trzech Króli', since: '2011-01-01' },
+  // Wolne od 1.01.2011 — pokrywa to HOLIDAYS_FROM_YEAR, więc bez osobnego „since”.
+  { kind: 'fixed', month: 1, day: 6, name: 'Święto Trzech Króli' },
   { kind: 'easter', offset: 0, name: 'pierwszy dzień Wielkiej Nocy' },
   { kind: 'easter', offset: 1, name: 'drugi dzień Wielkiej Nocy' },
   { kind: 'fixed', month: 5, day: 1, name: 'Święto Państwowe' },

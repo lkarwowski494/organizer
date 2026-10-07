@@ -40,7 +40,7 @@ describe('polskie dni wolne od pracy', () => {
   });
 
   it('lata spoza zakresu reguł', () => {
-    expect(() => polishHolidays(2010)).toThrow(RangeError);
+    expect(() => polishHolidays(2010)).toThrow('od 2011');
     expect(() => polishHolidays(2026.5)).toThrow(RangeError);
   });
 });
