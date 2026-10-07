@@ -30,7 +30,16 @@
     "plugins": [
       "expo-font",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-calendar",
+        {
+          "writeOnlyAccess": true,
+          "writeOnlyCalendarPermission": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje kalendarza.",
+          "calendarPermission": false,
+          "remindersPermission": false
+        }
+      ]
     ]
   }
 }

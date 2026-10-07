@@ -3,11 +3,25 @@ import * as fc from 'fast-check';
 import { compareByDue, type Due, effectiveDue, isVisible, nextAfterCompletion, type TaskTerms } from '../deadlines';
 
 const t = (o: Partial<TaskTerms> & { id: string }): TaskTerms => ({
-  parent_id: null, deadline_mode: 'none', due_date: null, due_time: null, start_date: null, ...o,
+  parent_id: null, deadline_mode: 'none', due_date: null, due_time: null, start_date: null, event_id: null, occurrence_date: null, ...o,
 });
 const map = (...ts: TaskTerms[]) => new Map(ts.map((x) => [x.id, x]));
 
 describe('terminy', () => {
+  it('termin z wystąpienia wydarzenia (D13), także dla podzadania; brak wystąpienia lub resolvera = bez terminu', () => {
+    const occ = (id: string, d: string): Due => (id === 'ev' && d === '2026-10-12' ? { date: '2026-10-13', time: '17:00:00' } : null);
+    const root = t({ id: 'r', deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-12' });
+    const sub = t({ id: 's', parent_id: 'r', deadline_mode: 'inherit' });
+    expect(effectiveDue(root, map(root), occ)).toEqual({ date: '2026-10-13', time: '17:00:00' });
+    expect(effectiveDue(sub, map(root, sub), occ)).toEqual({ date: '2026-10-13', time: '17:00:00' });
+    expect(effectiveDue(t({ id: 'x', deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-19' }), map(), occ)).toBeNull();
+    expect(effectiveDue(root, map(root))).toBeNull();
+    expect(effectiveDue(t({ id: 'y', deadline_mode: 'event' }), map(), occ)).toBeNull();
+    expect(effectiveDue(t({ id: 'z', deadline_mode: 'event', event_id: 'ev' }), map(), occ)).toBeNull();
+    // Własny termin przy zachowanym podpięciu wygrywa (D13).
+    expect(effectiveDue(t({ id: 'o', deadline_mode: 'own', due_date: '2026-10-10', event_id: 'ev', occurrence_date: '2026-10-12' }), map(), occ)).toEqual({ date: '2026-10-10', time: null });
+  });
+
   it('własny, brak, dziedziczony przez dwa poziomy (D15)', () => {
     const root = t({ id: 'r', deadline_mode: 'own', due_date: '2026-10-10', due_time: '18:00' });
     const sub = t({ id: 's', parent_id: 'r', deadline_mode: 'inherit' });

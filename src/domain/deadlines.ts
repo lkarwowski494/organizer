@@ -3,8 +3,9 @@
  * start_date w supabase/migrations/20261006120100_lists_tasks.sql).
  *
  *  - own:     własny termin zadania,
- *  - inherit: termin rodzica (D15: podzadanie dziedziczy, można przestawić na własny). Zadanie główne z
- *             inherit dziedziczy z wystąpienia wydarzenia (D13) — to Etap 4; do tego czasu: brak terminu,
+ *  - inherit: termin rodzica (D15: podzadanie dziedziczy, można przestawić na własny),
+ *  - event:   termin wystąpienia wydarzenia, do którego zadanie jest podpięte (D13; idzie za spotkaniem po
+ *             przeniesieniu). Wystąpienie odwołane albo nieistniejące = brak terminu (zadanie nie ginie, D14),
  *  - none:    bez terminu — przypięte na górze listy bez końca, bez przypomnień (D16).
  *  start_date („przypnij za X dni”) ukrywa zadanie do tego dnia; to nie jest termin.
  */
@@ -13,21 +14,30 @@ import { addDays, type CivilDate, compareDates, formatIsoDate } from './civil-da
 export type TaskTerms = {
   id: string;
   parent_id: string | null;
-  deadline_mode: 'none' | 'own' | 'inherit';
+  deadline_mode: 'none' | 'own' | 'inherit' | 'event';
   due_date: string | null;
   due_time: string | null;
   start_date: string | null;
+  event_id: string | null;
+  occurrence_date: string | null;
 };
+
+/** Termin wystąpienia (data po przeniesieniu, godzina startu); `null` = wystąpienia nie ma (odwołane, zmieniona seria). */
+export type OccurrenceDue = (eventId: string, occurrenceDate: string) => Due;
 
 export type Due = { date: string; time: string | null } | null;
 
-/** Efektywny termin. `byId` — zadania tej samej listy (rodzice). Cykl nie jest możliwy (serwer: move_task). */
-export function effectiveDue(task: TaskTerms, byId: ReadonlyMap<string, TaskTerms>): Due {
+/**
+ * Efektywny termin. `byId` — zadania tej samej listy (rodzice). Cykl nie jest możliwy (serwer: move_task).
+ * `occurrence` — termin wystąpienia wydarzenia (src/domain/views/event-rows.ts); bez niego tryb „event” = brak terminu.
+ */
+export function effectiveDue(task: TaskTerms, byId: ReadonlyMap<string, TaskTerms>, occurrence: OccurrenceDue = () => null): Due {
   let t: TaskTerms | undefined = task;
   // Ograniczenie kroków na wypadek uszkodzonych danych lokalnych: najwyżej MAX_TASK_DEPTH + 1 poziomów.
   for (let step = 0; t && step < 8; step++) {
     if (t.deadline_mode === 'own') return t.due_date === null ? null : { date: t.due_date, time: t.due_time };
     if (t.deadline_mode === 'none') return null;
+    if (t.deadline_mode === 'event') return t.event_id === null || t.occurrence_date === null ? null : occurrence(t.event_id, t.occurrence_date);
     t = t.parent_id === null ? undefined : byId.get(t.parent_id);
   }
   return null;

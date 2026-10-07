@@ -195,6 +195,10 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await type(screen.getByTestId('event-start-0'), '18:00');
     await type(screen.getByTestId('event-end-0'), '');
     await press(screen.getByTestId('event-save'));
+    // Podgląd skutków przed zapisem serii.
+    expect(await screen.findByText('Najbliższe terminy po zmianie: dziś, śr. 14 paź, śr. 21 paź.')).toBeTruthy();
+    expect(store.dispatched).toHaveLength(0);
+    await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched.slice(0, 2)).toEqual([
       { kind: 'patch', entity: 'events', id: 'ev-tance', set: { rrule: 'FREQ=WEEKLY;BYDAY=WE;UNTIL=20261006' } },
@@ -214,6 +218,10 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByLabelText('W środę'));
     await press(screen.getByLabelText('W czwartek'));
     await press(screen.getByTestId('event-save'));
+    await screen.findByTestId('screen-event-preview');
+    await press(screen.getByLabelText('Wróć do edycji'));
+    await press(await screen.findByTestId('event-save'));
+    await press(await screen.findByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=TH', audience: 'members' } });
     expect(screen.getByTestId('today-event-ev-tance-2026-10-08')).toBeTruthy();

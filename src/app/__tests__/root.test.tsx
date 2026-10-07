@@ -62,6 +62,7 @@ function makeDeps(over: Partial<RootDeps> = {}) {
       setFromLink: jest.fn(async () => {}),
     },
     account: fakeAccount(),
+    calendar: { add: jest.fn(async () => 'saved' as const) },
     transport,
     openDb: (u) => dbs.get(u) ?? (dbs.set(u, memoryDb()), dbs.get(u)!),
     newId: () => `0199a3b4-0000-7000-8000-${String(++n).padStart(12, '0')}`,
