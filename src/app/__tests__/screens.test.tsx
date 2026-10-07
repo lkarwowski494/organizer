@@ -18,16 +18,33 @@ const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el)
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
 
 describe('Dotyczy mnie', () => {
-  it('sekcje, moje sprawy z grup, bez cudzych przypisanych', async () => {
+  it('dzień: przypięte, moje sprawy z grup, bez cudzych przypisanych; jutro strzałką, powrót „Dziś”; tydzień', async () => {
     await open();
-    expect(screen.getByText('Środa, 7 października')).toBeTruthy();
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
     expect(screen.getByText('Przypięte')).toBeTruthy();
     expect(screen.getByText('Oddać książki do biblioteki')).toBeTruthy();
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
-    expect(screen.getByText('Jutro')).toBeTruthy();
-    expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
+    expect(screen.queryByText('Kupić kwiaty')).toBeNull();
     expect(screen.queryByText('Zadanie Ali')).toBeNull();
     expect(within(screen.getByTestId('today-t-paczka')).getByText(/dziś · 18:00/)).toBeTruthy();
+    expect(screen.queryByLabelText('Dziś', { exact: true })).toBeTruthy(); // zakładka
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Czwartek, 8 października');
+    expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
+    expect(screen.queryByText('Przypięte')).toBeNull();
+    expect(screen.getAllByLabelText('Dziś')).toHaveLength(2); // zakładka + powrót
+    await press(screen.getAllByLabelText('Dziś').find((e) => e.props.accessibilityRole === 'button')!);
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
+    await press(screen.getByLabelText('Tydzień'));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('5–11 października');
+    expect(screen.getByText('Dziś · Środa, 7 października')).toBeTruthy();
+    expect(screen.getByText('Czwartek, 8 października')).toBeTruthy();
+    await press(screen.getByLabelText('Następny tydzień'));
+    expect(screen.getByText('Nic tu nie ma.')).toBeTruthy();
+    await press(screen.getByLabelText('Miesiąc'));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Październik 2026');
+    await press(screen.getByLabelText('Poprzedni miesiąc'));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Wrzesień 2026');
   });
 
   it('szybkie dodawanie: chip terminu, odklikanie zostawia słowo w tytule, nowa lista w grupie osobistej gdy brak', async () => {
@@ -40,6 +57,7 @@ describe('Dotyczy mnie', () => {
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.map((o) => o.kind)).toEqual(['create', 'create']);
     expect(store.dispatched[0]).toMatchObject({ entity: 'lists', group_id: ME, set: { name: 'Moje zadania' } });
+    await press(screen.getByLabelText('Następny dzień'));
     expect(await screen.findByText('mleko')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'wtorek jutro');
     await press(screen.getByLabelText(/Rozpoznano: jutro/));
@@ -53,6 +71,7 @@ describe('Dotyczy mnie', () => {
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched).toHaveLength(0);
     // D59: odhaczenie dopiero po potwierdzeniu; „Anuluj” nic nie zmienia.
+    await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
     expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: 'Kupić kwiaty' });
     await answerAlert('Anuluj');
@@ -97,6 +116,7 @@ describe('Listy i zadania', () => {
 
   it('zadanie: edycja tytułu, terminu z walidacją, osoby, podzadanie, usunięcie i cofnięcie', async () => {
     const { store } = await open();
+    await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByLabelText('Otwórz: Kupić kwiaty'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
@@ -120,7 +140,7 @@ describe('Listy i zadania', () => {
     await press(screen.getByTestId('task-save'));
     const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));
     expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' }]));
-    // Termin 9.10 jest poza „dziś/jutro”, więc zadanie znika z Dotyczy mnie — otwieramy je z listy.
+    // Termin 9.10 to inny dzień niż oglądany (jutro), więc zadanie znika z widoku — otwieramy je z listy.
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(screen.queryByText('Kupić kwiaty dla babci')).toBeNull();
     await press(screen.getByLabelText('Listy'));

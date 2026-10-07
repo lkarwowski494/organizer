@@ -47,7 +47,8 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: 'Odebrać paczkę' });
     await answerAlert('Zrobione');
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
-    await press(screen.getByLabelText('Dziś'));
+    await press(screen.getAllByLabelText('Dziś')[0]!);
+    await press(await screen.findByLabelText('Następny dzień'));
     await press(await screen.findByLabelText('Otwórz: Kupić kwiaty'));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Oznacz jako zrobione: Wybrać tulipany'));
@@ -84,7 +85,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     jest.useFakeTimers();
     try {
       await open();
-      await press(screen.getByLabelText('Usuń: Kupić kwiaty'));
+      await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
       await press(screen.getByLabelText('Usuń: Odebrać paczkę'));
       expect(screen.getAllByTestId('undo-bar')).toHaveLength(1);
       expect(screen.getByText('Usunięto: Odebrać paczkę')).toBeTruthy();
@@ -118,5 +119,45 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     expect(screen.queryByLabelText('Usuń: Odebrać paczkę')).toBeNull();
     await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
     expect(screen.queryByTestId('cal-t-korki')).toBeNull();
+  });
+});
+
+describe('rolowanie (D61) i miniony dzień', () => {
+  it('zaległe dziś na czerwono z liczbą dni; „Tylko tego dnia” mija i trafia na liście do zrobionych z dopiskiem', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 'stare', { ...base.tasks!['t-books']!, id: 'stare', title: 'Zapłacić rachunek', deadline_mode: 'own', due_date: '2026-10-04' });
+    put(base, 'tasks', 'życzenia', { ...base.tasks!['t-books']!, id: 'życzenia', title: 'Złożyć życzenia', deadline_mode: 'own', due_date: '2026-10-06', rollover: false });
+    await open(base);
+    expect(within(screen.getByTestId('today-stare')).getByText('zaległe od 3 dni')).toBeTruthy();
+    expect(screen.queryByText('Złożyć życzenia')).toBeNull();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lp'));
+    expect(within(await screen.findByTestId('task-życzenia')).getByText(/minęło/)).toBeTruthy();
+  });
+
+  it('wczoraj: odhaczone tego dnia i wyszarzone wydarzenia; odhaczone można cofnąć bez pytania', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 'zrobione', { ...base.tasks!['t-books']!, id: 'zrobione', title: 'Wynieść śmieci', deadline_mode: 'own', due_date: '2026-10-06', completed_at: '2026-10-06T16:00:00Z' });
+    put(base, 'events', 'evW', { id: 'evW', group_id: 'gf', title: 'Logopeda', start_date: '2026-10-06', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', deleted_at: null, version: 1 });
+    const { store } = await open(base);
+    await press(screen.getByLabelText('Poprzedni dzień'));
+    expect(screen.getByText(/Minęło: zrobione i wydarzenia/)).toBeTruthy();
+    expect(screen.getByLabelText('Logopeda, 18:00, Rodzina')).toBeTruthy();
+    expect(screen.queryByLabelText('Usuń: Wynieść śmieci')).toBeNull();
+    await press(screen.getByLabelText('Oznacz jako niezrobione: Wynieść śmieci'));
+    expect(store.dispatched.at(-1)).toMatchObject({ id: 'zrobione', set: { completed_at: null } });
+  });
+
+  it('zadanie: „Tylko tego dnia” / „Przechodzi na kolejne dni”; bez terminu i na spotkaniu — brak wyboru', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Otwórz: Odebrać paczkę'));
+    await screen.findByTestId('screen-task');
+    expect(screen.getByLabelText('Przechodzi na kolejne dni').props.accessibilityState.selected).toBe(true);
+    await press(screen.getByLabelText('Tylko tego dnia'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { rollover: false } });
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Otwórz: Oddać książki do biblioteki'));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByLabelText('Tylko tego dnia')).toBeNull();
   });
 });

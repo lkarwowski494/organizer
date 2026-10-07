@@ -137,6 +137,17 @@ export function TaskScreen({ route, navigation }: Props) {
         />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {task.deadline_mode !== 'none' && !linked ? (
+        <Segmented
+          label={strings['task.rollover']}
+          value={task.rollover ? 'roll' : 'day'}
+          onChange={(v) => store.dispatch(patchTask(task.id, { rollover: v === 'roll' }))}
+          options={[
+            { value: 'roll', label: strings['task.rollover.roll'] },
+            { value: 'day', label: strings['task.rollover.day'] },
+          ]}
+        />
+      ) : null}
       {canEdit ? (
         <View style={{ gap: 8 }}>
           {linked ? (

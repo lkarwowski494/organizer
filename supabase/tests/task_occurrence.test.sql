@@ -1,6 +1,6 @@
 -- Zadania podpięte do wystąpienia wydarzenia (migracja 20261008110000_task_occurrence, D13).
 begin;
-select plan(10);
+select plan(12);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000f1', 'a@x.test'),
@@ -46,5 +46,7 @@ select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f3', 1, '{"kind":"patc
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000f1');
 select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f1', 12, '{"kind":"patch","entity":"tasks","id":"44440000-0000-7000-8000-0000000004f1","set":{"event_id":null,"occurrence_date":null,"deadline_mode":"none","due_date":null}}'), 'ok', '10: odpięcie (zostaje jako przypięte)');
 
+select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f1', 13, '{"kind":"patch","entity":"tasks","id":"44440000-0000-7000-8000-0000000004f1","set":{"rollover":false}}'), 'ok', '11: „tylko tego dnia” (D61)');
+select is((select rollover from public.tasks where id = '44440000-0000-7000-8000-0000000004f1'), false, '12: zapisane; domyślnie rolowanie');
 select * from finish();
 rollback;

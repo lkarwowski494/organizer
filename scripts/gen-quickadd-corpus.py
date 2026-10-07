@@ -102,7 +102,9 @@ for n, now in enumerate(NOWS):
         cases.append(case(now, f"{t} {d} {MONTHS_GEN[m - 1]} {y}", t, date(y, m, d)))
     for (txt, hm) in [("o 7", (7, 0)), ("o 9:30", (9, 30)), ("o 11", (11, 0)), ("o 12", (12, 0)),
                       ("o 15", (15, 0)), ("o 17.45", (17, 45)), ("o godz. 8", (8, 0)), ("o godzinie 6", (6, 0)),
-                      ("o 0", (0, 0)), ("o 23:59", (23, 59)), ("20:15", (20, 15))]:
+                      ("o 0", (0, 0)), ("o 23:59", (23, 59)), ("20:15", (20, 15)),
+                      # Kropka bez „o” (Poradnia PWN: kropka to częstszy separator); minuty 00 i 13–59 nie są miesiącem.
+                      ("22.00", (22, 0)), ("18.30", (18, 30)), ("7.45", (7, 45)), ("0.00", (0, 0))]:
         cases.append(case(now, f"{t} {txt}", t, None, hm))
         cases.append(case(now, f"{t} dziś {txt}", t, today, hm))
         cases.append(case(now, f"{t} jutro {txt}", t, today + timedelta(days=1), hm))
@@ -111,7 +113,7 @@ for n, now in enumerate(NOWS):
     cases.append(case(now, f"{t} jutro o 17 co tydzień", t, today + timedelta(days=1), (17, 0), weekly=True))
     cases.append(case(now, f"{t} co tydzien o 8", t, None, (8, 0), weekly=True))
     # Bez rozpoznawalnych fragmentów: tytuł bez zmian, brak terminu.
-    for txt in [t, f"{t} do piątku", f"{t} 2 litry", f"{t} 31.04", f"{t} jutrzejsze"]:
+    for txt in [t, f"{t} do piątku", f"{t} 2 litry", f"{t} 31.04", f"{t} jutrzejsze", f"{t} 24.00", f"{t} 18.60"]:
         cases.append(case(now, txt, txt, None))
 
 json.dump(cases, sys.stdout, ensure_ascii=False, indent=1)

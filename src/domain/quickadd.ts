@@ -6,7 +6,7 @@
  *
  * Zakres MVP (D18): dziś/dzisiaj, jutro, pojutrze, „w/we/na” + dzień tygodnia, daty liczbowe
  * (15.10, 15.10.2027, 15/10) i słowne (15 października, 15 paź 2027), godziny (o 17, o 17:30,
- * o godz. 7, 17:30), „co tydzień”. Rozpoznawanie ignoruje polskie znaki („dzis”, „srode”).
+ * o godz. 7, 17:30, 18.00 i 22.30 — z kropką, gdy minuty nie mogą być miesiącem), „co tydzień”. Rozpoznawanie ignoruje polskie znaki („dzis”, „srode”).
  * Pierwszy fragment danego rodzaju wygrywa; kolejne zostają w tytule.
  *
  * Reguły rozstrzygania (decyzje właściciela 6.10.2026, docs/adr/0003):
@@ -115,6 +115,14 @@ const PATTERNS: { re: RegExp; build: (m: RegExpExecArray) => Candidate | null }[
   {
     re: /(\d{1,2}):(\d{2})/g,
     build: (m) => time(m, Number(m[1]), Number(m[2])),
+  },
+  {
+    // „18.00”, „22.30” bez „o”: kropka to podstawowy polski separator godzin i minut (Poradnia PWN, dr hab. A. Wolański:
+    // „Godziny i minuty zapisane cyfrowo można separować zarówno z użyciem kropki, jak i dwukropka. Zapis z użyciem
+    // dwukropka jest rzadszy.” — https://sjp.pwn.pl/poradnia/haslo/Separator-godzin-i-minut;18358.html). Ten sam zapis
+    // to też data („10.11” = 10 listopada), więc bez „o” godzina tylko wtedy, gdy minuty nie mogą być miesiącem (00, 13–59).
+    re: /(\d{1,2})\.(\d{2})(?![./]?\d)/g,
+    build: (m) => (Number(m[2]) === 0 || Number(m[2]) > 12 ? time(m, Number(m[1]), Number(m[2])) : null),
   },
   {
     // „15.10”, „15.10.2027”, „15/10”. Uwaga: „2.5 kg” też wygląda jak data (2 maja) — chip pozwala to odkliknąć.
