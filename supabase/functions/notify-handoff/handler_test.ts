@@ -56,7 +56,7 @@ async function world(claim: object | null, apns: number[] = [], claimStatus = 20
   const f = ((url: string, init?: RequestInit) => {
     calls.push({ url, init });
     if (url.endsWith('/auth/v1/user')) return Promise.resolve(new Response(JSON.stringify(user), { status: userStatus }));
-    if (url.endsWith('/rpc/handoff_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
+    if (url.endsWith('/rpc/handoff_push_claim') || url.endsWith('/rpc/assignment_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
     if (url.endsWith('/rpc/drop_push_token')) return Promise.resolve(new Response(null, { status: 204 }));
     return Promise.resolve(new Response('{"reason":"Unregistered"}', { status: apns[n++] ?? 200 }));
   }) as typeof fetch;
@@ -103,4 +103,16 @@ Deno.test('nic do wysłania, błędy wejścia, sesji i konfiguracji', async () =
   assertEq((await handle(post({ handoffId: HANDOFF }), noApns, w.f)).status, 500);
   const noKeys = { get: (k: string) => (k.startsWith('SUPABASE_') && k !== 'SUPABASE_URL' ? undefined : w.env.get(k)) };
   assertEq((await handle(post({ handoffId: HANDOFF }), noKeys, w.f)).status, 500);
+});
+
+Deno.test('przypisanie: activityId → assignment_push_claim; oba albo żaden id — błąd', async () => {
+  const claim = { title: 'Łukasz przypisuje Ci zadanie', body: 'Śmieci', tokens: [{ token: 'aa'.repeat(32), env: 'production' }] };
+  const w = await world(claim, [200]);
+  const r = await handle(post({ activityId: HANDOFF }), w.env, w.f, 1_800_000_000);
+  assertEq(await r.json(), { sent: 1 });
+  assertEq(w.calls[1]!.url, 'https://x.supabase.co/rest/v1/rpc/assignment_push_claim');
+  assertEq(JSON.parse(String(w.calls[1]!.init!.body)), { p_activity: HANDOFF, p_user: USER, p_max_age_h: PUSH_MAX_AGE_H });
+  const both = await world(null);
+  assertEq((await handle(post({ activityId: HANDOFF, handoffId: HANDOFF }), both.env, both.f)).status, 400);
+  assertEq((await handle(post({}), both.env, both.f)).status, 400);
 });

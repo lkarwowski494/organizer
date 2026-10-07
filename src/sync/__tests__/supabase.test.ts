@@ -58,12 +58,14 @@ describe('Supabase: transport synchronizacji', () => {
     await a.registerPushToken('ab'.repeat(32), 'production');
     await a.reportError({ kind: 'crash', message: 'TypeError: x', stack: 'at f', screen: 'render', appVersion: '1.0 (12)' });
     await a.sendFeedback({ message: 'Brakuje X', screen: 'Settings', appVersion: '1.0 (12)' });
+    expect(await a.getPushMutes()).toEqual({ ok: 1 });
+    await a.setPushMute('g', true);
     const params = sqlParams();
     for (const c of calls) {
       expect(params.has(c.fn)).toBe(true);
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
-    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback']);
+    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
     expect(calls[1]!.args).toEqual({ cursors: { g: 3 }, lim: 1000 });
   });
 
@@ -91,6 +93,11 @@ describe('Supabase: transport synchronizacji', () => {
 });
 
 describe('Supabase: konto', () => {
+  it('wyciszenia: brak danych z serwera = pusta lista', async () => {
+    const { client } = fakeClient(() => ({ data: null, error: null, status: 200 }));
+    expect(await supabaseAccount(client, async () => ({ identityToken: 'jwt' })).getPushMutes()).toEqual([]);
+  });
+
   it('Apple: token tożsamości do signInWithIdToken; brak tokenu i błąd zgłaszane', async () => {
     const { client, auth } = fakeClient();
     await supabaseAccount(client, async () => ({ identityToken: 'jwt' })).signInWithApple();
@@ -132,6 +139,8 @@ describe('Supabase: konto', () => {
     expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST' });
     await a.notifyHandoff('h1');
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
+    await a.notifyAssignment('a1');
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { activityId: 'a1' } });
   });
 });
 

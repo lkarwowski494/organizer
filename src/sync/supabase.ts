@@ -120,6 +120,15 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     async registerPushToken(token, env) {
       await call(client, 'register_push_token', { p_token: token, p_env: env });
     },
+    async notifyAssignment(activityId) {
+      check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { activityId } }));
+    },
+    async getPushMutes() {
+      return (await call<string[] | null>(client, 'my_push_mutes', {})) ?? [];
+    },
+    async setPushMute(groupId, muted) {
+      await call(client, 'set_push_mute', { p_group: groupId, p_muted: muted });
+    },
     async reportError(e) {
       await call(client, 'report_client_error', { p_kind: e.kind, p_message: e.message, p_stack: e.stack, p_screen: e.screen, p_app_version: e.appVersion });
     },

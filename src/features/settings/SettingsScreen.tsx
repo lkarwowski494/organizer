@@ -13,6 +13,7 @@ import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
 import { useAppearance, useTheme } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
+import { MuteSettings } from './MuteSettings';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 
@@ -69,6 +70,7 @@ export function SettingsScreen({ navigation }: Props) {
             options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m.replace(/^0/, '') }))}
           />
           <Body muted>{strings['reminders.info']}</Body>
+          <MuteSettings />
         </>
       ) : null}
       <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
