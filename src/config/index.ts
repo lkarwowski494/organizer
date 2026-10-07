@@ -22,6 +22,17 @@ export const config = {
     SCHEMA_VERSION: 1,
   },
 
+  /**
+   * Zaproszenia linkiem. Wartości TYMCZASOWE do decyzji właściciela (D48): ważność 7 dni (maks. 30),
+   * domyślnie 10 użyć (maks. 50). Serwer egzekwuje je funkcjami private.invite_* (test kontraktowy).
+   */
+  invites: {
+    DEFAULT_TTL_HOURS: 168,
+    MAX_TTL_HOURS: 720,
+    DEFAULT_MAX_USES: 10,
+    MAX_USES_LIMIT: 50,
+  },
+
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',
   TIME_ZONE: 'Europe/Warsaw',
