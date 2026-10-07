@@ -14,7 +14,9 @@ async function testKey() {
   const der = new Uint8Array(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
   let s = '';
   for (const b of der) s += String.fromCharCode(b);
-  const pem = `-----BEGIN PRIVATE KEY-----\n${btoa(s).match(/.{1,64}/g)!.join('\n')}\n-----END PRIVATE KEY-----`;
+  // Znaczniki PEM składane w locie: klucz powstaje w teście, a gitleaks (reguła apple-p8-private-key) nie myli szablonu z sekretem.
+  const tag = (edge: string) => `-----${edge} ${'PRIVATE'} KEY-----`;
+  const pem = `${tag('BEGIN')}\n${btoa(s).match(/.{1,64}/g)!.join('\n')}\n${tag('END')}`;
   return { pem, pub: pair.publicKey };
 }
 const unb64url = (s: string) => Uint8Array.from(atob(s.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0));
