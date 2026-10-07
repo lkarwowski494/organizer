@@ -16,6 +16,7 @@ import { createTask, patchTask, remove, restore, setDue } from '../../domain/vie
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
+import { lacksAddressee } from '../../domain/views/addressee';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
@@ -111,6 +112,7 @@ export function TaskScreen({ route, navigation }: Props) {
         <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={task.completed_at ? strings['task.undone'] : strings['task.done']} />
         <Text style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>{`${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`}</Text>
       </View>
+      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
       <Field label={strings['task.note']} value={note} onChangeText={setNote} multiline testID="task-note" />
       <SectionTitle>{strings['task.due']}</SectionTitle>
@@ -130,6 +132,7 @@ export function TaskScreen({ route, navigation }: Props) {
           kind="secondary"
           label={strings['task.clearDue']}
           onPress={() => {
+            if (lacksAddressee(tables, userId, { ...task, deadline_mode: 'none' })) return setError(strings['addressee.blocked']);
             store.dispatch(setDue(task.id, null));
             setDate('');
             setTime('');
@@ -177,7 +180,11 @@ export function TaskScreen({ route, navigation }: Props) {
       <Segmented
         label={strings['task.assignee']}
         value={task.assignee_member_id ?? ''}
-        onChange={(v) => store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }))}
+        onChange={(v) => {
+          if (v === '' && lacksAddressee(tables, userId, { ...task, assignee_member_id: null })) return setError(strings['addressee.blocked']);
+          setError(null);
+          store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
+        }}
         options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
       {depth < config.MAX_TASK_DEPTH ? (

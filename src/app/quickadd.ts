@@ -18,8 +18,12 @@ export function quickAddOps(a: {
   ignore: readonly { start: number; end: number }[];
   newId: () => string;
   listId?: string;
+  /** D68: adresat wybrany po dodaniu (osoba albo dzień), gdy tekst go nie podał. */
+  assigneeId?: string | null;
+  dueDate?: string | null;
 }): NewOp[] {
-  const parsed = parseQuickAdd(a.text, a.now, { ignore: a.ignore });
+  const p0 = parseQuickAdd(a.text, a.now, { ignore: a.ignore });
+  const parsed = a.dueDate && !p0.due ? { ...p0, due: { date: a.dueDate, time: null } } : p0;
   if (parsed.title.trim() === '') return [];
   const ops: NewOp[] = [];
   const chosen = a.listId ? listsView(a.tables, a.userId).find((l) => l.id === a.listId) : undefined;
@@ -32,6 +36,6 @@ export function quickAddOps(a: {
     target = { groupId: personal.id, listId: first?.id ?? a.newId() };
     if (!first) ops.push(createList({ id: target.listId, groupId: personal.id, kind: 'tasks', name: DEFAULT_LIST_NAME }));
   }
-  ops.push(createTask({ id: a.newId(), groupId: target.groupId, listId: target.listId, parsed }));
+  ops.push(createTask({ id: a.newId(), groupId: target.groupId, listId: target.listId, parsed, assigneeId: a.assigneeId }));
   return ops;
 }

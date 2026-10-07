@@ -96,6 +96,7 @@ export const strings = {
   'lists.delete': 'Usuń listę',
   'lists.rename': 'Zmień nazwę',
   'lists.expired': 'minęło',
+  'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w „Dotyczy mnie”',
   'today.overdueDays': (n: number) => (n === 1 ? 'zaległe od wczoraj' : `zaległe od ${n} dni`),
   'lists.pendingItem': 'czeka na wysłanie',
   'shop.put': (name: string) => `Włóż do koszyka: ${name}`,
@@ -326,6 +327,14 @@ export const strings = {
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.action': 'Cofnij',
+
+  'addressee.ask': 'Dla kogo albo na kiedy?',
+  'addressee.why': 'We wspólnej grupie zadanie potrzebuje osoby albo terminu — inaczej nie pojawi się nikomu w „Dotyczy mnie”.',
+  'addressee.for': (name: string) => `Dla: ${name}`,
+  'addressee.today': 'Na dziś',
+  'addressee.tomorrow': 'Na jutro',
+  'task.noAddressee': 'Nikt nie widzi tego zadania w „Dotyczy mnie”. Wybierz osobę („Dla kogo”) albo ustaw termin.',
+  'addressee.blocked': 'We wspólnej grupie zadanie musi mieć osobę albo termin. Najpierw ustaw jedno z nich.',
 
   'common.cancel': 'Anuluj',
   'common.back': 'Wróć',

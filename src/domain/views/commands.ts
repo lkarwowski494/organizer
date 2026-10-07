@@ -7,7 +7,7 @@ import type { QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import type { Task } from './model';
 
-export function createTask(a: { id: string; groupId: string; listId: string; parentId?: string | null; parsed: QuickAddResult; sortKey?: string }): NewOp {
+export function createTask(a: { id: string; groupId: string; listId: string; parentId?: string | null; parsed: QuickAddResult; sortKey?: string; assigneeId?: string | null }): NewOp {
   const due = a.parsed.due;
   return {
     kind: 'create',
@@ -23,6 +23,7 @@ export function createTask(a: { id: string; groupId: string; listId: string; par
       deadline_mode: due ? 'own' : a.parentId ? 'inherit' : 'none',
       due_date: due?.date ?? null,
       due_time: due?.time ?? null,
+      ...(a.assigneeId ? { assignee_member_id: a.assigneeId } : {}),
     },
   };
 }

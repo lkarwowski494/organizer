@@ -161,3 +161,59 @@ describe('rolowanie (D61) i miniony dzień', () => {
     expect(screen.queryByLabelText('Tylko tego dnia')).toBeNull();
   });
 });
+
+describe('adresat we wspólnej grupie (D68)', () => {
+  it('dodanie bez osoby i terminu pyta „Dla kogo albo na kiedy?”; wybór osoby albo dnia zapisuje; anulowanie nic', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół dla dzieci');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.getByTestId('addressee-ask')).toBeTruthy();
+    expect(store.dispatched).toHaveLength(0);
+    await press(screen.getByLabelText('Anuluj'));
+    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    await press(screen.getByLabelText('Dodaj'));
+    await press(screen.getByLabelText('Dla: Łukasz'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { title: 'rosół dla dzieci', assignee_member_id: 'mf', deadline_mode: 'none' } });
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'kotleciki');
+    await press(screen.getByLabelText('Dodaj'));
+    await press(screen.getByLabelText('Na jutro'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'kotleciki', deadline_mode: 'own', due_date: '2026-10-08' } });
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'zupa');
+    await press(screen.getByLabelText('Dodaj'));
+    await press(screen.getByLabelText('Na dziś'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'zupa', due_date: '2026-10-07' } });
+    // Z terminem w tekście — bez pytania; pusty tekst — nic.
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'chleb jutro');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    const n = store.dispatched.length;
+    await fireEvent.changeText(screen.getByTestId('quick-add'), '  ');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(store.dispatched).toHaveLength(n);
+  });
+
+  it('istniejące zadanie bez adresata: czerwony dopisek na liście i w zadaniu; grupa osobista i zakupy bez pytania', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 'rosół', { ...base.tasks!['t-kwiaty']!, id: 'rosół', title: 'Dać dzieciom rosół', deadline_mode: 'none', due_date: null });
+    const { store } = await open(base);
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    expect(within(await screen.findByTestId('task-rosół')).getByText(/bez osoby i terminu/)).toBeTruthy();
+    await press(screen.getByLabelText('Otwórz: Dać dzieciom rosół'));
+    expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Wróć'));
+    await press(await screen.findByTestId('list-lz'));
+    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'masło');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'masło' } });
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('list-lp'));
+    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'książka');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+  });
+});
