@@ -45,3 +45,10 @@ Status: przyjęte. Commity: 9753bab, 617081d, dbb3390.
 - **Imię z Apple.** Apple podaje imię tylko przy pierwszym logowaniu. Dziś trafia do sesji, ale nie do profilu na serwerze.
 - **Unieważnienie tokenu Sign in with Apple przy usuwaniu konta.** Do sprawdzenia w dokumentacji Apple (ADR 0004).
 - **Intl w Hermesie na iPhonie** (strefa Europe/Warsaw). Wymaga spike'u S3 na urządzeniu.
+
+## Dopisek: buildy bez zatwierdzania (7.10.2026)
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D53 | Czy build do TestFlight wymaga zatwierdzenia właściciela | Nie. Środowisko `ios-release` dopuszcza tylko gałąź `main` i tagi `v*`, a buildy może uruchamiać także Claude, tak jak w Treningu. Baza (`supabase-prod`) nadal wymaga zatwierdzenia. | A: zatwierdzenie każdego builda; C: bez zatwierdzania tylko dla buildów, z innym podziałem uprawnień |
+
+Ryzyko przyjęte świadomie. Zmiana na `main` z podmienionym workflow mogłaby odczytać klucz App Store Connect i hasło match. Oba da się unieważnić i wygenerować na nowo w kilka minut. Danych rodziny w bazie ta decyzja nie dotyczy.

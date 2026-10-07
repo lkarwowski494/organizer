@@ -93,7 +93,8 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 
 - Sekrety nigdy w repozytorium: pliki `.p8`, `.p12`, `.mobileprovision`, `.env`, hasła, tokeny.
   Klucz APNs żyje wyłącznie w sekretach Supabase; klucze App Store Connect i fastlane match wyłącznie
-  w środowisku GitHub `ios-release` (z wymaganym zatwierdzeniem właściciela).
+  w środowisku GitHub `ios-release` (bez zatwierdzania, tylko gałąź `main` i tagi `v*` — D53, 7.10.2026; buildy
+  uruchamia też Claude). Sekrety bazy (`supabase-prod`) nadal wymagają zatwierdzenia właściciela.
 - gitleaks w CI przy każdym pushu i PR. Nowy typ sekretu → reguła w `.gitleaks.toml`.
 - Workflow: tylko `pull_request` (nigdy `pull_request_target` z kodem z PR), akcje przypięte do pełnego SHA,
   `permissions: contents: read` domyślnie, brak artefaktów z buildów iOS.

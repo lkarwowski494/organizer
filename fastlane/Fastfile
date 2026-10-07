@@ -1,5 +1,5 @@
-# Build i wysyłka do TestFlight z CI (D9, D28, D29). Uruchamiane tylko w workflow z zatwierdzeniem
-# właściciela (środowisko ios-release). Klucz App Store Connect API: zespołowy, rola App Manager.
+# Build i wysyłka do TestFlight z CI (D9, D28, D29). Uruchamiane tylko w workflow w środowisku ios-release
+# (gałąź main i tagi v*, bez zatwierdzania — D53). Klucz App Store Connect API: zespołowy, rola App Manager.
 # Dokumentacja: https://docs.fastlane.tools/actions/match/ ,
 # https://docs.fastlane.tools/actions/app_store_connect_api_key/ , https://docs.fastlane.tools/actions/setup_ci/
 
