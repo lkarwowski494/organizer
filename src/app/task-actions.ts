@@ -6,15 +6,17 @@
 import { Alert } from 'react-native';
 
 import { remove, restore, toggleDone } from '../domain/views/commands';
+import { finishTripOps, tripItems } from '../domain/views/shopping-trip';
 import type { Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
-import { useServices } from './context';
+import { useAppData, useServices } from './context';
 
 type Item = Pick<Task, 'id' | 'title' | 'completed_at'>;
 
 export function useTaskActions() {
-  const { store, nowIso } = useServices();
+  const { store, nowIso, userId } = useServices();
+  const { tables } = useAppData();
   const undo = useUndo();
   return {
     toggle(t: Item, shopping = false) {
@@ -23,6 +25,25 @@ export function useTaskActions() {
         { text: strings['common.cancel'], style: 'cancel' },
         { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: () => store.dispatch(toggleDone(t, nowIso())) },
       ]);
+    },
+    /** „Zakupy” zrobione (D73): z potwierdzeniem; niekupione — zostają na następne zakupy albo też są kupione. */
+    finishTrip(listId: string, name: string) {
+      const left = tripItems(tables, listId).open.length;
+      const done = (all: boolean) => store.dispatch(finishTripOps(tables, userId, listId, all, nowIso()));
+      Alert.alert(
+        strings['trip.confirmTitle'],
+        left ? strings['trip.confirmLeft'](left) : strings['trip.title'](name),
+        left
+          ? [
+              { text: strings['common.cancel'], style: 'cancel' },
+              { text: strings['trip.keep'], onPress: () => done(false) },
+              { text: strings['trip.all'], onPress: () => done(true) },
+            ]
+          : [
+              { text: strings['common.cancel'], style: 'cancel' },
+              { text: strings['trip.yes'], onPress: () => done(false) },
+            ],
+      );
     },
     remove(t: Item) {
       store.dispatch(remove('tasks', t.id));

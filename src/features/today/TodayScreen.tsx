@@ -59,7 +59,22 @@ export function TodayScreen() {
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
   const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0);
 
-  const taskRow = (task: TodayItem, key: string, alert?: string) => (
+  const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
+    // Zakupy z listy zakupów (D73): odhaczenie z potwierdzeniem i pytaniem o niekupione, dotknięcie otwiera listę.
+    <StationRow
+      key={key}
+      testID={`today-trip-${task.id}`}
+      title={strings['trip.title'](task.title)}
+      line={task.line}
+      group={groupLabel(task.group_id, task.groupName)}
+      meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : [])]}
+      alert={alert}
+      checked={false}
+      onToggle={() => actions.finishTrip(task.id, task.title)}
+      onOpen={() => nav.navigate('List', { listId: task.id })}
+    />
+  );
+  const taskRow = (task: TodayItem, key: string, alert?: string) => task.trip ? tripRow({ ...task, trip: task.trip }, key, alert) : (
     <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id) && task.completed_at === null} onDelete={() => actions.remove(task)}>
       <StationRow
         testID={`today-${task.id}`}

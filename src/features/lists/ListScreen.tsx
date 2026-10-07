@@ -15,11 +15,15 @@ import { parseQuickAdd } from '../../domain/quickadd';
 import { addresseeRequired, lacksAddressee } from '../../domain/views/addressee';
 import { useTaskActions } from '../../app/task-actions';
 import { remove, restore } from '../../domain/views/commands';
-import { listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
+import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
+import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
+import { HandoffPicker } from '../handoffs/HandoffPicker';
+import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
 
@@ -31,6 +35,8 @@ export function ListScreen({ route, navigation }: Props) {
   const { c, font } = useTheme();
   const [text, setText] = useState('');
   const [ask, setAsk] = useState(false);
+  const [planning, setPlanning] = useState<TripDraft | null>(null);
+  const [handing, setHanding] = useState(false);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
 
@@ -45,7 +51,18 @@ export function ListScreen({ route, navigation }: Props) {
   const { list } = detail;
   const shopping = list.kind === 'shopping';
   // D34: dziecko tylko odhacza (serwer odrzuca usunięcie), więc nie dostaje przesuwania.
-  const canDelete = myMemberships(tables, userId).get(list.group_id)?.role !== 'child';
+  const me = myMemberships(tables, userId).get(list.group_id);
+  const canDelete = me?.role !== 'child';
+  // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
+  const trip = asTrip(tables.lists?.[list.id] ?? {});
+  const adults = tripAdults(tables, list.group_id);
+  const who = adults.find((m) => m.member_id === trip.responsibleId)?.display_name ?? null;
+  const tripMine = trip.responsibleId !== null && trip.responsibleId === me?.member_id;
+  const waiting = outgoingPending(tables, userId).get(handoffKey('lists', list.id, null));
+  const planned = planning ? readTrip(planning) : null;
+  const groupKind = groupsView(tables, userId).find((g) => g.id === list.group_id)?.kind ?? 'shared';
+  const planError = planned && 'error' in planned ? planned.error : null;
+  const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(groupKind, planned.trip);
   const add = (extra: { assigneeId?: string; dueDate?: string } = {}) => {
     store.dispatch(quickAddOps({ tables, userId, text, now: now(), ignore: [], newId, listId: list.id, ...extra }));
     setText('');
@@ -91,6 +108,57 @@ export function ListScreen({ route, navigation }: Props) {
         <Text style={{ fontFamily: font.text700 }}>{list.groupName}</Text>
         {`  ·  ${strings['lists.open'](detail.open.length)}`}
       </Text>
+      {shopping && canDelete ? (
+        <View testID="trip" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+          <SectionTitle>{strings['trip.section']}</SectionTitle>
+          {planning ? (
+            <>
+              <TripEditor value={planning} onChange={setPlanning} adults={adults} today={today} required={groupKind === 'shared'} />
+              {planError ? <Body>{planError}</Body> : null}
+              <Button
+                label={strings['trip.save']}
+                testID="trip-save"
+                disabled={!!planError || planMissing}
+                onPress={() => {
+                  if (planned && 'trip' in planned) store.dispatch(planTrip(list.id, planned.trip));
+                  setPlanning(null);
+                }}
+              />
+              <Button kind="secondary" label={strings['common.cancel']} onPress={() => setPlanning(null)} />
+            </>
+          ) : hasTrip(trip) ? (
+            <>
+              <Body>{strings['trip.summary'](trip.date ? formatDue({ date: trip.date, time: trip.time }, today) : null, who)}</Body>
+              <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} />
+              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: trip.responsibleId })} />
+              {tripMine ? (
+                waiting ? (
+                  <>
+                    <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
+                    <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+                  </>
+                ) : handing ? (
+                  <HandoffPicker
+                    targets={handoffTargets(tables, userId, list.group_id)}
+                    onPick={(m) => {
+                      store.dispatch(createHandoff({ id: newId(), groupId: list.group_id, entity: 'lists', entityId: list.id, toMember: m.member_id }));
+                      setHanding(false);
+                    }}
+                    onCancel={() => setHanding(false)}
+                  />
+                ) : (
+                  <Button kind="secondary" label={strings['trip.giveTrip']} testID="handoff-start" onPress={() => setHanding(true)} />
+                )
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Body muted>{strings['trip.none']}</Body>
+              <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => setPlanning({ date: '', time: '', responsibleId: null })} />
+            </>
+          )}
+        </View>
+      ) : null}
       <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']} />
       {ask ? (
         <View testID="addressee-ask" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>

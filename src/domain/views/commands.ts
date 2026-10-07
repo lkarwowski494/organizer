@@ -55,8 +55,10 @@ export function restore(entity: 'tasks' | 'lists' | 'group_members', id: string)
   return { kind: 'restore', entity, id };
 }
 
-export function createList(a: { id: string; groupId: string; kind: 'tasks' | 'shopping'; name: string; visibility?: 'group' | 'restricted' | 'private' }): NewOp {
-  return { kind: 'create', entity: 'lists', id: a.id, group_id: a.groupId, set: { kind: a.kind, name: a.name, visibility: a.visibility ?? 'group' } };
+/** `trip` — zakupy na liście zakupów (D73): dzień, godzina, osoba. */
+export function createList(a: { id: string; groupId: string; kind: 'tasks' | 'shopping'; name: string; visibility?: 'group' | 'restricted' | 'private'; trip?: { date: string | null; time: string | null; responsibleId: string | null } }): NewOp {
+  const trip = a.kind === 'shopping' && a.trip ? { due_date: a.trip.date, due_time: a.trip.date === null ? null : a.trip.time, responsible_member_id: a.trip.responsibleId } : {};
+  return { kind: 'create', entity: 'lists', id: a.id, group_id: a.groupId, set: { kind: a.kind, name: a.name, visibility: a.visibility ?? 'group', ...trip } };
 }
 
 export function renameList(id: string, name: string): NewOp {

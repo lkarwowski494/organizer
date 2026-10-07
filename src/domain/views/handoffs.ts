@@ -6,12 +6,12 @@
 import type { NewOp, Row } from '../sync-engine/client';
 import { asEvent } from './event-rows';
 import { groupsView } from './index';
-import { asMember, asTask, type Member, rows, type Tables } from './model';
+import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
 
 export type Handoff = {
   id: string;
   group_id: string;
-  entity: 'tasks' | 'events';
+  entity: 'tasks' | 'events' | 'lists';
   entity_id: string;
   occurrence_date: string | null;
   from_member: string;
@@ -24,7 +24,7 @@ const STATUSES = ['pending', 'accepted', 'declined', 'cancelled'] as const;
 export const asHandoff = (r: Row): Handoff => ({
   id: String(r.id),
   group_id: String(r.group_id),
-  entity: r.entity === 'events' ? 'events' : 'tasks',
+  entity: r.entity === 'events' || r.entity === 'lists' ? r.entity : 'tasks',
   entity_id: String(r.entity_id),
   occurrence_date: r.occurrence_date == null ? null : String(r.occurrence_date),
   from_member: String(r.from_member ?? ''),
@@ -48,8 +48,9 @@ function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boo
     // Nowe przekazanie przed wysłaniem nie ma nadawcy (ustawia go serwer) — to moje.
     const h = row.from_member === '' ? { ...row, from_member: g.me.member_id } : row;
     if (!pick(h, g.me.member_id)) continue;
-    const raw = h.entity === 'tasks' ? t.tasks?.[h.entity_id] : t.events?.[h.entity_id];
-    const title = raw ? (h.entity === 'tasks' ? asTask(raw).title : asEvent(raw).title) : '';
+    const raw = t[h.entity]?.[h.entity_id];
+    // Zakupy (D73): tytuł to nazwa listy; ekran dopisuje „Zakupy:”.
+    const title = !raw ? '' : h.entity === 'tasks' ? asTask(raw).title : h.entity === 'events' ? asEvent(raw).title : asList(raw).name;
     out.push({ ...h, title, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line });
   }
   return out.sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
@@ -75,7 +76,7 @@ export function handoffTargets(t: Tables, userId: string, groupId: string): Memb
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
 
-export function createHandoff(a: { id: string; groupId: string; entity: 'tasks' | 'events'; entityId: string; occurrenceDate?: string | null; toMember: string }): NewOp {
+export function createHandoff(a: { id: string; groupId: string; entity: Handoff['entity']; entityId: string; occurrenceDate?: string | null; toMember: string }): NewOp {
   return {
     kind: 'create',
     entity: 'handoffs',

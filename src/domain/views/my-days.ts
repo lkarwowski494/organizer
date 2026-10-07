@@ -14,6 +14,7 @@ import { occurrenceResolver } from './event-rows';
 import { expandEvents, type Occurrence } from './events';
 import { concernsMeTask, groupsView, isExpired, type TodayItem } from './index';
 import { asList, asTask, rows, type Tables } from './model';
+import { tripEntries } from './shopping-trip';
 
 export type RangeMode = 'day' | 'week' | 'month';
 
@@ -74,6 +75,12 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     if (due === null) pinned.push(item);
     else if (due.date < isoToday) overdue.push({ ...item, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(due.date)) });
     else push(due.date, item);
+  }
+  // Zakupy z terminem albo osobą (D73) — jak zadanie: bez terminu przypięte, po terminie zaległe, inaczej w swoim dniu.
+  for (const trip of tripEntries(t, groups)) {
+    if (trip.due === null) pinned.push(trip);
+    else if (trip.due.date < isoToday) overdue.push({ ...trip, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(trip.due.date)) });
+    else push(trip.due.date, trip);
   }
   const events = new Map<string, Occurrence[]>();
   for (const e of expandEvents(t, userId, from, to)) if (e.concernsMe) events.set(e.date, [...(events.get(e.date) ?? []), e]);

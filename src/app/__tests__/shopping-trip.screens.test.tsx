@@ -1,0 +1,164 @@
+/** Zakupy na liście zakupów (D73): tworzenie z dniem i osobą, „Dotyczy mnie”, odhaczenie z pytaniem, planowanie, przekazanie. */
+import { fireEvent, screen, within } from '@testing-library/react-native';
+
+import { RootStack } from '../navigation';
+import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
+
+const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
+
+async function open(base = sampleBase()) {
+  const s = setup({ base });
+  await s.renderApp(<RootStack />);
+  await screen.findByTestId('screen-today');
+  return s;
+}
+const planned = (extra: Record<string, unknown> = {}) => {
+  const base = sampleBase();
+  put(base, 'lists', 'lz', { ...base.lists!.lz!, due_date: '2026-10-07', due_time: '17:00:00', responsible_member_id: 'mf', ...extra });
+  return base;
+};
+
+describe('nowa lista zakupów', () => {
+  it('we wspólnej grupie bez dnia i osoby nie da się utworzyć; z osobą — tak', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByLabelText('Nowa lista'));
+    await screen.findByTestId('screen-new-list');
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Biedronka');
+    await press(screen.getByLabelText('Zakupy'));
+    await press(screen.getByLabelText('Rodzina'));
+    expect(screen.getByText(/We wspólnej grupie wybierz osobę albo dzień zakupów/)).toBeTruthy();
+    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
+    // Dzieci nie robią zakupów.
+    const who = screen.getByLabelText('Kto robi zakupy');
+    expect(within(who).queryByLabelText('Kuba')).toBeNull();
+    await press(within(who).getByLabelText('Ala'));
+    await press(screen.getByLabelText('Jutro'));
+    await fireEvent.changeText(screen.getByTestId('trip-time'), '18:30');
+    await press(screen.getByTestId('create-list'));
+    expect(store.dispatched.find((o) => (o as { entity: string }).entity === 'lists')).toMatchObject({
+      kind: 'create', group_id: 'gf', set: { kind: 'shopping', name: 'Biedronka', due_date: '2026-10-08', due_time: '18:30', responsible_member_id: 'ala' },
+    });
+  });
+
+  it('zła data blokuje; „Bez terminu” czyści dzień; grupa osobista bez wymogu', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByLabelText('Nowa lista'));
+    await fireEvent.changeText(await screen.findByTestId('list-name'), 'Apteka');
+    await press(screen.getByLabelText('Zakupy'));
+    await press(screen.getByLabelText('Rodzina'));
+    await fireEvent.changeText(screen.getByTestId('trip-date'), '2026-13-40');
+    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByLabelText('Dziś'));
+    expect(screen.getByTestId('trip-date').props.value).toBe('2026-10-07');
+    await press(screen.getByLabelText('Bez terminu'));
+    expect(screen.queryByTestId('trip-time')).toBeNull();
+    await press(screen.getByLabelText('Osobiste'));
+    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
+    await press(screen.getByTestId('create-list'));
+    expect(store.dispatched.find((o) => (o as { entity: string }).entity === 'lists')).toMatchObject({ group_id: 'u-me', set: { due_date: null, responsible_member_id: null } });
+  });
+});
+
+describe('zakupy na „Dotyczy mnie”', () => {
+  it('wpis „Zakupy: …” z liczbą pozycji; odhaczenie pyta o niekupione', async () => {
+    const { store } = await open(planned());
+    const row = await screen.findByTestId('today-trip-lz');
+    expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
+    expect(within(row).getByText(/1 do kupienia/)).toBeTruthy();
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    expect(lastAlert()).toMatchObject({ title: 'Zakupy zrobione?', message: 'Na liście została 1 niekupiona pozycja.' });
+    await answerAlert('Anuluj');
+    expect(store.dispatched).toEqual([]);
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await answerAlert('Zostaw na następne zakupy');
+    expect(store.dispatched).toEqual([
+      { kind: 'delete', entity: 'tasks', id: 's-maslo' },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null } },
+    ]);
+    expect(screen.queryByTestId('today-trip-lz')).toBeNull();
+  });
+
+  it('„Oznacz wszystko jako kupione”; pusta lista pyta tylko „Zrobione”; dotknięcie otwiera listę', async () => {
+    const base = planned();
+    const { store } = await open(base);
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await answerAlert('Oznacz wszystko jako kupione');
+    expect(store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['patch:s-chleb', 'delete:s-maslo', 'delete:s-chleb', 'patch:lz']);
+
+    const empty = planned();
+    delete empty.tasks!['s-chleb'];
+    const s2 = await open(empty);
+    await press(screen.getAllByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend').at(-1)!);
+    expect(lastAlert()).toMatchObject({ message: 'Zakupy: Zakupy na weekend' });
+    await answerAlert('Zrobione');
+    expect(s2.store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['delete:s-maslo', 'patch:lz']);
+  });
+
+  it('dotknięcie wpisu otwiera listę', async () => {
+    await open(planned());
+    await press(screen.getByLabelText('Otwórz: Zakupy: Zakupy na weekend'));
+    await screen.findByTestId('screen-list');
+    expect(screen.getByTestId('trip')).toBeTruthy();
+  });
+
+  it('cudze zakupy bez dnia nie są u mnie', async () => {
+    await open(planned({ due_date: null, due_time: null, responsible_member_id: 'ala' }));
+    expect(screen.queryByTestId('today-trip-lz')).toBeNull();
+  });
+});
+
+describe('zakupy na liście', () => {
+  it('zaplanuj, zmień, zrobione, przekaż', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lz'));
+    const trip = await screen.findByTestId('trip');
+    expect(within(trip).getByText('Bez zaplanowanych zakupów.')).toBeTruthy();
+    await press(screen.getByTestId('trip-plan'));
+    expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('trip-plan'));
+    await fireEvent.changeText(screen.getByTestId('trip-date'), 'zła');
+    expect(screen.getByText('Wpisz datę jako RRRR-MM-DD, np. 2026-10-09')).toBeTruthy();
+    await press(screen.getByLabelText('Dziś'));
+    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
+    await press(screen.getByTestId('trip-save'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } });
+    expect(screen.getByText('dziś · robi: Łukasz')).toBeTruthy();
+    await press(screen.getByTestId('trip-change'));
+    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ktokolwiek'));
+    await press(screen.getByTestId('trip-save'));
+    expect(screen.getByText('dziś · ktokolwiek')).toBeTruthy();
+    await press(screen.getByTestId('trip-change'));
+    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
+    await press(screen.getByTestId('trip-save'));
+    await press(screen.getByTestId('handoff-start'));
+    await press(within(screen.getByTestId('handoff-picker')).getByLabelText('Anuluj'));
+    await press(screen.getByTestId('handoff-start'));
+    await press(screen.getByLabelText('Przekaż: Ala'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'handoffs', set: { entity: 'lists', entity_id: 'lz', to_member: 'ala' } });
+    expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
+    await press(screen.getByTestId('handoff-cancel'));
+    expect(store.dispatched.at(-1)).toMatchObject({ entity: 'handoffs', set: { status: 'cancelled' } });
+    await press(screen.getByTestId('trip-done'));
+    await answerAlert('Zostaw na następne zakupy');
+    expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów.')).toBeTruthy();
+  });
+
+  it('przekazanie zakupów do mnie: „Do potwierdzenia” z tytułem „Zakupy: …”', async () => {
+    const base = planned({ responsible_member_id: 'ala' });
+    put(base, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'lz', occurrence_date: null, from_member: 'ala', to_member: 'mf', status: 'pending', closed: false, version: 1 });
+    await open(base);
+    expect(within(screen.getByTestId('handoff-inbox')).getByText('Ala przekazuje Ci: Zakupy: Zakupy na weekend')).toBeTruthy();
+  });
+
+  it('lista zadań nie ma zakupów', async () => {
+    await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await screen.findByTestId('screen-list');
+    expect(screen.queryByTestId('trip')).toBeNull();
+  });
+});
