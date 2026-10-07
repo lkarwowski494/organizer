@@ -1,14 +1,29 @@
+// Tylko używane odmiany (src/ui/theme.tsx fontFamily); import z indeksu pakietu dołączyłby wszystkie 26 plików.
+import { AtkinsonHyperlegibleNext_400Regular } from '@expo-google-fonts/atkinson-hyperlegible-next/400Regular';
+import { AtkinsonHyperlegibleNext_600SemiBold } from '@expo-google-fonts/atkinson-hyperlegible-next/600SemiBold';
+import { AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hyperlegible-next/700Bold';
+import { SchibstedGrotesk_700Bold } from '@expo-google-fonts/schibsted-grotesk/700Bold';
+import { SchibstedGrotesk_800ExtraBold } from '@expo-google-fonts/schibsted-grotesk/800ExtraBold';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View } from 'react-native';
 
-import { strings } from './src/i18n/strings.pl';
+import { Root } from './src/app/Root';
+import { realDeps } from './src/app/wiring';
 
-// Tymczasowo: szkielet do czasu podłączenia sesji i synchronizacji (następny commit, src/app/Root.tsx).
+const deps = realDeps();
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    SchibstedGrotesk_700Bold,
+    SchibstedGrotesk_800ExtraBold,
+    AtkinsonHyperlegibleNext_400Regular,
+    AtkinsonHyperlegibleNext_600SemiBold,
+    AtkinsonHyperlegibleNext_700Bold,
+  });
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text accessibilityRole="header">{strings['app.name']}</Text>
+    <>
+      <Root deps={deps} fontsLoaded={fontsLoaded} />
       <StatusBar style="auto" />
-    </View>
+    </>
   );
 }

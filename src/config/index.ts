@@ -50,6 +50,12 @@ export const config = {
   /** Identyfikatory Apple (D36) — jawne, nie są sekretami. */
   BUNDLE_ID: 'io.github.lkarwowski494.organizer',
   APP_GROUP: 'group.io.github.lkarwowski494.organizer',
+  /**
+   * Projekt Supabase (D1, D41: „organizer”, Frankfurt). Adres jest jawny (trafia do aplikacji); klucz
+   * publikowalny podaje build w zmiennej EXPO_PUBLIC_SUPABASE_KEY — też jawny z założenia (RLS chroni dane),
+   * ale trzymany poza repozytorium, żeby skanery sekretów nie miały fałszywych alarmów.
+   */
+  SUPABASE_URL: 'https://rkokujgrziaaxabtxnlo.supabase.co',
   /** D40: schemat linków głębokich (magic link, zaproszenia) = bundle ID, żeby nie kolidował z innymi aplikacjami. */
   URL_SCHEME: 'io.github.lkarwowski494.organizer',
 

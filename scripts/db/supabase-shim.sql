@@ -44,6 +44,12 @@ returns void language sql security definer as $$
   insert into realtime.messages (topic, event, payload, private)
   values (topic, event, payload || jsonb_build_object('id', gen_random_uuid()), private)
 $$;
+-- Jak w Supabase: temat kanału, do którego dołącza klient, podaje serwer Realtime w ustawieniu sesji.
+create or replace function realtime.topic() returns text language sql stable as $$
+  select nullif(current_setting('realtime.topic', true), '')::text
+$$;
+alter table realtime.messages enable row level security;
+grant select on realtime.messages to authenticated;
 grant usage on schema realtime to anon, authenticated, service_role;
 
 -- Najgorszy przypadek uprawnień domyślnych: starsze projekty Supabase i lokalny stos nadawały rolom
