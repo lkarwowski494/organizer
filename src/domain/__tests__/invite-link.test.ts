@@ -12,6 +12,10 @@ describe('link zaproszenia', () => {
     expect(parseInviteToken(`  ${inviteUrl(tok)}?x=1 `)).toBe(tok);
     expect(parseInviteToken(`${inviteUrl(tok)}#a`)).toBe(tok);
     expect(parseInviteToken(tok.toUpperCase())).toBe(tok);
+    // Cała wiadomość z zaproszenia (kod w osobnym wierszu); dwa kody naraz — nie zgadujemy.
+    expect(parseInviteToken(`Zapraszam Cię do grupy „Rodzina”.\n\n3. Wklej ten kod:\n\n${tok}\r\n`)).toBe(tok);
+    expect(parseInviteToken(`${tok}\n${'b'.repeat(64)}`)).toBeNull();
+    expect(parseInviteToken(`kod: ${tok}`)).toBeNull();
   });
 
   it('odrzuca obce schematy, ścieżki i złe tokeny', () => {

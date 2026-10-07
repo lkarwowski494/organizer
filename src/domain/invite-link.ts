@@ -10,10 +10,13 @@ export function inviteUrl(token: string): string {
   return `${config.URL_SCHEME}://invite/${token}`;
 }
 
-/** Token z wklejonego linku albo samego kodu; `null`, gdy nie wygląda na zaproszenie. */
+/** Token z wklejonego linku, samego kodu albo całej wiadomości z kodem; `null`, gdy nie wygląda na zaproszenie. */
 export function parseInviteToken(input: string): string | null {
   const s = input.trim().toLowerCase();
   if (TOKEN.test(s)) return s;
   const m = /^[a-z0-9.+-]+:\/\/invite\/([0-9a-f]{64})(?:[?#].*)?$/.exec(s);
-  return m && s.startsWith(`${config.URL_SCHEME}://`) ? m[1]! : null;
+  if (m) return s.startsWith(`${config.URL_SCHEME}://`) ? m[1]! : null;
+  // Wklejona cała wiadomość z zaproszenia (D67): kod stoi w osobnym wierszu.
+  const lines = s.split(/\r?\n/).map((l) => l.trim()).filter((l) => TOKEN.test(l));
+  return lines.length === 1 ? lines[0]! : null;
 }

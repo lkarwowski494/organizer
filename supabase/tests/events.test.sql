@@ -1,6 +1,6 @@
 -- Wydarzenia, uczestnicy, zmiany pojedynczych wystąpień (migracja 20261008100000_events).
 begin;
-select plan(20);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000e1', 'a@x.test'),
@@ -63,5 +63,11 @@ select ok((select count(*) = 3 from private.group_rows_since('33330000-0000-7000
 select is(pg_temp.push('33330000-0000-7000-8000-00000000c0e1', 1, '{"kind":"delete","entity":"events","id":"33330000-0000-7000-8000-0000000001e1"}'), 'ok', '20: usunięcie serii (do kosza)');
 reset role;
 
+-- 21–24: kto zawozi (D66, migracja event_responsible).
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000e2');
+select is(pg_temp.push('33330000-0000-7000-8000-00000000c0e2', 30, '{"kind":"create","entity":"events","id":"33330000-0000-7000-8000-0000000001f1","group_id":"33330000-0000-7000-8000-000000000001","set":{"title":"Logopeda","start_date":"2026-10-08","responsible_member_id":"33330000-0000-7000-8000-0000000000a2"}}'), 'ok', '21: dorosły z grupy odpowiada');
+select is(pg_temp.push('33330000-0000-7000-8000-00000000c0e2', 31, '{"kind":"patch","entity":"events","id":"33330000-0000-7000-8000-0000000001f1","set":{"responsible_member_id":"33330000-0000-7000-8000-0000000000a5"}}'), 'invalid_member', '22: dziecko nie zawozi');
+select is(pg_temp.push('33330000-0000-7000-8000-00000000c0e2', 32, '{"kind":"patch","entity":"events","id":"33330000-0000-7000-8000-0000000001f1","set":{"responsible_member_id":"33330000-0000-7000-8000-0000000000a4"}}'), 'invalid_member', '23: osoba spoza grupy odrzucona');
+select is(pg_temp.push('33330000-0000-7000-8000-00000000c0e2', 33, '{"kind":"create","entity":"event_overrides","id":"33330000-0000-7000-8000-0000000003f1","group_id":"33330000-0000-7000-8000-000000000001","set":{"event_id":"33330000-0000-7000-8000-0000000001f1","occurrence_date":"2026-10-08","responsible_member_id":"33330000-0000-7000-8000-0000000000a1"}}'), 'ok', '24: inna osoba w jednym wystąpieniu');
 select * from finish();
 rollback;
