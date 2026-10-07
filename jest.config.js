@@ -5,17 +5,18 @@
  */
 module.exports = {
   // Progi pokrycia (decyzja właściciela 6.10.2026, docs/testing.md): logika 100% linii i gałęzi.
-  collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', '!**/__tests__/**'],
+  collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', 'src/data/**/*.ts', '!**/__tests__/**'],
   coverageThreshold: {
     './src/domain/': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/config/': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/data/': { lines: 100, branches: 100, functions: 100, statements: 100 },
   },
   projects: [
     {
       displayName: 'domain',
       testEnvironment: 'node',
       preset: 'jest-expo',
-      testMatch: ['<rootDir>/src/domain/**/*.test.ts', '<rootDir>/src/config/**/*.test.ts'],
+      testMatch: ['<rootDir>/src/domain/**/*.test.ts', '<rootDir>/src/config/**/*.test.ts', '<rootDir>/src/data/**/*.test.ts'],
     },
     {
       // Testy na prawdziwym Postgresie (npm run test:db:diff); bez PGHOST są pomijane.
