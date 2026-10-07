@@ -29,3 +29,10 @@
    - nieudane unieważnienie nie blokuje usunięcia konta;
    - wymaga klucza Sign in with Apple w sekretach Supabase (krok właściciela).
 6. **Polityka prywatności** to szkic w `docs/privacy-policy.md` (publiczne repozytorium = darmowy adres). Do zatwierdzenia przez właściciela.
+
+## Wdrożenia bazy (właściciel, 7.10.2026)
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D78 | Zatwierdzanie wdrożeń Supabase na etapie rozwoju | Bez zatwierdzania: środowisko `supabase-prod` tylko z gałęzi `main`, wdrożenie uruchamia Claude po zielonych testach bazy, zawsze `apply`. | Automatycznie po każdym pushu; zostaje zatwierdzanie, rzadziej |
+
+Zabezpieczenia, które zostają: testy pgTAP w CI (`db.yml`) przed wdrożeniem, zakaz edycji wydanych migracji, podgląd migracji w logu każdego przebiegu, sekrety tylko w środowisku. Do powrotu do zatwierdzania przed publicznym wydaniem w App Store (otwarte).

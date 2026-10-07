@@ -1,6 +1,6 @@
 # Wdrożenie bazy i funkcji do projektu Supabase „organizer” (O-034, decyzja właściciela 7.10.2026: wariant A).
-# Tylko ręcznie (workflow_dispatch), w środowisku supabase-prod z wymaganym zatwierdzeniem właściciela —
-# sekrety (token CLI, hasło bazy) są dostępne dopiero po zatwierdzeniu. Tryb „dry-run” pokazuje, które
+# Tylko ręcznie (workflow_dispatch), w środowisku supabase-prod: tylko gałąź main, bez zatwierdzania (D78, 7.10.2026,
+# na czas rozwoju — wcześniej z zatwierdzeniem właściciela). Uruchamia Claude po zielonych testach bazy. Tryb „dry-run” pokazuje, które
 # migracje weszłyby, niczego nie zmieniając; „apply” wgrywa migracje i funkcje delete-account oraz notify-handoff.
 # Koszt: darmowy runner Linux (repozytorium publiczne).
 name: supabase-deploy
