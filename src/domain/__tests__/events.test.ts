@@ -431,7 +431,7 @@ describe('godziny i lista wydarzeń grupy', () => {
   });
 });
 
-describe('kto zawozi (D66)', () => {
+describe('osoba odpowiedzialna (D66)', () => {
   it('wskazana osoba: tylko u niej (i u dorosłych wskazanych imiennie); bez osoby — jak dotąd; inna w jednym wystąpieniu', () => {
     const t = world();
     const newId = ids();
@@ -439,7 +439,7 @@ describe('kto zawozi (D66)', () => {
     run(t, e.ops);
     const at = (d: string) => range(t, d, d).find((x) => x.eventId === e.id)!;
     expect(at('2026-10-07')).toMatchObject({ concernsMe: false, responsibleId: 'ala', responsibleName: 'Ala' });
-    // W jednym terminie zawozi Łukasz (ja).
+    // W jednym terminie odpowiada Łukasz (ja).
     run(t, editEvent(detail(t, e.id), '2026-10-14', 'this', fields({ title: 'Logopeda', date: '2026-10-14', responsibleId: 'mf' }), newId));
     expect(at('2026-10-14')).toMatchObject({ concernsMe: true, responsibleId: 'mf', responsibleName: 'Łukasz' });
     expect(fieldsOf(detail(t, e.id), '2026-10-14', 'this').responsibleId).toBe('mf');

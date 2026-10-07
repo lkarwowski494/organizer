@@ -43,7 +43,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
   const members = useMemo(() => groupDetail(tables, userId, groupId)?.members ?? [], [tables, userId, groupId]);
-  // D66: zawozi / odpowiada tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
+  // D66: osobą odpowiedzialną jest tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
   const adults = members.filter((m) => m.role !== 'child' && groups.find((g) => g.id === groupId)?.kind !== 'personal');
 
   if (eventId && (!detail || !detail.canEdit)) {

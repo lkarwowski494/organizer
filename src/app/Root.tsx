@@ -16,7 +16,7 @@ import { SyncRuntime } from '../sync/runtime';
 import type { SyncTransport } from '../sync/transport';
 import { parseAuthCallback } from '../sync/supabase';
 import { SignInScreen } from '../features/auth/SignInScreen';
-import { ThemeProvider, useTheme } from '../ui/theme';
+import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
 import { AppProvider, type AppServices } from './context';
 import type { DeviceCalendar } from './device-calendar';
@@ -37,6 +37,8 @@ export type RootDeps = {
   /** Prywatne kanały Realtime (poke): wywołuje `onPoke` z wersją grupy albo bez (zmiana dostępu). */
   subscribe(topics: string[], onPoke: (topic: string, version: number | null) => void): () => void;
   links: { initial(): Promise<string | null>; onUrl(fn: (url: string) => void): () => void };
+  /** Zapamiętany wygląd (D69). */
+  appearance?: AppearanceStore;
   nowMs?: () => number;
   setTimer?: (fn: () => void, ms: number) => () => void;
 };
@@ -158,7 +160,7 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider>{body}</ThemeProvider>
+      <ThemeProvider store={deps.appearance}>{body}</ThemeProvider>
     </SafeAreaProvider>
   );
 }

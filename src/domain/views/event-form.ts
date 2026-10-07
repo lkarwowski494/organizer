@@ -24,7 +24,7 @@ export type EventForm = {
   until: string;
   audience: 'group' | 'members';
   participantIds: string[];
-  /** Kto zawozi (D66); `null` = nikt konkretny. */
+  /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsibleId: string | null;
 };
 export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'days' | 'interval' | 'until' | 'participants' | 'monthly';

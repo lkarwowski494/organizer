@@ -31,7 +31,7 @@ export type Occurrence = {
   groupName: string;
   line: number;
   concernsMe: boolean;
-  /** Kto zawozi w tym wystąpieniu (D66) i jego imię. */
+  /** Osoba odpowiedzialna w tym wystąpieniu (D66) i jej imię. */
   responsibleId: string | null;
   responsibleName: string | null;
 };
@@ -174,7 +174,7 @@ export type EventFields = {
   until: string | null;
   audience: 'group' | 'members';
   participantIds: string[];
-  /** Kto zawozi (D66); `null` = nikt konkretny. */
+  /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsibleId: string | null;
 };
 
