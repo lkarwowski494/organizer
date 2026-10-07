@@ -6,7 +6,7 @@ import type { Row } from '../sync-engine/client';
 
 export type Tables = { readonly [e: string]: { readonly [id: string]: Row } };
 
-export type Group = { id: string; name: string; kind: 'personal' | 'shared'; created_at: string | null; deleted_at: string | null };
+export type Group = { id: string; name: string; kind: 'personal' | 'shared'; color: string | null; created_at: string | null; deleted_at: string | null };
 export type Member = {
   member_id: string;
   group_id: string;
@@ -48,7 +48,7 @@ const str = (v: unknown, d: string | null = null) => (v == null ? d : String(v))
 // Wiersz lokalny (jeszcze niepotwierdzony) nie ma pól ustawianych przez serwer — stąd wartości domyślne
 // takie same jak DEFAULT w migracjach SQL.
 export function asGroup(r: Row): Group {
-  return { id: String(r.id), name: String(r.name ?? ''), kind: r.kind === 'personal' ? 'personal' : 'shared', created_at: str(r.created_at), deleted_at: str(r.deleted_at) };
+  return { id: String(r.id), name: String(r.name ?? ''), kind: r.kind === 'personal' ? 'personal' : 'shared', color: str(r.color), created_at: str(r.created_at), deleted_at: str(r.deleted_at) };
 }
 export function asMember(r: Row): Member {
   return {

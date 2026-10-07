@@ -16,4 +16,9 @@ export interface AccountApi {
   createInvite(groupId: string, role: 'member' | 'admin'): Promise<Invite>;
   acceptInvite(token: string, displayName: string): Promise<{ groupId: string }>;
   revokeInvite(inviteId: string): Promise<void>;
+  /** Kosz grupy (D54): tylko właściciel; przywrócenie w ciągu config.sync.TOMBSTONE_DAYS dni. */
+  deleteGroup(groupId: string): Promise<void>;
+  restoreGroup(groupId: string): Promise<void>;
+  /** Przekazanie własności dorosłemu z kontem (D55). */
+  transferOwnership(groupId: string, memberId: string): Promise<void>;
 }

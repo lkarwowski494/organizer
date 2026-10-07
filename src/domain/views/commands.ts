@@ -62,6 +62,15 @@ export function renameList(id: string, name: string): NewOp {
   return { kind: 'patch', entity: 'lists', id, set: { name } };
 }
 
+/** Kolor linii grupy (D56): klucz z palety albo `null` = automatyczny. */
+export function setGroupColor(id: string, color: string | null): NewOp {
+  return { kind: 'patch', entity: 'groups', id, set: { color } };
+}
+
+export function setRole(memberId: string, role: 'admin' | 'member'): NewOp {
+  return { kind: 'patch', entity: 'group_members', id: memberId, set: { role } };
+}
+
 export function renameGroup(id: string, name: string): NewOp {
   return { kind: 'patch', entity: 'groups', id, set: { name } };
 }

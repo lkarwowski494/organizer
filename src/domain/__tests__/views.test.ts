@@ -5,7 +5,7 @@ import type { CivilDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
-import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listsView, myMemberships, type Tables, todayView } from '../views';
+import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listsView, memberActions, myMemberships, type Tables, todayView, trashedGroups } from '../views';
 
 const ME = 'u-me';
 const TODAY: CivilDate = { y: 2026, m: 10, d: 7 };
@@ -66,7 +66,7 @@ const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
 
 describe('model: wiersze lokalne bez pól serwera dostają wartości domyślne z migracji', () => {
   it('as*', () => {
-    expect(asGroup({ id: 'g' })).toEqual({ id: 'g', name: '', kind: 'shared', created_at: null, deleted_at: null });
+    expect(asGroup({ id: 'g' })).toEqual({ id: 'g', name: '', kind: 'shared', color: null, created_at: null, deleted_at: null });
     expect(asMember({ member_id: 'm', group_id: 'g', role: 'zly' })).toMatchObject({ role: 'member', display_name: '', user_id: null });
     expect(asList({ id: 'l', group_id: 'g', visibility: 'zla' })).toMatchObject({ kind: 'tasks', visibility: 'group', sort_key: 'a0', name: '', owner_member_id: null });
     expect(asList({ id: 'l', group_id: 'g', kind: 'shopping', visibility: 'private' })).toMatchObject({ kind: 'shopping', visibility: 'private' });
@@ -348,5 +348,62 @@ describe('operacje ekranów', () => {
     expect(cmd.renameMember('m', 'K')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { display_name: 'K' } });
     expect(cmd.moveTask('t', 'p')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: 'p' } });
     expect(cmd.moveTask('t', null, 'l2')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: null, list_id: 'l2' } });
+  });
+});
+
+describe('edycja grup (D54–D56)', () => {
+  it('kolor wybrany przez właściciela ma pierwszeństwo przed kolejnością; nieznany klucz = automatyczny', () => {
+    const t = world();
+    put(t, 'groups', 'gk', { ...t.groups!.gk, color: 'red' });
+    put(t, 'groups', 'gf', { ...t.groups!.gf, color: 'zielony?' });
+    const g = groupsView(t, ME);
+    expect(g.find((x) => x.id === 'gk')!.line).toBe(groupLines.findIndex((l) => l.key === 'red'));
+    expect(g.find((x) => x.id === 'gf')!.line).toBe(1);
+  });
+
+  it('kosz: tylko grupy, których jestem właścicielem, z liczbą dni; przeterminowane znikają', () => {
+    const t = world();
+    const now = Date.parse('2026-10-07T10:00:00Z');
+    put(t, 'groups', 'gt', { id: 'gt', name: 'Wycieczka', kind: 'shared', created_at: null, deleted_at: '2026-10-05T10:00:00Z' });
+    put(t, 'group_members', 'mt', { member_id: 'mt', group_id: 'gt', user_id: ME, display_name: 'Ł', role: 'owner', deleted_at: null });
+    put(t, 'groups', 'go', { id: 'go', name: 'Cudza', kind: 'shared', created_at: null, deleted_at: '2026-10-05T10:00:00Z' });
+    put(t, 'group_members', 'mo', { member_id: 'mo', group_id: 'go', user_id: ME, display_name: 'Ł', role: 'admin', deleted_at: null });
+    put(t, 'groups', 'gx2', { id: 'gx2', name: 'Stara', kind: 'shared', created_at: null, deleted_at: '2026-09-01T10:00:00Z' });
+    put(t, 'group_members', 'mx2', { member_id: 'mx2', group_id: 'gx2', user_id: ME, display_name: 'Ł', role: 'owner', deleted_at: null });
+    expect(trashedGroups(t, ME, now).map((g) => [g.id, g.daysLeft])).toEqual([['gt', 28]]);
+    expect(groupsView(t, ME).map((g) => g.id)).not.toContain('gt');
+  });
+
+  it('uprawnienia do członków jak strażnik członkostw', () => {
+    const t = world();
+    const asAdmin = groupDetail(t, ME, 'gf')!; // ja = admin
+    const m = (id: string) => asAdmin.members.find((x) => x.member_id === id)!;
+    expect(memberActions(asAdmin, m('ala'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(memberActions(asAdmin, m('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
+    expect(memberActions(asAdmin, m('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(asAdmin).toMatchObject({ canSetColor: false, canDelete: false });
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'owner' });
+    put(t, 'group_members', 'ala', { ...t.group_members!.ala, role: 'member' });
+    put(t, 'group_members', 'kid', { member_id: 'kid', group_id: 'gf', user_id: 'u-kid', display_name: 'Zuzia', role: 'child', deleted_at: null });
+    const asOwner = groupDetail(t, ME, 'gf')!;
+    const o = (id: string) => asOwner.members.find((x) => x.member_id === id)!;
+    expect(memberActions(asOwner, o('ala'))).toEqual({ rename: true, setRole: true, remove: true, makeOwner: true });
+    expect(memberActions(asOwner, o('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
+    expect(memberActions(asOwner, o('kid'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
+    expect(memberActions(asOwner, o('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(asOwner).toMatchObject({ canSetColor: true, canDelete: true });
+    const personal = groupDetail(t, ME, 'gp')!;
+    expect(personal).toMatchObject({ canSetColor: true, canDelete: false });
+    expect(memberActions(personal, personal.members[0]!)).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    // Admin usuwa też zwykłego członka.
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'admin' });
+    const again = groupDetail(t, ME, 'gf')!;
+    expect(memberActions(again, again.members.find((x) => x.member_id === 'ala')!).remove).toBe(true);
+  });
+
+  it('operacje koloru i roli', () => {
+    expect(cmd.setGroupColor('g', 'teal')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: 'teal' } });
+    expect(cmd.setGroupColor('g', null)).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: null } });
+    expect(cmd.setRole('m', 'admin')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { role: 'admin' } });
   });
 });

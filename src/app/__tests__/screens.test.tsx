@@ -2,7 +2,7 @@
  * Ekrany przez prawdziwą nawigację (RootStack): użytkownik dotyka, pisze i widzi skutek.
  * Stan to ten sam silnik co w aplikacji (mutate + materialize), więc zmiana offline widać od razu.
  */
-import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Share } from 'react-native';
 
 import { RootStack } from '../navigation';
@@ -164,8 +164,7 @@ describe('Grupy', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     expect(await screen.findByText('Rodzina')).toBeTruthy();
-    // Domyślny normalizator RNTL skleja wielokrotne spacje w jedną.
-    expect(screen.getByText(/^Ala · właściciel$/)).toBeTruthy();
+    expect(screen.getByLabelText('Ala, właściciel')).toBeTruthy();
     expect(screen.queryByLabelText('Zaproś jako admina')).toBeNull();
     await press(screen.getByTestId('invite'));
     expect(account.createInvite).toHaveBeenCalledWith('gf', 'member');
@@ -177,7 +176,7 @@ describe('Grupy', () => {
     await type(screen.getByTestId('child-name'), 'Zosia');
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', group_id: 'gf', set: { display_name: 'Zosia', role: 'child' } });
-    expect(await screen.findByText(/^Zosia · dziecko$/)).toBeTruthy();
+    expect(await screen.findByLabelText('Zosia, dziecko')).toBeTruthy();
     await type(screen.getByTestId('group-rename'), 'Rodzina K.');
     await press(screen.getByLabelText('Zmień nazwę grupy'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } });
@@ -253,6 +252,105 @@ describe('Grupy', () => {
     expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
     expect(store.refresh).toHaveBeenCalled();
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+});
+
+describe('Edycja grup (D54–D56)', () => {
+  const asOwner = () => {
+    const base = sampleBase();
+    base.group_members!.mf = { ...base.group_members!.mf, role: 'owner' };
+    base.group_members!.ala = { ...base.group_members!.ala, role: 'admin' };
+    return base;
+  };
+
+  it('właściciel: kolor linii, automatyczny, usunięcie do kosza z potwierdzeniem', async () => {
+    const { store, account } = await open({ base: asOwner() });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByLabelText('Kolor: teal'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: 'teal' } });
+    expect(screen.getByLabelText('Kolor: teal').props.accessibilityState.selected).toBe(true);
+    await press(screen.getByLabelText('Automatyczny'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } });
+    await press(screen.getByTestId('delete-group'));
+    expect(screen.getByText(/Przez 30 dni możesz ją przywrócić/)).toBeTruthy();
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('delete-group'));
+    await press(screen.getByTestId('delete-group-confirm'));
+    expect(account.deleteGroup).toHaveBeenCalledWith('gf');
+    expect(store.refresh).toHaveBeenCalled();
+    expect(await screen.findByTestId('screen-groups')).toBeTruthy();
+  });
+
+  it('błąd usuwania grupy pokazany; admin nie widzi koloru ani usuwania', async () => {
+    const account = fakeAccount({ deleteGroup: jest.fn(async () => Promise.reject(new Error('x'))) });
+    await open({ base: asOwner(), account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('delete-group'));
+    await press(screen.getByTestId('delete-group-confirm'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+  });
+
+  it('admin (domyślne dane): bez koloru i bez usuwania grupy', async () => {
+    await open();
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    expect(screen.queryByLabelText('Kolor: teal')).toBeNull();
+    expect(screen.queryByTestId('delete-group')).toBeNull();
+  });
+
+  it('kosz: grupa z liczbą dni i przywrócenie', async () => {
+    const base = asOwner();
+    base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
+    const { account, store } = await open({ base });
+    await press(screen.getByLabelText('Grupy'));
+    expect(screen.queryByTestId('group-gf')).toBeNull();
+    await press(await screen.findByTestId('trash-gf'));
+    expect(screen.getByText('usunięcie za 29 dni')).toBeTruthy();
+    expect(account.restoreGroup).toHaveBeenCalledWith('gf');
+    await waitFor(() => expect(store.refresh).toHaveBeenCalled());
+  });
+
+  it('osoba: rola admin/członek, imię dziecka, usunięcie, przekazanie własności', async () => {
+    const { store, account } = await open({ base: asOwner() });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('member-ala'));
+    expect(await screen.findByTestId('screen-member')).toBeTruthy();
+    await press(screen.getByLabelText('członek'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } });
+    await press(screen.getByTestId('make-owner'));
+    expect(screen.getByText(/Ala zostanie właścicielem grupy/)).toBeTruthy();
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('make-owner'));
+    await press(screen.getByTestId('make-owner-confirm'));
+    expect(account.transferOwnership).toHaveBeenCalledWith('gf', 'ala');
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    await press(screen.getByTestId('member-kuba'));
+    expect(screen.queryByTestId('make-owner')).toBeNull();
+    expect(screen.queryByLabelText('członek')).toBeNull();
+    await type(screen.getByTestId('member-name'), 'Jakub');
+    await press(screen.getByLabelText('Zapisz imię'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } });
+    await press(screen.getByTestId('remove-member'));
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('remove-member'));
+    await press(screen.getByTestId('remove-confirm'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'kuba' });
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+
+  it('przekazanie własności bez sieci: komunikat; osoba, której już nie ma: błąd zamiast awarii', async () => {
+    const account = fakeAccount({ transferOwnership: jest.fn(async () => Promise.reject(new Error('x'))) });
+    await open({ base: asOwner(), account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('member-ala'));
+    await press(await screen.findByTestId('make-owner'));
+    await press(screen.getByTestId('make-owner-confirm'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
   });
 });
 

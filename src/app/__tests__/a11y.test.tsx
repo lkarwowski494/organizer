@@ -54,6 +54,7 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Grupy', async (p) => p('Grupy')],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'))],
+  ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'))],
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz z linku'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
@@ -148,7 +149,7 @@ describe('linki głębokie (D40)', () => {
 
   it('brakujące dane w trasie: ekrany pokazują błąd zamiast się wysypać', async () => {
     const s = setup();
-    for (const [name, params, id] of [['List', { listId: 'nie-ma' }, 'screen-list-missing'], ['Task', { taskId: 'nie-ma' }, 'screen-task-missing'], ['Group', { groupId: 'nie-ma' }, 'screen-group-missing']] as const) {
+    for (const [name, params, id] of [['List', { listId: 'nie-ma' }, 'screen-list-missing'], ['Task', { taskId: 'nie-ma' }, 'screen-task-missing'], ['Group', { groupId: 'nie-ma' }, 'screen-group-missing'], ['Member', { groupId: 'gf', memberId: 'nie-ma' }, 'screen-member-missing']] as const) {
       const r = await render(s.wrap(<NavigationContainer initialState={{ routes: [{ name: 'Tabs' }, { name, params }] } as never}><RootStack /></NavigationContainer>));
       expect(await screen.findByTestId(id)).toBeTruthy();
       await r.unmount();

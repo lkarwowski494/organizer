@@ -92,6 +92,9 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     createInvite: jest.fn(async (groupId: string) => ({ inviteId: 'inv-1', token: 'tok', url: `io.github.lkarwowski494.organizer://invite/tok?g=${groupId}`, expiresAt: '2026-10-14T10:00:00Z', maxUses: 10 })),
     acceptInvite: jest.fn(async () => ({ groupId: 'gf' })),
     revokeInvite: jest.fn(async () => {}),
+    deleteGroup: jest.fn(async () => {}),
+    restoreGroup: jest.fn(async () => {}),
+    transferOwnership: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<AccountApi>;
 }
