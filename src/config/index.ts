@@ -11,6 +11,12 @@ export const config = {
   /** Jak długo widać pasek „Cofnij” po usunięciu (ms). Wybór projektowy, bez źródła zewnętrznego. */
   UNDO_MS: 6000,
 
+  /**
+   * Zgłaszanie błędów i opinii (D80). Serwer egzekwuje te same liczby (private.client_errors_per_day,
+   * feedback_per_day, feedback_retention_days; test kontraktowy). Wybory projektowe, bez źródła.
+   */
+  feedback: { ERRORS_PER_DAY: 50, PER_DAY: 20, RETENTION_DAYS: 90, MAX_LENGTH: 2000 },
+
   /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
   HISTORY_LIMIT: 15,
 

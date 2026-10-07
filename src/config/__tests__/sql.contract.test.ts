@@ -35,8 +35,16 @@ describe('src/config zgodny z SQL', () => {
     ['invite_max_ttl_hours', config.invites.MAX_TTL_HOURS],
     ['invite_default_max_uses', config.invites.DEFAULT_MAX_USES],
     ['invite_max_uses_limit', config.invites.MAX_USES_LIMIT],
+    ['client_errors_per_day', config.feedback.ERRORS_PER_DAY],
+    ['feedback_per_day', config.feedback.PER_DAY],
+    ['feedback_retention_days', config.feedback.RETENTION_DAYS],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
+  });
+
+  it('długość opinii w SQL = config.feedback.MAX_LENGTH (D80)', () => {
+    expect(sql).toContain(`char_length(message) between 1 and ${config.feedback.MAX_LENGTH}`);
+    expect(sql).toContain(`left(trim(p_message), ${config.feedback.MAX_LENGTH})`);
   });
 
   it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {

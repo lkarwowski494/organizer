@@ -9,6 +9,8 @@
 - **Konto:** identyfikator z Sign in with Apple albo adres e-mail (logowanie linkiem) — żeby zalogować i rozpoznać osobę. Przy logowaniu przez Apple zapisujemy imię, jeśli Apple je przekaże.
 - **To, co wpisujesz:** grupy, osoby w grupach (także imiona dzieci bez kont), listy, zadania, zakupy, wydarzenia, przekazania i historia zmian — żeby działała aplikacja i widziały je osoby z Twoich grup.
 - **Token powiadomień** urządzenia (jeśli włączysz powiadomienia) — żeby wysłać powiadomienie o przekazaniu.
+- **Zgłoszenia błędów:** gdy aplikacja napotka błąd, wysyła jego opis techniczny (komunikat, miejsce w kodzie, nazwę ekranu, wersję aplikacji) — bez treści Twoich list, zadań i imion. Najwyżej 50 dziennie, przechowywane 90 dni.
+- **Uwagi:** tekst, który sam wyślesz z Ustawień („Wyślij uwagę”), z wersją aplikacji. Przechowywane 90 dni.
 - **Kalendarz iPhone'a:** tylko zapis wybranego wydarzenia, gdy dotkniesz „Dodaj do kalendarza”. Nie odczytujemy kalendarza.
 
 Nie ma reklam, analityki ani śledzenia. Nie sprzedajemy i nie udostępniamy danych nikomu poza osobami z Twoich grup.

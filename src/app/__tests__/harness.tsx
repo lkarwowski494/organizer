@@ -101,6 +101,8 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     transferOwnership: jest.fn(async () => {}),
     registerPushToken: jest.fn(async () => {}),
     notifyHandoff: jest.fn(async () => {}),
+    reportError: jest.fn(async () => {}),
+    sendFeedback: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<AccountApi>;
 }
