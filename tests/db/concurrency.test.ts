@@ -96,3 +96,48 @@ d('współbieżne zapisy i pobieranie po kursorze', () => {
     await Promise.all([admin, owner, puller, ...writers].map((c) => c.end()));
   }, 120_000);
 });
+
+d('równoczesne przeniesienia zadań', () => {
+  it('„A pod B” i „B pod A” naraz: dokładnie jedno przechodzi, nigdy cykl', async () => {
+    const admin = await connect();
+    const [ua, ub] = [randomUUID(), randomUUID()];
+    const group = randomUUID();
+    const list = randomUUID();
+    await admin.query(`insert into auth.users (id, email) values ($1, 'a'), ($2, 'b')`, [ua, ub]);
+    const a = await connect(ua);
+    await a.query(`select public.create_group($1, 'Przenoszenie', $2, 'A')`, [group, randomUUID()]);
+    await admin.query(`insert into public.group_members (member_id, group_id, user_id, display_name) values (gen_random_uuid(), $1, $2, 'B')`, [group, ub]);
+    const b = await connect(ub);
+    const push = (c: Client, client: string, ops: object[]) =>
+      c.query(`select public.sync_push($1, 1, $2::jsonb) r`, [client, JSON.stringify(ops)]).then((r) => r.rows[0].r);
+    const ca = randomUUID();
+    const cb = randomUUID();
+    await push(a, ca, [{ seq: 1, kind: 'create', entity: 'lists', id: list, group_id: group, set: { kind: 'tasks', name: 'L' } }]);
+
+    let seqA = 1;
+    let seqB = 0;
+    let cycles = 0;
+    let bothOk = 0;
+    for (let round = 0; round < 40; round++) {
+      const [x, y] = [randomUUID(), randomUUID()];
+      await push(a, ca, [
+        { seq: ++seqA, kind: 'create', entity: 'tasks', id: x, group_id: group, set: { list_id: list, title: 'X' } },
+        { seq: ++seqA, kind: 'create', entity: 'tasks', id: y, group_id: group, set: { list_id: list, title: 'Y' } },
+      ]);
+      // Obie komendy startują jednocześnie z dwóch połączeń.
+      const [ra, rb] = await Promise.all([
+        push(a, ca, [{ seq: ++seqA, kind: 'cmd', cmd: 'move_task', args: { id: x, parent_id: y } }]),
+        push(b, cb, [{ seq: ++seqB, kind: 'cmd', cmd: 'move_task', args: { id: y, parent_id: x } }]),
+      ]);
+      const statuses = [ra.results[0].status, rb.results[0].status];
+      if (statuses.every((s) => s === 'ok')) bothOk++;
+      const rows = (await admin.query(`select id::text, parent_id::text from public.tasks where id = any($1::uuid[])`, [[x, y]])).rows;
+      const parent = Object.fromEntries(rows.map((r) => [r.id, r.parent_id]));
+      if (parent[x] === y && parent[y] === x) cycles++;
+      expect(statuses.filter((s) => s === 'ok')).toHaveLength(1);
+    }
+    expect(cycles).toBe(0);
+    expect(bothOk).toBe(0);
+    await Promise.all([admin, a, b].map((c) => c.end()));
+  }, 120_000);
+});
