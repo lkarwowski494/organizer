@@ -5,7 +5,7 @@
 -- Losowość: gen_random_uuid() z rdzenia Postgresa (pg_strong_random), 2 × 122 bity losowe na token
 -- (https://www.postgresql.org/docs/current/functions-uuid.html).
 
--- Limity z src/config (test kontraktowy). Wartości tymczasowe do decyzji właściciela (D48).
+-- Limity z src/config (test kontraktowy). Wartości zatwierdzone przez właściciela (D48).
 create function private.invite_default_ttl_hours() returns int language sql immutable as $$ select 168 $$;
 create function private.invite_max_ttl_hours() returns int language sql immutable as $$ select 720 $$;
 create function private.invite_default_max_uses() returns int language sql immutable as $$ select 10 $$;
