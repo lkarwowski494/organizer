@@ -27,7 +27,7 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_task_series', 'events', 'group_members', 'groups', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
   });
 
   it('aktualizacja z wersji 1 dodaje tabele wydarzeń i stałych zadań serii i nie rusza istniejących danych', () => {

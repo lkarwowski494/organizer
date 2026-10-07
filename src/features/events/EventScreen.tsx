@@ -19,6 +19,8 @@ import { listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, type Scope, timeLabel } from '../../domain/views/events';
 import { createSeries, seriesOf, stopOps } from '../../domain/views/series-tasks';
+import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
+import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -40,6 +42,8 @@ export function EventScreen({ route, navigation }: Props) {
   const [taskTitle, setTaskTitle] = useState('');
   const [listId, setListId] = useState<string | null>(null);
   const [every, setEvery] = useState<'one' | 'all'>('one');
+  const [handing, setHanding] = useState(false);
+  const [handScope, setHandScope] = useState<'one' | 'series'>('one');
   const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
 
   if (!d || d.event.deleted_at !== null) {
@@ -53,6 +57,12 @@ export function EventScreen({ route, navigation }: Props) {
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
   const time = timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'];
+  // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
+  const myMember = d.members.find((m) => m.user_id === userId)?.member_id;
+  const iAmResponsible = myMember !== undefined && occ.responsibleId === myMember;
+  const seriesMine = d.event.responsible_member_id === myMember;
+  const pending = outgoingPending(tables, userId);
+  const waiting = pending.get(handoffKey('events', eventId, date)) ?? pending.get(handoffKey('events', eventId, null));
   const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
@@ -110,6 +120,37 @@ export function EventScreen({ route, navigation }: Props) {
       <SectionTitle>{strings['event.who']}</SectionTitle>
       <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
+      {iAmResponsible && d.canEdit ? (
+        waiting ? (
+          <View style={{ gap: 8 }}>
+            <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
+            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+          </View>
+        ) : handing ? (
+          <HandoffPicker
+            targets={handoffTargets(tables, userId, d.event.group_id)}
+            onPick={(m) => {
+              store.dispatch(createHandoff({ id: newId(), groupId: d.event.group_id, entity: 'events', entityId: eventId, occurrenceDate: handScope === 'one' && recurring ? date : null, toMember: m.member_id }));
+              setHanding(false);
+            }}
+            onCancel={() => setHanding(false)}
+          >
+            {recurring && seriesMine ? (
+              <Segmented
+                label={strings['handoff.scope']}
+                value={handScope}
+                onChange={setHandScope}
+                options={[
+                  { value: 'one', label: strings['handoff.scope.one'] },
+                  { value: 'series', label: strings['handoff.scope.series'] },
+                ]}
+              />
+            ) : null}
+          </HandoffPicker>
+        ) : (
+          <Button kind="secondary" label={strings['handoff.give']} testID="handoff-start" onPress={() => setHanding(true)} />
+        )
+      ) : null}
 
       <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} />
       {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}

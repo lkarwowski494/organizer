@@ -110,6 +110,7 @@ export function contrastPairs(c: Palette): ContrastPair[] {
     { fg: c.danger, bg: c.ground, kind: 'TEXT', use: 'błąd, usuwanie' },
     { fg: c.danger, bg: c.surface, kind: 'TEXT', use: 'błąd na karcie' },
     { fg: c.inverseInk, bg: c.inverseBg, kind: 'TEXT', use: 'pole szybkiego dodawania' },
+    { fg: c.inverseInk, bg: c.danger, kind: 'TEXT', use: 'plakietka „do potwierdzenia” na zakładce' },
   ];
 }
 
