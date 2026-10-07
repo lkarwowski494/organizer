@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 260 260">
+  <!-- Ikona „Wstążki” (D72): kolorowe wstążki splecione w „O”. Pełny kwadrat bez przezroczystości — zaokrąglenie nakłada iOS. -->
+  <rect width="260" height="260" fill="#F3F1FB"/>
+  <path d="M70 160 C70 90 120 62 160 70 C200 78 210 130 190 165" stroke="#3D7BFF" stroke-width="30" fill="none" stroke-linecap="round"/>
+  <path d="M190 165 C170 200 110 210 80 185" stroke="#FF8A3D" stroke-width="30" fill="none" stroke-linecap="round"/>
+  <path d="M80 185 C60 170 62 150 70 132" stroke="#3B2A8C" stroke-width="30" fill="none" stroke-linecap="round"/>
+</svg>

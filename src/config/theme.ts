@@ -1,5 +1,5 @@
 /**
- * Motyw „Linie” (D50, decyzja właściciela z 7.10.2026): każda grupa to kolorowa linia, a widok
+ * Motyw „Wstążki” (D72, decyzja właściciela z 7.10.2026; następca „Linii” z D50): każda grupa to kolorowa wstążka, a widok
  * „Dotyczy mnie” to stacja przesiadkowa. Jedyne źródło kolorów, krojów i rozmiarów ekranów.
  *
  * Progi czytelności (test src/config/__tests__/theme.test.ts liczy kontrast każdej pary poniżej):
@@ -28,6 +28,9 @@ export type Palette = {
   border: string;
   /** Obwódka pól do odhaczania: element sterujący, więc ≥ 3:1. */
   control: string;
+  /** Wyróżnienie aktywnej zakładki i przycisków-pigułek (motyw „Wstążki”, D72). */
+  accentBg: string;
+  accentInk: string;
   ok: string;
   warnBg: string;
   warnBorder: string;
@@ -40,50 +43,54 @@ export type Palette = {
 
 export const palettes: Record<Scheme, Palette> = {
   light: {
-    ground: '#F5F6F8',
+    ground: '#F3F1FB',
     surface: '#FFFFFF',
-    ink: '#0F172A',
-    inkMuted: '#475569',
-    inkTab: '#64748B',
-    border: '#E2E8F0',
-    control: '#64748B',
+    ink: '#1D1638',
+    inkMuted: '#4E4673',
+    inkTab: '#6B6391',
+    border: '#E3DEF5',
+    control: '#7A6FA8',
+    accentBg: '#ECE8FF',
+    accentInk: '#3B2A8C',
     ok: '#15803D',
     warnBg: '#FEF3C7',
     warnBorder: '#F59E0B',
     warnInk: '#78350F',
     pendingInk: '#92400E',
     danger: '#B91C1C',
-    inverseBg: '#0F172A',
-    inverseInk: '#F8FAFC',
+    inverseBg: '#3B2A8C',
+    inverseInk: '#FFFFFF',
   },
   dark: {
-    ground: '#0B1220',
-    surface: '#162032',
-    ink: '#F1F5F9',
-    inkMuted: '#A3B1C6',
-    inkTab: '#94A3B8',
-    border: '#273449',
-    control: '#94A3B8',
+    ground: '#141026',
+    surface: '#211B3B',
+    ink: '#F3F1FB',
+    inkMuted: '#B8B0DB',
+    inkTab: '#A39BC9',
+    border: '#342C57',
+    control: '#9D94CC',
+    accentBg: '#352B66',
+    accentInk: '#E2DCFF',
     ok: '#22C55E',
     warnBg: '#3A2A0A',
     warnBorder: '#F59E0B',
     warnInk: '#FCD34D',
     pendingInk: '#FBBF24',
     danger: '#FCA5A5',
-    inverseBg: '#F1F5F9',
-    inverseInk: '#0F172A',
+    inverseBg: '#C9BFFF',
+    inverseInk: '#1D1638',
   },
 };
 
 /**
  * Kolory linii grup. `line` — kropka i odcinek linii (grafika, ≥ 3:1 do tła i powierzchni),
  * `ink` — nazwa grupy pisana tym kolorem (tekst, ≥ 4,5:1). Kolejność = kolejność przydziału grupom.
- * Odrzucony przy pomiarze: bursztynowy #D97706 (2,95:1 do jasnego tła).
+ * Odrzucone przy pomiarze: bursztynowy #D97706 (2,95:1 do jasnego tła); zielony #16A34A na tle „Wstążek” #F3F1FB (2,95:1) i nazwa #15803D (4,49:1).
  */
 export const groupLines = [
   { key: 'blue', light: { line: '#1D4ED8', ink: '#1D4ED8' }, dark: { line: '#60A5FA', ink: '#93C5FD' } },
   { key: 'orange', light: { line: '#EA580C', ink: '#C2410C' }, dark: { line: '#FB923C', ink: '#FDBA74' } },
-  { key: 'green', light: { line: '#16A34A', ink: '#15803D' }, dark: { line: '#4ADE80', ink: '#86EFAC' } },
+  { key: 'green', light: { line: '#15803D', ink: '#166534' }, dark: { line: '#4ADE80', ink: '#86EFAC' } },
   { key: 'violet', light: { line: '#7C3AED', ink: '#6D28D9' }, dark: { line: '#A78BFA', ink: '#C4B5FD' } },
   { key: 'teal', light: { line: '#0D9488', ink: '#0F766E' }, dark: { line: '#2DD4BF', ink: '#5EEAD4' } },
   { key: 'pink', light: { line: '#DB2777', ink: '#BE185D' }, dark: { line: '#F472B6', ink: '#F9A8D4' } },
@@ -111,12 +118,14 @@ export function contrastPairs(c: Palette): ContrastPair[] {
     { fg: c.danger, bg: c.surface, kind: 'TEXT', use: 'błąd na karcie' },
     { fg: c.inverseInk, bg: c.inverseBg, kind: 'TEXT', use: 'pole szybkiego dodawania' },
     { fg: c.inverseInk, bg: c.danger, kind: 'TEXT', use: 'plakietka „do potwierdzenia” na zakładce' },
+    { fg: c.accentInk, bg: c.accentBg, kind: 'TEXT', use: 'aktywna zakładka' },
+    { fg: c.inkTab, bg: c.accentBg, kind: 'TEXT', use: 'nieaktywna zakładka obok aktywnej' },
   ];
 }
 
 export const fonts = {
-  /** Nagłówki: Schibsted Grotesk, SIL OFL 1.1 (https://github.com/google/fonts/blob/main/ofl/schibstedgrotesk/OFL.txt). */
-  display: { family: 'Schibsted Grotesk', weights: [500, 700, 800] },
+  /** Nagłówki: Bricolage Grotesque, SIL OFL 1.1 (https://github.com/google/fonts/blob/main/ofl/bricolagegrotesque/OFL.txt). */
+  display: { family: 'Bricolage Grotesque', weights: [700, 800] },
   /**
    * Tekst: Atkinson Hyperlegible Next (Braille Institute), SIL OFL 1.1
    * (https://github.com/google/fonts/blob/main/ofl/atkinsonhyperlegiblenext/OFL.txt).

@@ -1,5 +1,5 @@
 /**
- * Klocki motywu „Linie” (D50, makiety: https://claude.ai/artifact/UXcjuXUntnGC5FfUFDtXre).
+ * Klocki motywu „Wstążki” (D72, następca „Linii” z D50; makieta C: https://claude.ai/artifact/KS4HyYxYRQf3HfiS9Jvucx).
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
@@ -139,8 +139,10 @@ export function StationRow(props: {
   return (
     <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: 60, marginLeft: (props.depth ?? 0) * 18 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
-        <View style={{ position: 'absolute', top: 0, bottom: 0, width: 4, borderRadius: 2, backgroundColor: l.line, opacity: done ? 0.15 : 0.35 }} />
-        <View style={{ marginTop: 18, width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: done ? c.control : l.line, backgroundColor: c.surface }} />
+        {/* Wstążka grupy (D72): szeroka, zaokrąglona, z kropką w jaśniejszej obwódce. */}
+        <View style={{ position: 'absolute', top: 0, bottom: 0, width: 10, borderRadius: 5, backgroundColor: l.line, opacity: done ? 0.12 : 0.28 }} />
+        <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />
+        <View style={{ marginTop: 16, width: 20, height: 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
       </View>
       <Pressable
         accessibilityRole={props.onOpen ? 'button' : undefined}
@@ -221,7 +223,7 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: disabled ? 0.5 : 1 }}
+      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 24, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: disabled ? 0.5 : 1 }}
     >
       <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: fg }}>{label}</Text>
     </Pressable>
@@ -243,12 +245,12 @@ export function Field({ label, ...input }: TextInputProps & { label: string }) {
   );
 }
 
-/** Pole szybkiego dodawania (D18): ciemne w jasnym trybie, jasne w ciemnym; przycisk „Dodaj”. */
+/** Pole szybkiego dodawania (D18): biała pigułka z okrągłym przyciskiem „Dodaj” w kolorze akcentu (D72). */
 export function QuickAddField({ value, onChangeText, onSubmit, placeholder, children }: { value: string; onChangeText: (s: string) => void; onSubmit: () => void; placeholder: string; children?: ReactNode }) {
   const { c, font, size } = useTheme();
   return (
     <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingLeft: 16, paddingRight: 6, borderRadius: 14, backgroundColor: c.inverseBg }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingLeft: 18, paddingRight: 5, borderRadius: 27, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
         <TextInput
           testID="quick-add"
           accessibilityLabel={strings['quick.label']}
@@ -257,16 +259,16 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
           onSubmitEditing={onSubmit}
           returnKeyType="done"
           placeholder={placeholder}
-          placeholderTextColor={c.inverseInk}
-          style={{ flex: 1, color: c.inverseInk, fontFamily: font.text400, fontSize: size.BODY, minHeight: size.TOUCH_TARGET }}
+          placeholderTextColor={c.inkMuted}
+          style={{ flex: 1, color: c.ink, fontFamily: font.text400, fontSize: size.BODY, minHeight: size.TOUCH_TARGET }}
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={strings['quick.add']}
           onPress={onSubmit}
-          style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: 10, backgroundColor: c.inverseInk, alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: size.TOUCH_TARGET / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Text style={{ color: c.inverseBg, fontSize: 24, lineHeight: 26, fontFamily: font.text700 }}>+</Text>
+          <Text style={{ color: c.inverseInk, fontSize: 24, lineHeight: 26, fontFamily: font.text700 }}>+</Text>
         </Pressable>
       </View>
       {children}
@@ -325,9 +327,9 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
               accessibilityState={{ selected: on }}
               accessibilityLabel={o.label}
               onPress={() => onChange(o.value)}
-              style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 22, borderWidth: on ? 2 : 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.surface : c.ground }}
+              style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
-              <Text style={{ fontFamily: on ? font.text700 : font.text400, fontSize: 15, color: c.ink }}>{o.label}</Text>
+              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: 15, color: on ? c.surface : c.ink }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -347,7 +349,7 @@ export function EventRow({ title, time, line, group, recurring, onPress, testID,
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
-        <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: faded ? c.control : l.line }} />
+        <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
       <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
