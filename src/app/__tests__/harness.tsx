@@ -155,6 +155,9 @@ export function fakePush(over: Partial<DevicePush> = {}): jest.Mocked<DevicePush
     env: 'production',
     dismissed: jest.fn(async () => false),
     dismiss: jest.fn(async () => {}),
+    replaceReminders: jest.fn(async () => {}),
+    reminderSettings: jest.fn(async () => null),
+    saveReminderSettings: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<DevicePush>;
 }

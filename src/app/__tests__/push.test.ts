@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { expoDevicePush, registerIfAllowed } from '../push';
 import { fakePush } from './harness';
 
-jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn() }));
+jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), SchedulableTriggerInputTypes: { DATE: 'date' } }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}) }));
 const m = Notifications as jest.Mocked<typeof Notifications>;
 const ss = SecureStore as jest.Mocked<typeof SecureStore>;
@@ -25,6 +25,19 @@ describe('powiadomienia na iPhonie (D70)', () => {
     expect([await expoDevicePush.dismissed(), await expoDevicePush.dismissed()]).toEqual([true, false]);
     await expoDevicePush.dismiss();
     expect(ss.setItemAsync).toHaveBeenCalledWith('pushPromptDismissed', '1');
+  });
+
+  it('przypomnienia: podmiana zaplanowanych, zapis i odczyt ustawień (zły zapis = domyślne)', async () => {
+    await expoDevicePush.replaceReminders([{ id: 'm|2026-10-08', at: 1_800_000_000_000, title: 'Dziś', body: 'kwiaty' }]);
+    expect(m.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+    expect(m.scheduleNotificationAsync).toHaveBeenCalledWith({ identifier: 'm|2026-10-08', content: { title: 'Dziś', body: 'kwiaty', sound: 'default' }, trigger: { type: 'date', date: 1_800_000_000_000 } });
+    await expoDevicePush.saveReminderSettings({ leadMin: 10, morning: 'off' });
+    expect(ss.setItemAsync).toHaveBeenLastCalledWith('reminderSettings', '{"leadMin":10,"morning":"off"}');
+    ss.getItemAsync.mockResolvedValueOnce('{"leadMin":10,"morning":"off"}').mockResolvedValueOnce(null).mockResolvedValueOnce('{zły').mockResolvedValueOnce('{"leadMin":"x"}');
+    expect(await expoDevicePush.reminderSettings()).toEqual({ leadMin: 10, morning: 'off' });
+    expect(await expoDevicePush.reminderSettings()).toBeNull();
+    expect(await expoDevicePush.reminderSettings()).toBeNull();
+    expect(await expoDevicePush.reminderSettings()).toBeNull();
   });
 
   it('rejestracja tylko ze zgodą i tokenem; błędy ciche', async () => {
