@@ -29,6 +29,10 @@ describe('src/config zgodny z SQL', () => {
     ['pull_limit_max', config.sync.PULL_LIMIT_MAX],
     ['tombstone_days', config.sync.TOMBSTONE_DAYS],
     ['schema_version', config.sync.SCHEMA_VERSION],
+    ['invite_default_ttl_hours', config.invites.DEFAULT_TTL_HOURS],
+    ['invite_max_ttl_hours', config.invites.MAX_TTL_HOURS],
+    ['invite_default_max_uses', config.invites.DEFAULT_MAX_USES],
+    ['invite_max_uses_limit', config.invites.MAX_USES_LIMIT],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });
