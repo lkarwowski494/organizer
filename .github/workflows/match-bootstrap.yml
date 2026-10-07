@@ -1,6 +1,6 @@
 # Certyfikaty iOS (D28). Runner macos-26 — w repo publicznym bez opłat.
-# Bezpieczeństwo: tylko tag v* albo ręczne uruchomienie; środowisko ios-release z wymaganym zatwierdzeniem
-# właściciela (sekrety dostępne dopiero po zatwierdzeniu); BEZ artefaktów (w repo publicznym może je
+# Bezpieczeństwo: tylko tag v* albo ręczne uruchomienie; środowisko ios-release dopuszcza tylko gałąź main
+# i tagi v* (bez zatwierdzania — decyzja właściciela D53, 7.10.2026, jak w Treningu); BEZ artefaktów (w repo publicznym może je
 # pobrać każdy zalogowany). Wersja Xcode przypięta (obraz macos-26: 26.6 domyślny, sprawdzone 7.10.2026
 # w actions/runner-images, images/macos/macos-26-arm64-Readme.md; SDK 57 wymaga Xcode ≥ 26.4).
 name: match-bootstrap
