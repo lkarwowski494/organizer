@@ -32,7 +32,7 @@ export function toggleDone(task: Pick<Task, 'id' | 'completed_at'>, nowIso: stri
   return { kind: 'patch', entity: 'tasks', id: task.id, set: { completed_at: task.completed_at === null ? nowIso : null } };
 }
 
-export function patchTask(id: string, set: Partial<Pick<Task, 'title' | 'note' | 'assignee_member_id' | 'start_date'>>): NewOp {
+export function patchTask(id: string, set: Partial<Pick<Task, 'title' | 'note' | 'assignee_member_id' | 'start_date' | 'rollover'>>): NewOp {
   return { kind: 'patch', entity: 'tasks', id, set };
 }
 

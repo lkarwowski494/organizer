@@ -126,6 +126,7 @@ describe('korzeń aplikacji', () => {
     await screen.findByText('Osobiste');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'mleko jutro');
     await fireEvent.press(screen.getByLabelText('Dodaj'));
+    await fireEvent.press(screen.getByLabelText('Następny dzień'));
     expect(await screen.findByText('mleko')).toBeTruthy();
     await waitFor(() => expect(t.pushes.length).toBeGreaterThan(0));
     const rows = t.dbs.get(ME)!.all<{ data: string }>('select data from tasks');

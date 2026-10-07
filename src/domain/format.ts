@@ -20,6 +20,19 @@ export function formatLongDate(date: CivilDate, today: CivilDate): string {
   return cap(date.y === today.y ? base : `${base} ${date.y}`);
 }
 
+/**
+ * Zakres tygodnia: „5–11 października”, „28 września – 4 października”, z rokiem, gdy inny niż bieżący.
+ * Wzorce CLDR 48.2.3 pl, intervalFormats MMMMd / yMMMMd: „d–d MMMM”, „d MMMM\u2009–\u2009d MMMM”,
+ * „d MMMM y\u2009–\u2009d MMMM y” (cienka spacja U+2009 wokół półpauzy).
+ */
+export function formatRange(from: CivilDate, to: CivilDate, today: CivilDate): string {
+  const g = (d: CivilDate) => MONTHS_GENITIVE[d.m - 1];
+  const year = from.y !== today.y || to.y !== today.y;
+  if (from.y !== to.y) return `${from.d} ${g(from)} ${from.y}\u2009–\u2009${to.d} ${g(to)} ${to.y}`;
+  const yy = year ? ` ${to.y}` : '';
+  return from.m === to.m ? `${from.d}–${to.d} ${g(to)}${yy}` : `${from.d} ${g(from)}\u2009–\u2009${to.d} ${g(to)}${yy}`;
+}
+
 /** „Październik 2026” — nagłówek miesiąca kalendarza. */
 export function formatMonth(y: number, m: number): string {
   return cap(`${MONTHS_NOMINATIVE[m - 1]} ${y}`);

@@ -178,6 +178,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await type(await screen.findByTestId('event-date'), '2026-10-08');
     await press(screen.getByTestId('event-save'));
     await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00')).toBeTruthy();
     expect(screen.getByText('Przeniesione z: Środa, 7 października')).toBeTruthy();
@@ -224,6 +225,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(await screen.findByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=TH', audience: 'members' } });
+    await press(screen.getByLabelText('Następny dzień'));
     expect(screen.getByTestId('today-event-ev-tance-2026-10-08')).toBeTruthy();
   });
 

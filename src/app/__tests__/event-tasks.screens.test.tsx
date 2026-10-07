@@ -69,8 +69,8 @@ describe('zadania na spotkaniu (D13)', () => {
   });
 
   it('ekran zadania: spotkanie, otwarcie, własny termin i powrót do terminu spotkania, odpięcie, podpięcie', async () => {
-    const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-06' }));
-    await press(screen.getByLabelText('Otwórz: Spakować strój')); // zaległe (własny termin wczoraj)
+    const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-07' }));
+    await press(screen.getByLabelText('Otwórz: Spakować strój')); // własny termin dziś
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Spotkanie: Tańce, dziś · 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));

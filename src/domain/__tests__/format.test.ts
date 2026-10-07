@@ -1,4 +1,4 @@
-import { formatDue, formatLongDate, formatMonth, formatTime, parseIsoDate } from '../format';
+import { formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -34,4 +34,15 @@ describe('daty na ekranach', () => {
     expect(parseIsoDate('2026-10-07')).toEqual(TODAY);
     for (const bad of ['2026-1-07', '07.10.2026', '', '2026-10-07T00:00']) expect(() => parseIsoDate(bad)).toThrow('oczekiwano daty');
   });
+});
+
+describe('zakres tygodnia (CLDR pl intervalFormats)', () => {
+  const T = { y: 2026, m: 10, d: 7 };
+  it.each([
+    ['2026-10-05', '2026-10-11', '5–11 października'],
+    ['2026-09-28', '2026-10-04', '28 września\u2009–\u20094 października'],
+    ['2027-01-04', '2027-01-10', '4–10 stycznia 2027'],
+    ['2027-02-22', '2027-03-07', '22 lutego\u2009–\u20097 marca 2027'],
+    ['2026-12-28', '2027-01-03', '28 grudnia 2026\u2009–\u20093 stycznia 2027'],
+  ])('%s – %s', (a, b, text) => expect(formatRange(parseIsoDate(a), parseIsoDate(b), T)).toBe(text));
 });

@@ -136,13 +136,14 @@ function groupOrder(groups: Map<string, GroupItem>, id: string): number {
   return [...groups.keys()].indexOf(id);
 }
 
-export type TaskNode = Task & { due: Due; depth: number; children: TaskNode[]; assignee: string | null };
+/** `expired` — minęło bez odhaczenia (D61); na liście w sekcji zrobionych z dopiskiem. */
+export type TaskNode = Task & { due: Due; depth: number; children: TaskNode[]; assignee: string | null; expired: boolean };
 
 export type ListDetail = { list: ListItem; open: TaskNode[]; done: TaskNode[]; members: Member[] };
 
 /**
  * Lista z drzewem zadań. Otwarte: przypięte (bez terminu) na górze, potem po terminie, potem sort_key
- * (compareByDue, D16). Zrobione osobno („W koszyku” na liście zakupów). Zadania z przyszłym start_date
+ * (compareByDue, D16). Zrobione osobno, razem z tymi, które minęły bez odhaczenia (D61) („W koszyku” na liście zakupów). Zadania z przyszłym start_date
  * są ukryte (D „przypnij za X dni”). Podzadania pod rodzicem, w tej samej kolejności.
  */
 export function listDetail(t: Tables, userId: string, listId: string, today: CivilDate): ListDetail | null {
@@ -153,13 +154,15 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
   const all = rows(t, 'tasks', asTask).filter((x) => alive(x) && x.list_id === listId);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
+  const isoToday = formatIsoDate(today);
   const order = (a: TaskNode, b: TaskNode) => compareByDue(a.due, b.due) || a.sort_key.localeCompare(b.sort_key) || a.title.localeCompare(b.title, 'pl');
   const build = (parent: string | null, depth: number, done: boolean): TaskNode[] =>
     all
-      .filter((x) => x.parent_id === parent && (depth > 0 || (x.completed_at !== null) === done) && isVisible(x, today))
+      .filter((x) => x.parent_id === parent && (depth > 0 || (x.completed_at !== null || isExpired(x, effectiveDue(x, byId, occ), isoToday)) === done) && isVisible(x, today))
       .map((x) => ({
         ...x,
         due: effectiveDue(x, byId, occ),
+        expired: isExpired(x, effectiveDue(x, byId, occ), isoToday),
         depth,
         assignee: x.assignee_member_id === null ? null : (names.get(x.assignee_member_id) ?? null),
         children: depth < config.MAX_TASK_DEPTH ? build(x.id, depth + 1, done) : [],
@@ -177,6 +180,20 @@ export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: Toda
  * osobistej, albo nieprzypisane z terminem (każdy w grupie może je zrobić). Sekcje: zaległe, przypięte
  * (bez terminu — tylko moje i osobiste, żeby wspólne bez terminu nie zalewały widoku), dziś, jutro.
  */
+/** Zadanie dotyczy mnie (reguła „Dotyczy mnie” powyżej, bez warunku „otwarte”). */
+export function concernsMeTask(x: Task, g: GroupItem, due: Due): boolean {
+  const unassigned = x.assignee_member_id === null;
+  return x.assignee_member_id === g.me.member_id || (unassigned && (g.kind === 'personal' || due !== null));
+}
+
+/**
+ * Niezrobione zadanie po terminie mija zamiast przechodzić dalej (D61): „Tylko tego dnia” albo zadanie na spotkaniu
+ * (D13 — po spotkaniu przepada, jak decyzja właściciela z 7.10.2026). Pozostałe zaległe przechodzą na dziś.
+ */
+export function isExpired(x: Pick<Task, 'rollover' | 'event_id' | 'completed_at'>, due: Due, isoToday: string): boolean {
+  return x.completed_at === null && due !== null && due.date < isoToday && (!x.rollover || x.event_id !== null);
+}
+
 export function todayView(t: Tables, userId: string, today: CivilDate): TodayView {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
@@ -192,8 +209,7 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
     if (!g || !l || x.completed_at !== null || !isVisible(x, today)) continue;
     const mine = x.assignee_member_id === g.me.member_id;
     const due = effectiveDue(x, byId, occ);
-    const unassigned = x.assignee_member_id === null;
-    if (!(mine || (unassigned && (g.kind === 'personal' || due !== null)))) continue;
+    if (!concernsMeTask(x, g, due) || isExpired(x, due, isoToday)) continue;
     const item: TodayItem = {
       ...x,
       due,

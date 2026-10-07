@@ -126,6 +126,8 @@ export function StationRow(props: {
   onOpen?: () => void;
   pending?: boolean;
   shopping?: boolean;
+  /** Ostrzeżenie na czerwono, np. „zaległe od 2 dni” (D61). */
+  alert?: string;
   testID?: string;
 }) {
   const { c, font, size, line } = useTheme();
@@ -148,6 +150,7 @@ export function StationRow(props: {
         style={{ flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' }}
       >
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
+        {props.alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>{props.alert}</Text> : null}
         {props.group || props.meta?.length || props.pending ? (
           <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
             {props.group ? <Text style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text> : null}
@@ -334,20 +337,20 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 }
 
 /**
- * Wiersz wydarzenia: godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
+ * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
  * tytuł i grupa. Całość otwiera wydarzenie.
  */
-export function EventRow({ title, time, line, group, recurring, onPress, testID }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string }) {
+export function EventRow({ title, time, line, group, recurring, onPress, testID, faded }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
-        <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: l.line }} />
+        <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: faded ? c.control : l.line }} />
       </View>
       <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
-        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.ink }}>{title}</Text>
+        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
           {'  ·  '}

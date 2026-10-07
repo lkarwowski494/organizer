@@ -54,7 +54,7 @@ export function ListScreen({ route, navigation }: Props) {
           title={t.title}
           line={list.line}
           depth={t.depth}
-          meta={[...(t.due ? [formatDue(t.due, today)] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
+          meta={[...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
           checked={done || t.completed_at !== null}
           pending={pendingIds.has(t.id)}
           shopping={shopping}
