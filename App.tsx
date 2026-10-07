@@ -2,8 +2,8 @@
 import { AtkinsonHyperlegibleNext_400Regular } from '@expo-google-fonts/atkinson-hyperlegible-next/400Regular';
 import { AtkinsonHyperlegibleNext_600SemiBold } from '@expo-google-fonts/atkinson-hyperlegible-next/600SemiBold';
 import { AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hyperlegible-next/700Bold';
-import { SchibstedGrotesk_700Bold } from '@expo-google-fonts/schibsted-grotesk/700Bold';
-import { SchibstedGrotesk_800ExtraBold } from '@expo-google-fonts/schibsted-grotesk/800ExtraBold';
+import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 
@@ -14,8 +14,8 @@ const deps = realDeps();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    SchibstedGrotesk_700Bold,
-    SchibstedGrotesk_800ExtraBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
     AtkinsonHyperlegibleNext_400Regular,
     AtkinsonHyperlegibleNext_600SemiBold,
     AtkinsonHyperlegibleNext_700Bold,

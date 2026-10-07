@@ -3,7 +3,7 @@ import { contrastMin, contrastPairs, groupLines, palettes, type Scheme, sizes } 
 
 const schemes: Scheme[] = ['light', 'dark'];
 
-describe.each(schemes)('motyw „Linie”, tryb %s, spełnia progi czytelności', (scheme) => {
+describe.each(schemes)('motyw „Wstążki”, tryb %s, spełnia progi czytelności', (scheme) => {
   const c = palettes[scheme];
 
   it.each(contrastPairs(c).map((p) => [p.use, p]))('%s', (_use, p) => {
@@ -41,6 +41,6 @@ describe('motyw — reszta', () => {
   it('test łapie słabą parę (kontrola samego testu)', () => {
     expect(contrastRatio('#94A3B8', palettes.light.surface)).toBeLessThan(contrastMin.NON_TEXT);
     expect(contrastRatio('#D97706', palettes.light.ground)).toBeLessThan(contrastMin.NON_TEXT);
-    expect(contrastRatio(palettes.light.inkTab, palettes.light.ground)).toBeLessThan(contrastMin.TEXT);
+    expect(contrastRatio(palettes.dark.inkMuted, palettes.light.surface)).toBeLessThan(contrastMin.TEXT);
   });
 });

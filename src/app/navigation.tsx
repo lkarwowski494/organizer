@@ -41,7 +41,7 @@ const TAB_LABELS: Record<keyof TabParams, string> = {
   Groups: strings['tabs.groups'],
 };
 
-/** Pasek zakładek z makiety: aktywna zakładka ma kreskę nad etykietą (nie tylko kolor). */
+/** Pasek zakładek z makiety „Wstążki”: zaokrąglony u góry, aktywna zakładka w pigułce (nie tylko kolor). */
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const { c, font, size } = useTheme();
   const insets = useSafeAreaInsets();
@@ -50,7 +50,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   // Plakietka na „Dziś”: przekazania czekające na moją decyzję (D70).
   const pending = incomingHandoffs(tables, userId).length;
   return (
-    <View accessibilityRole="tablist" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border }}>
+    <View accessibilityRole="tablist" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
       {state.routes.map((r, i) => {
         const on = state.index === i;
         const label = TAB_LABELS[r.name as keyof TabParams];
@@ -65,9 +65,9 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             onPress={() => !on && navigation.navigate(r.name)}
             style={{ flex: 1, minHeight: size.TOUCH_TARGET + 8, alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
-            <View style={{ width: 22, height: 6, borderRadius: 3, backgroundColor: on ? c.ink : 'transparent' }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontFamily: font.text700, fontSize: 12, color: on ? c.ink : c.inkTab }}>{label}</Text>
+            {/* Aktywna zakładka jako pigułka w kolorze akcentu (D72) — wyróżniona kształtem, nie tylko kolorem. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? c.accentBg : 'transparent' }}>
+              <Text style={{ fontFamily: font.text700, fontSize: 12, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
               {badge ? (
                 <View testID="tab-badge" style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
                   <Text style={{ fontFamily: font.text700, fontSize: 11, color: c.inverseInk }}>{badge}</Text>

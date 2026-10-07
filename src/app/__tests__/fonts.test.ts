@@ -6,7 +6,7 @@ const app = readFileSync(join(__dirname, '../../../App.tsx'), 'utf8');
 const theme = readFileSync(join(__dirname, '../../ui/theme.tsx'), 'utf8');
 
 it('każdy krój z motywu jest ładowany i żaden ładowany nie jest zbędny', () => {
-  const used = [...theme.matchAll(/'((?:SchibstedGrotesk|AtkinsonHyperlegibleNext)_\w+)'/g)].map((m) => m[1]).sort();
+  const used = [...theme.matchAll(/'((?:BricolageGrotesque|AtkinsonHyperlegibleNext)_\w+)'/g)].map((m) => m[1]).sort();
   const loaded = [...app.matchAll(/import \{ (\w+) \} from '@expo-google-fonts\/[\w-]+\/(\w+)'/g)].map((m) => m[1]).sort();
   expect(used.length).toBe(5);
   expect(loaded).toEqual(used);

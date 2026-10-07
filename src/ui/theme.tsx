@@ -9,8 +9,8 @@ import { useColorScheme } from 'react-native';
 import { groupLines, type Palette, palettes, type Scheme, sizes } from '../config/theme';
 
 export const fontFamily = {
-  display800: 'SchibstedGrotesk_800ExtraBold',
-  display700: 'SchibstedGrotesk_700Bold',
+  display800: 'BricolageGrotesque_800ExtraBold',
+  display700: 'BricolageGrotesque_700Bold',
   text400: 'AtkinsonHyperlegibleNext_400Regular',
   text600: 'AtkinsonHyperlegibleNext_600SemiBold',
   text700: 'AtkinsonHyperlegibleNext_700Bold',
