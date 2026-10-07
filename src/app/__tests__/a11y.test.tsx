@@ -17,6 +17,10 @@ function baseWithEvent() {
   const t = sampleBase();
   put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', deleted_at: null, version: 1 });
   put(t, 'event_participants', 'p', { id: 'p', event_id: 'ev', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+  // Przekazania (D70): jedno do mnie, jedno moje odrzucone — „Do potwierdzenia” i plakietka na zakładce.
+  const h = { group_id: 'gf', entity: 'tasks', occurrence_date: null, closed: false, decided_at: null, version: 1, created_at: '2026-10-07T07:00:00Z', deleted_at: null };
+  put(t, 'handoffs', 'h1', { ...h, id: 'h1', entity_id: 't-ala', from_member: 'ala', to_member: 'mf', status: 'pending' });
+  put(t, 'handoffs', 'h2', { ...h, id: 'h2', entity_id: 't-kwiaty', from_member: 'mf', to_member: 'ala', status: 'declined' });
   return t;
 }
 
@@ -64,6 +68,7 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
     await p('Dodaj');
   }],
   ['Zadanie', async (p) => p('Otwórz: Odebrać paczkę')],
+  ['Zadanie: przekazanie', async (p) => (await p('Otwórz: Odebrać paczkę'), await p('Przekaż zadanie'))],
   ['Dotyczy mnie: tydzień', async (p) => p('Tydzień')],
   ['Dotyczy mnie: wczoraj', async (p) => p('Poprzedni dzień')],
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],

@@ -17,6 +17,8 @@ import { localNow } from '../../app/clock';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';
+import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
+import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
@@ -39,6 +41,8 @@ export function TodayScreen() {
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
   const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
+  const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
+  const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
   const tokens = text ? parseQuickAdd(text, now(), { ignore }).tokens : [];
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
@@ -129,6 +133,7 @@ export function TodayScreen() {
           </Pressable>
         )}
       </View>
+      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}
       {pinned.length ? (
         <View>

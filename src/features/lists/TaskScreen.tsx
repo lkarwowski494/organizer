@@ -17,6 +17,8 @@ import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
+import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
+import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
@@ -62,6 +64,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [sub, setSub] = useState('');
   const [picking, setPicking] = useState(false);
+  const [handing, setHanding] = useState(false);
 
   if (!task || !detail) {
     return (
@@ -86,7 +89,11 @@ export function TaskScreen({ route, navigation }: Props) {
   const linked = task.event_id !== null && task.occurrence_date !== null;
   const linkedDue = linked ? occurrenceResolver(tables)(task.event_id!, task.occurrence_date!) : null;
   const linkedEvent = linked ? asEvent(tables.events?.[task.event_id!] ?? { id: task.event_id, group_id: task.group_id, start_date: task.occurrence_date }) : null;
-  const canEdit = myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
+  const membership = myMemberships(tables, userId).get(task.group_id);
+  const canEdit = membership?.role !== 'child';
+  // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
+  const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
+  const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
   const save = () => {
     if (title.trim() && title.trim() !== task.title) store.dispatch(patchTask(task.id, { title: title.trim() }));
     if ((note.trim() || null) !== task.note) store.dispatch(patchTask(task.id, { note: note.trim() || null }));
@@ -176,6 +183,25 @@ export function TaskScreen({ route, navigation }: Props) {
             />
           ) : null}
         </View>
+      ) : null}
+      {mine && canEdit ? (
+        waiting ? (
+          <View style={{ gap: 8 }}>
+            <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
+            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+          </View>
+        ) : handing ? (
+          <HandoffPicker
+            targets={handoffTargets(tables, userId, task.group_id)}
+            onPick={(m) => {
+              store.dispatch(createHandoff({ id: newId(), groupId: task.group_id, entity: 'tasks', entityId: task.id, toMember: m.member_id }));
+              setHanding(false);
+            }}
+            onCancel={() => setHanding(false)}
+          />
+        ) : (
+          <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
+        )
       ) : null}
       <Segmented
         label={strings['task.assignee']}
