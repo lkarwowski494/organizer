@@ -20,6 +20,16 @@ export const config = {
     TOMBSTONE_DAYS: 30,
     /** Wersja protokołu; klient ze starszą dostaje upgrade_required. */
     SCHEMA_VERSION: 1,
+    /**
+     * Pętla synchronizacji (raport architektury, „Ograniczenie R1”): wysyłka ok. 1 s po lokalnej zmianie,
+     * timer co 30–60 s, gdy kolejka nie jest pusta (wybrane 30 s), ponawianie z opóźnieniem 1 s → 60 s.
+     * Mnożnik 2 to mój wybór (standardowe podwajanie), bez źródła zewnętrznego.
+     */
+    PUSH_DEBOUNCE_MS: 1000,
+    PENDING_TIMER_MS: 30_000,
+    BACKOFF_MIN_MS: 1000,
+    BACKOFF_MAX_MS: 60_000,
+    BACKOFF_FACTOR: 2,
   },
 
   /**
