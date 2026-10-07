@@ -1,0 +1,310 @@
+/**
+ * Ekrany przez prawdziwą nawigację (RootStack): użytkownik dotyka, pisze i widzi skutek.
+ * Stan to ten sam silnik co w aplikacji (mutate + materialize), więc zmiana offline widać od razu.
+ */
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { Share } from 'react-native';
+
+import { RootStack } from '../navigation';
+import { fakeAccount, ME, sampleBase, setup } from './harness';
+
+async function open(opts: Parameters<typeof setup>[0] = {}) {
+  const s = setup(opts);
+  await s.renderApp(<RootStack />);
+  await screen.findByTestId('screen-today');
+  return s;
+}
+const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
+const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
+
+describe('Dotyczy mnie', () => {
+  it('sekcje, moje sprawy z grup, bez cudzych przypisanych', async () => {
+    await open();
+    expect(screen.getByText('Środa, 7 października')).toBeTruthy();
+    expect(screen.getByText('Przypięte')).toBeTruthy();
+    expect(screen.getByText('Oddać książki do biblioteki')).toBeTruthy();
+    expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
+    expect(screen.getByText('Jutro')).toBeTruthy();
+    expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
+    expect(screen.queryByText('Zadanie Ali')).toBeNull();
+    expect(within(screen.getByTestId('today-t-paczka')).getByText(/dziś · 18:00/)).toBeTruthy();
+  });
+
+  it('szybkie dodawanie: chip terminu, odklikanie zostawia słowo w tytule, nowa lista w grupie osobistej gdy brak', async () => {
+    const base = sampleBase();
+    delete base.lists!.lp;
+    delete base.tasks!['t-books'];
+    const { store } = await open({ base });
+    await type(screen.getByTestId('quick-add'), 'mleko jutro');
+    expect(screen.getByLabelText(/Rozpoznano: jutro/)).toBeTruthy();
+    await press(screen.getByLabelText('Dodaj'));
+    expect(store.dispatched.map((o) => o.kind)).toEqual(['create', 'create']);
+    expect(store.dispatched[0]).toMatchObject({ entity: 'lists', group_id: ME, set: { name: 'Moje zadania' } });
+    expect(await screen.findByText('mleko')).toBeTruthy();
+    await type(screen.getByTestId('quick-add'), 'wtorek jutro');
+    await press(screen.getByLabelText(/Rozpoznano: jutro/));
+    expect(screen.queryByLabelText(/Rozpoznano: jutro/)).toBeNull();
+    await press(screen.getByLabelText('Dodaj'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'wtorek jutro', deadline_mode: 'none' } });
+  });
+
+  it('pusty tekst nic nie dodaje; odhaczenie znika z widoku', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Dodaj'));
+    expect(store.dispatched).toHaveLength(0);
+    await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
+    expect(store.dispatched[0]).toMatchObject({ kind: 'patch', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    expect(screen.queryByText('Kupić kwiaty')).toBeNull();
+  });
+
+  it('pusty dzień: zachęta; wskaźnik offline z liczbą zmian', async () => {
+    const base = sampleBase();
+    base.tasks = {};
+    await open({ base, indicator: { state: 'offline', pending: 2 } });
+    expect(screen.getByText('Na dziś nic. Dodaj coś polem powyżej.')).toBeTruthy();
+    expect(screen.getByLabelText('Stan synchronizacji: Offline · 2 zmiany czekają')).toBeTruthy();
+  });
+});
+
+describe('Listy i zadania', () => {
+  it('lista zakupów: odhaczenie przenosi do „W koszyku”, dodanie produktu, nowa pozycja czeka na wysłanie', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lz'));
+    expect(await screen.findByText('Zakupy na weekend')).toBeTruthy();
+    expect(screen.getByText('W koszyku')).toBeTruthy();
+    await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
+    expect(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni')).toBeTruthy();
+    await type(screen.getByTestId('quick-add'), 'jabłka');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'jabłka' } });
+    expect(within(screen.getByTestId(`task-${(store.dispatched.at(-1) as { id: string }).id}`)).getByText(/czeka na wysłanie/)).toBeTruthy();
+  });
+
+  it('zadanie: edycja tytułu, terminu z walidacją, osoby, podzadanie, usunięcie i cofnięcie', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Otwórz: Kupić kwiaty'));
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
+    await type(screen.getByTestId('task-date'), '2026-02-30');
+    await press(screen.getByTestId('task-save'));
+    expect(screen.getByText('Wpisz datę jako RRRR-MM-DD, np. 2026-10-09')).toBeTruthy();
+    await type(screen.getByTestId('task-date'), '2026-10-09');
+    await type(screen.getByTestId('task-time'), '25:00');
+    await press(screen.getByTestId('task-save'));
+    expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
+    await press(screen.getByLabelText('Ala'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
+    await press(screen.getByLabelText('Dla każdego'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
+    await type(screen.getByTestId('task-sub'), 'wstążka');
+    await press(screen.getAllByLabelText('Dodaj podzadanie').at(-1)!);
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
+    expect(await screen.findByText('wstążka')).toBeTruthy();
+    await type(screen.getByTestId('task-time'), '17:30');
+    await type(screen.getByTestId('task-note'), 'tulipany');
+    await press(screen.getByTestId('task-save'));
+    const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));
+    expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' }]));
+    // Termin 9.10 jest poza „dziś/jutro”, więc zadanie znika z Dotyczy mnie — otwieramy je z listy.
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(screen.queryByText('Kupić kwiaty dla babci')).toBeNull();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    expect((await screen.findAllByText(/pt\. 9 paź · 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
+    await press(screen.getByLabelText('Otwórz: Kupić kwiaty dla babci'));
+    await press(await screen.findByLabelText('Usuń zadanie'));
+    expect(await screen.findByText('Zadanie usunięte')).toBeTruthy();
+    await press(screen.getByLabelText('Cofnij usunięcie'));
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    await press(screen.getByLabelText('Usuń termin'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
+  });
+
+  it('nowa lista prywatna w grupie wspólnej i usunięcie listy', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByLabelText('Nowa lista'));
+    expect(screen.getByLabelText('Utwórz listę').props.accessibilityState.disabled).toBe(true);
+    await type(screen.getByTestId('list-name'), 'Prezenty');
+    await press(screen.getByLabelText('Rodzina'));
+    await press(screen.getByLabelText('Tylko ja'));
+    await press(screen.getByTestId('create-list'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Prezenty', kind: 'tasks', visibility: 'private' } });
+    expect(await screen.findByText('Lista jest pusta.')).toBeTruthy();
+    await press(screen.getByLabelText('Usuń listę'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'delete', entity: 'lists' });
+  });
+});
+
+describe('Kalendarz', () => {
+  it('miesiąc, święto, zadania dnia, nawigacja po miesiącach', async () => {
+    await open();
+    await press(screen.getByLabelText('Kalendarz'));
+    expect(await screen.findByText('Październik 2026')).toBeTruthy();
+    expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
+    await press(screen.getByTestId('day-2026-10-08'));
+    expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
+    await press(screen.getByTestId('day-2026-10-09'));
+    expect(screen.getByText('Tego dnia nic nie ma.')).toBeTruthy();
+    await press(screen.getByLabelText('Następny miesiąc'));
+    expect(screen.getByText('Listopad 2026')).toBeTruthy();
+    expect(screen.getByLabelText('Niedziela, 1 listopada, Wszystkich Świętych')).toBeTruthy();
+    for (let i = 0; i < 2; i++) await press(screen.getByLabelText('Następny miesiąc'));
+    expect(screen.getByText('Styczeń 2027')).toBeTruthy();
+    for (let i = 0; i < 3; i++) await press(screen.getByLabelText('Poprzedni miesiąc'));
+    expect(screen.getByText('Październik 2026')).toBeTruthy();
+  });
+});
+
+describe('Grupy', () => {
+  it('lista grup, szczegóły, zaproszenie z udostępnieniem i unieważnieniem, dziecko, zmiana nazwy', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    const { store, account } = await open();
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    expect(await screen.findByText('Rodzina')).toBeTruthy();
+    // Domyślny normalizator RNTL skleja wielokrotne spacje w jedną.
+    expect(screen.getByText(/^Ala · właściciel$/)).toBeTruthy();
+    expect(screen.queryByLabelText('Zaproś jako admina')).toBeNull();
+    await press(screen.getByTestId('invite'));
+    expect(account.createInvite).toHaveBeenCalledWith('gf', 'member');
+    expect(await screen.findByText('Ważny 7 dni, do 10 osób.')).toBeTruthy();
+    await press(screen.getByLabelText('Udostępnij link'));
+    expect(share).toHaveBeenCalledWith({ message: expect.stringContaining('://invite/') });
+    await press(screen.getByLabelText('Unieważnij link'));
+    expect(account.revokeInvite).toHaveBeenCalledWith('inv-1');
+    await type(screen.getByTestId('child-name'), 'Zosia');
+    await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', group_id: 'gf', set: { display_name: 'Zosia', role: 'child' } });
+    expect(await screen.findByText(/^Zosia · dziecko$/)).toBeTruthy();
+    await type(screen.getByTestId('group-rename'), 'Rodzina K.');
+    await press(screen.getByLabelText('Zmień nazwę grupy'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } });
+    share.mockRestore();
+  });
+
+  it('błąd serwera przy zaproszeniu: komunikat; wyjście z grupy z potwierdzeniem', async () => {
+    const account = fakeAccount({ createInvite: jest.fn(async () => Promise.reject(new Error('offline'))) });
+    const { store } = await open({ account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('invite'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    await press(screen.getByTestId('leave'));
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('leave'));
+    await press(screen.getByTestId('leave-confirm'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'mf' });
+    expect(await screen.findByTestId('screen-groups')).toBeTruthy();
+    expect(screen.queryByTestId('group-gf')).toBeNull();
+  });
+
+  it('owner: zaprasza admina, nie może wyjść; grupa osobista bez zaproszeń', async () => {
+    const base = sampleBase();
+    base.group_members!.mf = { ...base.group_members!.mf, role: 'owner' };
+    const { account } = await open({ base });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByLabelText('Zaproś jako admina'));
+    expect(account.createInvite).toHaveBeenCalledWith('gf', 'admin');
+    expect(screen.getByText(/Właściciel nie wychodzi z grupy/)).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId(`group-${ME}`));
+    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    expect(screen.queryByTestId('invite')).toBeNull();
+    expect(screen.queryByTestId('leave')).toBeNull();
+  });
+
+  it('nowa grupa przez serwer; błąd sieci pokazuje komunikat', async () => {
+    let fail = true;
+    const account = fakeAccount({ createGroup: jest.fn(async () => (fail ? Promise.reject(new Error('x')) : undefined)) });
+    const { store } = await open({ account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Nowa grupa'));
+    await type(screen.getByTestId('group-name'), 'Znajomi');
+    await press(screen.getByTestId('create-group'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    fail = false;
+    await press(screen.getByTestId('create-group'));
+    expect(account.createGroup).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Znajomi', displayName: 'Łukasz' }));
+    expect(store.refresh).toHaveBeenCalled();
+  });
+
+  it('przyjęcie zaproszenia z wklejonego linku: zły link, wygasły, poprawny', async () => {
+    const tok = 'ab'.repeat(32);
+    let code = 'invite_expired';
+    const account = fakeAccount({ acceptInvite: jest.fn(async () => (code ? Promise.reject(new Error(code)) : { groupId: 'gf' })) });
+    const { store } = await open({ account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Dołącz z linku'));
+    await type(screen.getByTestId('invite-input'), 'https://zly.link');
+    await press(screen.getByTestId('invite-accept'));
+    expect(screen.getByText('Ten link jest nieważny albo wygasł. Poproś o nowy.')).toBeTruthy();
+    expect(account.acceptInvite).not.toHaveBeenCalled();
+    await type(screen.getByTestId('invite-input'), `io.github.lkarwowski494.organizer://invite/${tok}`);
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText('Ten link jest nieważny albo wygasł. Poproś o nowy.')).toBeTruthy();
+    code = 'network';
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    code = '';
+    await press(screen.getByTestId('invite-accept'));
+    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
+    expect(store.refresh).toHaveBeenCalled();
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+});
+
+describe('Ustawienia', () => {
+  it('odrzucone zmiany z opisem; usunięcie konta po wpisaniu słowa; wylogowanie', async () => {
+    const base = sampleBase();
+    const s = setup({ base });
+    const rejected = [
+      { op: { seq: 3, op_id: 'o3', kind: 'patch' as const, entity: 'tasks' as const, id: 't', set: { title: 'Pranie' } }, code: 'forbidden:child' },
+      { op: { seq: 4, op_id: 'o4', kind: 'cmd' as const, cmd: 'move_task', args: {} }, code: 'cycle' },
+      { op: { seq: 5, op_id: 'o5', kind: 'delete' as const, entity: 'lists' as const, id: 'l' }, code: 'not_found' },
+      { op: { seq: 6, op_id: 'o6', kind: 'create' as const, entity: 'tasks' as const, id: 'x', group_id: 'g', set: { title: 'Głęboko' } }, code: 'depth_exceeded' },
+      { op: { seq: 7, op_id: 'o7', kind: 'restore' as const, entity: 'tasks' as const, id: 'y' }, code: 'coś_innego' },
+    ];
+    await act(async () => {
+      s.store.getSnapshot().state = { ...s.store.getSnapshot().state, rejected } as never;
+    });
+    await s.renderApp(<RootStack />);
+    await press(await screen.findByLabelText('Ustawienia'));
+    expect(await screen.findByText('5 zmian')).toBeTruthy();
+    await press(screen.getByTestId('open-rejected'));
+    expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
+    expect(screen.getByText('Brak uprawnień')).toBeTruthy();
+    expect(screen.getByText('Polecenie: move_task')).toBeTruthy();
+    expect(screen.getByText('Przeniesienie utworzyłoby pętlę zadań')).toBeTruthy();
+    expect(screen.getByText('Element został w międzyczasie usunięty')).toBeTruthy();
+    expect(screen.getByText('Za głębokie zagnieżdżenie podzadań')).toBeTruthy();
+    expect(screen.getByText('Przywrócenie')).toBeTruthy();
+    expect(screen.getByText('Zmiana niezgodna z danymi na serwerze')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
+    await press(screen.getByTestId('delete-start'));
+    await type(screen.getByTestId('delete-word'), 'usun');
+    expect(screen.getByTestId('delete-confirm').props.accessibilityState.disabled).toBe(true);
+    await type(screen.getByTestId('delete-word'), 'usuń');
+    await press(screen.getByTestId('delete-confirm'));
+    expect(s.account.deleteAccount).toHaveBeenCalled();
+    await press(screen.getByTestId('sign-out'));
+    expect(s.account.signOut).toHaveBeenCalled();
+  });
+
+  it('błąd usuwania konta: komunikat; anulowanie czyści pole', async () => {
+    const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(new Error('x'))) });
+    await open({ account });
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('delete-start'));
+    await type(screen.getByTestId('delete-word'), 'USUŃ');
+    await press(screen.getByTestId('delete-confirm'));
+    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    await press(screen.getByLabelText('Anuluj'));
+    expect(screen.queryByTestId('delete-word')).toBeNull();
+    await press(screen.getByLabelText('Odrzucone zmiany, 0 zmian'));
+    expect(await screen.findByText('Serwer przyjął wszystkie Twoje zmiany.')).toBeTruthy();
+  });
+});
