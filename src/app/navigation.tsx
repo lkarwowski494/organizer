@@ -24,6 +24,7 @@ import { TaskScreen } from '../features/lists/TaskScreen';
 import { RejectedScreen } from '../features/settings/RejectedScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { TodayScreen } from '../features/today/TodayScreen';
+import { WelcomeScreen } from '../features/welcome/WelcomeScreen';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
@@ -113,6 +114,7 @@ export function RootStack() {
       <Stack.Screen name="Invite" component={InviteScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack.Navigator>
       </RemindersProvider>
     </>

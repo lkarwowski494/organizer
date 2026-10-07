@@ -18,7 +18,7 @@ import { parseAuthCallback } from '../sync/supabase';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
-import { AppProvider, type AppServices } from './context';
+import { AppProvider, type AppServices, type Prefs } from './context';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
@@ -32,6 +32,7 @@ export type RootDeps = {
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
   push?: DevicePush;
+  prefs?: Prefs;
   transport: SyncTransport;
   /** Baza per użytkownik (osobny plik), więc po zmianie konta nic nie przecieka między osobami. */
   openDb(userId: string): DbAdapter;
@@ -108,6 +109,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       account: deps.account,
       calendar: deps.calendar,
       push: deps.push,
+      prefs: deps.prefs,
       userId: session.userId,
       displayName: session.displayName,
       newId: deps.newId,

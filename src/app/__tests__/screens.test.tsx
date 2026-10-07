@@ -88,7 +88,7 @@ describe('Dotyczy mnie', () => {
     const base = sampleBase();
     base.tasks = {};
     await open({ base, indicator: { state: 'offline', pending: 2 } });
-    expect(screen.getByText('Na dziś nic. Dodaj coś polem powyżej.')).toBeTruthy();
+    expect(screen.getByText(/^Na dziś nic. Dodaj coś polem powyżej/)).toBeTruthy();
     expect(screen.getByLabelText('Stan synchronizacji: Offline · 2 zmiany czekają')).toBeTruthy();
   });
 });
@@ -176,7 +176,7 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Tylko ja'));
     await press(screen.getByTestId('create-list'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Prezenty', kind: 'tasks', visibility: 'private' } });
-    expect(await screen.findByText('Lista jest pusta.')).toBeTruthy();
+    expect(await screen.findByText(/^Lista jest pusta./)).toBeTruthy();
     await press(screen.getByLabelText('Usuń listę'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'delete', entity: 'lists' });
   });

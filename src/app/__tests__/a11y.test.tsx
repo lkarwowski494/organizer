@@ -87,6 +87,8 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz kodem zaproszenia'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
+  ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
+  ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Odrzucone', async (p) => (await p('Ustawienia'), await p('Odrzucone zmiany, 0 zmian'))],
 ];
 

@@ -44,6 +44,7 @@ export function realDeps(): RootDeps {
     account: supabaseAccount(sb, apple),
     calendar: expoDeviceCalendar,
     push: expoDevicePush,
+    prefs: { get: (k) => SecureStore.getItemAsync(`pref.${k}`), set: (k, v) => SecureStore.setItemAsync(`pref.${k}`, v) },
     appearance: { load: () => SecureStore.getItemAsync('appearance'), save: (a) => SecureStore.setItemAsync('appearance', a) },
     transport: supabaseTransport(sb),
     session: {
