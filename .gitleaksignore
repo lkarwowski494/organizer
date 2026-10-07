@@ -1,0 +1,2 @@
+# Fałszywy alarm: szablon PEM w teście (klucz generowany w teście, nie sekret); poprawione w następnym commicie.
+b66dbd4dc9717f2cbe0585c792aebd1ef7395294:supabase/functions/notify-handoff/handler_test.ts:apple-p8-private-key:17
