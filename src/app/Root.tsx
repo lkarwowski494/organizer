@@ -3,7 +3,7 @@
  * Wszystkie zależności zewnętrzne przychodzą w `deps`, więc test podaje atrapy (src/app/__tests__/root.test.tsx),
  * a App.tsx — prawdziwe moduły (src/app/wiring.ts).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,7 +11,7 @@ import { readState, writeState } from '../data/store';
 import type { DbAdapter } from '../data/db/adapter';
 import { migrate } from '../data/db/migrations';
 import { strings } from '../i18n/strings.pl';
-import type { AccountApi } from '../sync/account';
+import type { AccountApi, ClientError } from '../sync/account';
 import { SyncRuntime } from '../sync/runtime';
 import type { SyncTransport } from '../sync/transport';
 import { parseAuthCallback } from '../sync/supabase';
@@ -19,6 +19,7 @@ import { SignInScreen } from '../features/auth/SignInScreen';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
 import { AppProvider, type AppServices, type Prefs } from './context';
+import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
@@ -45,6 +46,9 @@ export type RootDeps = {
   nowMs?: () => number;
   setTimer?: (fn: () => void, ms: number) => () => void;
 };
+
+/** Bez globalnego ErrorUtils (np. środowisko testów) — nic nie podmieniamy. */
+const NO_ERROR_UTILS = { getGlobalHandler: () => () => {}, setGlobalHandler: () => {} };
 
 function Loading() {
   const { c, font } = useTheme();
@@ -120,9 +124,16 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
     [runtime, deps, session, nowMs],
   );
 
+  // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).
+  const report = useCallback((e: ClientError) => void deps.account.reportError(e).catch(() => {}), [deps]);
+  useEffect(() => installGlobalHandler((globalThis as unknown as { ErrorUtils: Parameters<typeof installGlobalHandler>[0] }).ErrorUtils ?? NO_ERROR_UTILS, report, appVersion()), [report]);
+  const { c } = useTheme();
+
   return (
     <AppProvider services={services}>
-      <AppNavigation />
+      <ErrorBoundary report={report} version={appVersion()} colors={c}>
+        <AppNavigation />
+      </ErrorBoundary>
     </AppProvider>
   );
 }

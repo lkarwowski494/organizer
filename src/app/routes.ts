@@ -19,6 +19,7 @@ export type RootStackParams = {
   Rejected: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
+  Feedback: undefined;
 };
 
 export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };

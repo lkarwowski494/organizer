@@ -120,6 +120,12 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     async registerPushToken(token, env) {
       await call(client, 'register_push_token', { p_token: token, p_env: env });
     },
+    async reportError(e) {
+      await call(client, 'report_client_error', { p_kind: e.kind, p_message: e.message, p_stack: e.stack, p_screen: e.screen, p_app_version: e.appVersion });
+    },
+    async sendFeedback(a) {
+      await call(client, 'send_feedback', { p_message: a.message, p_screen: a.screen, p_app_version: a.appVersion });
+    },
     async notifyHandoff(handoffId) {
       check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { handoffId } }));
     },

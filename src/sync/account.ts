@@ -5,6 +5,9 @@
  */
 export type Invite = { inviteId: string; token: string; url: string; expiresAt: string; maxUses: number };
 
+/** Zgłoszenie błędu (D80): bez treści z tabel. */
+export type ClientError = { kind: 'crash' | 'error'; message: string; stack: string | null; screen: string | null; appVersion: string };
+
 export interface AccountApi {
   signInWithApple(): Promise<void>;
   /** Magic link (D5): wysyła e-mail z linkiem io.github.lkarwowski494.organizer://… */
@@ -25,4 +28,8 @@ export interface AccountApi {
   registerPushToken(token: string, env: 'sandbox' | 'production'): Promise<void>;
   /** Poproś serwer o powiadomienie drugiej strony przekazania (funkcja notify-handoff; serwer decyduje, czy wysłać). */
   notifyHandoff(handoffId: string): Promise<void>;
+  /** Błąd z telefonu (D80) — serwer liczy limit dzienny; nieudane zgłoszenie nie jest zgłaszane dalej. */
+  reportError(e: ClientError): Promise<void>;
+  /** Opinia z Ustawień (D80). Błąd `rate_limited`, gdy dzienny limit wyczerpany. */
+  sendFeedback(a: { message: string; screen: string | null; appVersion: string }): Promise<void>;
 }
