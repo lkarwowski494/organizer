@@ -1,5 +1,5 @@
 /** Push o przekazaniach (D70): prośba o zgodę na „Dotyczy mnie”, rejestracja tokenu, prośba o powiadomienie. */
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
 import { fakeAccount, fakePush, put, sampleBase, setup } from './harness';
@@ -19,7 +19,7 @@ describe('prośba o powiadomienia', () => {
   it('„Włącz” pyta system i rejestruje token', async () => {
     const push = fakePush();
     const { account } = await open({ push });
-    expect(screen.getByText('Powiadomienia o przekazaniach')).toBeTruthy();
+    expect(screen.getByText('Przypomnienia i powiadomienia')).toBeTruthy();
     push.status.mockResolvedValue('granted');
     await press(screen.getByTestId('push-enable'));
     await flush();
@@ -40,7 +40,7 @@ describe('prośba o powiadomienia', () => {
     expect(p2.dismiss).toHaveBeenCalled();
   });
 
-  it('nie pyta: już zdecydowane, „Nie teraz” wcześniej, brak wspólnej grupy, brak push', async () => {
+  it('nie pyta: już zdecydowane, „Nie teraz” wcześniej, brak push; pyta też bez wspólnej grupy (przypomnienia)', async () => {
     await open({ push: fakePush({ status: jest.fn(async () => 'denied' as const) }) });
     expect(screen.queryByTestId('push-prompt')).toBeNull();
     await open({ push: fakePush({ dismissed: jest.fn(async () => true) }) });
@@ -48,7 +48,7 @@ describe('prośba o powiadomienia', () => {
     const base = sampleBase();
     for (const g of ['gf', 'gk']) put(base, 'groups', g, { ...base.groups![g]!, deleted_at: 'x' });
     await open({ base, push: fakePush() });
-    expect(screen.queryByTestId('push-prompt')).toBeNull();
+    expect(screen.getAllByTestId('push-prompt').length).toBeGreaterThan(0);
     await open();
     expect(screen.queryByTestId('push-prompt')).toBeNull();
   });
@@ -68,5 +68,56 @@ describe('powiadomienie drugiej strony', () => {
     store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
     await flush();
     expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('przypomnienia (D75)', () => {
+  it('ze zgodą planuje przypomnienia z danych; ustawienia zmieniają plan i są zapamiętane', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    try {
+      const push = fakePush({ status: jest.fn(async () => 'granted' as const) });
+      await open({ push });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      await flush();
+      const first = push.replaceReminders.mock.calls.at(-1)![0];
+      // Odebrać paczkę dziś 18:00 → 17:30; Przynieść korki 17:30 → 17:00 (czas warszawski).
+      expect(first.map((r) => [r.title, r.body])).toEqual(expect.arrayContaining([['Odebrać paczkę', '18:00 · Rodzina'], ['Przynieść korki na trening', '17:30 · Klasa 2b']]));
+      await press(screen.getByLabelText('Ustawienia'));
+      await screen.findByTestId('screen-settings');
+      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
+      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '08:00' });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      await flush();
+      expect(push.replaceReminders.mock.calls.at(-1)![0].filter((r) => !r.id.startsWith('m|'))).toEqual([]);
+      await press(screen.getByLabelText('9:00'));
+      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('bez zgody nie planuje; zapamiętane ustawienia wczytane; bez push brak sekcji w Ustawieniach', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    try {
+      const push = fakePush({ reminderSettings: jest.fn(async () => ({ leadMin: 60, morning: 'off' })) });
+      await open({ push });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+      await flush();
+      expect(push.replaceReminders).not.toHaveBeenCalled();
+      await press(screen.getByLabelText('Ustawienia'));
+      await screen.findByTestId('screen-settings');
+      expect(screen.getByLabelText('1 godz.').props.accessibilityState.selected).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+    await open();
+    await press(screen.getAllByLabelText('Ustawienia').at(-1)!);
+    expect(screen.queryByText('Przed sprawą z godziną')).toBeNull();
   });
 });

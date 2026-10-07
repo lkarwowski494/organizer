@@ -22,6 +22,24 @@ export const config = {
   PUSH_MAX_AGE_H: 24,
 
   /**
+   * Przypomnienia na telefonie (D75, decyzja właściciela z 7.10.2026): domyślnie 30 min przed sprawą z godziną
+   * i zbiorcze o 8:00 dla spraw bez godziny; osoba zmienia to w Ustawieniach. Wybory projektowe, bez źródła.
+   */
+  reminders: {
+    LEAD_MIN: 30,
+    LEAD_OPTIONS: [0, 10, 30, 60] as const,
+    MORNING: '08:00',
+    MORNING_OPTIONS: ['off', '07:00', '08:00', '09:00'] as const,
+    /** Ile dni naprzód planuje telefon (plan odświeża się przy każdej zmianie danych i uruchomieniu). */
+    DAYS_AHEAD: 3,
+    /**
+     * Najwyżej tyle zaplanowanych powiadomień naraz. Wybór projektowy z zapasem: iOS ogranicza liczbę oczekujących
+     * powiadomień lokalnych, ale dokładnej liczby nie znaleźliśmy w przeczytanej dokumentacji Apple — otwarte pytanie.
+     */
+    MAX_SCHEDULED: 40,
+  },
+
+  /**
    * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
    * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.
    * Źródło wartości: raport „Organizer grup architektura MVP” (paczka do ok. 100 operacji, porcja pull

@@ -12,12 +12,14 @@ import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
 import { useAppearance, useTheme } from '../../ui/theme';
+import { useReminderSettings } from '../../app/reminders';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 
 export function SettingsScreen({ navigation }: Props) {
   const { account, nowMs } = useServices();
   const { appearance, setAppearance } = useAppearance();
+  const reminders = useReminderSettings();
   const { state, indicator } = useAppData();
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
@@ -51,6 +53,24 @@ export function SettingsScreen({ navigation }: Props) {
           { value: 'dark', label: strings['settings.appearance.dark'] },
         ]}
       />
+      {reminders.available ? (
+        <>
+          <SectionTitle>{strings['reminders.section']}</SectionTitle>
+          <Segmented
+            label={strings['reminders.lead']}
+            value={String(reminders.settings.leadMin)}
+            onChange={(v) => reminders.setSettings({ ...reminders.settings, leadMin: Number(v) })}
+            options={config.reminders.LEAD_OPTIONS.map((m) => ({ value: String(m), label: strings[`reminders.lead.${m}`] }))}
+          />
+          <Segmented
+            label={strings['reminders.morning']}
+            value={reminders.settings.morning}
+            onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
+            options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m.replace(/^0/, '') }))}
+          />
+          <Body muted>{strings['reminders.info']}</Body>
+        </>
+      ) : null}
       <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
       <Button kind="secondary" label={strings['settings.signOut']} onPress={() => void account.signOut()} testID="sign-out" />
       <SectionTitle>{strings['settings.delete']}</SectionTitle>

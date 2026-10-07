@@ -29,6 +29,7 @@ import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
+import { RemindersProvider } from './reminders';
 import { SeriesFiller } from './SeriesFiller';
 import type { RootStackParams, TabParams } from './routes';
 
@@ -98,6 +99,7 @@ export function RootStack() {
     <>
       <SeriesFiller />
       <HandoffNotifier />
+      <RemindersProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
@@ -112,6 +114,7 @@ export function RootStack() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       </Stack.Navigator>
+      </RemindersProvider>
     </>
   );
 }

@@ -149,7 +149,7 @@ export function TodayScreen() {
           </Pressable>
         )}
       </View>
-      <PushPrompt shared={groups.some((g) => g.kind === 'shared')} />
+      <PushPrompt />
       <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}
       {pinned.length ? (

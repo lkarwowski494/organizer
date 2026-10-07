@@ -1,6 +1,6 @@
 /**
- * Prośba o powiadomienia na „Dotyczy mnie” (D70, ADR 0015): tylko gdy jestem we wspólnej grupie (przekazania mają
- * sens) i jeszcze nie pytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie.
+ * Prośba o powiadomienia na „Dotyczy mnie” (D70, D75; ADR 0015, 0016): przypomnienia dotyczą każdego, więc karta
+ * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie.
  */
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -11,20 +11,20 @@ import { strings } from '../../i18n/strings.pl';
 import { Body, Button } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
-export function PushPrompt({ shared }: { shared: boolean }) {
+export function PushPrompt() {
   const { push, account } = useServices();
   const { c, font } = useTheme();
   const [show, setShow] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!push || !shared) return;
+    if (!push) return;
     Promise.all([push.status(), push.dismissed()])
       .then(([s, d]) => live && setShow(s === 'undetermined' && !d))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [push, shared]);
+  }, [push]);
   if (!show || !push) return null;
   return (
     <View testID="push-prompt" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
