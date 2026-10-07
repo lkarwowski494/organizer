@@ -5,6 +5,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, Share } from 'react-native';
 
+import { parseInviteToken } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
 import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup } from './harness';
 
@@ -203,8 +204,13 @@ describe('Grupy', () => {
     await press(screen.getByTestId('invite'));
     expect(account.createInvite).toHaveBeenCalledWith('gf', 'member');
     expect(await screen.findByText('Ważny 7 dni, do 10 osób.')).toBeTruthy();
-    await press(screen.getByLabelText('Udostępnij link'));
-    expect(share).toHaveBeenCalledWith({ message: expect.stringContaining('://invite/') });
+    await press(screen.getByLabelText('Wyślij zaproszenie'));
+    // D67: kod w wiadomości z instrukcją (link w schemacie aplikacji nie był klikalny w komunikatorach).
+    const msg = (share.mock.calls[0]![0] as { message: string }).message;
+    expect(msg).toMatch(/^Zapraszam Cię do grupy „Rodzina” w Organizerze\./);
+    expect(msg).toContain('Grupy → „Dołącz kodem zaproszenia”');
+    expect(msg).not.toContain('://');
+    expect(parseInviteToken(msg)).toMatch(/^[0-9a-f]{64}$/);
     await press(screen.getByLabelText('Unieważnij link'));
     expect(account.revokeInvite).toHaveBeenCalledWith('inv-1');
     await type(screen.getByTestId('child-name'), 'Zosia');
@@ -270,7 +276,7 @@ describe('Grupy', () => {
     const account = fakeAccount({ acceptInvite: jest.fn(async () => (code ? Promise.reject(new Error(code)) : { groupId: 'gf' })) });
     const { store } = await open({ account });
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Dołącz z linku'));
+    await press(await screen.findByLabelText('Dołącz kodem zaproszenia'));
     await type(screen.getByTestId('invite-input'), 'https://zly.link');
     await press(screen.getByTestId('invite-accept'));
     expect(screen.getByText('Ten link jest nieważny albo wygasł. Poproś o nowy.')).toBeTruthy();

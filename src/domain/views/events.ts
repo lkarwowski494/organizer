@@ -31,6 +31,9 @@ export type Occurrence = {
   groupName: string;
   line: number;
   concernsMe: boolean;
+  /** Kto zawozi w tym wystąpieniu (D66) i jego imię. */
+  responsibleId: string | null;
+  responsibleName: string | null;
 };
 
 /** O ile dni wolno przenieść wystąpienie — tyle zapasu bierzemy przy rozwijaniu, żeby przeniesione nie zniknęło. */
@@ -55,10 +58,13 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     if (!g) continue;
     const rule = ruleOf(e);
     const mine = parts.filter((p) => p.event_id === e.id).map((p) => members.get(p.member_id));
-    const concernsMe =
+    // D58 bez osoby odpowiedzialnej: cała grupa, ja uczestnikiem albo dziecko uczestnikiem (dla dorosłych).
+    const byRule =
       e.audience === 'group' ||
       mine.some((m) => m?.member_id === g.me.member_id) ||
       (g.me.role !== 'child' && mine.some((m) => m?.role === 'child' && m.deleted_at === null));
+    // D66: wskazana osoba odpowiedzialna — tylko ona i dorośli wskazani imiennie jako uczestnicy.
+    const iParticipate = e.audience === 'members' && mine.some((m) => m?.member_id === g.me.member_id);
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
     for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
       const occ = formatIsoDate(d);
@@ -66,6 +72,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
       if (date < isoFrom || date > isoTo) continue;
+      const responsibleId = o?.responsible_member_id ?? e.responsible_member_id;
       out.push({
         eventId: e.id,
         occurrenceDate: occ,
@@ -78,7 +85,9 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         groupId: g.id,
         groupName: g.name,
         line: g.line,
-        concernsMe,
+        concernsMe: responsibleId === null ? byRule : responsibleId === g.me.member_id || iParticipate,
+        responsibleId,
+        responsibleName: responsibleId === null ? null : (members.get(responsibleId)?.display_name ?? null),
       });
     }
   }
@@ -165,6 +174,8 @@ export type EventFields = {
   until: string | null;
   audience: 'group' | 'members';
   participantIds: string[];
+  /** Kto zawozi (D66); `null` = nikt konkretny. */
+  responsibleId: string | null;
 };
 
 const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
@@ -190,7 +201,7 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       entity: 'events',
       id,
       group_id: groupId,
-      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience },
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId },
     },
     ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], newId),
   ];
@@ -210,6 +221,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       start_time: f.startTime,
       end_time: f.endTime,
       title: f.title === e.title ? null : f.title,
+      responsible_member_id: f.responsibleId === e.responsible_member_id ? null : f.responsibleId,
       cancelled: false,
     };
     return o
@@ -223,7 +235,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
         kind: 'patch',
         entity: 'events',
         id: e.id,
-        set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience },
+        set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId },
       },
       ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], newId),
     ];
@@ -240,7 +252,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       entity: 'event_overrides',
       id: newId(),
       group_id: e.group_id,
-      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title },
+      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: o.responsible_member_id },
     });
   }
   return ops;
@@ -278,6 +290,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     until,
     audience: e.audience,
     participantIds: d.participants.filter(alive).map((p) => p.member_id),
+    responsibleId: o?.responsible_member_id ?? e.responsible_member_id,
   };
 }
 

@@ -53,6 +53,7 @@ export function EventScreen({ route, navigation }: Props) {
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
   const time = timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'];
+  const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
   const defs = seriesOf(tables, eventId);
@@ -108,6 +109,7 @@ export function EventScreen({ route, navigation }: Props) {
       <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date)) : strings['event.oneOff']}</Body>
       <SectionTitle>{strings['event.who']}</SectionTitle>
       <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
+      {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
 
       <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} />
       {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}

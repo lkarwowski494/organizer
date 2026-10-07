@@ -165,6 +165,9 @@ export const strings = {
   'event.oneOff': 'Jednorazowe',
   'event.whoAll': 'Cała grupa',
   'event.who': 'Kto',
+  'event.responsible': 'Kto zawozi / odpowiada',
+  'event.responsibleNone': 'Nikt konkretny',
+  'event.responsibleIs': (name: string) => `Zawozi / odpowiada: ${name}`,
   'event.change': 'Zmień',
   'event.cancel': 'Odwołaj',
   'event.delete': 'Usuń wydarzenie',
@@ -230,7 +233,7 @@ export const strings = {
   'groups.name': 'Nazwa grupy',
   'groups.myName': 'Twoje imię w grupie',
   'groups.create': 'Utwórz grupę',
-  'groups.join': 'Dołącz z linku',
+  'groups.join': 'Dołącz kodem zaproszenia',
   'groups.role.owner': 'właściciel',
   'groups.role.admin': 'admin',
   'groups.role.member': 'członek',
@@ -240,7 +243,9 @@ export const strings = {
   'groups.inviteReady': 'Link zaproszenia gotowy',
   'groups.inviteInfo': (days: number, uses: number) =>
     `Ważny ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}, do ${uses} ${plural(uses, { one: 'osoby', few: 'osób', many: 'osób' })}.`,
-  'groups.share': 'Udostępnij link',
+  'groups.share': 'Wyślij zaproszenie',
+  'groups.inviteMessage': (group: string, code: string) =>
+    `Zapraszam Cię do grupy „${group}” w Organizerze.\n\n1. Otwórz Organizer (zainstalowany przez TestFlight).\n2. Grupy → „Dołącz kodem zaproszenia”.\n3. Wklej tę wiadomość albo sam kod:\n\n${code}`,
   'groups.revoke': 'Unieważnij link',
   'groups.addChild': 'Dodaj dziecko (bez konta)',
   'groups.childName': 'Imię dziecka',
@@ -274,7 +279,7 @@ export const strings = {
   'invite.body': 'Ktoś zaprasza Cię do wspólnej grupy w Organizerze.',
   'invite.accept': 'Dołącz',
   'invite.invalid': 'Ten link jest nieważny albo wygasł. Poproś o nowy.',
-  'invite.paste': 'Wklej link albo kod zaproszenia',
+  'invite.paste': 'Wklej wiadomość z zaproszeniem albo sam kod',
   'invite.joined': 'Dołączono do grupy',
 
   'settings.title': 'Ustawienia',

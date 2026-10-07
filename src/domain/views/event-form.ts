@@ -24,6 +24,8 @@ export type EventForm = {
   until: string;
   audience: 'group' | 'members';
   participantIds: string[];
+  /** Kto zawozi (D66); `null` = nikt konkretny. */
+  responsibleId: string | null;
 };
 export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'days' | 'interval' | 'until' | 'participants' | 'monthly';
 
@@ -57,6 +59,7 @@ export function emptyForm(date: string, participantIds: string[] = []): EventFor
     until: '',
     audience: participantIds.length ? 'members' : 'group',
     participantIds,
+    responsibleId: null,
   };
 }
 
@@ -77,6 +80,7 @@ export function formOf(f: EventFields): EventForm {
     until: f.until ?? '',
     audience: f.audience,
     participantIds: f.participantIds,
+    responsibleId: f.responsibleId,
   };
 }
 
@@ -121,6 +125,7 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
       until,
       audience: s.audience,
       participantIds: s.audience === 'members' ? s.participantIds : [],
+      responsibleId: s.responsibleId,
     })),
   };
 }

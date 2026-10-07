@@ -19,6 +19,8 @@ export type EventRow = {
   end_time: string | null;
   rrule: string | null;
   audience: 'group' | 'members';
+  /** Kto zawozi / odpowiada (D66); `null` = nikt konkretny. */
+  responsible_member_id: string | null;
   deleted_at: string | null;
 };
 export type Participant = { id: string; event_id: string; member_id: string; deleted_at: string | null };
@@ -31,6 +33,8 @@ export type Override = {
   start_time: string | null;
   end_time: string | null;
   title: string | null;
+  /** Inna osoba odpowiedzialna w tym wystąpieniu; `null` = jak w serii. */
+  responsible_member_id: string | null;
   deleted_at: string | null;
 };
 
@@ -45,6 +49,7 @@ export const asEvent = (r: Row): EventRow => ({
   end_time: s(r.end_time),
   rrule: s(r.rrule),
   audience: r.audience === 'members' ? 'members' : 'group',
+  responsible_member_id: s(r.responsible_member_id),
   deleted_at: s(r.deleted_at),
 });
 export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });
@@ -57,6 +62,7 @@ export const asOverride = (r: Row): Override => ({
   start_time: s(r.start_time),
   end_time: s(r.end_time),
   title: s(r.title),
+  responsible_member_id: s(r.responsible_member_id),
   deleted_at: s(r.deleted_at),
 });
 

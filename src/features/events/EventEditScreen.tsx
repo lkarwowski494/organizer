@@ -43,6 +43,8 @@ export function EventEditScreen({ route, navigation }: Props) {
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
   const members = useMemo(() => groupDetail(tables, userId, groupId)?.members ?? [], [tables, userId, groupId]);
+  // D66: zawozi / odpowiada tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
+  const adults = members.filter((m) => m.role !== 'child' && groups.find((g) => g.id === groupId)?.kind !== 'personal');
 
   if (eventId && (!detail || !detail.canEdit)) {
     return (
@@ -118,7 +120,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         </Body>
       ) : null}
       {!detail && groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [] }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
       <Field label={strings['event.title']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
       {scope === 'all' && detail?.rule ? null : (
@@ -196,6 +198,14 @@ export function EventEditScreen({ route, navigation }: Props) {
         </>
       )}
 
+      {adults.length ? (
+        <Segmented
+          label={strings['event.responsible']}
+          value={form.responsibleId ?? ''}
+          onChange={(v) => set({ responsibleId: v === '' ? null : v })}
+          options={[{ value: '', label: strings['event.responsibleNone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+        />
+      ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>

@@ -80,7 +80,7 @@ export function GroupScreen({ route, navigation }: Props) {
         <View testID="invite-ready" style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
           <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
           <Body muted>{strings['groups.inviteInfo'](config.invites.DEFAULT_TTL_HOURS / 24, invite.maxUses)}</Body>
-          <Button label={strings['groups.share']} onPress={() => void Share.share({ message: invite.url })} />
+          <Button label={strings['groups.share']} onPress={() => void Share.share({ message: strings['groups.inviteMessage'](d.group.name, invite.token) })} />
           <Button
             kind="danger"
             label={strings['groups.revoke']}

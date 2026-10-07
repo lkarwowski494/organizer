@@ -69,6 +69,7 @@ const fields = (over: Partial<EventFields> = {}): EventFields => ({
   until: null,
   audience: 'group',
   participantIds: [],
+  responsibleId: null,
   ...over,
 });
 const brief = (xs: ReturnType<typeof expandEvents>) => xs.map((x) => `${x.date} ${x.startTime ?? '—'} ${x.title}`);
@@ -87,6 +88,7 @@ describe('wiersze lokalne: wartości domyślne', () => {
       end_time: null,
       rrule: null,
       audience: 'group',
+      responsible_member_id: null,
       deleted_at: null,
     });
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', audience: 'members', note: 'x', title: 'T' })).toMatchObject({ audience: 'members', note: 'x', title: 'T' });
@@ -100,6 +102,7 @@ describe('wiersze lokalne: wartości domyślne', () => {
       start_time: null,
       end_time: null,
       title: null,
+      responsible_member_id: null,
       deleted_at: null,
     });
     expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05', cancelled: true }).cancelled).toBe(true);
@@ -142,7 +145,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     const { t, mo, newId } = dances();
     const ops = editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00', endTime: '18:00' }), newId);
     expect(ops).toEqual([
-      { kind: 'create', entity: 'event_overrides', id: expect.any(String), group_id: 'gf', set: { event_id: mo, occurrence_date: '2026-10-12', start_date: '2026-10-13', start_time: '17:00', end_time: '18:00', title: null, cancelled: false } },
+      { kind: 'create', entity: 'event_overrides', id: expect.any(String), group_id: 'gf', set: { event_id: mo, occurrence_date: '2026-10-12', start_date: '2026-10-13', start_time: '17:00', end_time: '18:00', title: null, responsible_member_id: null, cancelled: false } },
     ]);
     run(t, ops);
     const out = range(t, '2026-10-12', '2026-10-19').filter((x) => x.eventId === mo);
@@ -150,7 +153,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     expect(out[0]).toMatchObject({ occurrenceDate: '2026-10-12', overrideId: expect.any(String), endTime: '18:00' });
     // Druga zmiana tego samego wystąpienia poprawia istniejący wyjątek (bez drugiego wiersza); ten sam dzień i tytuł → null.
     const again = editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-10-12', title: 'Tańce — próba', startTime: '17:30', endTime: null }), newId);
-    expect(again).toEqual([{ kind: 'patch', entity: 'event_overrides', id: out[0]!.overrideId, set: { start_date: null, start_time: '17:30', end_time: null, title: 'Tańce — próba', cancelled: false } }]);
+    expect(again).toEqual([{ kind: 'patch', entity: 'event_overrides', id: out[0]!.overrideId, set: { start_date: null, start_time: '17:30', end_time: null, title: 'Tańce — próba', responsible_member_id: null, cancelled: false } }]);
     run(t, again);
     expect(brief(range(t, '2026-10-12', '2026-10-12'))).toEqual(['2026-10-12 17:30 Tańce — próba']);
     expect(range(t, '2026-10-12', '2026-10-12')[0]!.endTime).toBeNull();
@@ -196,7 +199,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
   it('„to i następne” od pierwszego wystąpienia = cała seria; bez reguły — po prostu zmiana', () => {
     const { t, mo, newId } = dances();
     const ops = editEvent(detail(t, mo), '2026-10-05', 'following', fields({ startTime: '17:00' }), newId);
-    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Kuby', start_date: '2026-10-05', start_time: '17:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group' } }]);
+    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Kuby', start_date: '2026-10-05', start_time: '17:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null } }]);
     const one = createEvent('gf', fields({ rule: null, date: '2026-10-08' }), newId);
     run(t, one.ops);
     expect(editEvent(detail(t, one.id), '2026-10-08', 'this', fields({ rule: null, date: '2026-10-09' }), newId)[0]).toMatchObject({ kind: 'patch', entity: 'events', set: { start_date: '2026-10-09', rrule: null } });
@@ -207,7 +210,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
   it('„wszystkie”: zmiana dni na wt. i czw. — start zostaje początkiem serii (wyrównany), koniec serii datą', () => {
     const { t, mo, newId } = dances();
     const ops = editEvent(detail(t, mo), '2026-10-19', 'all', fields({ rule: weekly('TU,TH'), until: '2026-10-31' }), newId);
-    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Kuby', start_date: '2026-10-06', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261031', audience: 'group' } }]);
+    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Kuby', start_date: '2026-10-06', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261031', audience: 'group', responsible_member_id: null } }]);
     run(t, ops);
     const out = range(t, '2026-10-01', '2026-12-31').filter((x) => x.eventId === mo);
     expect(out.map((x) => x.date)).toEqual(['2026-10-06', '2026-10-08', '2026-10-13', '2026-10-15', '2026-10-20', '2026-10-22', '2026-10-27', '2026-10-29']);
@@ -354,7 +357,7 @@ describe('szczegóły i formularz', () => {
     run(t, editEvent(detail(t, e.id), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00', endTime: '18:00', title: 'Inne' }), newId));
     run(t, editEvent(detail(t, e.id), '2026-10-05', 'all', fields({ audience: 'members', participantIds: ['kuba'] }), newId));
     const d = detail(t, e.id);
-    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'] });
+    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null });
     expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ title: 'Tańce Kuby', date: '2026-10-12', startTime: '18:00', endTime: '19:00' });
     expect(fieldsOf(d, '2026-10-19', 'this')).toMatchObject({ date: '2026-10-19', startTime: '18:00' });
     expect(fieldsOf(d, '2026-10-19', 'all').date).toBe('2026-10-05');
@@ -425,5 +428,34 @@ describe('godziny i lista wydarzeń grupy', () => {
       { id: old.id, title: 'Stare', summary: 'Wtorek, 1 września', time: null, start: '2026-09-01', next: null },
     ]);
     expect(groupSeries(t, ME, 'gx', TODAY)).toEqual([]);
+  });
+});
+
+describe('kto zawozi (D66)', () => {
+  it('wskazana osoba: tylko u niej (i u dorosłych wskazanych imiennie); bez osoby — jak dotąd; inna w jednym wystąpieniu', () => {
+    const t = world();
+    const newId = ids();
+    const e = createEvent('gf', fields({ title: 'Logopeda', rule: weekly('WE'), date: '2026-10-07', audience: 'members', participantIds: ['kuba'], responsibleId: 'ala' }), newId);
+    run(t, e.ops);
+    const at = (d: string) => range(t, d, d).find((x) => x.eventId === e.id)!;
+    expect(at('2026-10-07')).toMatchObject({ concernsMe: false, responsibleId: 'ala', responsibleName: 'Ala' });
+    // W jednym terminie zawozi Łukasz (ja).
+    run(t, editEvent(detail(t, e.id), '2026-10-14', 'this', fields({ title: 'Logopeda', date: '2026-10-14', responsibleId: 'mf' }), newId));
+    expect(at('2026-10-14')).toMatchObject({ concernsMe: true, responsibleId: 'mf', responsibleName: 'Łukasz' });
+    expect(fieldsOf(detail(t, e.id), '2026-10-14', 'this').responsibleId).toBe('mf');
+    expect(fieldsOf(detail(t, e.id), '2026-10-21', 'this').responsibleId).toBe('ala');
+    // Ta sama osoba co w serii → wyjątek bez zmiany osoby.
+    expect(editEvent(detail(t, e.id), '2026-10-21', 'this', fields({ title: 'Logopeda', date: '2026-10-21', responsibleId: 'ala' }), newId)[0]).toMatchObject({ set: { responsible_member_id: null } });
+    // Imienny uczestnik-dorosły widzi mimo osoby odpowiedzialnej; cała grupa z osobą — tylko ona.
+    const both = createEvent('gf', fields({ rule: null, date: '2026-10-08', audience: 'members', participantIds: ['mf'], responsibleId: 'ala' }), newId);
+    const all = createEvent('gf', fields({ rule: null, date: '2026-10-08', audience: 'group', responsibleId: 'ala' }), newId);
+    run(t, [...both.ops, ...all.ops]);
+    expect(at('2026-10-08')).toBeUndefined();
+    const d8 = range(t, '2026-10-08', '2026-10-08');
+    expect(d8.find((x) => x.eventId === both.id)!.concernsMe).toBe(true);
+    expect(d8.find((x) => x.eventId === all.id)!.concernsMe).toBe(false);
+    // Nieznana osoba (np. usunięta z telefonu): imię puste, ale reguła działa.
+    t.events![all.id] = { ...t.events![all.id]!, responsible_member_id: 'nie-ma' };
+    expect(range(t, '2026-10-08', '2026-10-08').find((x) => x.eventId === all.id)).toMatchObject({ responsibleName: null, concernsMe: false });
   });
 });

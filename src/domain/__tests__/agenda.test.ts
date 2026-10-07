@@ -15,6 +15,8 @@ const ev = (id: string, startTime: string | null, title = id): Occurrence => ({
   groupName: 'G',
   line: 0,
   concernsMe: true,
+  responsibleId: null,
+  responsibleName: null,
 });
 const task = (id: string, time: string | null, title = id) => ({ id, title, due: { date: '2026-10-07', time } }) as unknown as TodayItem;
 const keys = (xs: ReturnType<typeof agenda>) => xs.map((x) => x.key);

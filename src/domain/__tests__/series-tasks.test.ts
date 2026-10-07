@@ -23,7 +23,7 @@ function world(role = 'admin') {
   put(t, 'lists', 'lf', { id: 'lf', group_id: 'gf', kind: 'tasks', name: 'Dom', visibility: 'group', sort_key: 'a0', deleted_at: null });
   let n = 0;
   const newId = () => `id${++n}`;
-  const fields: EventFields = { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'group', participantIds: [] };
+  const fields: EventFields = { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'group', participantIds: [], responsibleId: null };
   const e = createEvent('gf', fields, newId);
   run(t, [...e.ops, createSeries({ id: SERIES, groupId: 'gf', eventId: e.id, listId: 'lf', title: 'Spakować strój' })]);
   return { t, id: e.id, newId, fields, d: () => eventDetail(t, ME, e.id)! };

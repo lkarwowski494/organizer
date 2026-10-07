@@ -22,8 +22,8 @@ describe('formularz wydarzenia', () => {
   it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
     const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
     expect(fields).toEqual([
-      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'] },
-      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'] },
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null },
     ]);
   });
 
@@ -76,7 +76,7 @@ describe('formularz wydarzenia', () => {
   });
 
   it('formOf: zapisane wydarzenie → formularz (godziny bez sekund, dni z reguły, miesięczne warianty)', () => {
-    const base: EventFields = { title: 'T', date: '2026-10-05', startTime: '18:00:00', endTime: null, rule: null, until: null, audience: 'group', participantIds: [] };
+    const base: EventFields = { title: 'T', date: '2026-10-05', startTime: '18:00:00', endTime: null, rule: null, until: null, audience: 'group', participantIds: [], responsibleId: null };
     expect(formOf(base)).toMatchObject({ allDay: false, slots: [{ days: [0], start: '18:00', end: '' }], repeat: 'none', interval: '1', monthly: 'day', ends: 'never', until: '' });
     expect(formOf({ ...base, startTime: null })).toMatchObject({ allDay: true, slots: [{ start: '', end: '' }] });
     expect(formOf({ ...base, rule: parseRule('FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,MO'), until: '2026-12-31', endTime: '19:00:00' })).toMatchObject({ repeat: 'weekly', interval: '2', slots: [{ days: [0, 5], end: '19:00' }], ends: 'until', until: '2026-12-31' });
@@ -108,6 +108,7 @@ describe('formularz wydarzenia', () => {
           until: rule && withUntil ? '2027-01-31' : null,
           audience: 'group',
           participantIds: [],
+          responsibleId: null,
         };
         const back = ok(formOf(f))[0]!;
         expect({ ...back, rule: back.rule && formatRule(back.rule) }).toEqual({ ...f, rule: rule && formatRule(rule) });

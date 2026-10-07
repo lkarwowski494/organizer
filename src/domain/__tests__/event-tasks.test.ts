@@ -26,7 +26,7 @@ const ids = () => {
   let n = 0;
   return () => `id${++n}`;
 };
-const fields = (over: Partial<EventFields> = {}): EventFields => ({ title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'group', participantIds: [], ...over });
+const fields = (over: Partial<EventFields> = {}): EventFields => ({ title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'group', participantIds: [], responsibleId: null, ...over });
 
 /** Seria w poniedziałki + zadania na 12.10 (dwa) i 19.10. */
 function dances() {

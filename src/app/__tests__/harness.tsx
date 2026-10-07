@@ -92,7 +92,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     signOut: jest.fn(async () => {}),
     deleteAccount: jest.fn(async () => {}),
     createGroup: jest.fn(async () => {}),
-    createInvite: jest.fn(async (groupId: string) => ({ inviteId: 'inv-1', token: 'tok', url: `io.github.lkarwowski494.organizer://invite/tok?g=${groupId}`, expiresAt: '2026-10-14T10:00:00Z', maxUses: 10 })),
+    createInvite: jest.fn(async (groupId: string) => ({ inviteId: 'inv-1', token: 'ab'.repeat(32), url: `io.github.lkarwowski494.organizer://invite/${'ab'.repeat(32)}?g=${groupId}`, expiresAt: '2026-10-14T10:00:00Z', maxUses: 10 })),
     acceptInvite: jest.fn(async () => ({ groupId: 'gf' })),
     revokeInvite: jest.fn(async () => {}),
     deleteGroup: jest.fn(async () => {}),
