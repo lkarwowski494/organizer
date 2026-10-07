@@ -11,7 +11,9 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
+import { formatDue } from '../../domain/format';
 import { groupDetail, listsView } from '../../domain/views';
+import { groupSeries } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import type { Invite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
@@ -21,10 +23,11 @@ type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
 
 export function GroupScreen({ route, navigation }: Props) {
   const { userId, store, account, newId } = useServices();
-  const { tables } = useAppData();
+  const { tables, today } = useAppData();
   const { c, font, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
+  const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [child, setChild] = useState('');
   const [name, setName] = useState(d?.group.name ?? '');
@@ -137,6 +140,19 @@ export function GroupScreen({ route, navigation }: Props) {
         <NavRow key={l.id} title={l.name} subtitle={strings['lists.open'](l.open)} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
       ))}
       <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />
+      <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
+      {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
+      {series.map((e) => (
+        <NavRow
+          key={e.id}
+          testID={`series-${e.id}`}
+          title={e.title}
+          subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
+          line={d.group.line}
+          onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.next ?? e.start })}
+        />
+      ))}
+      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
       {d.canLeave ? (
         confirmLeave ? (
           <View style={{ gap: 8 }}>

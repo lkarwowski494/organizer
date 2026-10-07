@@ -69,9 +69,10 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
     dispatched,
     getSnapshot: () => snap,
     subscribe: (fn: () => void) => (listeners.add(fn), () => listeners.delete(fn)),
-    dispatch: (op: NewOp) => {
-      dispatched.push(op);
-      snap = { ...snap, state: mutate(snap.state, op, () => `op-${++n}`) };
+    dispatch: (op: NewOp | readonly NewOp[]) => {
+      const ops: readonly NewOp[] = Array.isArray(op) ? op : [op as NewOp];
+      dispatched.push(...ops);
+      snap = { ...snap, state: ops.reduce((st, o) => mutate(st, o, () => `op-${++n}`), snap.state) };
       listeners.forEach((f) => f());
     },
     refresh: jest.fn(),

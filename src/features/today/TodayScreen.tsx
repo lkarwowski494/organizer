@@ -11,8 +11,9 @@ import { formatDue, formatLongDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { toggleDone } from '../../domain/views/commands';
 import { groupsView, type TodayItem, todayView } from '../../domain/views';
+import { type Occurrence, timeLabel, todayEvents } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
-import { Body, LineChip, QuickAddField, Screen, SectionTitle, StationRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, StationRow, SyncChip, Title, TokenChip } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function TodayScreen() {
@@ -25,6 +26,7 @@ export function TodayScreen() {
 
   const view = useMemo(() => todayView(tables, userId, today), [tables, userId, today]);
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  const events = useMemo(() => todayEvents(tables, userId, today), [tables, userId, today]);
   const tokens = text ? parseQuickAdd(text, now(), { ignore }).tokens : [];
 
   const submit = () => {
@@ -33,13 +35,15 @@ export function TodayScreen() {
     setIgnore([]);
   };
 
-  const sections: [string, TodayItem[]][] = [
-    [strings['today.overdue'], view.overdue],
-    [strings['today.pinned'], view.pinned],
-    [strings['today.today'], view.today],
-    [strings['today.tomorrow'], view.tomorrow],
+  // Wydarzenia (D58: dotyczące mnie) na górze dnia, przed zadaniami.
+  const sections: [string, TodayItem[], Occurrence[]][] = [
+    [strings['today.overdue'], view.overdue, []],
+    [strings['today.pinned'], view.pinned, []],
+    [strings['today.today'], view.today, events.today],
+    [strings['today.tomorrow'], view.tomorrow, events.tomorrow],
   ];
-  const empty = sections.every(([, items]) => items.length === 0);
+  const empty = sections.every(([, items, evs]) => items.length === 0 && evs.length === 0);
+  const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
 
   return (
     <Screen testID="screen-today">
@@ -65,17 +69,29 @@ export function TodayScreen() {
         ) : null}
       </QuickAddField>
       {empty ? <Body muted>{strings['today.empty']}</Body> : null}
-      {sections.map(([title, items]) =>
-        items.length === 0 ? null : (
+      {sections.map(([title, items, evs]) =>
+        items.length === 0 && evs.length === 0 ? null : (
           <View key={title}>
             <SectionTitle>{title}</SectionTitle>
+            {evs.map((e) => (
+              <EventRow
+                key={`${e.eventId}-${e.occurrenceDate}`}
+                testID={`today-event-${e.eventId}-${e.occurrenceDate}`}
+                title={e.title}
+                time={timeLabel(e.startTime, e.endTime)}
+                line={e.line}
+                group={groupLabel(e.groupId, e.groupName)}
+                recurring={e.recurring}
+                onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })}
+              />
+            ))}
             {items.map((it) => (
               <StationRow
                 key={it.id}
                 testID={`today-${it.id}`}
                 title={it.title}
                 line={it.line}
-                group={groups.find((g) => g.id === it.group_id)?.kind === 'personal' ? strings['groups.personal'] : it.groupName}
+                group={groupLabel(it.group_id, it.groupName)}
                 meta={[it.due ? formatDue(it.due, today) : strings['today.noDue'], ...(it.assignee ? [strings['task.assignedTo'](it.assignee)] : [])]}
                 checked={false}
                 onToggle={() => store.dispatch(toggleDone(it, nowIso()))}

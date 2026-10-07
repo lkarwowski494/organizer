@@ -13,7 +13,7 @@
  */
 import { config } from '../../config';
 
-export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity';
+export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity' | 'events' | 'event_participants' | 'event_overrides';
 export type Row = { readonly [k: string]: unknown };
 
 export type Op =

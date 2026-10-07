@@ -10,6 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
 import { CalendarScreen } from '../features/calendar/CalendarScreen';
+import { EventEditScreen } from '../features/events/EventEditScreen';
+import { EventScreen } from '../features/events/EventScreen';
 import { GroupScreen } from '../features/groups/GroupScreen';
 import { GroupsScreen } from '../features/groups/GroupsScreen';
 import { InviteScreen } from '../features/groups/InviteScreen';
@@ -84,6 +86,8 @@ export function RootStack() {
       <Stack.Screen name="Group" component={GroupScreen} />
       <Stack.Screen name="Member" component={MemberScreen} />
       <Stack.Screen name="NewGroup" component={NewGroupScreen} />
+      <Stack.Screen name="Event" component={EventScreen} />
+      <Stack.Screen name="EventEdit" component={EventEditScreen} />
       <Stack.Screen name="Invite" component={InviteScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />

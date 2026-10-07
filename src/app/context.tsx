@@ -13,7 +13,8 @@ import type { Snapshot } from '../sync/runtime';
 export type AppStore = {
   getSnapshot: () => Snapshot;
   subscribe: (fn: () => void) => () => void;
-  dispatch: (op: NewOp) => void;
+  /** Jedna operacja albo kilka w jednej transakcji. */
+  dispatch: (op: NewOp | readonly NewOp[]) => void;
   /** Pobierz zmiany teraz (po operacji serwerowej, np. utworzeniu grupy albo przyjęciu zaproszenia). */
   refresh: () => void;
 };

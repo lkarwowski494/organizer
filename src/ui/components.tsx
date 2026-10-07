@@ -291,6 +291,60 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
   );
 }
 
+/**
+ * Wiersz wydarzenia: godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
+ * tytuł i grupa. Całość otwiera wydarzenie.
+ */
+export function EventRow({ title, time, line, group, recurring, onPress, testID }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string }) {
+  const { c, font, size, line: lineOf } = useTheme();
+  const l = lineOf(line);
+  const when = time ?? strings['event.allDayLabel'];
+  return (
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+      <View style={{ width: 30, alignItems: 'center' }}>
+        <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: l.line }} />
+      </View>
+      <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
+        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.ink }}>{title}</Text>
+        <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
+          <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
+          {'  ·  '}
+          <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
+          {recurring ? `  ·  ${strings['event.repeats']}` : ''}
+        </Text>
+      </View>
+      <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text>
+    </Pressable>
+  );
+}
+
+/** Wybór wielu opcji (dni tygodnia, uczestnicy): każda opcja to pole wyboru z tekstem. */
+export function Toggles<T extends string | number>({ values, options, onChange, label }: { values: T[]; options: { value: T; label: string; a11y?: string }[]; onChange: (v: T[]) => void; label: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <View accessibilityLabel={label} style={{ gap: 6 }}>
+      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {options.map((o) => {
+          const on = values.includes(o.value);
+          return (
+            <Pressable
+              key={String(o.value)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on }}
+              accessibilityLabel={o.a11y ?? o.label}
+              onPress={() => onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])}
+              style={{ minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: on ? 2 : 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.inverseBg : c.ground }}
+            >
+              <Text style={{ fontFamily: on ? font.text700 : font.text400, fontSize: 15, color: on ? c.inverseInk : c.ink }}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export function BackButton({ onPress }: { onPress: () => void }) {
   const { c, font, size } = useTheme();
   return (

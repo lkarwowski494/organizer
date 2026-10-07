@@ -1,0 +1,117 @@
+import * as fc from 'fast-check';
+
+import { formatRule, parseRule } from '../rrule';
+import { emptyForm, type EventForm, formOf, validateForm, weekdayPosition } from '../views/event-form';
+import type { EventFields } from '../views/events';
+
+const WD = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+const form = (over: Partial<EventForm> = {}): EventForm => ({ ...emptyForm('2026-10-05'), title: 'Tańce', slots: [{ days: [0], start: '18:00', end: '19:00' }], ...over });
+const ok = (s: EventForm) => {
+  const r = validateForm(s);
+  if ('error' in r) throw new Error(r.error);
+  return r.fields;
+};
+const rules = (s: EventForm) => ok(s).map((f) => (f.rule ? formatRule({ ...f.rule, until: f.until }) : null));
+
+describe('formularz wydarzenia', () => {
+  it('pusty formularz: dzień tygodnia z daty, cała grupa albo wskazane osoby', () => {
+    expect(emptyForm('2026-10-10')).toMatchObject({ slots: [{ days: [5], start: '', end: '' }], repeat: 'none', interval: '1', ends: 'never', audience: 'group', participantIds: [] });
+    expect(emptyForm('2026-10-10', ['kuba'])).toMatchObject({ audience: 'members', participantIds: ['kuba'] });
+  });
+
+  it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
+    const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
+    expect(fields).toEqual([
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'] },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'] },
+    ]);
+  });
+
+  it('reguły: bez powtarzania, codziennie co 2 dni, tydzień (dni posortowane, bez powtórzeń), miesiąc, rok, koniec', () => {
+    expect(rules(form())).toEqual([null]);
+    expect(rules(form({ repeat: 'daily', interval: ' 2 ' }))).toEqual(['FREQ=DAILY;INTERVAL=2']);
+    expect(rules(form({ repeat: 'weekly', slots: [{ days: [5, 0, 5], start: '18:00', end: '' }] }))).toEqual(['FREQ=WEEKLY;BYDAY=MO,SA']);
+    expect(rules(form({ repeat: 'monthly' }))).toEqual(['FREQ=MONTHLY']);
+    expect(rules(form({ repeat: 'monthly', monthly: 'nth' }))).toEqual(['FREQ=MONTHLY;BYDAY=1MO']);
+    expect(rules(form({ date: '2026-10-26', repeat: 'monthly', monthly: 'last' }))).toEqual(['FREQ=MONTHLY;BYDAY=-1MO']);
+    expect(rules(form({ repeat: 'yearly', ends: 'until', until: '2030-10-05' }))).toEqual(['FREQ=YEARLY;UNTIL=20301005']);
+    // Bez powtarzania koniec serii się nie liczy; inne niż „co tydzień” mają jeden termin.
+    expect(ok(form({ ends: 'until', until: 'zła' }))[0]!.until).toBeNull();
+    expect(ok(form({ repeat: 'daily', slots: [{ days: [], start: '08:00', end: '' }, { days: [], start: 'x', end: '' }] }))).toHaveLength(1);
+  });
+
+  it('cały dzień: bez godzin (pola godzin ignorowane); cała grupa: bez listy uczestników', () => {
+    expect(ok(form({ allDay: true, slots: [{ days: [0], start: 'zła', end: 'zła' }], participantIds: ['kuba'] }))[0]).toMatchObject({ startTime: null, endTime: null, participantIds: [] });
+  });
+
+  it.each<[Partial<EventForm>, string]>([
+    [{ title: '  ' }, 'title'],
+    [{ date: '2026-02-30' }, 'date'],
+    [{ date: 'jutro' }, 'date'],
+    [{ slots: [{ days: [0], start: '', end: '' }] }, 'time'],
+    [{ slots: [{ days: [0], start: '24:00', end: '' }] }, 'time'],
+    [{ slots: [{ days: [0], start: '18:00', end: '7:00' }] }, 'time'],
+    [{ slots: [{ days: [0], start: '18:00', end: '18:00' }] }, 'endBeforeStart'],
+    [{ slots: [{ days: [0], start: '18:00', end: '17:59' }] }, 'endBeforeStart'],
+    [{ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '' }, { days: [], start: '12:00', end: '' }] }, 'days'],
+    [{ repeat: 'daily', interval: '0' }, 'interval'],
+    [{ repeat: 'daily', interval: '100' }, 'interval'],
+    [{ repeat: 'daily', interval: 'x' }, 'interval'],
+    [{ date: '2026-10-29', repeat: 'monthly', monthly: 'nth' }, 'monthly'], // 29.10 to 5. czwartek
+    [{ date: '2026-10-05', repeat: 'monthly', monthly: 'last' }, 'monthly'],
+    [{ repeat: 'daily', ends: 'until', until: '2026-10-04' }, 'until'],
+    [{ repeat: 'daily', ends: 'until', until: '' }, 'until'],
+    [{ audience: 'members', participantIds: [] }, 'participants'],
+  ])('błąd %j → %s', (over, error) => expect(validateForm(form(over))).toEqual({ error }));
+
+  it('koniec w dniu startu jest poprawny', () => {
+    expect(ok(form({ repeat: 'daily', ends: 'until', until: '2026-10-05' }))[0]!.until).toBe('2026-10-05');
+  });
+
+  it('pozycja dnia tygodnia w miesiącu', () => {
+    expect(weekdayPosition('2026-10-05')).toEqual({ n: 1, last: false, wd: 0 });
+    expect(weekdayPosition('2026-10-26')).toEqual({ n: 4, last: true, wd: 0 });
+    expect(weekdayPosition('2026-10-31')).toEqual({ n: 5, last: true, wd: 5 });
+    expect(weekdayPosition('2026-02-22')).toEqual({ n: 4, last: true, wd: 6 });
+  });
+
+  it('formOf: zapisane wydarzenie → formularz (godziny bez sekund, dni z reguły, miesięczne warianty)', () => {
+    const base: EventFields = { title: 'T', date: '2026-10-05', startTime: '18:00:00', endTime: null, rule: null, until: null, audience: 'group', participantIds: [] };
+    expect(formOf(base)).toMatchObject({ allDay: false, slots: [{ days: [0], start: '18:00', end: '' }], repeat: 'none', interval: '1', monthly: 'day', ends: 'never', until: '' });
+    expect(formOf({ ...base, startTime: null })).toMatchObject({ allDay: true, slots: [{ start: '', end: '' }] });
+    expect(formOf({ ...base, rule: parseRule('FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,MO'), until: '2026-12-31', endTime: '19:00:00' })).toMatchObject({ repeat: 'weekly', interval: '2', slots: [{ days: [0, 5], end: '19:00' }], ends: 'until', until: '2026-12-31' });
+    expect(formOf({ ...base, rule: parseRule('FREQ=WEEKLY') }).slots[0]!.days).toEqual([0]);
+    expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYDAY=1MO') }).monthly).toBe('nth');
+    expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYDAY=-1MO') }).monthly).toBe('last');
+    expect(formOf({ ...base, rule: parseRule('FREQ=DAILY') }).repeat).toBe('daily');
+    expect(formOf({ ...base, rule: parseRule('FREQ=YEARLY') }).repeat).toBe('yearly');
+  });
+
+  it('własność: formularz z zapisanego wydarzenia daje te same wartości (dla reguł, które tworzy aplikacja)', () => {
+    const time = fc.tuple(fc.integer({ min: 0, max: 22 }), fc.integer({ min: 0, max: 59 })).map(([h, m]) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    const ruleText = fc.oneof(
+      fc.constant(null),
+      fc.integer({ min: 1, max: 99 }).map((n) => `FREQ=DAILY${n > 1 ? `;INTERVAL=${n}` : ''}`),
+      fc.uniqueArray(fc.constantFrom(...WD), { minLength: 1 }).map((d) => `FREQ=WEEKLY;BYDAY=${WD.filter((x) => d.includes(x)).join(',')}`),
+      fc.constant('FREQ=MONTHLY'),
+      fc.constant('FREQ=YEARLY;INTERVAL=3'),
+    );
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 28 }), time, fc.boolean(), ruleText, fc.boolean(), (day, start, allDay, rt, withUntil) => {
+        const rule = rt === null ? null : parseRule(rt);
+        const f: EventFields = {
+          title: 'X',
+          date: `2026-10-${String(day).padStart(2, '0')}`,
+          startTime: allDay ? null : start,
+          endTime: allDay ? null : `23:${start.slice(3)}`,
+          rule,
+          until: rule && withUntil ? '2027-01-31' : null,
+          audience: 'group',
+          participantIds: [],
+        };
+        const back = ok(formOf(f))[0]!;
+        expect({ ...back, rule: back.rule && formatRule(back.rule) }).toEqual({ ...f, rule: rule && formatRule(rule) });
+      }),
+    );
+  });
+});
