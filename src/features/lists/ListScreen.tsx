@@ -10,16 +10,20 @@ import { useAppData, useServices } from '../../app/context';
 import { quickAddOps } from '../../app/quickadd';
 import type { RootStackParams } from '../../app/routes';
 import { formatDue } from '../../domain/format';
-import { remove, toggleDone } from '../../domain/views/commands';
-import { listDetail, type TaskNode } from '../../domain/views';
+import { useTaskActions } from '../../app/task-actions';
+import { remove, restore } from '../../domain/views/commands';
+import { listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
+import { useUndo } from '../../ui/undo';
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
 
 export function ListScreen({ route, navigation }: Props) {
-  const { userId, store, now, nowIso, nowMs, newId } = useServices();
+  const { userId, store, now, nowMs, newId } = useServices();
+  const actions = useTaskActions();
+  const undo = useUndo();
   const { tables, today, indicator, state } = useAppData();
   const { c, font } = useTheme();
   const [text, setText] = useState('');
@@ -36,25 +40,28 @@ export function ListScreen({ route, navigation }: Props) {
   }
   const { list } = detail;
   const shopping = list.kind === 'shopping';
+  // D34: dziecko tylko odhacza (serwer odrzuca usunięcie), więc nie dostaje przesuwania.
+  const canDelete = myMemberships(tables, userId).get(list.group_id)?.role !== 'child';
   const submit = () => {
     for (const op of quickAddOps({ tables, userId, text, now: now(), ignore: [], newId, listId: list.id })) store.dispatch(op);
     setText('');
   };
   const rows = (nodes: TaskNode[], done: boolean): React.ReactNode[] =>
     nodes.flatMap((t) => [
-      <StationRow
-        key={t.id}
-        testID={`task-${t.id}`}
-        title={t.title}
-        line={list.line}
-        depth={t.depth}
-        meta={[...(t.due ? [formatDue(t.due, today)] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
-        checked={done || t.completed_at !== null}
-        pending={pendingIds.has(t.id)}
-        shopping={shopping}
-        onToggle={() => store.dispatch(toggleDone(t, nowIso()))}
-        onOpen={shopping ? undefined : () => navigation.navigate('Task', { taskId: t.id })}
-      />,
+      <SwipeRow key={t.id} title={t.title} enabled={canDelete} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
+        <StationRow
+          testID={`task-${t.id}`}
+          title={t.title}
+          line={list.line}
+          depth={t.depth}
+          meta={[...(t.due ? [formatDue(t.due, today)] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
+          checked={done || t.completed_at !== null}
+          pending={pendingIds.has(t.id)}
+          shopping={shopping}
+          onToggle={() => actions.toggle(t, shopping)}
+          onOpen={shopping ? undefined : () => navigation.navigate('Task', { taskId: t.id })}
+        />
+      </SwipeRow>,
       ...rows(t.children, done),
     ]);
 
@@ -83,6 +90,7 @@ export function ListScreen({ route, navigation }: Props) {
         label={strings['lists.delete']}
         onPress={() => {
           store.dispatch(remove('lists', list.id));
+          undo.show(strings['undo.listDeleted'](list.name), () => store.dispatch(restore('lists', list.id)));
           navigation.goBack();
         }}
       />

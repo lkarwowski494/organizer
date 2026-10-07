@@ -38,6 +38,20 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
 6. **Dzieci nie tworzą ani nie zmieniają wydarzeń.** To ta sama zasada co przy listach, pilnowana w strażniku SQL i w UI.
 7. **COUNT z innych źródeł zamienia się na datę ostatniego wystąpienia** przy edycji. Formularz ma tylko „bez końca” albo „do dnia”.
 
+## Dopisek: odhaczanie, usuwanie, kolejność dnia (7.10.2026, po teście na telefonie)
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D59 | Ochrona przed przypadkowym odhaczeniem | Systemowe okno „Zrobione?” (zakupy: „Do koszyka?”) przy odhaczaniu zadań i pozycji zakupów. Cofnięcie odhaczenia działa bez pytania. | Dwa dotknięcia; bez pytania z paskiem „Cofnij”; zakupy bez potwierdzenia |
+| D60 | Usuwanie z listy | Przesunięcie wiersza w lewo odsłania „Usuń”, a usuwa dopiero dotknięcie tego przycisku. Potem widać pasek „Cofnij” (także po usunięciu listy), a pozycja trafia do kosza. Dziecko nie dostaje usuwania (D34). | Długie przytrzymanie z menu; usuwanie tylko z ekranu zadania |
+
+Kolejność dnia (poprawka): w „Dziś”, „Jutro” i w dniu kalendarza wydarzenia i zadania tworzą jedną listę.
+- Na górze są całodniowe: najpierw wydarzenia, potem zadania bez godziny.
+- Dalej wszystko z godziną rosnąco (`src/domain/views/agenda.ts`).
+- Wcześniej wydarzenia stały w osobnym bloku przed zadaniami.
+
+Decyzja wykonawcza: przesuwanie zrobione na poziomym `ScrollView` z RN, bez nowej biblioteki natywnej.
+- Odrzucone: react-native-gesture-handler. To nowa zależność natywna i trudniejsze testy.
+
 ## Do zrobienia później
 - D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami).
 - Przypomnienia o wydarzeniach (push).
