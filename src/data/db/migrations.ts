@@ -8,7 +8,10 @@
  */
 import type { DbAdapter } from './adapter';
 
-export const ENTITY_TABLES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity'] as const;
+const V1_TABLES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity'] as const;
+/** Wydarzenia (migracja serwera 20261008100000_events). */
+const V2_TABLES = ['events', 'event_participants', 'event_overrides'] as const;
+export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES] as const;
 
 const mirror = (t: string) => `
 create table ${t} (
@@ -25,7 +28,7 @@ export const MIGRATIONS: readonly { version: number; sql: string }[] = [
   {
     version: 1,
     sql: `
-${ENTITY_TABLES.map(mirror).join('\n')}
+${V1_TABLES.map(mirror).join('\n')}
 create table pending_ops (
   seq integer primary key not null,
   op_id text not null unique,
@@ -42,6 +45,7 @@ create table sync_state (
   value text not null
 );`,
   },
+  { version: 2, sql: V2_TABLES.map(mirror).join('\n') },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

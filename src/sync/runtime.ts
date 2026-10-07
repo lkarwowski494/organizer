@@ -53,9 +53,13 @@ export class SyncRuntime {
     return () => this.listeners.delete(fn);
   };
 
-  /** Lokalna zmiana: widoczna od razu, zapisana razem z wpisem w kolejce, wysłana po debounce. */
-  dispatch(op: NewOp): void {
-    this.setState(mutate(this.state, op, this.deps.newId));
+  /**
+   * Lokalna zmiana: widoczna od razu, zapisana razem z wpisem w kolejce, wysłana po debounce. Kilka operacji
+   * naraz (np. „to i następne” = koniec starej serii + nowa seria) zapisuje się w jednej transakcji (R1).
+   */
+  dispatch(op: NewOp | readonly NewOp[]): void {
+    const ops: readonly NewOp[] = Array.isArray(op) ? op : [op as NewOp];
+    this.setState(ops.reduce((st, o) => mutate(st, o, this.deps.newId), this.state));
     this.event({ t: 'local_change', pending: pendingCount(this.state) });
   }
 

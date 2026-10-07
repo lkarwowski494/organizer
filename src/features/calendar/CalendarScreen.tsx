@@ -1,6 +1,7 @@
 /**
  * Kalendarz miesiąca: tydzień od poniedziałku, polskie dni wolne, kropki linii grup przy dniach
- * z zadaniami; pod siatką zadania wybranego dnia. Wydarzenia i serie RRULE — Etap 4.
+ * z wydarzeniami i zadaniami; pod siatką wydarzenia (wszystkie z moich grup, także serie RRULE) i zadania
+ * wybranego dnia oraz dodawanie wydarzenia na ten dzień.
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,8 +15,9 @@ import { formatIsoDate } from '../../domain/civil-date';
 import { formatDue, formatLongDate, formatMonth, parseIsoDate } from '../../domain/format';
 import { toggleDone } from '../../domain/views/commands';
 import { calendarMonth } from '../../domain/views';
+import { eventsByDate, timeLabel } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Screen, StationRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, Screen, StationRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function CalendarScreen() {
@@ -26,11 +28,13 @@ export function CalendarScreen() {
   const [ym, setYm] = useState({ y: today.y, m: today.m });
   const [selected, setSelected] = useState(formatIsoDate(today));
   const days = useMemo(() => calendarMonth(tables, userId, ym.y, ym.m), [tables, userId, ym]);
+  const events = useMemo(() => eventsByDate(tables, userId, parseIsoDate(days[0]!.date), parseIsoDate(days.at(-1)!.date)), [tables, userId, days]);
   const shift = (k: number) => {
     const idx = ym.y * 12 + (ym.m - 1) + k;
     setYm({ y: Math.floor(idx / 12), m: (idx % 12) + 1 });
   };
   const day = days.find((d) => d.date === selected);
+  const dayEvents = day ? (events.get(day.date) ?? []) : [];
   const isoToday = formatIsoDate(today);
 
   return (
@@ -54,7 +58,8 @@ export function CalendarScreen() {
         {days.map((d) => {
           const on = d.date === selected;
           const n = parseIsoDate(d.date).d;
-          const label = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday);
+          const evs = events.get(d.date) ?? [];
+          const label = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday, evs.length);
           return (
             <Pressable
               key={d.date}
@@ -67,7 +72,7 @@ export function CalendarScreen() {
             >
               <Text style={{ fontFamily: d.holiday ? font.text700 : font.text400, fontSize: 16, color: d.holiday ? c.danger : d.inMonth ? c.ink : c.inkMuted }}>{n}</Text>
               <View style={{ flexDirection: 'row', gap: 2, height: 8, marginTop: 2 }}>
-                {[...new Set(d.items.map((i) => i.line))].slice(0, 4).map((l) => (
+                {[...new Set([...evs.map((e) => e.line), ...d.items.map((i) => i.line)])].slice(0, 4).map((l) => (
                   <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: line(l).line }} />
                 ))}
               </View>
@@ -81,13 +86,16 @@ export function CalendarScreen() {
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
-          {day.items.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {day.items.length === 0 && dayEvents.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {dayEvents.map((e) => (
+            <EventRow key={`${e.eventId}-${e.occurrenceDate}`} testID={`cal-event-${e.eventId}-${e.occurrenceDate}`} title={e.title} time={timeLabel(e.startTime, e.endTime)} line={e.line} group={e.groupName} recurring={e.recurring} onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })} />
+          ))}
           {day.items.map((it) => (
             <StationRow key={it.id} testID={`cal-${it.id}`} title={it.title} line={it.line} group={it.groupName} meta={[formatDue(it.due!, today)]} checked={false} onToggle={() => store.dispatch(toggleDone(it, nowIso()))} onOpen={() => nav.navigate('Task', { taskId: it.id })} />
           ))}
         </View>
       ) : null}
-      <Body muted>{strings['calendar.eventsLater']}</Body>
+      <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
     </Screen>
   );
 }

@@ -86,6 +86,20 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(seen).toHaveLength(before);
   });
 
+  it('kilka operacji naraz: jeden zapis stanu (jedna transakcja), kolejność zachowana', () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const persist = jest.fn();
+    const { rt } = harness(serverTransport(server, 'ala'), { persist });
+    rt.dispatch([
+      { kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } },
+      { kind: 'patch', entity: 'lists', id: 'l1', set: { name: 'Dom 2' } },
+    ]);
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(rt.getSnapshot().state.pending.map((o) => o.kind)).toEqual(['create', 'patch']);
+    expect(rt.getSnapshot().indicator).toMatchObject({ pending: 2 });
+  });
+
   it('brak sieci (wyjątek fetch): błąd, ponowienie z opóźnieniem, zmiana nie ginie', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);

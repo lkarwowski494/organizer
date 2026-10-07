@@ -12,7 +12,7 @@ import {
   pushRequest,
 } from '../../domain/sync-engine/client';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { migrate, SCHEMA_VERSION } from '../db/migrations';
+import { migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
 import { readState, writeState } from '../store';
 import { memoryDb } from './sqlite';
 
@@ -27,7 +27,21 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'group_members', 'groups', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'events', 'group_members', 'groups', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+  });
+
+  it('aktualizacja z wersji 1 dodaje tabele wydarzeń i nie rusza istniejących danych', () => {
+    const db = memoryDb();
+    db.transaction(() => {
+      db.exec(MIGRATIONS[0]!.sql);
+      db.exec('pragma user_version = 1');
+    });
+    db.run("insert into tasks (key, group_id, scope_id, version, data) values ('t1', 'g1', 'l1', 3, '{}')");
+    db.run("insert into pending_ops (seq, op_id, op) values (1, 'o1', '{}')");
+    expect(migrate(db)).toBe(SCHEMA_VERSION);
+    expect(db.all('select key from tasks')).toEqual([{ key: 't1' }]);
+    expect(db.all('select seq from pending_ops')).toEqual([{ seq: 1 }]);
+    expect(db.all("select name from sqlite_master where type = 'table' and name like 'event%' order by name").length).toBe(3);
   });
 
   it('baza z nowszej wersji aplikacji nie jest ruszana', () => {

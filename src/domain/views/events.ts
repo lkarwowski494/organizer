@@ -1,0 +1,383 @@
+/**
+ * Wydarzenia (D57, D58; migracja serwera 20261008100000_events). Seria = wiersz events z regułą RRULE
+ * (src/domain/rrule.ts); zmiana jednego wystąpienia = event_overrides (data pierwotna → nowe wartości albo
+ * odwołanie); „to i następne” = koniec starej serii (UNTIL) + nowa seria od tego dnia, w jednej paczce operacji,
+ * więc działa też offline (R1).
+ */
+import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
+import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
+import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
+import { formatLongDate, parseIsoDate } from '../format';
+import { plural } from '../plural';
+import { alignStart, endBefore, formatRule, occurrences, parseRule, type Rule, RuleError } from '../rrule';
+import type { NewOp, Row } from '../sync-engine/client';
+import { groupsView, myMemberships } from './index';
+import { asMember, type Member, rows, type Tables } from './model';
+
+export type EventRow = {
+  id: string;
+  group_id: string;
+  title: string;
+  note: string | null;
+  start_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  rrule: string | null;
+  audience: 'group' | 'members';
+  deleted_at: string | null;
+};
+export type Participant = { id: string; event_id: string; member_id: string; deleted_at: string | null };
+export type Override = {
+  id: string;
+  event_id: string;
+  occurrence_date: string;
+  cancelled: boolean;
+  start_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  title: string | null;
+  deleted_at: string | null;
+};
+
+const s = (v: unknown) => (v == null ? null : String(v));
+export const asEvent = (r: Row): EventRow => ({
+  id: String(r.id),
+  group_id: String(r.group_id),
+  title: String(r.title ?? ''),
+  note: s(r.note),
+  start_date: String(r.start_date),
+  start_time: s(r.start_time),
+  end_time: s(r.end_time),
+  rrule: s(r.rrule),
+  audience: r.audience === 'members' ? 'members' : 'group',
+  deleted_at: s(r.deleted_at),
+});
+export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });
+export const asOverride = (r: Row): Override => ({
+  id: String(r.id),
+  event_id: String(r.event_id),
+  occurrence_date: String(r.occurrence_date),
+  cancelled: r.cancelled === true,
+  start_date: s(r.start_date),
+  start_time: s(r.start_time),
+  end_time: s(r.end_time),
+  title: s(r.title),
+  deleted_at: s(r.deleted_at),
+});
+
+/** Reguła serii albo `null` (wydarzenie jednorazowe; reguła, której telefon nie rozumie, też = jednorazowe). */
+export function ruleOf(e: Pick<EventRow, 'rrule'>): Rule | null {
+  if (e.rrule === null) return null;
+  try {
+    return parseRule(e.rrule);
+  } catch (err) {
+    if (err instanceof RuleError) return null;
+    throw err;
+  }
+}
+
+export type Occurrence = {
+  eventId: string;
+  /** Data wystąpienia według reguły — klucz wystąpienia (także gdy przeniesione). */
+  occurrenceDate: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  title: string;
+  recurring: boolean;
+  overrideId: string | null;
+  groupId: string;
+  groupName: string;
+  line: number;
+  concernsMe: boolean;
+};
+
+/** O ile dni wolno przenieść wystąpienie — tyle zapasu bierzemy przy rozwijaniu, żeby przeniesione nie zniknęło. */
+const MOVE_WINDOW_DAYS = 62;
+
+const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at === null;
+
+/**
+ * Wystąpienia w [from, to] z moich grup. Dotyczy mnie (D58): wydarzenie całej grupy, albo jestem uczestnikiem,
+ * albo uczestnikiem jest dziecko z tej grupy, a ja jestem dorosłym (rodzic zawozi na zajęcia).
+ */
+export function expandEvents(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
+  const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
+  const members = new Map(rows(t, 'group_members', asMember).map((m) => [m.member_id, m]));
+  const parts = rows(t, 'event_participants', asParticipant).filter(alive);
+  const overrides = rows(t, 'event_overrides', asOverride).filter(alive);
+  const out: Occurrence[] = [];
+  const isoFrom = formatIsoDate(from);
+  const isoTo = formatIsoDate(to);
+  for (const e of rows(t, 'events', asEvent).filter(alive)) {
+    const g = groups.get(e.group_id);
+    if (!g) continue;
+    const rule = ruleOf(e);
+    const mine = parts.filter((p) => p.event_id === e.id).map((p) => members.get(p.member_id));
+    const concernsMe =
+      e.audience === 'group' ||
+      mine.some((m) => m?.member_id === g.me.member_id) ||
+      (g.me.role !== 'child' && mine.some((m) => m?.role === 'child' && m.deleted_at === null));
+    const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
+    for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
+      const occ = formatIsoDate(d);
+      const o = byDate.get(occ);
+      if (o?.cancelled) continue;
+      const date = o?.start_date ?? occ;
+      if (date < isoFrom || date > isoTo) continue;
+      out.push({
+        eventId: e.id,
+        occurrenceDate: occ,
+        date,
+        startTime: o?.start_time ?? e.start_time,
+        endTime: o?.start_time ? o.end_time : e.end_time,
+        title: o?.title ?? e.title,
+        recurring: rule !== null,
+        overrideId: o?.id ?? null,
+        groupId: g.id,
+        groupName: g.name,
+        line: g.line,
+        concernsMe,
+      });
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.title.localeCompare(b.title, 'pl') || a.eventId.localeCompare(b.eventId));
+}
+
+const FEMININE = new Set([2, 5, 6]); // środa, sobota, niedziela
+
+/** Opis reguły po polsku, np. „Co tydzień: pon., sob.”, „Co miesiąc, w ostatni piątek”, „Codziennie, do 31.12.2026”. */
+export function describeRule(rule: Rule, start: CivilDate): string {
+  const n = rule.interval;
+  let text: string;
+  switch (rule.freq) {
+    case 'DAILY':
+      text = n === 1 ? 'Codziennie' : `Co ${n} dni`;
+      break;
+    case 'WEEKLY': {
+      const days = rule.byday.length ? [...new Set(rule.byday.map((b) => b.wd))].sort((a, b) => a - b) : null;
+      text = `${n === 1 ? 'Co tydzień' : `Co ${n} ${plural(n, { one: 'tydzień', few: 'tygodnie', many: 'tygodni' })}`}${days ? `: ${days.map((d) => WEEKDAYS_ABBREVIATED[d]).join(', ')}` : ''}`;
+      break;
+    }
+    case 'MONTHLY': {
+      const base = n === 1 ? 'Co miesiąc' : `Co ${n} ${plural(n, { one: 'miesiąc', few: 'miesiące', many: 'miesięcy' })}`;
+      const b = rule.byday[0];
+      const md = rule.bymonthday[0];
+      if (b && b.n === null) text = `${base}: ${[...new Set(rule.byday.map((x) => x.wd))].sort((x, y) => x - y).map((d) => WEEKDAYS_ABBREVIATED[d]).join(', ')}`;
+      else if (b) {
+        const last = b.n === -1 ? (FEMININE.has(b.wd) ? 'ostatnią' : 'ostatni') : `${b.n}.`;
+        text = `${base}, w ${last} ${WEEKDAYS_ACCUSATIVE[b.wd]}`;
+      } else if (md !== undefined) text = `${base}, ${md === -1 ? 'ostatniego' : `${md}.`} dnia`;
+      else text = `${base}, ${start.d}. dnia`;
+      break;
+    }
+    case 'YEARLY':
+      text = n === 1 ? 'Co roku' : `Co ${n} ${plural(n, { one: 'rok', few: 'lata', many: 'lat' })}`;
+      break;
+  }
+  if (rule.until) {
+    const u = parseIsoDate(rule.until);
+    text += `, do ${u.d}.${String(u.m).padStart(2, '0')}.${u.y}`;
+  }
+  if (rule.count !== null) text += `, ${rule.count} ${plural(rule.count, { one: 'raz', few: 'razy', many: 'razy' })}`;
+  return text;
+}
+
+export type EventDetail = {
+  event: EventRow;
+  rule: Rule | null;
+  groupName: string;
+  line: number;
+  members: Member[];
+  participants: Participant[];
+  overrides: Override[];
+  canEdit: boolean;
+};
+
+export function eventDetail(t: Tables, userId: string, eventId: string): EventDetail | null {
+  const raw = t.events?.[eventId];
+  if (!raw) return null;
+  const event = asEvent(raw);
+  const g = groupsView(t, userId).find((x) => x.id === event.group_id);
+  if (!g) return null;
+  return {
+    event,
+    rule: ruleOf(event),
+    groupName: g.name,
+    line: g.line,
+    members: rows(t, 'group_members', asMember).filter((m) => alive(m) && m.group_id === g.id),
+    participants: rows(t, 'event_participants', asParticipant).filter((p) => p.event_id === eventId),
+    overrides: rows(t, 'event_overrides', asOverride).filter((o) => alive(o) && o.event_id === eventId),
+    canEdit: event.deleted_at === null && myMemberships(t, userId).get(g.id)?.role !== 'child',
+  };
+}
+
+// ───────────────────────── operacje ─────────────────────────
+
+export type EventFields = {
+  title: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  /** Reguła bez COUNT/UNTIL (koniec osobno w `until`); `null` = jednorazowe. */
+  rule: Rule | null;
+  until: string | null;
+  audience: 'group' | 'members';
+  participantIds: string[];
+};
+
+const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
+
+/** Uczestnicy: dodanie nowych, przywrócenie usuniętych (unikalność event_id + member_id), usunięcie zbędnych. */
+function participantOps(eventId: string, groupId: string, existing: Participant[], wanted: string[], newId: () => string): NewOp[] {
+  const ops: NewOp[] = [];
+  for (const m of wanted) {
+    const p = existing.find((x) => x.member_id === m);
+    if (!p) ops.push({ kind: 'create', entity: 'event_participants', id: newId(), group_id: groupId, set: { event_id: eventId, member_id: m } });
+    else if (p.deleted_at !== null) ops.push({ kind: 'restore', entity: 'event_participants', id: p.id });
+  }
+  for (const p of existing) if (p.deleted_at === null && !wanted.includes(p.member_id)) ops.push({ kind: 'delete', entity: 'event_participants', id: p.id });
+  return ops;
+}
+
+export function createEvent(groupId: string, f: EventFields, newId: () => string): { id: string; ops: NewOp[] } {
+  const id = newId();
+  const start = f.rule ? alignStart(parseIsoDate(f.date), f.rule) : parseIsoDate(f.date);
+  const ops: NewOp[] = [
+    {
+      kind: 'create',
+      entity: 'events',
+      id,
+      group_id: groupId,
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience },
+    },
+    ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], newId),
+  ];
+  return { id, ops };
+}
+
+export type Scope = 'this' | 'following' | 'all';
+
+/** Zmiana wydarzenia w wybranym zakresie (D57). Dla jednorazowego zakres nie ma znaczenia (= „all”). */
+export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields, newId: () => string): NewOp[] {
+  const e = d.event;
+  const effective: Scope = d.rule === null || (scope === 'following' && occurrenceDate === e.start_date) ? 'all' : scope;
+  if (effective === 'this') {
+    const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
+    const set = {
+      start_date: f.date === occurrenceDate ? null : f.date,
+      start_time: f.startTime,
+      end_time: f.endTime,
+      title: f.title === e.title ? null : f.title,
+      cancelled: false,
+    };
+    return o
+      ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set }]
+      : [{ kind: 'create', entity: 'event_overrides', id: newId(), group_id: e.group_id, set: { ...set, event_id: e.id, occurrence_date: occurrenceDate } }];
+  }
+  if (effective === 'all') {
+    const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : e.start_date), f.rule) : parseIsoDate(f.date);
+    return [
+      {
+        kind: 'patch',
+        entity: 'events',
+        id: e.id,
+        set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience },
+      },
+      ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], newId),
+    ];
+  }
+  // „To i następne”: stara seria kończy się dzień wcześniej, nowa zaczyna się od tego wystąpienia (z nowymi wartościami);
+  // zmiany pojedynczych wystąpień od tego dnia przechodzą do nowej serii.
+  const occ = parseIsoDate(occurrenceDate);
+  const created = createEvent(e.group_id, { ...f, date: occurrenceDate }, newId);
+  const ops: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule!, occ)) } }, ...created.ops];
+  for (const o of d.overrides.filter((x) => x.occurrence_date >= occurrenceDate)) {
+    ops.push({ kind: 'delete', entity: 'event_overrides', id: o.id });
+    ops.push({
+      kind: 'create',
+      entity: 'event_overrides',
+      id: newId(),
+      group_id: e.group_id,
+      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title },
+    });
+  }
+  return ops;
+}
+
+/** Odwołanie / usunięcie w zakresie: to wystąpienie, to i następne, cała seria. */
+export function cancelEvent(d: EventDetail, occurrenceDate: string, scope: Scope, newId: () => string): NewOp[] {
+  const e = d.event;
+  if (d.rule === null || scope === 'all' || (scope === 'following' && occurrenceDate === e.start_date)) return [{ kind: 'delete', entity: 'events', id: e.id }];
+  if (scope === 'following') return [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule, parseIsoDate(occurrenceDate))) } }];
+  const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
+  return o
+    ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set: { cancelled: true } }]
+    : [{ kind: 'create', entity: 'event_overrides', id: newId(), group_id: e.group_id, set: { event_id: e.id, occurrence_date: occurrenceDate, cancelled: true } }];
+}
+
+/**
+ * Wartości formularza dla wystąpienia w wybranym zakresie: „this” — to wystąpienie (z jego zmianami), „following” —
+ * seria od tego dnia, „all” — cała seria od początku. Koniec serii zawsze jako data (COUNT → data ostatniego wystąpienia).
+ */
+export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): EventFields {
+  const e = d.event;
+  const o = scope === 'this' ? d.overrides.find((x) => x.occurrence_date === occurrenceDate) : undefined;
+  let until = d.rule?.until ?? null;
+  if (d.rule && d.rule.count !== null) {
+    const start = parseIsoDate(e.start_date);
+    until = formatIsoDate(occurrences(start, d.rule, start, addDays(start, 366 * 100)).at(-1)!);
+  }
+  return {
+    title: o?.title ?? e.title,
+    date: scope === 'all' ? e.start_date : (o?.start_date ?? occurrenceDate),
+    startTime: o?.start_time ?? e.start_time,
+    endTime: o?.start_time ? o.end_time : e.end_time,
+    rule: d.rule ? { ...d.rule, count: null, until: null } : null,
+    until,
+    audience: e.audience,
+    participantIds: d.participants.filter(alive).map((p) => p.member_id),
+  };
+}
+
+/** Wydarzenia, które dotyczą mnie dziś i jutro (do widoku „Dotyczy mnie”). */
+export function todayEvents(t: Tables, userId: string, today: CivilDate): { today: Occurrence[]; tomorrow: Occurrence[] } {
+  const all = expandEvents(t, userId, today, addDays(today, 1)).filter((x) => x.concernsMe);
+  const iso = formatIsoDate(today);
+  return { today: all.filter((x) => x.date === iso), tomorrow: all.filter((x) => x.date !== iso) };
+}
+
+/** Wszystkie wydarzenia z moich grup w [from, to], pogrupowane po dniu (kalendarz). */
+export function eventsByDate(t: Tables, userId: string, from: CivilDate, to: CivilDate): Map<string, Occurrence[]> {
+  const out = new Map<string, Occurrence[]>();
+  for (const x of expandEvents(t, userId, from, to)) out.set(x.date, [...(out.get(x.date) ?? []), x]);
+  return out;
+}
+
+/** „18:00–19:00”, „18:00” albo `null` (cały dzień); serwer zwraca godziny z sekundami (typ time). */
+export function timeLabel(start: string | null, end: string | null): string | null {
+  if (start === null) return null;
+  return end === null ? start.slice(0, 5) : `${start.slice(0, 5)}–${end.slice(0, 5)}`;
+}
+
+export type SeriesItem = { id: string; title: string; summary: string; time: string | null; start: string; next: string | null };
+
+/** Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). */
+export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate): SeriesItem[] {
+  if (!groupsView(t, userId).some((g) => g.id === groupId)) return [];
+  const upcoming = expandEvents(t, userId, today, addDays(today, 366));
+  return rows(t, 'events', asEvent)
+    .filter((e) => alive(e) && e.group_id === groupId)
+    .map((e) => {
+      const rule = ruleOf(e);
+      return {
+        id: e.id,
+        title: e.title,
+        summary: rule ? describeRule(rule, parseIsoDate(e.start_date)) : formatLongDate(parseIsoDate(e.start_date), today),
+        time: timeLabel(e.start_time, e.end_time),
+        start: e.start_date,
+        next: upcoming.find((x) => x.eventId === e.id)?.occurrenceDate ?? null,
+      };
+    })
+    .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999') || a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+}
