@@ -11,7 +11,9 @@ import type { DbAdapter } from './adapter';
 const V1_TABLES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity'] as const;
 /** Wydarzenia (migracja serwera 20261008100000_events). */
 const V2_TABLES = ['events', 'event_participants', 'event_overrides'] as const;
-export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES] as const;
+/** Stałe zadania serii (migracja serwera 20261008130000_event_task_series). */
+const V3_TABLES = ['event_task_series'] as const;
+export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES, ...V3_TABLES] as const;
 
 const mirror = (t: string) => `
 create table ${t} (
@@ -46,6 +48,7 @@ create table sync_state (
 );`,
   },
   { version: 2, sql: V2_TABLES.map(mirror).join('\n') },
+  { version: 3, sql: V3_TABLES.map(mirror).join('\n') },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

@@ -56,6 +56,15 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(b.scopes).toEqual([]);
   });
 
+  it('utrata dostępu do ukrytej listy usuwa też jej stałe zadania serii (zakres = lista)', () => {
+    let st = onPullResponse(initialState('c'), { groups: [{ group_id: 'g1', cursor: 2, has_more: false, resync: false, rows: [
+      { e: 'event_task_series', v: 1, row: { id: 's1', group_id: 'g1', list_id: 'l1', event_id: 'e1' } },
+      { e: 'event_task_series', v: 2, row: { id: 's2', group_id: 'g1', list_id: 'l2', event_id: 'e1' } },
+    ] }], scopes: ['l1'] }, 0).state;
+    st = onPullResponse(st, { groups: [{ group_id: 'g1', cursor: 2, has_more: false, resync: false, rows: [] }], scopes: [] }, 0).state;
+    expect(Object.keys(st.base.event_task_series ?? {})).toEqual(['s2']);
+  });
+
   it('wyścig: pobranie rozpoczęte przed potwierdzeniem wysyłki nie cofa zmiany na ekranie', () => {
     const { server } = setup();
     let { a } = setup();

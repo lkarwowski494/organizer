@@ -102,7 +102,7 @@ export function EventEditScreen({ route, navigation }: Props) {
             <Segmented label={strings['event.previewLostChoice']} value={lostChoice} onChange={setLostChoice} options={[{ value: 'nearest', label: strings['event.previewNearest'] }, { value: 'unlink', label: strings['event.previewUnlink'] }]} />
           </View>
         ) : null}
-        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit([...preview.ops, ...seriesTaskOps(detail, occurrence, preview.ops, effects, lostChoice)])} />
+        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit([...preview.ops, ...seriesTaskOps(tables, detail, preview.ops, effects, lostChoice)])} />
         <Button kind="secondary" label={strings['event.previewBack']} onPress={() => setPreview(null)} />
       </Screen>
     );

@@ -11,6 +11,9 @@ export const config = {
   /** Jak długo widać pasek „Cofnij” po usunięciu (ms). Wybór projektowy, bez źródła zewnętrznego. */
   UNDO_MS: 6000,
 
+  /** Na ile tygodni naprzód telefon dokłada kopie stałych zadań serii (D65). Wybór projektowy, bez źródła. */
+  SERIES_TASK_WEEKS: 8,
+
   /**
    * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
    * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.

@@ -134,7 +134,7 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
     expect(fx.preview).toEqual(['2026-10-19', '2026-10-26', '2026-11-02']);
     expect(fx.kept.map((x) => x.id)).toEqual(['opłata']);
     expect(fx.lost).toEqual([]);
-    const taskOps = seriesTaskOps(d(), '2026-10-19', ops, fx, 'nearest');
+    const taskOps = seriesTaskOps(t, d(), ops, fx, 'nearest');
     expect(taskOps).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: created.id, occurrence_date: '2026-10-19' } }]);
     run(t, [...ops, ...taskOps]);
     expect(occurrenceResolver(t)(created.id, '2026-10-19')).toEqual({ date: '2026-10-19', time: '17:00' });
@@ -152,12 +152,12 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
       ['opłata', '2026-10-20'],
       ['strój', '2026-10-13'],
     ]);
-    expect(seriesTaskOps(d(), '2026-10-12', ops, fx, 'nearest')).toEqual([
+    expect(seriesTaskOps(t, d(), ops, fx, 'nearest')).toEqual([
       { kind: 'patch', entity: 'tasks', id: 'buty', set: { event_id: id, occurrence_date: '2026-10-13' } },
       { kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: id, occurrence_date: '2026-10-20' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: id, occurrence_date: '2026-10-13' } },
     ]);
-    expect(seriesTaskOps(d(), '2026-10-12', ops, fx, 'unlink').map((o) => ('set' in o ? o.set : null))).toEqual([
+    expect(seriesTaskOps(t, d(), ops, fx, 'unlink').map((o) => ('set' in o ? o.set : null))).toEqual([
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
@@ -170,7 +170,7 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
     const fx = seriesEditEffects(t, d(), '2026-10-05', 'all', ops);
     expect(fx.kept.map((x) => x.id)).toEqual(['buty', 'strój']);
     expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([['opłata', null]]);
-    expect(seriesTaskOps(d(), '2026-10-05', ops, fx, 'nearest')).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
+    expect(seriesTaskOps(t, d(), ops, fx, 'nearest')).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
   });
 
   it('bez operacji na serii (np. pusta lista) — seria bez zmian', () => {

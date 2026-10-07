@@ -44,6 +44,8 @@ export type Task = {
   occurrence_date: string | null;
   /** D61: niezrobione przechodzi na kolejne dni (domyślnie); `false` = „Tylko tego dnia”, mija jak wydarzenie. */
   rollover: boolean;
+  /** Kopia stałego zadania serii (D65) — definicja w event_task_series. */
+  series_id: string | null;
   completed_at: string | null;
   deleted_at: string | null;
 };
@@ -95,6 +97,7 @@ export function asTask(r: Row): Task {
     event_id: str(r.event_id),
     occurrence_date: str(r.occurrence_date),
     rollover: r.rollover !== false,
+    series_id: str(r.series_id),
     completed_at: str(r.completed_at),
     deleted_at: str(r.deleted_at),
   };
