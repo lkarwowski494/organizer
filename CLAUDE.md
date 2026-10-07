@@ -8,6 +8,10 @@ Dokumentacja projektu (Google Drive, folder „Organizer grup”):
 - Rejestr decyzji: https://docs.google.com/document/d/1ta-8A-_mhrFnvrv3GJY0QAKwOF0USgl9MZu5CglBYyk/edit
 - Roadmapa: https://docs.google.com/document/d/1RD4HBt8hhX7rDYekSRtnFGtyVS6x6rmlJbVksWb8Pqo/edit
 - Architektura i plan MVP: https://docs.google.com/document/d/1BiNrwQwPbpwOXcc8FHXmLpvTEwitrwj_TeMxK8bowxg/edit
+- Backlog (04): https://docs.google.com/spreadsheets/d/1SLCMD_fkNWtyhay6jTnVtxGTCgkxzCzFuWbLvDSAb5g/edit
+- Changelog (05, najnowsze na górze): https://docs.google.com/document/d/1e2vVbgaAqKORL4_jXKBmg6DVR8v2musxJyRHNMXnxvU/edit
+
+Po każdej istotnej zmianie aktualizuj backlog i changelog.
 
 Kopia decyzji w repozytorium: `docs/adr/`.
 
