@@ -57,6 +57,12 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Listy', async (p) => p('Listy')],
   ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'))],
   ['Lista zadań', async (p) => (await p('Listy'), await p('Dom, Rodzina · Zadania · 3 otwarte'))],
+  ['Lista zadań: dla kogo albo na kiedy', async (p) => {
+    await p('Listy');
+    await p('Dom, Rodzina · Zadania · 3 otwarte');
+    fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół');
+    await p('Dodaj');
+  }],
   ['Zadanie', async (p) => p('Otwórz: Odebrać paczkę')],
   ['Dotyczy mnie: tydzień', async (p) => p('Tydzień')],
   ['Dotyczy mnie: wczoraj', async (p) => p('Poprzedni dzień')],

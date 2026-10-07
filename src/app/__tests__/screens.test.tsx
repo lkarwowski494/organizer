@@ -152,8 +152,18 @@ describe('Listy i zadania', () => {
     expect(await screen.findByText('Zadanie usunięte')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij usunięcie'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    // D68: we wspólnej grupie bez osoby nie da się zdjąć terminu.
+    const before = store.dispatched.length;
+    await press(screen.getByLabelText('Usuń termin'));
+    expect(screen.getByText(/musi mieć osobę albo termin/)).toBeTruthy();
+    expect(store.dispatched).toHaveLength(before);
+    await press(screen.getByLabelText('Ala'));
     await press(screen.getByLabelText('Usuń termin'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
+    // Teraz bez terminu, więc „Dla każdego” też jest zablokowane.
+    const n = store.dispatched.length;
+    await press(screen.getByLabelText('Dla każdego'));
+    expect(store.dispatched).toHaveLength(n);
   });
 
   it('nowa lista prywatna w grupie wspólnej i usunięcie listy', async () => {
