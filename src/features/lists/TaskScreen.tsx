@@ -12,7 +12,8 @@ import { config } from '../../config';
 import { isValidDate } from '../../domain/civil-date';
 import { formatDue } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { createTask, patchTask, remove, restore, setDue, toggleDone } from '../../domain/views/commands';
+import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
+import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, type TaskNode } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
@@ -42,7 +43,8 @@ function find(nodes: TaskNode[], id: string): TaskNode | undefined {
 }
 
 export function TaskScreen({ route, navigation }: Props) {
-  const { userId, store, now, nowIso, newId } = useServices();
+  const { userId, store, now, newId } = useServices();
+  const actions = useTaskActions();
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
@@ -97,7 +99,7 @@ export function TaskScreen({ route, navigation }: Props) {
     <Screen testID="screen-task">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Checkbox checked={task.completed_at !== null} onPress={() => store.dispatch(toggleDone(task, nowIso()))} label={task.completed_at ? strings['task.undone'] : strings['task.done']} />
+        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={task.completed_at ? strings['task.undone'] : strings['task.done']} />
         <Text style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>{`${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`}</Text>
       </View>
       <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
@@ -128,7 +130,7 @@ export function TaskScreen({ route, navigation }: Props) {
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {(node?.children ?? []).map((ch) => (
-            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => store.dispatch(toggleDone(ch, nowIso()))} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
+            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
           ))}
           <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" />
           <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} />

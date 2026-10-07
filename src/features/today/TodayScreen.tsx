@@ -9,15 +9,17 @@ import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { toggleDone } from '../../domain/views/commands';
-import { groupsView, type TodayItem, todayView } from '../../domain/views';
-import { type Occurrence, timeLabel, todayEvents } from '../../domain/views/events';
+import { useTaskActions } from '../../app/task-actions';
+import { groupsView, todayView } from '../../domain/views';
+import { agenda, type AgendaEntry } from '../../domain/views/agenda';
+import { timeLabel, todayEvents } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
-import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, StationRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function TodayScreen() {
-  const { userId, store, now, nowIso, nowMs, newId } = useServices();
+  const { userId, store, now, nowMs, newId } = useServices();
+  const actions = useTaskActions();
   const { tables, today, indicator } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font } = useTheme();
@@ -35,14 +37,17 @@ export function TodayScreen() {
     setIgnore([]);
   };
 
-  // Wydarzenia (D58: dotyczące mnie) na górze dnia, przed zadaniami.
-  const sections: [string, TodayItem[], Occurrence[]][] = [
-    [strings['today.overdue'], view.overdue, []],
-    [strings['today.pinned'], view.pinned, []],
-    [strings['today.today'], view.today, events.today],
-    [strings['today.tomorrow'], view.tomorrow, events.tomorrow],
+  // Zaległe i przypięte: kolejność terminów. Dziś i jutro: plan dnia — całodniowe na górze, potem godziny po kolei,
+  // wydarzenia (D58: dotyczące mnie) przemieszane z zadaniami.
+  const asTasks = (items: typeof view.today): AgendaEntry[] => items.map((t) => ({ kind: 'task', key: `t-${t.id}`, task: t }));
+  const sections: [string, AgendaEntry[]][] = [
+    [strings['today.overdue'], asTasks(view.overdue)],
+    [strings['today.pinned'], asTasks(view.pinned)],
+    [strings['today.today'], agenda(view.today, events.today)],
+    [strings['today.tomorrow'], agenda(view.tomorrow, events.tomorrow)],
   ];
-  const empty = sections.every(([, items, evs]) => items.length === 0 && evs.length === 0);
+  const empty = sections.every(([, entries]) => entries.length === 0);
+  const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
 
   return (
@@ -69,35 +74,37 @@ export function TodayScreen() {
         ) : null}
       </QuickAddField>
       {empty ? <Body muted>{strings['today.empty']}</Body> : null}
-      {sections.map(([title, items, evs]) =>
-        items.length === 0 && evs.length === 0 ? null : (
+      {sections.map(([title, entries]) =>
+        entries.length === 0 ? null : (
           <View key={title}>
             <SectionTitle>{title}</SectionTitle>
-            {evs.map((e) => (
-              <EventRow
-                key={`${e.eventId}-${e.occurrenceDate}`}
-                testID={`today-event-${e.eventId}-${e.occurrenceDate}`}
-                title={e.title}
-                time={timeLabel(e.startTime, e.endTime)}
-                line={e.line}
-                group={groupLabel(e.groupId, e.groupName)}
-                recurring={e.recurring}
-                onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })}
-              />
-            ))}
-            {items.map((it) => (
-              <StationRow
-                key={it.id}
-                testID={`today-${it.id}`}
-                title={it.title}
-                line={it.line}
-                group={groupLabel(it.group_id, it.groupName)}
-                meta={[it.due ? formatDue(it.due, today) : strings['today.noDue'], ...(it.assignee ? [strings['task.assignedTo'](it.assignee)] : [])]}
-                checked={false}
-                onToggle={() => store.dispatch(toggleDone(it, nowIso()))}
-                onOpen={() => nav.navigate('Task', { taskId: it.id })}
-              />
-            ))}
+            {entries.map((x) =>
+              x.kind === 'event' ? (
+                <EventRow
+                  key={x.key}
+                  testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
+                  title={x.event.title}
+                  time={timeLabel(x.event.startTime, x.event.endTime)}
+                  line={x.event.line}
+                  group={groupLabel(x.event.groupId, x.event.groupName)}
+                  recurring={x.event.recurring}
+                  onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
+                />
+              ) : (
+                <SwipeRow key={x.key} title={x.task.title} enabled={canDelete(x.task.group_id)} onDelete={() => actions.remove(x.task)}>
+                  <StationRow
+                    testID={`today-${x.task.id}`}
+                    title={x.task.title}
+                    line={x.task.line}
+                    group={groupLabel(x.task.group_id, x.task.groupName)}
+                    meta={[x.task.due ? formatDue(x.task.due, today) : strings['today.noDue'], ...(x.task.assignee ? [strings['task.assignedTo'](x.task.assignee)] : [])]}
+                    checked={false}
+                    onToggle={() => actions.toggle(x.task)}
+                    onOpen={() => nav.navigate('Task', { taskId: x.task.id })}
+                  />
+                </SwipeRow>
+              ),
+            )}
           </View>
         ),
       )}

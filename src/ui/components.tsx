@@ -3,8 +3,8 @@
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
-import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { type ReactNode, useRef, useState } from 'react';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Indicator } from '../domain/sync-engine/scheduler';
@@ -160,6 +160,48 @@ export function StationRow(props: {
         <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
       </View>
     </View>
+  );
+}
+
+/** Szerokość odsłanianego przycisku „Usuń” (pt). */
+const SWIPE_ACTION = 96;
+
+/**
+ * Wiersz z usuwaniem przesunięciem w lewo (D60, standard iOS): przesunięcie odsłania „Usuń”, usuwa dopiero dotknięcie
+ * przycisku. Zwykłe dotknięcie wiersza niczego nie usuwa. VoiceOver dociera do przycisku jak do każdego innego.
+ */
+export function SwipeRow({ children, title, onDelete, enabled = true, testID }: { children: ReactNode; title: string; onDelete: () => void; enabled?: boolean; testID?: string }) {
+  const { c, font, size } = useTheme();
+  const ref = useRef<ScrollView>(null);
+  // Szerokość wiersza = szerokość ekranu bez marginesów Screen (20 pt z każdej strony), potem z pomiaru.
+  const [width, setWidth] = useState(Dimensions.get('window').width - 40);
+  if (!enabled) return <>{children}</>;
+  return (
+    <ScrollView
+      ref={ref}
+      testID={testID}
+      horizontal
+      bounces={false}
+      showsHorizontalScrollIndicator={false}
+      snapToOffsets={[0, SWIPE_ACTION]}
+      decelerationRate="fast"
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      <View style={{ width }}>{children}</View>
+      <View style={{ width: SWIPE_ACTION, paddingLeft: 8, justifyContent: 'center' }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={strings['swipe.deleteA11y'](title)}
+          onPress={() => {
+            ref.current?.scrollTo({ x: 0, animated: false });
+            onDelete();
+          }}
+          style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
+        >
+          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['swipe.delete']}</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 

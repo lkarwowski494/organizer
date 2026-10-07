@@ -3,10 +3,10 @@
  * Stan to ten sam silnik co w aplikacji (mutate + materialize), więc zmiana offline widać od razu.
  */
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Share } from 'react-native';
+import { Alert, Share } from 'react-native';
 
 import { RootStack } from '../navigation';
-import { fakeAccount, ME, sampleBase, setup } from './harness';
+import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
   const s = setup(opts);
@@ -52,7 +52,14 @@ describe('Dotyczy mnie', () => {
     const { store } = await open();
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched).toHaveLength(0);
+    // D59: odhaczenie dopiero po potwierdzeniu; „Anuluj” nic nie zmienia.
     await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
+    expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: 'Kupić kwiaty' });
+    await answerAlert('Anuluj');
+    expect(store.dispatched).toHaveLength(0);
+    expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
+    await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
+    await answerAlert('Zrobione');
     expect(store.dispatched[0]).toMatchObject({ kind: 'patch', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
     expect(screen.queryByText('Kupić kwiaty')).toBeNull();
   });
@@ -74,7 +81,14 @@ describe('Listy i zadania', () => {
     expect(await screen.findByText('Zakupy na weekend')).toBeTruthy();
     expect(screen.getByText('W koszyku')).toBeTruthy();
     await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
+    expect(lastAlert().title).toBe('Do koszyka?');
+    await answerAlert('Do koszyka');
     expect(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni')).toBeTruthy();
+    // Wyjęcie z koszyka bez pytania (cofnięcie niczego nie ukrywa).
+    const n = (Alert.alert as unknown as jest.Mock).mock.calls.length;
+    await press(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni'));
+    expect((Alert.alert as unknown as jest.Mock).mock.calls).toHaveLength(n);
+    expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'jabłka');
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'jabłka' } });

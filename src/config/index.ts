@@ -8,6 +8,9 @@ export const config = {
   /** D4: maksymalna głębokość zagnieżdżenia podzadań (0 = zadanie główne, 2 = pod-podzadanie). */
   MAX_TASK_DEPTH: 2,
 
+  /** Jak długo widać pasek „Cofnij” po usunięciu (ms). Wybór projektowy, bez źródła zewnętrznego. */
+  UNDO_MS: 6000,
+
   /**
    * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
    * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.

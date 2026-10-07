@@ -258,6 +258,16 @@ export const strings = {
   'auth.invalidEmail': 'Sprawdź adres e-mail',
   'auth.or': 'albo',
 
+  'confirm.doneTitle': 'Zrobione?',
+  'confirm.doneYes': 'Zrobione',
+  'confirm.cartTitle': 'Do koszyka?',
+  'confirm.cartYes': 'Do koszyka',
+  'swipe.delete': 'Usuń',
+  'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
+  'undo.deleted': (title: string) => `Usunięto: ${title}`,
+  'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
+  'undo.action': 'Cofnij',
+
   'common.cancel': 'Anuluj',
   'common.back': 'Wróć',
   'common.error': 'Coś poszło nie tak. Spróbuj jeszcze raz.',

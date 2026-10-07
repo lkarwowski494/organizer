@@ -13,15 +13,17 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatDue, formatLongDate, formatMonth, parseIsoDate } from '../../domain/format';
-import { toggleDone } from '../../domain/views/commands';
-import { calendarMonth } from '../../domain/views';
+import { useTaskActions } from '../../app/task-actions';
+import { calendarMonth, myMemberships } from '../../domain/views';
+import { agenda } from '../../domain/views/agenda';
 import { eventsByDate, timeLabel } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, Screen, StationRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function CalendarScreen() {
-  const { userId, store, nowIso } = useServices();
+  const { userId } = useServices();
+  const actions = useTaskActions();
   const { tables, today } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size, line } = useTheme();
@@ -35,6 +37,7 @@ export function CalendarScreen() {
   };
   const day = days.find((d) => d.date === selected);
   const dayEvents = day ? (events.get(day.date) ?? []) : [];
+  const roles = myMemberships(tables, userId);
   const isoToday = formatIsoDate(today);
 
   return (
@@ -87,12 +90,15 @@ export function CalendarScreen() {
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
           {day.items.length === 0 && dayEvents.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
-          {dayEvents.map((e) => (
-            <EventRow key={`${e.eventId}-${e.occurrenceDate}`} testID={`cal-event-${e.eventId}-${e.occurrenceDate}`} title={e.title} time={timeLabel(e.startTime, e.endTime)} line={e.line} group={e.groupName} recurring={e.recurring} onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })} />
-          ))}
-          {day.items.map((it) => (
-            <StationRow key={it.id} testID={`cal-${it.id}`} title={it.title} line={it.line} group={it.groupName} meta={[formatDue(it.due!, today)]} checked={false} onToggle={() => store.dispatch(toggleDone(it, nowIso()))} onOpen={() => nav.navigate('Task', { taskId: it.id })} />
-          ))}
+          {agenda(day.items, dayEvents).map((x) =>
+            x.kind === 'event' ? (
+              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+            ) : (
+              <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
+                <StationRow testID={`cal-${x.task.id}`} title={x.task.title} line={x.task.line} group={x.task.groupName} meta={[formatDue(x.task.due!, today)]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
+              </SwipeRow>
+            ),
+          )}
         </View>
       ) : null}
       <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />

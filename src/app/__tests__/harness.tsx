@@ -3,8 +3,9 @@
  * ze stanem w pamięci (ta sama logika co w aplikacji: mutate + materialize) i atrapą konta.
  */
 import { NavigationContainer } from '@react-navigation/native';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
+import { Alert, type AlertButton } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { Scheme } from '../../config/theme';
@@ -101,6 +102,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
 }
 
 export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi> } = {}) {
+  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
   const store = memoryStore(state, opts.indicator);
   const account = opts.account ?? fakeAccount();
@@ -123,4 +125,16 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     </SafeAreaProvider>
   );
   return { store, account, services, wrap, renderApp: async (ui: ReactElement) => render(wrap(<NavigationContainer>{ui}</NavigationContainer>)) };
+}
+
+/** Okna systemowe (Alert.alert) w testach: ostatnie okno i dotknięcie jego przycisku. */
+export function lastAlert(): { title: string; message?: string; buttons: AlertButton[] } {
+  const calls = (Alert.alert as unknown as jest.Mock).mock.calls;
+  const [title, message, buttons] = calls.at(-1) as [string, string | undefined, AlertButton[]];
+  return { title, message, buttons };
+}
+export async function answerAlert(text: string) {
+  const b = lastAlert().buttons.find((x) => x.text === text);
+  if (!b) throw new Error(`brak przycisku ${text}`);
+  await act(async () => b.onPress?.());
 }

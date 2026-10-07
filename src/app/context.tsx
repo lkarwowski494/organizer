@@ -9,6 +9,7 @@ import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import type { AccountApi } from '../sync/account';
 import type { Snapshot } from '../sync/runtime';
+import { UndoProvider } from '../ui/undo';
 
 export type AppStore = {
   getSnapshot: () => Snapshot;
@@ -34,7 +35,11 @@ export type AppServices = {
 const AppContext = createContext<AppServices | null>(null);
 
 export function AppProvider({ services, children }: { services: AppServices; children: ReactNode }) {
-  return <AppContext.Provider value={services}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={services}>
+      <UndoProvider>{children}</UndoProvider>
+    </AppContext.Provider>
+  );
 }
 
 export function useServices(): AppServices {
