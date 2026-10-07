@@ -3,7 +3,7 @@
   "packageManager": "npm",
   "testRunner": "jest",
   "jest": { "configFile": "jest.config.js", "enableFindRelatedTests": true },
-  "mutate": ["src/domain/**/*.ts", "src/config/**/*.ts", "src/data/**/*.ts", "!**/__tests__/**"],
+  "mutate": ["src/domain/**/*.ts", "src/config/**/*.ts", "src/data/**/*.ts", "src/sync/**/*.ts", "!**/__tests__/**"],
   "coverageAnalysis": "perTest",
   "thresholds": { "high": 95, "low": 90, "break": 90 },
   "reporters": ["clear-text", "progress", "html"],

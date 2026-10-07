@@ -6,7 +6,7 @@ module.exports = defineConfig([
   expoConfig,
   {
     // supabase/functions działa w Deno — sprawdza je `npm run check:functions` (deno check + deno lint).
-    ignores: ['dist/*', 'coverage/*', 'ios/*', 'android/*', '.expo/*', 'supabase/functions/**'],
+    ignores: ['dist/*', 'coverage/*', '.stryker-tmp/*', 'reports/*', 'ios/*', 'android/*', '.expo/*', 'supabase/functions/**'],
   },
   {
     // Granica modułów: domena to czysty TypeScript — bez Reacta, React Native, Expo i warstw aplikacji.
