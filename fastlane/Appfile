@@ -1,0 +1,3 @@
+# Identyfikatory jawne (nie są sekretami): D36 bundle ID, zespół Apple.
+app_identifier("io.github.lkarwowski494.organizer")
+team_id("8NQ9GHY8GF")
