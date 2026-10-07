@@ -43,7 +43,8 @@ export function setDue(id: string, due: { date: string; time: string | null } | 
     kind: 'patch',
     entity: 'tasks',
     id,
-    set: due === null ? { deadline_mode: 'none', due_date: null, due_time: null } : { deadline_mode: 'own', due_date: due.date, due_time: due.time },
+    // Bez terminu nie ma powtarzania (D76; w bazie tasks_repeat_needs_due), więc zdjęcie terminu zdejmuje też regułę.
+    set: due === null ? { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } : { deadline_mode: 'own', due_date: due.date, due_time: due.time },
   };
 }
 

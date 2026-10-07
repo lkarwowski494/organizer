@@ -7,6 +7,8 @@ import { Alert } from 'react-native';
 
 import { remove, restore, toggleDone } from '../domain/views/commands';
 import { finishTripOps, tripItems } from '../domain/views/shopping-trip';
+import { repeatOps } from '../domain/views/task-repeat';
+import { asTask } from '../domain/views/model';
 import type { Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
@@ -16,14 +18,17 @@ type Item = Pick<Task, 'id' | 'title' | 'completed_at'>;
 
 export function useTaskActions() {
   const { store, nowIso, userId } = useServices();
-  const { tables } = useAppData();
+  const { tables, today } = useAppData();
   const undo = useUndo();
   return {
     toggle(t: Item, shopping = false) {
-      if (t.completed_at !== null) return store.dispatch(toggleDone(t, nowIso()));
+      // Zadanie z powtarzaniem (D76): odhaczenie dokłada następne, cofnięcie zdejmuje nietknięte — w jednej transakcji.
+      const raw = tables.tasks?.[t.id];
+      const done = () => store.dispatch([toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today) : [])]);
+      if (t.completed_at !== null) return done();
       Alert.alert(shopping ? strings['confirm.cartTitle'] : strings['confirm.doneTitle'], t.title, [
         { text: strings['common.cancel'], style: 'cancel' },
-        { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: () => store.dispatch(toggleDone(t, nowIso())) },
+        { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: done },
       ]);
     },
     /** „Zakupy” zrobione (D73): z potwierdzeniem; niekupione — zostają na następne zakupy albo też są kupione. */
