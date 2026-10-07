@@ -22,6 +22,8 @@ export type AppStore = {
   refresh: () => void;
 };
 
+export type Prefs = { get(key: string): Promise<string | null>; set(key: string, value: string): Promise<void> };
+
 export type AppServices = {
   store: AppStore;
   account: AccountApi;
@@ -29,6 +31,8 @@ export type AppServices = {
   calendar: DeviceCalendar;
   /** Powiadomienia push (D70); brak = bez push (np. testy, które go nie dotyczą). */
   push?: DevicePush;
+  /** Drobne ustawienia na tym telefonie (np. „wprowadzenie obejrzane”); brak = nic nie zapamiętujemy. */
+  prefs?: Prefs;
   userId: string;
   displayName: string;
   newId: () => string;

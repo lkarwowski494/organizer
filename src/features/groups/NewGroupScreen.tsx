@@ -11,10 +11,10 @@ import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
-export function NewGroupScreen({ navigation }: Props) {
+export function NewGroupScreen({ navigation, route }: Props) {
   const { account, newId, displayName, store } = useServices();
   const { c, font } = useTheme();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(route.params?.name ?? '');
   const [me, setMe] = useState(displayName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);

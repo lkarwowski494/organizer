@@ -4,7 +4,7 @@
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { quickAddOps } from '../../app/quickadd';
@@ -20,6 +20,7 @@ import { timeLabel } from '../../domain/views/events';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
+import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
@@ -28,7 +29,7 @@ import { useTheme } from '../../ui/theme';
 const MODES: RangeMode[] = ['day', 'week', 'month'];
 
 export function TodayScreen() {
-  const { userId, store, now, nowMs, newId } = useServices();
+  const { userId, store, now, nowMs, newId, prefs } = useServices();
   const actions = useTaskActions();
   const { tables, today, indicator } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
@@ -41,6 +42,17 @@ export function TodayScreen() {
   const at = anchor ?? today;
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie.
+  useEffect(() => {
+    let live = true;
+    prefs
+      ?.get(WELCOME_SEEN)
+      .then((v) => live && v !== '1' && nav.navigate('Welcome'))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [prefs, nav]);
   const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
   const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
   const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
