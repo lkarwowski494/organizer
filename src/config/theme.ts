@@ -1,5 +1,5 @@
 /**
- * Motyw „Wstążki” (D72, decyzja właściciela z 7.10.2026; następca „Linii” z D50): każda grupa to kolorowa wstążka, a widok
+ * Motyw „Wstążki” w kolorach „piasek + terakota” (D72, D74 — decyzje właściciela z 7.10.2026; następca „Linii” z D50): każda grupa to kolorowa wstążka, a widok
  * „Dotyczy mnie” to stacja przesiadkowa. Jedyne źródło kolorów, krojów i rozmiarów ekranów.
  *
  * Progi czytelności (test src/config/__tests__/theme.test.ts liczy kontrast każdej pary poniżej):
@@ -28,7 +28,7 @@ export type Palette = {
   border: string;
   /** Obwódka pól do odhaczania: element sterujący, więc ≥ 3:1. */
   control: string;
-  /** Wyróżnienie aktywnej zakładki i przycisków-pigułek (motyw „Wstążki”, D72). */
+  /** Wyróżnienie aktywnej zakładki i przycisków-pigułek (motyw „Wstążki”, D72; kolor terakota, D74). */
   accentBg: string;
   accentInk: string;
   ok: string;
@@ -43,42 +43,42 @@ export type Palette = {
 
 export const palettes: Record<Scheme, Palette> = {
   light: {
-    ground: '#F3F1FB',
+    ground: '#F7F2EA',
     surface: '#FFFFFF',
-    ink: '#1D1638',
-    inkMuted: '#4E4673',
-    inkTab: '#6B6391',
-    border: '#E3DEF5',
-    control: '#7A6FA8',
-    accentBg: '#ECE8FF',
-    accentInk: '#3B2A8C',
+    ink: '#221A12',
+    inkMuted: '#5E5244',
+    inkTab: '#6E6152',
+    border: '#E8DFD2',
+    control: '#8A7A66',
+    accentBg: '#F6E3D8',
+    accentInk: '#8F3412',
     ok: '#15803D',
     warnBg: '#FEF3C7',
     warnBorder: '#F59E0B',
     warnInk: '#78350F',
     pendingInk: '#92400E',
     danger: '#B91C1C',
-    inverseBg: '#3B2A8C',
+    inverseBg: '#B4471F',
     inverseInk: '#FFFFFF',
   },
   dark: {
-    ground: '#141026',
-    surface: '#211B3B',
-    ink: '#F3F1FB',
-    inkMuted: '#B8B0DB',
-    inkTab: '#A39BC9',
-    border: '#342C57',
-    control: '#9D94CC',
-    accentBg: '#352B66',
-    accentInk: '#E2DCFF',
+    ground: '#17140F',
+    surface: '#221E18',
+    ink: '#F5EFE6',
+    inkMuted: '#C2B6A6',
+    inkTab: '#AEA290',
+    border: '#3A332A',
+    control: '#A39684',
+    accentBg: '#4A2A1C',
+    accentInk: '#F6C9B3',
     ok: '#22C55E',
     warnBg: '#3A2A0A',
     warnBorder: '#F59E0B',
     warnInk: '#FCD34D',
     pendingInk: '#FBBF24',
     danger: '#FCA5A5',
-    inverseBg: '#C9BFFF',
-    inverseInk: '#1D1638',
+    inverseBg: '#E07A4F',
+    inverseInk: '#17140F',
   },
 };
 

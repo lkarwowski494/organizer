@@ -31,3 +31,8 @@ Zgłoszenie właściciela:
 5. **Przekazanie (D70) obejmuje zakupy** (`handoffs.entity = 'lists'`).
 6. **Kontrast w motywie „Wstążki”:** kolory grup zostają z „Linii”, bo jaśniejsze z makiety (np. #FF8A3D) nie dają 3:1 z tłem. Zielona linia jest ciemniejsza: #15803D, nazwa #166534.
 7. **Zakupów nie ma w zakładce Kalendarz.** Są tylko w „Dotyczy mnie” i na liście. Do decyzji właściciela, jeśli potrzebne.
+
+## Zmiana koloru (właściciel, 7.10.2026)
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D74 | Fiolet w „Wstążkach” nie pasuje — na co zmienić | Ciepły piasek + terakota (jasny: tło #F7F2EA, akcent #B4471F; ciemny: tło #17140F, akcent #E07A4F). Kształty „Wstążek” zostają. | Grafit bez akcentu; granat + niebieski; zieleń butelkowa |
