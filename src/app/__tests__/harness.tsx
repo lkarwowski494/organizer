@@ -17,6 +17,7 @@ import type { Snapshot } from '../../sync/runtime';
 import { ThemeProvider } from '../../ui/theme';
 import { AppProvider, type AppServices } from '../context';
 import type { DeviceCalendar } from '../device-calendar';
+import type { DevicePush } from '../push';
 
 export const ME = 'u-me';
 export const NOW: LocalDateTime = { y: 2026, m: 10, d: 7, hh: 10, mm: 0 };
@@ -98,11 +99,13 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     deleteGroup: jest.fn(async () => {}),
     restoreGroup: jest.fn(async () => {}),
     transferOwnership: jest.fn(async () => {}),
+    registerPushToken: jest.fn(async () => {}),
+    notifyHandoff: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
   const store = memoryStore(state, opts.indicator);
@@ -113,6 +116,7 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     store,
     account,
     calendar,
+    push: opts.push,
     userId: ME,
     displayName: 'Łukasz',
     newId: () => `new-${++id}`,
@@ -140,4 +144,17 @@ export async function answerAlert(text: string) {
   const b = lastAlert().buttons.find((x) => x.text === text);
   if (!b) throw new Error(`brak przycisku ${text}`);
   await act(async () => b.onPress?.());
+}
+
+/** Atrapa powiadomień: stan zgody, odpowiedź na prośbę, token. */
+export function fakePush(over: Partial<DevicePush> = {}): jest.Mocked<DevicePush> {
+  return {
+    status: jest.fn(async () => 'undetermined' as const),
+    request: jest.fn(async () => true),
+    token: jest.fn(async () => 'ab'.repeat(32)),
+    env: 'production',
+    dismissed: jest.fn(async () => false),
+    dismiss: jest.fn(async () => {}),
+    ...over,
+  } as jest.Mocked<DevicePush>;
 }

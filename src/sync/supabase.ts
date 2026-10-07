@@ -25,7 +25,7 @@ export type SupabaseLike = {
     signInWithOtp(a: { email: string; options: { emailRedirectTo: string } }): Promise<{ error: { message: string } | null }>;
     signOut(a?: { scope: 'local' | 'global' }): Promise<{ error: { message: string } | null }>;
   };
-  functions: { invoke(name: string, opts: { method: 'POST' }): Promise<{ error: { message: string } | null }> };
+  functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ error: { message: string } | null }> };
 };
 
 export type AppleSignIn = () => Promise<{ identityToken: string | null }>;
@@ -102,6 +102,12 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     },
     async transferOwnership(groupId, memberId) {
       await call(client, 'transfer_ownership', { group_id: groupId, member_id: memberId });
+    },
+    async registerPushToken(token, env) {
+      await call(client, 'register_push_token', { p_token: token, p_env: env });
+    },
+    async notifyHandoff(handoffId) {
+      check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { handoffId } }));
     },
   };
 }

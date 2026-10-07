@@ -7,6 +7,7 @@ import {
   decideHandoff,
   declinedHandoffs,
   handoffKey,
+  handoffsToNotify,
   handoffTargets,
   incomingHandoffs,
   outgoingPending,
@@ -85,5 +86,25 @@ describe('przekazanie odpowiedzialności (D70)', () => {
     put(t, 'handoffs', 'h6', { id: 'h6', group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'mm', to_member: 'kuba', status: 'pending' });
     expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['h2']);
     expect(handoffKey('events', 'e1', '2026-10-12')).toBe('events|e1|2026-10-12');
+  });
+});
+
+describe('o które przekazania poprosić o push (D70)', () => {
+  it('moje nowe po potwierdzeniu serwera i moje decyzje; nie stare, nie anulowane, nie już wysłane', () => {
+    const t = world();
+    const NOW = Date.parse('2026-10-07T12:00:00Z');
+    const h = (id: string, extra: Row) => put(t, 'handoffs', id, { id, group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'mf', to_member: 'mm', status: 'pending', created_at: '2026-10-07T11:00:00Z', push_sent_status: null, ...extra });
+    h('a-new', {});
+    h('b-local', { from_member: '', created_at: undefined });
+    h('c-sent', { push_sent_status: 'pending' });
+    h('d-old', { created_at: '2026-10-05T11:00:00Z' });
+    h('e-theirs', { from_member: 'mm', to_member: 'mf' });
+    h('f-decided', { from_member: 'mm', to_member: 'mf', status: 'accepted', decided_at: '2026-10-07T11:30:00Z', push_sent_status: 'pending' });
+    h('g-local-decision', { from_member: 'mm', to_member: 'mf', status: 'declined', decided_at: null });
+    h('h-their-decision', { status: 'declined', decided_at: '2026-10-07T11:30:00Z' });
+    h('i-cancelled', { status: 'cancelled' });
+    h('j-alien', { group_id: 'obca' });
+    expect(handoffsToNotify(t, ME, NOW, 24)).toEqual(['a-new', 'f-decided']);
+    expect(handoffsToNotify({}, ME, NOW, 24)).toEqual([]);
   });
 });

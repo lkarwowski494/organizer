@@ -9,6 +9,7 @@ import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import type { AccountApi } from '../sync/account';
 import type { DeviceCalendar } from './device-calendar';
+import type { DevicePush } from './push';
 import type { Snapshot } from '../sync/runtime';
 import { UndoProvider } from '../ui/undo';
 
@@ -26,6 +27,8 @@ export type AppServices = {
   account: AccountApi;
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
+  /** Powiadomienia push (D70); brak = bez push (np. testy, które go nie dotyczą). */
+  push?: DevicePush;
   userId: string;
   displayName: string;
   newId: () => string;

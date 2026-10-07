@@ -15,6 +15,13 @@ export const config = {
   SERIES_TASK_WEEKS: 8,
 
   /**
+   * Powiadomienie o przekazaniu (D70) tylko dla przekazań/decyzji z ostatnich N godzin — żeby po instalacji wersji
+   * z push nie przyszły powiadomienia o starych sprawach. Wybór projektowy, bez źródła. Ta sama wartość w funkcji
+   * supabase/functions/notify-handoff (test kontraktowy).
+   */
+  PUSH_MAX_AGE_H: 24,
+
+  /**
    * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
    * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.
    * Źródło wartości: raport „Organizer grup architektura MVP” (paczka do ok. 100 operacji, porcja pull

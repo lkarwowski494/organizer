@@ -29,6 +29,7 @@ module.exports = {
     {
       displayName: 'app',
       preset: 'jest-expo/ios',
+      setupFiles: ['<rootDir>/jest.app-setup.js'],
       testMatch: ['<rootDir>/src/**/*.test.tsx'],
     },
   ],

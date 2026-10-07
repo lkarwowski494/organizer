@@ -21,4 +21,8 @@ export interface AccountApi {
   restoreGroup(groupId: string): Promise<void>;
   /** Przekazanie własności dorosłemu z kontem (D55). */
   transferOwnership(groupId: string, memberId: string): Promise<void>;
+  /** Token APNs tego telefonu (D70, push o przekazaniach). */
+  registerPushToken(token: string, env: 'sandbox' | 'production'): Promise<void>;
+  /** Poproś serwer o powiadomienie drugiej strony przekazania (funkcja notify-handoff; serwer decyduje, czy wysłać). */
+  notifyHandoff(handoffId: string): Promise<void>;
 }

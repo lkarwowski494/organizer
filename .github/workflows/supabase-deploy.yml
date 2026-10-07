@@ -1,7 +1,7 @@
 # Wdrożenie bazy i funkcji do projektu Supabase „organizer” (O-034, decyzja właściciela 7.10.2026: wariant A).
 # Tylko ręcznie (workflow_dispatch), w środowisku supabase-prod z wymaganym zatwierdzeniem właściciela —
 # sekrety (token CLI, hasło bazy) są dostępne dopiero po zatwierdzeniu. Tryb „dry-run” pokazuje, które
-# migracje weszłyby, niczego nie zmieniając; „apply” wgrywa migracje i funkcję delete-account.
+# migracje weszłyby, niczego nie zmieniając; „apply” wgrywa migracje i funkcje delete-account oraz notify-handoff.
 # Koszt: darmowy runner Linux (repozytorium publiczne).
 name: supabase-deploy
 
@@ -52,3 +52,7 @@ jobs:
       - name: wgranie funkcji delete-account
         if: inputs.mode == 'apply'
         run: $CLI functions deploy delete-account --project-ref "$PROJECT_REF" --use-api
+      # Push o przekazaniach (D70, ADR 0015). Sekrety APNS_* są już w projekcie Supabase (spike S1, ADR 0002).
+      - name: wgranie funkcji notify-handoff
+        if: inputs.mode == 'apply'
+        run: $CLI functions deploy notify-handoff --project-ref "$PROJECT_REF" --use-api

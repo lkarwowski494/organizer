@@ -8,18 +8,9 @@
  * SUPABASE_URL, SUPABASE_PUBLISHABLE_KEYS / SUPABASE_SECRET_KEYS (słowniki JSON), starsze SUPABASE_ANON_KEY /
  * SUPABASE_SERVICE_ROLE_KEY.
  */
-export type Env = { get(name: string): string | undefined };
+import { type Env, firstKey } from '../_shared/keys.ts';
 
-function firstKey(env: Env, dict: string, legacy: string): string {
-  const raw = env.get(dict);
-  if (raw) {
-    const values = Object.values(JSON.parse(raw) as Record<string, string>);
-    if (values[0]) return values[0];
-  }
-  const l = env.get(legacy);
-  if (!l) throw new Error(`brak klucza ${dict} / ${legacy}`);
-  return l;
-}
+export type { Env };
 
 const json = (status: number, body: object) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
