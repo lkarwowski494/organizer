@@ -16,6 +16,7 @@ import type { AccountApi } from '../../sync/account';
 import type { Snapshot } from '../../sync/runtime';
 import { ThemeProvider } from '../../ui/theme';
 import { AppProvider, type AppServices } from '../context';
+import type { DeviceCalendar } from '../device-calendar';
 
 export const ME = 'u-me';
 export const NOW: LocalDateTime = { y: 2026, m: 10, d: 7, hh: 10, mm: 0 };
@@ -101,15 +102,17 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
   const store = memoryStore(state, opts.indicator);
   const account = opts.account ?? fakeAccount();
+  const calendar = opts.calendar ?? { add: jest.fn(async () => 'saved' as const) };
   let id = 0;
   const services: AppServices = {
     store,
     account,
+    calendar,
     userId: ME,
     displayName: 'Łukasz',
     newId: () => `new-${++id}`,
@@ -124,7 +127,7 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
       </ThemeProvider>
     </SafeAreaProvider>
   );
-  return { store, account, services, wrap, renderApp: async (ui: ReactElement) => render(wrap(<NavigationContainer>{ui}</NavigationContainer>)) };
+  return { store, account, calendar, services, wrap, renderApp: async (ui: ReactElement) => render(wrap(<NavigationContainer>{ui}</NavigationContainer>)) };
 }
 
 /** Okna systemowe (Alert.alert) w testach: ostatnie okno i dotknięcie jego przycisku. */

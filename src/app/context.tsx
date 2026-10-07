@@ -8,6 +8,7 @@ import type { CivilDate, LocalDateTime } from '../domain/civil-date';
 import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import type { AccountApi } from '../sync/account';
+import type { DeviceCalendar } from './device-calendar';
 import type { Snapshot } from '../sync/runtime';
 import { UndoProvider } from '../ui/undo';
 
@@ -23,6 +24,8 @@ export type AppStore = {
 export type AppServices = {
   store: AppStore;
   account: AccountApi;
+  /** Kalendarz iPhone'a, tylko zapis (D7). */
+  calendar: DeviceCalendar;
   userId: string;
   displayName: string;
   newId: () => string;

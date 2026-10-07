@@ -12,9 +12,11 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, parseIsoDate } from '../../domain/format';
+import { formatLongDate, parseIsoDate , formatDue } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
+import { type SeriesEffects, seriesEditEffects, seriesTaskOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, fieldsOf } from '../../domain/views/events';
+import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
@@ -37,6 +39,9 @@ export function EventEditScreen({ route, navigation }: Props) {
   const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : (groups[0]?.id ?? '')));
   const [form, setForm] = useState<EventForm>(() => (detail ? formOf(fieldsOf(detail, occurrence, scope)) : emptyForm(occurrence)));
   const [error, setError] = useState<string | null>(null);
+  // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
+  const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
+  const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
   const members = useMemo(() => groupDetail(tables, userId, groupId)?.members ?? [], [tables, userId, groupId]);
 
   if (eventId && (!detail || !detail.canEdit)) {
@@ -72,11 +77,36 @@ export function EventEditScreen({ route, navigation }: Props) {
       store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
       navigation.goBack();
     } else {
-      store.dispatch(editEvent(detail, occurrence, scope, r.fields[0]!, newId));
-      // Ekran wystąpienia za nami może już nie istnieć (np. seria skończyła się dzień wcześniej) — wracamy dalej.
-      navigation.pop(2);
+      const ops = editEvent(detail, occurrence, scope, r.fields[0]!, newId);
+      if (scope !== 'this' && detail.rule) return setPreview({ ops, effects: seriesEditEffects(tables, detail, occurrence, scope, ops) });
+      commit(ops);
     }
   };
+  const commit = (ops: NewOp[]) => {
+    store.dispatch(ops);
+    // Ekran wystąpienia za nami może już nie istnieć (np. seria skończyła się dzień wcześniej) — wracamy dalej.
+    navigation.pop(2);
+  };
+
+  if (preview && detail) {
+    const { effects } = preview;
+    return (
+      <Screen testID="screen-event-preview">
+        <Title>{strings['event.previewTitle']}</Title>
+        <Body>{effects.preview.length ? strings['event.previewDates'](effects.preview.map((x) => formatDue({ date: x, time: null }, today)).join(', ')) : strings['event.previewNone']}</Body>
+        {effects.kept.length ? <Body muted>{strings['event.previewKept'](effects.kept.length)}</Body> : null}
+        {effects.lost.length ? (
+          <View style={{ gap: 8 }}>
+            <Body>{strings['event.previewLost'](effects.lost.length)}</Body>
+            <Body muted>{effects.lost.map((x) => x.task.title).join(', ')}</Body>
+            <Segmented label={strings['event.previewLostChoice']} value={lostChoice} onChange={setLostChoice} options={[{ value: 'nearest', label: strings['event.previewNearest'] }, { value: 'unlink', label: strings['event.previewUnlink'] }]} />
+          </View>
+        ) : null}
+        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit([...preview.ops, ...seriesTaskOps(detail, occurrence, preview.ops, effects, lostChoice)])} />
+        <Button kind="secondary" label={strings['event.previewBack']} onPress={() => setPreview(null)} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen testID="screen-event-edit">

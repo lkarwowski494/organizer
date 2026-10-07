@@ -15,6 +15,7 @@ import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { chunkedSecureStorage } from '../sync/session-storage';
 import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { expoDeviceCalendar } from './device-calendar';
 import type { RootDeps, Session } from './Root';
 
 const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
@@ -40,6 +41,7 @@ export function realDeps(): RootDeps {
   const sb = client as unknown as SupabaseLike;
   return {
     account: supabaseAccount(sb, apple),
+    calendar: expoDeviceCalendar,
     transport: supabaseTransport(sb),
     session: {
       current: async () => toSession((await client.auth.getSession()).data.session?.user),

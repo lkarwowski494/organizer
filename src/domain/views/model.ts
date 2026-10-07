@@ -35,10 +35,13 @@ export type Task = {
   note: string | null;
   sort_key: string;
   assignee_member_id: string | null;
-  deadline_mode: 'none' | 'own' | 'inherit';
+  deadline_mode: 'none' | 'own' | 'inherit' | 'event';
   due_date: string | null;
   due_time: string | null;
   start_date: string | null;
+  /** Podpięcie do wystąpienia wydarzenia (D13): seria i data wystąpienia według reguły. */
+  event_id: string | null;
+  occurrence_date: string | null;
   completed_at: string | null;
   deleted_at: string | null;
 };
@@ -83,10 +86,12 @@ export function asTask(r: Row): Task {
     note: str(r.note),
     sort_key: String(r.sort_key ?? 'a0'),
     assignee_member_id: str(r.assignee_member_id),
-    deadline_mode: r.deadline_mode === 'own' || r.deadline_mode === 'inherit' ? r.deadline_mode : 'none',
+    deadline_mode: r.deadline_mode === 'own' || r.deadline_mode === 'inherit' || r.deadline_mode === 'event' ? r.deadline_mode : 'none',
     due_date: str(r.due_date),
     due_time: str(r.due_time),
     start_date: str(r.start_date),
+    event_id: str(r.event_id),
+    occurrence_date: str(r.occurrence_date),
     completed_at: str(r.completed_at),
     deleted_at: str(r.deleted_at),
   };

@@ -19,6 +19,7 @@ import { SignInScreen } from '../features/auth/SignInScreen';
 import { ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
 import { AppProvider, type AppServices } from './context';
+import type { DeviceCalendar } from './device-calendar';
 import { AppNavigation } from './navigation';
 
 export type Session = { userId: string; displayName: string };
@@ -27,6 +28,8 @@ export type RootDeps = {
   /** Bieżąca sesja i zmiany (logowanie, wylogowanie, wygaśnięcie). */
   session: { current(): Promise<Session | null>; onChange(fn: (s: Session | null) => void): () => void; setFromLink(t: { access_token: string; refresh_token: string }): Promise<void> };
   account: AccountApi;
+  /** Kalendarz iPhone'a, tylko zapis (D7). */
+  calendar: DeviceCalendar;
   transport: SyncTransport;
   /** Baza per użytkownik (osobny plik), więc po zmianie konta nic nie przecieka między osobami. */
   openDb(userId: string): DbAdapter;
@@ -99,6 +102,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
     () => ({
       store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }) },
       account: deps.account,
+      calendar: deps.calendar,
       userId: session.userId,
       displayName: session.displayName,
       newId: deps.newId,

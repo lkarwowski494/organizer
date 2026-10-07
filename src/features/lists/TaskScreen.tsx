@@ -9,12 +9,15 @@ import { Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
-import { isValidDate } from '../../domain/civil-date';
+import { isValidDate , formatIsoDate } from '../../domain/civil-date';
 import { formatDue } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
-import { asTask, listDetail, type TaskNode } from '../../domain/views';
+import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
+import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
+import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -57,6 +60,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const [time, setTime] = useState(task?.due_time?.slice(0, 5) ?? '');
   const [error, setError] = useState<string | null>(null);
   const [sub, setSub] = useState('');
+  const [picking, setPicking] = useState(false);
 
   if (!task || !detail) {
     return (
@@ -77,6 +81,11 @@ export function TaskScreen({ route, navigation }: Props) {
   }
 
   const depth = node?.depth ?? 0;
+  // D13: podpięcie do wystąpienia spotkania; termin wystąpienia liczy resolver (null = odwołane / zmienione).
+  const linked = task.event_id !== null && task.occurrence_date !== null;
+  const linkedDue = linked ? occurrenceResolver(tables)(task.event_id!, task.occurrence_date!) : null;
+  const linkedEvent = linked ? asEvent(tables.events?.[task.event_id!] ?? { id: task.event_id, group_id: task.group_id, start_date: task.occurrence_date }) : null;
+  const canEdit = myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
   const save = () => {
     if (title.trim() && title.trim() !== task.title) store.dispatch(patchTask(task.id, { title: title.trim() }));
     if ((note.trim() || null) !== task.note) store.dispatch(patchTask(task.id, { note: note.trim() || null }));
@@ -105,7 +114,15 @@ export function TaskScreen({ route, navigation }: Props) {
       <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
       <Field label={strings['task.note']} value={note} onChangeText={setNote} multiline testID="task-note" />
       <SectionTitle>{strings['task.due']}</SectionTitle>
-      <Body muted>{task.deadline_mode === 'none' ? strings['task.dueNone'] : task.deadline_mode === 'inherit' ? strings['task.dueInherit'] : formatDue({ date: task.due_date!, time: task.due_time }, today)}</Body>
+      <Body muted>
+        {task.deadline_mode === 'none'
+          ? strings['task.dueNone']
+          : task.deadline_mode === 'inherit'
+            ? strings['task.dueInherit']
+            : task.deadline_mode === 'event'
+              ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
+              : formatDue({ date: task.due_date!, time: task.due_time }, today)}
+      </Body>
       <Field label={strings['task.dueDate']} value={date} onChangeText={setDate} placeholder="2026-10-09" testID="task-date" />
       <Field label={strings['task.dueTime']} value={time} onChangeText={setTime} placeholder="17:30" testID="task-time" />
       {task.deadline_mode !== 'none' ? (
@@ -120,6 +137,32 @@ export function TaskScreen({ route, navigation }: Props) {
         />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {canEdit ? (
+        <View style={{ gap: 8 }}>
+          {linked ? (
+            <>
+              {linkedDue ? <Body>{strings['task.event'](linkedEvent?.title ?? '', formatDue(linkedDue, today))}</Body> : <Body>{strings['task.eventGone']}</Body>}
+              {linkedDue ? <Button kind="secondary" label={strings['task.openEvent']} testID="task-open-event" onPress={() => navigation.navigate('Event', { eventId: task.event_id!, date: task.occurrence_date! })} /> : null}
+              {task.deadline_mode !== 'event' && linkedDue ? <Button kind="secondary" label={strings['task.useEventDue']} testID="task-event-due" onPress={() => store.dispatch(attachOps(task, task.event_id!, task.occurrence_date!))} /> : null}
+              <Button kind="secondary" label={strings['event.relinkOther']} testID="task-relink" onPress={() => setPicking(true)} />
+              <Button kind="secondary" label={strings['task.detach']} testID="task-detach" onPress={() => store.dispatch(relinkOps([task], { kind: 'unlink' }))} />
+            </>
+          ) : (
+            <Button kind="secondary" label={strings['task.attach']} testID="task-attach" onPress={() => setPicking(true)} />
+          )}
+          {picking ? (
+            <OccurrencePicker
+              items={upcomingInGroup(tables, userId, task.group_id, formatIsoDate(today))}
+              today={today}
+              onPick={(o) => {
+                store.dispatch(linked ? relinkOps([task], { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate }) : attachOps(task, o.eventId, o.occurrenceDate));
+                setPicking(false);
+              }}
+              onCancel={() => setPicking(false)}
+            />
+          ) : null}
+        </View>
+      ) : null}
       <Segmented
         label={strings['task.assignee']}
         value={task.assignee_member_id ?? ''}
