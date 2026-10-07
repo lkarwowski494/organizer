@@ -28,6 +28,11 @@ export interface AccountApi {
   registerPushToken(token: string, env: 'sandbox' | 'production'): Promise<void>;
   /** Poproś serwer o powiadomienie drugiej strony przekazania (funkcja notify-handoff; serwer decyduje, czy wysłać). */
   notifyHandoff(handoffId: string): Promise<void>;
+  /** Poproś o powiadomienie osoby, której przypisałem zadanie albo zakupy (D81) — po id wpisu aktywności. */
+  notifyAssignment(activityId: string): Promise<void>;
+  /** Grupy wyciszone przeze mnie (D81: bez powiadomień o przypisaniach). */
+  getPushMutes(): Promise<string[]>;
+  setPushMute(groupId: string, muted: boolean): Promise<void>;
   /** Błąd z telefonu (D80) — serwer liczy limit dzienny; nieudane zgłoszenie nie jest zgłaszane dalej. */
   reportError(e: ClientError): Promise<void>;
   /** Opinia z Ustawień (D80). Błąd `rate_limited`, gdy dzienny limit wyczerpany. */

@@ -1,8 +1,9 @@
 /**
- * Powiadomienie o przekazaniu (D70 „push + w aplikacji”, ADR 0015). Telefon woła po wysłaniu przekazania albo decyzji.
+ * Powiadomienie o przekazaniu (D70 „push + w aplikacji”, ADR 0015) albo przypisaniu (D81, ADR 0017). Telefon woła
+ * z `handoffId` po wysłaniu przekazania albo decyzji, z `activityId` po przypisaniu zadania lub zakupów komuś.
  * 1. Kto pyta: GET /auth/v1/user z JWT użytkownika.
- * 2. Komu i co: public.handoff_push_claim (baza sprawdza, czy pytający jest stroną, czy stan już powiadomiony,
- *    i zaznacza wysyłkę) — kluczem tajnym przez PostgREST.
+ * 2. Komu i co: public.handoff_push_claim / assignment_push_claim (baza sprawdza, czy pytający jest stroną albo
+ *    autorem, czy już powiadomione, wyciszenie grupy, i zaznacza wysyłkę) — kluczem tajnym przez PostgREST.
  * 3. APNs do każdego tokenu odbiorcy; nieaktualne tokeny usuwane (public.drop_push_token).
  */
 import { type ApnsEnv, cachedProviderToken, sendAlert } from '../_shared/apns.ts';
@@ -20,8 +21,10 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
   const auth = req.headers.get('authorization') ?? '';
   if (!/^Bearer \S+$/.test(auth)) return json(401, { error: 'unauthorized' });
-  const input = (await req.json().catch(() => ({}))) as { handoffId?: unknown };
-  if (typeof input.handoffId !== 'string' || !UUID.test(input.handoffId)) return json(400, { error: 'bad_request' });
+  const input = (await req.json().catch(() => ({}))) as { handoffId?: unknown; activityId?: unknown };
+  const byHandoff = typeof input.handoffId === 'string' && UUID.test(input.handoffId);
+  const byActivity = typeof input.activityId === 'string' && UUID.test(input.activityId);
+  if (byHandoff === byActivity) return json(400, { error: 'bad_request' });
   const url = env.get('SUPABASE_URL');
   const p8 = env.get('APNS_KEY_P8');
   const keyId = env.get('APNS_KEY_ID');
@@ -44,7 +47,9 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
 
   const rpc = (name: string, args: object) =>
     fetchFn(`${url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, apikey: secret, 'content-type': 'application/json' }, body: JSON.stringify(args) });
-  const claimRes = await rpc('handoff_push_claim', { p_handoff: input.handoffId, p_user: user.id, p_max_age_h: PUSH_MAX_AGE_H });
+  const claimRes = byHandoff
+    ? await rpc('handoff_push_claim', { p_handoff: input.handoffId, p_user: user.id, p_max_age_h: PUSH_MAX_AGE_H })
+    : await rpc('assignment_push_claim', { p_activity: input.activityId, p_user: user.id, p_max_age_h: PUSH_MAX_AGE_H });
   if (!claimRes.ok) return json(502, { error: 'claim_failed' });
   const claim = (await claimRes.json()) as Claim;
   if (!claim) return json(200, { sent: 0 });

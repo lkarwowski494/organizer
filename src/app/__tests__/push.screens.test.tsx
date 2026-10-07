@@ -121,3 +121,47 @@ describe('przypomnienia (D75)', () => {
     expect(screen.queryByText('Przed sprawą z godziną')).toBeNull();
   });
 });
+
+describe('przypisania (D81)', () => {
+  it('moje przypisanie z serwera → prośba o powiadomienie, raz', async () => {
+    const base = sampleBase();
+    put(base, 'activity', 'a1', { id: 'a1', group_id: 'gf', entity: 'tasks', entity_id: 't-ala', actor_member_id: 'mf', changes: { assignee_member_id: [null, 'ala'] }, created_at: new Date(Date.UTC(2026, 9, 7, 7, 30)).toISOString(), version: 1 });
+    const account = fakeAccount({ notifyAssignment: jest.fn(async () => Promise.reject(new Error('offline'))) });
+    const { store } = await open({ base, account });
+    expect(account.notifyAssignment).toHaveBeenCalledWith('a1');
+    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Róże' } });
+    await flush();
+    expect(account.notifyAssignment).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ustawienia: wyciszanie grup wspólnych; błąd zmiany cofa przełącznik', async () => {
+    const account = fakeAccount({ getPushMutes: jest.fn(async () => ['gk']) });
+    await open({ account, push: fakePush() });
+    await press(screen.getByLabelText('Ustawienia'));
+    await screen.findByTestId('screen-settings');
+    await flush();
+    const box = screen.getByTestId('mute-settings');
+    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
+    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyciszone'));
+    expect(account.setPushMute).toHaveBeenLastCalledWith('gf', true);
+    account.setPushMute.mockRejectedValueOnce(new Error('offline'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await flush();
+    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('Nie udało się zmienić ustawień — sprawdź internet.')).toBeTruthy();
+  });
+
+  it('bez internetu przy odczycie — komunikat; bez grup wspólnych — brak sekcji', async () => {
+    await open({ account: fakeAccount({ getPushMutes: jest.fn(async () => Promise.reject(new Error('offline'))) }), push: fakePush() });
+    await press(screen.getByLabelText('Ustawienia'));
+    await screen.findByTestId('screen-settings');
+    await flush();
+    expect(screen.getByText('Nie udało się zmienić ustawień — sprawdź internet.')).toBeTruthy();
+    const base = sampleBase();
+    for (const g of ['gf', 'gk']) put(base, 'groups', g, { ...base.groups![g]!, deleted_at: 'x' });
+    await open({ base, push: fakePush() });
+    await press(screen.getAllByLabelText('Ustawienia').at(-1)!);
+    await flush();
+    expect(screen.queryByTestId('mute-settings')).toBeNull();
+  });
+});
