@@ -1,21 +1,34 @@
 import { contrastRatio } from '../../domain/contrast';
-import { colors, contrastMin, contrastPairs, groupLines, sizes } from '../theme';
+import { contrastMin, contrastPairs, groupLines, palettes, type Scheme, sizes } from '../theme';
 
-describe('motyw „Linie” spełnia progi czytelności', () => {
-  it.each(contrastPairs.map((p) => [p.use, p]))('%s', (_use, p) => {
+const schemes: Scheme[] = ['light', 'dark'];
+
+describe.each(schemes)('motyw „Linie”, tryb %s, spełnia progi czytelności', (scheme) => {
+  const c = palettes[scheme];
+
+  it.each(contrastPairs(c).map((p) => [p.use, p]))('%s', (_use, p) => {
     expect(contrastRatio(p.fg, p.bg)).toBeGreaterThanOrEqual(contrastMin[p.kind]);
   });
 
-  it.each(groupLines.map((g) => [g.key, g]))('linia %s: kropka ≥ 3:1, nazwa ≥ 4,5:1 na tle i na kartach', (_k, g) => {
-    for (const bg of [colors.ground, colors.surface]) {
+  it.each(groupLines.map((g) => [g.key, g[scheme]]))('linia %s: kropka ≥ 3:1, nazwa ≥ 4,5:1 na tle i na kartach', (_k, g) => {
+    for (const bg of [c.ground, c.surface]) {
       expect(contrastRatio(g.line, bg)).toBeGreaterThanOrEqual(contrastMin.NON_TEXT);
       expect(contrastRatio(g.ink, bg)).toBeGreaterThanOrEqual(contrastMin.TEXT);
     }
   });
 
-  it('osiem różnych linii o unikalnych kluczach i kolorach', () => {
-    expect(new Set(groupLines.map((g) => g.key)).size).toBe(8);
-    expect(new Set(groupLines.map((g) => g.line)).size).toBe(8);
+  it('osiem różnych linii', () => {
+    expect(new Set(groupLines.map((g) => g[scheme].line)).size).toBe(8);
+  });
+});
+
+describe('motyw — reszta', () => {
+  it('oba tryby mają te same klucze', () => {
+    expect(Object.keys(palettes.dark).sort()).toEqual(Object.keys(palettes.light).sort());
+  });
+
+  it('unikalne klucze linii', () => {
+    expect(new Set(groupLines.map((g) => g.key)).size).toBe(groupLines.length);
   });
 
   it('progi i rozmiary ze źródeł (WCAG 2.2, Apple HIG)', () => {
@@ -26,8 +39,8 @@ describe('motyw „Linie” spełnia progi czytelności', () => {
   });
 
   it('test łapie słabą parę (kontrola samego testu)', () => {
-    expect(contrastRatio('#94A3B8', colors.surface)).toBeLessThan(contrastMin.NON_TEXT);
-    expect(contrastRatio('#D97706', colors.ground)).toBeLessThan(contrastMin.NON_TEXT);
-    expect(contrastRatio(colors.inkTab, colors.ground)).toBeLessThan(contrastMin.TEXT);
+    expect(contrastRatio('#94A3B8', palettes.light.surface)).toBeLessThan(contrastMin.NON_TEXT);
+    expect(contrastRatio('#D97706', palettes.light.ground)).toBeLessThan(contrastMin.NON_TEXT);
+    expect(contrastRatio(palettes.light.inkTab, palettes.light.ground)).toBeLessThan(contrastMin.TEXT);
   });
 });
