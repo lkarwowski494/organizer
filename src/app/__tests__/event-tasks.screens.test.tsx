@@ -227,3 +227,37 @@ describe('dodaj do kalendarza iPhone’a (D7)', () => {
     expect(screen.queryByText(/Brak zgody/)).toBeNull();
   });
 });
+
+describe('na każde spotkanie w serii (D65)', () => {
+  it('definicja + kopie na najbliższe tygodnie (osobne zadanie na każde spotkanie), zakończenie', async () => {
+    const b = base();
+    delete b.tasks!.strój;
+    const { store } = await open(b);
+    await openEvent();
+    await press(screen.getByLabelText('Na każde spotkanie w serii'));
+    await type(screen.getByTestId('event-task-title'), 'Spakować strój');
+    await press(screen.getByTestId('event-task-add'));
+    const def = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'event_task_series') as Extract<NewOp, { kind: 'create' }>;
+    expect(def).toMatchObject({ group_id: 'gf', set: { event_id: 'ev', list_id: 'lf', title: 'Spakować strój' } });
+    const copies = store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'tasks') as Extract<NewOp, { kind: 'create' }>[];
+    expect(copies).toHaveLength(8);
+    expect(copies.map((o) => o.set.occurrence_date).slice(0, 2)).toEqual(['2026-10-07', '2026-10-14']);
+    expect(new Set(copies.map((o) => o.id)).size).toBe(8);
+    expect(await screen.findByTestId(`event-task-${copies[0]!.id}`)).toBeTruthy();
+    expect(screen.getByText('Na każde spotkanie w serii (osobne zadanie na każde):')).toBeTruthy();
+    const n = store.dispatched.length;
+    await press(screen.getByLabelText('Zakończ: Spakować strój'));
+    expect(store.dispatched[n]).toEqual({ kind: 'delete', entity: 'event_task_series', id: def.id });
+    expect(store.dispatched.slice(n + 1)).toHaveLength(8);
+    expect(screen.queryByText('Na każde spotkanie w serii (osobne zadanie na każde):')).toBeNull();
+  });
+
+  it('jednorazowe spotkanie: bez wyboru „jak często”', async () => {
+    await open();
+    await press(screen.getByLabelText('Kalendarz'));
+    await press(await screen.findByTestId('day-2026-10-09'));
+    await press(screen.getByTestId('cal-event-ev2-2026-10-09'));
+    await screen.findByTestId('screen-event');
+    expect(screen.queryByLabelText('Jak często')).toBeNull();
+  });
+});

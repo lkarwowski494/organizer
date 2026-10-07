@@ -13,7 +13,7 @@
  */
 import { config } from '../../config';
 
-export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity' | 'events' | 'event_participants' | 'event_overrides';
+export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity' | 'events' | 'event_participants' | 'event_overrides' | 'event_task_series';
 export type Row = { readonly [k: string]: unknown };
 
 export type Op =
@@ -57,7 +57,7 @@ export function rowKey(e: Entity, row: Row): string {
 
 /** Zakres widoczności wiersza (lista), jeśli wiersz należy do listy — do czyszczenia po utracie dostępu. */
 function rowScope(e: Entity, row: Row): string | undefined {
-  const scope = e === 'lists' ? row.id : e === 'tasks' ? row.list_id : row.scope_id;
+  const scope = e === 'lists' ? row.id : e === 'tasks' || e === 'event_task_series' ? row.list_id : row.scope_id;
   // Grupy i członkowie nie mają zakresu; aktywność grupowa ma scope_id = null.
   return scope == null ? undefined : String(scope);
 }

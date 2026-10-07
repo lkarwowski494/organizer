@@ -27,10 +27,10 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'events', 'group_members', 'groups', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_task_series', 'events', 'group_members', 'groups', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
   });
 
-  it('aktualizacja z wersji 1 dodaje tabele wydarzeń i nie rusza istniejących danych', () => {
+  it('aktualizacja z wersji 1 dodaje tabele wydarzeń i stałych zadań serii i nie rusza istniejących danych', () => {
     const db = memoryDb();
     db.transaction(() => {
       db.exec(MIGRATIONS[0]!.sql);
@@ -41,7 +41,7 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(db.all('select key from tasks')).toEqual([{ key: 't1' }]);
     expect(db.all('select seq from pending_ops')).toEqual([{ seq: 1 }]);
-    expect(db.all("select name from sqlite_master where type = 'table' and name like 'event%' order by name").length).toBe(3);
+    expect(db.all("select name from sqlite_master where type = 'table' and name like 'event%' order by name").length).toBe(4);
   });
 
   it('baza z nowszej wersji aplikacji nie jest ruszana', () => {
@@ -124,9 +124,12 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
       { e: 'groups', v: 3, row: { id: 'g1', version: 3 } },
       { e: 'lists', v: 1, row: { id: 'l1', group_id: 'g1', version: 1 } },
       { e: 'tasks', v: 2, row: { id: 't1', group_id: 'g1', list_id: 'l1', version: 2 } },
+      { e: 'event_task_series', v: 2, row: { id: 's1', group_id: 'g1', list_id: 'l1', event_id: 'e1', version: 2 } },
     ] }], scopes: [] }, 0).state;
     writeState(db, s0, s1, 1);
     expect(db.all('select key, group_id, scope_id, version from tasks')).toEqual([{ key: 't1', group_id: 'g1', scope_id: 'l1', version: 2 }]);
+    // Stałe zadanie serii ma zakres listy (lista ukryta: znika z telefonu razem z nią).
+    expect(db.all('select key, scope_id from event_task_series')).toEqual([{ key: 's1', scope_id: 'l1' }]);
     expect(db.all('select key, group_id, scope_id from groups')).toEqual([{ key: 'g1', group_id: 'g1', scope_id: null }]);
     const s2 = onPullResponse(s1, { groups: [], scopes: [] }, 0).state;
     writeState(db, s1, s2, 2);

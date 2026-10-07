@@ -10,7 +10,7 @@ import type { DbAdapter } from './db/adapter';
 import { ENTITY_TABLES } from './db/migrations';
 
 const scopeOf = (e: Entity, row: Row): string | null => {
-  const s = e === 'lists' ? row.id : e === 'tasks' ? row.list_id : row.scope_id;
+  const s = e === 'lists' ? row.id : e === 'tasks' || e === 'event_task_series' ? row.list_id : row.scope_id;
   return s == null ? null : String(s);
 };
 const groupOf = (e: Entity, row: Row) => String(e === 'groups' ? row.id : row.group_id);

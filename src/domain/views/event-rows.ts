@@ -88,3 +88,23 @@ export function occurrenceResolver(t: Tables): OccurrenceDue {
     return { date: o?.start_date ?? occurrenceDate, time: o?.start_time ?? e.start_time };
   };
 }
+
+/** Definicja stałego zadania serii (D65, tabela event_task_series). */
+export type SeriesDef = { id: string; group_id: string; event_id: string; list_id: string; title: string; deleted_at: string | null };
+
+export const asSeries = (r: Row): SeriesDef => ({
+  id: String(r.id),
+  group_id: String(r.group_id),
+  event_id: String(r.event_id),
+  list_id: String(r.list_id),
+  title: String(r.title ?? ''),
+  deleted_at: r.deleted_at == null ? null : String(r.deleted_at),
+});
+
+/** Żywe definicje dla serii. */
+export function seriesOf(t: Tables, eventId: string): SeriesDef[] {
+  return rows(t, 'event_task_series', asSeries)
+    .filter((s) => s.deleted_at === null && s.event_id === eventId)
+    .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+}
+

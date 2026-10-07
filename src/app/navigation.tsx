@@ -26,6 +26,7 @@ import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { TodayScreen } from '../features/today/TodayScreen';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
+import { SeriesFiller } from './SeriesFiller';
 import type { RootStackParams, TabParams } from './routes';
 
 const Stack = createNativeStackNavigator<RootStackParams>();
@@ -78,7 +79,9 @@ function Tabs() {
 
 export function RootStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <>
+      <SeriesFiller />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
       <Stack.Screen name="Task" component={TaskScreen} />
@@ -91,7 +94,8 @@ export function RootStack() {
       <Stack.Screen name="Invite" component={InviteScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />
-    </Stack.Navigator>
+      </Stack.Navigator>
+    </>
   );
 }
 

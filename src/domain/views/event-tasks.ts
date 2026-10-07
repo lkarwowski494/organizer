@@ -9,7 +9,7 @@ import { addDays, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
-import { asEvent, ruleOf } from './event-rows';
+import { asEvent, ruleOf, seriesOf } from './event-rows';
 import { type EventDetail, expandEvents, type Occurrence, type Scope } from './events';
 import { asTask, rows, type Tables, type Task } from './model';
 
@@ -24,11 +24,22 @@ export function attachedTasks(t: Tables, eventId: string, occurrenceDate?: strin
     .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }
 
-/** Zadania, których dotyczy odwołanie / usunięcie w danym zakresie. */
-export function affectedByCancel(t: Tables, d: EventDetail, occurrenceDate: string, scope: Scope): Task[] {
+function inCancelScope(t: Tables, d: EventDetail, occurrenceDate: string, scope: Scope): Task[] {
   const all = attachedTasks(t, d.event.id);
   if (d.rule === null || scope === 'all' || (scope === 'following' && occurrenceDate === d.event.start_date)) return all;
   return all.filter((x) => (scope === 'this' ? x.occurrence_date === occurrenceDate : x.occurrence_date! >= occurrenceDate));
+}
+
+/** Zadania podpięte pojedynczo, których dotyczy odwołanie / usunięcie — o nie pytamy (D14). */
+export function affectedByCancel(t: Tables, d: EventDetail, occurrenceDate: string, scope: Scope): Task[] {
+  return inCancelScope(t, d, occurrenceDate, scope).filter((x) => x.series_id === null);
+}
+
+/** Kopie stałych zadań serii (D65) z odwołanych wystąpień: usuwane bez pytania, bo należą do tamtego terminu. */
+export function seriesCopiesCancelOps(t: Tables, d: EventDetail, occurrenceDate: string, scope: Scope): NewOp[] {
+  return inCancelScope(t, d, occurrenceDate, scope)
+    .filter((x) => x.series_id !== null)
+    .map((x): NewOp => ({ kind: 'delete', entity: 'tasks', id: x.id }));
 }
 
 /** Kolejne (nieodwołane) wystąpienie tej serii po danym dniu, albo `null`. */
@@ -55,13 +66,24 @@ export function relinkOps(tasks: Task[], to: Relink): NewOp[] {
 }
 
 /** Nowe zadanie na wystąpieniu: termin jak spotkanie (D13). */
-export function createEventTask(a: { id: string; groupId: string; listId: string; eventId: string; occurrenceDate: string; title: string }): NewOp {
+export function createEventTask(a: { id: string; groupId: string; listId: string; eventId: string; occurrenceDate: string; title: string; seriesId?: string }): NewOp {
   return {
     kind: 'create',
     entity: 'tasks',
     id: a.id,
     group_id: a.groupId,
-    set: { list_id: a.listId, parent_id: null, title: a.title, sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: a.eventId, occurrence_date: a.occurrenceDate },
+    set: {
+      list_id: a.listId,
+      parent_id: null,
+      title: a.title,
+      sort_key: 'a0',
+      deadline_mode: 'event',
+      due_date: null,
+      due_time: null,
+      event_id: a.eventId,
+      occurrence_date: a.occurrenceDate,
+      ...(a.seriesId ? { series_id: a.seriesId } : {}),
+    },
   };
 }
 
@@ -109,12 +131,18 @@ export function seriesEditEffects(t: Tables, d: EventDetail, occurrenceDate: str
 }
 
 /** Operacje dla zadań po zmianie serii: zostające przechodzą do serii wynikowej, znikające — wg wyboru. */
-export function seriesTaskOps(d: EventDetail, occurrenceDate: string, ops: NewOp[], effects: SeriesEffects, lost: 'nearest' | 'unlink'): NewOp[] {
+export function seriesTaskOps(t: Tables, d: EventDetail, ops: NewOp[], effects: SeriesEffects, lost: 'nearest' | 'unlink'): NewOp[] {
   const next = resulting(d, ops);
   const out: NewOp[] = [];
-  if (next.id !== d.event.id) out.push(...effects.kept.flatMap((x) => relinkOps([x], { kind: 'occurrence', eventId: next.id, occurrenceDate: x.occurrence_date! })));
+  if (next.id !== d.event.id) {
+    out.push(...effects.kept.flatMap((x) => relinkOps([x], { kind: 'occurrence', eventId: next.id, occurrenceDate: x.occurrence_date! })));
+    // Stałe zadania serii idą za nową serią (D65); kopie na nowe terminy dołoży telefon.
+    out.push(...seriesOf(t, d.event.id).map((s): NewOp => ({ kind: 'patch', entity: 'event_task_series', id: s.id, set: { event_id: next.id } })));
+  }
   for (const { task, nearest } of effects.lost) {
-    out.push(...relinkOps([task], lost === 'nearest' && nearest ? { kind: 'occurrence', eventId: next.id, occurrenceDate: nearest } : { kind: 'unlink' }));
+    // Kopia stałego zadania z terminu, który znika, nie przechodzi — na nowy termin powstanie własna kopia.
+    if (task.series_id !== null) out.push({ kind: 'delete', entity: 'tasks', id: task.id });
+    else out.push(...relinkOps([task], lost === 'nearest' && nearest ? { kind: 'occurrence', eventId: next.id, occurrenceDate: nearest } : { kind: 'unlink' }));
   }
   return out;
 }

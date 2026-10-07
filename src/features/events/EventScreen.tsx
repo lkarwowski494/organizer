@@ -16,8 +16,9 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList } from '../../domain/views/commands';
 import { listsView } from '../../domain/views';
-import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
+import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, type Scope, timeLabel } from '../../domain/views/events';
+import { createSeries, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -38,6 +39,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(null);
   const [taskTitle, setTaskTitle] = useState('');
   const [listId, setListId] = useState<string | null>(null);
+  const [every, setEvery] = useState<'one' | 'all'>('one');
   const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
 
   if (!d || d.event.deleted_at !== null) {
@@ -53,13 +55,14 @@ export function EventScreen({ route, navigation }: Props) {
   const time = timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'];
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
+  const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
   const chosenList = taskLists.find((l) => l.id === listId) ?? taskLists[0];
 
   const edit = (scope: Scope) => navigation.navigate('EventEdit', { eventId, date, scope });
   const finish = (scope: Scope, to: Relink | null) => {
     const affected = to ? affectedByCancel(tables, d, date, scope) : [];
-    store.dispatch([...cancelEvent(d, date, scope, newId), ...(to ? relinkOps(affected, to) : [])]);
+    store.dispatch([...cancelEvent(d, date, scope, newId), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)]);
     navigation.goBack();
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
@@ -74,7 +77,8 @@ export function EventScreen({ route, navigation }: Props) {
       list = newId();
       ops.push(createList({ id: list, groupId: d.event.group_id, kind: 'tasks', name: strings['event.defaultList'] }));
     }
-    ops.push(createEventTask({ id: newId(), groupId: d.event.group_id, listId: list, eventId, occurrenceDate: date, title }));
+    // D65: „na każde spotkanie” = definicja; kopie na najbliższe tygodnie dokłada SeriesFiller.
+    ops.push(every === 'all' && recurring ? createSeries({ id: newId(), groupId: d.event.group_id, eventId, listId: list, title }) : createEventTask({ id: newId(), groupId: d.event.group_id, listId: list, eventId, occurrenceDate: date, title }));
     store.dispatch(ops);
     setTaskTitle('');
   };
@@ -121,9 +125,31 @@ export function EventScreen({ route, navigation }: Props) {
           onOpen={() => navigation.navigate('Task', { taskId: t.id })}
         />
       ))}
+      {defs.length ? (
+        <View style={{ gap: 8 }}>
+          <Body muted>{strings['event.seriesTasks']}</Body>
+          {defs.map((s) => (
+            <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ flex: 1, fontFamily: font.text600, fontSize: 16, color: c.ink }}>{s.title}</Text>
+              {d.canEdit ? <Button kind="secondary" label={strings['event.seriesStop'](s.title)} testID={`series-stop-${s.id}`} onPress={() => store.dispatch(stopOps(tables, s, today))} /> : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
       {d.canEdit ? (
         <View style={{ gap: 8 }}>
           {taskLists.length > 1 ? <Segmented label={strings['event.taskList']} value={chosenList!.id} onChange={setListId} options={taskLists.map((l) => ({ value: l.id, label: l.name }))} /> : null}
+          {recurring ? (
+            <Segmented
+              label={strings['event.taskEvery']}
+              value={every}
+              onChange={setEvery}
+              options={[
+                { value: 'one', label: strings['event.taskEvery.one'] },
+                { value: 'all', label: strings['event.taskEvery.all'] },
+              ]}
+            />
+          ) : null}
           <Field label={strings['event.taskAdd']} value={taskTitle} onChangeText={setTaskTitle} onSubmitEditing={addTask} testID="event-task-title" />
           <Button kind="secondary" label={strings['event.taskAdd']} testID="event-task-add" onPress={addTask} />
         </View>
