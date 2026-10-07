@@ -13,6 +13,7 @@ import { CalendarScreen } from '../features/calendar/CalendarScreen';
 import { GroupScreen } from '../features/groups/GroupScreen';
 import { GroupsScreen } from '../features/groups/GroupsScreen';
 import { InviteScreen } from '../features/groups/InviteScreen';
+import { MemberScreen } from '../features/groups/MemberScreen';
 import { NewGroupScreen } from '../features/groups/NewGroupScreen';
 import { ListScreen } from '../features/lists/ListScreen';
 import { ListsScreen } from '../features/lists/ListsScreen';
@@ -81,6 +82,7 @@ export function RootStack() {
       <Stack.Screen name="Task" component={TaskScreen} />
       <Stack.Screen name="NewList" component={NewListScreen} />
       <Stack.Screen name="Group" component={GroupScreen} />
+      <Stack.Screen name="Member" component={MemberScreen} />
       <Stack.Screen name="NewGroup" component={NewGroupScreen} />
       <Stack.Screen name="Invite" component={InviteScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />

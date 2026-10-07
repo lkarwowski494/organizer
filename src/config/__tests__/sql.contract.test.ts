@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 import { strings } from '../../i18n/strings.pl';
 import { config } from '../index';
+import { groupLines } from '../theme';
 
 const dir = join(__dirname, '../../../supabase/migrations');
 const sql = readdirSync(dir)
@@ -41,6 +42,11 @@ describe('src/config zgodny z SQL', () => {
   it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {
     const found = [...sql.matchAll(/function private\.deleted_user_label\(\)[^$]*\$\$\s*select\s+'([^']*)'::text\s*\$\$/gi)];
     expect(found.map((m) => m[1])).toEqual([strings['member.deleted']]);
+  });
+
+  it('klucze kolorów grup w SQL = paleta linii (D56)', () => {
+    const found = [...sql.matchAll(/function private\.group_colors\(\)[^$]*\$\$\s*select array\[([^\]]*)\]/gi)].map((m) => m[1]!.split(',').map((x) => x.trim().replace(/'/g, '')));
+    expect(found.at(-1)).toEqual(groupLines.map((g) => g.key));
   });
 
   it('brak definicji zgłaszany wprost', () => {

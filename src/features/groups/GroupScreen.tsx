@@ -4,12 +4,13 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Share, Text, View } from 'react-native';
+import { Pressable, Share, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
-import { addChild, remove, renameGroup } from '../../domain/views/commands';
+import { groupLines } from '../../config/theme';
+import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
 import { groupDetail, listsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import type { Invite } from '../../sync/account';
@@ -28,6 +29,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const [child, setChild] = useState('');
   const [name, setName] = useState(d?.group.name ?? '');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState(false);
 
   if (!d) {
@@ -57,10 +59,13 @@ export function GroupScreen({ route, navigation }: Props) {
       </View>
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
       {d.members.map((m) => (
-        <Text key={m.member_id} style={{ fontFamily: font.text400, fontSize: 17, color: c.ink }}>
-          {m.display_name}
-          <Text style={{ color: c.inkMuted }}>{`  ·  ${strings[`groups.role.${m.role}`]}`}</Text>
-        </Text>
+        <NavRow
+          key={m.member_id}
+          testID={`member-${m.member_id}`}
+          title={m.display_name}
+          subtitle={strings[`groups.role.${m.role}`]}
+          onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
+        />
       ))}
       {d.canInvite ? (
         <View style={{ gap: 8 }}>
@@ -104,6 +109,29 @@ export function GroupScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['groups.rename']} disabled={name.trim() === '' || name.trim() === d.group.name} onPress={() => store.dispatch(renameGroup(d.group.id, name.trim()))} />
         </View>
       ) : null}
+      {d.canSetColor ? (
+        <View accessibilityRole="radiogroup" accessibilityLabel={strings['groups.color']} style={{ gap: 8 }}>
+          <SectionTitle>{strings['groups.color']}</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {groupLines.map((g, i) => {
+              const on = d.group.color === g.key;
+              return (
+                <Pressable
+                  key={g.key}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={strings['groups.colorA11y'](g.key)}
+                  onPress={() => store.dispatch(setGroupColor(d.group.id, g.key))}
+                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: on ? 3 : 0, borderColor: c.ink }}
+                >
+                  <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: line(i).line }} />
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button kind="secondary" label={strings['groups.colorAuto']} disabled={d.group.color === null} onPress={() => store.dispatch(setGroupColor(d.group.id, null))} />
+        </View>
+      ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.map((l) => (
         <NavRow key={l.id} title={l.name} subtitle={strings['lists.open'](l.open)} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
@@ -129,6 +157,31 @@ export function GroupScreen({ route, navigation }: Props) {
         )
       ) : !personal ? (
         <Body muted>{strings['groups.ownerCannotLeave']}</Body>
+      ) : null}
+      {d.canDelete ? (
+        confirmDelete ? (
+          <View style={{ gap: 8 }}>
+            <Body>{strings['groups.deleteConfirm'](config.sync.TOMBSTONE_DAYS)}</Body>
+            <Button
+              kind="danger"
+              label={strings['groups.deleteYes']}
+              testID="delete-group-confirm"
+              onPress={async () => {
+                setError(false);
+                try {
+                  await account.deleteGroup(d.group.id);
+                  store.refresh();
+                  navigation.goBack();
+                } catch {
+                  setError(true);
+                }
+              }}
+            />
+            <Button kind="secondary" label={strings['common.cancel']} onPress={() => setConfirmDelete(false)} />
+          </View>
+        ) : (
+          <Button kind="danger" label={strings['groups.delete']} onPress={() => setConfirmDelete(true)} testID="delete-group" />
+        )
       ) : null}
     </Screen>
   );

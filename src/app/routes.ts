@@ -5,6 +5,7 @@ export type RootStackParams = {
   Task: { taskId: string };
   NewList: { groupId?: string; kind?: 'tasks' | 'shopping' };
   Group: { groupId: string };
+  Member: { groupId: string; memberId: string };
   NewGroup: undefined;
   Invite: { token?: string };
   Settings: undefined;

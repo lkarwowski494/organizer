@@ -94,6 +94,15 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     async revokeInvite(inviteId) {
       await call(client, 'revoke_invite', { invite_id: inviteId });
     },
+    async deleteGroup(groupId) {
+      await call(client, 'delete_group', { group_id: groupId });
+    },
+    async restoreGroup(groupId) {
+      await call(client, 'restore_group', { group_id: groupId });
+    },
+    async transferOwnership(groupId, memberId) {
+      await call(client, 'transfer_ownership', { group_id: groupId, member_id: memberId });
+    },
   };
 }
 

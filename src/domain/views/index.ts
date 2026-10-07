@@ -45,7 +45,26 @@ export function groupsView(t: Tables, userId: string): GroupItem[] {
         (a.created_at ?? '￿').localeCompare(b.created_at ?? '￿') ||
         a.id.localeCompare(b.id),
     )
-    .map((g, i) => ({ ...g, line: i % groupLines.length, me: mine.get(g.id)!, memberCount: members.filter((m) => m.group_id === g.id).length }));
+    .map((g, i) => ({ ...g, line: lineOf(g, i), me: mine.get(g.id)!, memberCount: members.filter((m) => m.group_id === g.id).length }));
+}
+
+/** Kolor wybrany przez właściciela (D56, wspólny dla wszystkich) albo przydział po kolejności. */
+function lineOf(g: Group, i: number): number {
+  const chosen = groupLines.findIndex((l) => l.key === g.color);
+  return chosen >= 0 ? chosen : i % groupLines.length;
+}
+
+export type TrashedGroup = Group & { daysLeft: number };
+
+/** Grupy w koszu, które mogę przywrócić (jestem właścicielem), z liczbą dni do trwałego usunięcia (D54). */
+export function trashedGroups(t: Tables, userId: string, nowMs: number): TrashedGroup[] {
+  const mine = myMemberships(t, userId);
+  const day = 86_400_000;
+  return rows(t, 'groups', asGroup)
+    .filter((g) => g.deleted_at !== null && mine.get(g.id)?.role === 'owner')
+    .map((g) => ({ ...g, daysLeft: Math.max(0, Math.ceil((Date.parse(g.deleted_at!) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day)) }))
+    .filter((g) => g.daysLeft > 0)
+    .sort(byName);
 }
 
 const ROLE_ORDER = { owner: 0, admin: 1, member: 2, child: 3 } as const;
@@ -59,7 +78,31 @@ export type GroupDetail = {
   canManageMembers: boolean;
   canLeave: boolean;
   canRename: boolean;
+  /** Kolor, kosz i przekazanie własności — tylko właściciel grupy wspólnej (D54–D56). */
+  canSetColor: boolean;
+  canDelete: boolean;
 };
+
+export type MemberActions = { rename: boolean; setRole: boolean; remove: boolean; makeOwner: boolean };
+
+/**
+ * Co mogę zrobić z członkiem — jak strażnik członkostw (migracje invites, groups_edit): imię zmienia owner/admin
+ * albo sam członek; role i przekazanie tylko owner; usuwa owner (każdego poza sobą) albo admin (tylko member/child).
+ * Nowy właściciel to dorosły z kontem (D49, D55).
+ */
+export function memberActions(d: GroupDetail, m: Member): MemberActions {
+  const me = d.group.me;
+  const self = m.member_id === me.member_id;
+  const shared = d.group.kind === 'shared';
+  const owner = me.role === 'owner';
+  const admin = me.role === 'admin';
+  return {
+    rename: self || owner || admin,
+    setRole: shared && owner && !self && m.role !== 'child' && m.user_id !== null,
+    remove: shared && !self && (owner || (admin && (m.role === 'member' || m.role === 'child'))),
+    makeOwner: shared && owner && !self && m.user_id !== null && (m.role === 'admin' || m.role === 'member'),
+  };
+}
 
 export function groupDetail(t: Tables, userId: string, groupId: string): GroupDetail | null {
   const group = groupsView(t, userId).find((g) => g.id === groupId);
@@ -71,7 +114,7 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   const shared = group.kind === 'shared';
   // Zgodnie ze strażnikiem członkostw (migracja invites): owner nie wychodzi (najpierw przekazuje grupę),
   // zaproszenia tylko w grupach wspólnych, nazwę grupy zmienia owner/admin.
-  return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager };
+  return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 
 export type ListItem = List & { line: number; groupName: string; open: number };

@@ -50,12 +50,15 @@ describe('Supabase: transport synchronizacji', () => {
     expect(await a.createInvite('g', 'admin')).toEqual({ inviteId: 'i', token: 't'.repeat(64), url: `${config.URL_SCHEME}://invite/${'t'.repeat(64)}`, expiresAt: 'x', maxUses: 10 });
     expect(await a.acceptInvite('tok', 'Ł')).toEqual({ groupId: 'g' });
     await a.revokeInvite('i');
+    await a.deleteGroup('g');
+    await a.restoreGroup('g');
+    await a.transferOwnership('g', 'm');
     const params = sqlParams();
     for (const c of calls) {
       expect(params.has(c.fn)).toBe(true);
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
-    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite']);
+    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'delete_group', 'restore_group', 'transfer_ownership']);
     expect(calls[1]!.args).toEqual({ cursors: { g: 3 }, lim: 1000 });
   });
 
