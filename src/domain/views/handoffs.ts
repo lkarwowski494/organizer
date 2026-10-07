@@ -89,3 +89,22 @@ export function createHandoff(a: { id: string; groupId: string; entity: Handoff[
 export const decideHandoff = (id: string, accept: boolean): NewOp => ({ kind: 'patch', entity: 'handoffs', id, set: { status: accept ? 'accepted' : 'declined' } });
 export const cancelHandoff = (id: string): NewOp => ({ kind: 'patch', entity: 'handoffs', id, set: { status: 'cancelled' } });
 export const closeHandoff = (id: string): NewOp => ({ kind: 'patch', entity: 'handoffs', id, set: { closed: true } });
+
+/**
+ * Przekazania, o których mam poprosić serwer o powiadomienie (D70, push): moje nowe (potwierdzone przez serwer —
+ * nadawcę wpisuje serwer) i moje decyzje (decided_at wpisuje serwer). Nie starsze niż `maxAgeH` godzin; serwer i tak
+ * sprawdza wszystko jeszcze raz i każdy stan powiadamia najwyżej raz (push_sent_status).
+ */
+export function handoffsToNotify(t: Tables, userId: string, nowMs: number, maxAgeH: number): string[] {
+  const me = new Map(groupsView(t, userId).map((g) => [g.id, g.me.member_id]));
+  const out: string[] = [];
+  for (const raw of Object.values(t.handoffs ?? {})) {
+    const h = asHandoff(raw);
+    const mine = me.get(h.group_id);
+    if (!mine || h.status === 'cancelled' || raw.push_sent_status === h.status) continue;
+    const at = h.status === 'pending' ? raw.created_at : raw.decided_at;
+    if (typeof at !== 'string' || nowMs - Date.parse(at) > maxAgeH * 3_600_000) continue;
+    if ((h.status === 'pending' && h.from_member === mine) || (h.status !== 'pending' && h.to_member === mine)) out.push(h.id);
+  }
+  return out.sort();
+}

@@ -39,3 +39,14 @@ describe('Info.plist po wtyczkach', () => {
     }
   }, 60000);
 });
+
+describe('funkcja notify-handoff zgodna z src/config', () => {
+  it('PUSH_MAX_AGE_H', () => {
+    const src = jest.requireActual<typeof import('node:fs')>('node:fs').readFileSync(`${__dirname}/../../../supabase/functions/notify-handoff/handler.ts`, 'utf8');
+    expect(src).toContain(`export const PUSH_MAX_AGE_H = ${config.PUSH_MAX_AGE_H};`);
+  });
+
+  it('wtyczka powiadomień: produkcyjne APNs (TestFlight, App Store)', () => {
+    expect(appJson.expo.plugins).toContainEqual(['expo-notifications', { mode: 'production' }]);
+  });
+});

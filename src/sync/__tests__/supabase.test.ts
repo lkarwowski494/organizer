@@ -53,12 +53,13 @@ describe('Supabase: transport synchronizacji', () => {
     await a.deleteGroup('g');
     await a.restoreGroup('g');
     await a.transferOwnership('g', 'm');
+    await a.registerPushToken('ab'.repeat(32), 'production');
     const params = sqlParams();
     for (const c of calls) {
       expect(params.has(c.fn)).toBe(true);
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
-    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'delete_group', 'restore_group', 'transfer_ownership']);
+    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token']);
     expect(calls[1]!.args).toEqual({ cursors: { g: 3 }, lim: 1000 });
   });
 
@@ -107,6 +108,8 @@ describe('Supabase: konto', () => {
     expect(auth.signOut).toHaveBeenLastCalledWith({ scope: 'local' });
     functions.invoke.mockResolvedValueOnce({ error: { message: 'unauthorized' } });
     await expect(a.deleteAccount()).rejects.toThrow('unauthorized');
+    await a.notifyHandoff('h1');
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
   });
 });
 

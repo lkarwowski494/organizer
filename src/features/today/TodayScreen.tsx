@@ -19,6 +19,7 @@ import { groupsView, type TodayItem } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
+import { PushPrompt } from './PushPrompt';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
@@ -148,6 +149,7 @@ export function TodayScreen() {
           </Pressable>
         )}
       </View>
+      <PushPrompt shared={groups.some((g) => g.kind === 'shared')} />
       <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}
       {pinned.length ? (

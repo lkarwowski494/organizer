@@ -39,6 +39,12 @@
           "calendarPermission": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje ani nie zmienia Twoich wydarzeń.",
           "remindersPermission": "Organizer nie korzysta z Przypomnień."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "mode": "production"
+        }
       ]
     ]
   }

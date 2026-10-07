@@ -28,6 +28,7 @@ import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
+import { HandoffNotifier } from './HandoffNotifier';
 import { SeriesFiller } from './SeriesFiller';
 import type { RootStackParams, TabParams } from './routes';
 
@@ -96,6 +97,7 @@ export function RootStack() {
   return (
     <>
       <SeriesFiller />
+      <HandoffNotifier />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
