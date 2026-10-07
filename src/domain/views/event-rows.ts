@@ -19,7 +19,7 @@ export type EventRow = {
   end_time: string | null;
   rrule: string | null;
   audience: 'group' | 'members';
-  /** Kto zawozi / odpowiada (D66); `null` = nikt konkretny. */
+  /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsible_member_id: string | null;
   deleted_at: string | null;
 };

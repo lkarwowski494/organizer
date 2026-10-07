@@ -321,7 +321,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
   });
 });
 
-describe('kto zawozi (D66)', () => {
+describe('osoba odpowiedzialna (D66)', () => {
   it('wybór dorosłego (bez dzieci); „Dotyczy mnie” tylko u niego; w szczegółach widać kto', async () => {
     const { store } = await open(sampleBase());
     await press(screen.getByLabelText('Kalendarz'));
@@ -329,16 +329,16 @@ describe('kto zawozi (D66)', () => {
     await press(await screen.findByLabelText('Rodzina'));
     await type(screen.getByTestId('event-title'), 'Logopeda');
     await type(screen.getByTestId('event-start-0'), '18:00');
-    expect(screen.getByLabelText('Kto zawozi / odpowiada')).toBeTruthy();
-    expect(within(screen.getByLabelText('Kto zawozi / odpowiada')).queryByLabelText('Kuba')).toBeNull();
-    await press(within(screen.getByLabelText('Kto zawozi / odpowiada')).getByLabelText('Ala'));
+    expect(screen.getByLabelText('Osoba odpowiedzialna')).toBeTruthy();
+    expect(within(screen.getByLabelText('Osoba odpowiedzialna')).queryByLabelText('Kuba')).toBeNull();
+    await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
     expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Logopeda', responsible_member_id: 'ala' });
     await press(screen.getByLabelText('Dziś'));
-    expect(screen.queryByText('Logopeda')).toBeNull(); // zawozi Ala — nie u mnie
+    expect(screen.queryByText('Logopeda')).toBeNull(); // odpowiada Ala — nie u mnie
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByLabelText(/^Logopeda, 18:00/));
-    expect(await screen.findByText('Zawozi / odpowiada: Ala')).toBeTruthy();
+    expect(await screen.findByText('Osoba odpowiedzialna: Ala')).toBeTruthy();
   });
 
   it('grupa osobista: bez wyboru osoby', async () => {
@@ -346,6 +346,6 @@ describe('kto zawozi (D66)', () => {
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-event'));
     await screen.findByTestId('screen-event-edit');
-    expect(screen.queryByLabelText('Kto zawozi / odpowiada')).toBeNull();
+    expect(screen.queryByLabelText('Osoba odpowiedzialna')).toBeNull();
   });
 });

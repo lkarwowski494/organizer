@@ -10,13 +10,14 @@ import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, SyncChip, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
+import { useAppearance, useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 
 export function SettingsScreen({ navigation }: Props) {
   const { account, nowMs } = useServices();
+  const { appearance, setAppearance } = useAppearance();
   const { state, indicator } = useAppData();
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
@@ -40,6 +41,16 @@ export function SettingsScreen({ navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['settings.title']}</Title>
       <SyncChip indicator={indicator} nowMs={nowMs()} />
+      <Segmented
+        label={strings['settings.appearance']}
+        value={appearance}
+        onChange={setAppearance}
+        options={[
+          { value: 'system', label: strings['settings.appearance.system'] },
+          { value: 'light', label: strings['settings.appearance.light'] },
+          { value: 'dark', label: strings['settings.appearance.dark'] },
+        ]}
+      />
       <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
       <Button kind="secondary" label={strings['settings.signOut']} onPress={() => void account.signOut()} testID="sign-out" />
       <SectionTitle>{strings['settings.delete']}</SectionTitle>
