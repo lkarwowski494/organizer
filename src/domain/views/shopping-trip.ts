@@ -57,7 +57,8 @@ export function finishTripOps(t: Tables, userId: string, listId: string, all: bo
 /** Zakupy jako wpis „Dotyczy mnie” (kształt zadania, `trip` = id listy). Tytuł to nazwa listy; ekran dopisuje „Zakupy:”. */
 export type TripItem = TodayItem & { trip: { listId: string; open: number } };
 
-export function tripEntries(t: Tables, groups: Map<string, GroupItem>): TripItem[] {
+/** `everyone` — wszystkie zaplanowane zakupy grup (Kalendarz, D73 + O-053); inaczej tylko dotyczące mnie. */
+export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone = false): TripItem[] {
   const out: TripItem[] = [];
   for (const [id, raw] of Object.entries(t.lists ?? {})) {
     const l = asList(raw);
@@ -67,7 +68,7 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>): TripItem
     if (!g || !hasTrip(trip)) continue;
     const due = trip.date === null ? null : { date: trip.date, time: trip.time };
     const mine = trip.responsibleId === g.me.member_id;
-    if (!(mine || (trip.responsibleId === null && (g.kind === 'personal' || due !== null)))) continue;
+    if (!everyone && !(mine || (trip.responsibleId === null && (g.kind === 'personal' || due !== null)))) continue;
     out.push({
       id,
       group_id: l.group_id,

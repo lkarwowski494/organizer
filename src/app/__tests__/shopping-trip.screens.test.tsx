@@ -162,3 +162,23 @@ describe('zakupy na liście', () => {
     expect(screen.queryByTestId('trip')).toBeNull();
   });
 });
+
+describe('ilości i Kalendarz (D77, O-053)', () => {
+  it('lista zakupów: ilość obok nazwy; Kalendarz: zaplanowane zakupy z odhaczeniem i otwarciem listy', async () => {
+    const base = planned({ due_date: '2026-10-07', due_time: null });
+    put(base, 'tasks', 's-mleko', { ...base.tasks!['s-chleb']!, id: 's-mleko', title: 'mleko 2' });
+    const { store } = await open(base);
+    await press(screen.getByLabelText('Kalendarz'));
+    const row = await screen.findByTestId('cal-trip-lz');
+    expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
+    expect(within(row).getByText(/2 do kupienia/)).toBeTruthy();
+    expect(within(row).getByText(/Łukasz/)).toBeTruthy();
+    await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await answerAlert('Anuluj');
+    expect(store.dispatched).toEqual([]);
+    await press(within(row).getByLabelText('Otwórz: Zakupy: Zakupy na weekend'));
+    const item = await screen.findByTestId('task-s-mleko');
+    expect(within(item).getByText('mleko')).toBeTruthy();
+    expect(within(item).getByText(/2/)).toBeTruthy();
+  });
+});

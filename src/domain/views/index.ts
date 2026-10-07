@@ -10,6 +10,7 @@ import { addDays, type CivilDate, formatIsoDate, isoWeekday } from '../civil-dat
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
 import { polishHolidays } from '../holidays';
 import { occurrenceResolver } from './event-rows';
+import { tripEntries } from './shopping-trip';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
 
 export * from './model';
@@ -235,7 +236,7 @@ export type CalendarDay = { date: string; inMonth: boolean; holiday: string | nu
 /**
  * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek).
  * Dni z zadaniami z terminem z moich grup i polskimi dniami wolnymi (src/domain/holidays.ts).
- * Wydarzenia (serie RRULE) dochodzą w Etapie 4.
+ * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`.
  */
 export function calendarMonth(t: Tables, userId: string, year: number, month: number): CalendarDay[] {
   const first: CivilDate = { y: year, m: month, d: 1 };
@@ -255,6 +256,11 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const list = byDate.get(due.date) ?? [];
     list.push({ ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null });
     byDate.set(due.date, list);
+  }
+  // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy.
+  for (const trip of tripEntries(t, groups, true)) {
+    if (trip.due === null) continue;
+    byDate.set(trip.due.date, [...(byDate.get(trip.due.date) ?? []), trip]);
   }
   const days: CalendarDay[] = [];
   for (let i = 0; i < 42; i++) {

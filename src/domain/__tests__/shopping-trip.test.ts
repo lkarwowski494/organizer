@@ -1,7 +1,7 @@
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
-import { groupsView } from '../views';
+import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
 import { asTrip, finishTripOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripSet } from '../views/shopping-trip';
 
@@ -135,5 +135,17 @@ describe('zakupy na liście zakupów (D73)', () => {
     put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'l', occurrence_date: null, from_member: 'mm', to_member: 'mf', status: 'pending', closed: false });
     expect(asHandoff(t.handoffs!.h!).entity).toBe('lists');
     expect(incomingHandoffs(t, ME)).toMatchObject([{ id: 'h', entity: 'lists', title: 'Biedronka', otherName: 'Magdalena' }]);
+  });
+
+  it('Kalendarz: wszystkie zakupy z dniem w moich grupach (także cudze); bez dnia — nie', () => {
+    const t = world();
+    put(t, 'lists', 'mine', list('mine', 'gf', { due_date: '2026-10-08', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'hers', list('hers', 'gf', { name: 'Lidl', due_date: '2026-10-08', responsible_member_id: 'mm' }));
+    put(t, 'lists', 'nodate', list('nodate', 'gf', { responsible_member_id: 'mf' }));
+    const day = calendarMonth(t, ME, 2026, 10).find((d) => d.date === '2026-10-08')!;
+    // Kolejność jak zadania dnia: termin, potem nazwa (Biedronka przed Lidlem).
+    expect(day.items.map((x) => [x.id, x.trip?.listId])).toEqual([['mine', 'mine'], ['hers', 'hers']]);
+    expect(calendarMonth(t, ME, 2026, 10).flatMap((d) => d.items.map((x) => x.id))).not.toContain('nodate');
+    expect(tripEntries(t, groups(t), true).map((x) => x.id).sort()).toEqual(['hers', 'mine', 'nodate']);
   });
 });
