@@ -38,6 +38,7 @@ export function CalendarScreen() {
   const day = days.find((d) => d.date === selected);
   const dayEvents = day ? (events.get(day.date) ?? []) : [];
   const roles = myMemberships(tables, userId);
+  const memberName = (id: string) => String(tables.group_members?.[id]?.display_name ?? '');
   const isoToday = formatIsoDate(today);
 
   return (
@@ -93,6 +94,18 @@ export function CalendarScreen() {
           {agenda(day.items, dayEvents).map((x) =>
             x.kind === 'event' ? (
               <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+            ) : x.task.trip ? (
+              <StationRow
+                key={x.key}
+                testID={`cal-trip-${x.task.id}`}
+                title={strings['trip.title'](x.task.title)}
+                line={x.task.line}
+                group={x.task.groupName}
+                meta={[formatDue(x.task.due!, today), strings['trip.open'](x.task.trip.open), ...(x.task.assignee_member_id ? [strings['task.assignedTo'](memberName(x.task.assignee_member_id))] : [])]}
+                checked={false}
+                onToggle={() => actions.finishTrip(x.task.id, x.task.title)}
+                onOpen={() => nav.navigate('List', { listId: x.task.id })}
+              />
             ) : (
               <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
                 <StationRow testID={`cal-${x.task.id}`} title={x.task.title} line={x.task.line} group={x.task.groupName} meta={[formatDue(x.task.due!, today)]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />

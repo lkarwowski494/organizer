@@ -12,6 +12,7 @@ import type { RootStackParams } from '../../app/routes';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import { formatDue } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
+import { parseQuantity } from '../../domain/quantity';
 import { addresseeRequired, lacksAddressee } from '../../domain/views/addressee';
 import { useTaskActions } from '../../app/task-actions';
 import { remove, restore } from '../../domain/views/commands';
@@ -82,10 +83,10 @@ export function ListScreen({ route, navigation }: Props) {
       <SwipeRow key={t.id} title={t.title} enabled={canDelete} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
         <StationRow
           testID={`task-${t.id}`}
-          title={t.title}
+          title={shopping ? parseQuantity(t.title).name : t.title}
           line={list.line}
           depth={t.depth}
-          meta={[...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
+          meta={[...(shopping && parseQuantity(t.title).qty ? [parseQuantity(t.title).qty!] : []), ...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
           checked={done || t.completed_at !== null}
           pending={pendingIds.has(t.id)}
           alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
