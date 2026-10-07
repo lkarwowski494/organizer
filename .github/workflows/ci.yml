@@ -44,7 +44,7 @@ jobs:
         with:
           persist-credentials: false
       - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - run: "$(go env GOPATH)/bin/actionlint"
+      - run: '"$(go env GOPATH)/bin/actionlint"'
 
   secrets-scan:
     runs-on: ubuntu-24.04
