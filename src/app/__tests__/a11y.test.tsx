@@ -73,6 +73,8 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Dotyczy mnie: wczoraj', async (p) => p('Poprzedni dzień')],
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
   ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
+  ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
+  ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'), await p('Zaplanuj zakupy'))],
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, Rodzina, powtarza się')],
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, Rodzina, powtarza się'), await p('Zmień'))],

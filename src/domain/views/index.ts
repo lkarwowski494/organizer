@@ -171,7 +171,8 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
   return { list, open: build(null, 0, false), done: build(null, 0, true), members };
 }
 
-export type TodayItem = Task & { due: Due; line: number; groupName: string; listName: string; assignee: string | null };
+/** `trip` — wpis zakupów z listy zakupów (D73, src/domain/views/shopping-trip.ts), nie zadanie. */
+export type TodayItem = Task & { due: Due; line: number; groupName: string; listName: string; assignee: string | null; trip?: { listId: string; open: number } };
 export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: TodayItem[]; tomorrow: TodayItem[] };
 
 /**
