@@ -13,7 +13,7 @@ import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quic
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
 import { routineStreak, taskStreak } from '../../domain/views/routines';
-import { withoutDuplicates } from '../../domain/views/calendar-sync';
+import { splitDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -41,6 +41,7 @@ import { recentShoppingList, shoppingItem } from '../../domain/views/quick-shopp
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
+import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
@@ -195,10 +196,11 @@ export function TodayScreen() {
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie) — w każdym dniu zakresu, po sprawach grup.
-  // D107: bez dubli wpisów aplikacji z tego samego dnia.
+  // D173: bez dubli wpisów aplikacji z tego samego dnia; ukryte — w wierszu „Ukryto N” pod dniem.
   const allDevice = useDeviceCalendar().days;
-  const deviceOf = (d: (typeof view.days)[number]) =>
-    withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
+  const deviceSplit = (d: (typeof view.days)[number]) =>
+    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
+  const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
   // D111: moje zaległe z własnym terminem i moje zaległe zakupy jednym dotknięciem na dziś (z cofnięciem); liczba spraw,
   // nie operacji (audyt 2: T-11, P-56; które są moje — decyzja właściciela z 8.10.2026, overdue.ts).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
@@ -217,7 +219,7 @@ export function TodayScreen() {
       />
     );
   };
-  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0);
+  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0);
 
   // D119: kto w każdym wierszu („Ty”, gdy to ja).
   const whoTask = (memberId: string | null) => {
@@ -445,7 +447,7 @@ export function TodayScreen() {
         </View>
       ) : null}
       {view.days.map((d) =>
-        d.entries.length === 0 && deviceOf(d).length === 0 ? null : (
+        d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0 ? null : (
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
@@ -454,6 +456,7 @@ export function TodayScreen() {
             {dayPlan(nestEntries(d.entries, tables), deviceOf(d), spanOf, { nowMin: d.isToday ? nowMin : null, gaps: mode === 'day' && !d.past }).map((r) =>
               r.kind === 'entry' ? entryRow(r.item.entry, d.past, r.item) : r.kind === 'device' ? <DeviceEventRow key={r.item.key} e={r.item} /> : <GapRow key={r.key} testID={`today-${r.key}`} length={formatMinutes(r.minutes)} />,
             )}
+            <HiddenDuplicates entries={deviceSplit(d).hidden} testID={`today-hidden-${d.date}`} />
           </View>
         ),
       )}

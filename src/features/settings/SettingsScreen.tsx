@@ -153,12 +153,33 @@ export function SettingsScreen({ navigation, route }: Props) {
       ) : null}
       {section === 'calendar' ? (
         <>
+          {/* Audyt 2 (M-33, M-217): po „Nie teraz”, przy zgodzie tylko na dodawanie albo odmowie — droga do połączenia jest tu. */}
+          {calendar.available && calendar.status !== null && calendar.status !== 'granted' ? (
+            <View testID="device-access" style={{ gap: 8 }}>
+              <SectionTitle>{strings['device.title']}</SectionTitle>
+              <Body muted>{calendar.status === 'denied' ? strings['device.denied'] : calendar.status === 'writeOnly' ? strings['device.writeOnly'] : strings['device.body']}</Body>
+              {calendar.status === 'denied' ? (
+                <Button label={strings['push.openSettings']} testID="settings-calendar-open" onPress={calendar.openSettings} />
+              ) : (
+                <Button label={strings['device.connect']} testID="settings-calendar-connect" onPress={() => void calendar.connect()} />
+              )}
+            </View>
+          ) : null}
           {calendar.available && calendar.status === 'granted' ? (
             <View testID="device-settings" style={{ gap: 10 }}>
               <SectionTitle>{strings['device.title']}</SectionTitle>
               <Segmented label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
               <Segmented label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
               <Body muted>{strings['device.mirrorInfo']}</Body>
+              {/* D174: wybór grup w lustrze (w bazie konta). */}
+              {calendar.mirror && calendar.groups.length ? (
+                <View testID="device-mirror-groups" style={{ gap: 10 }}>
+                  <Body muted>{strings['device.mirrorGroups']}</Body>
+                  {calendar.groups.map((g) => (
+                    <Segmented key={g.id} label={g.name} value={g.mirrored ? 'on' : 'off'} onChange={(v) => calendar.setGroupMirrored(g.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+                  ))}
+                </View>
+              ) : null}
               {calendar.read && calendar.calendars.length ? (
                 <View testID="device-calendars" style={{ gap: 10 }}>
                   <Body muted>{strings['device.calendarsInfo']}</Body>
@@ -176,6 +197,13 @@ export function SettingsScreen({ navigation, route }: Props) {
               <>
                 <Segmented label={strings['travel.enabled']} value={travel.enabled ? 'on' : 'off'} onChange={(v) => void travel.setEnabled(v === 'on')} options={[{ value: 'on', label: strings['travel.on'] }, { value: 'off', label: strings['travel.off'] }]} />
                 {travel.status === 'denied' ? <Body muted>{strings['travel.denied']}</Body> : null}
+                {/* M-218: „Pozwól raz” wygasło — włączony dojazd bez zgody nic nie liczy. */}
+                {travel.enabled && travel.status === 'undetermined' ? (
+                  <View testID="travel-permission" style={{ gap: 8 }}>
+                    <Body muted>{strings['travel.needsPermission']}</Body>
+                    <Button kind="secondary" label={strings['travel.allow']} testID="settings-travel-allow" onPress={() => void travel.requestPermission()} />
+                  </View>
+                ) : null}
                 <Segmented label={strings['travel.defaultMode']} value={travel.mode} onChange={travel.setMode} options={TRAVEL_MODES.map((m) => ({ value: m, label: strings[`travel.option.${m}`] }))} />
                 <Body muted>{strings['travel.info']}</Body>
               </>
