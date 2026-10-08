@@ -99,6 +99,8 @@ export const strings = {
   'form.tomorrow': 'Jutro',
   'form.save': 'Zapisz zadanie',
   'form.moved': 'Zadanie trafi do innej grupy: powstanie tam kopia, a to zadanie pójdzie do kosza.',
+  // Audyt 2 (T-33): kopia w innej grupie nie ma podzadań — mówimy, ile pójdzie do kosza razem z oryginałem.
+  'form.movedWithSubtasks': (n: number) => `Zadanie trafi do innej grupy: powstanie tam kopia bez podzadań, a to zadanie razem z ${n} ${plural(n, { one: 'podzadaniem', few: 'podzadaniami', many: 'podzadaniami' })} pójdzie do kosza.`,
   'form.error.title': 'Wpisz, co jest do zrobienia.',
   'form.error.group': 'Wybierz grupę.',
   'form.error.repeatNeedsDate': 'Ustaw termin, żeby zadanie mogło się powtarzać.',
@@ -499,11 +501,16 @@ export const strings = {
 
   'confirm.doneTitle': 'Zrobione?',
   'confirm.doneYes': 'Zrobione',
+  // Decyzja właściciela z 8.10.2026: odhaczenie zadania z niezrobionymi podzadaniami — razem albo samo zadanie (jak zakupy).
+  'confirm.subtasksLeft': (title: string, n: number) => `${title}: ${plural(n, { one: 'zostało 1 niezrobione podzadanie', few: `zostały ${n} niezrobione podzadania`, many: `zostało ${n} niezrobionych podzadań` })}.`,
+  'confirm.keepSubtasks': 'Zostaw podzadania',
+  'confirm.allDone': 'Oznacz wszystko jako zrobione',
   'confirm.cartTitle': 'Do koszyka?',
   'confirm.cartYes': 'Do koszyka',
   'swipe.delete': 'Usuń',
   'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
+  'undo.doneWithSubtasks': (title: string, n: number) => `Zrobione: ${title} i ${n} ${plural(n, { one: 'podzadanie', few: 'podzadania', many: 'podzadań' })}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,
   'undo.action': 'Cofnij',

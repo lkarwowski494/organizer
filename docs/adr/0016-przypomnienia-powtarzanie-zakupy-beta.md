@@ -18,7 +18,7 @@
    - Odhaczenie tworzy następne zadanie ze stałym id (uuidv5), więc dwa telefony nie zrobią duplikatu. Odhaczone zostaje jako historia.
    - Według kalendarza następny termin to pierwszy dzień reguły po późniejszym z: termin, dzień wykonania. Reguła to RRULE, ten sam podzbiór co wydarzenia.
    - Dni nieistniejące są pomijane zgodnie z RFC 5545, np. „co miesiąc 31.” przeskakuje luty.
-   - Podzadania nie są kopiowane.
+   - Podzadania nie są kopiowane. → zmienione 8.10.2026 (decyzja właściciela, audyt 2): następne dostaje kopie podzadań (ADR 0024, dopisek).
    - Bez terminu nie ma powtarzania (ograniczenie w bazie). Zdjęcie terminu zdejmuje też regułę.
    - Odrzucone: przesuwanie terminu tego samego zadania. Traci historię i daje konflikty przy synchronizacji.
 3. **Ilości są tylko wyświetlaniem** (parseQuantity): w bazie zostaje to, co wpisano. Bez jednostki rozpoznajemy tylko liczby 1–99, żeby „mleko 3,2%” czy „Pepsi 0,5” nie stały się ilością.

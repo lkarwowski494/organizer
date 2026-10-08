@@ -268,8 +268,10 @@ describe('Moje sprawy', () => {
           expect(x.deleted_at).toBeNull();
           expect(x.group_id).not.toBe('gx');
           expect(x.list_id).not.toBe('ldel');
-          expect(x.start_date === null || x.start_date <= '2026-10-07').toBe(true);
         }
+        // start_date względem dnia, w którym zadanie stoi (visibleOnItsDay): zaległe, przypięte i dzisiejsze — dziś, jutrzejsze — jutro.
+        for (const x of [...v.overdue, ...v.pinned, ...v.today]) expect(x.start_date === null || x.start_date <= '2026-10-07').toBe(true);
+        for (const x of v.tomorrow) expect(x.start_date === null || x.start_date <= '2026-10-08').toBe(true);
         for (const x of v.overdue) expect(x.due!.date < '2026-10-07').toBe(true);
         for (const x of v.today) expect(x.due!.date).toBe('2026-10-07');
         for (const x of v.tomorrow) expect(x.due!.date).toBe('2026-10-08');
@@ -351,8 +353,6 @@ describe('operacje ekranów', () => {
     expect(cmd.renameGroup('g', 'N')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { name: 'N' } });
     expect(cmd.addChild({ memberId: 'm', groupId: 'g', name: 'Kuba' })).toEqual({ kind: 'create', entity: 'group_members', id: 'm', group_id: 'g', set: { member_id: 'm', display_name: 'Kuba', role: 'child' } });
     expect(cmd.renameMember('m', 'K')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { display_name: 'K' } });
-    expect(cmd.moveTask('t', 'p')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: 'p' } });
-    expect(cmd.moveTask('t', null, 'l2')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: null, list_id: 'l2' } });
   });
 });
 

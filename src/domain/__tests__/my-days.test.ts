@@ -236,3 +236,118 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     expect(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local).days[0]!.entries).toEqual([]);
   });
 });
+
+describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 — jak wydarzenie z dzieckiem, D58)', () => {
+  function family(): T {
+    const t = world();
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: 'u-ola', display_name: 'Ola', role: 'child', deleted_at: null });
+    task(t, 'plecak', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_time: '20:00' });
+    task(t, 'pokój', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', deadline_mode: 'none', due_date: null });
+    task(t, 'zeszyt', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_date: '2026-10-05' });
+    task(t, 'oli', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ola', deadline_mode: 'none', due_date: null });
+    return t;
+  }
+
+  it('dorosły grupy: z terminem, przypięte i zaległe — z imieniem dziecka; jutro w swoim dniu', () => {
+    const t = family();
+    task(t, 'basen', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_date: '2026-10-08' });
+    const v = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(keys(v)).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
+    expect(v.pinned.map((x) => [x.id, x.assignee])).toEqual([['pokój', 'Kuba']]);
+    expect(v.days[0]!.entries.map((e) => (e.kind === 'overdue' || e.kind === 'task' ? e.task.assignee : null))).toEqual(['Kuba', 'Kuba']);
+    expect(keys(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local))).toEqual(['2026-10-08: t-basen']);
+    // Ten sam widok u drugiego dorosłego; dawny układ sekcji (todayView) — ta sama reguła.
+    expect(keys(myDays(t, 'u-ala', TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
+    expect(todayView(t, ME, TODAY).today.map((x) => x.id)).toEqual(['plecak']);
+  });
+
+  it('nie dotyczy: dziecka z kontem (ma swoje Moje sprawy), mnie jako dziecka, listy, której nie widzę', () => {
+    const t = family();
+    expect(myDays(t, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['pokój']);
+    expect(myDays(t, 'u-ola', TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['oli']);
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf!, role: 'child' });
+    const asChild = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect([keys(asChild), asChild.pinned]).toEqual([['2026-10-07 (dziś): '], []]);
+    const u = family();
+    put(u, 'lists', 'lr', { id: 'lr', group_id: 'gf', kind: 'tasks', name: 'Prezent', visibility: 'restricted', owner_member_id: 'ala', sort_key: 'a1', deleted_at: null });
+    put(u, 'object_members', 'lr:kuba', { scope_entity: 'lists', scope_id: 'lr', member_id: 'kuba', group_id: 'gf', deleted_at: null });
+    task(u, 'niespodzianka', { group_id: 'gf', list_id: 'lr', assignee_member_id: 'kuba', deadline_mode: 'none', due_date: null });
+    expect(myDays(u, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['pokój']);
+    put(u, 'object_members', 'lr:mf', { scope_entity: 'lists', scope_id: 'lr', member_id: 'mf', group_id: 'gf', deleted_at: null });
+    expect(myDays(u, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['niespodzianka', 'pokój']);
+  });
+
+  it('dziecko usunięte z grupy (D132): jak nieprzypisane — z terminem u wszystkich, bez terminu u nikogo', () => {
+    const t = family();
+    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, deleted_at: '2026-10-07T09:00:00Z' });
+    const v = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(keys(v)).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
+    expect(v.pinned).toEqual([]);
+    expect(v.days[0]!.entries.map((e) => (e.kind === 'task' || e.kind === 'overdue' ? e.task.assignee : null))).toEqual([null, null]);
+  });
+
+  it('ta sama reguła co wydarzenie z dzieckiem-uczestnikiem (D58), dla każdej mojej roli', () => {
+    for (const role of ['owner', 'admin', 'member', 'child']) {
+      const t = family();
+      put(t, 'group_members', 'mf', { ...t.group_members!.mf!, role });
+      ev(t, 'trening', '2026-10-07', { group_id: 'gf', audience: 'members', start_time: '18:00:00' });
+      put(t, 'event_participants', 'p-trening', { id: 'p-trening', event_id: 'trening', member_id: 'kuba', deleted_at: null });
+      const entries = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.map((e) => e.key);
+      expect([role, entries.includes('t-plecak')]).toEqual([role, entries.includes('e-trening-2026-10-07')]);
+      expect([role, entries.includes('t-plecak')]).toEqual([role, role !== 'child']);
+    }
+  });
+});
+
+describe('start_date („widoczne od”, bez UI) liczony względem pokazywanego dnia (audyt 2: T-23)', () => {
+  it('Moje sprawy: w dniu terminu, gdy widoczne od tego dnia; przypięte i zaległe — względem dziś; Kalendarz — tak samo', () => {
+    const t = world();
+    task(t, 'basen', { due_date: '2026-10-09', due_time: '17:00', start_date: '2026-10-09' });
+    task(t, 'zawcześnie', { due_date: '2026-10-09', start_date: '2026-10-10' });
+    task(t, 'pin', { deadline_mode: 'none', due_date: null, start_date: '2026-10-08' });
+    task(t, 'zaległe', { due_date: '2026-10-05', start_date: '2026-10-08' });
+    task(t, 'zrobione', { due_date: '2026-10-09', start_date: '2026-10-10', completed_at: '2026-10-07T08:00:00Z' });
+    expect(keys(myDays(t, ME, TODAY, 'day', D('2026-10-09'), local))).toEqual(['2026-10-09: t-basen']);
+    expect(keys(myDays(t, ME, TODAY, 'week', TODAY, local))).toEqual(['2026-10-07 (dziś): ', '2026-10-09: t-basen']);
+    expect(myDays(t, ME, TODAY, 'day', TODAY, local).pinned).toEqual([]);
+    expect(myDays(t, ME, D('2026-10-08'), 'day', D('2026-10-08'), local).pinned.map((x) => x.id)).toEqual(['pin']);
+    expect(keys(myDays(t, ME, D('2026-10-08'), 'day', D('2026-10-08'), local))).toEqual(['2026-10-08 (dziś): o-zaległe']);
+    const cal = calendarMonth(t, ME, 2026, 10);
+    expect(cal.find((d) => d.date === '2026-10-09')!.items.map((x) => x.id)).toEqual(['zrobione', 'basen']);
+    expect(cal.find((d) => d.date === '2026-10-05')!.items.map((x) => x.id)).toEqual([]);
+  });
+});
+
+describe('niezrobione podzadania zrobionego zadania (decyzja właściciela z 8.10.2026, „Zostaw podzadania”; audyt 2: T-13)', () => {
+  function cleaning(): T {
+    const t = world();
+    task(t, 'sprz', { due_date: '2026-10-07', completed_at: '2026-10-07T08:00:00Z' });
+    task(t, 'odk', { parent_id: 'sprz', deadline_mode: 'inherit', due_date: null });
+    task(t, 'pod-odk', { parent_id: 'odk', deadline_mode: 'inherit', due_date: null });
+    task(t, 'faktura', { parent_id: 'sprz', due_date: '2026-10-09' });
+    task(t, 'kiedyś', { parent_id: 'sprz', deadline_mode: 'none', due_date: null });
+    return t;
+  }
+
+  it('w dniu terminu jeszcze są (z dopiskiem rodzica na ekranie); potem mijają zamiast wisieć jako zaległe', () => {
+    const t = cleaning();
+    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): t-odk t-pod-odk']);
+    expect(keys(myDays(t, ME, TODAY, 'day', D('2026-10-09'), local))).toEqual(['2026-10-09: t-faktura']);
+    // Tydzień później: nic zaległego; własny termin podzadania też mija po swoim dniu; bez terminu — dalej przypięte.
+    const later = D('2026-10-14');
+    const v = myDays(t, ME, later, 'day', later, local);
+    expect(keys(v)).toEqual(['2026-10-14 (dziś): ']);
+    expect(v.pinned.map((x) => x.id)).toEqual(['kiedyś']);
+    const l = listDetail(t, ME, 'lp', later)!;
+    expect(l.done[0]!.children.map((c) => [c.id, c.expired])).toEqual([['kiedyś', false], ['odk', true], ['faktura', true]]);
+    expect(l.done[0]!.children[1]!.children.map((c) => [c.id, c.expired])).toEqual([['pod-odk', true]]);
+  });
+
+  it('niezrobiony rodzic — podzadania przechodzą na dziś jak dotąd; zrobione podzadanie pod zrobionym — bez zmian', () => {
+    const t = cleaning();
+    put(t, 'tasks', 'sprz', { ...t.tasks!.sprz!, completed_at: null });
+    expect(keys(myDays(t, ME, D('2026-10-14'), 'day', D('2026-10-14'), local))).toEqual(['2026-10-14 (dziś): o-odk o-pod-odk o-sprz o-faktura']);
+    expect(isExpired({ rollover: true, deadline_mode: 'inherit', parent_id: 'p', completed_at: 'x' }, { date: '2026-10-01', time: null }, '2026-10-07', new Map([['p', { rollover: true, deadline_mode: 'own' as const, parent_id: null, completed_at: 'y' }]]))).toBe(false);
+  });
+});
