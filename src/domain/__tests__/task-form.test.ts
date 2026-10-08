@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formFromTask, formFromText, formGroups, formMembers, formOps, formWeekday, generalList, movedSubtasks, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
+import { formFromTask, formFromText, formGroups, formMembers, formOps, formUnseen, formWeekday, generalList, movedSubtasks, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -84,13 +84,37 @@ describe('pełny formularz zadania (D90)', () => {
     expect(v({ time: '25:00' })).toBe('time');
     expect(v({ date: '', time: '10:00' })).toBe('date');
     expect(v({ date: '', time: '', repeat: { kind: 'daily' } })).toBe('repeatNeedsDate');
-    expect(v({ groupId: 'gf', date: '', time: '' })).toBe('addressee');
+    // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): „kiedyś, ktokolwiek” we wspólnej grupie da się zapisać.
+    expect(v({ groupId: 'gf', date: '', time: '' })).toBeNull();
     expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBeNull();
     expect(v({ date: '', time: '' })).toBeNull();
-    // Audyt 2 (T-15): osoba usunięta z grupy (D132) albo nieznana to „nikt konkretny” — potrzebny termin.
-    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'old' })).toBe('addressee');
-    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'nieznany' })).toBe('addressee');
-    expect(v({ groupId: 'gf', assigneeId: 'old' })).toBeNull();
+    // Audyt 2 (T-15): osoba usunięta z grupy (D132) albo nieznana to „nikt konkretny” — od PW-18 b bez blokady,
+    // za to z dopiskiem (formUnseen niżej).
+    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'old' })).toBeNull();
+    expect(formUnseen(t, ME, form({ groupId: 'gf', date: '', time: '', assigneeId: 'old' }))).toBe(true);
+    expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBe(false);
+  });
+
+  it('PW-18 b: dopisek „nikt tego nie widzi” tylko we wspólnej grupie, bez żywej osoby i bez terminu; lista „Tylko ja” poza regułą', () => {
+    const t = base();
+    const u = (o: Partial<TaskForm>) => formUnseen(t, ME, form(o));
+    expect(u({ groupId: 'gf', date: '', time: '' })).toBe(true);
+    expect(u({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBe(false);
+    expect(u({ groupId: 'gf' })).toBe(false); // z terminem
+    expect(u({ date: '', time: '' })).toBe(false); // grupa osobista
+    expect(u({ groupId: 'nie-ma', date: '' })).toBe(false);
+    // Osoba usunięta z grupy albo nieznana to nikt konkretny (D132).
+    put(t, 'group_members', 'byla', { member_id: 'byla', group_id: 'gf', user_id: null, display_name: 'Była', role: 'member', deleted_at: '2026-10-01T00:00:00Z' });
+    expect(u({ groupId: 'gf', date: '', assigneeId: 'byla' })).toBe(true);
+    expect(u({ groupId: 'gf', date: '', assigneeId: 'nieznana' })).toBe(true);
+    // Zadanie zostaje na mojej liście „Tylko ja” w tej samej grupie — poza regułą; po zmianie grupy już nie.
+    put(t, 'lists', 'lprv', { id: 'lprv', group_id: 'gf', kind: 'tasks', name: 'Prezenty', visibility: 'private', deleted_at: null });
+    expect(u({ groupId: 'gf', date: '', listId: 'lprv' })).toBe(false);
+    expect(u({ groupId: 'gf', date: '', listId: 'nie-ma' })).toBe(true);
+    put(t, 'lists', 'lprv2', { id: 'lprv2', group_id: 'gp', kind: 'tasks', name: 'Moje tajne', visibility: 'private', deleted_at: null });
+    expect(u({ groupId: 'gf', date: '', listId: 'lprv2' })).toBe(true);
+    put(t, 'lists', 'lgrp', { id: 'lgrp', group_id: 'gf', kind: 'tasks', name: 'Dom', visibility: 'group', deleted_at: null });
+    expect(u({ groupId: 'gf', date: '', listId: 'lgrp' })).toBe(true);
   });
 
   it('dzień tygodnia do edytora powtarzania: z daty albo dzisiejszy', () => {

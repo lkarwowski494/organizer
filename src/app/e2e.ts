@@ -125,8 +125,8 @@ export class E2eServer {
 
   private apply(op: Op): void {
     if (op.kind === 'cmd') {
-      // „To i następne” (split_event, audyt 2): ten sam algorytm co na telefonie i serwerze. Inne komendy (zakresy list
-      // ukrytych) nie zmieniają danych widocznych dla osoby demo.
+      // Polecenia ze skutkiem na telefonie — „to i następne” (split_event, audyt 2 M-3) i stałe zakupy (M-111) — tym samym
+      // algorytmem co telefon i serwer. Inne komendy (zakresy list ukrytych) nie zmieniają danych widocznych dla osoby demo.
       const tables: { [e: string]: { [id: string]: Row } } = {};
       for (const r of this.rows.values()) (tables[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
       applyOp(tables, op);

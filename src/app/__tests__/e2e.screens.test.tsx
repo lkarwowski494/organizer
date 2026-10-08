@@ -92,8 +92,8 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Ser żółty');
     await press(screen.getByLabelText('Dodaj'));
     await press(await screen.findByLabelText('Włóż do koszyka: Ser żółty'));
-    expect(lastAlert().title).toBe('Do koszyka?');
-    await answerAlert('Do koszyka');
+    // Bez pytania, z paskiem „Cofnij” (zmiana D59) — .maestro/05 czeka, aż pasek zniknie, przed zrzutem.
+    expect(within(screen.getByTestId('undo-bar')).getByText('W koszyku: Ser żółty')).toBeTruthy();
     expect(await screen.findByLabelText('Wyjmij z koszyka: Ser żółty')).toBeTruthy();
     expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
   });

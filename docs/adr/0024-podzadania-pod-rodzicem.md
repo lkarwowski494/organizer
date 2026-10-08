@@ -16,6 +16,11 @@ samodzielne z podzadaniem wydarzenia albo innego zadania.
 - Licznik liczy wszystkie nieusunięte podzadania widoczne w telefonie (także cudze), bo rodzic jest wspólny.
   - Dla wydarzenia: zadania tego wystąpienia (bez ich podzadań).
 - Dane z cyklem (błąd) nie gubią wierszy — zostają płasko.
+- Audyt 2 (M-82, M-83): na ekranie listy niezrobione (i jeszcze nieminione — dopisek niżej) podzadanie zrobionego albo
+  minionego rodzica stoi w otwartych z dopiskiem rodzica (jak D105), a w zamkniętych się nie powtarza; pole jest zaznaczone tylko przy odhaczonym, minione
+  (D61) ma „minęło” bez ptaszka. Licznik listy (ekran List, grupa, nagłówek listy, „N do kupienia” w Moich sprawach)
+  liczy wiersze otwartych — wszędzie ta sama liczba (`src/domain/views/list-tree.ts`). Na liście zakupów pozycje nie
+  mają terminów (D73), więc otwarte = niekupione. Odrzucone: podzadanie w obu sekcjach.
 
 ## Dopisek: odhaczenie zadania z niezrobionymi podzadaniami (decyzja właściciela z 8.10.2026, audyt 2)
 - Odhaczenie pyta tak jak zakupy z niekupionymi pozycjami: „Zrobione? — Sprzątanie: zostały 2 niezrobione podzadania”,
