@@ -5,7 +5,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
+import { formatRule, parseRule } from '../../domain/rrule';
+import { emptyForm, type EventForm, validateForm } from '../../domain/views/event-form';
+import { formatRepeat, nextId, REPEAT_NAMESPACE, type Repeat } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
@@ -125,4 +127,39 @@ describe('src/config zgodny z SQL', () => {
   it('brak definicji zgłaszany wprost', () => {
     expect(() => sqlConstant('nie_istnieje')).toThrow('Brak funkcji');
   });
+
+  // PWD-37 (audyt 2): każda reguła, którą zapisuje telefon (zadania i wydarzenia, także BYMONTHDAY=-1), przechodzi
+  // CHECK serwera — ostatnia definicja private.rrule_ok i warunek kolumny tasks.repeat.
+  it('reguły powtarzania z telefonu przechodzą private.rrule_ok i CHECK tasks.repeat', () => {
+    const defs = [...sql.matchAll(/create (?:or replace )?function private\.rrule_ok\(r text\)[\s\S]*?\$\$([\s\S]*?)\$\$/gi)];
+    const body = defs.at(-1)![1]!;
+    const rule = new RegExp(/r ~ '([^']+)'/.exec(body)![1]!);
+    const max = Number(/char_length\(r\) <= (\d+)/.exec(body)![1]);
+    const after = new RegExp(/or repeat ~ '(\^AFTER[^']+)'/.exec(sql)![1]!);
+    const taskRules: Repeat[] = [
+      { kind: 'daily' },
+      { kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6] },
+      { kind: 'monthly' },
+      { kind: 'monthly', day: 31 },
+      { kind: 'monthly', day: -1 },
+      { kind: 'after', unit: 'DAILY', interval: 14 },
+      { kind: 'after', unit: 'WEEKLY', interval: 99 },
+    ];
+    for (const r of taskRules) {
+      const text = formatRepeat(r);
+      expect([text, rule.test(text) || after.test(text)]).toEqual([text, true]);
+    }
+    const ev = (over: Partial<EventForm>) => {
+      const v = validateForm({ ...emptyForm('2026-10-31'), title: 'X', slots: [{ days: [5, 6], start: '18:00', end: '' }], interval: '2', ends: 'until', until: '2027-12-31', ...over });
+      if ('error' in v) throw new Error(v.error);
+      return formatRule(v.fields[0]!.rule!);
+    };
+    const eventRules = [ev({ repeat: 'daily' }), ev({ repeat: 'weekly' }), ev({ repeat: 'monthly', monthly: 'day' }), ev({ repeat: 'monthly', monthly: 'last' }), ev({ repeat: 'monthly', monthly: 'lastDay' }), ev({ repeat: 'yearly' })];
+    expect(eventRules).toContain('FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=-1');
+    for (const text of eventRules) {
+      expect([text, rule.test(text) && text.length <= max]).toEqual([text, true]);
+      expect(parseRule(text)).toBeTruthy();
+    }
+  });
 });
+

@@ -84,6 +84,12 @@ export const config = {
    */
   day: { GAP_MIN: 30 },
 
+  /**
+   * Szkic formularza z „Zapisz” na telefonie (D179, audyt 2 M-123): po ilu dniach przepada. Wybór projektowy, bez źródła
+   * (tydzień przerwy to raczej porzucony zamiar niż wpis do dokończenia).
+   */
+  forms: { DRAFT_MAX_DAYS: 7 },
+
   /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
   time: { MINUTE_STEP: 5 },
 

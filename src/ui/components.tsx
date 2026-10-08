@@ -56,6 +56,16 @@ export function Body({ children, muted, style }: { children: ReactNode; muted?: 
   return <Text style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
 }
 
+/** Komunikat o błędzie pod polem albo przyciskiem: czerwony, ogłaszany przez VoiceOver (rola alert). */
+export function ErrorText({ children, testID }: { children: ReactNode; testID?: string }) {
+  const { c, font } = useTheme();
+  return (
+    <Text accessibilityRole="alert" testID={testID} style={{ fontFamily: font.text700, color: c.danger }}>
+      {children}
+    </Text>
+  );
+}
+
 /** Tekst wskaźnika synchronizacji (architektura: 5 stanów + wygasła sesja). */
 export function indicatorLabel(i: Indicator, nowMs: number): string {
   switch (i.state) {
@@ -370,8 +380,11 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
   );
 }
 
-/** `a11yLabel` — etykieta VoiceOver grupy z kontekstem, gdy kilka grup na ekranie ma ten sam napis (audyt 2, M-145). */
-export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string }) {
+/**
+ * `a11yLabel` — etykieta VoiceOver grupy z kontekstem, gdy kilka grup na ekranie ma ten sam napis (audyt 2, M-145);
+ * `hint` opcji — podpowiedź VoiceOvera, gdy wybór robi coś więcej niż zaznaczenie (np. otwiera inny formularz).
+ */
+export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel }: { value: T; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
@@ -385,6 +398,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               accessibilityLabel={o.label}
+              accessibilityHint={o.hint}
               onPress={() => onChange(o.value)}
               style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
