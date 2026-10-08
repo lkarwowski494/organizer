@@ -18,6 +18,7 @@ import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
+import { useEventActions } from '../../app/event-actions';
 import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
@@ -54,6 +55,7 @@ const MODES: RangeMode[] = ['day', 'week', 'month'];
 export function TodayScreen() {
   const { userId, store, now, nowMs, newId, prefs, needsName } = useServices();
   const actions = useTaskActions();
+  const events = useEventActions();
   const { tables, today, indicator, state } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size } = useTheme();
@@ -143,7 +145,8 @@ export function TodayScreen() {
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
-      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
+      // D189 (audyt 2: PW-29 A, M-126): „Zmień” otwiera od razu edycję wydarzenia, jak „Zmień” zadania — formularz.
+      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('EventEdit', { eventId: event.id, date: q.form.date, scope: 'all' }), strings['form.change']);
       return done(t);
     }
     const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: t.memberId });
@@ -214,7 +217,7 @@ export function TodayScreen() {
         label={strings['today.moveOverdue'](count)}
         onPress={() => {
           store.dispatch(ops);
-          undo.show(strings['today.movedOverdue'](count), () => store.dispatch(back));
+          undo.show(strings['today.movedOverdue'](count), () => store.dispatch(back), { changed: ops });
         }}
       />
     );
@@ -265,7 +268,8 @@ export function TodayScreen() {
     ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []),
   ];
   const taskRow = (task: TodayItem, key: string, alert?: string, n?: Nesting) => task.trip ? tripRow({ ...task, trip: task.trip }, key, alert) : (
-    <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id) && task.completed_at === null} onDelete={() => actions.remove(task)}>
+    // Audyt 2 (M-124): zrobione też można usunąć — jak na liście i w Kalendarzu (kosz i „Cofnij” chronią).
+    <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id)} onDelete={() => actions.remove(task)} testID={`swipe-today-${task.id}`}>
       <StationRow
         testID={`today-${task.id}`}
         title={task.title}
@@ -304,8 +308,9 @@ export function TodayScreen() {
     x.kind === 'lessons' ? (
       lessonsRow(x, past)
     ) : x.kind === 'event' ? (
+      // Audyt 2 (M-239): termin przesuwa się jak zadanie — jednorazowe „Usuń”, termin serii „Odwołaj” (tylko ten, D57).
+      <SwipeRow key={x.key} title={x.event.title} enabled={canDelete(x.event.groupId)} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => events.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-today-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
       <EventRow
-        key={x.key}
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
         title={x.event.title}
         time={timeLabel(x.event.startTime, x.event.endTime)}
@@ -318,6 +323,7 @@ export function TodayScreen() {
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
+      </SwipeRow>
     ) : x.kind === 'overdue' ? (
       taskRow(x.task, x.key, strings['today.overdueDays'](x.task.overdueDays), n)
     ) : (

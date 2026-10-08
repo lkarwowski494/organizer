@@ -226,6 +226,10 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     writeState(db, s0, s1, 42);
     writeState(db, s1, s1, 43);
     expect(db.all('select seq, code, rejected_at from rejected_ops')).toEqual([{ seq: 1, code: 'not_found', rejected_at: 42 }]);
+    // „Wyczyść listę” (D190): znikają też z bazy, a po ponownym odczycie lista jest pusta.
+    writeState(db, s1, { ...s1, rejected: [] }, 44);
+    expect(db.all('select seq from rejected_ops')).toEqual([]);
+    expect(readState(db, 'c1').rejected).toEqual([]);
   });
 });
 

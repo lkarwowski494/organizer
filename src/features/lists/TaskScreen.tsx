@@ -12,7 +12,7 @@ import { config } from '../../config';
 import { formatIsoDate, isoWeekday, isValidDate } from '../../domain/civil-date';
 import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
+import { createTask, patchTask, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import type { Task } from '../../domain/views/model';
@@ -28,7 +28,7 @@ import { TaskHistory } from './TaskHistory';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
@@ -283,13 +283,28 @@ export function TaskScreen({ route, navigation }: Props) {
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {(node?.children ?? []).map((ch) => (
-            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
+            // Audyt 2 (M-124): podzadanie przesuwa się do usunięcia jak na liście (dorośli, D34).
+            <SwipeRow key={ch.id} title={ch.title} enabled={canEdit} onDelete={() => actions.remove(ch)} testID={`swipe-${ch.id}`}>
+              <StationRow testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
+            </SwipeRow>
           ))}
           {canEdit ? <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" /> : null}
           {canEdit ? <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} /> : null}
         </View>
       ) : null}
-      {canEdit ? <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} /> : null}
+      {/* Audyt 2 (M-254): jak przesunięcie na liście — pasek „Cofnij” (ogłaszany VoiceOverowi) i powrót; ekran „Zadanie
+          usunięte” zostaje dla linku do usuniętego zadania. */}
+      {canEdit ? (
+        <Button
+          kind="danger"
+          label={strings['task.delete']}
+          testID="task-delete"
+          onPress={() => {
+            actions.remove(task);
+            navigation.goBack();
+          }}
+        />
+      ) : null}
       <TaskHistory entries={taskHistory(tables, task.id, config.HISTORY_LIMIT)} today={today} />
     </Screen>
   );

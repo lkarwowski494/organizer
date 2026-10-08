@@ -66,6 +66,9 @@ export function writeState(db: DbAdapter, prev: ClientState, next: ClientState, 
     for (const op of next.pending) {
       if (!prevSeqs.has(op.seq)) db.run('insert into pending_ops (seq, op_id, op) values (?, ?, ?)', [op.seq, op.op_id, JSON.stringify(op)]);
     }
+    // „Wyczyść listę” (D190): odrzucone, których już nie ma w stanie, znikają też z bazy.
+    const kept = new Set(next.rejected.map((r) => r.op.seq));
+    for (const r of prev.rejected) if (!kept.has(r.op.seq)) db.run('delete from rejected_ops where seq = ?', [r.op.seq]);
     for (const r of next.rejected.slice(prev.rejected.length)) {
       db.run('insert or ignore into rejected_ops (seq, code, op, rejected_at) values (?, ?, ?, ?)', [r.op.seq, r.code, JSON.stringify(r.op), now]);
     }

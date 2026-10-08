@@ -8,7 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 import { config } from '../../config';
 import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shopping.pl';
 import type { NewOp, Row } from '../../domain/sync-engine/client';
-import { addStaple, itemKey, removeStaple, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
+import { addStaple, itemKey, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, Field, SectionTitle, Segmented } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
@@ -86,7 +86,8 @@ export function Suggestions({ names, onPick }: { names: readonly string[]; onPic
 }
 
 /** Karta „Stałe zakupy”: dodanie brakujących jednym dotknięciem i edycja listy stałych. */
-export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row; missing: number; onAddMissing: () => void; onEdit: (op: NewOp) => void }) {
+/** `onRemove` — usunięcie stałej pozycji (z paskiem „Cofnij”, D187). */
+export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: { list: Row; missing: number; onAddMissing: () => void; onEdit: (op: NewOp) => void; onRemove: (name: string) => void }) {
   const { c } = useTheme();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
@@ -113,7 +114,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row
           {staples.map((s) => (
             <View key={s} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <Body>{s}</Body>
-              <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemKey(s)}`} onPress={() => onEdit(removeStaple(list, s))} />
+              <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemKey(s)}`} onPress={() => onRemove(s)} />
             </View>
           ))}
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />

@@ -199,7 +199,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     expect(screen.getByTestId('screen-add-task')).toBeTruthy();
   });
 
-  it('szybkie dodanie z zakresem godzin tworzy wydarzenie; „Zmień” otwiera wydarzenie; odklikany zakres — zadanie', async () => {
+  it('szybkie dodanie z zakresem godzin tworzy wydarzenie; „Zmień” otwiera edycję wydarzenia; odklikany zakres — zadanie', async () => {
     const { store } = await open();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen jutro 17–18');
     expect(screen.getByLabelText(/17–18/)).toBeTruthy();
@@ -207,8 +207,10 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'events', group_id: 'u-me', set: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00' } });
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano wydarzenie: Basen · Osobiste')).toBeTruthy();
+    // D189: „Zmień” przy wydarzeniu otwiera od razu jego edycję.
     await press(within(bar).getByLabelText('Zmień'));
-    expect(await screen.findByTestId('screen-event')).toBeTruthy();
+    expect(await screen.findByTestId('screen-event-edit')).toBeTruthy();
+    expect(screen.getByTestId('event-title').props.value).toBe('Basen');
   });
 
   it('odklikany zakres — zwykłe zadanie; @imię z zakresem — wydarzenie w grupie z osobą odpowiedzialną', async () => {

@@ -81,6 +81,10 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
       listeners.forEach((f) => f());
     },
     refresh: jest.fn(),
+    clearRejected: () => {
+      snap = { ...snap, state: { ...snap.state, rejected: [] } };
+      listeners.forEach((f) => f());
+    },
     /** Pobranie z serwera (zmiana drugiego telefonu): podmienia wiersze bazowe bez operacji tego telefonu. */
     pull: (fn: (base: ClientState['base']) => ClientState['base']) => {
       snap = { ...snap, state: { ...snap.state, base: fn(snap.state.base) } };

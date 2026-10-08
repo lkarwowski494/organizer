@@ -3,7 +3,7 @@
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
-import { type ReactNode, type Ref, useRef, useState } from 'react';
+import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,24 +12,56 @@ import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from './theme';
 
+/**
+ * Wiersze z przesuwaniem na jednym ekranie (audyt 2, M-249; standard iOS): otwarty jest najwyżej jeden — otwarcie
+ * następnego zamyka poprzedni, a przewinięcie ekranu zamyka otwarty.
+ */
+type SwipeGroup = { opened: (close: () => void) => void; closed: (close: () => void) => void; closeAll: () => void };
+const SwipeContext = createContext<SwipeGroup | null>(null);
+
+function useSwipeGroup(): SwipeGroup {
+  const open = useRef<(() => void) | null>(null);
+  return useMemo(
+    () => ({
+      opened: (close) => {
+        if (open.current && open.current !== close) open.current();
+        open.current = close;
+      },
+      closed: (close) => {
+        if (open.current === close) open.current = null;
+      },
+      closeAll: () => {
+        open.current?.();
+        open.current = null;
+      },
+    }),
+    [],
+  );
+}
+
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const swipe = useSwipeGroup();
   const style = { flex: 1, backgroundColor: c.ground };
   const content = { paddingTop: insets.top + 12, paddingBottom: 24, paddingHorizontal: 20, gap: 14 };
-  return scroll ? (
-    // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
-    // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
-    <View style={style}>
-      <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        {children}
-      </ScrollView>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
-    </View>
-  ) : (
-    <View testID={testID} style={[style, content]}>
-      {children}
-    </View>
+  return (
+    <SwipeContext.Provider value={swipe}>
+      {scroll ? (
+        // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
+        // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
+        <View style={style}>
+          <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={swipe.closeAll}>
+            {children}
+          </ScrollView>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
+        </View>
+      ) : (
+        <View testID={testID} style={[style, content]}>
+          {children}
+        </View>
+      )}
+    </SwipeContext.Provider>
   );
 }
 
@@ -203,13 +235,19 @@ const SWIPE_ACTION = 96;
 /**
  * Wiersz z usuwaniem przesunięciem w lewo (D60, standard iOS): przesunięcie odsłania „Usuń”, usuwa dopiero dotknięcie
  * przycisku. Zwykłe dotknięcie wiersza niczego nie usuwa. VoiceOver dociera do przycisku jak do każdego innego.
+ * `action="cancel"` — „Odwołaj” (termin wydarzenia cyklicznego). Otwarty jest najwyżej jeden wiersz na ekranie, a po
+ * dotknięciu przycisku wiersz się zamyka (audyt 2, M-249).
  */
-export function SwipeRow({ children, title, onDelete, enabled = true, testID }: { children: ReactNode; title: string; onDelete: () => void; enabled?: boolean; testID?: string }) {
+export function SwipeRow({ children, title, onDelete, enabled = true, testID, action = 'delete' }: { children: ReactNode; title: string; onDelete: () => void; enabled?: boolean; testID?: string; action?: 'delete' | 'cancel' }) {
   const { c, font, size } = useTheme();
   const ref = useRef<ScrollView>(null);
+  const group = useContext(SwipeContext);
   // Szerokość wiersza = szerokość ekranu bez marginesów Screen (20 pt z każdej strony), potem z pomiaru.
   const [width, setWidth] = useState(Dimensions.get('window').width - 40);
+  const close = useCallback(() => ref.current?.scrollTo({ x: 0, animated: true }), []);
+  useEffect(() => () => group?.closed(close), [group, close]);
   if (!enabled) return <>{children}</>;
+  const settle = (x: number) => (x > 0 ? group?.opened(close) : group?.closed(close));
   return (
     <ScrollView
       ref={ref}
@@ -220,25 +258,29 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID }: 
       snapToOffsets={[0, SWIPE_ACTION]}
       decelerationRate="fast"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.x)}
+      onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
     >
       <View style={{ width }}>{children}</View>
       <View style={{ width: SWIPE_ACTION, paddingLeft: 8, justifyContent: 'center' }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={strings['swipe.deleteA11y'](title)}
+          accessibilityLabel={strings[action === 'delete' ? 'swipe.deleteA11y' : 'swipe.cancelA11y'](title)}
           onPress={() => {
             ref.current?.scrollTo({ x: 0, animated: false });
+            group?.closed(close);
             onDelete();
           }}
           style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['swipe.delete']}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings[action === 'delete' ? 'swipe.delete' : 'swipe.cancel']}</Text>
         </Pressable>
       </View>
     </ScrollView>
   );
 }
 
+/** `danger` (czerwony) — przycisk, który usuwa albo unieważnia, w obu krokach: otwarcie i potwierdzenie (audyt 2, M-241). */
 export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint, a11yLabel }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   const bg = kind === 'primary' ? c.inverseBg : c.surface;

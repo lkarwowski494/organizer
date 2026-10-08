@@ -2,11 +2,12 @@
  * Kontekst aplikacji dla ekranów: stan z pętli synchronizacji (useSyncExternalStore), operacje
  * offline (`dispatch`) i operacje serwerowe (`account`). Ekrany nie znają Supabase ani SQLite.
  */
-import { createContext, type ReactNode, useContext, useMemo, useSyncExternalStore } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
 
 import type { CivilDate, LocalDateTime } from '../domain/civil-date';
 import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
+import { fingerprint, isStale } from '../domain/views/recent';
 import type { AccountApi } from '../sync/account';
 import type { LocalStore } from './calendar-mirror';
 import type { TravelService } from './travel-service';
@@ -22,6 +23,8 @@ export type AppStore = {
   dispatch: (op: NewOp | readonly NewOp[]) => void;
   /** Pobierz zmiany teraz (po operacji serwerowej, np. utworzeniu grupy albo przyjęciu zaproszenia). */
   refresh: () => void;
+  /** „Wyczyść listę” odrzuconych zmian (D190). */
+  clearRejected: () => void;
 };
 
 export type Prefs = { get(key: string): Promise<string | null>; set(key: string, value: string): Promise<void> };
@@ -67,9 +70,20 @@ export type AppServices = {
 const AppContext = createContext<AppServices | null>(null);
 
 export function AppProvider({ services, children }: { services: AppServices; children: ReactNode }) {
+  // D194: odcisk po zmianie i sprawdzenie przed cofnięciem — na stanie z oczekującymi zmianami (jak ekrany).
+  const { store } = services;
+  const track = useCallback(
+    (ops: readonly NewOp[]) => {
+      const fp = fingerprint(materialize(store.getSnapshot().state), ops);
+      return () => isStale(materialize(store.getSnapshot().state), fp);
+    },
+    [store],
+  );
   return (
     <AppContext.Provider value={services}>
-      <UndoProvider>{children}</UndoProvider>
+      <UndoProvider nowMs={services.nowMs} track={track}>
+        {children}
+      </UndoProvider>
     </AppContext.Provider>
   );
 }

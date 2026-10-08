@@ -132,7 +132,7 @@ export function TimetableScreen({ route, navigation }: Props) {
                     { value: 'B', label: strings['timetable.weekB'] },
                   ]}
                 />
-                <Button kind="secondary" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
+                <Button kind="danger" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
               </View>
             );
           })}
