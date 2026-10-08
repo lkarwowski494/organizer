@@ -24,6 +24,7 @@ import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
+import { removeMirrorCalendars } from './calendar-mirror';
 import type { TravelService } from './travel-service';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
@@ -251,11 +252,15 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
 
   // Audyt 2 (N-4): bez sesji albo po zmianie konta zaplanowane przypomnienia poprzedniego konta (tytuły spraw
   // na ekranie blokady) znikają. Nowe planuje dostawca przypomnień zalogowanego konta.
+  // D172 (M-27): tak samo kalendarze „Organizer – …” tego telefonu (wylogowanie, usunięcie konta, inne konto).
   const shownFor = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (session === undefined) return;
     const who = session?.userId ?? null;
-    if (who === null || (shownFor.current != null && shownFor.current !== who)) void deps.push?.replaceReminders([]).catch(() => {});
+    if (who === null || (shownFor.current != null && shownFor.current !== who)) {
+      void deps.push?.replaceReminders([]).catch(() => {});
+      void removeMirrorCalendars(deps.calendar, deps.prefs).catch(() => {});
+    }
     shownFor.current = who;
   }, [session, deps]);
 
