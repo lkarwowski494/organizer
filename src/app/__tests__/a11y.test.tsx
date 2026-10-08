@@ -56,7 +56,7 @@ function audit(root: unknown, scheme: Scheme, where: string) {
   return problems;
 }
 
-const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][] = [
+const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promise<void>][] = [
   ['Moje sprawy', async () => {}],
   ['Listy', async (p) => p('Listy')],
   ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'))],
@@ -67,8 +67,8 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
     fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół');
     await p('Dodaj');
   }],
-  ['Zadanie', async (p) => p('Otwórz: Odebrać paczkę')],
-  ['Zadanie: przekazanie', async (p) => (await p('Otwórz: Odebrać paczkę'), await p('Przekaż zadanie'))],
+  ['Zadanie', async (p) => p(/^Otwórz: Odebrać paczkę(,|$)/)],
+  ['Zadanie: przekazanie', async (p) => (await p(/^Otwórz: Odebrać paczkę(,|$)/), await p('Przekaż zadanie'))],
   ['Moje sprawy: tydzień', async (p) => p('Tydzień')],
   ['Pełny formularz zadania', async (p) => p('Więcej')],
   ['Pełny formularz: zadanie we wspólnej grupie z powtarzaniem', async (p) => (await p('Więcej'), await p('Rodzina'), await p('Jutro'), await p('Co tydzień'))],

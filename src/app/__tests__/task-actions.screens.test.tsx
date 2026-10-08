@@ -49,7 +49,7 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
     await press(screen.getAllByLabelText('Dziś')[0]!);
     await press(await screen.findByLabelText('Następny dzień'));
-    await press(await screen.findByLabelText('Otwórz: Kupić kwiaty'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Oznacz jako zrobione: Wybrać tulipany'));
     await answerAlert('Anuluj');
@@ -150,13 +150,13 @@ describe('rolowanie (D61) i miniony dzień', () => {
 
   it('zadanie: „Tylko tego dnia” / „Przechodzi na kolejne dni”; bez terminu i na spotkaniu — brak wyboru', async () => {
     const { store } = await open();
-    await press(screen.getByLabelText('Otwórz: Odebrać paczkę'));
+    await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.getByLabelText('Przechodzi na kolejne dni').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Tylko tego dnia'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { rollover: false } });
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByLabelText('Otwórz: Oddać książki do biblioteki'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Oddać\ książki\ do\ biblioteki(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText('Tylko tego dnia')).toBeNull();
   });
@@ -201,7 +201,7 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect(within(await screen.findByTestId('task-rosół')).getByText(/bez osoby i terminu/)).toBeTruthy();
-    await press(screen.getByLabelText('Otwórz: Dać dzieciom rosół'));
+    await press(screen.getByLabelText(/^Otwórz:\ Dać\ dzieciom\ rosół(,|$)/));
     expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Wróć'));

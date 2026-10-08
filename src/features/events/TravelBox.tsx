@@ -17,7 +17,7 @@ export function TravelBox({ location, eventId, date }: { location: string; event
     <View testID="travel-box" style={{ gap: 8 }}>
       <Body>{location}</Body>
       {info ? <Body>{strings['travel.leave'](formatTime(info.leaveMs), info.minutes, strings[`travel.mode.${info.mode}`])}</Body> : null}
-      <Button label={strings['event.navigate']} testID="navigate" onPress={() => travel.navigate(location, eventId)} />
+      <Button kind="secondary" label={strings['event.navigate']} testID="navigate" onPress={() => travel.navigate(location, eventId)} />
       {travel.available ? (
         <Segmented
           label={strings['event.myMode']}

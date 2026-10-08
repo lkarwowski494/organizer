@@ -11,7 +11,7 @@ async function openTask(base = sampleBase(), title = 'Odebrać paczkę') {
   const s = setup({ base });
   await s.renderApp(<RootStack />);
   await screen.findByTestId('screen-today');
-  await press(screen.getByLabelText(`Otwórz: ${title}`));
+  await press(screen.getByLabelText(new RegExp(`^Otwórz: ${title}(,|$)`)));
   await screen.findByTestId('screen-task');
   return s;
 }
@@ -47,7 +47,7 @@ describe('powtarzanie zadania', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    await press(screen.getByLabelText('Otwórz: Oddać książki do biblioteki'));
+    await press(screen.getByLabelText(/^Otwórz:\ Oddać\ książki\ do\ biblioteki(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('repeat-editor')).toBeNull();
     expect(screen.getByText('Ustaw termin, żeby zadanie mogło się powtarzać.')).toBeTruthy();
@@ -75,7 +75,7 @@ describe('powtarzanie zadania', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
-    await press(await screen.findByLabelText('Otwórz: Kupić kwiaty'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     await press(await screen.findByLabelText('Usuń termin'));
     expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null, repeat: null } });
   });
@@ -93,7 +93,7 @@ describe('historia zadania', () => {
     const lines = within(h).getAllByText(/ · /).map((n) => [n.props.children].flat().map((x: unknown) => (typeof x === 'string' ? x : (x as { props: { children: string } }).props.children)).join(''));
     expect(lines).toEqual(['Ktoś odhacza · Środa, 7 października, 09:30', 'Ala zmienia: termin, powtarzanie, inne · Środa, 7 października, 08:00', 'Ala dodaje · Wtorek, 6 października, 18:05']);
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByLabelText('Otwórz: Przynieść korki na trening'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
     expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();
   });
 });

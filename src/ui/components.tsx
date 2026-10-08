@@ -155,7 +155,8 @@ export function StationRow(props: {
       </View>
       <Pressable
         accessibilityRole={props.onOpen ? 'button' : undefined}
-        accessibilityLabel={props.onOpen ? (props.openLabel ?? strings['task.open'](props.title)) : undefined}
+        // VoiceOver czyta cały wiersz: tytuł, ostrzeżenie (np. zaległe), grupę i opis (audyt 8.10.2026).
+        accessibilityLabel={props.onOpen ? [props.openLabel ?? strings['task.open'](props.title), props.alert, props.group, ...(props.meta ?? [])].filter(Boolean).join(', ') : undefined}
         disabled={!props.onOpen}
         onPress={props.onOpen}
         style={{ flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' }}
@@ -219,7 +220,7 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID }: 
   );
 }
 
-export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string }) {
+export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint, a11yLabel }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   const bg = kind === 'primary' ? c.inverseBg : c.surface;
   const fg = kind === 'primary' ? c.inverseInk : kind === 'danger' ? c.danger : c.ink;
@@ -227,7 +228,7 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={a11yLabel ?? label}
       accessibilityHint={a11yHint}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
@@ -361,7 +362,7 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>

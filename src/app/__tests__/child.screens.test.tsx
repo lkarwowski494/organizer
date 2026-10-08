@@ -17,7 +17,7 @@ describe('dziecko w grupie (D34)', () => {
   it('zadanie tylko do odczytu, odhaczenie zostaje; lista bez dodawania i usuwania; grupa bez „Nowa lista”', async () => {
     const s = setup({ base: childBase() });
     await s.renderApp(<RootStack />);
-    await press(await screen.findByLabelText('Otwórz: Przynieść korki na trening'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
     expect(screen.getByText('czarne')).toBeTruthy();

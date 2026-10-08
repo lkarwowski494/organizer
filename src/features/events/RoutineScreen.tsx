@@ -72,7 +72,7 @@ export function RoutineScreen({ route, navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Field label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} testID={`routine-step-${i}`} />
           </View>
-          {steps.length > 1 ? <Button kind="secondary" label={strings['routine.removeStep']} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
+          {steps.length > 1 ? <Button kind="secondary" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />
