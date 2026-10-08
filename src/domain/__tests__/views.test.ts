@@ -406,8 +406,10 @@ describe('Moje sprawy', () => {
           expect(x.deleted_at).toBeNull();
           expect(x.group_id).not.toBe('gx');
           expect(x.list_id).not.toBe('ldel');
-          expect(x.start_date === null || x.start_date <= '2026-10-07').toBe(true);
         }
+        // start_date względem dnia, w którym zadanie stoi (visibleOnItsDay): zaległe, przypięte i dzisiejsze — dziś, jutrzejsze — jutro.
+        for (const x of [...v.overdue, ...v.pinned, ...v.today]) expect(x.start_date === null || x.start_date <= '2026-10-07').toBe(true);
+        for (const x of v.tomorrow) expect(x.start_date === null || x.start_date <= '2026-10-08').toBe(true);
         for (const x of v.overdue) expect(x.due!.date < '2026-10-07').toBe(true);
         for (const x of v.today) expect(x.due!.date).toBe('2026-10-07');
         for (const x of v.tomorrow) expect(x.due!.date).toBe('2026-10-08');
