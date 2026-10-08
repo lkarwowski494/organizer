@@ -13,7 +13,7 @@ import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences } from '../rrule';
 import type { Entity, NewOp } from '../sync-engine/client';
-import { asEvent, asOverride, asSeries, ruleOf } from './event-rows';
+import { asEvent, asOverride, asSeries, ruleOf, seriesChain } from './event-rows';
 import { emptyForm, type FormError, validateForm } from './event-form';
 import { createEvent } from './events';
 import { createSeries } from './series-tasks';
@@ -69,13 +69,23 @@ export function routineUndoOps(t: Tables, created: readonly NewOp[]): NewOp[] {
 export function routineStreak(t: Tables, eventId: string, today: CivilDate): number {
   const raw = t.events?.[eventId];
   if (!raw || raw.deleted_at != null) return 0;
-  const e = asEvent(raw);
-  const series = new Set(rows(t, 'event_task_series', asSeries).filter((s) => s.event_id === eventId).map((s) => s.id));
-  const copies = rows(t, 'tasks', asTask).filter((x) => x.event_id === eventId && x.series_id !== null && series.has(x.series_id) && x.deleted_at === null);
+  // Audyt 2 (E-10): po „to i następne” seria rutyny liczy się przez cały łańcuch (stara część + nowa) — zmiana godziny
+  // „od dziś” nie zeruje licznika.
+  const chain = seriesChain(t, eventId);
+  const series = new Set(rows(t, 'event_task_series', asSeries).filter((s) => chain.has(s.event_id)).map((s) => s.id));
+  const copies = rows(t, 'tasks', asTask).filter((x) => x.event_id !== null && chain.has(x.event_id) && x.series_id !== null && series.has(x.series_id) && x.deleted_at === null);
   const isoToday = formatIsoDate(today);
   // Odwołany termin nie ma kroków i nie przerywa serii (audyt 8.10.2026).
-  const cancelled = new Set(rows(t, 'event_overrides', asOverride).filter((o) => o.event_id === eventId && o.deleted_at === null && o.cancelled).map((o) => o.occurrence_date));
-  const dates = occurrences(parseIsoDate(e.start_date), ruleOf(e), addDays(today, -STREAK_DAYS), today).map(formatIsoDate).filter((d) => !cancelled.has(d)).reverse();
+  const cancelled = new Set(rows(t, 'event_overrides', asOverride).filter((o) => chain.has(o.event_id) && o.deleted_at === null && o.cancelled).map((o) => `${o.event_id}|${o.occurrence_date}`));
+  const dates = [
+    ...new Set(
+      rows(t, 'events', asEvent)
+        .filter((e) => chain.has(e.id) && e.deleted_at === null)
+        .flatMap((e) => occurrences(parseIsoDate(e.start_date), ruleOf(e), addDays(today, -STREAK_DAYS), today).map((d) => formatIsoDate(d)).filter((d) => !cancelled.has(`${e.id}|${d}`))),
+    ),
+  ]
+    .sort()
+    .reverse();
   let n = 0;
   for (const d of dates) {
     const mine = copies.filter((x) => x.occurrence_date === d);

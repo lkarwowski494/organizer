@@ -18,7 +18,7 @@ Właściciel: „Powinno się być w stanie dodać to samo zadanie jako oddzieln
    - Odrzucone: dokładanie na serwerze (pg_cron), bo zużywa limity i nie działa offline; losowe identyfikatory kopii, bo dwa telefony tworzyłyby duplikaty.
 3. **Odwołanie wystąpienia usuwa jego niezrobione kopie bez pytania.** Należą do tamtego terminu. Pytanie D14 dotyczy tylko zadań podpiętych pojedynczo.
 4. **Zmiana serii.**
-   - „To i następne”: definicja przechodzi do nowej serii, a kopie z terminów, które zostają, idą razem z nią.
+   - „To i następne”: definicja przechodzi do nowej serii, a kopie z terminów, które zostają, idą razem z nią. Od audytu 2 (8.10.2026) robi to jedno polecenie serwera; gdy nowa seria wchodzi przed późniejszą część tej samej serii, definicja zostaje przy najnowszej części (ADR 0007, dopisek).
    - Kopie z terminów, które znikają, są usuwane; na nowe terminy telefon dołoży nowe kopie.
 5. **„Zakończ”** usuwa definicję i niezrobione kopie od dziś. Zrobione i wcześniejsze zostają w historii.
 6. **Widoczność jak zadania tej listy** (`can_see_list`), także w historii zmian i w `sync_fetch_scope`. Na telefonie zakres to lista, więc po utracie dostępu do listy ukrytej definicja znika razem z nią.

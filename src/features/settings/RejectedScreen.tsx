@@ -28,6 +28,8 @@ export function describeOp(op: Op): string {
   const verb = strings[`rejected.op.${op.kind}`];
   if (op.kind === 'cmd') {
     if (op.cmd === 'move_task') return strings['rejected.cmd.move_task'];
+    // Audyt 2 (M-3): „to i następne” jest jednym poleceniem — odrzucone w całości, nazwa wydarzenia z polecenia.
+    if (op.cmd === 'split_event') return strings['rejected.cmd.split_event'](String((op.args.set as { title?: unknown } | undefined)?.title ?? ''));
     // Audyt 2 (M-111): stałe zakupy jako polecenia.
     if (op.cmd === 'staple_add') return `${strings['rejected.cmd.staple_add']}: „${String(op.args.name)}”`;
     if (op.cmd === 'staple_remove') return `${strings['rejected.cmd.staple_remove']}: „${(op.args.names as readonly unknown[]).join(', ')}”`;

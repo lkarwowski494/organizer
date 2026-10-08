@@ -12,7 +12,7 @@ Zgłoszenie właściciela: zadanie albo wydarzenie grupy (np. logopeda z dziecki
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 1. **„Kto zawozi” przy wydarzeniu całej grupy** też zawęża widok do tej osoby. Właściciel chce, żeby obowiązek był widoczny u odpowiedzialnego.
    - Odrzucone: przy „cała grupa” ignorować osobę odpowiedzialną.
-2. **W wyjątku jednego terminu** pusta osoba znaczy „jak w serii”. W jednym terminie nie da się więc wyłączyć osoby odpowiedzialnej, tak samo jak godziny w ADR 0007.
+2. **W wyjątku jednego terminu** pusta osoba znaczy „jak w serii”. W jednym terminie nie da się więc wyłączyć osoby odpowiedzialnej, tak samo jak godziny w ADR 0007. → zmienione w audycie 2 (8.10.2026, M-94): znacznik `responsible_cleared` w wyjątku znaczy „nikt konkretny” w tym terminie (ADR 0007, dopisek).
 3. **Odpowiadać może tylko aktywny dorosły tej samej grupy**, co pilnuje strażnik w bazie. W grupie osobistej nie ma wyboru.
 4. **Wklejona wiadomość z zaproszenia:** kod jest rozpoznawany, gdy stoi w osobnym wierszu i jest dokładnie jeden. Dwa kody albo kod w środku zdania nie są odczytywane, bo nie zgadujemy.
 5. **Zaproszenie zadziała tylko u osoby, która ma aplikację.** Dziś to testerzy TestFlight (grupa „Bliscy”). Nowe osoby trzeba najpierw dodać jako testerów w App Store Connect. → szerzej: publiczny link TestFlight (O-048, ADR 0016).

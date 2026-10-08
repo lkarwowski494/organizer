@@ -52,6 +52,18 @@ Kolejność dnia (poprawka): w „Dziś”, „Jutro” i w dniu kalendarza wyda
 Decyzja wykonawcza: przesuwanie zrobione na poziomym `ScrollView` z RN, bez nowej biblioteki natywnej.
 - Odrzucone: react-native-gesture-handler. To nowa zależność natywna i trudniejsze testy.
 
+## Dopisek: „to i następne” jednym poleceniem, pojedyncze terminy (audyt 2, 8.10.2026)
+Zmienia punkty 3 i 4 decyzji wykonawczych.
+- **„To i następne” to jedno polecenie `split_event`** (migracja `20261008320000_event_split`). Paczka z punktu 4 była jedną transakcją tylko na telefonie: serwer stosuje każdą operację osobno, więc odrzucona nowa seria zostawiała uciętą starą i następne terminy znikały u wszystkich (M-3). Polecenie serwer wykonuje w całości albo wcale.
+  - Ten sam algorytm działa na telefonie (`src/domain/event-split.ts`, wołany z `applyOp`), więc zmiana jest widoczna od razu i bez sieci (R1). Zgodność obu wersji sprawdza test różnicowy `tests/db/event-split.test.ts`.
+  - Nowa seria wskazuje poprzedniczkę (`events.split_from`). Jej identyfikator to UUIDv5 z serii i dnia: dwa telefony dzielące ten sam termin nie zdublują serii, drugie polecenie tylko zmienia nową serię (ostatni zapis wygrywa). Telefon, który nie wie o wcześniejszym podziale, dzieli właściwą część łańcucha.
+  - Do nowej serii przechodzą z tymi samymi identyfikatorami: wyjątki, odpowiedzi o obecności wszystkich osób (M-12), przekazania, zadania (także zrobione) i definicje stałych zadań (gdy nowa seria jest ostatnia w łańcuchu). Wyjątki z terminów, których nowa seria nie ma, idą do kosza; podgląd skutków podaje ich liczbę.
+  - Telefony z buildem 21 dzielą dalej po staremu (osobne operacje) i serwer je przyjmuje.
+  - Odrzucone: najpierw nowa seria, potem ucięcie starej (dalej dwie operacje: po odrzuceniu ucięcia zostają dwie serie z tymi samymi terminami); zależności między operacjami w `sync_push` (zmiana protokołu dla wszystkich zapisów); znacznik dla strażników (trzeba by przedefiniować trzech strażników).
+- **„Tylko to” wysyła tylko zmienione pola.** Godziny trafiają do wyjątku tylko wtedy, gdy różnią się od godzin serii: termin ze zmienioną nazwą, osobą albo dniem dalej idzie za godziną serii (M-95, decyzja właściciela z 8.10.2026, wariant A). Pełne godziny z buildu 21 serwer zamienia na „jak w serii” (wyzwalacz), a stare wyjątki poprawił jednorazowo według historii zmian.
+- **W jednym terminie można wybrać „nikt konkretny”** (`event_overrides.responsible_cleared`, M-94); wskazana osoba wygrywa ze znacznikiem. To zmienia punkt 2 ADR 0011.
+- **Odwołany termin można przywrócić** z ekranu wydarzenia.
+
 ## Do zrobienia później
 - D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami). → zrobione w ADR 0008.
 - Przypomnienia o wydarzeniach (push). → zrobione: przypomnienia lokalne D75 (ADR 0016) i push do osoby odpowiedzialnej D88 (ADR 0018).

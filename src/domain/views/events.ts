@@ -1,8 +1,10 @@
 /**
  * Wydarzenia (D57, D58; migracja serwera 20261008100000_events). Seria = wiersz events z regułą RRULE
  * (src/domain/rrule.ts); zmiana jednego wystąpienia = event_overrides (data pierwotna → nowe wartości albo
- * odwołanie); „to i następne” = koniec starej serii (UNTIL) + nowa seria od tego dnia, w jednej paczce operacji,
- * więc działa też offline (R1).
+ * odwołanie); „to i następne” = jedno polecenie split_event: koniec starej serii (UNTIL) i nowa seria od tego dnia
+ * razem z jej terminami, obecnością i przekazaniami. Serwer wykonuje je w jednej transakcji (wszystko albo nic),
+ * a telefon od razu u siebie tym samym algorytmem (src/domain/event-split.ts), więc działa też offline (R1).
+ * Wcześniej była to paczka osobnych operacji i odrzucenie nowej serii ucinało starą (audyt 2, M-3).
  */
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
@@ -10,14 +12,27 @@ import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { formatLength, formatLongDate, parseIsoDate } from '../format';
 import { plural } from '../plural';
+import { type SplitArgs, splitId } from '../event-split';
+import { uuidv5 } from '../ids';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { groupsView, myMemberships } from './index';
-import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
+import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
-import { rsvpId } from './rsvp';
 
 export { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
+
+/** Przestrzeń nazw: UUIDv5(NAMESPACE_URL, „https://github.com/lkarwowski494/organizer/event-override”). */
+export const OVERRIDE_NAMESPACE = '507f935e-7343-5bf0-a46c-cedc524fb294';
+/** Przestrzeń nazw: UUIDv5(NAMESPACE_URL, „https://github.com/lkarwowski494/organizer/event-participant”). */
+export const PARTICIPANT_NAMESPACE = 'd1b68427-56bc-5060-92d6-b370118f2099';
+/**
+ * Audyt 2 (S-8): wyjątek terminu i dopisany uczestnik mają identyfikator z serii i daty (osoby), jak odpowiedzi
+ * o obecności (D124) — dwa telefony zmieniające ten sam termin piszą ten sam wiersz: utworzenie istniejącego serwer
+ * pomija, a zmiana scala pola (wcześniej druga zmiana dostawała odrzucenie z unikalności).
+ */
+export const overrideId = (eventId: string, occurrenceDate: string) => uuidv5(OVERRIDE_NAMESPACE, `${eventId}|${occurrenceDate}`);
+export const participantId = (eventId: string, memberId: string) => uuidv5(PARTICIPANT_NAMESPACE, `${eventId}|${memberId}`);
 
 export type Occurrence = {
   eventId: string;
@@ -42,9 +57,10 @@ export type Occurrence = {
   kind: EventKind;
   /**
    * D127: lekcja planu dziecka, w której sam nie uczestniczę (dorosły) — „Moje sprawy” zwijają takie lekcje do jednego
-   * wiersza na dziecko i dzień; bez przypomnień. `null` dla wszystkiego innego.
+   * wiersza na dziecko i dzień; bez przypomnień. Wspólna lekcja rodzeństwa — każde dziecko (audyt 2, E-15). `null` dla
+   * wszystkiego innego.
    */
-  lessonFor: { memberId: string; name: string } | null;
+  lessonFor: { memberId: string; name: string }[] | null;
 };
 
 const MOVE_WINDOW_DAYS = config.events.MOVE_WINDOW_DAYS;
@@ -80,8 +96,8 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       (g.me.role !== 'child' && mine.some((m) => m?.role === 'child' && m.deleted_at === null));
     // D66: wskazana osoba odpowiedzialna — tylko ona i dorośli wskazani imiennie jako uczestnicy.
     const iParticipate = e.audience === 'members' && mine.some((m) => m?.member_id === g.me.member_id);
-    const child = e.kind === 'lesson' && !mine.some((m) => m?.member_id === g.me.member_id) ? mine.find((m) => m?.role === 'child' && m.deleted_at === null) : undefined;
-    const lessonFor = child ? { memberId: child.member_id, name: child.display_name } : null;
+    const children = e.kind === 'lesson' && !mine.some((m) => m?.member_id === g.me.member_id) ? mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null) : [];
+    const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
     for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
       const occ = formatIsoDate(d);
@@ -89,7 +105,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
       if (date < isoFrom || date > isoTo) continue;
-      const raw = o?.responsible_member_id ?? e.responsible_member_id;
+      const raw = occurrenceResponsible(o, e);
       // D132: osoba usunięta z grupy już nie odpowiada — wydarzenie wraca do reguły „nikt konkretny”.
       const responsibleId = raw !== null && members.get(raw)?.deleted_at === null ? raw : null;
       out.push({
@@ -163,8 +179,8 @@ export type EventDetail = {
   members: Member[];
   participants: Participant[];
   overrides: Override[];
-  /** Żywe odpowiedzi o obecności (D124) — przy „to i następne” przechodzą do nowej serii. */
-  rsvps: { id: string; occurrence_date: string; member_id: string; answer: string }[];
+  /** Wyjątki w koszu (np. po zmianie reguły) — nowa zmiana tego terminu przywraca wiersz, bo unikalność (seria, data). */
+  deletedOverrides: Override[];
   canEdit: boolean;
 };
 
@@ -182,9 +198,7 @@ export function eventDetail(t: Tables, userId: string, eventId: string): EventDe
     members: rows(t, 'group_members', asMember).filter((m) => alive(m) && m.group_id === g.id),
     participants: rows(t, 'event_participants', asParticipant).filter((p) => p.event_id === eventId),
     overrides: rows(t, 'event_overrides', asOverride).filter((o) => alive(o) && o.event_id === eventId),
-    rsvps: Object.values(t.event_rsvps ?? {})
-      .filter((r) => r.event_id === eventId && r.deleted_at == null)
-      .map((r) => ({ id: String(r.id), occurrence_date: String(r.occurrence_date), member_id: String(r.member_id), answer: String(r.answer) })),
+    deletedOverrides: rows(t, 'event_overrides', asOverride).filter((o) => !alive(o) && o.event_id === eventId),
     canEdit: event.deleted_at === null && myMemberships(t, userId).get(g.id)?.role !== 'child',
   };
 }
@@ -211,13 +225,22 @@ export type EventFields = {
 
 const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
 
-/** Uczestnicy: dodanie nowych, przywrócenie usuniętych (unikalność event_id + member_id), usunięcie zbędnych. */
-function participantOps(eventId: string, groupId: string, existing: Participant[], wanted: string[], newId: () => string): NewOp[] {
+/**
+ * Uczestnicy: dodanie nowych, przywrócenie usuniętych (unikalność event_id + member_id), usunięcie zbędnych. Przy zmianie
+ * istniejącego wydarzenia nowy wiersz ma identyfikator z serii i osoby (audyt 2, S-8), a po nim idzie przywrócenie: gdy
+ * drugi telefon w międzyczasie dopisał i usunął tę osobę, wraca ona zamiast odrzucenia.
+ */
+function participantOps(eventId: string, groupId: string, existing: Participant[], wanted: string[], idFor: (memberId: string) => string, edit: boolean): NewOp[] {
   const ops: NewOp[] = [];
   for (const m of wanted) {
     const p = existing.find((x) => x.member_id === m);
-    if (!p) ops.push({ kind: 'create', entity: 'event_participants', id: newId(), group_id: groupId, set: { event_id: eventId, member_id: m } });
-    else if (p.deleted_at !== null) ops.push({ kind: 'restore', entity: 'event_participants', id: p.id });
+    if (p) {
+      if (p.deleted_at !== null) ops.push({ kind: 'restore', entity: 'event_participants', id: p.id });
+      continue;
+    }
+    const id = idFor(m);
+    ops.push({ kind: 'create', entity: 'event_participants', id, group_id: groupId, set: { event_id: eventId, member_id: m } });
+    if (edit) ops.push({ kind: 'restore', entity: 'event_participants', id });
   }
   for (const p of existing) if (p.deleted_at === null && !wanted.includes(p.member_id)) ops.push({ kind: 'delete', entity: 'event_participants', id: p.id });
   return ops;
@@ -234,35 +257,77 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       group_id: groupId,
       set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}) },
     },
-    ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], newId),
+    ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], () => newId(), false),
   ];
   return { id, ops };
 }
 
 export type Scope = 'this' | 'following' | 'all';
 
+/** Pola wyjątku jednego terminu; `null` = jak w serii. */
+type OverrideFields = Pick<Override, 'start_date' | 'start_time' | 'end_time' | 'title' | 'responsible_member_id' | 'all_day' | 'responsible_cleared' | 'cancelled'>;
+const AS_SERIES: OverrideFields = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, all_day: false, responsible_cleared: false, cancelled: false };
+const hhmm = (v: string | null) => (v === null ? null : v.slice(0, 5));
+
+/**
+ * Pola, które trzeba zapisać, żeby z `from` zrobić `to` — tylko zmienione (audyt 2, S-8: zmiana scala się z równoczesną
+ * zmianą innych pól z drugiego telefonu). Godziny parą (ograniczenie: koniec po początku). Znaczniki all_day i
+ * responsible_cleared też tylko, gdy coś zmieniają — starszy serwer ich nie zna (D136).
+ */
+function overrideDiff(from: OverrideFields, to: OverrideFields): { [k: string]: unknown } {
+  const set: { [k: string]: unknown } = {};
+  for (const k of ['start_date', 'title', 'responsible_member_id', 'cancelled', 'all_day', 'responsible_cleared'] as const) if (from[k] !== to[k]) set[k] = to[k];
+  if (hhmm(from.start_time) !== hhmm(to.start_time) || hhmm(from.end_time) !== hhmm(to.end_time)) Object.assign(set, { start_time: to.start_time, end_time: to.end_time });
+  return set;
+}
+
+/**
+ * Zapis wyjątku terminu: zmiana istniejącego; wyjątek z kosza wraca (unikalność seria + data); nowy — utworzenie
+ * z identyfikatorem z serii i daty i zaraz zmiana tych samych pól (gdy drugi telefon utworzył go pierwszy, utworzenie
+ * serwer pomija, a zmiana scala pola).
+ */
+function overrideOps(d: EventDetail, occurrenceDate: string, to: OverrideFields): NewOp[] {
+  const e = d.event;
+  const live = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
+  const patch = (id: string, set: { [k: string]: unknown }): NewOp[] => (Object.keys(set).length ? [{ kind: 'patch', entity: 'event_overrides', id, set }] : []);
+  if (live) return patch(live.id, overrideDiff(live, to));
+  const fresh = overrideDiff(AS_SERIES, to);
+  // Nic innego niż w serii — wyjątek niepotrzebny.
+  if (Object.keys(fresh).length === 0) return [];
+  const trashed = d.deletedOverrides.find((x) => x.occurrence_date === occurrenceDate);
+  if (trashed) return [{ kind: 'restore', entity: 'event_overrides', id: trashed.id }, ...patch(trashed.id, overrideDiff(trashed, to))];
+  const id = overrideId(e.id, occurrenceDate);
+  // Wiersz lokalny od razu z pełnymi kolumnami (jak DEFAULT w SQL) — „Cofnij” ma z czego odtworzyć stan.
+  const columns = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, cancelled: false };
+  return [{ kind: 'create', entity: 'event_overrides', id, group_id: e.group_id, set: { event_id: e.id, occurrence_date: occurrenceDate, ...columns, ...fresh } }, ...patch(id, fresh)];
+}
+
 /** Zmiana wydarzenia w wybranym zakresie (D57). Dla jednorazowego zakres nie ma znaczenia (= „all”). */
-export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields, newId: () => string): NewOp[] {
+export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields): NewOp[] {
   const e = d.event;
   const effective: Scope = d.rule === null || (scope === 'following' && occurrenceDate === e.start_date) ? 'all' : scope;
   if (effective === 'this') {
-    const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
-    const set = {
+    // PW-33 (decyzja właściciela z 8.10.2026, wariant A): własne godziny tylko wtedy, gdy różnią się od godzin serii —
+    // termin ze zmienioną samą nazwą, osobą albo dniem dalej idzie za godziną serii (także po jej późniejszej zmianie).
+    const seriesTime = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
+    return overrideOps(d, occurrenceDate, {
       start_date: f.date === occurrenceDate ? null : f.date,
-      start_time: f.startTime,
-      end_time: f.endTime,
+      start_time: seriesTime ? null : f.startTime,
+      end_time: seriesTime ? null : f.endTime,
       title: f.title === e.title ? null : f.title,
       responsible_member_id: f.responsibleId === e.responsible_member_id ? null : f.responsibleId,
+      // D136: bez godziny w serii z godziną — znacznik całodniowy.
+      all_day: f.startTime === null && e.start_time !== null,
+      // Audyt 2 (E-8): „nikt konkretny” w terminie serii, która ma osobę odpowiedzialną (pusta osoba = jak w serii).
+      responsible_cleared: f.responsibleId === null && e.responsible_member_id !== null,
+      // Zmiana odwołanego terminu przywraca go.
       cancelled: false,
-      // D136: bez godziny w serii z godziną — znacznik całodniowy (pole tylko, gdy coś zmienia: starsze dane bez niego).
-      ...(f.startTime === null && e.start_time !== null ? { all_day: true } : o?.all_day ? { all_day: false } : {}),
-    };
-    return o
-      ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set }]
-      : [{ kind: 'create', entity: 'event_overrides', id: newId(), group_id: e.group_id, set: { ...set, event_id: e.id, occurrence_date: occurrenceDate } }];
+    });
   }
+  const rule = f.rule === null ? null : { ...f.rule, count: null, until: f.until };
   if (effective === 'all') {
     const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : e.start_date), f.rule) : parseIsoDate(f.date);
+    const kept = (date: string) => occurrences(start, rule, parseIsoDate(date), parseIsoDate(date)).length > 0;
     return [
       {
         kind: 'patch',
@@ -279,42 +344,57 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
           ...(f.location !== undefined && (f.location || null) !== e.location ? { location: f.location || null } : {}),
         },
       },
-      ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], newId),
+      ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], (m) => participantId(e.id, m), true),
+      // Audyt 2 (E-20, E-7): zmienione pojedynczo terminy, których nowa reguła nie ma (a przy zmianie serii na jednorazowe —
+      // wszystkie), do kosza — inaczej przepadają po cichu, a odwołany dzień „ożywa” po powrocie do starej reguły.
+      ...d.overrides.filter((o) => (d.rule !== null && f.rule === null) || !kept(o.occurrence_date)).map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id })),
     ];
   }
-  // „To i następne”: stara seria kończy się dzień wcześniej, nowa zaczyna się od tego wystąpienia (z nowymi wartościami);
-  // zmiany pojedynczych wystąpień od tego dnia przechodzą do nowej serii.
-  const occ = parseIsoDate(occurrenceDate);
-  // Nowa seria „to i następne” zostaje tym samym rodzajem (lekcja zostaje lekcją).
-  const created = createEvent(e.group_id, { ...f, date: occurrenceDate, location: f.location === undefined ? e.location : f.location, kind: e.kind }, newId);
-  const ops: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule!, occ)) } }, ...created.ops];
-  for (const o of d.overrides.filter((x) => x.occurrence_date >= occurrenceDate)) {
-    ops.push({ kind: 'delete', entity: 'event_overrides', id: o.id });
-    ops.push({
-      kind: 'create',
-      entity: 'event_overrides',
-      id: newId(),
-      group_id: e.group_id,
-      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: liveOrNull(d, o.responsible_member_id), ...(o.all_day ? { all_day: true } : {}) },
-    });
-  }
-  // Odpowiedzi o obecności (D124) od tego dnia też przechodzą do nowej serii (audyt 8.10.2026).
-  for (const r of d.rsvps.filter((x) => x.occurrence_date >= occurrenceDate)) {
-    ops.push({ kind: 'delete', entity: 'event_rsvps', id: r.id });
-    ops.push({ kind: 'create', entity: 'event_rsvps', id: rsvpId(created.id, r.occurrence_date, r.member_id), group_id: e.group_id, set: { event_id: created.id, occurrence_date: r.occurrence_date, member_id: r.member_id, answer: r.answer } });
-  }
-  return ops;
+  // „To i następne” (audyt 2, M-3): jedno polecenie split_event (opis w src/domain/event-split.ts). Nowa seria zaczyna się
+  // od tego wystąpienia i zostaje tym samym rodzajem (lekcja zostaje lekcją — rodzaj bierze serwer z dzielonej serii).
+  const start = f.rule ? alignStart(parseIsoDate(occurrenceDate), f.rule) : parseIsoDate(occurrenceDate);
+  const id = splitId(e.id, occurrenceDate);
+  const args: SplitArgs = {
+    id,
+    event_id: e.id,
+    date: occurrenceDate,
+    set: {
+      title: f.title,
+      start_date: formatIsoDate(start),
+      start_time: f.startTime,
+      end_time: f.endTime,
+      rrule: ruleText(f.rule, f.until),
+      audience: f.audience,
+      responsible_member_id: f.responsibleId,
+      location: (f.location === undefined ? e.location : f.location) || null,
+    },
+    participants: (f.audience === 'members' ? f.participantIds : []).map((m) => ({ id: participantId(id, m), member_id: m })),
+    drop_overrides: d.overrides.filter((o) => o.occurrence_date >= occurrenceDate && occurrences(start, rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length === 0).map((o) => o.id),
+    tasks: [],
+  };
+  return [{ kind: 'cmd', cmd: 'split_event', args }];
 }
 
 /** Odwołanie / usunięcie w zakresie: to wystąpienie, to i następne, cała seria. */
-export function cancelEvent(d: EventDetail, occurrenceDate: string, scope: Scope, newId: () => string): NewOp[] {
+export function cancelEvent(d: EventDetail, occurrenceDate: string, scope: Scope): NewOp[] {
   const e = d.event;
   if (d.rule === null || scope === 'all' || (scope === 'following' && occurrenceDate === e.start_date)) return [{ kind: 'delete', entity: 'events', id: e.id }];
   if (scope === 'following') return [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule, parseIsoDate(occurrenceDate))) } }];
   const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
-  return o
-    ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set: { cancelled: true } }]
-    : [{ kind: 'create', entity: 'event_overrides', id: newId(), group_id: e.group_id, set: { event_id: e.id, occurrence_date: occurrenceDate, cancelled: true } }];
+  return overrideOps(d, occurrenceDate, { ...(o ?? AS_SERIES), cancelled: true });
+}
+
+/** Stan terminu na ekranie wydarzenia (audyt 2, E-18): zwykły, odwołany albo taki, którego w serii już nie ma. */
+export function occurrenceState(d: EventDetail, occurrenceDate: string): 'active' | 'cancelled' | 'missing' {
+  const day = parseIsoDate(occurrenceDate);
+  if (occurrences(parseIsoDate(d.event.start_date), d.rule, day, day).length === 0) return 'missing';
+  return d.overrides.some((o) => o.occurrence_date === occurrenceDate && o.cancelled) ? 'cancelled' : 'active';
+}
+
+/** Przywrócenie odwołanego terminu (audyt 2, E-18). */
+export function restoreOccurrence(d: EventDetail, occurrenceDate: string): NewOp[] {
+  const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
+  return o?.cancelled ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set: { cancelled: false } }] : [];
 }
 
 const liveOrNull = (d: EventDetail, id: string | null) => (id !== null && d.members.some((m) => m.member_id === id) ? id : null);
@@ -342,7 +422,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     // Audyt 2 (E-1): tylko osoby, które są w grupie (D132) — osoba usunięta przeniesiona do nowej serii
     // („to i następne”) sprawiała, że serwer odrzucał nową serię, a starą i tak ucinał.
     participantIds: d.participants.filter((p) => alive(p) && d.members.some((m) => m.member_id === p.member_id)).map((p) => p.member_id),
-    responsibleId: liveOrNull(d, o?.responsible_member_id ?? e.responsible_member_id),
+    responsibleId: liveOrNull(d, occurrenceResponsible(o, e)),
     location: e.location,
   };
 }
@@ -372,24 +452,41 @@ export function lengthLabel(start: string | null, end: string | null): string | 
   return start !== null && end !== null ? formatLength(start, end) : null;
 }
 
-export type SeriesItem = { id: string; title: string; summary: string; time: string | null; start: string; next: string | null };
+export type SeriesItem = {
+  id: string;
+  title: string;
+  summary: string;
+  time: string | null;
+  start: string;
+  /** Najbliższy termin od dziś — dzień po przeniesieniu (do wyświetlenia, audyt 2 E-19). */
+  next: string | null;
+  /** Ten sam termin jako data wystąpienia według reguły (do otwarcia). */
+  nextOccurrence: string | null;
+};
 
-/** Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). */
+/**
+ * Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). Zakończona część serii,
+ * która ma następczynię po „to i następne”, nie ma osobnego wiersza (audyt 2, E-17).
+ */
 export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate): SeriesItem[] {
   if (!groupsView(t, userId).some((g) => g.id === groupId)) return [];
   const upcoming = expandEvents(t, userId, today, addDays(today, 366));
-  return rows(t, 'events', asEvent)
-    .filter((e) => alive(e) && e.group_id === groupId)
-    .map((e) => {
+  const events = rows(t, 'events', asEvent).filter((e) => alive(e) && e.group_id === groupId);
+  const continued = new Set(events.flatMap((e) => (e.split_from === null ? [] : [e.split_from])));
+  return events
+    .map((e): SeriesItem => {
       const rule = ruleOf(e);
+      const next = upcoming.find((x) => x.eventId === e.id);
       return {
         id: e.id,
         title: e.title,
         summary: rule ? describeRule(rule, parseIsoDate(e.start_date)) : formatLongDate(parseIsoDate(e.start_date), today),
         time: timeLabel(e.start_time, e.end_time),
         start: e.start_date,
-        next: upcoming.find((x) => x.eventId === e.id)?.occurrenceDate ?? null,
+        next: next?.date ?? null,
+        nextOccurrence: next?.occurrenceDate ?? null,
       };
     })
+    .filter((x) => x.next !== null || !continued.has(x.id))
     .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999') || a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }
