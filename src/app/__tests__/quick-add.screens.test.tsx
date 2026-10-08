@@ -82,7 +82,7 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     await add();
     const panel = screen.getByTestId('mention-unknown');
     expect(within(panel).getByText('Nie ma @Zosia w Twoich grupach')).toBeTruthy();
-    expect(within(panel).getByText('Popraw imię albo dodaj bez osoby („@Zosia” zostanie w nazwie).')).toBeTruthy();
+    expect(within(panel).getByText('Popraw imię albo dodaj bez osoby („@Zosia” zostanie w nazwie). Siebie oznaczysz przez @ja.')).toBeTruthy();
     await press(within(panel).getByText('Anuluj'));
     expect(screen.queryByTestId('mention-unknown')).toBeNull();
     expect(screen.getByTestId('quick-add').props.value).toBe('kupić bilety @Zosia');
@@ -186,5 +186,166 @@ describe('dodawanie na liście', () => {
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await add();
     expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'pranie', due_date: '2026-10-10' } });
+  });
+});
+
+describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa domyślna (M-24, decyzja właściciela 8.10.2026)', () => {
+  const chip = () => screen.getByTestId('quick-group');
+  const pickGroup = async (name: string) => {
+    await press(chip());
+    await press(radio('Dodaj do grupy', name));
+  };
+  const openWith = async (local: Record<string, string> = {}, base = sampleBase()) => {
+    const s = setup({ base });
+    for (const [k, v] of Object.entries(local)) s.services.local!.save(k, v);
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    return s;
+  };
+
+  it('chip pokazuje, dokąd trafi wpis; zmiana chipem — wpis w tej grupie, chip zostaje („Ostatnio użyta”)', async () => {
+    const { store, services } = await openWith();
+    expect(chip().props.accessibilityLabel).toBe('Dodasz do grupy: Osobiste');
+    expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
+    await pickGroup('Rodzina');
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    expect(screen.queryByLabelText('Dodaj do grupy')).toBeNull();
+    expect(services.local!.load('lastUsedGroup')).toBe('gf');
+    await write('zebranie jutro');
+    await add();
+    const [list, task] = store.dispatched.slice(-2);
+    expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Zadania' } });
+    expect(task).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'zebranie', due_date: '2026-10-08' } });
+    expect(screen.getByText('Dodano: zebranie · Rodzina')).toBeTruthy();
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+  });
+
+  it('ostatnio użyta grupa z poprzedniego uruchomienia', async () => {
+    await openWith({ lastUsedGroup: 'gk' });
+    expect(within(chip()).getByText('Do: Klasa 2b')).toBeTruthy();
+  });
+
+  it('konkretna grupa domyślna — zmiana chipem tylko dla tego wpisu', async () => {
+    const { store } = await openWith({ defaultGroup: 'gf', lastUsedGroup: 'gk' });
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    await pickGroup('Osobiste');
+    await write('basen jutro');
+    await add();
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'basen' } });
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+  });
+
+  it('„#Rodzina” wybiera grupę (chip ją pokazuje, nieaktywny) i zostaje ostatnio użytą; „@ja” — ja we wspólnej grupie', async () => {
+    const { store } = await openWith();
+    await write('basen jutro #Rodzina');
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    expect(chip().props.accessibilityState).toMatchObject({ disabled: true });
+    await add();
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'basen', due_date: '2026-10-08' } });
+    expect(chip().props.accessibilityState).toMatchObject({ disabled: false });
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    await write('pranie @ja');
+    await add();
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'pranie', assignee_member_id: 'mf', deadline_mode: 'none' } });
+    // „@Ala” z innej grupy niż chip — grupa Ali, ale nie zostaje ostatnio użytą.
+    await pickGroup('Osobiste');
+    await write('basen jutro @ala');
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    await add();
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { assignee_member_id: 'ala' } });
+    expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
+  });
+
+  it('wspólna grupa bez osoby i terminu: pytanie „dla kogo albo na kiedy” (D68), jak na liście', async () => {
+    const { store } = await openWith({ lastUsedGroup: 'gf' });
+    const n = store.dispatched.length;
+    await write('kupić chleb');
+    await add();
+    const ask = screen.getByTestId('addressee-ask');
+    expect(store.dispatched.length).toBe(n);
+    await press(within(ask).getByText('Dla: Ala'));
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'kupić chleb', assignee_member_id: 'ala' } });
+    await write('wynieść śmieci');
+    await add();
+    await press(within(screen.getByTestId('addressee-ask')).getByText('Na jutro'));
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'wynieść śmieci', due_date: '2026-10-08' } });
+    await write('podlać kwiaty');
+    await add();
+    await press(within(screen.getByTestId('addressee-ask')).getByText('Na dziś'));
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'podlać kwiaty', due_date: '2026-10-07' } });
+    await write('x');
+    await add();
+    await press(within(screen.getByTestId('addressee-ask')).getByText('Anuluj'));
+    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    expect(screen.getByTestId('quick-add').props.value).toBe('x');
+  });
+
+  it('„#…” bez grupy — pytanie, „Dodaj do” zostawia „#…” w nazwie; kilka grup — wybór', async () => {
+    const base = sampleBase();
+    put(base, 'groups', 'gr', { id: 'gr', name: 'Rodzice', kind: 'shared', created_at: '2026-04-01T00:00:00Z', deleted_at: null, version: 1 });
+    put(base, 'group_members', 'mr', { member_id: 'mr', group_id: 'gr', user_id: 'u-me', display_name: 'Łukasz', role: 'member', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 });
+    const { store } = await openWith({}, base);
+    await write('bilety jutro #kino');
+    await add();
+    const unknown = screen.getByTestId('tag-unknown');
+    expect(within(unknown).getByText('Nie ma grupy #kino')).toBeTruthy();
+    expect(within(unknown).getByText('Popraw nazwę albo dodaj do grupy „Osobiste” („#kino” zostanie w nazwie).')).toBeTruthy();
+    await press(within(unknown).getByText('Dodaj do: Osobiste'));
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'bilety #kino' } });
+    await write('zebranie jutro #rodz');
+    await add();
+    expect(screen.getByText('Którą grupę masz na myśli: #rodz?')).toBeTruthy();
+    await press(within(screen.getByTestId('tag-choices')).getByText('Rodzice'));
+    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gr', set: { title: 'zebranie' } });
+    await write('zebranie jutro #rodz');
+    await add();
+    await press(within(screen.getByTestId('tag-choices')).getByText('Anuluj'));
+    expect(screen.queryByTestId('tag-choices')).toBeNull();
+  });
+
+  it('„Więcej” — formularz w grupie z chipa; z zakresem godzin — wydarzenie w tej grupie', async () => {
+    await openWith({ lastUsedGroup: 'gk' });
+    await write('wycieczka jutro');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    expect(radio('Grupa', 'Klasa 2b').props.accessibilityState.selected).toBe(true);
+    await press(screen.getByText('Anuluj'));
+    await screen.findByTestId('screen-today');
+    await write('zebranie jutro 17–18');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-event-edit');
+    expect(radio('Grupa', 'Klasa 2b').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('jedna grupa — bez chipa', async () => {
+    const base = sampleBase();
+    for (const g of ['gf', 'gk']) base.groups![g] = { ...base.groups![g]!, deleted_at: '2026-10-01T00:00:00Z' };
+    await openWith({}, base);
+    expect(screen.queryByTestId('quick-group')).toBeNull();
+  });
+
+  it('Ustawienia → Dodawanie: „Grupa domyślna” — „Ostatnio użyta” albo konkretna grupa; chip startuje od niej', async () => {
+    const { services } = await openWith();
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-adding'));
+    const page = await screen.findByTestId('screen-settings-adding');
+    expect(within(page).getByLabelText('Ostatnio użyta').props.accessibilityState.selected).toBe(true);
+    expect(within(page).getByText(/„#Rodzina” wybiera grupę, a „@ja” przypisuje sprawę Tobie/)).toBeTruthy();
+    await press(radio('Grupa domyślna', 'Klasa 2b'));
+    expect(services.local!.load('defaultGroup')).toBe('gk');
+    expect(radio('Grupa domyślna', 'Klasa 2b').props.accessibilityState.selected).toBe(true);
+    await press(within(page).getByLabelText('Wróć'));
+    await press(within(await screen.findByTestId('screen-settings')).getByLabelText('Wróć'));
+    await screen.findByTestId('screen-today');
+    expect(within(chip()).getByText('Do: Klasa 2b')).toBeTruthy();
+  });
+
+  it('ustawiona grupa, której już nie ma — Ustawienia i chip jak „Ostatnio użyta”', async () => {
+    await openWith({ defaultGroup: 'stara', lastUsedGroup: 'gf' });
+    expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-adding'));
+    await screen.findByTestId('screen-settings-adding');
+    expect(radio('Grupa domyślna', 'Ostatnio użyta').props.accessibilityState.selected).toBe(true);
   });
 });

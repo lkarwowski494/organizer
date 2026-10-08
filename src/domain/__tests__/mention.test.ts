@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { blankMention, extractMention, mentionTargets, resolveMention } from '../views/mention';
+import { extractMention, foldName, mentionTargets } from '../views/mention';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -61,17 +61,8 @@ describe('@imię w szybkim dodawaniu (D91)', () => {
   });
 });
 
-describe('rozstrzygnięcie „@imię” (D91; audyt 2, M-169)', () => {
-  it('brak, jedno, kilka, żadne dopasowanie', () => {
-    const t = base();
-    expect(resolveMention(t, ME, 'basen jutro')).toEqual({ kind: 'none' });
-    expect(resolveMention(t, ME, 'basen @kub')).toEqual({ kind: 'one', target: { groupId: 'gf', groupName: 'Rodzina', memberId: 'kuba', displayName: 'Kuba' } });
-    expect(resolveMention(t, ME, 'zebranie @al')).toMatchObject({ kind: 'many', name: 'al', targets: [{ memberId: 'ala' }, { memberId: 'ala2' }] });
-    expect(resolveMention(t, ME, 'kupić bilety @Zosia')).toEqual({ kind: 'unknown', name: 'Zosia' });
-  });
-
-  it('„@imię” zastąpione spacjami tej samej długości', () => {
-    expect(blankMention('basen @Ala jutro')).toBe('basen      jutro');
-    expect(blankMention('basen jutro')).toBe('basen jutro');
+describe('porównanie imion i nazw', () => {
+  it('bez wielkości liter i polskich znaków', () => {
+    expect(foldName('Łucja ŻÓŁTA')).toBe('lucja zolta');
   });
 });

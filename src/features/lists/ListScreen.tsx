@@ -211,7 +211,7 @@ export function ListScreen({ route, navigation }: Props) {
       {canDelete ? (
         <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setAsk(false), setError(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {parsed ? (
-            <QuickAddExtras preview={{ title: parsed.title, tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
+            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
           ) : (
             <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} />
           )}

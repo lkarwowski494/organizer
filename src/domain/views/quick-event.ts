@@ -62,7 +62,14 @@ export function quickEventOps(q: QuickEvent, newId: () => string): { id: string;
   return createEvent(q.groupId, r.fields[0]!, newId);
 }
 
-export type QuickPreview = { title: string; tokens: Fragment[]; event: boolean; unrecognizedDay: Fragment | null };
+export type QuickPreview = {
+  title: string;
+  tokens: Fragment[];
+  event: boolean;
+  unrecognizedDay: Fragment | null;
+  /** Czy wpis będzie miał dzień (termin zadania albo wydarzenie) — D68: inaczej we wspólnej grupie potrzebna osoba. */
+  dated: boolean;
+};
 
 /**
  * Podgląd pola szybkiego dodawania — to samo, co potem zapisze quickEvent albo quickAddOps: nazwa (pusta = nie ma czego
@@ -74,7 +81,7 @@ export function quickPreview(text: string, now: LocalDateTime, ignore: readonly 
   const parsed = parseQuickAdd(range ? withoutRange(text, range) : text, now, { ignore });
   const event = !!range && !parsed.unrecognizedDay;
   // Zakres bez wydarzenia (nierozpoznany dzień) zostaje w nazwie zadania, jak w quickAddOps.
-  const title = range && !event ? parseQuickAdd(text, now, { ignore }).title : parsed.title;
+  const task = range && !event ? parseQuickAdd(text, now, { ignore }) : parsed;
   const tokens = [...(event ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parsed.tokens.map(({ start, end, text: t }) => ({ start, end, text: t }))];
-  return { title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay };
+  return { title: task.title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay, dated: event || task.due !== null };
 }

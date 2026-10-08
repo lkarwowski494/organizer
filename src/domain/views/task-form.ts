@@ -12,8 +12,9 @@ import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import { createList, createTask, patchTask, remove, setDue } from './commands';
 import { groupsView, listsView } from './index';
-import { extractMention, type MentionTarget, resolveMention } from './mention';
+import type { MentionTarget } from './mention';
 import { asTask, type Tables } from './model';
+import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
 import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
@@ -59,19 +60,31 @@ export function formMembers(t: Tables, groupId: string): { member_id: string; di
 }
 
 /**
- * Formularz z tekstu pola dodawania. „@imię” z jednym dopasowaniem ustawia grupę i osobę; przy kilku zwraca kandydatów
- * (`mention` — wpisane imię), a „@imię” zostaje w nazwie, dopóki nie wybierzesz osoby (audyt 2, M-170: nie znika po cichu).
+ * Formularz z tekstu pola dodawania — grupa i osoba jak przy „+” (`resolveQuick`: „#Grupa”, „@ja”, „@imię”, grupa
+ * z chipa). „@imię” pasujące do kilku osób daje kandydatów (`mention` — wpisane imię), a „@imię” zostaje w nazwie,
+ * dopóki nie wybierzesz osoby (audyt 2, M-170: nie znika po cichu). Nieznane „@…” i „#…” zostają w nazwie; grupę
+ * wybierasz wtedy w formularzu.
  */
-export function formFromText(t: Tables, userId: string, text: string, now: LocalDateTime): { form: TaskForm; candidates: MentionTarget[]; mention: string | null } {
-  const r = resolveMention(t, userId, text);
-  const parsed = parseQuickAdd(r.kind === 'one' ? extractMention(text).text : text, now);
-  const personal = formGroups(t, userId)[0];
-  const target = r.kind === 'one' ? r.target : null;
+export function formFromText(
+  t: Tables,
+  userId: string,
+  text: string,
+  now: LocalDateTime,
+  o: { chipGroupId?: string | null; personalLabel?: string } = {},
+): { form: TaskForm; candidates: MentionTarget[]; mention: string | null } {
+  const resolve = (answers: QuickAnswers) => resolveQuick(t, userId, text, { chipGroupId: o.chipGroupId ?? null, personalLabel: o.personalLabel, answers });
+  let answers: QuickAnswers = {};
+  let r: QuickResolution = resolve(answers);
+  if (r.kind === 'manyGroups' || r.kind === 'unknownGroup') r = resolve((answers = { skipTag: true }));
+  const many = r.kind === 'many' ? r : null;
+  if (r.kind === 'many' || r.kind === 'unknown') r = resolve({ ...answers, skipMention: true });
+  const target = r.kind === 'ok' ? r.target : null;
+  const parsed = parseQuickAdd(target?.body ?? text, now);
 
   return {
     form: {
       title: parsed.title,
-      groupId: target?.groupId ?? personal?.id ?? '',
+      groupId: target?.groupId ?? '',
       listId: null,
       date: parsed.due?.date ?? '',
       time: parsed.due?.time ?? '',
@@ -79,8 +92,8 @@ export function formFromText(t: Tables, userId: string, text: string, now: Local
       // „co tydzień” (parser zawsze daje wtedy termin) — w dzień tygodnia terminu.
       repeat: parsed.rrule && parsed.due ? { kind: 'weekly', days: [isoWeekday(parseIsoDate(parsed.due.date))] } : null,
     },
-    candidates: r.kind === 'many' ? r.targets : [],
-    mention: r.kind === 'many' ? r.name : null,
+    candidates: many?.targets ?? [],
+    mention: many?.name ?? null,
   };
 }
 

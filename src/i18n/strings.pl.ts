@@ -54,6 +54,16 @@ export const strings = {
   'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
   // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
   'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
+  // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
+  'quick.groupChip': (group: string) => `Do: ${group}`,
+  'quick.group': (group: string) => `Dodasz do grupy: ${group}`,
+  'quick.groupHint': 'Dotknij, żeby wybrać inną grupę',
+  'quick.groupFromText': 'Grupę wskazuje tekst — zmienisz ją w tekście',
+  'quick.groupPick': 'Dodaj do grupy',
+  'tag.ask': (name: string) => `Którą grupę masz na myśli: #${name}?`,
+  'tag.unknown': (name: string) => `Nie ma grupy #${name}`,
+  'tag.unknownInfo': (name: string, group: string) => `Popraw nazwę albo dodaj do grupy „${group}” („#${name}” zostanie w nazwie).`,
+  'tag.addTo': (group: string) => `Dodaj do: ${group}`,
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
@@ -194,7 +204,7 @@ export const strings = {
   'mention.pick': (person: string, group: string) => `${person} · ${group}`,
   // Audyt 2 (M-169): nieznane „@imię” — pytanie zamiast cichego dodania do Osobistych.
   'mention.unknown': (name: string) => `Nie ma @${name} w Twoich grupach`,
-  'mention.unknownInfo': (name: string) => `Popraw imię albo dodaj bez osoby („@${name}” zostanie w nazwie).`,
+  'mention.unknownInfo': (name: string) => `Popraw imię albo dodaj bez osoby („@${name}” zostanie w nazwie). Siebie oznaczysz przez @ja.`,
   'mention.addWithout': 'Dodaj bez osoby',
   'task.note': 'Notatka',
   'task.due': 'Termin',
@@ -460,6 +470,10 @@ export const strings = {
   'settings.section.notifications': 'Powiadomienia',
   'settings.section.calendar': 'Kalendarz i dojazd',
   'settings.section.appearance': 'Wygląd',
+  'settings.section.adding': 'Dodawanie',
+  'defaultGroup.setting': 'Grupa domyślna',
+  'defaultGroup.last': 'Ostatnio użyta',
+  'defaultGroup.info': 'Od tej grupy zaczyna chip przy polu dodawania w Moich sprawach. „Ostatnio użyta” to ta, którą ostatnio wybrano chipem albo przez #nazwę grupy. W tekście „#Rodzina” wybiera grupę, a „@ja” przypisuje sprawę Tobie.',
   'settings.section.account': 'Konto i dane',
   'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',

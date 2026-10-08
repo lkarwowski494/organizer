@@ -67,6 +67,18 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formFromText({}, ME, 'x', NOW).form.groupId).toBe('');
   });
 
+  it('„#Grupa”, „@ja” i grupa z chipa jak przy „+” (audyt 2, M-24); „#…” bez jednej grupy zostaje w nazwie', () => {
+    const t = base();
+    expect(formFromText(t, ME, 'zebranie #Klasa jutro @ja', NOW).form).toMatchObject({ title: 'zebranie', groupId: 'gk', assigneeId: 'mk', date: '2026-10-09' });
+    expect(formFromText(t, ME, 'zebranie', NOW, { chipGroupId: 'gf' }).form).toMatchObject({ groupId: 'gf', assigneeId: null });
+    expect(formFromText(t, ME, 'bilety #kino', NOW, { chipGroupId: 'gf' }).form).toMatchObject({ title: 'bilety #kino', groupId: 'gf' });
+    expect(formFromText(t, ME, '#osob basen', NOW, { chipGroupId: 'gf', personalLabel: 'Osobiste' }).form).toMatchObject({ title: 'basen', groupId: ME });
+    put(t, 'groups', 'gr', { id: 'gr', name: 'Rodzice', kind: 'shared', created_at: '2026-05-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mr', { member_id: 'mr', group_id: 'gr', user_id: ME, display_name: 'Łukasz', role: 'member', deleted_at: null });
+    // Kilka grup na „#rodz” — grupę wybierzesz w formularzu; dalej „@al” z kilkoma osobami — kandydaci.
+    expect(formFromText(t, ME, 'zebranie #rodz @al', NOW)).toMatchObject({ form: { title: 'zebranie #rodz @al', groupId: ME }, mention: 'al', candidates: [{ memberId: 'ala' }, { memberId: 'alicja' }] });
+  });
+
   it('z zadania; nieznane zadanie; termin nie „własny” → pusty', () => {
     const t = base();
     expect(formFromTask(t, 't1')).toEqual({ title: 'Basen', groupId: ME, listId: 'lp', date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null });
