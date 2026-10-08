@@ -22,7 +22,7 @@ import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events'
 import { personOf } from '../../domain/views/who';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
-import type { AgendaEntry } from '../../domain/views/agenda';
+import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, GapRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -59,7 +59,7 @@ export function CalendarScreen() {
     // D129: w wierszu tylko, gdy ktoś nie będzie (reszta w szczegółach).
     return v && v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
   };
-  const calRow = ({ entry: x, ...n }: Nested<AgendaEntry>) =>
+  const calRow = ({ entry: x, ...n }: Nested<PlainEntry>) =>
             x.kind === 'event' ? (
               <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
             ) : x.task.trip ? (
@@ -85,7 +85,7 @@ export function CalendarScreen() {
                   meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
               </SwipeRow>
             );
-  const spanOf = ({ entry: x }: { entry: AgendaEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
+  const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
   // D107: bez dubli wpisów aplikacji z tego samego dnia.
   const allDevice = useDeviceCalendar().days;

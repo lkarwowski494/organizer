@@ -2,13 +2,13 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { setup, setTime } from './harness';
+import { put, sampleBase, setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
 
-async function openTimetable() {
-  const s = setup();
+async function openTimetable(base = sampleBase()) {
+  const s = setup({ base });
   await s.renderApp(<RootStack />);
   await press(screen.getByLabelText('Grupy'));
   await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
@@ -60,5 +60,32 @@ describe('plan lekcji (D112)', () => {
     expect(within(bar).getByText('Dodano plan: 2 serie wydarzeń')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     expect(store.dispatched.slice(-2).map((o) => o.kind)).toEqual(['delete', 'delete']);
+  });
+
+  it('D128: ekran z obecnym planem; zapis kończy stary od dziś i dodaje nowy; cofnięcie przywraca', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    const { store } = await openTimetable(base);
+    expect(screen.getByTestId('lesson-title-0').props.value).toBe('Matematyka');
+    expect(screen.getByTestId('lesson-end-0').props.accessibilityValue.text).toBe('08:45');
+    await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka rozszerzona');
+    await press(screen.getByTestId('timetable-save'));
+    expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'mat', set: { rrule: 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261006' } });
+    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', kind: 'lesson' } });
+    const bar = await screen.findByTestId('undo-bar');
+    expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od dziś)')).toBeTruthy();
+    await press(within(bar).getByLabelText('Cofnij'));
+    expect(store.dispatched.slice(-2)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'events', id: 'mat', set: { rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
+  });
+
+  it('D128: przycisk planu tylko przy dziecku', async () => {
+    const s = setup();
+    await s.renderApp(<RootStack />);
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+    await press(await screen.findByLabelText(/^Ala, /));
+    await screen.findByTestId('screen-member');
+    expect(screen.queryByTestId('open-timetable')).toBeNull();
   });
 });

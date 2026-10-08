@@ -73,3 +73,18 @@ describe('„Czas wyjść” zamiast przypomnienia przed (D117)', () => {
     expect(none.some((x) => x.id.startsWith('e|ev'))).toBe(true);
   });
 });
+
+describe('lekcje dziecka bez przypomnień (D127)', () => {
+  it('zwinięte lekcje nie dają przypomnienia ani miejsca w porannym podsumowaniu', () => {
+    const t: T = {};
+    put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-02-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-10-08', start_time: '08:00:00', end_time: '08:45:00', rrule: null, audience: 'members', kind: 'lesson', deleted_at: null });
+    put(t, 'event_participants', 'p', { id: 'p', event_id: 'mat', member_id: 'kuba', deleted_at: null });
+    expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '07:00' }, opts())).toEqual([]);
+    // Ta sama lekcja jako zwykłe wydarzenie dziecka — przypomnienie jest.
+    put(t, 'events', 'mat', { ...t.events!.mat!, kind: 'event' });
+    expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '07:00' }, opts()).map((r) => r.id)).toEqual(['m|2026-10-08', 'e|mat|2026-10-08|2026-10-08']);
+  });
+});

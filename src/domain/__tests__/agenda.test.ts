@@ -18,6 +18,8 @@ const ev = (id: string, startTime: string | null, title = id): Occurrence => ({
   responsibleId: null,
   responsibleName: null,
   location: null,
+  kind: 'event',
+  lessonFor: null,
 });
 const task = (id: string, time: string | null, title = id) => ({ id, title, due: { date: '2026-10-07', time } }) as unknown as TodayItem;
 const keys = (xs: ReturnType<typeof agenda>) => xs.map((x) => x.key);
@@ -41,5 +43,9 @@ describe('plan dnia: całodniowe na górze, potem godziny po kolei', () => {
     const out = agenda([t], [ev('e', '07:00')]);
     expect(out[0]).toEqual({ kind: 'task', key: 't-p', task: t });
     expect(out[1]).toMatchObject({ kind: 'event', event: { eventId: 'e' } });
+  });
+  it('D127: zwinięte lekcje według godziny pierwszej lekcji, przed zadaniem o tej samej porze', () => {
+    const block = { memberId: 'kuba', name: 'Kuba', groupId: 'g', groupName: 'G', line: 0, start: '08:00', end: '13:30', lessons: [ev('mat', '08:00:00')] };
+    expect(keys(agenda([task('t', '08:00')], [ev('e', '07:00')], [block]))).toEqual(['e-e-2026-10-07', 'l-kuba-2026-10-07', 't-t']);
   });
 });

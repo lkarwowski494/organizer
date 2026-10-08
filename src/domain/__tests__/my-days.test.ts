@@ -181,3 +181,48 @@ describe('lista: minione bez odhaczenia w sekcji zrobionych (D61)', () => {
     expect(d.done.map((x) => [x.id, x.expired])).toEqual([['życzenia', true]]);
   });
 });
+
+describe('lekcje dziecka jednym wierszem (D127)', () => {
+  function school(): T {
+    const t = world();
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: null, display_name: 'Ola', role: 'child', deleted_at: null });
+    const lesson = (id: string, who: string, start: string | null, end: string | null, over: Row = {}) => {
+      ev(t, id, '2026-10-05', { group_id: 'gf', start_time: start, end_time: end, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', kind: 'lesson', ...over });
+      put(t, 'event_participants', `p-${id}`, { id: `p-${id}`, event_id: id, member_id: who, deleted_at: null });
+    };
+    lesson('mat', 'kuba', '08:00:00', '08:45:00');
+    lesson('pol', 'kuba', '09:00:00', null);
+    lesson('wf', 'kuba', '12:45:00', '13:30:00');
+    lesson('ang', 'ola', '10:00:00', '10:45:00');
+    // Zwykłe wydarzenie dziecka (nie lekcja) zostaje osobno.
+    ev(t, 'basen', '2026-10-07', { group_id: 'gf', audience: 'members' });
+    put(t, 'event_participants', 'p-basen', { id: 'p-basen', event_id: 'basen', member_id: 'kuba', deleted_at: null });
+    return t;
+  }
+
+  it('dorosły spoza lekcji: jeden wiersz na dziecko i dzień, od pierwszej do ostatniej lekcji', () => {
+    const v = myDays(school(), ME, TODAY, 'day', TODAY, local);
+    expect(keys({ ...v, days: v.days })).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 l-ola-2026-10-07 e-basen-2026-10-07']);
+    const blocks = v.days[0]!.entries.flatMap((e) => (e.kind === 'lessons' ? [e.block] : []));
+    expect(blocks.map((b) => [b.name, b.start, b.end, b.lessons.map((l) => l.title), b.groupName])).toEqual([
+      ['Kuba', '08:00', '13:30', ['mat', 'pol', 'wf'], 'Rodzina'],
+      ['Ola', '10:00', '10:45', ['ang'], 'Rodzina'],
+    ]);
+  });
+
+  it('lekcja bez godziny; jestem uczestnikiem — osobno; dziecko widzi swoje lekcje osobno; inne dni bez lekcji', () => {
+    const t = school();
+    put(t, 'events', 'wf', { ...t.events!.wf!, start_time: null, end_time: null });
+    put(t, 'events', 'pol', { ...t.events!.pol!, start_time: null });
+    put(t, 'events', 'mat', { ...t.events!.mat!, start_time: null, end_time: null });
+    const b = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.find((e) => e.kind === 'lessons' && e.block.name === 'Kuba');
+    expect(b).toMatchObject({ block: { start: null, end: null } });
+    // Zapisany jako uczestnik lekcji Oli — ta lekcja nie zwija się.
+    put(t, 'event_participants', 'p-ang-me', { id: 'p-ang-me', event_id: 'ang', member_id: 'mf', deleted_at: null });
+    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 e-ang-2026-10-07 e-basen-2026-10-07']);
+    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, user_id: 'u-kuba' });
+    expect(keys(myDays(t, 'u-kuba', TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): e-mat-2026-10-07 e-pol-2026-10-07 e-wf-2026-10-07 e-basen-2026-10-07']);
+    expect(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local).days[0]!.entries).toEqual([]);
+  });
+});

@@ -6,7 +6,7 @@ const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
 const task = (t: T, id: string, o: Row = {}) => put(t, 'tasks', id, { id, parent_id: null, event_id: null, occurrence_date: null, title: id, completed_at: null, deleted_at: null, ...o });
 const ev = (id: string, date = '2026-10-09') => ({ kind: 'event' as const, event: { eventId: id, occurrenceDate: date } });
 const tk = (t: T, id: string, kind: 'task' | 'overdue' = 'task') => ({ kind, task: { id, parent_id: (t.tasks![id]!.parent_id as string) ?? null, event_id: (t.tasks![id]!.event_id as string) ?? null, occurrence_date: (t.tasks![id]!.occurrence_date as string) ?? null } });
-const view = (r: ReturnType<typeof nestEntries>) => r.map((x) => [x.entry.kind === 'event' ? x.entry.event.eventId : x.entry.task.id, x.depth, x.parent?.title ?? null, x.progress ? `${x.progress.done}/${x.progress.total}` : null]);
+const view = (r: ReturnType<typeof nestEntries>) => r.map((x) => [x.entry.kind === 'event' ? x.entry.event.eventId : x.entry.kind === 'lessons' ? x.entry.key : x.entry.task.id, x.depth, x.parent?.title ?? null, x.progress ? `${x.progress.done}/${x.progress.total}` : null]);
 
 describe('podzadania w planie dnia (D104)', () => {
   it('zadania wystąpienia pod wydarzeniem, podzadania pod zadaniem, licznik zrobionych', () => {
@@ -31,6 +31,11 @@ describe('podzadania w planie dnia (D104)', () => {
     ]);
   });
 
+  it('D127: zwinięte lekcje — bez rodzica i licznika', () => {
+    const t: T = {};
+    task(t, 'a');
+    expect(view(nestEntries([{ kind: 'lessons' as const, key: 'l-kuba' }, tk(t, 'a')], t))).toEqual([['l-kuba', 0, null, null], ['a', 0, null, null]]);
+  });
   it('rodzic spoza dnia — dopisek; rodzic usunięty albo nieznany — bez dopisku; cykl nic nie gubi', () => {
     const t: T = {};
     put(t, 'events', 'basen', { id: 'basen', title: 'Basen', deleted_at: null });

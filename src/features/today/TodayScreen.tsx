@@ -4,7 +4,7 @@
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { config } from '../../config';
@@ -56,6 +56,8 @@ export function TodayScreen() {
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem.
   const [choices, setChoices] = useState<MentionTarget[] | null>(null);
+  // D127: rozwinięte wiersze lekcji dziecka (klucz wiersza).
+  const [openLessons, setOpenLessons] = useState<string[]>([]);
   const undo = useUndo();
   // Zakres i dzień odniesienia (decyzja właściciela z 7.10.2026: przełącznik + strzałki, ADR 0009).
   const [mode, setMode] = useState<RangeMode>('day');
@@ -137,7 +139,7 @@ export function TodayScreen() {
   // D107: bez dubli wpisów aplikacji z tego samego dnia.
   const allDevice = useDeviceCalendar().days;
   const deviceOf = (d: (typeof view.days)[number]) =>
-    withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.map((x) => (x.kind === 'event' ? { title: x.event.title, time: x.event.startTime } : { title: x.task.title, time: x.task.due?.time ?? null })));
+    withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   // D111: zaległe z własnym terminem jednym dotknięciem na dziś (z cofnięciem).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
     const overdue = d.entries.flatMap((x) => (x.kind === 'overdue' ? [x.task] : []));
@@ -216,8 +218,30 @@ export function TodayScreen() {
       />
     </SwipeRow>
   );
-  const entryRow = (x: MyEntry, past: boolean, n?: Nesting) =>
-    x.kind === 'event' ? (
+  const lessonsRow = (x: Extract<MyEntry, { kind: 'lessons' }>, past: boolean) => {
+    const open = openLessons.includes(x.key);
+    const b = x.block;
+    return (
+      <Fragment key={x.key}>
+        <EventRow
+          testID={`today-${x.key}`}
+          title={strings['lessons.title'](b.name, b.lessons.length)}
+          time={timeLabel(b.start, b.end)}
+          line={b.line}
+          group={groupLabel(b.groupId, b.groupName)}
+          recurring={false}
+          extra={open ? strings['lessons.hide'] : strings['lessons.show']}
+          faded={past}
+          onPress={() => setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key])}
+        />
+        {open ? b.lessons.map((l) => entryRow({ kind: 'event', key: `${x.key}-${l.eventId}`, event: l }, past)) : null}
+      </Fragment>
+    );
+  };
+  const entryRow = (x: MyEntry, past: boolean, n?: Nesting): React.JSX.Element =>
+    x.kind === 'lessons' ? (
+      lessonsRow(x, past)
+    ) : x.kind === 'event' ? (
       <EventRow
         key={x.key}
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
@@ -238,7 +262,7 @@ export function TodayScreen() {
       taskRow(x.task, x.key, undefined, n)
     );
   const spanOf = ({ entry: x }: { entry: MyEntry }): Span =>
-    x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
+    x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : x.kind === 'lessons' ? { start: x.block.start, end: x.block.end } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
   const nowMin = now().hh * 60 + now().mm;
   const arrow = (k: number, a11y: string, glyph: string) => (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={() => setAnchor(shiftAnchor(mode, at, k))} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
