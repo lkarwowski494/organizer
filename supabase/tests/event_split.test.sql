@@ -1,7 +1,7 @@
 -- „To i następne” jednym poleceniem (migracja 20261008320000_event_split, audyt 2: M-3, M-12, M-96), „nikt konkretny”
 -- w jednym terminie (M-94) i godziny wyjątku jak w serii (M-95, PW-33 wariant A).
 begin;
-select plan(62);
+select plan(66);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000007e1', 'a@x.test'),
@@ -194,6 +194,20 @@ select is((select coalesce(start_time::text, '-') from public.event_overrides wh
 select is((select start_time::text from public.event_overrides where id = '77770000-0000-7000-8000-000000000372'), '09:00:00', '60: własna godzina zostaje');
 select is((select coalesce(start_time::text, '-') from public.event_overrides where id = '77770000-0000-7000-8000-000000000373'), '-', '61: kopia godzin po zmianie serii');
 select is(private.repair_override_times(), 0, '62: powtórzenie bez skutku');
+
+-- 63–66: M-28 — powiadomienie „przypisuje Ci wydarzenie” po podziale tylko przy prawdziwej zmianie osoby.
+select is(private.event_split_source('77770000-0000-7000-8000-0000000005e1'), '77770000-0000-7000-8000-0000000001e1'::uuid, '63: nowa seria wskazuje serię, którą kontynuuje');
+insert into public.push_tokens (token, user_id, env) values (repeat('ab', 32), '00000000-0000-7000-8000-0000000007e1', 'production');
+select is(public.assignment_push_claim((select id from public.activity where entity_id = '77770000-0000-7000-8000-0000000005e1' and verb = 'create'), '00000000-0000-7000-8000-0000000007e2', 24), null,
+  '64: podział z tą samą osobą odpowiedzialną — bez „przypisuje Ci”');
+select pg_temp.as_user('00000000-0000-7000-8000-0000000007e2');
+set local role authenticated;
+select pg_temp.push('77770000-0000-7000-8000-00000000c0b2', 30, '{"kind":"create","entity":"events","id":"77770000-0000-7000-8000-0000000001e8","group_id":"77770000-0000-7000-8000-000000000001","set":{"title":"Judo","start_date":"2026-10-05","start_time":"16:00","rrule":"FREQ=WEEKLY;BYDAY=MO"}}') = 'ok';
+select is(pg_temp.split('77770000-0000-7000-8000-00000000c0b2', 31, pg_temp.args('77770000-0000-7000-8000-0000000005e8', '77770000-0000-7000-8000-0000000001e8', '2026-10-19',
+  '{"set":{"title":"Judo","responsible_member_id":"77770000-0000-7000-8000-0000000000a1"}}')), 'ok', '65: podział z nową osobą odpowiedzialną');
+reset role;
+select is(public.assignment_push_claim((select id from public.activity where entity_id = '77770000-0000-7000-8000-0000000005e8' and verb = 'create'), '00000000-0000-7000-8000-0000000007e2', 24) ->> 'title',
+  'B przypisuje Ci wydarzenie', '66: prawdziwa zmiana osoby — powiadomienie');
 
 select * from finish();
 rollback;
