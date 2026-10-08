@@ -21,6 +21,7 @@ import {
   type TaskForm,
   validateForm,
 } from '../../domain/views/task-form';
+import { formatDue } from '../../domain/format';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
@@ -107,7 +108,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
           { value: 'none', label: strings['form.noDate'] },
           { value: 'today', label: strings['form.today'] },
           { value: 'tomorrow', label: strings['form.tomorrow'] },
-          ...(dateChoice === 'other' ? [{ value: 'other', label: form.date }] : []),
+          // Audyt 2 (U-24): dzień słownie, nie „2026-10-09”.
+          ...(dateChoice === 'other' ? [{ value: 'other', label: formatDue({ date: form.date, time: null }, today) }] : []),
         ]}
       />
       <DateField label={strings['task.dueDate']} value={form.date} onChange={(v) => set({ date: v })} today={today} testID="form-date" />

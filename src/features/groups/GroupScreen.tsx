@@ -11,7 +11,7 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
-import { formatDue } from '../../domain/format';
+import { formatDue, formatLongDate } from '../../domain/format';
 import { formatIsoDate } from '../../domain/civil-date';
 import { groupDigits } from '../../domain/invite-link';
 import { localNow } from '../../app/clock';
@@ -47,10 +47,17 @@ export function GroupScreen({ route, navigation }: Props) {
     );
   }
   const personal = d.group.kind === 'personal';
-  // „jutro 18:40” — koniec ważności kodu w czasie Europe/Warsaw.
+  // Koniec ważności kodu w czasie Europe/Warsaw: na ekranie „jutro, 18:40”, w wiadomości „piątek, 9 października,
+  // 18:40” (audyt 2, U-41: adresat czyta ją później, „jutro” znaczy wtedy co innego).
+  const hhmm = (l: ReturnType<typeof localNow>) => `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;
   const until = (iso: string) => {
     const l = localNow(Date.parse(iso));
-    return formatDue({ date: formatIsoDate(l), time: `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}` }, today);
+    return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today).replace(' · ', ', ');
+  };
+  const untilAbs = (iso: string) => {
+    const l = localNow(Date.parse(iso));
+    const day = formatLongDate(l, today);
+    return `${day.charAt(0).toLocaleLowerCase('pl')}${day.slice(1)}, ${hhmm(l)}`;
   };
   const makeInvite = async (role: 'member' | 'admin') => {
     setError(false);
@@ -92,7 +99,7 @@ export function GroupScreen({ route, navigation }: Props) {
           <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}</Body>
           <Button
             label={strings['groups.share']}
-            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), until(invite.expiresAt)) })}
+            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), untilAbs(invite.expiresAt)) })}
           />
           <Button
             kind="danger"

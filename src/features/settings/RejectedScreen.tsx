@@ -26,10 +26,11 @@ export function rejectionReason(code: string): string {
 
 export function describeOp(op: Op): string {
   const verb = strings[`rejected.op.${op.kind}`];
-  if (op.kind === 'cmd') return `${verb}: ${op.cmd}`;
+  if (op.kind === 'cmd') return op.cmd === 'move_task' ? strings['rejected.cmd.move_task'] : verb;
   const set = op.kind === 'create' || op.kind === 'patch' ? op.set : {};
   const label = (set.title ?? set.name ?? set.display_name) as string | undefined;
-  return label ? `${verb}: „${label}”` : verb;
+  // Audyt 2 (U-42): bez tytułu — czego dotyczy zmiana („Dodanie: obecność”).
+  return label ? `${verb}: „${label}”` : `${verb}: ${strings['rejected.entity'](op.entity)}`;
 }
 
 export function RejectedScreen({ navigation }: Props) {

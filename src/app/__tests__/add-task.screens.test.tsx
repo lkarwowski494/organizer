@@ -55,7 +55,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByText('Nowe zadanie')).toBeTruthy();
     expect(screen.getByTestId('form-title').props.value).toBe('Trening');
     expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
-    expect(radio('Termin', '2026-10-09').props.accessibilityState.selected).toBe(true);
+    expect(radio('Termin', 'pt. 9 paź').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByLabelText('Lista')).toBeNull();
     await press(radio('Grupa', 'Klasa 2b'));
     await press(radio('Termin', 'Jutro'));

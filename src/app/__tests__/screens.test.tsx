@@ -222,14 +222,14 @@ describe('Grupy', () => {
     expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'member');
     expect(await screen.findByText('ID grupy: 482 913 507')).toBeTruthy();
     expect(screen.getByTestId('join-code').props.children).toBe('Kod: 731 064');
-    expect(screen.getByText('Ważny do: jutro · 10:00. Działa dla najwyżej 50 osób. Wystarczy ID grupy z kodem.')).toBeTruthy();
+    expect(screen.getByText('Ważny do: jutro, 10:00. Działa dla najwyżej 50 osób. Wystarczy ID grupy z kodem.')).toBeTruthy();
     await press(screen.getByLabelText('Wyślij zaproszenie'));
     const msg = (share.mock.calls[0]![0] as { message: string }).message;
     expect(msg).toMatch(/^Zapraszam Cię do grupy „Rodzina” w Organizerze\./);
     expect(msg).not.toContain('https://'); // D141: bez martwego linku
     expect(msg).toContain('W aplikacji: Grupy');
     expect(msg).toContain('Grupy → „Dołącz do grupy”');
-    expect(msg).toContain('Kod: 731 064 (ważny do: jutro · 10:00)');
+    expect(msg).toContain('Kod: 731 064 (ważny do: czwartek, 8 października, 10:00)');
     expect(parseJoin(msg)).toEqual({ joinId: '482913507', code: '731064' });
     await press(screen.getByLabelText('Unieważnij kod'));
     expect(account.revokeInvite).toHaveBeenCalledWith('inv-2');
@@ -350,9 +350,9 @@ describe('Edycja grup (D54–D56)', () => {
     const { store, account } = await open({ base: asOwner() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
-    await press(await screen.findByLabelText('Kolor: teal'));
+    await press(await screen.findByLabelText('Kolor: morski'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: 'teal' } });
-    expect(screen.getByLabelText('Kolor: teal').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Kolor: morski').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Automatyczny'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } });
     await press(screen.getByTestId('delete-group'));
@@ -380,7 +380,7 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
-    expect(screen.queryByLabelText('Kolor: teal')).toBeNull();
+    expect(screen.queryByLabelText('Kolor: morski')).toBeNull();
     expect(screen.queryByTestId('delete-group')).toBeNull();
   });
 
@@ -460,11 +460,12 @@ describe('Ustawienia', () => {
     await press(screen.getByTestId('open-rejected'));
     expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
     expect(screen.getByText('Brak uprawnień')).toBeTruthy();
-    expect(screen.getByText('Polecenie: move_task')).toBeTruthy();
+    expect(screen.getByText('Przeniesienie zadania')).toBeTruthy();
     expect(screen.getByText('Przeniesienie utworzyłoby pętlę zadań')).toBeTruthy();
     expect(screen.getByText('Element został w międzyczasie usunięty')).toBeTruthy();
     expect(screen.getByText('Za głębokie zagnieżdżenie podzadań')).toBeTruthy();
-    expect(screen.getAllByText('Przywrócenie').length).toBe(2);
+    // Audyt 2 (U-42): bez tytułu — czego dotyczy zmiana.
+    expect(screen.getAllByText('Przywrócenie: zadanie').length).toBe(2);
     expect(screen.getByText('Zmiana niezgodna z danymi na serwerze')).toBeTruthy();
     expect(screen.getByText(/Najpierw przywróć zadanie nadrzędne/)).toBeTruthy();
     expect(screen.getByText(/Przekazanie jest nieaktualne/)).toBeTruthy();

@@ -20,9 +20,9 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     fromBuild: 19,
     items: [
       'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',
-      'Plan lekcji z tygodniami A/B (Grupy → osoba) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z serią „ile razy z rzędu”.',
-      'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a z „Czasem dojazdu” w Ustawieniach widzisz „Wyjdź o …”.',
-      'W wierszach widać, kto odpowiada („dla: Ty”, „odpowiada: Ala”) i ile trwa wydarzenie. Ustawienia → „Wyczyść dane na telefonie” pobiera wszystko od nowa.',
+      'Plan lekcji z tygodniami A/B (Grupy → dziecko → „Plan lekcji”) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z serią „ile razy z rzędu”.',
+      'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a z „Czasem dojazdu” (Ustawienia → Kalendarz i dojazd) widzisz „Wyjdź o …”.',
+      'W wierszach widać, kto odpowiada („dla Ciebie”, „odpowiada: Ala”) i ile trwa wydarzenie. Ustawienia → Konto i dane → „Wyczyść dane na telefonie” pobiera wszystko od nowa.',
       'Dzień z przerwami: między sprawami widać „wolne 2 h 30 min”, a wydarzenia z iPhone’a stoją na swojej godzinie.',
     ],
   },
@@ -30,7 +30,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     fromBuild: 18,
     items: [
       'Wydarzenia z iPhone’a wyglądają jak wydarzenia grup, tylko szare — bez kwadracika, który mylił się z polem do odhaczenia.',
-      'Wydarzenie z iPhone’a, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane. W Ustawieniach wybierzesz, które kalendarze iPhone’a pokazywać.',
+      'Wydarzenie z iPhone’a, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane. W Ustawieniach → Kalendarz i dojazd wybierzesz, które kalendarze iPhone’a pokazywać.',
       'Treść nie wchodzi już pod zegar i baterię przy przewijaniu.',
     ],
   },
@@ -46,9 +46,9 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     items: [
       'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z Google i Outlooka dodanych w iPhonie) widać w Kalendarzu i w „Moich sprawach”.',
       'Wydarzenia grup same trafiają do osobnych kalendarzy „Organizer – nazwa grupy” w iPhonie i aktualizują się po każdej zmianie.',
-      'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz to w Kalendarzu, wyłączysz w Ustawieniach.',
+      'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz to w Kalendarzu, wyłączysz w Ustawieniach → Kalendarz i dojazd.',
       'Formularz „Więcej”: na górze wybierasz zadanie albo wydarzenie, nie trzeba wybierać listy. Zakres godzin w szybkim dodaniu („basen jutro 17–18”) tworzy wydarzenie.',
-      'W grupach widać Twoje imię zamiast początku adresu e-mail — zmienisz je w Ustawieniach → „Twoje imię”.',
+      'W grupach widać Twoje imię zamiast początku adresu e-mail — zmienisz je w Ustawieniach → Konto i dane → „Twoje imię”.',
       'Dzień wybierasz w małym kalendarzu, bez wpisywania. Klawiatura chowa się po przewinięciu i po dodaniu, a „Dziś” nie przesuwa już strzałek.',
     ],
   },

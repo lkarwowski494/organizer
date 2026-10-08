@@ -264,6 +264,19 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(await screen.findByTestId('today-event-ev-tance-2026-10-07')).toBeTruthy();
   });
 
+  it('usunięcie jednorazowego: pasek mówi „Usunięto”, nie „Odwołano” (audyt 2, U-17)', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'ev-raz', { id: 'ev-raz', group_id: 'gf', title: 'Wizyta', start_date: '2026-10-07', start_time: '16:00:00', end_time: null, rrule: null, audience: 'group', deleted_at: null, version: 1 });
+    const s2 = setup({ base });
+    await s2.renderApp(<RootStack />);
+    await press(await screen.findByTestId('today-event-ev-raz-2026-10-07'));
+    await screen.findByTestId('screen-event');
+    await press(screen.getByTestId('event-cancel'));
+    await press(screen.getByTestId('event-delete-confirm'));
+    await screen.findByTestId('screen-today');
+    expect(screen.getByText('Usunięto: Wizyta')).toBeTruthy();
+  });
+
   it('odwołanie od pierwszego wystąpienia = usunięcie serii', async () => {
     const { store } = await openDances();
     await press(screen.getByTestId('event-cancel'));

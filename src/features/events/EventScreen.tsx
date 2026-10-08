@@ -84,7 +84,8 @@ export function EventScreen({ route, navigation }: Props) {
     const back = inverseOps(tables, ops);
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
-    if (back) undo.show(strings['undo.eventCancelled'](occ.title), () => store.dispatch(back));
+    // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
+    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), () => store.dispatch(back));
     navigation.goBack();
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.

@@ -60,7 +60,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(within(box).getByText('Obecność')).toBeTruthy();
     expect(screen.getAllByLabelText('Będę')).toHaveLength(1); // .maestro/03: tapOn „Będę” bez zawężania
     await press(within(box).getByLabelText('Będę'));
-    expect(within(box).getByText('Będą: Ty')).toBeTruthy();
+    expect(within(box).getByText('Tak: Ty')).toBeTruthy();
   });
 
   it('04 nowe wydarzenie z formularza: kafelki godzin i minut', async () => {

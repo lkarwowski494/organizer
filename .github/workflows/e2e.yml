@@ -24,8 +24,11 @@ permissions:
 
 concurrency:
   group: e2e-${{ github.ref }}
-  # Kolejny push na main zastępuje poprzedni przebieg (macOS ~30–50 min); nocny przebieg nie jest przerywany.
-  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+  # Audyt 2 (D-3): na main trwający przebieg dobiega końca (przerywany przy każdym pushu nie kończył się nigdy);
+  # czeka najwyżej jeden następny — GitHub: „By default, any existing pending job or workflow in the same concurrency
+  # group will be canceled” (https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+  # W PR nowszy commit przerywa starszy przebieg.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   flows-syntax:

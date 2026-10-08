@@ -28,8 +28,8 @@ describe('obecność (D124)', () => {
     expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'patch']);
     expect(s.store.dispatched[0]).toMatchObject({ entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), group_id: 'gf', set: { member_id: 'mf', answer: 'yes', occurrence_date: '2026-10-07' } });
     await press(within(within(box).getByLabelText('Kuba')).getByLabelText('Nie będzie'));
-    expect(within(box).getByText('Będą: Ty')).toBeTruthy();
-    expect(within(box).getByText('Nie będą: Kuba')).toBeTruthy();
+    expect(within(box).getByText('Tak: Ty')).toBeTruthy();
+    expect(within(box).getByText('Nie: Kuba')).toBeTruthy();
     expect(within(box).getByText('Bez odpowiedzi: 1')).toBeTruthy();
     await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Może'));
     expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), set: { answer: 'maybe' } });
