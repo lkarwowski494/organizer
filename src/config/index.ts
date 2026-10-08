@@ -213,6 +213,43 @@ export const config = {
     MAX_USES_LIMIT: 50,
   },
 
+  /**
+   * Jak długo serwer (codzienne sprzątanie, private.run_daily_maintenance) i telefon trzymają dane, które same nie
+   * znikają (audyt 2, M-62, M-68). Serwer egzekwuje te same liczby (private.*_days(); test kontraktowy). Wybory
+   * projektowe, bez źródła zewnętrznego:
+   *  - ACTIVITY_DAYS — historia zmian na serwerze i w telefonie (decyzja właściciela z 8.10.2026, D184, PW-47 A): ekran
+   *    zadania pokazuje ostatnie zmiany, a powiadomienia o przypisaniu patrzą najwyżej PUSH_MAX_AGE_H wstecz;
+   *  - HANDOFF_DAYS — rozstrzygnięte przekazania (przyjęte, odrzucone, anulowane) od decyzji; oczekujące zostają;
+   *  - INVITE_DAYS — zaproszenia po wygaśnięciu, unieważnieniu albo wyczerpaniu (nikt ich już nie użyje);
+   *  - ACCESS_EVENT_DAYS — dziennik zmian dostępu (private.access_events; nieczytany, sygnał idzie przez Realtime);
+   *  - SYNC_CLIENT_DAYS — licznik nieużywanej instalacji (private.sync_clients) razem z jej zapamiętanymi odrzuceniami;
+   *    instalacja, która wróci później, zaczyna licznik od nowa, a jej niepotwierdzone zmiany serwer przyjmuje jak zmiany
+   *    po powrocie z trybu offline;
+   *  - JOIN_ATTEMPT_DAYS — nieudane próby dołączenia (limity liczą godzinę i czas życia kodu, 24 h);
+   *  - MAINTENANCE_RUN_DAYS — dziennik przebiegów sprzątania (private.maintenance_runs, M-194).
+   */
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90 },
+
+  /**
+   * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy
+   * planu Free (500 MB — projekt przechodzi wtedy w tryb tylko do odczytu dla wszystkich) ani nie wyczerpie limitów
+   * Realtime i Edge Functions. Serwer egzekwuje te liczby (private.max_*(); test kontraktowy). Wybory projektowe, bez
+   * źródła zewnętrznego — każda z dużym zapasem nad zwykłym użyciem:
+   *  - SHARED_GROUPS — grupy wspólne, w których jestem (także te w koszu): rodzina, dalsza rodzina, znajomi, klasy dzieci
+   *    to zwykle kilka; ponad limit tworzenie i dołączanie kończy się komunikatem;
+   *  - ACTIVE_INVITES — aktywne zaproszenia grupy: aplikacja wystawia najwyżej jeden kod na rolę (PW-41 A), reszta to
+   *    dawne linki; limit zatrzymuje tylko nadużycie;
+   *  - PUSH_TOKENS — urządzenia z powiadomieniami na konto (telefon, iPad, ponowne instalacje); nadmiarowy najdawniej
+   *    odświeżony token wypada (nikt nie dostaje błędu);
+   *  - SYNC_CLIENTS — instalacje aplikacji na konto; nadmiarowa najdawniej używana wypada (jak wyżej);
+   *  - SYNC_PUSH_PER_MINUTE — wywołania sync_push na konto na minutę: telefon wysyła najwyżej raz na sekundę
+   *    (sync.PUSH_DEBOUNCE_MS), więc dwa urządzenia używane naraz mieszczą się w limicie; ponad limit telefon ponawia
+   *    z opóźnieniem (sync.BACKOFF_*), nic nie ginie;
+   *  - NOTIFY_PER_HOUR — prośby o powiadomienie (funkcja notify-handoff) na konto na godzinę; ponad limit powiadomienie
+   *    nie idzie, a zmiana i tak jest w aplikacji.
+   */
+  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120 },
+
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',
   TIME_ZONE: 'Europe/Warsaw',

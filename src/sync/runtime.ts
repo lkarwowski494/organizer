@@ -15,6 +15,7 @@ import {
   pullRequest,
   pushRequest,
 } from '../domain/sync-engine/client';
+import { pruneExpired } from '../domain/sync-engine/retention';
 import { decide, type Indicator, indicator, initialScheduler, onEvent, pendingTimer, type SchedulerEvent, type SchedulerState } from '../domain/sync-engine/scheduler';
 import { errorKind, type SyncTransport } from './transport';
 
@@ -130,7 +131,8 @@ export class SyncRuntime {
     const req = pullRequest(this.state);
     const res = await this.deps.transport.pull(req, config.sync.PULL_LIMIT_MAX);
     const out = onPullResponse(this.state, res, req);
-    this.setState(out.state);
+    // Historia i rozstrzygnięte przekazania po terminie znikają też z telefonu (audyt 2, M-62) — w tym samym zapisie.
+    this.setState(pruneExpired(out.state, this.deps.now()));
     // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości.
     for (const listId of out.fetchScopes) {
       const rows = await this.deps.transport.fetchScope(listId);

@@ -68,31 +68,36 @@ const itemsOf = (t: Tables, groupId: string) => {
  * nowa]}), który zmienił dział (audyt 2, M-110, R-10 — wersja wiersza rośnie też przy odhaczeniu, więc odhaczenie
  * starszej pozycji przywracało dawny wybór). Pozycja → { wersja, ustawiony dział }.
  */
-function categoryChanges(t: Tables, groupId: string): Map<string, { v: number; cat: unknown }> {
+function categoryChanges(t: Tables, groupId: string): { changes: Map<string, { v: number; cat: unknown }>; oldest: number } {
   const out = new Map<string, { v: number; cat: unknown }>();
+  // Najstarsza wersja historii grupy: starsze wpisy usunęła retencja (config.retention.ACTIVITY_DAYS, audyt 2, M-62).
+  let oldest = Infinity;
   for (const a of Object.values(t.activity ?? {})) {
-    const change = (a.changes as Record<string, unknown> | null | undefined)?.category;
-    if (a.group_id !== groupId || a.entity !== 'tasks' || !Array.isArray(change)) continue;
-    const id = String(a.entity_id);
+    if (a.group_id !== groupId) continue;
     const v = versionOf(a);
+    oldest = Math.min(oldest, v);
+    const change = (a.changes as Record<string, unknown> | null | undefined)?.category;
+    if (a.entity !== 'tasks' || !Array.isArray(change)) continue;
+    const id = String(a.entity_id);
     if ((out.get(id)?.v ?? -1) < v) out.set(id, { v, cat: change[1] });
   }
-  return out;
+  return { changes: out, oldest };
 }
 
 /**
  * Ręczne wybory działu w grupie: nazwa → dział. Najnowszy wybór wygrywa: chwila zmiany działu z historii; dział, którego
  * historia jeszcze nie zna (zmiana z tego telefonu przed wysłaniem), jest najnowszy. Remis — wyższa wersja wiersza.
+ * Pozycja starsza niż cała zachowana historia (wpis wyboru usunęła retencja) ma wybór najpóźniej w swojej wersji wiersza.
  */
 export function categoryMemory(t: Tables, groupId: string): Map<string, ShoppingCategory> {
-  const changes = categoryChanges(t, groupId);
+  const { changes, oldest } = categoryChanges(t, groupId);
   const best = new Map<string, { cat: ShoppingCategory; at: number; v: number }>();
   for (const x of itemsOf(t, groupId)) {
     if (!isCategory(x.category)) continue;
     const k = itemKey(titleOf(x));
     const c = changes.get(String(x.id));
-    const at = c && c.cat === x.category ? c.v : Infinity;
     const v = versionOf(x);
+    const at = c ? (c.cat === x.category ? c.v : Infinity) : v < oldest ? v : Infinity;
     const cur = best.get(k);
     if (!cur || at > cur.at || (at === cur.at && v >= cur.v)) best.set(k, { cat: x.category, at, v });
   }

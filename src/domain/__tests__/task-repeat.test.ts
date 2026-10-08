@@ -28,7 +28,7 @@ describe('powtarzanie zadań (D76)', () => {
     expect(nextId('t1')).toBe(uuidv5(REPEAT_NAMESPACE, 't1|next'));
   });
 
-  // Oczekiwania policzone niezależnie: python-dateutil rrule(...).after(max(termin, wykonanie) + 1 dzień, inc=True).
+  // Przykłady czytelne dla człowieka; pełny korpus z niezależnego wzorca (python-dateutil): nextdue-corpus.test.ts.
   it.each([
     [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-10', '2026-10-15'], // zrobione przed terminem
     [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-21', '2026-10-22'], // zaległe — nie wraca w przeszłość

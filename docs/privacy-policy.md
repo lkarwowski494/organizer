@@ -109,11 +109,16 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 
 ## Jak długo
 - **Twoje wpisy:** do usunięcia przez Ciebie albo przez osobę z grupy, która może je usunąć.
-- **Kosz:** usunięte listy, zadania, wydarzenia i grupy leżą w koszu 30 dni, potem znikają na zawsze
-  (serwer sprząta raz na dobę, więc może to potrwać do jednego dnia dłużej). Grupę z kosza właściciel może przywrócić
-  w ciągu tych 30 dni.
+- **Kosz:** usunięte listy, zadania, wydarzenia i grupy leżą w koszu 30 dni, potem znikają na zawsze razem ze swoją
+  historią zmian (serwer sprząta raz na dobę, więc może to potrwać do jednego dnia dłużej). Grupę z kosza właściciel może
+  przywrócić w ciągu tych 30 dni. Zadania przypięte do usuniętego wydarzenia zostają: po 30 dniach tracą przypięcie,
+  a dzień tamtego terminu staje się ich własnym terminem.
+- **Historia zmian:** 90 dni (na serwerze i na telefonach).
+- **Rozstrzygnięte przekazania** (przyjęte, odrzucone, anulowane): 90 dni od decyzji.
+- **Zaproszenia:** 30 dni po wygaśnięciu albo unieważnieniu.
 - **Zgłoszenia błędów, wyniki samosprawdzenia i uwagi:** 90 dni.
-- **Nieudane próby dołączenia kodem:** 1 dzień.
+- **Nieudane próby dołączenia kodem:** 1 dzień (sprzątanie raz na dobę, więc do 2 dni).
+- **Dane techniczne synchronizacji** (licznik instalacji aplikacji): 180 dni od ostatniego użycia tej instalacji.
 - **Wyjście albo usunięcie z grupy:** Twoje listy „Tylko ja” w tej grupie trafiają do kosza na 30 dni i wracają, jeśli
   w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo admin może przywrócić w ciągu 30 dni;
   zaproszenia, które wystawiła, przestają działać.
@@ -132,8 +137,10 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - To, co dodałeś w grupach wspólnych (zadania, wydarzenia, odpowiedzi o obecności, historia zmian), zostaje dla grupy,
   ale zamiast Twojego imienia widać „Usunięty użytkownik”.
 - Linki zaproszeń, które wystawiłeś, przestają działać.
+- Grupę w koszu, której byłeś właścicielem, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje w koszu do
+  końca tych samych 30 dni.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,
-  wyciszenia grup, Twoje zgłoszenia błędów i uwagi, dane techniczne synchronizacji.
+  wyciszenia grup, Twoje zgłoszenia błędów i uwagi, nieudane próby dołączenia kodem, dane techniczne synchronizacji.
 - Przy koncie Apple usunięcie potwierdzasz oknem Apple, a my unieważniamy token Sign in with Apple.
 - Z tego iPhone'a znika kopia danych konta razem z jego ustawieniami (plik bazy konta). Po zwykłym wylogowaniu kopia
   zostaje na telefonie, żeby po ponownym zalogowaniu nie pobierać wszystkiego od nowa.
