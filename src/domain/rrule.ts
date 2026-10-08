@@ -12,6 +12,7 @@
  *  - nieistniejące daty (np. 30 lutego) są pomijane (RFC, przykład „invalid date … is ignored”).
  * Wynik sprawdzany korpusem z niezależnej implementacji (python-dateutil, scripts/gen-rrule-corpus.py).
  */
+import { config } from '../config';
 import { addDays, type CivilDate, compareDates, daysInMonth, formatIsoDate, isoWeekday, isValidDate } from './civil-date';
 
 export type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -53,8 +54,8 @@ export function parseRule(text: string): Rule {
     if (!/^\d+$/.test(v) || Number(v) < min || Number(v) > max) throw new RuleError(`rrule: ${k}`);
     return Number(v);
   };
-  const interval = int('INTERVAL', 1, 99) ?? 1;
-  const count = int('COUNT', 1, 1000);
+  const interval = int('INTERVAL', 1, config.rrule.INTERVAL_MAX) ?? 1;
+  const count = int('COUNT', 1, config.rrule.COUNT_MAX);
   const untilRaw = parts.get('UNTIL');
   let until: string | null = null;
   if (untilRaw !== undefined) {
