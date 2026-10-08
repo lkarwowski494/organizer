@@ -19,3 +19,5 @@ Właściciel zapytał, czy nie zrobić pól obowiązkowych. Moja opinia: twarde 
 
    Odrzucone: strażnik w bazie. Starsze wersje aplikacji (buildy 1–5) wciąż wysyłają zadania bez adresata. Serwer by je odrzucał, a ludzie widzieliby „Odrzucone zmiany” bez wyjaśnienia. Do rozważenia, gdy wszyscy będą na nowej wersji.
 3. **Istniejące zadania bez adresata zostają.** Lista pokazuje przy nich czerwony dopisek „bez osoby i terminu — nikt tego nie widzi w Dotyczy mnie”, a ekran zadania podpowiada, co ustawić.
+4. **Audyt 2 (T-15):** osoba usunięta z grupy to „nikt konkretny” (D132), a odwołany termin spotkania to brak terminu
+   (D14) — takie zadanie też jest „bez adresata” (dopisek na liście i w zadaniu, formularz wymaga terminu).

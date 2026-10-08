@@ -18,6 +18,7 @@ import {
   formMembers,
   formOps,
   formWeekday,
+  movedSubtasks,
   type TaskForm,
   validateForm,
 } from '../../domain/views/task-form';
@@ -61,6 +62,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const groups = formGroups(tables, userId);
   const members = formMembers(tables, form.groupId);
   const originalGroup = editing ? tables.tasks?.[editing]?.group_id : undefined;
+  const subtasks = editing ? movedSubtasks(tables, editing) : 0;
   const day = (k: number) => formatIsoDate(addDays(today, k));
   const dateChoice = form.date === '' ? 'none' : form.date === day(0) ? 'today' : form.date === day(1) ? 'tomorrow' : 'other';
 
@@ -99,7 +101,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         onChange={(g) => set({ groupId: g, assigneeId: null })}
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
-      {originalGroup && originalGroup !== form.groupId ? <Body muted>{strings['form.moved']}</Body> : null}
+      {originalGroup && originalGroup !== form.groupId ? <Body muted>{subtasks ? strings['form.movedWithSubtasks'](subtasks) : strings['form.moved']}</Body> : null}
       <Segmented
         label={strings['task.due']}
         value={dateChoice}

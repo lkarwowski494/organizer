@@ -18,4 +18,11 @@ Ten zapis dotyczy punktu 5.
   - Odrzucone: osobne drugie przypomnienie „zaplanuj dzień” (dwa poranne to szum).
 - **D111:** przycisk w dzisiejszym dniu, gdy są zaległe z własnym terminem. Ustawia termin na dziś, godzina zostaje. Pasek „Cofnij” przywraca dawne terminy.
   - Pomijane: zakupy (termin listy) i zadania z terminem po rodzicu albo wydarzeniu — tam termin zmienia się u rodzica.
+    → zmienione 8.10.2026 (audyt 2, T-11, P-56): zakupy z terminem przenoszą się jak zadania (poranne podsumowanie
+    i tak je liczy); pomijane są zadania z terminem po rodzicu albo wydarzeniu i grupy, w których jestem dzieckiem
+    (serwer odrzuciłby zmianę). Liczba na przycisku i pasku to liczba spraw, nie operacji.
+  - Przenoszone tylko moje: przypisane do mnie i z grupy osobistej (decyzja właściciela z 8.10.2026, audyt 2). Wspólne
+    nieprzypisane i zadania dziecka mają termin dla wszystkich, więc zostają zaległe.
+  - Odhaczenie zaległego „codziennie” daje następne jutro — dzisiejsze nie powstaje osobno (decyzja właściciela
+    z 8.10.2026: zostaje jak jest, zgodnie z zasadą „zaległe nie wraca w przeszłość”).
   - Logika w `src/domain/views/overdue.ts`.
