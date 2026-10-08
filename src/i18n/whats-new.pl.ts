@@ -8,9 +8,10 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 22,
     items: [
-      'Obecność przy wydarzeniu grupy: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. W wierszu widać, ile osób odpowiedziało.',
-      'Godzinę wybierasz kafelkami (godzina, potem minuty) — bez pisania.',
-      'Po przeglądzie aplikacji: odwołanie wydarzenia da się cofnąć, dziecko nie widzi pól, których nie może zmienić, i sporo drobnych poprawek.',
+      'Obecność przy wydarzeniu grupy: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. Godzinę wybierasz kafelkami, bez pisania.',
+      'Lekcje dziecka to jeden wiersz w Moich sprawach („Kuba: 6 lekcji”) — dotknij, by rozwinąć. Plan lekcji otwiera się z obecnymi lekcjami i zmienia je od dziś.',
+      'Zmiany w zadaniu zapisują się od razu, bez „Zapisz”. Jedno przypomnienie na wydarzenie albo zadanie, z listą podzadań.',
+      'Kalendarz pokazuje też zrobione zadania, pojedynczy termin serii może być na cały dzień, a Ustawienia są podzielone na krótkie podstrony.',
     ],
   },
   {

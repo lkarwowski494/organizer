@@ -20,3 +20,32 @@
 | D141 | O. Martwy link w zaproszeniu | Ukryć link w wiadomości, dopóki strona nie będzie gotowa | Kroki właściciela teraz |
 | D142 | P. Polityka prywatności | Uzupełnić teraz, do akceptu właściciela | Przed publikacją |
 | D143 | Q. Testy E2E i zrzuty ekranu | Wdrożyć przy każdej zmianie (repo publiczne — standardowe maszyny GitHub Actions, także macOS, bez opłat: „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners”, https://docs.github.com/en/billing/concepts/product-billing/github-actions) | Tylko w nocy; usunąć z zasad |
+
+## Wdrożenie (8.10.2026)
+
+Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do sprawdzenia i cofnięcia.
+
+- **D126 rodzaj wydarzenia.** Kolumna `events.kind` (`event` / `lesson` / `routine`), ustawiana tylko przy tworzeniu
+  (GRANT insert, bez update); „to i następne” zachowuje rodzaj. Odrzucone: wnioskowanie z danych (zwykłe wydarzenie też
+  może mieć stałe zadania serii, więc rutyny nie da się odróżnić). Wydarzenia sprzed migracji mają `event` — lekcje
+  i rutyny dodane przed tą wersją nadal pytają o obecność, dopóki nie zostaną dodane od nowa (otwarte pytanie: czy
+  oznaczać je wstecz po uczestniku-dziecku i powtarzaniu co tydzień).
+- **D127.** Zwijane tylko lekcje, w których sam nie uczestniczę, a uczestnikiem jest dziecko; blok od pierwszego
+  początku do ostatniego końca. Zwinięte lekcje nie mają przypomnień ani miejsca w porannym podsumowaniu. Odrzucone:
+  jedno przypomnienie „Kuba: lekcje od 8:00” (codzienny szum).
+- **D128.** Zapis kończy stare serie przed dziś (UNTIL = wczoraj, nierozpoczęte do kosza), nowe zaczynają się od
+  pierwszego pasującego dnia od dziś; cofnięcie przywraca stary plan. Odrzucone: zmiana serii w miejscu (gubiłaby
+  minione terminy, do których są przypięte zadania i obecność) i cięcie od poniedziałku (zmieniałoby minione dni tygodnia).
+  Litery A/B nie są zapisywane: przy otwarciu bieżący tydzień to A.
+- **D130.** Tytuł i notatka zapisują się po wyjściu z pola i przy opuszczeniu ekranu; termin po wyborze daty albo
+  poprawnej godziny (niepoprawna — komunikat, bez zapisu). Odrzucone: zapis po każdym znaku (wiele zmian w kolejce).
+- **D131.** Jedna trasa `Settings` z parametrem `section`; wylogowanie z potwierdzeniem. Przy okazji (audyt):
+  wylogowanie wyrejestrowuje token powiadomień tego telefonu (`unregister_push_token`); bez sieci wylogowanie i tak
+  następuje.
+- **D134.** Podzadania i zadania wystąpienia stojące w planie pod rodzicem nie mają własnych przypomnień; treść
+  przypomnienia rodzica (także „Czas wyjść”) kończy się „do zrobienia: …”. Poranne podsumowanie liczy tylko rodziców.
+- **D135.** `calendarMonth` bierze też zrobione zadania (odhaczone w wierszu) w dniu ich terminu.
+- **D136.** `event_overrides.all_day`; telefon wysyła pole tylko, gdy coś zmienia (nowy całodniowy termin w serii
+  z godziną albo zdjęcie znacznika). Wymaga wdrożenia migracji 20261008300000 przed wydaniem buildu, który je wysyła.
+  Odrzucone: pusta godzina w wyjątku jako „cały dzień” (dotąd znaczyła „jak w serii” — zmiana znaczenia starych danych).
+- **D141.** `config.invites.LINK_LIVE = false`: wiadomość z zaproszeniem bez linku, z ID grupy i kodem.
