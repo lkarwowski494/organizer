@@ -256,7 +256,7 @@ export function TaskScreen({ route, navigation }: Props) {
           </View>
         ) : handing ? (
           <HandoffPicker
-            targets={handoffTargets(tables, userId, task.group_id)}
+            targets={handoffTargets(tables, userId, task.group_id, task.list_id)}
             onPick={(m) => {
               store.dispatch(createHandoff({ id: newId(), groupId: task.group_id, entity: 'tasks', entityId: task.id, toMember: m.member_id }));
               setHanding(false);

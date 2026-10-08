@@ -10,6 +10,7 @@ import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
 import { occurrenceResolver } from './event-rows';
 import { tripEntries } from './shopping-trip';
+import { memberCanSeeList } from './visibility';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
 
 export * from './model';
@@ -168,7 +169,8 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
         children: depth < config.MAX_TASK_DEPTH ? build(x.id, depth + 1, done) : [],
       }))
       .sort(order);
-  return { list, open: build(null, 0, false), done: build(null, 0, true), members };
+  // Audyt 2 (T-10, R-5): do wyboru osoby tylko ci, którzy widzą listę (serwer odrzuca innych); imiona — wszystkich.
+  return { list, open: build(null, 0, false), done: build(null, 0, true), members: members.filter((m) => memberCanSeeList(t, m.member_id, list.id)) };
 }
 
 /** `trip` — wpis zakupów z listy zakupów (D73, src/domain/views/shopping-trip.ts), nie zadanie. */

@@ -41,7 +41,8 @@ export const NEW_LIST_NAME = 'Zadania';
  * wspólna — lista „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Balet – Róża”) wybiera się na liście.
  */
 export function generalList(t: Tables, userId: string, groupId: string, newId: () => string): { listId: string; ops: NewOp[] } {
-  const lists = listsView(t, userId, groupId).filter((l) => l.kind === 'tasks');
+  // Audyt 2 (R-6): tylko lista całej grupy — na prywatną „Zadania” zadanie z @imię innej osoby serwer by odrzucił.
+  const lists = listsView(t, userId, groupId).filter((l) => l.kind === 'tasks' && l.visibility === 'group');
   const personal = groupsView(t, userId).find((g) => g.id === groupId)?.kind === 'personal';
   const found = personal ? lists[0] : lists.find((l) => l.name === NEW_LIST_NAME);
   if (found) return { listId: found.id, ops: [] };

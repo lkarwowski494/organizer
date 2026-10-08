@@ -46,12 +46,13 @@ export function NewListScreen({ route, navigation }: Props) {
       <Segmented label={strings['lists.kind.tasks'] + ' / ' + strings['lists.kind.shopping']} value={kind} onChange={setKind} options={[{ value: 'tasks', label: strings['lists.kind.tasks'] }, { value: 'shopping', label: strings['lists.kind.shopping'] }]} />
       <Segmented label={strings['lists.group']} value={groupId} onChange={(g) => (setGroupId(g), setDraft({ ...draft, responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       {personal ? null : (
-        <Segmented label={strings['lists.visibility']} value={visibility} onChange={setVisibility} options={[{ value: 'group', label: strings['lists.visibility.group'] }, { value: 'private', label: strings['lists.visibility.private'] }]} />
+        <Segmented label={strings['lists.visibility']} value={visibility} onChange={(v) => (setVisibility(v), v === 'private' && draft.responsibleId !== group?.me.member_id && setDraft({ ...draft, responsibleId: null }))} options={[{ value: 'group', label: strings['lists.visibility.group'] }, { value: 'private', label: strings['lists.visibility.private'] }]} />
       )}
       {shopping && group ? (
         <>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
-          <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId)} today={today} required={group.kind === 'shared'} />
+          {/* Audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt konkretny (inną osobę serwer odrzuci). */}
+          <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={group.kind === 'shared'} />
           {tripError ? <Body>{tripError}</Body> : null}
         </>
       ) : null}
