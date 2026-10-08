@@ -47,12 +47,29 @@ describe('reguła: koniec serii tekstowo (jak w SQL)', () => {
 });
 
 describe('podział serii na telefonie (applySplit)', () => {
+  it('D199: długość całodniowej — z polecenia, bez niej jak w dzielonej (i w powtórzonym), z godziną 1 (jak SQL)', () => {
+    const camp = () => {
+      const t = world();
+      t.events!.chor = { ...t.events!.chor!, start_time: null, end_time: null, days: 3 };
+      return t;
+    };
+    const allDay = { start_time: null, end_time: null };
+    expect(split(camp(), args({ set: set({ ...allDay, days: 2 }) })).events![S]!.days).toBe(2);
+    expect(split(camp(), args({ set: set(allDay) })).events![S]!.days).toBe(3);
+    expect(split(camp(), args({ set: set({ days: 4 }) })).events![S]!.days).toBe(1);
+    // Wiersz bez kolumny (sprzed D199) — jeden dzień.
+    expect(split(world(), args({ set: set(allDay) })).events![S]!.days).toBe(1);
+    const again = split(camp(), args({ set: set({ ...allDay, days: 2 }) }));
+    expect(split(again, args({ set: set(allDay) })).events![S]!.days).toBe(2);
+    expect(split(again, args({ set: set({ ...allDay, days: 5 }) })).events![S]!.days).toBe(5);
+  });
+
   it('stara seria kończy się dzień wcześniej, nowa wskazuje poprzedniczkę; rodzaj i notatka przechodzą', () => {
     const t = split(world(), args());
     expect(t.events!.chor!.rrule).toBe('FREQ=WEEKLY;BYDAY=MO;UNTIL=20261018');
     expect(t.events![S]).toEqual({
       id: S, group_id: 'gf', title: 'Chór', start_date: '2026-10-19', start_time: '18:00', end_time: '19:00', audience: 'group',
-      responsible_member_id: 'me', location: null, note: 'Nuty w teczce', rrule: 'FREQ=WEEKLY;BYDAY=MO', kind: 'lesson', split_from: 'chor', deleted_at: null,
+      responsible_member_id: 'me', location: null, note: 'Nuty w teczce', rrule: 'FREQ=WEEKLY;BYDAY=MO', kind: 'lesson', split_from: 'chor', days: 1, deleted_at: null,
     });
   });
 

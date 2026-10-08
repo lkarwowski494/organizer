@@ -15,6 +15,7 @@ import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import type { Target } from '../notification-target';
+import { isContinuation } from '../span';
 import { type MyEntry, myDays } from './my-days';
 import { nestEntries } from './nesting';
 import type { Tables } from './model';
@@ -69,7 +70,9 @@ export function planReminders(
     };
     // D134: wpis pod rodzicem trafia do przypomnienia najbliższego przodka, który je ma — chyba że to przyszłoby
     // później niż jego własne; wtedy przypomina sam (i niesie swoje podzadania).
-    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`)), t);
+    // D199: kolejne dni wielodniowego (obóz, koniec nocnego dyżuru) — bez przypomnień i poza porannym podsumowaniem:
+    // wydarzenie przypomina się raz, przed startem. Wiersz w „Moich sprawach” zostaje.
+    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || (!declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`) && !isContinuation(e.event.part))), t);
     const under = new Map<string, string[]>();
     const parentOf = new Map<string, MyEntry>();
     const holder: MyEntry[] = [];

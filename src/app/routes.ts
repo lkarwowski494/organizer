@@ -24,6 +24,8 @@ export type RootStackParams = {
     groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string;
     /** PWD-33 (D200): kopia wydarzenia z kalendarza iPhone'a — miejsce, cały dzień i dopisek o kopii. */
     location?: string; allDay?: boolean; fromDevice?: boolean;
+    /** D199: ostatni dzień całodniowego (kopia wielodniowego wydarzenia z iPhone'a). */
+    endDate?: string;
     /** Audyt 2 (M-255): z przełącznika rodzaju — dziecko jako uczestnik, ogłoszenie formularza. */
     participantIds?: string[]; kindSwitch?: boolean;
   };
