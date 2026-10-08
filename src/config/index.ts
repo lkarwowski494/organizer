@@ -39,9 +39,11 @@ export const config = {
   /**
    * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
    * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
-   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). Wybory projektowe, bez źródła.
+   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
+   * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
+   * dni wstecz widoki dnia szukają wydarzeń, które zaczęły się wcześniej. Wybory projektowe, bez źródła.
    */
-  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62 },
+  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62, MAX_DAYS: 31 },
 
   /**
    * Zadania na spotkaniu (D13, D14; ADR 0008): jak daleko naprzód szukamy kolejnego wystąpienia serii (przepinanie,
@@ -190,7 +192,7 @@ export const config = {
      */
     PATCH_DEFAULTS: {
       event_overrides: { all_day: false, cancelled: false, responsible_cleared: false },
-      events: { audience: 'group' },
+      events: { audience: 'group', days: 1 },
       group_members: { role: 'member' },
       handoffs: { closed: false, status: 'pending' },
       lists: { sort_key: 'a0', staples: [], visibility: 'group' },
