@@ -25,7 +25,7 @@ def calendar_next(rule, due, done):
 
 def repeats():
     out = [({'kind': 'daily'}, 'FREQ=DAILY'), ({'kind': 'monthly'}, 'FREQ=MONTHLY')]
-    for day in [1, 15, 28, 29, 30, 31]:
+    for day in [1, 15, 28, 29, 30, 31, -1]:
         out.append(({'kind': 'monthly', 'day': day}, f'FREQ=MONTHLY;BYMONTHDAY={day}'))
     for days in [[0], [6], [0, 3], [1, 3, 5], [0, 1, 2, 3, 4], [5, 6], list(range(7))]:
         out.append(({'kind': 'weekly', 'days': days}, 'FREQ=WEEKLY;BYDAY=' + ','.join(DAYS[d] for d in days)))

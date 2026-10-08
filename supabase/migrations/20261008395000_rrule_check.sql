@@ -65,7 +65,7 @@ begin
 end $$;
 
 create function private.task_repeat_ok(r text) returns boolean language sql immutable set search_path = '' as $$
-  select r is null or r ~ ('^(AFTER=(DAILY|WEEKLY);INTERVAL=[1-9][0-9]?|FREQ=DAILY|FREQ=MONTHLY(;BYMONTHDAY=([1-9]|[12][0-9]|3[01]))?'
+  select r is null or r ~ ('^(AFTER=(DAILY|WEEKLY);INTERVAL=[1-9][0-9]?|FREQ=DAILY|FREQ=MONTHLY(;BYMONTHDAY=([1-9]|[12][0-9]|3[01]|-1))?'
                            || '|FREQ=WEEKLY;BYDAY=(MO|TU|WE|TH|FR|SA|SU)(,(MO|TU|WE|TH|FR|SA|SU))*)$')
 $$;
 

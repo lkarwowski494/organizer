@@ -3,7 +3,7 @@ import { uuidv5 } from '../ids';
 import type { Row } from '../sync-engine/client';
 import { asTask } from '../views/model';
 import { config } from '../../config';
-import { expiredRepeatOps, formatRepeat, missingRepeatOps, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
+import { cycleChange, expiredRepeatOps, formatRepeat, keepCycle, missingRepeatOps, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
 
 const d = parseIsoDate;
 const iso = (c: { y: number; m: number; d: number }) => `${c.y}-${String(c.m).padStart(2, '0')}-${String(c.d).padStart(2, '0')}`;
@@ -95,6 +95,59 @@ describe('D137: co miesiąc z dniem miesiąca', () => {
     expect(setRepeat('t', { kind: 'monthly' })).toMatchObject({ set: { repeat: 'FREQ=MONTHLY' } });
     // Czynsz 15., przeniesiony na 20.10 i odhaczony 20.10 → następny 15.11 (nie 20.11).
     expect(nextDue({ kind: 'monthly', day: 15 }, parseIsoDate('2026-10-20'), parseIsoDate('2026-10-20'))).toEqual(parseIsoDate('2026-11-15'));
+  });
+});
+
+describe('PWD-37: ostatni dzień miesiąca (BYMONTHDAY=-1, RFC 5545 §3.3.10)', () => {
+  it('zapis i odczyt; ustawienie nie podmienia dnia z terminu', () => {
+    expect(formatRepeat({ kind: 'monthly', day: -1 })).toBe('FREQ=MONTHLY;BYMONTHDAY=-1');
+    expect(parseRepeat('FREQ=MONTHLY;BYMONTHDAY=-1')).toEqual({ kind: 'monthly', day: -1 });
+    expect(parseRepeat('FREQ=MONTHLY;BYMONTHDAY=-2')).toBeNull();
+    expect(setRepeat('t', { kind: 'monthly', day: -1 }, '2026-10-31')).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' } });
+  });
+
+  // Oczekiwania policzone niezależnie: python-dateutil rrule(MONTHLY, bymonthday=-1).after(...) — luty 2027 ma 28 dni, 2028 — 29.
+  it.each([
+    ['2026-10-31', '2026-10-31', '2026-11-30'],
+    ['2027-01-31', '2027-01-31', '2027-02-28'],
+    ['2028-01-31', '2028-01-31', '2028-02-29'],
+    ['2026-11-30', '2026-12-05', '2026-12-31'],
+  ])('termin %s, zrobione %s → %s (żaden miesiąc nie przepada)', (due, done, next) => {
+    expect(iso(nextDue({ kind: 'monthly', day: -1 }, d(due), d(done)))).toBe(next);
+  });
+});
+
+describe('D181: zmiana terminu zadania powtarzanego — „Tylko ten raz / Też kolejne”', () => {
+  it.each([
+    // co tydzień: inny dzień tygodnia zmienia cykl; ten sam (o tydzień dalej) — nie
+    [{ kind: 'weekly', days: [0] }, '2026-10-12', '2026-10-14', { kind: 'weekly', days: [2] }],
+    [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-13', { kind: 'weekly', days: [1, 3] }],
+    [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-15', { kind: 'weekly', days: [3] }],
+    [{ kind: 'weekly', days: [0] }, '2026-10-12', '2026-10-19', null],
+    [{ kind: 'weekly', days: [0] }, '2026-10-14', '2026-10-16', null], // termin już poza cyklem
+    // co miesiąc: inny dzień miesiąca; zapis sprzed D137 (bez dnia) — dzień starego terminu
+    [{ kind: 'monthly', day: 15 }, '2026-10-15', '2026-10-20', { kind: 'monthly', day: 20 }],
+    [{ kind: 'monthly', day: 15 }, '2026-10-15', '2026-11-15', null],
+    [{ kind: 'monthly', day: 15 }, '2026-10-20', '2026-10-22', null], // już przeniesione „tylko ten raz”
+    [{ kind: 'monthly' }, '2026-10-15', '2026-10-20', { kind: 'monthly', day: 20 }],
+    [{ kind: 'monthly' }, '2026-10-15', '2026-11-15', null],
+    [{ kind: 'monthly', day: -1 }, '2026-10-31', '2026-11-30', null],
+    [{ kind: 'monthly', day: -1 }, '2026-10-31', '2026-10-20', { kind: 'monthly', day: 20 }],
+    [{ kind: 'monthly', day: -1 }, '2026-10-20', '2026-10-25', null],
+    [{ kind: 'monthly', day: 30 }, '2026-10-30', '2026-10-31', { kind: 'monthly', day: 31 }],
+    // bez cyklu w kalendarzu
+    [{ kind: 'daily' }, '2026-10-12', '2026-10-14', null],
+    [{ kind: 'after', unit: 'DAILY', interval: 3 }, '2026-10-12', '2026-10-14', null],
+    [null, '2026-10-12', '2026-10-14', null],
+  ] as [Repeat | null, string, string, Repeat | null][])('%j: %s → %s daje %j', (r, from, to, want) => {
+    expect(cycleChange(r, from, to)).toEqual(want);
+  });
+
+  it('„Tylko ten raz”: zapis sprzed D137 dostaje dzień starego terminu, reszta bez zmian', () => {
+    expect(keepCycle({ kind: 'monthly' }, '2026-10-15')).toEqual({ kind: 'monthly', day: 15 });
+    expect(keepCycle({ kind: 'monthly', day: 15 }, '2026-10-15')).toBeNull();
+    expect(keepCycle({ kind: 'weekly', days: [0] }, '2026-10-12')).toBeNull();
+    expect(keepCycle(null, '2026-10-12')).toBeNull();
   });
 });
 

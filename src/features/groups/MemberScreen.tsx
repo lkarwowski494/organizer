@@ -3,7 +3,7 @@
  * Co wolno — src/domain/views memberActions (zgodnie ze strażnikiem członkostw po stronie serwera).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
@@ -11,21 +11,15 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { remove, renameMember, restore, setRole } from '../../domain/views/commands';
 import { type NameError, validateName } from '../../domain/views/my-name';
-import { groupDetail, type GroupDetail, type Member, memberActions, type MemberActions } from '../../domain/views';
+import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
+import { useLiveText } from '../../ui/live-text';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Member'>;
-
-/** D130: zmiana imienia do zapisu — tylko edytowane, poprawne (validateName) i inne niż w danych. */
-function renameOp(d: GroupDetail | null, m: Member | undefined, edit: string | null) {
-  if (!d || !m || edit === null || validateName(edit) || !memberActions(d, m).rename) return null;
-  const n = edit.trim();
-  return n !== m.display_name ? renameMember(m.member_id, n) : null;
-}
 
 /** Komunikaty jak na ekranie „Twoje imię” (NameScreen). */
 const NAME_ERRORS: Record<NameError, string> = {
@@ -42,24 +36,18 @@ export function MemberScreen({ route, navigation }: Props) {
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
   // D130 + audyt 2 (R-36, T-22): imię podąża za danymi, dopóki go nie edytuję; zapis po wyjściu z pola albo z ekranu.
-  const [nameEdit, setNameEdit] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<NameError | null>(null);
+  // Puste albo za długie imię się nie zapisuje — komunikat jak na ekranie „Twoje imię” (PW-20 A). Mechanizm: ui/live-text.
+  const name = useLiveText(m?.display_name ?? '', (n) => d && m && memberActions(d, m).rename && store.dispatch(renameMember(m.member_id, n)), {
+    validate: (text) => {
+      const bad = validateName(text);
+      return bad ? NAME_ERRORS[bad] : null;
+    },
+  });
   const [confirmOwner, setConfirmOwner] = useState(false);
   const undo = useUndo();
   const [error, setError] = useState<string | null>(null);
   // Audyt 2 (R-33): własność przekazana — do pobrania zmian ten ekran czeka, a ekran grupy nie pokazuje opcji właściciela.
   const [transferred, setTransferred] = useState(false);
-  const latest = useRef({ nameEdit, d, m });
-  useEffect(() => {
-    latest.current = { nameEdit, d, m };
-  });
-  useEffect(
-    () => () => {
-      const op = renameOp(latest.current.d, latest.current.m, latest.current.nameEdit);
-      if (op) store.dispatch(op);
-    },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
-  );
   // Wracamy, gdy pobranie pokaże, że nie jestem już właścicielem (moja rola, nie rola tej osoby — tę może jeszcze
   // przykrywać moja niewysłana zmiana roli).
   const meOwner = d?.group.me.role === 'owner';
@@ -76,18 +64,6 @@ export function MemberScreen({ route, navigation }: Props) {
     );
   }
   const can = transferred ? NONE : memberActions(d, m);
-  // Decyzja właściciela z 8.10.2026 (audyt 2, PW-20 A): pustego (albo za długiego) imienia nie zapisujemy — komunikat.
-  const commitName = () => {
-    if (nameEdit === null) return;
-    const invalid = validateName(nameEdit);
-    if (invalid) return setNameError(invalid);
-    const op = renameOp(d, m, nameEdit);
-    if (op) store.dispatch(op);
-    // Zapisane — zamknięcie ekranu przed odświeżeniem nie wyśle tej zmiany drugi raz.
-    latest.current = { ...latest.current, nameEdit: null };
-    setNameEdit(null);
-  };
-
   return (
     <Screen testID="screen-member">
       <BackButton onPress={() => navigation.goBack()} />
@@ -99,8 +75,8 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {can.rename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['member.name']} value={nameEdit ?? m.display_name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
-          {nameError ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{NAME_ERRORS[nameError]}</Text> : null}
+          <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
+          {name.error ? <ErrorText>{name.error}</ErrorText> : null}
         </View>
       ) : null}
       {can.setRole ? (
@@ -149,8 +125,7 @@ export function MemberScreen({ route, navigation }: Props) {
           testID="remove-member"
           onPress={() => {
             // Niezapisane imię osoby usuniętej przepada (serwer i tak nie zmienia usuniętych).
-            latest.current = { ...latest.current, nameEdit: null };
-            setNameEdit(null);
+            name.drop();
             store.dispatch(remove('group_members', m.member_id));
             navigation.goBack();
             undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)));
