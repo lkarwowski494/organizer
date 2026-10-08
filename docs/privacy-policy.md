@@ -30,8 +30,9 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
   - historia zmian pokazuje, kto i co zmienił; widzą ją osoby, które widzą daną listę albo grupę.
 
 ### Zaproszenia do grupy
-- Zaproszenie (link albo 6-cyfrowy kod do ID grupy) wysyłasz sam, np. w Wiadomościach. Na serwerze zapisujemy tylko
-  skrót kodu (nie sam kod), kto i kiedy je wystawił, termin ważności i liczbę użyć.
+- Zaproszenie (link albo 6-cyfrowy kod do ID grupy) wysyłasz sam, np. w Wiadomościach. Na serwerze zapisujemy skrót linku
+  (nie sam link) oraz 6-cyfrowy kod — żeby „Zaproś” mógł pokazać bieżący kod właścicielowi i adminom grupy — a także kto
+  i kiedy je wystawił, termin ważności i liczbę użyć. Kod po zbyt wielu nieudanych próbach przestaje działać.
 - Przy dołączaniu kodem zapisujemy każdą nieudaną próbę (Twoje konto, ID grupy, czas), żeby utrudnić zgadywanie kodów.
   Próby kasujemy po 1 dniu.
 
@@ -105,6 +106,9 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
   w ciągu tych 30 dni.
 - **Zgłoszenia błędów, wyniki samosprawdzenia i uwagi:** 90 dni.
 - **Nieudane próby dołączenia kodem:** 1 dzień.
+- **Wyjście albo usunięcie z grupy:** Twoje listy „Tylko ja” w tej grupie trafiają do kosza na 30 dni i wracają, jeśli
+  w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo admin może przywrócić w ciągu 30 dni;
+  zaproszenia, które wystawiła, przestają działać.
 - **Dziennik wysyłki powiadomień:** 7 dni.
 - **Token powiadomień:** dopóki działa. Usuwamy go przy wylogowaniu (gdy jest internet), gdy Apple zgłosi, że jest
   nieaktualny, i przy usunięciu konta. Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.

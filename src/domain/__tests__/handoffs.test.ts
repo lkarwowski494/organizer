@@ -89,6 +89,17 @@ describe('przekazanie odpowiedzialności (D70)', () => {
     expect(handoffKey('events', 'e1', '2026-10-12')).toBe('events|e1|2026-10-12');
   });
 
+  it('osoba usunięta z grupy: jej przekazania nie czekają ani na mnie, ani na nią (audyt 2, R-34)', () => {
+    const t = world();
+    put(t, 'handoffs', 'od', { id: 'od', group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'dawny', to_member: 'mf', status: 'pending' });
+    put(t, 'handoffs', 'do', { id: 'do', group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'mf', to_member: 'dawny', status: 'pending' });
+    put(t, 'handoffs', 'odrz', { id: 'odrz', group_id: 'gf', entity: 'events', entity_id: 'e1', from_member: 'mf', to_member: 'dawny', status: 'declined' });
+    put(t, 'handoffs', 'jest', { id: 'jest', group_id: 'gf', entity: 'events', entity_id: 'e1', from_member: 'ma', to_member: 'mf', status: 'pending' });
+    expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['jest']);
+    expect(outgoingPending(t, ME).size).toBe(0);
+    expect(declinedHandoffs(t, ME)).toEqual([]);
+  });
+
   it('audyt 2 (N-28): termin serii przeniesiony i przemianowany — nazwa i dzień z wyjątku, jak w planie i w powiadomieniu', () => {
     const t = world();
     put(t, 'handoffs', 'h2', { id: 'h2', group_id: 'gf', entity: 'events', entity_id: 'e1', occurrence_date: '2026-10-12', from_member: 'mm', to_member: 'mf', status: 'pending' });

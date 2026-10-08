@@ -82,3 +82,11 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
     Napisałem to wprost. Do akceptu.
 11. **Opis zgody „tylko zapis” w `app.json:25`** („Nie odczytuje kalendarza”) jest prawdziwy tylko dla „Dodaj do kalendarza”
     bez połączenia. Przy pełnym połączeniu iOS pokazuje opis z `app.json:39`. Zostawiam bez zmian, tylko informuję.
+
+## Zmiany z audytu 2 — grupy (8.10.2026), do akceptu
+1. **Kod zaproszenia zapisany na serwerze** (dotąd tylko skrót): `invites.code`, `supabase/migrations/20261008362000_join_codes_v2.sql`
+   (decyzja PW-41 A: „Zaproś” pokazuje bieżący kod). Bez uprawnień odczytu dla telefonu; czyta go funkcja dla owner/admin.
+2. **Kod po zbyt wielu nieudanych próbach przestaje działać** (D140 odwrócona): ten sam plik, `private.join_group`.
+3. **Wyjście albo usunięcie z grupy:** listy „Tylko ja” do kosza na 30 dni i z powrotem przy powrocie; osoba usunięta
+   do przywrócenia przez 30 dni; jej zaproszenia przestają działać: `20261008361000_member_departure.sql`,
+   `20261008360000_member_names_roles.sql` (`removed_at`).

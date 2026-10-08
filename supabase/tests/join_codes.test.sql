@@ -48,12 +48,13 @@ select public.join_group('999999999', '000000', 'D') from generate_series(1, 3);
 select is(public.join_group((select r ->> 'join_id' from jc), (select r ->> 'code' from jc), 'D') ->> 'error', 'rate_limited', '12: po 5 nieudanych próbach nawet dobry kod czeka godzinę');
 reset role;
 select is((select count(*)::int from private.join_attempts where user_id = '00000000-0000-7000-8000-0000000000a4'), 5, '13: próby zapisane mimo błędów');
--- Limit grupy: 20 nieudanych na to ID w ciągu godziny blokuje wszystkich.
+-- D140 odwrócona (8.10.2026, migracja 20261008362000): cudze nieudane próby na to ID nie blokują poprawnego kodu
+-- (dotąd 20 w ciągu godziny blokowało wszystkich). Limit na kod: supabase/tests/join_codes_v2.test.sql.
 delete from private.join_attempts;
 insert into private.join_attempts (user_id, join_id) select gen_random_uuid(), (select r ->> 'join_id' from jc) from generate_series(1, 20);
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a4');
 set local role authenticated;
-select is(public.join_group((select r ->> 'join_id' from jc), (select r ->> 'code' from jc), 'D') ->> 'error', 'rate_limited', '14: 20 nieudanych na ID grupy — blokada');
+select is(public.join_group((select r ->> 'join_id' from jc), (select r ->> 'code' from jc), 'D') ->> 'already_member', 'false', '14: 20 cudzych nieudanych prób nie blokuje poprawnego kodu');
 reset role;
 update private.join_attempts set at = now() - interval '2 hours';
 

@@ -208,6 +208,7 @@ export function e2eAccount(server: E2eServer, auth: { signIn(): Promise<void>; s
     acceptInvite: offline,
     revokeInvite: ok,
     createJoinCode: offline,
+    renewJoinCode: offline,
     joinGroup: offline,
     rotateJoinId: offline,
     deleteGroup: offline,

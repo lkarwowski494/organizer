@@ -13,6 +13,7 @@ import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-li
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
+import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Invite'>;
 
@@ -28,7 +29,9 @@ export function InviteScreen({ route, navigation }: Props) {
   const [me, setMe] = useState(displayName);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const legacy = p.token ?? parseInviteToken(paste);
+  // Audyt 2 (R-39): wpisane ID i kod mają pierwszeństwo przed starym 64-znakowym kodem z wklejonej wiadomości.
+  const typed = only(joinId).length > 0 && only(code).length > 0;
+  const legacy = p.token ?? (typed ? null : parseInviteToken(paste));
 
   const onPaste = (v: string) => {
     setPaste(v);
@@ -46,14 +49,13 @@ export function InviteScreen({ route, navigation }: Props) {
     try {
       const { groupId } = legacy ? await account.acceptInvite(legacy, me.trim()) : await account.joinGroup(only(joinId), only(code), me.trim());
       store.refresh();
-      navigation.replace('Group', { groupId });
+      navigation.replace('Group', { groupId, fresh: true });
     } catch (e) {
-      const m = String((e as Error)?.message);
-      setError(m === 'rate_limited' ? strings['invite.rateLimited'] : m === 'invite_expired' ? strings['invite.expired'] : m.startsWith('invite_') ? strings['invite.invalid'] : `${strings['common.error']} ${strings['common.offlineOnly']}`);
+      setError(groupErrorText(e));
       setBusy(false);
     }
   };
-  const ready = !!legacy || (only(joinId).length > 0 && only(code).length > 0);
+  const ready = !!legacy || typed;
 
   return (
     <Screen testID="screen-invite">
