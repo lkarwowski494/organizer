@@ -17,6 +17,7 @@ import { addresseeRequired, lacksAddressee } from '../../domain/views/addressee'
 import { useTaskActions } from '../../app/task-actions';
 import { remove, restore } from '../../domain/views/commands';
 import { groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -56,6 +57,11 @@ export function ListScreen({ route, navigation }: Props) {
   const shopping = list.kind === 'shopping';
   // D34: dziecko tylko odhacza (serwer odrzuca usunięcie), więc nie dostaje przesuwania.
   const me = myMemberships(tables, userId).get(list.group_id);
+  // D119: jak w Moich sprawach („dla Ciebie”, gdy to ja).
+  const whoOf = (memberId: string | null) => {
+    const p = personOf(tables, userId, memberId);
+    return p ? [strings['who.task'](p)] : [];
+  };
   const canDelete = me?.role !== 'child';
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
   const trip = asTrip(tables.lists?.[list.id] ?? {});
@@ -94,7 +100,7 @@ export function ListScreen({ route, navigation }: Props) {
           title={shopping ? parseQuantity(t.title).name : t.title}
           line={list.line}
           depth={t.depth}
-          meta={[...(shopping && parseQuantity(t.title).qty ? [parseQuantity(t.title).qty!] : []), ...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...(t.assignee ? [strings['task.assignedTo'](t.assignee)] : [])]}
+          meta={[...(shopping && parseQuantity(t.title).qty ? [parseQuantity(t.title).qty!] : []), ...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...whoOf(t.assignee_member_id)]}
           checked={done || t.completed_at !== null}
           pending={pendingIds.has(t.id)}
           alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}

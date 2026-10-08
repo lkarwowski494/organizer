@@ -144,7 +144,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await openDances();
     expect(screen.getByText('Środa, 7 października · 17:00–18:00 · 1 h')).toBeTruthy();
     expect(screen.getByText('Co tydzień: śr.')).toBeTruthy();
-    expect(screen.getByText('Kuba')).toBeTruthy();
+    expect(within(screen.getByTestId('screen-event')).getAllByText('Kuba').length).toBeGreaterThan(0);
   });
 
   it('„tylko to”: przeniesienie na 16:00 — wyjątek, Moje sprawy pokazuje nową godzinę', async () => {

@@ -72,18 +72,18 @@ describe('zadania na spotkaniu (D13)', () => {
     const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-07' }));
     await press(screen.getByLabelText('Otwórz: Spakować strój')); // własny termin dziś
     await screen.findByTestId('screen-task');
-    expect(screen.getByText('Spotkanie: Tańce, dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Wydarzenie: Tańce, dziś · 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-07', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } });
-    expect(screen.getByText('Jak spotkanie: dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Jak wydarzenie: dziś · 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-relink'));
     await press(screen.getByTestId('pick-ev2-2026-10-09'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } });
-    expect(screen.getByText(/Spotkanie: Wywiadówka/)).toBeTruthy();
+    expect(screen.getByText(/Wydarzenie: Wywiadówka/)).toBeTruthy();
     await press(screen.getByTestId('task-detach'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } });
     await press(screen.getByTestId('task-attach'));
-    expect(screen.getByText('Wybierz spotkanie')).toBeTruthy();
+    expect(screen.getByText('Wybierz termin')).toBeTruthy();
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('task-attach'));
     await press(screen.getByTestId('pick-ev-2026-10-14'));
@@ -101,7 +101,7 @@ describe('zadania na spotkaniu (D13)', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     await press(await screen.findByLabelText('Otwórz: Spakować strój'));
-    expect(await screen.findByText(/Spotkanie odwołane albo zmienione/)).toBeTruthy();
+    expect(await screen.findByText(/Wydarzenie odwołane albo zmienione/)).toBeTruthy();
     expect(screen.queryByTestId('task-open-event')).toBeNull();
     expect(screen.queryByTestId('task-event-due')).toBeNull();
   });
@@ -175,7 +175,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(await screen.findByLabelText('W środę'));
     await press(screen.getByLabelText('W czwartek'));
     await press(screen.getByTestId('event-save'));
-    expect(await screen.findByText('1 zadanie traci spotkanie (ten termin znika).')).toBeTruthy();
+    expect(await screen.findByText('1 zadanie traci wydarzenie (ten termin znika).')).toBeTruthy();
     expect(screen.getByText('Spakować strój')).toBeTruthy();
     await press(screen.getByLabelText('Odepnij'));
     await press(screen.getByTestId('event-preview-save'));
@@ -192,7 +192,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByTestId('scope-following'));
     await type(await screen.findByTestId('event-start-0'), '16:00');
     await press(screen.getByTestId('event-save'));
-    expect(await screen.findByText('1 podpięte zadanie przejdzie razem ze spotkaniami.')).toBeTruthy();
+    expect(await screen.findByText('1 podpięte zadanie przejdzie razem z terminami.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'new-1', occurrence_date: '2026-10-14' } });
@@ -234,7 +234,7 @@ describe('na każde spotkanie w serii (D65)', () => {
     delete b.tasks!.strój;
     const { store } = await open(b);
     await openEvent();
-    await press(screen.getByLabelText('Na każde spotkanie w serii'));
+    await press(screen.getByLabelText('Na każdy termin w serii'));
     await type(screen.getByTestId('event-task-title'), 'Spakować strój');
     await press(screen.getByTestId('event-task-add'));
     const def = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'event_task_series') as Extract<NewOp, { kind: 'create' }>;
@@ -244,12 +244,12 @@ describe('na każde spotkanie w serii (D65)', () => {
     expect(copies.map((o) => o.set.occurrence_date).slice(0, 2)).toEqual(['2026-10-07', '2026-10-14']);
     expect(new Set(copies.map((o) => o.id)).size).toBe(8);
     expect(await screen.findByTestId(`event-task-${copies[0]!.id}`)).toBeTruthy();
-    expect(screen.getByText('Na każde spotkanie w serii (osobne zadanie na każde):')).toBeTruthy();
+    expect(screen.getByText('Na każdy termin w serii (osobne zadanie na każdy):')).toBeTruthy();
     const n = store.dispatched.length;
     await press(screen.getByLabelText('Zakończ: Spakować strój'));
     expect(store.dispatched[n]).toEqual({ kind: 'delete', entity: 'event_task_series', id: def.id });
     expect(store.dispatched.slice(n + 1)).toHaveLength(8);
-    expect(screen.queryByText('Na każde spotkanie w serii (osobne zadanie na każde):')).toBeNull();
+    expect(screen.queryByText('Na każdy termin w serii (osobne zadanie na każdy):')).toBeNull();
   });
 
   it('jednorazowe spotkanie: bez wyboru „jak często”', async () => {

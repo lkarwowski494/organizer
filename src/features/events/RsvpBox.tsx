@@ -21,7 +21,7 @@ export function RsvpBox({ view, eventId, date }: { view: RsvpView; eventId: stri
             key={p.memberId}
             label={p.me ? strings['rsvp.mine'] : strings['rsvp.for'](p.name)}
             value={p.answer ?? ''}
-            options={ANSWERS.map((a) => ({ value: a, label: strings[`rsvp.${a}`] }))}
+            options={ANSWERS.map((a) => ({ value: a, label: p.me ? strings[`rsvp.${a}`] : strings[`rsvp.other.${a}`] }))}
             onChange={(a) => a && store.dispatch(answerOps(tables, { groupId: view.groupId, eventId, date, memberId: p.memberId, answer: a }))}
           />
         ))}

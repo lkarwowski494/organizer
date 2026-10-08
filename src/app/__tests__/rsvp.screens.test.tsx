@@ -23,11 +23,11 @@ describe('obecność (D124)', () => {
     await press(await screen.findByLabelText(/^Basen, 17:00/));
     const box = await screen.findByTestId('rsvp');
     expect(within(box).getByText('Bez odpowiedzi: 3')).toBeTruthy();
-    expect(within(box).queryByLabelText('Odpowiedź za: Ala')).toBeNull(); // za dorosłego nie
+    expect(within(box).queryByLabelText('Ala')).toBeNull(); // za dorosłego nie
     await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Będę'));
     expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'patch']);
     expect(s.store.dispatched[0]).toMatchObject({ entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), group_id: 'gf', set: { member_id: 'mf', answer: 'yes', occurrence_date: '2026-10-07' } });
-    await press(within(within(box).getByLabelText('Odpowiedź za: Kuba')).getByLabelText('Nie będę'));
+    await press(within(within(box).getByLabelText('Kuba')).getByLabelText('Nie będzie'));
     expect(within(box).getByText('Będą: Ty')).toBeTruthy();
     expect(within(box).getByText('Nie będą: Kuba')).toBeTruthy();
     expect(within(box).getByText('Bez odpowiedzi: 1')).toBeTruthy();
@@ -36,9 +36,9 @@ describe('obecność (D124)', () => {
     expect(within(box).getByText('Może: Ty')).toBeTruthy();
     expect(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Może').props.accessibilityState).toMatchObject({ selected: true });
     await press(screen.getByLabelText('Wróć'));
-    expect(within(await screen.findByTestId('today-event-ev1-2026-10-07')).getByText(/może 1, nie 1/)).toBeTruthy();
+    expect(within(await screen.findByTestId('today-event-ev1-2026-10-07')).getByText(/1 może, 1 nie/)).toBeTruthy();
     await press(screen.getByLabelText('Kalendarz'));
-    expect(within(await screen.findByTestId('cal-event-ev1-2026-10-07')).getByText(/może 1, nie 1/)).toBeTruthy();
+    expect(within(await screen.findByTestId('cal-event-ev1-2026-10-07')).getByText(/1 może, 1 nie/)).toBeTruthy();
   });
 
   it('bez obecności: miniony termin i grupa osobista', async () => {

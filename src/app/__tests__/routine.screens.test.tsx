@@ -15,7 +15,7 @@ describe('rutyny (D113)', () => {
     await press(await screen.findByTestId('calendar-add-routine'));
     await screen.findByTestId('screen-routine');
     await press(screen.getByTestId('routine-save'));
-    expect(screen.getByText('Wpisz nazwę wydarzenia.')).toBeTruthy();
+    expect(screen.getByText('Wpisz nazwę rutyny.')).toBeTruthy();
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek Kuby');
     await fireEvent.changeText(screen.getByTestId('routine-start'), '07:00');

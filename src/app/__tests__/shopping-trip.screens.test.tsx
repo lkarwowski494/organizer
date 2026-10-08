@@ -126,7 +126,7 @@ describe('zakupy na liście', () => {
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } });
     expect(screen.getByText('dziś · robi: Łukasz')).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
-    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ktokolwiek'));
+    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Nikt konkretny'));
     await press(screen.getByTestId('trip-save'));
     expect(screen.getByText('dziś · ktokolwiek')).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
@@ -170,7 +170,7 @@ describe('ilości i Kalendarz (D77, O-053)', () => {
     const row = await screen.findByTestId('cal-trip-lz');
     expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
     expect(within(row).getByText(/2 do kupienia/)).toBeTruthy();
-    expect(within(row).getByText(/dla: Ty/)).toBeTruthy();
+    expect(within(row).getByText(/dla Ciebie/)).toBeTruthy();
     await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
     await answerAlert('Anuluj');
     expect(store.dispatched).toEqual([]);
