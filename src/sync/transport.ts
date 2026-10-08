@@ -1,19 +1,20 @@
 /**
  * Połączenie z serwerem widziane przez pętlę synchronizacji. W aplikacji: RPC Supabase
  * (src/sync/supabase.ts), w testach: serwer w pamięci. Błąd zawsze jako TransportError z rodzajem,
- * bo od rodzaju zależy reakcja pętli (scheduler: sieć/serwer → ponowienie, auth → czekanie na sesję).
+ * bo od rodzaju zależy reakcja pętli (scheduler: sieć/serwer → ponowienie, auth → czekanie na sesję,
+ * fatal → bez ponowień do powrotu do aplikacji; komunikat = kod serwera, np. upgrade_required).
  */
-import type { PulledRow, PullResponse, PushResponse, pushRequest } from '../domain/sync-engine/client';
+import type { PulledRow, PullRequest, PullResponse, PushResponse, pushRequest } from '../domain/sync-engine/client';
 
 export type PushRequest = ReturnType<typeof pushRequest>;
 
 export interface SyncTransport {
   push(req: PushRequest): Promise<PushResponse>;
-  pull(cursors: { [groupId: string]: number }, limit: number): Promise<PullResponse>;
+  pull(req: PullRequest, limit: number): Promise<PullResponse>;
   fetchScope(listId: string): Promise<PulledRow[]>;
 }
 
-export type TransportErrorKind = 'network' | 'auth' | 'server';
+export type TransportErrorKind = 'network' | 'auth' | 'server' | 'fatal';
 
 export class TransportError extends Error {
   constructor(

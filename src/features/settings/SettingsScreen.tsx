@@ -173,9 +173,10 @@ export function SettingsScreen({ navigation, route }: Props) {
               {resetting ? (
                 <>
                   {state.pending.length ? <Body>{strings['reset.pending'](state.pending.length)}</Body> : null}
-                  {/* Bez połączenia telefon zostałby pusty do powrotu sieci (audyt 8.10.2026). */}
+                  {/* Bez połączenia telefon zostałby pusty do powrotu sieci (audyt 8.10.2026), a po upgrade_required — na stałe (audyt 2, M-57). */}
                   {indicator.state === 'offline' || indicator.state === 'auth_expired' ? <Body>{strings['reset.offline']}</Body> : null}
-                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" disabled={indicator.state === 'offline' || indicator.state === 'auth_expired'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
+                  {indicator.state === 'upgrade_required' ? <Body>{strings['reset.upgrade']}</Body> : null}
+                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" disabled={indicator.state === 'offline' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
                   <Button kind="secondary" label={strings['common.cancel']} onPress={() => setResetting(false)} />
                 </>
               ) : (

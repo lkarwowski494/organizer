@@ -112,7 +112,8 @@ export class SyncRuntime {
     try {
       done = what === 'push' ? await this.push() : await this.pull();
     } catch (e) {
-      done = { t: 'failed', what, error: errorKind(e) };
+      const error = errorKind(e);
+      done = error === 'fatal' ? { t: 'failed', what, error, code: (e as Error).message } : { t: 'failed', what, error };
     }
     this.sched = onEvent(this.sched, done, this.deps.now());
     this.emit();
@@ -127,8 +128,8 @@ export class SyncRuntime {
 
   private async pull(): Promise<SchedulerEvent> {
     const req = pullRequest(this.state);
-    const res = await this.deps.transport.pull(req.cursors, config.sync.PULL_LIMIT_MAX);
-    const out = onPullResponse(this.state, res, req.ackedAtStart);
+    const res = await this.deps.transport.pull(req, config.sync.PULL_LIMIT_MAX);
+    const out = onPullResponse(this.state, res, req);
     this.setState(out.state);
     // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości.
     for (const listId of out.fetchScopes) {
