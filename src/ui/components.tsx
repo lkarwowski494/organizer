@@ -139,13 +139,15 @@ export function StationRow(props: {
   const toggleLabel = props.shopping
     ? (done ? strings['shop.takeOut'] : strings['shop.put'])(props.title)
     : `${done ? strings['task.undone'] : strings['task.done']}: ${props.title}`;
+  // D104: podzadanie — wcięcie pod rodzicem, cieńsza wstążka i mniejsza kropka.
+  const sub = (props.depth ?? 0) > 0;
   return (
-    <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: 60, marginLeft: (props.depth ?? 0) * 18 }}>
+    <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: sub ? 52 : 60, marginLeft: Math.min(props.depth ?? 0, 3) * 22 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         {/* Wstążka grupy (D72): szeroka, zaokrąglona, z kropką w jaśniejszej obwódce. */}
-        <View style={{ position: 'absolute', top: 0, bottom: 0, width: 10, borderRadius: 5, backgroundColor: l.line, opacity: done ? 0.12 : 0.28 }} />
-        <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />
-        <View style={{ marginTop: 16, width: 20, height: 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
+        <View style={{ position: 'absolute', top: 0, bottom: 0, width: sub ? 4 : 10, borderRadius: 5, backgroundColor: l.line, opacity: done ? 0.12 : 0.28 }} />
+        {sub ? null : <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />}
+        <View style={{ marginTop: sub ? 18 : 16, width: sub ? 12 : 20, height: sub ? 12 : 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
       </View>
       <Pressable
         accessibilityRole={props.onOpen ? 'button' : undefined}
@@ -350,7 +352,7 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
  * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
  * tytuł i grupa. Całość otwiera wydarzenie.
  */
-export function EventRow({ title, time, line, group, recurring, onPress, testID, faded }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean }) {
+export function EventRow({ title, time, line, group, recurring, onPress, testID, faded, extra }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
@@ -366,6 +368,7 @@ export function EventRow({ title, time, line, group, recurring, onPress, testID,
           {'  ·  '}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
           {recurring ? `  ·  ${strings['event.repeats']}` : ''}
+          {extra ? `  ·  ${extra}` : ''}
         </Text>
       </View>
       <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text>
