@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formFromTask, formFromText, formGroups, formMembers, formOps, formUnseen, formWeekday, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
+import { formFromTask, formFromText, formGroups, formMembers, formOps, formUnseen, formWeekday, generalList, movedSubtasks, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -88,6 +88,11 @@ describe('pełny formularz zadania (D90)', () => {
     expect(v({ groupId: 'gf', date: '', time: '' })).toBeNull();
     expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBeNull();
     expect(v({ date: '', time: '' })).toBeNull();
+    // Audyt 2 (T-15): osoba usunięta z grupy (D132) albo nieznana to „nikt konkretny” — od PW-18 b bez blokady,
+    // za to z dopiskiem (formUnseen niżej).
+    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'old' })).toBeNull();
+    expect(formUnseen(t, ME, form({ groupId: 'gf', date: '', time: '', assigneeId: 'old' }))).toBe(true);
+    expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBe(false);
   });
 
   it('PW-18 b: dopisek „nikt tego nie widzi” tylko we wspólnej grupie, bez żywej osoby i bez terminu; lista „Tylko ja” poza regułą', () => {
@@ -171,5 +176,18 @@ describe('pełny formularz zadania (D90)', () => {
       { kind: 'delete', entity: 'tasks', id: 't1' },
     ]);
     expect(formOps(t, ME, form({ groupId: ME, title: 'Śmieci', date: '', time: '' }), () => 'c2', 't2').ops.map((o) => o.kind)).toEqual(['create', 'delete']);
+  });
+
+  it('audyt 2 (T-33): ile podzadań pójdzie do kosza z oryginałem przy zmianie grupy (wszystkie żywe poziomy)', () => {
+    const t = base();
+    const sub = (id: string, parent: string, deleted: string | null = null) => put(t, 'tasks', id, { ...t.tasks!.t1!, id, parent_id: parent, title: id, deadline_mode: 'inherit', due_date: null, due_time: null, deleted_at: deleted });
+    expect(movedSubtasks(t, 't1')).toBe(0);
+    sub('s1', 't1');
+    sub('s2', 't1');
+    sub('s3', 't1', 'x'); // już w koszu — nie liczy się (i jego podzadania też nie)
+    sub('s11', 's1');
+    sub('s31', 's3');
+    expect(movedSubtasks(t, 't1')).toBe(3);
+    expect(movedSubtasks(t, 'nie-ma')).toBe(0);
   });
 });

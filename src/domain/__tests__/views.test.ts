@@ -190,18 +190,20 @@ describe('listy', () => {
   it('audyt 2 (M-82, T-7): niezrobione podzadanie zrobionego rodzica stoi w otwartych z dopiskiem rodzica; minione — w zamkniętych bez odhaczenia', () => {
     const t = world();
     task(t, { id: 'sprz', title: 'Sprzątanie', ...own('2026-10-05'), completed_at: '2026-10-05T10:00:00Z' });
-    task(t, { id: 'odk', title: 'Odkurzyć', parent_id: 'sprz', deadline_mode: 'inherit' });
+    task(t, { id: 'odk', title: 'Odkurzyć', parent_id: 'sprz' });
+    task(t, { id: 'kurz', title: 'Zetrzeć kurze', parent_id: 'sprz', deadline_mode: 'inherit' });
     task(t, { id: 'zmyc', title: 'Zmyć', parent_id: 'sprz', deadline_mode: 'inherit', completed_at: '2026-10-05T10:00:00Z' });
     task(t, { id: 'kartka', title: 'Kartka', ...own('2026-10-05'), rollover: false });
     const d = listDetail(t, ME, 'lf', TODAY)!;
-    // Podzadanie z dziedziczonym, minionym terminem jest zaległe (jak w Moich sprawach), więc stoi w otwartych.
-    expect(d.open.map((x) => [x.id, x.parentTitle, x.depth, x.closed, x.due])).toEqual([['odk', 'Sprzątanie', 1, false, { date: '2026-10-05', time: null }]]);
+    // Podzadanie bez terminu zrobionego rodzica jest do zrobienia (w Moich sprawach przypięte), więc stoi w otwartych.
+    expect(d.open.map((x) => [x.id, x.parentTitle, x.depth, x.closed, x.due])).toEqual([['odk', 'Sprzątanie', 1, false, null]]);
     expect(d.done.map((x) => [x.id, x.closed, x.expired, x.completed_at !== null, x.parentTitle])).toEqual([
       ['kartka', true, true, false, null],
       ['sprz', true, false, true, null],
     ]);
-    // Ekran zadania dostaje wszystkie podzadania rodzica (także to, które stoi w otwartych).
-    expect(d.done[1]!.children.map((x) => [x.id, x.closed])).toEqual([['odk', false], ['zmyc', true]]);
+    // Ekran zadania dostaje wszystkie podzadania rodzica (także to, które stoi w otwartych). Podzadanie z dziedziczonym,
+    // minionym terminem zrobionego rodzica minęło (audyt 2, T-13) — zostaje pod rodzicem w zamkniętych.
+    expect(d.done[1]!.children.map((x) => [x.id, x.closed, x.expired])).toEqual([['odk', false, false], ['kurz', true, true], ['zmyc', true, false]]);
     expect(listOpenCount(t, asList(t.lists!.lf!), TODAY)).toBe(1);
   });
 
@@ -487,8 +489,6 @@ describe('operacje ekranów', () => {
     expect(cmd.renameGroup('g', 'N')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { name: 'N' } });
     expect(cmd.addChild({ memberId: 'm', groupId: 'g', name: 'Kuba' })).toEqual({ kind: 'create', entity: 'group_members', id: 'm', group_id: 'g', set: { member_id: 'm', display_name: 'Kuba', role: 'child' } });
     expect(cmd.renameMember('m', 'K')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { display_name: 'K' } });
-    expect(cmd.moveTask('t', 'p')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: 'p' } });
-    expect(cmd.moveTask('t', null, 'l2')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: null, list_id: 'l2' } });
   });
 });
 

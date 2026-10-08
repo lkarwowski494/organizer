@@ -33,13 +33,28 @@ describe('adresat zadania (D68)', () => {
     expect(addresseeRequired(t, ME, 'nie-ma', null)).toBe(false);
   });
 
-  it('brak adresata = bez osoby i bez terminu (termin własny, dziedziczony i ze spotkania się liczy)', () => {
+  const x = { id: 'x', list_id: 'lf', parent_id: null, assignee_member_id: null, deadline_mode: 'none' as const, due_date: null, due_time: null, start_date: null, event_id: null, occurrence_date: null };
+
+  it('brak adresata = bez osoby i bez terminu (własny termin i termin spotkania się liczą)', () => {
     const t = world();
-    const x = { list_id: 'lf', parent_id: null, assignee_member_id: null, deadline_mode: 'none' as const };
+    put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-09', start_time: '18:00:00', rrule: null, deleted_at: null });
     expect(lacksAddressee(t, ME, x)).toBe(true);
     expect(lacksAddressee(t, ME, { ...x, assignee_member_id: 'mf' })).toBe(false);
-    for (const m of ['own', 'inherit', 'event'] as const) expect(lacksAddressee(t, ME, { ...x, deadline_mode: m })).toBe(false);
+    expect(lacksAddressee(t, ME, { ...x, deadline_mode: 'own', due_date: '2026-10-09' })).toBe(false);
+    expect(lacksAddressee(t, ME, { ...x, deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-09' })).toBe(false);
     expect(lacksAddressee(t, ME, { ...x, list_id: 'lp' })).toBe(false);
+  });
+
+  it('audyt 2 (T-15): osoba usunięta z grupy (D132) i odwołany termin spotkania (D14) to brak adresata', () => {
+    const t = world();
+    put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', role: 'member', deleted_at: '2026-10-07T08:00:00Z' });
+    put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-09', start_time: '18:00:00', rrule: null, deleted_at: null });
+    put(t, 'event_overrides', 'o', { id: 'o', event_id: 'ev', occurrence_date: '2026-10-09', cancelled: true, deleted_at: null });
+    expect(lacksAddressee(t, ME, { ...x, assignee_member_id: 'ala' })).toBe(true);
+    expect(lacksAddressee(t, ME, { ...x, assignee_member_id: 'nieznany' })).toBe(true);
+    expect(lacksAddressee(t, ME, { ...x, deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-09' })).toBe(true);
+    expect(lacksAddressee(t, ME, { ...x, deadline_mode: 'own', due_date: null })).toBe(true);
+    expect(lacksAddressee(t, ME, { ...x, assignee_member_id: 'ala', deadline_mode: 'own', due_date: '2026-10-09' })).toBe(false);
   });
 
   it('nowe zadanie z osobą wybraną po dodaniu', () => {

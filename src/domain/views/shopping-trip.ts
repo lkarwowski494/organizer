@@ -9,7 +9,7 @@
  */
 import type { NewOp } from '../sync-engine/client';
 import { inverseOps, toggleDone } from './commands';
-import { concernsMe, liveMemberIds, ownPrivateList } from './concerns';
+import { concernsMe, liveMembers, ownPrivateList } from './concerns';
 import { cancelHandoff, handoffKey, outgoingPending } from './handoffs';
 import type { GroupItem, TodayItem } from './index';
 import { shoppingSplit } from './list-tree';
@@ -83,7 +83,7 @@ export type TripItem = TodayItem & { trip: { listId: string; open: number } };
  */
 export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone = false): TripItem[] {
   const out: TripItem[] = [];
-  const live = liveMemberIds(t);
+  const live = liveMembers(t);
   for (const [id, raw] of Object.entries(t.lists ?? {})) {
     const l = asList(raw);
     if (l.deleted_at !== null || l.kind !== 'shopping') continue;

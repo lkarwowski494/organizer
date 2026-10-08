@@ -34,7 +34,8 @@ describe('wiersze listy (M-82)', () => {
   it('niezrobione podzadanie zrobionego rodzica stoi w otwartych z dopiskiem; minione bez ptaszka, dotknięcie pyta „Zrobione?”', async () => {
     const b = sampleBase();
     task(b, 'sprz', { title: 'Sprzątanie', deadline_mode: 'own', due_date: '2026-10-05', completed_at: '2026-10-05T10:00:00Z' });
-    task(b, 'odk', { title: 'Odkurzyć', parent_id: 'sprz', deadline_mode: 'inherit' });
+    task(b, 'odk', { title: 'Odkurzyć', parent_id: 'sprz' });
+    task(b, 'kurz', { title: 'Zetrzeć kurze', parent_id: 'sprz', deadline_mode: 'inherit' });
     task(b, 'zmyc', { title: 'Zmyć', parent_id: 'sprz', deadline_mode: 'inherit', completed_at: '2026-10-05T10:00:00Z' });
     task(b, 'kartka', { title: 'Kartka dla babci', deadline_mode: 'own', due_date: '2026-10-05', rollover: false });
     await open(b);
@@ -49,6 +50,9 @@ describe('wiersze listy (M-82)', () => {
     expect(screen.getAllByTestId('task-odk')).toHaveLength(1);
     expect(within(screen.getByTestId('task-zmyc')).getByLabelText('Oznacz jako niezrobione: Zmyć')).toBeTruthy();
     expect(screen.getByTestId('task-zmyc').props.style.marginLeft).toBe(22);
+    // Podzadanie z minionym, dziedziczonym terminem zrobionego rodzica minęło (T-13) — pod rodzicem, bez ptaszka.
+    expect(within(screen.getByTestId('task-kurz')).getByText(/minęło/)).toBeTruthy();
+    expect(within(screen.getByTestId('task-kurz')).getByLabelText('Oznacz jako zrobione: Zetrzeć kurze')).toBeTruthy();
     // Minione: dopisek „minęło”, pole bez ptaszka — dotknięcie odhacza z pytaniem (D59), jak każde niezrobione.
     const kartka = screen.getByTestId('task-kartka');
     expect(within(kartka).getByText(/minęło/)).toBeTruthy();

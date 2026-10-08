@@ -3,7 +3,8 @@
  * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, osoby i powtarzania (bez wyboru listy, D97).
  *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
  *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
- *    (z notatką) na ogólnej liście nowej grupy, a stare idzie do kosza (można je przywrócić).
+ *    (z notatką, bez podzadań) na ogólnej liście nowej grupy, a stare idzie do kosza razem z podzadaniami (można je
+ *    przywrócić); ekran mówi, ile podzadań to dotyczy (`movedSubtasks`, audyt 2: T-33).
  *  - We wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw (D68) — od decyzji właściciela
  *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
@@ -15,6 +16,7 @@ import { createList, createTask, patchTask, remove, setDue } from './commands';
 import { groupsView, listsView } from './index';
 import { extractMention, type MentionTarget, mentionTargets } from './mention';
 import { asTask, type Tables } from './model';
+import { subtasksOf } from './nesting';
 import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
@@ -115,7 +117,8 @@ export function validateForm(t: Tables, userId: string, f: TaskForm): FormError 
 
 /**
  * Dopisek „nikt tego nie widzi w Moich sprawach” (D68, PW-18 b): zadanie we wspólnej grupie bez osoby (usunięta z grupy
- * to nikt konkretny — D132) i bez terminu. Zostaje na swojej liście „Tylko ja” (ta sama grupa) — wtedy poza regułą (A).
+ * to nikt konkretny — D132, audyt 2: T-15) i bez terminu. Zostaje na swojej liście „Tylko ja” (ta sama grupa) — wtedy
+ * poza regułą (A).
  */
 export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
   if (formGroups(t, userId).find((g) => g.id === f.groupId)?.kind !== 'shared' || f.date.trim() !== '') return false;
@@ -124,6 +127,9 @@ export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
   const list = f.listId === null ? undefined : t.lists?.[f.listId];
   return !(list && list.visibility === 'private' && list.group_id === f.groupId);
 }
+
+/** Ile żywych podzadań pójdzie do kosza razem z zadaniem przy zmianie grupy — kopia ich nie ma (audyt 2, T-33). */
+export const movedSubtasks = (t: Tables, taskId: string) => subtasksOf(t, taskId).length;
 
 /** Dzień tygodnia daty z formularza (do edytora powtarzania); bez daty — dziś. */
 export function formWeekday(f: TaskForm, today: CivilDate): number {
