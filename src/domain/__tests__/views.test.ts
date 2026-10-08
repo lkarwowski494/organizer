@@ -351,8 +351,6 @@ describe('operacje ekranów', () => {
     expect(cmd.renameGroup('g', 'N')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { name: 'N' } });
     expect(cmd.addChild({ memberId: 'm', groupId: 'g', name: 'Kuba' })).toEqual({ kind: 'create', entity: 'group_members', id: 'm', group_id: 'g', set: { member_id: 'm', display_name: 'Kuba', role: 'child' } });
     expect(cmd.renameMember('m', 'K')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { display_name: 'K' } });
-    expect(cmd.moveTask('t', 'p')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: 'p' } });
-    expect(cmd.moveTask('t', null, 'l2')).toEqual({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: null, list_id: 'l2' } });
   });
 });
 

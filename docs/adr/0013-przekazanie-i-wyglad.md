@@ -26,6 +26,12 @@ Zgłoszenie właściciela: do nowej wersji tryb jasny, nowa ikona i wyraźniejsz
    - Sekcja „Do potwierdzenia” na „Dotyczy mnie”.
    - Plakietka z liczbą na zakładce „Dziś”.
    - Na ekranie zadania lub wydarzenia: „Czeka na przyjęcie: X” z możliwością anulowania.
+   - Audyt 2 (T-5): w „Do potwierdzenia” i na plakietce tylko to, co jest jeszcze do przyjęcia — bez zadań zrobionych
+     (jednorazowych) i spraw w koszu. Zrobionego zadania się nie przekazuje.
+   - Zadanie powtarzane przekazuje się jako obowiązek, nie jeden termin (decyzja właściciela z 8.10.2026): przyjęcie
+     przenosi na odbiorcę niezrobione terminy łańcucha (przekazany i kolejne kopie), zrobione zostają w historii nadawcy;
+     gdy nic niezrobionego nie zostało — „nieaktualne”, przekazanie czeka dalej (serwer: migracja
+     20261008330000_handoff_obligation). „Czeka na przyjęcie” widać przy niezrobionym terminie.
 7. **Powiadomienie push to osobny etap.** → zrobione w ADR 0015.
    - Wymaga tokenów urządzeń, funkcji wysyłającej przez APNs i włączenia Push Notifications w identyfikatorze aplikacji w Apple Developer.
    - Do tego czasu przekazanie widać w aplikacji po synchronizacji.
