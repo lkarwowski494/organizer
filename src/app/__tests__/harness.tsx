@@ -3,13 +3,15 @@
  * ze stanem w pamięci (ta sama logika co w aplikacji: mutate + materialize) i atrapą konta.
  */
 import { NavigationContainer } from '@react-navigation/native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { Alert, type AlertButton } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { MONTHS_NOMINATIVE } from '../../config/calendar.pl';
 import type { Scheme } from '../../config/theme';
 import type { LocalDateTime } from '../../domain/civil-date';
+import { formatLongDate, parseIsoDate } from '../../domain/format';
 import { type ClientState, initialState, mutate, type NewOp, type Row } from '../../domain/sync-engine/client';
 import type { Indicator } from '../../domain/sync-engine/scheduler';
 import type { AccountApi } from '../../sync/account';
@@ -178,4 +180,23 @@ export function fakePush(over: Partial<DevicePush> = {}): jest.Mocked<DevicePush
     saveReminderSettings: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<DevicePush>;
+}
+
+/** Wybór dnia w mini kalendarzu pola daty (D103): otwiera pole, przewija miesiące do daty i dotyka dnia. */
+export async function pickDate(testID: string, iso: string) {
+  const target = parseIsoDate(iso);
+  if (!screen.queryByTestId(`${testID}-calendar`)) await fireEvent.press(screen.getByTestId(testID));
+  for (let i = 0; i < 60; i++) {
+    const cal = screen.getByTestId(`${testID}-calendar`);
+    const header = String(within(cal).getByRole('header').props.children);
+    const [name, year] = header.split(' ');
+    const shown = Number(year) * 12 + MONTHS_NOMINATIVE.findIndex((m) => m.toLowerCase() === name!.toLowerCase());
+    const want = target.y * 12 + target.m - 1;
+    if (shown === want) {
+      const label = formatLongDate(target, { y: NOW.y, m: NOW.m, d: NOW.d });
+      return fireEvent.press(within(cal).getAllByLabelText(new RegExp(`^${label}(,|$)`))[0]!);
+    }
+    await fireEvent.press(screen.getByTestId(`${testID}-${shown < want ? 'next' : 'prev'}`));
+  }
+  throw new Error(`pickDate: nie znaleziono ${iso}`);
 }

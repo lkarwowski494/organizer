@@ -4,11 +4,10 @@
  * zostaje wybór i kolejność.
  */
 import { config } from '../../config';
-import { HOLIDAYS_FROM_YEAR } from '../../config/holidays.pl';
 import { groupLines } from '../../config/theme';
-import { addDays, type CivilDate, formatIsoDate, isoWeekday } from '../civil-date';
+import { monthGrid } from '../month-grid';
+import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
-import { polishHolidays } from '../holidays';
 import { occurrenceResolver } from './event-rows';
 import { tripEntries } from './shopping-trip';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
@@ -239,14 +238,11 @@ export type CalendarDay = { date: string; inMonth: boolean; holiday: string | nu
  * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`.
  */
 export function calendarMonth(t: Tables, userId: string, year: number, month: number): CalendarDay[] {
-  const first: CivilDate = { y: year, m: month, d: 1 };
-  const start = addDays(first, -isoWeekday(first)); // isoWeekday: 0 = poniedziałek
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
   const all = rows(t, 'tasks', asTask).filter(alive);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
-  const holidays = new Map([year - 1, year, year + 1].filter((y) => y >= HOLIDAYS_FROM_YEAR).flatMap((y) => polishHolidays(y)).map((h) => [h.date, h.name]));
   const byDate = new Map<string, TodayItem[]>();
   for (const x of all) {
     const g = groups.get(x.group_id);
@@ -262,13 +258,10 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     if (trip.due === null) continue;
     byDate.set(trip.due.date, [...(byDate.get(trip.due.date) ?? []), trip]);
   }
-  const days: CalendarDay[] = [];
-  for (let i = 0; i < 42; i++) {
-    const day = addDays(start, i);
-    if (i % 7 === 0 && i > 0 && (day.m !== month || day.y !== year)) break;
-    const iso = formatIsoDate(day);
-    const items = (byDate.get(iso) ?? []).sort((a, b) => compareByDue(a.due, b.due) || a.title.localeCompare(b.title, 'pl'));
-    days.push({ date: iso, inMonth: day.m === month && day.y === year, holiday: holidays.get(iso) ?? null, items });
-  }
-  return days;
+  return monthGrid(year, month).map((g) => ({
+    date: g.date,
+    inMonth: g.inMonth,
+    holiday: g.holiday,
+    items: (byDate.get(g.date) ?? []).sort((a, b) => compareByDue(a.due, b.due) || a.title.localeCompare(b.title, 'pl')),
+  }));
 }

@@ -232,11 +232,18 @@ export function TodayScreen() {
           {label}
         </Text>
         {arrow(1, strings[`today.next.${mode}`], '›')}
-        {showsToday ? null : (
-          <Pressable accessibilityRole="button" accessibilityLabel={strings['today.goToday']} onPress={() => setAnchor(null)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control }}>
-            <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['today.goToday']}</Text>
-          </Pressable>
-        )}
+        {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={strings['today.goToday']}
+          accessibilityState={{ disabled: showsToday }}
+          disabled={showsToday}
+          testID="go-today"
+          onPress={() => setAnchor(null)}
+          style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
+        >
+          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['today.goToday']}</Text>
+        </Pressable>
       </View>
       <WhatsNew />
       <PushPrompt />

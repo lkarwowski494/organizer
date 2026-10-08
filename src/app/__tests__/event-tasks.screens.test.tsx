@@ -5,7 +5,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup , pickDate } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -204,7 +204,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-following'));
     await press(await screen.findByLabelText('Do dnia'));
-    await type(screen.getByTestId('event-until'), '2026-10-07');
+    await pickDate('event-until', '2026-10-07');
     await press(screen.getByTestId('event-save'));
     // „To i następne” od pierwszego wystąpienia = cała seria; kończy się dziś.
     expect(await screen.findByText('Najbliższe terminy po zmianie: dziś.')).toBeTruthy();

@@ -27,6 +27,7 @@ import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Task'>;
@@ -136,7 +137,7 @@ export function TaskScreen({ route, navigation }: Props) {
               ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
-      <Field label={strings['task.dueDate']} value={date} onChangeText={setDate} placeholder="2026-10-09" testID="task-date" />
+      <DateField label={strings['task.dueDate']} value={date} onChange={setDate} today={today} testID="task-date" />
       <Field label={strings['task.dueTime']} value={time} onChangeText={setTime} placeholder="17:30" testID="task-time" />
       {task.deadline_mode !== 'none' ? (
         <Button

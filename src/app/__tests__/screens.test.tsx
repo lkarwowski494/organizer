@@ -7,7 +7,7 @@ import { Alert, Share } from 'react-native';
 
 import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
-import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup } from './harness';
+import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
   const s = setup(opts);
@@ -28,13 +28,15 @@ describe('Moje sprawy', () => {
     expect(screen.queryByText('Kupić kwiaty')).toBeNull();
     expect(screen.queryByText('Zadanie Ali')).toBeNull();
     expect(within(screen.getByTestId('today-t-paczka')).getByText(/dziś · 18:00/)).toBeTruthy();
-    expect(screen.queryByLabelText('Dziś', { exact: true })).toBeTruthy(); // zakładka
+    expect(screen.getAllByLabelText('Dziś', { exact: true })).toHaveLength(2); // zakładka + powrót
+    // D101: „Dziś” zawsze na swoim miejscu, na bieżącym dniu wyszarzony.
+    expect(screen.getByTestId('go-today').props.accessibilityState).toMatchObject({ disabled: true });
     await press(screen.getByLabelText('Następny dzień'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Czwartek, 8 października');
     expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
     expect(screen.queryByText('Przypięte')).toBeNull();
-    expect(screen.getAllByLabelText('Dziś')).toHaveLength(2); // zakładka + powrót
-    await press(screen.getAllByLabelText('Dziś').find((e) => e.props.accessibilityRole === 'button')!);
+    expect(screen.getByTestId('go-today').props.accessibilityState).toMatchObject({ disabled: false });
+    await press(screen.getByTestId('go-today'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
     await press(screen.getByLabelText('Tydzień'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('5–11 października');
@@ -121,10 +123,7 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Otwórz: Kupić kwiaty'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
-    await type(screen.getByTestId('task-date'), '2026-02-30');
-    await press(screen.getByTestId('task-save'));
-    expect(screen.getByText('Wpisz datę jako RRRR-MM-DD, np. 2026-10-09')).toBeTruthy();
-    await type(screen.getByTestId('task-date'), '2026-10-09');
+    await pickDate('task-date', '2026-10-09');
     await type(screen.getByTestId('task-time'), '25:00');
     await press(screen.getByTestId('task-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();

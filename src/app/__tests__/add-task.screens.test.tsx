@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup , pickDate } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -54,7 +54,7 @@ describe('„Więcej” — pełny formularz', () => {
     await screen.findByTestId('screen-add-task');
     expect(screen.getByText('Nowe zadanie')).toBeTruthy();
     expect(screen.getByTestId('form-title').props.value).toBe('Trening');
-    expect(screen.getByTestId('form-date').props.value).toBe('2026-10-09');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
     expect(radio('Termin', '2026-10-09').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByLabelText('Lista')).toBeNull();
     await press(radio('Grupa', 'Klasa 2b'));
@@ -85,7 +85,7 @@ describe('„Więcej” — pełny formularz', () => {
     await press(screen.getByTestId('form-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
     await press(radio('Termin', 'Bez terminu'));
-    expect(screen.getByTestId('form-date').props.value).toBe('');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('');
     expect(screen.getByTestId('form-time').props.value).toBe('');
     const before = store.dispatched.length;
     await press(screen.getByText('Anuluj'));
@@ -147,7 +147,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await press(radio('Rodzaj', 'Wydarzenie'));
     await screen.findByTestId('screen-event-edit');
     expect(screen.getByTestId('event-title').props.value).toBe('Basen');
-    expect(screen.getByTestId('event-date').props.value).toBe('2026-10-08');
+    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('2026-10-08');
     expect(screen.getByTestId('event-start-0').props.value).toBe('19:00');
     expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
     expect(radio('Osoba odpowiedzialna', 'Ala').props.accessibilityState.selected).toBe(true);
@@ -162,15 +162,15 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await press(radio('Dla kogo', 'Kuba'));
     await press(radio('Rodzaj', 'Wydarzenie'));
     await screen.findByTestId('screen-event-edit');
-    expect(screen.getByTestId('event-date').props.value).toBe('2026-10-07');
+    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('2026-10-07');
     expect(radio('Osoba odpowiedzialna', 'Nikt konkretny').props.accessibilityState.selected).toBe(true);
-    // Całodniowe — do zadania bez godziny; zła data — bez daty.
+    // Całodniowe — do zadania bez godziny; dzień z kalendarza przechodzi.
     await press(radio('Pora', 'Cały dzień'));
-    await fireEvent.changeText(screen.getByTestId('event-date'), 'jutro');
+    await pickDate('event-date', '2026-10-09');
     await press(radio('Rodzaj', 'Zadanie'));
     await screen.findByTestId('screen-add-task');
     expect(screen.getByTestId('form-time').props.value).toBe('');
-    expect(screen.getByTestId('form-date').props.value).toBe('');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
     // Przycisk „Zadanie” w formularzu zadania niczego nie zmienia.
     await press(radio('Rodzaj', 'Zadanie'));
     expect(screen.getByTestId('screen-add-task')).toBeTruthy();

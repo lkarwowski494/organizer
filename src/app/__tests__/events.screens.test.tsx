@@ -6,7 +6,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup , pickDate } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -91,17 +91,17 @@ describe('Wydarzenia: dodawanie', () => {
     await press(screen.getByLabelText('Cały dzień'));
     expect(screen.queryByTestId('event-start-0')).toBeNull();
     await press(screen.getByLabelText('Do dnia'));
-    await type(screen.getByTestId('event-until'), '2026-10-01');
+    await pickDate('event-until', '2026-10-01');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText(/Ostatni dzień musi być/)).toBeTruthy();
-    await type(screen.getByTestId('event-until'), '2026-12-31');
+    await pickDate('event-until', '2026-12-31');
     await type(screen.getByTestId('event-interval'), '2');
     await press(screen.getByTestId('event-save'));
     expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Basen', start_date: '2026-10-07', start_time: null, rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=WE;UNTIL=20261231', audience: 'group' });
     expect(created(store.dispatched, 'events')[0]!.group_id).toBe('u-me'); // domyślnie pierwsza grupa: osobista
   });
 
-  it('co miesiąc: warianty dnia zależne od daty; zła data', async () => {
+  it('co miesiąc: warianty dnia zależne od daty', async () => {
     const { store } = await open(sampleBase());
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
@@ -113,18 +113,14 @@ describe('Wydarzenia: dodawanie', () => {
     await type(screen.getByTestId('event-title'), 'Zebranie');
     await type(screen.getByTestId('event-start-0'), '19:00');
     await press(screen.getByLabelText('Co miesiąc'));
-    await type(screen.getByTestId('event-date'), '2026-10-28');
+    await pickDate('event-date', '2026-10-28');
     expect(screen.getByLabelText('28. dnia')).toBeTruthy();
     expect(screen.getByLabelText('4. środa')).toBeTruthy();
     await press(screen.getByLabelText('ostatnia środa'));
-    await type(screen.getByTestId('event-date'), '2026-10-30');
+    await pickDate('event-date', '2026-10-30');
     expect(screen.queryByLabelText('5. piątek')).toBeNull();
     expect(screen.getByLabelText('ostatni piątek')).toBeTruthy();
-    await type(screen.getByTestId('event-date'), '2026-10-0');
-    expect(screen.queryByLabelText('Który dzień miesiąca')).toBeNull();
-    await press(screen.getByTestId('event-save'));
-    expect(screen.getByText('Sprawdź datę (RRRR-MM-DD).')).toBeTruthy();
-    await type(screen.getByTestId('event-date'), '2026-10-05');
+    await pickDate('event-date', '2026-10-05');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Ten wariant nie pasuje do wybranego dnia.')).toBeTruthy();
     await press(screen.getByLabelText('1. poniedziałek'));
@@ -175,7 +171,8 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await openDances();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-this'));
-    await type(await screen.findByTestId('event-date'), '2026-10-08');
+    await screen.findByTestId('event-date');
+    await pickDate('event-date', '2026-10-08');
     await press(screen.getByTestId('event-save'));
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
@@ -192,7 +189,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(await screen.findByTestId('event-edit'));
     await press(screen.getByTestId('scope-following'));
     expect(await screen.findByText('Zmieniasz to wystąpienie i wszystkie następne. Pierwsze zmienione: Środa, 7 października.')).toBeTruthy();
-    expect(screen.getByLabelText('Od dnia (RRRR-MM-DD)')).toBeTruthy();
+    expect(screen.getByText('Od dnia')).toBeTruthy();
     await type(screen.getByTestId('event-start-0'), '18:00');
     await type(screen.getByTestId('event-end-0'), '');
     await press(screen.getByTestId('event-save'));

@@ -23,6 +23,7 @@ import {
 } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title } from '../../ui/components';
+import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { RepeatEditor } from './RepeatEditor';
 
@@ -108,7 +109,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
           ...(dateChoice === 'other' ? [{ value: 'other', label: form.date }] : []),
         ]}
       />
-      <Field label={strings['task.dueDate']} value={form.date} onChangeText={(v) => set({ date: v })} placeholder="2026-10-09" testID="form-date" />
+      <DateField label={strings['task.dueDate']} value={form.date} onChange={(v) => set({ date: v })} today={today} testID="form-date" />
       <Field label={strings['task.dueTime']} value={form.time} onChangeText={(v) => set({ time: v })} placeholder="17:30" testID="form-time" />
       <Segmented
         label={strings['task.assignee']}

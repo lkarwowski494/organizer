@@ -4,7 +4,7 @@
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
 import { type ReactNode, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Dimensions, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Indicator } from '../domain/sync-engine/scheduler';
@@ -17,7 +17,8 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
   const style = { flex: 1, backgroundColor: c.ground };
   const content = { paddingTop: insets.top + 12, paddingBottom: 24, paddingHorizontal: 20, gap: 14 };
   return scroll ? (
-    <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled">
+    // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
+    <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
       {children}
     </ScrollView>
   ) : (
@@ -250,6 +251,11 @@ export function Field({ label, ...input }: TextInputProps & { label: string }) {
 /** Pole szybkiego dodawania (D18): biała pigułka z okrągłym przyciskiem „Dodaj” w kolorze akcentu (D72). */
 export function QuickAddField({ value, onChangeText, onSubmit, placeholder, children }: { value: string; onChangeText: (s: string) => void; onSubmit: () => void; placeholder: string; children?: ReactNode }) {
   const { c, font, size } = useTheme();
+  // D102: po dodaniu klawiatura znika (także po „+”, nie tylko po klawiszu zatwierdzenia).
+  const submit = () => {
+    Keyboard.dismiss();
+    onSubmit();
+  };
   return (
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingLeft: 18, paddingRight: 5, borderRadius: 27, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
@@ -258,7 +264,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
           accessibilityLabel={strings['quick.label']}
           value={value}
           onChangeText={onChangeText}
-          onSubmitEditing={onSubmit}
+          onSubmitEditing={submit}
           returnKeyType="done"
           placeholder={placeholder}
           placeholderTextColor={c.inkMuted}
@@ -267,7 +273,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={strings['quick.add']}
-          onPress={onSubmit}
+          onPress={submit}
           style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: size.TOUCH_TARGET / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}
         >
           <Text style={{ color: c.inverseInk, fontSize: 24, lineHeight: 26, fontFamily: font.text700 }}>+</Text>
