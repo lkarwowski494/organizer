@@ -25,7 +25,14 @@ const ENTRIES = Object.values(SHOPPING_KEYWORDS)
 /** Cała nazwa to wpis słownika: dokładnie albo (wpis z „*”) jego początek z końcówką bez spacji („mąk*” → „mąka”). */
 const matches = (e: (typeof ENTRIES)[number], name: string) => (e.prefix ? name.startsWith(e.text) && !name.slice(e.text.length).includes(' ') : name === e.text);
 
-/** Bezokolicznik i rzeczownik odczasownikowy („karmić”, „mopowanie”, „karmienie”) — nie produkt, choć pasuje do rdzenia. */
+/**
+ * Bezokolicznik i rzeczownik odczasownikowy („karmić”, „mopowanie”, „karmienie”) — nie produkt, choć pasuje do rdzenia.
+ * Bezokolicznik kończy się na -ć (-ać, -ić, -yć, -eć, -ść, -źć; rzadziej -c: „rzec”) — Zasady pisowni PWN [54]:
+ * „Na -ić, -yć kończą się formy bezokolicznika…”, https://sjp.pwn.pl/zasady/54-zakonczenia-form-bezokolicznika;629367.html;
+ * rzeczowniki odczasownikowe: „Formy na -anie, -enie zachowują ściślejszy związek z czasownikiem” (prof. M. Bańko,
+ * https://sjp.pwn.pl/poradnia/haslo/gerundium-czy-rzeczownik-odczasownikowy;13636.html). Bezokoliczników na -c w słowniku
+ * produktów nie ma, więc ich nie sprawdzamy.
+ */
 const VERBAL_ENDINGS = ['ć', 'anie', 'enie'];
 
 /** Tytuł pozycji zakupów, gdy cały wpis to jeden znany produkt (z ilością albo bez); inaczej `null`. */
