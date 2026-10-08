@@ -1,8 +1,9 @@
 /** Przekazanie odpowiedzialności z potwierdzeniem (D70): zadanie, wydarzenie (termin / seria), „Do potwierdzenia”, plakietka. */
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
+import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { answerAlert, put, sampleBase, setup } from './harness';
 import { strings } from '../../i18n/strings.pl';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
@@ -119,6 +120,49 @@ describe('„Do potwierdzenia” i plakietka', () => {
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
     expect(screen.queryByTestId('tab-badge')).toBeNull();
     expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś');
+  });
+
+  it('audyt 2 (T-5): przekazanie zadania już zrobionego albo usuniętego nie czeka na przyjęcie i nie liczy się w plakietce', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-ala', { ...base.tasks!['t-ala']!, completed_at: '2026-10-07T08:00:00Z' });
+    put(base, 'tasks', 't-rower', { ...base.tasks!['t-ala']!, id: 't-rower', title: 'Rower do serwisu', completed_at: null, deleted_at: '2026-10-07T08:00:00Z' });
+    put(base, 'handoffs', 'h1', handoff('h1', {}));
+    put(base, 'handoffs', 'h2', handoff('h2', { entity_id: 't-rower' }));
+    await open(base);
+    expect(screen.queryByTestId('handoff-inbox')).toBeNull();
+    expect(screen.queryByTestId('tab-badge')).toBeNull();
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś');
+  });
+
+  it('zadanie powtarzane (PW-31): przekazany termin już zrobiony, następny u nadawcy — do przyjęcia jest obowiązek', async () => {
+    const base = sampleBase();
+    const smieci = { ...base.tasks!['t-ala']!, title: 'Śmieci', repeat: 'FREQ=WEEKLY;BYDAY=WE' };
+    put(base, 'tasks', 'smieci', { ...smieci, id: 'smieci', completed_at: '2026-10-07T07:00:00Z' });
+    put(base, 'tasks', nextId('smieci'), { ...smieci, id: nextId('smieci'), due_date: '2026-10-14' });
+    put(base, 'handoffs', 'h1', handoff('h1', { entity_id: 'smieci' }));
+    const { store } = await open(base);
+    expect(within(screen.getByTestId('handoff-inbox')).getByText('Ala przekazuje Ci: Śmieci')).toBeTruthy();
+    await press(screen.getByTestId('handoff-accept-h1'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } });
+  });
+
+  it('nadawca (PW-31): po odhaczeniu „czeka na przyjęcie” jest przy następnym terminie; zrobionego nie przekazuje się', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-paczka', { ...base.tasks!['t-paczka']!, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
+    put(base, 'handoffs', 'h5', handoff('h5', { entity_id: 't-paczka', from_member: 'mf', to_member: 'ala' }));
+    await open(base);
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    await answerAlert('Zrobione');
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Odebrać\ paczkę,\ (?!.*zrobione).*14/));
+    await screen.findByTestId('screen-task');
+    expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Odebrać\ paczkę,\ .*dziś/));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByText('Czeka na przyjęcie: Ala')).toBeNull();
+    expect(screen.queryByTestId('handoff-start')).toBeNull();
   });
 
   it('nadawca widzi odrzucenie z informacją, „OK” ją zamyka', async () => {

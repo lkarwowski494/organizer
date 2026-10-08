@@ -1,4 +1,5 @@
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
+import { nextId } from '../views/task-repeat';
 import {
   asHandoff,
   cancelHandoff,
@@ -97,6 +98,56 @@ describe('przekazanie odpowiedzialności (D70)', () => {
     expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['jest']);
     expect(outgoingPending(t, ME).size).toBe(0);
     expect(declinedHandoffs(t, ME)).toEqual([]);
+  });
+});
+
+describe('„Do potwierdzenia” bez spraw już zrobionych albo usuniętych (audyt 2: T-5)', () => {
+  it('zadanie odhaczone, zadanie albo wydarzenie usunięte, zakupy usunięte, przedmiot nieznany — nie do przyjęcia', () => {
+    const t = world();
+    put(t, 'tasks', 't2', { id: 't2', group_id: 'gf', list_id: 'l', title: 'Śmieci', completed_at: '2026-10-07T08:00:00Z', deleted_at: null });
+    put(t, 'tasks', 't3', { id: 't3', group_id: 'gf', list_id: 'l', title: 'Rower', completed_at: null, deleted_at: '2026-10-07T08:00:00Z' });
+    put(t, 'events', 'e2', { id: 'e2', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-09', deleted_at: '2026-10-07T08:00:00Z' });
+    put(t, 'lists', 'z1', { id: 'z1', group_id: 'gf', kind: 'shopping', name: 'Biedronka', deleted_at: '2026-10-07T08:00:00Z' });
+    put(t, 'lists', 'z2', { id: 'z2', group_id: 'gf', kind: 'shopping', name: 'Lidl', deleted_at: null });
+    const h = (id: string, entity: string, entity_id: string) => put(t, 'handoffs', id, { id, group_id: 'gf', entity, entity_id, occurrence_date: null, from_member: 'mm', to_member: 'mf', status: 'pending' });
+    h('h-ok', 'tasks', 't1');
+    h('h-done', 'tasks', 't2');
+    h('h-del', 'tasks', 't3');
+    h('h-ev-del', 'events', 'e2');
+    h('h-ev', 'events', 'e1');
+    h('h-trip-del', 'lists', 'z1');
+    h('h-trip', 'lists', 'z2');
+    h('h-gone', 'tasks', 'nie-ma');
+    expect(incomingHandoffs(t, ME).map((x) => x.id)).toEqual(['h-trip', 'h-ok', 'h-ev']);
+  });
+});
+
+describe('zadanie powtarzane: przekazanie obowiązku, nie terminu (decyzja właściciela z 8.10.2026, PW-31)', () => {
+  const repeating = (t: T, id: string, over: Row = {}) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', title: 'Śmieci', assignee_member_id: 'mm', deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=WEEKLY;BYDAY=MO', completed_at: null, deleted_at: null, ...over });
+  const pending = (t: T) => put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'tasks', entity_id: 's0', occurrence_date: null, from_member: 'mm', to_member: 'mf', status: 'pending' });
+
+  it('przekazany termin zrobiony — przekazanie dotyczy następnego (skrzynka, tytuł); zrobione po drodze pomijane', () => {
+    const t = world();
+    repeating(t, 's0', { completed_at: '2026-10-12T08:00:00Z' });
+    repeating(t, nextId('s0'), { title: 'Śmieci i szkło', due_date: '2026-10-19' });
+    pending(t);
+    expect(incomingHandoffs(t, ME).map((h) => [h.id, h.title, h.subjects])).toEqual([['h', 'Śmieci i szkło', [nextId('s0')]]]);
+    put(t, 'tasks', nextId('s0'), { ...t.tasks![nextId('s0')]!, completed_at: '2026-10-19T08:00:00Z' });
+    repeating(t, nextId(nextId('s0')), { due_date: '2026-10-26' });
+    expect(incomingHandoffs(t, ME).map((h) => h.subjects)).toEqual([[nextId(nextId('s0'))]]);
+    // Kopia w koszu i nic dalej — nie ma czego przyjmować.
+    put(t, 'tasks', nextId(nextId('s0')), { ...t.tasks![nextId(nextId('s0'))]!, deleted_at: 'x' });
+    expect(incomingHandoffs(t, ME)).toEqual([]);
+  });
+
+  it('nadawca widzi „czeka na przyjęcie” przy każdym niezrobionym terminie łańcucha, nie przy zrobionym', () => {
+    const t = world();
+    repeating(t, 's0', { assignee_member_id: 'mf', rollover: false, due_date: '2026-10-05' }); // minione niezrobione…
+    repeating(t, nextId('s0'), { assignee_member_id: 'mf' }); // …i jego kopia (D133)
+    put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'tasks', entity_id: 's0', occurrence_date: null, from_member: 'mf', to_member: 'mm', status: 'pending' });
+    expect([...outgoingPending(t, ME).keys()]).toEqual([handoffKey('tasks', 's0', null), handoffKey('tasks', nextId('s0'), null)]);
+    put(t, 'tasks', 's0', { ...t.tasks!.s0!, completed_at: '2026-10-08T08:00:00Z' });
+    expect([...outgoingPending(t, ME).keys()]).toEqual([handoffKey('tasks', nextId('s0'), null)]);
   });
 });
 

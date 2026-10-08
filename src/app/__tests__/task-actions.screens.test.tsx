@@ -7,6 +7,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { config } from '../../config';
+import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
 import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
 
@@ -54,8 +55,9 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     await press(screen.getByLabelText('Oznacz jako zrobione: Wybrać tulipany'));
     await answerAlert('Anuluj');
     await press(screen.getByLabelText('Oznacz jako zrobione'));
-    expect(lastAlert().message).toBe('Kupić kwiaty');
-    await answerAlert('Zrobione');
+    // Z niezrobionym podzadaniem — pytanie z wyborem (decyzja właściciela z 8.10.2026).
+    expect(lastAlert().message).toBe('Kupić kwiaty: zostało 1 niezrobione podzadanie.');
+    await answerAlert('Zostaw podzadania');
     expect(store.dispatched.at(-1)).toMatchObject({ id: 't-kwiaty', set: { completed_at: expect.any(String) } });
     const n = (Alert.alert as unknown as jest.Mock).mock.calls.length;
     await press(screen.getByLabelText('Oznacz jako niezrobione'));
@@ -205,6 +207,24 @@ describe('adresat we wspólnej grupie (D68)', () => {
     expect(store.dispatched).toHaveLength(n);
   });
 
+  it('audyt 2 (T-15): przypięte zadanie osoby usuniętej z grupy (D132) i zadanie odwołanego spotkania (D14) — ostrzeżenie, nie ciche zniknięcie', async () => {
+    const base = sampleBase();
+    put(base, 'group_members', 'ala', { ...base.group_members!.ala!, deleted_at: '2026-10-06T08:00:00Z' });
+    put(base, 'tasks', 'rower', { ...base.tasks!['t-kwiaty']!, id: 'rower', title: 'Rower do serwisu', assignee_member_id: 'ala', deadline_mode: 'none', due_date: null });
+    put(base, 'events', 'zeb', { id: 'zeb', group_id: 'gf', title: 'Zebranie', note: null, start_date: '2026-10-09', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 });
+    put(base, 'event_overrides', 'zeb-o', { id: 'zeb-o', event_id: 'zeb', group_id: 'gf', occurrence_date: '2026-10-09', cancelled: true, deleted_at: null, version: 1 });
+    put(base, 'tasks', 'ciasto', { ...base.tasks!['t-kwiaty']!, id: 'ciasto', title: 'Upiec ciasto', deadline_mode: 'event', due_date: null, event_id: 'zeb', occurrence_date: '2026-10-09' });
+    await open(base);
+    expect(screen.queryByText('Rower do serwisu')).toBeNull(); // nikt nie ma go w Moich sprawach…
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    // …więc lista mówi to wprost.
+    expect(within(await screen.findByTestId('task-rower')).getByText(/bez osoby i terminu/)).toBeTruthy();
+    expect(within(screen.getByTestId('task-ciasto')).getByText(/bez osoby i terminu/)).toBeTruthy();
+    await press(screen.getByLabelText(/^Otwórz:\ Rower\ do\ serwisu(,|$)/));
+    expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
+  });
+
   it('istniejące zadanie bez adresata: czerwony dopisek na liście i w zadaniu; grupa osobista i zakupy bez pytania', async () => {
     const base = sampleBase();
     put(base, 'tasks', 'rosół', { ...base.tasks!['t-kwiaty']!, id: 'rosół', title: 'Dać dzieciom rosół', deadline_mode: 'none', due_date: null });
@@ -226,5 +246,95 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'książka');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
+  });
+});
+
+describe('odhaczenie zadania z niezrobionymi podzadaniami (decyzja właściciela z 8.10.2026)', () => {
+  // Odebrać paczkę (dziś 18:00, moje) z podzadaniami: etykieta (z podzadaniem taśma) i karton — już zrobiony.
+  function parcel() {
+    const base = sampleBase();
+    const sub = (id: string, parent: string, title: string, extra: Record<string, unknown> = {}) =>
+      put(base, 'tasks', id, { ...base.tasks!['t-paczka']!, id, parent_id: parent, title, deadline_mode: 'inherit', due_date: null, due_time: null, assignee_member_id: null, ...extra });
+    sub('s-etykieta', 't-paczka', 'Wydrukować etykietę');
+    sub('s-tasma', 's-etykieta', 'Kupić taśmę');
+    sub('s-karton', 't-paczka', 'Złożyć karton', { completed_at: '2026-10-07T07:00:00Z' });
+    put(base, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Zebranie', note: null, start_date: '2026-10-07', start_time: '19:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 });
+    put(base, 'tasks', 't-ciasto', { ...base.tasks!['t-paczka']!, id: 't-ciasto', title: 'Upiec ciasto', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' });
+    sub('s-jajka', 't-ciasto', 'Kupić jajka');
+    return base;
+  }
+  const asks = (title: string, n: string) => {
+    expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: `${title}: ${n}.` });
+    expect(lastAlert().buttons.map((b) => b.text)).toEqual(['Anuluj', 'Zostaw podzadania', 'Oznacz wszystko jako zrobione']);
+  };
+
+  it('to samo pytanie wszędzie, gdzie się odhacza: Moje sprawy, lista, ekran zadania, Kalendarz, wydarzenie', async () => {
+    const { store } = await open(parcel());
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
+    await answerAlert('Anuluj');
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
+    await answerAlert('Anuluj');
+    await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
+    await screen.findByTestId('screen-task');
+    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
+    await answerAlert('Anuluj');
+    // Podzadanie z własnym podzadaniem pyta tak samo.
+    await press(screen.getByLabelText('Oznacz jako zrobione: Wydrukować etykietę'));
+    asks('Wydrukować etykietę', 'zostało 1 niezrobione podzadanie');
+    await answerAlert('Anuluj');
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Kalendarz'));
+    await press(await screen.findByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
+    await answerAlert('Anuluj');
+    await press(screen.getByTestId('cal-event-ev-2026-10-07'));
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Oznacz jako zrobione: Upiec ciasto'));
+    asks('Upiec ciasto', 'zostało 1 niezrobione podzadanie');
+    await answerAlert('Anuluj');
+    expect(store.dispatched).toEqual([]);
+  });
+
+  it('„Oznacz wszystko jako zrobione”: zadanie z niezrobionymi podzadaniami naraz; „Cofnij” przywraca wszystko', async () => {
+    const { store } = await open(parcel());
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    await answerAlert('Oznacz wszystko jako zrobione');
+    const done = { completed_at: '2026-10-07T08:00:00.000Z' };
+    expect(store.dispatched).toEqual(['t-paczka', 's-etykieta', 's-tasma'].map((id) => ({ kind: 'patch', entity: 'tasks', id, set: done })));
+    expect(screen.queryByLabelText(/Wydrukować etykietę/)).toBeNull();
+    const bar = screen.getByTestId('undo-bar');
+    expect(within(bar).getByText('Zrobione: Odebrać paczkę i 2 podzadania')).toBeTruthy();
+    await press(within(bar).getByLabelText('Cofnij'));
+    expect(store.dispatched.slice(3)).toEqual(['t-paczka', 's-etykieta', 's-tasma'].map((id) => ({ kind: 'patch', entity: 'tasks', id, set: { completed_at: null } })));
+    expect(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę')).toBeTruthy();
+    // Zrobione wcześniej („Złożyć karton”) zostaje zrobione.
+    expect(store.dispatched.some((o) => o.kind === 'patch' && o.id === 's-karton')).toBe(false);
+  });
+
+  it('„Zostaw podzadania”: tylko zadanie; powtarzane — następny termin z kopiami podzadań; dziś podzadania jeszcze są', async () => {
+    const base = parcel();
+    put(base, 'tasks', 't-paczka', { ...base.tasks!['t-paczka']!, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
+    const { store } = await open(base);
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
+    await answerAlert('Zostaw podzadania');
+    expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    const created = store.dispatched.slice(1).map((o) => (o.kind === 'create' ? [o.id, o.set.parent_id, o.set.title, o.set.due_date ?? null] : o.kind));
+    expect(created).toEqual([
+      [nextId('t-paczka'), null, 'Odebrać paczkę', '2026-10-14'],
+      [nextId('s-etykieta'), nextId('t-paczka'), 'Wydrukować etykietę', null],
+      [nextId('s-tasma'), nextId('s-etykieta'), 'Kupić taśmę', null],
+      [nextId('s-karton'), nextId('t-paczka'), 'Złożyć karton', null],
+    ]);
+    expect(screen.queryByTestId('undo-bar')).toBeNull(); // pojedyncze odhaczenie — jak dotąd bez paska
+    // Niezrobione podzadania zrobionego zadania dziś jeszcze widać (z dopiskiem zadania); od jutra mijają.
+    expect(screen.getByLabelText(/^Otwórz: Wydrukować etykietę, .*↳ Odebrać paczkę/)).toBeTruthy();
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(screen.queryByLabelText(/Wydrukować etykietę/)).toBeNull();
   });
 });

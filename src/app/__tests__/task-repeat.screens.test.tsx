@@ -27,6 +27,27 @@ describe('powtarzanie zadania', () => {
     expect(await screen.findByLabelText(/^Otwórz: Leki/)).toBeTruthy();
   });
 
+  it('audyt 2 (T-19): minione „od wykonania” dostaje następne na dziś, nie na wczoraj + interwał', async () => {
+    const b = sampleBase();
+    put(b, 'tasks', 'podlac', { ...b.tasks!['t-paczka']!, id: 'podlac', title: 'Podlać kwiaty', due_date: '2026-10-05', due_time: null, rollover: false, repeat: 'AFTER=WEEKLY;INTERVAL=1' });
+    const s = setup({ base: b });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    expect(s.store.dispatched).toEqual([expect.objectContaining({ kind: 'create', id: nextId('podlac'), set: expect.objectContaining({ due_date: '2026-10-07', repeat: 'AFTER=WEEKLY;INTERVAL=1' }) })]);
+    expect(await screen.findByLabelText(/^Otwórz: Podlać kwiaty/)).toBeTruthy();
+  });
+
+  it('decyzja właściciela z 8.10.2026: zaległe „codziennie” odhaczone dziś — następne jutro, bez osobnego na dziś', async () => {
+    const b = sampleBase();
+    put(b, 'tasks', 'leki', { ...b.tasks!['t-paczka']!, id: 'leki', title: 'Leki', due_date: '2026-10-05', due_time: '08:00:00', repeat: 'FREQ=DAILY' });
+    const s = setup({ base: b });
+    await s.renderApp(<RootStack />);
+    await press(await screen.findByLabelText('Oznacz jako zrobione: Leki'));
+    await answerAlert('Zrobione');
+    expect(s.store.dispatched.slice(-1)).toEqual([expect.objectContaining({ kind: 'create', id: nextId('leki'), set: expect.objectContaining({ due_date: '2026-10-08', due_time: '08:00:00' }) })]);
+    expect(screen.queryByLabelText(/^Otwórz: Leki/)).toBeNull();
+  });
+
   it('audyt 2 (T-12): dziecko odhacza zadanie powtarzane bez kopii (serwer by ją odrzucił)', async () => {
     const child = sampleBase();
     child.group_members!.mf = { ...child.group_members!.mf, role: 'child' };

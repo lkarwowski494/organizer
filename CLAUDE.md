@@ -48,7 +48,7 @@ ma w komentarzu adres źródła.
 - Każda funkcja testowana automatycznie w najszerszym możliwym zakresie, we wszystkich warstwach, które
   jej dotyczą (logika, własności, korpusy z niezależnym wzorcem, mutacje, kontrakty, synchronizacja, RLS,
   migracje, ekrany, dostępność, wygląd, E2E, wydajność, bezpieczeństwo). Bez testów funkcja nie jest zrobiona.
-- Progi: logika (`src/domain`, `src/config`, później `src/sync`, `src/data`) 100% pokrycia linii i gałęzi
+- Progi: logika (`src/domain`, `src/config`, `src/sync`, `src/data`) 100% pokrycia linii i gałęzi
   oraz ≥ 90% wykrytych mutacji; każdy ekran ma test RNTL, każda funkcja scenariusz E2E.
 - Błąd najpierw dostaje test, który go odtwarza, potem poprawkę.
 - Oczekiwania w korpusach liczy niezależna implementacja (inny język lub biblioteka), nie testowany kod.
@@ -59,7 +59,8 @@ ma w komentarzu adres źródła.
 - Ekrany czytają wyłącznie z lokalnej bazy SQLite (expo-sqlite, zwykły SQL w `src/data/db`; Drizzle z D25 nie został użyty). Każda zmiana zapisuje się
   lokalnie w jednej transakcji z wpisem w kolejce `pending_ops` (D2, R1).
 - Serwer: Supabase Free, Frankfurt (D1). Push zmian: RPC `sync_push` (SECURITY INVOKER, RLS jako jedyna
-  kontrola dostępu). Pull: kursor = wersja per grupa (D32). Realtime Broadcast wyłącznie jako pusty sygnał.
+  kontrola dostępu). Pull: kursor = wersja per grupa (D32). Realtime Broadcast wyłącznie jako sygnał bez treści
+  spraw (numer wersji grupy albo znacznik zmiany dostępu).
 - Grupa jest kontenerem i granicą bezpieczeństwa; widoczność group/restricted/private (D3).
 - Każdy obiekt ma UUIDv7 nadawany na telefonie (`src/domain/ids.ts`, R3); zmiany wysyłane per pole.
 - Członek grupy: `member_id` z opcjonalnym `user_id` (profile dzieci bez kont, D10/D34).
@@ -89,15 +90,16 @@ npx expo install <pakiet>   # zawsze zamiast npm install dla pakietów z kodem n
 Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla wersji z `package.json`
 (SDK 57): https://docs.expo.dev/versions/v57.0.0/ — nie polegaj na pamięci.
 
-## Bezpieczeństwo (repozytorium będzie publiczne)
+## Bezpieczeństwo (repozytorium jest publiczne)
 
 - Sekrety nigdy w repozytorium: pliki `.p8`, `.p12`, `.mobileprovision`, `.env`, hasła, tokeny.
   Klucz APNs żyje wyłącznie w sekretach Supabase; klucze App Store Connect i fastlane match wyłącznie
   w środowisku GitHub `ios-release` (bez zatwierdzania, tylko gałąź `main` i tagi `v*` — D53, 7.10.2026; buildy
   uruchamia też Claude). Środowisko `supabase-prod` też bez zatwierdzania (D78, 7.10.2026, na czas rozwoju): tylko gałąź `main`, wdrożenia uruchamia Claude po zielonych testach bazy (`db.yml`), zawsze w trybie `apply` z podglądem w logu.
-- gitleaks w CI przy każdym pushu i PR. Nowy typ sekretu → reguła w `.gitleaks.toml`.
+- gitleaks w CI przy każdym pushu na `main` i każdym PR, nocą na całej historii. Nowy typ sekretu → reguła w `.gitleaks.toml`.
 - Workflow: tylko `pull_request` (nigdy `pull_request_target` z kodem z PR), akcje przypięte do pełnego SHA,
-  `permissions: contents: read` domyślnie, brak artefaktów z buildów iOS.
+  `permissions: contents: read` domyślnie, brak artefaktów z buildów wydania iOS (E2E publikuje tylko zrzuty ekranu
+  i końcówkę logu — D170, 8.10.2026).
 - Commity podpisane adresem noreply: `336954459+lkarwowski494@users.noreply.github.com`.
 - Przed zmianą widoczności repo na publiczne: audyt całej historii (gitleaks + drugi skaner), e-maili
   w commitach, ustawień workflow i logów przebiegów — wyniki do właściciela przed przełączeniem.
