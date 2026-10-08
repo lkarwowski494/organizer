@@ -184,7 +184,7 @@ describe('telefon dziecka z kontem', () => {
     expect(within(screen.getByTestId('task-t-skladka')).queryByRole('checkbox')).toBeNull();
     await press(screen.getByLabelText(/^Otwórz: Zapłacić składkę/));
     await screen.findByTestId('screen-task');
-    expect(screen.queryByLabelText('Oznacz jako zrobione')).toBeNull();
+    expect(screen.queryByLabelText(/^Oznacz jako zrobione/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lks'));

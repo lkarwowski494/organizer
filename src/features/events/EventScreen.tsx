@@ -25,7 +25,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -240,8 +240,10 @@ export function EventScreen({ route, navigation }: Props) {
               ]}
             />
           ) : null}
-          <Field label={strings['event.taskAdd']} value={taskTitle} onChangeText={setTaskTitle} onSubmitEditing={addTask} testID="event-task-title" />
-          <Button kind="secondary" label={strings['event.taskAdd']} testID="event-task-add" onPress={addTask} />
+          {/* Audyt 2 (M-244): jak każde pole dodawania; terminu nie rozpoznajemy — daje go wydarzenie (tekst zostaje w nazwie). */}
+          <QuickAddField value={taskTitle} onChangeText={setTaskTitle} onSubmit={addTask} placeholder={strings['event.taskAdd']}>
+            <Body muted>{strings['event.taskAddHint']}</Body>
+          </QuickAddField>
         </View>
       ) : null}
 

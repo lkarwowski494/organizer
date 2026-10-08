@@ -353,7 +353,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     await press(screen.getByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
-    await press(screen.getByLabelText('Usuń termin'));
+    await press(radio('Kiedy', 'Bez terminu'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null } });
     expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
     expect(screen.queryByText(/Najpierw ustaw/)).toBeNull();

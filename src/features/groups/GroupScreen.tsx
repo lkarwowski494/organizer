@@ -12,24 +12,19 @@ import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
 import { formatDue } from '../../domain/format';
-import { groupDetail, type GroupDetail, listOpenCount, listsView } from '../../domain/views';
+import { groupDetail, listOpenCount, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
 import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
+import { useLiveText } from '../../ui/live-text';
 import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
-
-/** D130: zmiana nazwy do zapisu — tylko edytowana, niepusta i inna niż w danych (pustej nie zapisujemy). */
-function renameOp(d: GroupDetail | null, edit: string | null) {
-  const n = edit?.trim();
-  return d?.canRename && n && n !== d.group.name ? renameGroup(d.group.id, n) : null;
-}
 
 export function GroupScreen({ route, navigation }: Props) {
   const { userId, store, account, newId, prefs } = useServices();
@@ -41,23 +36,12 @@ export function GroupScreen({ route, navigation }: Props) {
   const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
   const [child, setChild] = useState('');
   // D130 + audyt 2 (R-16, R-36, T-22): nazwa podąża za danymi (także po pobraniu i zmianie z drugiego telefonu),
-  // dopóki jej nie edytuję; zapisuje się po wyjściu z pola albo z ekranu i tylko wtedy, gdy ją zmieniłem.
-  const [nameEdit, setNameEdit] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
+  // dopóki jej nie edytuję; zapisuje się po wyjściu z pola albo z ekranu i tylko wtedy, gdy ją zmieniłem. Pustej nie
+  // zapisujemy — komunikat (PW-20 A). Mechanizm wspólny z tytułem zadania (ui/live-text).
+  const name = useLiveText(d?.group.name ?? '', (n) => d?.canRename && store.dispatch(renameGroup(d.group.id, n)), { empty: strings['groups.error.nameEmpty'] });
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const latest = useRef({ nameEdit, d });
-  useEffect(() => {
-    latest.current = { nameEdit, d };
-  });
-  useEffect(
-    () => () => {
-      const op = renameOp(latest.current.d, latest.current.nameEdit);
-      if (op) store.dispatch(op);
-    },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
-  );
   // Karta „Następne kroki” grupy z Pierwszych kroków (PW-36 A), do „Nie teraz” na tym telefonie.
   const [nextSteps, setNextSteps] = useState(false);
   const childField = useRef<TextInput>(null);
@@ -71,12 +55,8 @@ export function GroupScreen({ route, navigation }: Props) {
       live = false;
     };
   }, [prefs, route.params.groupId]);
-  // Koniec edycji: po zapisie (zamknięcie ekranu nie wyśle jej drugi raz), przy wyjściu z grupy i przy koszu (wtedy
-  // niezapisana nazwa przepada — serwer odrzuciłby zmianę w grupie, której już nie ma).
-  const dropNameEdit = () => {
-    latest.current = { ...latest.current, nameEdit: null };
-    setNameEdit(null);
-  };
+  // Przy wyjściu z grupy i przy koszu niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
+  const dropNameEdit = name.drop;
 
   if (!d) {
     // Grupa właśnie utworzona albo dołączona (parametr trasy) dochodzi z pierwszym pobraniem — bez komunikatu o błędzie.
@@ -107,15 +87,6 @@ export function GroupScreen({ route, navigation }: Props) {
     <Button key="member" kind={adminFirst ? 'secondary' : 'primary'} label={strings['groups.invite']} onPress={() => void makeInvite('member')} testID="invite" />,
     ...(d.canInviteAdmin ? [<Button key="admin" kind={adminFirst ? 'primary' : 'secondary'} label={strings['groups.inviteAdmin']} onPress={() => void makeInvite('admin')} testID="invite-admin" />] : []),
   ];
-  // Decyzja właściciela z 8.10.2026 (audyt 2, PW-20 A): pustej nazwy nie zapisujemy — komunikat jak przy imieniu.
-  const commitName = () => {
-    if (nameEdit === null) return;
-    if (nameEdit.trim() === '') return setNameError(strings['groups.error.nameEmpty']);
-    const op = renameOp(d, nameEdit);
-    if (op) store.dispatch(op);
-    dropNameEdit();
-  };
-
   return (
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
@@ -220,8 +191,8 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       {d.canRename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['groups.name']} value={nameEdit ?? d.group.name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} maxLength={config.lengths.GROUP_NAME} testID="group-rename" />
-          {nameError ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{nameError}</Text> : null}
+          <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} testID="group-rename" />
+          {name.error ? <ErrorText>{name.error}</ErrorText> : null}
         </View>
       ) : null}
       {d.canSetColor ? (

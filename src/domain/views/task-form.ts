@@ -1,10 +1,9 @@
 /**
- * Pełny formularz zadania (D90, ADR 0019): „Więcej” przy polu dodawania i „Zmień” po szybkim dodaniu. Wypełniony tym,
- * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, osoby i powtarzania (bez wyboru listy, D97).
- *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
- *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
- *    (z notatką, bez podzadań) na ogólnej liście nowej grupy, a stare idzie do kosza razem z podzadaniami (można je
- *    przywrócić); ekran mówi, ile podzadań to dotyczy (`movedSubtasks`, audyt 2: T-33).
+ * Pełny formularz nowego zadania (D90, ADR 0019): „Więcej” przy polu dodawania. Wypełniony tym, co rozpoznał parser
+ * (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, osoby i powtarzania (bez wyboru listy, D97).
+ * Zmiana istniejącego zadania to tylko ekran zadania (decyzja właściciela 8.10.2026, D178 / PW-19 A) — „Zmień” po
+ * szybkim dodaniu otwiera ekran zadania, a przeniesienie do innej grupy robi task-move.ts.
+ *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`).
  *  - We wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw (D68) — od decyzji właściciela
  *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
@@ -12,19 +11,16 @@ import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
-import { createList, createTask, patchTask, remove, setDue } from './commands';
+import { createList, createTask } from './commands';
 import { groupsView, listsView } from './index';
 import type { MentionTarget } from './mention';
-import { asTask, type Tables } from './model';
-import { subtasksOf } from './nesting';
+import type { Tables } from './model';
 import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
-import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
+import { type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
   title: string;
   groupId: string;
-  /** Lista zadania przy „Zmień” (zostaje, dopóki grupa ta sama); null = ogólna lista grupy (D97). */
-  listId: string | null;
   date: string;
   time: string;
   assigneeId: string | null;
@@ -88,7 +84,6 @@ export function formFromText(
     form: {
       title: parsed.title,
       groupId: target?.groupId ?? '',
-      listId: null,
       date: parsed.due?.date ?? '',
       time: parsed.due?.time ?? '',
       assigneeId: target?.memberId ?? null,
@@ -104,22 +99,6 @@ export function formFromText(
 export function pickCandidate(f: TaskForm, mention: string, c: MentionTarget): TaskForm {
   const title = f.title.replace(`@${mention}`, ' ').replace(/\s+/g, ' ').replace(/\s+([,;:.!?])/g, '$1').trim();
   return { ...f, title, groupId: c.groupId, assigneeId: c.memberId };
-}
-
-/** Formularz z istniejącego zadania („Zmień”). */
-export function formFromTask(t: Tables, taskId: string): TaskForm | null {
-  const raw = t.tasks?.[taskId];
-  if (!raw) return null;
-  const x = asTask(raw);
-  return {
-    title: x.title,
-    groupId: x.group_id,
-    listId: x.list_id,
-    date: x.deadline_mode === 'own' && x.due_date ? x.due_date : '',
-    time: x.deadline_mode === 'own' && x.due_time ? x.due_time.slice(0, 5) : '',
-    assigneeId: x.assignee_member_id,
-    repeat: parseRepeat(raw.repeat as string | undefined),
-  };
 }
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -139,58 +118,28 @@ export function validateForm(t: Tables, userId: string, f: TaskForm): FormError 
 
 /**
  * Dopisek „nikt tego nie widzi w Moich sprawach” (D68, PW-18 b): zadanie we wspólnej grupie bez osoby (usunięta z grupy
- * to nikt konkretny — D132, audyt 2: T-15) i bez terminu. Zostaje na swojej liście „Tylko ja” (ta sama grupa) — wtedy
- * poza regułą (A).
+ * to nikt konkretny — D132, audyt 2: T-15) i bez terminu. Nowe zadanie trafia na ogólną listę grupy, nigdy na listę
+ * „Tylko ja”, więc wyjątek A tu nie zachodzi.
  */
 export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
   if (formGroups(t, userId).find((g) => g.id === f.groupId)?.kind !== 'shared' || f.date.trim() !== '') return false;
   const person = f.assigneeId === null ? undefined : t.group_members?.[f.assigneeId];
-  if (person && person.deleted_at == null) return false;
-  const list = f.listId === null ? undefined : t.lists?.[f.listId];
-  return !(list && list.visibility === 'private' && list.group_id === f.groupId);
+  return !(person && person.deleted_at == null);
 }
 
-/** Ile żywych podzadań pójdzie do kosza razem z zadaniem przy zmianie grupy — kopia ich nie ma (audyt 2, T-33). */
-export const movedSubtasks = (t: Tables, taskId: string) => subtasksOf(t, taskId).length;
-
-/** Dzień tygodnia daty z formularza (do edytora powtarzania); bez daty — dziś. */
-export function formWeekday(f: TaskForm, today: CivilDate): number {
+/** Data z formularza (do edytora powtarzania: dzień tygodnia i miesiąca); bez poprawnej daty — dziś. */
+export function formDate(f: TaskForm, today: CivilDate): CivilDate {
   const m = DATE.exec(f.date.trim());
-  return isoWeekday(m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3])) ? parseIsoDate(f.date.trim()) : today);
+  return m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3])) ? parseIsoDate(f.date.trim()) : today;
 }
 
-/** Operacje zapisu (formularz musi przejść `validateForm`). Zwraca też id zadania po zapisie. */
-export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => string, originalId?: string): { ops: NewOp[]; taskId: string } {
-  const ops: NewOp[] = [];
+/** Operacje zapisu nowego zadania (formularz musi przejść `validateForm`). Zwraca też id zadania. */
+export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => string): { ops: NewOp[]; taskId: string } {
   const date = f.date.trim();
   const due = date ? { date, time: f.time.trim() || null } : null;
-  const original = originalId ? t.tasks?.[originalId] : undefined;
-  const sameGroup = !!original && original.group_id === f.groupId;
-  let listId: string;
-  if (sameGroup) listId = String(original!.list_id);
-  else {
-    const g = generalList(t, userId, f.groupId, newId);
-    listId = g.listId;
-    ops.push(...g.ops);
-  }
-  const title = f.title.trim();
-  if (sameGroup) {
-    const x = asTask(original!);
-    if (title !== x.title) ops.push(patchTask(x.id, { title }));
-    if (f.assigneeId !== x.assignee_member_id) ops.push(patchTask(x.id, { assignee_member_id: f.assigneeId }));
-    const sameDue = due ? x.deadline_mode === 'own' && x.due_date === due.date && (x.due_time?.slice(0, 5) ?? null) === due.time : x.deadline_mode === 'none';
-    if (!sameDue) ops.push(setDue(x.id, due));
-    const before = parseRepeat(original.repeat as string | undefined);
-    if (JSON.stringify(before) !== JSON.stringify(f.repeat)) ops.push(setRepeat(x.id, f.repeat, due?.date));
-    return { ops, taskId: x.id };
-  }
+  const g = generalList(t, userId, f.groupId, newId);
   const id = newId();
-  ops.push(createTask({ id, groupId: f.groupId, listId, parsed: { title, due, rrule: null, tokens: [], unrecognizedDay: null }, assigneeId: f.assigneeId }));
+  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null }, assigneeId: f.assigneeId })];
   if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
-  if (original) {
-    // Inna grupa: kopia z notatką, oryginał do kosza.
-    if (original.note) ops.push(patchTask(id, { note: String(original.note) }));
-    ops.push(remove('tasks', String(original.id)));
-  }
   return { ops, taskId: id };
 }
