@@ -181,8 +181,13 @@ describe('wiersze lokalne: wartości domyślne', () => {
       location: null,
       kind: 'event',
       split_from: null,
+      days: 1,
       deleted_at: null,
     });
+    // D199: długość z wiersza; brak, zero albo nie liczba całkowita = jeden dzień (wyjątek: jak w serii).
+    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', days: 14 }).days).toBe(14);
+    expect([0, 1.5, '3', null].map((days) => asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', days }).days)).toEqual([1, 1, 1, 1]);
+    expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05', days: 2 }).days).toBe(2);
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', split_from: 'e0' }).split_from).toBe('e0');
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', kind: 'lesson' }).kind).toBe('lesson');
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', kind: 'routine' }).kind).toBe('routine');
@@ -201,6 +206,7 @@ describe('wiersze lokalne: wartości domyślne', () => {
       responsible_member_id: null,
       all_day: false,
       responsible_cleared: false,
+      days: null,
       deleted_at: null,
     });
     expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05', cancelled: true }).cancelled).toBe(true);
@@ -304,7 +310,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
           id: sid,
           event_id: mo,
           date: '2026-10-19',
-          set: { title: 'Tańce Kuby', start_date: '2026-10-19', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null, location: null },
+          set: { title: 'Tańce Kuby', start_date: '2026-10-19', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null, location: null, days: 1 },
           participants: [],
           drop_overrides: [],
           tasks: [],
@@ -493,7 +499,7 @@ describe('szczegóły i formularz', () => {
     run(t, editEvent(detail(t, e.id), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00', endTime: '18:00', title: 'Inne' })));
     run(t, editEvent(detail(t, e.id), '2026-10-05', 'all', fields({ audience: 'members', participantIds: ['kuba'] })));
     const d = detail(t, e.id);
-    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null });
+    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1 });
     expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ title: 'Tańce Kuby', date: '2026-10-12', startTime: '18:00', endTime: '19:00' });
     expect(fieldsOf(d, '2026-10-19', 'this')).toMatchObject({ date: '2026-10-19', startTime: '18:00' });
     expect(fieldsOf(d, '2026-10-19', 'all').date).toBe('2026-10-05');

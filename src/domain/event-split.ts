@@ -38,7 +38,7 @@ export type SplitArgs = {
   event_id: string;
   /** Pierwszy dzień nowej serii: data wystąpienia, od którego zmieniam. */
   date: string;
-  set: { title: string; start_date: string; start_time: string | null; end_time: string | null; rrule: string | null; audience: 'group' | 'members'; responsible_member_id: string | null; location: string | null };
+  set: { title: string; start_date: string; start_time: string | null; end_time: string | null; rrule: string | null; audience: 'group' | 'members'; responsible_member_id: string | null; location: string | null; days?: number };
   participants: { id: string; member_id: string }[];
   /** Zmienione pojedynczo terminy, których nowa seria nie ma (audyt 2, E-20) — do kosza zamiast do nowej serii. */
   drop_overrides: string[];
@@ -97,6 +97,8 @@ export function applySplit(t: MutableTables, args: Row): void {
   const members = Object.values(t.group_members ?? {}).filter((m) => m.group_id === groupId && m.deleted_at == null);
   const inGroup = (m: string) => members.some((x) => x.member_id === m);
   const resp = members.some((m) => m.member_id === a.set.responsible_member_id && m.role !== 'child') ? a.set.responsible_member_id : null;
+  // D199: długość całodniowego; bez niej (starszy telefon) — jak w serii; z godziną zawsze 1 (jak wyzwalacz w SQL).
+  const days = (from: Row) => (a.set.start_time !== null ? 1 : (a.set.days ?? from.days ?? 1));
   const fields = { title: a.set.title, start_date: a.set.start_date, start_time: a.set.start_time, end_time: a.set.end_time, audience: a.set.audience, responsible_member_id: resp, location: a.set.location };
   if (a.set.start_date < a.date) return;
   const existing = events[a.id];
@@ -104,7 +106,7 @@ export function applySplit(t: MutableTables, args: Row): void {
     // Krok 1: powtórzone polecenie.
     if (String(existing.group_id) !== groupId || existing.split_from == null || existing.deleted_at != null) return;
     const capped = successor(events, a.id) ? ruleUntil(existing.rrule as string | null) : null;
-    events[a.id] = { ...existing, ...fields, rrule: capUntil(a.set.rrule, capped) };
+    events[a.id] = { ...existing, ...fields, days: days(existing), rrule: capUntil(a.set.rrule, capped) };
     syncParticipants(t, a.id, groupId, a.participants, inGroup);
     return;
   }
@@ -122,7 +124,7 @@ export function applySplit(t: MutableTables, args: Row): void {
   const rule = String(target.rrule);
   const hi = next ? ruleUntil(rule) : null;
   // Krok 3.
-  events[a.id] = { id: a.id, group_id: groupId, ...fields, note: target.note ?? null, rrule: capUntil(a.set.rrule, hi), kind: target.kind ?? 'event', split_from: tid, deleted_at: null };
+  events[a.id] = { id: a.id, group_id: groupId, ...fields, days: days(target), note: target.note ?? null, rrule: capUntil(a.set.rrule, hi), kind: target.kind ?? 'event', split_from: tid, deleted_at: null };
   if (next) events[String(next.id)] = { ...next, split_from: a.id };
   events[tid] = { ...target, rrule: capUntil(rule, formatIsoDate(addDays(parseIsoDate(a.date), -1))) };
   syncParticipants(t, a.id, groupId, a.participants, inGroup);
