@@ -62,7 +62,7 @@ describe('kalendarz iPhone’a', () => {
     expect(await screen.findByTestId('device-d|x1')).toBeTruthy();
     expect(screen.getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     expect(screen.getByTestId('device-dot-2026-10-07')).toBeTruthy();
-    await press(screen.getByLabelText('Dziś'));
+    await press(screen.getByTestId('tab-Today'));
     expect(await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
   });
 

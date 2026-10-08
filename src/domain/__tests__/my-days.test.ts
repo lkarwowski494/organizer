@@ -2,7 +2,7 @@ import type { CivilDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import type { Row } from '../sync-engine/client';
 import { calendarMonth, isExpired, listDetail, todayView } from '../views';
-import { myDays, rangeOf, shiftAnchor } from '../views/my-days';
+import { myDays, onlyGroups, rangeOf, shiftAnchor } from '../views/my-days';
 
 const ME = 'u-me';
 const TODAY: CivilDate = { y: 2026, m: 10, d: 7 }; // środa
@@ -368,5 +368,106 @@ describe('niezrobione podzadania zrobionego zadania (decyzja właściciela z 8.1
     put(t, 'tasks', 'sprz', { ...t.tasks!.sprz!, completed_at: null });
     expect(keys(myDays(t, ME, D('2026-10-14'), 'day', D('2026-10-14'), local))).toEqual(['2026-10-14 (dziś): o-odk o-pod-odk o-sprz o-faktura']);
     expect(isExpired({ rollover: true, deadline_mode: 'inherit', parent_id: 'p', completed_at: 'x' }, { date: '2026-10-01', time: null }, '2026-10-07', new Map([['p', { rollover: true, deadline_mode: 'own' as const, parent_id: null, completed_at: 'y' }]]))).toBe(false);
+  });
+});
+
+describe('PW-2 (M-35): zakres Moich spraw w grupie', () => {
+  function big(): T {
+    const t = world();
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'lists', 'lpriv', { id: 'lpriv', group_id: 'gf', kind: 'tasks', name: 'Moje w rodzinie', visibility: 'private', owner_member_id: 'mf', sort_key: 'a1', deleted_at: null });
+    put(t, 'lists', 'lz', { id: 'lz', group_id: 'gf', kind: 'shopping', name: 'Biedronka', visibility: 'group', sort_key: 'a2', deleted_at: null, due_date: '2026-10-07', responsible_member_id: null });
+    task(t, 'wspolne', { group_id: 'gf', list_id: 'lf' });
+    task(t, 'moje', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'mf' });
+    task(t, 'kuby', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba' });
+    task(t, 'prywatne', { group_id: 'gf', list_id: 'lpriv' });
+    task(t, 'osobiste', {});
+    ev(t, 'zebranie', '2026-10-07', { group_id: 'gf' });
+    ev(t, 'dyzur', '2026-10-07', { group_id: 'gf', start_time: '18:00:00', responsible_member_id: 'mf' });
+    ev(t, 'wycieczka', '2026-10-07', { group_id: 'gf', start_time: '19:00:00', audience: 'members' });
+    put(t, 'event_participants', 'pw', { id: 'pw', event_id: 'wycieczka', group_id: 'gf', member_id: 'mf', deleted_at: null });
+    ev(t, 'osobiste-ev', '2026-10-07', { start_time: '20:00:00' });
+    return t;
+  }
+  const day = (t: T, scope: 'all' | 'mineAndEvents' | 'mine') => myDays(t, ME, TODAY, 'day', TODAY, local, (g) => (g === 'gf' ? scope : 'all')).days[0]!.entries.map((e) => e.key);
+
+  it('Wszystko — jak dotąd (D89)', () => {
+    expect(day(big(), 'all')).toEqual(['t-lz', 't-kuby', 't-moje', 't-osobiste', 't-prywatne', 't-wspolne', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
+  });
+
+  it('Przypisane do mnie i wydarzenia: bez wspólnych nieprzypisanych, zadań dziecka i zakupów bez osoby; wydarzenia zostają', () => {
+    const k = day(big(), 'mineAndEvents');
+    expect(k).toEqual(expect.arrayContaining(['t-moje', 't-prywatne', 't-osobiste', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']));
+    expect(k).not.toEqual(expect.arrayContaining(['t-wspolne']));
+    expect(k.filter((x) => ['t-wspolne', 't-kuby', 't-lz'].includes(x))).toEqual([]);
+  });
+
+  it('Tylko przypisane do mnie: z wydarzeń tylko moja odpowiedzialność i imienny udział; grupa osobista bez zmian', () => {
+    const k = day(big(), 'mine');
+    expect(k.filter((x) => x.startsWith('e-'))).toEqual(['e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
+    expect(k.filter((x) => x.startsWith('t-')).sort()).toEqual(['t-moje', 't-osobiste', 't-prywatne']);
+  });
+
+  it('zakupy przypisane do mnie zostają w każdym zakresie', () => {
+    const t = big();
+    put(t, 'lists', 'lz', { ...t.lists!.lz!, responsible_member_id: 'mf' });
+    expect(day(t, 'mine')).toContain('t-lz');
+  });
+});
+
+describe('PWD-7 A (M-276): odhaczone dziś — osobno, w „Zrobione dziś”', () => {
+  it('dziś odhaczone nie stoją w planie dnia, tylko w doneToday (po tytule); wczoraj odhaczone — w historii wczoraj', () => {
+    const t = world();
+    task(t, 'b-dzis', { completed_at: '2026-10-07T09:00:00Z' });
+    task(t, 'a-dzis', { completed_at: '2026-10-07T08:00:00Z', due_date: '2026-10-09' });
+    task(t, 'wczoraj', { completed_at: '2026-10-06T08:00:00Z' });
+    const v = myDays(t, ME, TODAY, 'week', TODAY, local);
+    expect(v.doneToday.map((x) => x.id)).toEqual(['a-dzis', 'b-dzis']);
+    expect(keys(v).join(' ')).not.toMatch(/dzis/);
+    expect(keys(v)).toContain('2026-10-06 (minął): t-wczoraj');
+  });
+});
+
+describe('PWD-32 B (M-301): wydarzenie dziecka, za które odpowiada ktoś inny', () => {
+  function kid(): T {
+    const t = world();
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    ev(t, 'basen', '2026-10-07', { group_id: 'gf', audience: 'members', responsible_member_id: 'ala' });
+    put(t, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'kuba', deleted_at: null });
+    return t;
+  }
+  it('stoi informacyjnie (concernsMe false, childInfo z imieniem); w „Tylko przypisane do mnie” — nie', () => {
+    const v = myDays(kid(), ME, TODAY, 'day', TODAY, local);
+    const e = v.days[0]!.entries.find((x) => x.kind === 'event');
+    expect(e?.kind === 'event' && [e.event.concernsMe, e.event.childInfo, e.event.responsibleName]).toEqual([false, ['Kuba'], 'Ala']);
+    expect(myDays(kid(), ME, TODAY, 'day', TODAY, local, () => 'mine').days[0]!.entries).toEqual([]);
+    expect(myDays(kid(), ME, TODAY, 'day', TODAY, local, () => 'mineAndEvents').days[0]!.entries).toHaveLength(1);
+  });
+  it('osoba odpowiedzialna — ja: zwykły wpis (concernsMe), bez dopisku; dziecko z kontem nie widzi cudzych', () => {
+    const t = kid();
+    put(t, 'events', 'basen', { ...t.events!.basen!, responsible_member_id: 'mf' });
+    const e = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries[0]!;
+    expect(e.kind === 'event' && [e.event.concernsMe, e.event.childInfo, e.event.assignedToMe]).toEqual([true, null, true]);
+    const c = kid();
+    put(c, 'group_members', 'mf', { ...c.group_members!.mf!, role: 'child' });
+    expect(myDays(c, ME, TODAY, 'day', TODAY, local).days[0]!.entries).toEqual([]);
+  });
+});
+
+describe('PW-38 A (M-119): filtr grup', () => {
+  it('tylko wybrane grupy (zadania, wydarzenia, bez terminu, zrobione dziś); pusty zbiór — bez zmian; puste dni tygodnia znikają', () => {
+    const t = world();
+    task(t, 'dom', { group_id: 'gf', list_id: 'lf', due_date: '2026-10-08', assignee_member_id: 'mf' });
+    task(t, 'moje', { due_date: '2026-10-09' });
+    task(t, 'bez', { group_id: 'gf', list_id: 'lf', deadline_mode: 'none', due_date: null, assignee_member_id: 'mf' });
+    task(t, 'bez-moje', { deadline_mode: 'none', due_date: null });
+    task(t, 'zrobione', { completed_at: '2026-10-07T09:00:00Z' });
+    ev(t, 'zebranie', '2026-10-08', { group_id: 'gf' });
+    const v = myDays(t, ME, TODAY, 'week', TODAY, local);
+    expect(onlyGroups(v, new Set(), 'week')).toBe(v);
+    const f = onlyGroups(v, new Set(['gf']), 'week');
+    expect(keys(f)).toEqual(['2026-10-07 (dziś): ', '2026-10-08: t-dom e-zebranie-2026-10-08']);
+    expect([f.pinned.map((x) => x.id), f.doneToday.map((x) => x.id)]).toEqual([['bez'], []]);
+    expect(keys(onlyGroups(myDays(t, ME, TODAY, 'day', D('2026-10-09'), local), new Set(['gf']), 'day'))).toEqual(['2026-10-09: ']);
   });
 });

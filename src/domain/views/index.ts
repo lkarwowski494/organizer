@@ -6,14 +6,17 @@
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { monthGrid } from '../month-grid';
-import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
+import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { concernsMe, liveMembers, ownPrivateList } from './concerns';
 import { occurrenceResolver } from './event-rows';
 import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
-import { tripEntries } from './shopping-trip';
+import { doneTrips, tripEntries } from './shopping-trip';
+import { formatRepeat, repeatOf } from './task-repeat';
+import { occurrences, parseRule } from '../rrule';
 import { memberCanSeeList } from './visibility';
+import type { MyScope } from './my-scope';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
 
 export * from './model';
@@ -287,11 +290,14 @@ export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: Toda
  */
 export { liveMembers };
 
-/** Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). */
-export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>): boolean {
+/**
+ * Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). `scope` — zakres
+ * Moich spraw w grupie (PW-2): zadanie dziecka bez konta jest wtedy tylko w „Wszystko” (nie jest przypisane do mnie).
+ */
+export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>, scope: MyScope = 'all'): boolean {
   const a = x.assignee_member_id === null ? undefined : live.get(x.assignee_member_id);
-  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return g.me.role !== 'child' && memberCanSeeList(t, g.me.member_id, x.list_id);
-  return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g));
+  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return scope === 'all' && g.me.role !== 'child' && memberCanSeeList(t, g.me.member_id, x.list_id);
+  return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g), scope);
 }
 
 /** Imię osoby zadania (żywej; usunięta z grupy — nikt, D132). */
@@ -357,20 +363,39 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
   return out;
 }
 
-export type CalendarDay = { date: string; inMonth: boolean; holiday: string | null; items: TodayItem[] };
+/**
+ * Wpis dnia w Kalendarzu. `doneOn` — dzień odhaczenia (Europe/Warsaw), gdy inny niż dzień, w którym wpis stoi (PWD-1 C,
+ * audyt 2 M-173: „zrobione śr.”); `projected` — policzony przyszły termin zadania powtarzanego (PWD-15 A, M-284: blady,
+ * bez odhaczania); `expired` — minęło bez odhaczenia (D61, „minęło”); `overdueDays` — niezrobione po terminie, które
+ * przechodzi na kolejne dni (D61, „zaległe od …”), inaczej 0. Ten sam opis wiersza co w Moich sprawach (M-129).
+ */
+export type CalendarItem = TodayItem & { doneOn: string | null; projected: boolean; expired: boolean; overdueDays: number };
+export type CalendarDay = { date: string; inMonth: boolean; holiday: string | null; items: CalendarItem[] };
 
 /**
  * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek).
  * Dni z zadaniami z terminem z moich grup i polskimi dniami wolnymi (src/domain/holidays.ts).
- * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`.
+ * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`, a ostatnie zrobione
+ * zakupy listy — przekreślone w dniu planu (PWD-11 A, M-280; doneTrips).
+ * `today` i `localDate` (chwila → dzień w Warszawie) — do „zrobione śr.”, „minęło” i „zaległe”; bez nich (testy siatki)
+ * dzisiaj = 1.01.1970, a dzień odhaczenia = data UTC.
  */
-export function calendarMonth(t: Tables, userId: string, year: number, month: number): CalendarDay[] {
+export function calendarMonth(t: Tables, userId: string, year: number, month: number, opts: { today?: CivilDate; localDate?: (iso: string) => string } = {}): CalendarDay[] {
+  const isoToday = formatIsoDate(opts.today ?? { y: 1970, m: 1, d: 1 });
+  const localDate = opts.localDate ?? ((iso: string) => iso.slice(0, 10));
+  const grid = monthGrid(year, month);
+  const last = grid.at(-1)!.date;
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
   const all = rows(t, 'tasks', asTask).filter(alive);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
-  const byDate = new Map<string, TodayItem[]>();
+  const byDate = new Map<string, CalendarItem[]>();
+  const add = (date: string, item: CalendarItem) => byDate.set(date, [...(byDate.get(date) ?? []), item]);
+  const doneOn = (date: string, completedAt: string | null) => {
+    const d = completedAt === null ? null : localDate(completedAt);
+    return d === date ? null : d;
+  };
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
@@ -378,19 +403,35 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     // D135: Kalendarz = co było zaplanowane — także zrobione (przekreślone) i minione, w dniu swojego terminu.
     // Niezrobione „widoczne od” późniejszego dnia (start_date) w dniu terminu jeszcze nie stoi — jak w Moich sprawach.
     if (!g || !l || l.kind === 'shopping' || due === null || (x.completed_at === null && !isVisible(x, parseIsoDate(due.date)))) continue;
-    const list = byDate.get(due.date) ?? [];
-    list.push({ ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null });
-    byDate.set(due.date, list);
+    const expired = isExpired(x, due, isoToday, byId);
+    const overdue = x.completed_at === null && !expired && due.date < isoToday;
+    const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null };
+    add(due.date, { ...item, doneOn: doneOn(due.date, x.completed_at), projected: false, expired, overdueDays: overdue ? dayDiff(isoToday, due.date) : 0 });
+    // PWD-15 A: kolejne terminy otwartego zadania powtarzanego według kalendarza (od wykonania — nie da się ich
+    // przewidzieć), tylko w oknie siatki; zadanie powstanie dopiero po odhaczeniu poprzedniego (task-repeat.ts).
+    for (const date of x.completed_at === null && x.parent_id === null ? futureRepeats(t, x, due, last) : []) add(date, { ...item, due: { date, time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
   }
-  // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy.
+  // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy; ostatnie zrobione — przekreślone (PWD-11 A).
   for (const trip of tripEntries(t, groups, true)) {
     if (trip.due === null) continue;
-    byDate.set(trip.due.date, [...(byDate.get(trip.due.date) ?? []), trip]);
+    const overdue = trip.due.date < isoToday;
+    add(trip.due.date, { ...trip, doneOn: null, projected: false, expired: false, overdueDays: overdue ? dayDiff(isoToday, trip.due.date) : 0 });
   }
-  return monthGrid(year, month).map((g) => ({
+  for (const trip of doneTrips(t, groups, localDate)) add(trip.due!.date, { ...trip, doneOn: doneOn(trip.due!.date, trip.completed_at), projected: false, expired: false, overdueDays: 0 });
+  return grid.map((g) => ({
     date: g.date,
     inMonth: g.inMonth,
     holiday: g.holiday,
     items: (byDate.get(g.date) ?? []).sort((a, b) => compareByDue(a.due, b.due) || a.title.localeCompare(b.title, 'pl')),
   }));
+}
+
+const dayDiff = (a: string, b: string) => toDayNumber(parseIsoDate(a)) - toDayNumber(parseIsoDate(b));
+
+/** Daty kolejnych terminów zadania powtarzanego według kalendarza po `due`, do `last` włącznie (PWD-15 A). */
+function futureRepeats(t: Tables, x: Task, due: NonNullable<Due>, last: string): string[] {
+  const r = x.deadline_mode === 'own' ? repeatOf(t, x.id) : null;
+  if (!r || r.kind === 'after' || due.date >= last) return [];
+  const start = parseIsoDate(due.date);
+  return occurrences(start, parseRule(formatRepeat(r)), addDays(start, 1), parseIsoDate(last)).map(formatIsoDate);
 }

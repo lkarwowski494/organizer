@@ -5,6 +5,10 @@
  *  - dzień przyszły: zadania z terminem tego dnia i wydarzenia.
  * Wygasłe (D61: „Tylko tego dnia”, zadanie na spotkaniu) nie przechodzą na dziś. Tydzień od poniedziałku
  * (PN-EN ISO 8601, jak kalendarz).
+ * Odhaczone dziś stoją osobno (`doneToday`, PWD-7 A / audyt 2 M-276: zwinięta sekcja „Zrobione dziś (N)” — da się je
+ * odznaczyć bez szukania listy). Zakres grupy (PW-2, my-scope.ts) zawęża zadania, zakupy i wydarzenia; wydarzenie
+ * dziecka, za które odpowiada ktoś inny, stoi informacyjnie (PWD-32 B, Occurrence.childInfo) — poza „Tylko przypisane
+ * do mnie”.
  */
 import { addDays, type CivilDate, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
 import { effectiveDue } from '../deadlines';
@@ -14,6 +18,7 @@ import { occurrenceResolver } from './event-rows';
 import { expandEvents, type Occurrence } from './events';
 import { assigneeName, concernsMeTask, groupsView, isExpired, liveMembers, type TodayItem, visibleOnItsDay } from './index';
 import { asList, asTask, rows, type Tables } from './model';
+import { type ScopeOf, occurrenceInScope, scopeAll } from './my-scope';
 import { tripEntries } from './shopping-trip';
 
 export type RangeMode = 'day' | 'week' | 'month';
@@ -40,13 +45,13 @@ export function shiftAnchor(mode: RangeMode, anchor: CivilDate, k: number): Civi
 export type MyTask = TodayItem & { overdueDays: number };
 export type MyEntry = AgendaEntry | { kind: 'overdue'; key: string; task: MyTask };
 export type MyDay = { date: string; past: boolean; isToday: boolean; entries: MyEntry[] };
-export type MyDaysView = { pinned: TodayItem[]; days: MyDay[] };
+export type MyDaysView = { pinned: TodayItem[]; days: MyDay[]; doneToday: TodayItem[] };
 
 /**
  * Dni zakresu z ich zawartością. W tygodniu i miesiącu tylko dni, w których coś jest (i zawsze dziś);
  * w trybie dnia — zawsze ten jeden dzień. `localDate` zamienia chwilę odhaczenia (ISO, UTC) na dzień w Warszawie.
  */
-export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeMode, anchor: CivilDate, localDate: (iso: string) => string): MyDaysView {
+export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeMode, anchor: CivilDate, localDate: (iso: string) => string, scopeOf: ScopeOf = scopeAll): MyDaysView {
   const { from, to } = rangeOf(mode, anchor);
   const isoToday = formatIsoDate(today);
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
@@ -56,6 +61,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   const live = liveMembers(t);
   const occ = occurrenceResolver(t);
   const pinned: TodayItem[] = [];
+  const doneToday: TodayItem[] = [];
   const overdue: MyTask[] = [];
   const tasksByDay = new Map<string, TodayItem[]>();
   const push = (d: string, item: TodayItem) => tasksByDay.set(d, [...(tasksByDay.get(d) ?? []), item]);
@@ -65,11 +71,13 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
     if (!g || !l || l.kind === 'shopping') continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(t, x, g, due, live, l)) continue;
+    if (!concernsMeTask(t, x, g, due, live, l, scopeOf(g.id))) continue;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (x.completed_at !== null) {
       const d = localDate(x.completed_at);
-      if (d < isoToday) push(d, item); // odhaczone dziś znikają z widoku (jak dotąd); historia dla minionych dni
+      // Historia dla minionych dni; odhaczone dziś — w „Zrobione dziś”, nie w planie dnia.
+      if (d < isoToday) push(d, item);
+      else if (d === isoToday) doneToday.push(item);
       continue;
     }
     if (!visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
@@ -78,7 +86,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     else push(due.date, item);
   }
   // Zakupy z terminem albo osobą (D73) — jak zadanie: bez terminu przypięte, po terminie zaległe, inaczej w swoim dniu.
-  for (const trip of tripEntries(t, groups)) {
+  for (const trip of tripEntries(t, groups, false, scopeOf)) {
     if (trip.due === null) pinned.push(trip);
     else if (trip.due.date < isoToday) overdue.push({ ...trip, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(trip.due.date)) });
     else push(trip.due.date, trip);
@@ -88,7 +96,8 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   // każdego z dzieci (audyt 2, E-15: plan każdego dziecka kompletny).
   const lessons = new Map<string, Map<string, LessonBlock>>();
   for (const e of expandEvents(t, userId, from, to)) {
-    if (!e.concernsMe) continue;
+    const info = !e.concernsMe && e.childInfo !== null && scopeOf(e.groupId) !== 'mine';
+    if (!occurrenceInScope(e, scopeOf) && !info) continue;
     if (!e.lessonFor) {
       events.set(e.date, [...(events.get(e.date) ?? []), e]);
       continue;
@@ -121,6 +130,23 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     ];
     if (mode === 'day' || isToday || entries.length) days.push({ date: iso, past, isToday, entries });
   }
-  pinned.sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
-  return { pinned, days };
+  const byTitle = (a: TodayItem, b: TodayItem) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id);
+  return { pinned: pinned.sort(byTitle), days, doneToday: doneToday.sort(byTitle) };
+}
+
+/** Grupa wpisu Moich spraw (zadanie i zakupy, wydarzenie, lekcje dziecka). */
+export const entryGroup = (e: MyEntry): string => (e.kind === 'event' ? e.event.groupId : e.kind === 'lessons' ? e.block.groupId : e.task.group_id);
+
+/**
+ * Filtr grup (PW-38 A / audyt 2 M-119, D192): tylko wpisy z wybranych grup; pusty zbiór — bez filtra. Dni zostają
+ * (dziś i dzień widoku dnia stoją zawsze, myDays) — pusty dzień w tygodniu i miesiącu znika jak bez filtra.
+ */
+export function onlyGroups(v: MyDaysView, groups: ReadonlySet<string>, mode: RangeMode): MyDaysView {
+  if (groups.size === 0) return v;
+  const keep = (x: { group_id: string }) => groups.has(x.group_id);
+  return {
+    pinned: v.pinned.filter(keep),
+    doneToday: v.doneToday.filter(keep),
+    days: v.days.map((d) => ({ ...d, entries: d.entries.filter((e) => groups.has(entryGroup(e))) })).filter((d) => mode === 'day' || d.isToday || d.entries.length > 0),
+  };
 }

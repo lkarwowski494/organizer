@@ -95,7 +95,7 @@ describe('zakupy na „Moje sprawy”', () => {
     await answerAlert('Zostaw na następne zakupy');
     expect(store.dispatched).toEqual([
       { kind: 'delete', entity: 'tasks', id: 's-maslo' },
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null } },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null, trip_done_at: '2026-10-07T08:00:00.000Z', trip_done_date: '2026-10-07' } },
     ]);
     expect(screen.queryByTestId('today-trip-lz')).toBeNull();
   });

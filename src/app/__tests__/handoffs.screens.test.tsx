@@ -109,17 +109,17 @@ describe('„Do potwierdzenia” i plakietka', () => {
     const inbox = screen.getByTestId('handoff-inbox');
     expect(within(inbox).getByText('Ala przekazuje Ci: Zadanie Ali')).toBeTruthy();
     expect(within(inbox).getByText(/^Ala przekazuje Ci: Tańce \(/)).toBeTruthy();
-    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś, 2 do potwierdzenia');
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Moje sprawy, 2 do potwierdzenia');
     expect(within(screen.getByTestId('tab-badge')).getByText('2')).toBeTruthy();
     await press(screen.getByTestId('handoff-accept-h1'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } });
     expect(screen.queryByTestId('handoff-h1')).toBeNull();
-    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś, 1 do potwierdzenia');
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Moje sprawy, 1 do potwierdzenia');
     await press(screen.getByTestId('handoff-decline-h2'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h2', set: { status: 'declined' } });
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
     expect(screen.queryByTestId('tab-badge')).toBeNull();
-    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś');
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Moje sprawy');
   });
 
   it('audyt 2 (T-5): przekazanie zadania już zrobionego albo usuniętego nie czeka na przyjęcie i nie liczy się w plakietce', async () => {
@@ -131,7 +131,7 @@ describe('„Do potwierdzenia” i plakietka', () => {
     await open(base);
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
     expect(screen.queryByTestId('tab-badge')).toBeNull();
-    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś');
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Moje sprawy');
   });
 
   it('zadanie powtarzane (PW-31): przekazany termin już zrobiony, następny u nadawcy — do przyjęcia jest obowiązek', async () => {

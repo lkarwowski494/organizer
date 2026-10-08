@@ -4,7 +4,7 @@
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
 import { type ReactNode, type Ref, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Dimensions, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -12,7 +12,12 @@ import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from './theme';
 
-export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
+/**
+ * `refresh` — „przeciągnij, by odświeżyć” (PWD-10 A, audyt 2 M-279; zakładki i ekran listy): RefreshControl
+ * (https://reactnative.dev/docs/refreshcontrol — „refreshing … Whether the view should be indicating an active refresh”,
+ * „onRefresh … Called when the view starts refreshing”). Kółko kręci się, dopóki trwa pobieranie (`refreshing`).
+ */
+export function Screen({ children, scroll = true, testID, refresh }: { children: ReactNode; scroll?: boolean; testID?: string; refresh?: { refreshing: boolean; onRefresh: () => void } }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const style = { flex: 1, backgroundColor: c.ground };
@@ -21,7 +26,14 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
     // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
     // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
     <View style={style}>
-      <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView
+        testID={testID}
+        style={style}
+        contentContainerStyle={content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={refresh ? <RefreshControl refreshing={refresh.refreshing} onRefresh={refresh.onRefresh} tintColor={c.inkMuted} accessibilityLabel={strings['common.refresh']} /> : undefined}
+      >
         {children}
       </ScrollView>
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
@@ -145,14 +157,20 @@ export function Checkbox({ checked, onPress, label, round = true }: { checked: b
   );
 }
 
+/** Jedyny separator pól w opisie wiersza (audyt 2, M-128): StationRow, EventRow, src/app/row-meta.ts. */
+export const META_SEP = '  ·  ';
+
 /**
- * Wiersz-stacja: odcinek linii grupy z kropką, tytuł, opis (grupa · termin · osoba) i pole do odhaczenia.
- * `depth` wcina podzadania; `faded` dla zrobionych.
+ * Wiersz-stacja: odcinek linii grupy z kropką, tytuł, opis (czas · grupa · osoba…) i pole do odhaczenia.
+ * `depth` wcina podzadania; zrobione — przekreślone. `when` — czas (godzina albo termin) na początku opisu, jak w EventRow
+ * (M-128). `readOnly` — bez pola odhaczania (blady przyszły termin zadania powtarzanego, zrobione zakupy w Kalendarzu).
  */
 export function StationRow(props: {
   title: string;
   line: number;
   group?: string;
+  when?: string;
+  readOnly?: boolean;
   meta?: string[];
   depth?: number;
   checked: boolean;
@@ -178,31 +196,59 @@ export function StationRow(props: {
     <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: sub ? 52 : 60, marginLeft: Math.min(props.depth ?? 0, 3) * 22 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         {/* Wstążka grupy (D72): szeroka, zaokrąglona, z kropką w jaśniejszej obwódce. */}
-        <View style={{ position: 'absolute', top: 0, bottom: 0, width: sub ? 4 : 10, borderRadius: 5, backgroundColor: l.line, opacity: done ? 0.12 : 0.28 }} />
+        <View style={{ position: 'absolute', top: 0, bottom: 0, width: sub ? 4 : 10, borderRadius: 5, backgroundColor: l.line, opacity: done || props.readOnly ? 0.12 : 0.28 }} />
         {sub ? null : <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />}
         <View style={{ marginTop: sub ? 18 : 16, width: sub ? 12 : 20, height: sub ? 12 : 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
       </View>
       <Pressable
         accessibilityRole={props.onOpen ? 'button' : undefined}
         // VoiceOver czyta cały wiersz: tytuł, ostrzeżenie (np. zaległe), grupę i opis (audyt 8.10.2026).
-        accessibilityLabel={props.onOpen ? [props.openLabel ?? strings['task.open'](props.title), props.alert, props.group, ...(props.meta ?? [])].filter(Boolean).join(', ') : undefined}
+        accessibilityLabel={props.onOpen ? [props.openLabel ?? strings['task.open'](props.title), props.alert, props.when, props.group, ...(props.meta ?? [])].filter(Boolean).join(', ') : undefined}
         disabled={!props.onOpen}
         onPress={props.onOpen}
         style={{ flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' }}
       >
-        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
+        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done || props.readOnly ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
         {props.alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>{props.alert}</Text> : null}
-        {props.group || props.meta?.length || props.pending ? (
+        {props.when || props.group || props.meta?.length || props.pending ? (
           <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
-            {props.group ? <Text style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text> : null}
-            {props.meta?.length ? `${props.group ? '  ' : ''}${props.meta.join('  ·  ')}` : ''}
-            {props.pending ? <Text style={{ fontFamily: font.text700, color: c.pendingInk }}>{`  ·  ${strings['lists.pendingItem']}`}</Text> : null}
+            {[
+              ...(props.when ? [<Text key="when" style={{ fontFamily: font.text700, color: c.ink }}>{props.when}</Text>] : []),
+              ...(props.group ? [<Text key="group" style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text>] : []),
+              ...(props.meta ?? []),
+              ...(props.pending ? [<Text key="pending" style={{ fontFamily: font.text700, color: c.pendingInk }}>{strings['lists.pendingItem']}</Text>] : []),
+            ].flatMap((part, i) => (i === 0 ? [part] : [META_SEP, part]))}
           </Text>
         ) : null}
       </Pressable>
-      <View style={{ justifyContent: 'center' }}>
-        <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
-      </View>
+      {props.readOnly ? null : (
+        <View style={{ justifyContent: 'center' }}>
+          <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Zwijana sekcja („Bez terminu (N)” w tygodniu i miesiącu, „Zrobione dziś (N)”, „Zrobione (N)” na ekranie wydarzenia —
+ * PWD-7 A, PWD-13 A): nagłówek jest przyciskiem ze stanem rozwinięcia dla VoiceOvera.
+ */
+export function Collapsible({ title, open, onToggle, children, testID }: { title: string; open: boolean; onToggle: () => void; children: ReactNode; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <View testID={testID}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={(open ? strings['section.hideA11y'] : strings['section.showA11y'])(title)}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET }}
+      >
+        <Text style={{ fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted }}>{title}</Text>
+        <Text style={{ fontSize: 16, color: c.inkMuted }}>{open ? '▾' : '▸'}</Text>
+      </Pressable>
+      {open ? children : null}
     </View>
   );
 }
@@ -417,7 +463,7 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split(META_SEP).join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
@@ -425,10 +471,10 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
-          {length ? `  ·  ${length}` : ''}
-          {'  ·  '}
+          {length ? `${META_SEP}${length}` : ''}
+          {META_SEP}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
-          {extra ? `  ·  ${extra}` : ''}
+          {extra ? `${META_SEP}${extra}` : ''}
         </Text>
         {/* D129: „Wyjdź o …” — jedyna pilna informacja — w osobnej, wyróżnionej linii; „powtarza się” tylko w szczegółach. */}
         {alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.accentInk }}>{alert}</Text> : null}

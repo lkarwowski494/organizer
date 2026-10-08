@@ -14,6 +14,7 @@ import { expandEvents } from '../domain/views/events';
 import { declinedByMe } from '../domain/views/rsvp';
 import { localToMs } from './clock';
 import { useAppData, useServices } from './context';
+import { useMyScope } from './my-scope';
 import { appVersion, toClientError } from './diagnostics';
 
 export const TRAVEL_ON = 'travelEnabled';
@@ -63,6 +64,7 @@ const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'obj
 export function TravelProvider({ children }: { children: ReactNode }) {
   const { travel, prefs, local, account, userId, nowMs } = useServices();
   const { tables, today } = useAppData();
+  const { scopeOf } = useMyScope();
   const available = !!travel && !!prefs && !!local;
   const [enabled, setEnabledState] = useState(false);
   const [status, setStatus] = useState<Api['status']>(null);
@@ -113,8 +115,8 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   // Dziś i jutro: okno AHEAD_HOURS sięga po północy (audyt 2, M-211).
   const targets = useMemo(
     () =>
-      travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs(), (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, declinedByMe(tables, userId)),
-    [tables, userId, today, nowMs, modeFor, tick], // eslint-disable-line react-hooks/exhaustive-deps
+      travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs(), (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, declinedByMe(tables, userId), scopeOf),
+    [tables, userId, today, nowMs, modeFor, tick, scopeOf], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const signature = targets.map((t) => `${t.key}:${t.location}:${t.mode}:${t.startMs}`).join('|');
 

@@ -161,7 +161,7 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     expect(screen.queryByText('Masło')).toBeNull();
     await press(within(bar).getByLabelText('Cofnij'));
     expect(store.dispatched.slice(-2)).toEqual([
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf', trip_done_at: null, trip_done_date: null } },
       { kind: 'restore', entity: 'tasks', id: 's-maslo' },
     ]);
     expect(screen.getByTestId('trip-done')).toBeTruthy();

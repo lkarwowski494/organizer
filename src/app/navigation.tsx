@@ -1,5 +1,5 @@
 /**
- * Nawigacja (D26): zakładki Dziś / Listy / Kalendarz / Grupy + ekrany nad nimi.
+ * Nawigacja (D26): zakładki Moje sprawy / Listy / Kalendarz / Grupy (PW-27 A, D193) + ekrany nad nimi.
  * Linki głębokie (D40, schemat config.URL_SCHEME) skonfigurowane ręcznie: invite/<token>, join?g=&c= (i https …/j/?g=&c=,
  * D94), list/<id>, task/<id>, event/<id>[/<data>] — te same ścieżki niosą powiadomienia (PWD-16, NotificationOpener).
  */
@@ -40,6 +40,8 @@ import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
 import { CalendarSyncProvider } from './calendar-sync';
 import { DefaultGroupProvider } from './default-group';
+import { MyScopeProvider } from './my-scope';
+import { GroupFilterProvider } from './group-filter';
 import { RemindersProvider } from './reminders';
 import { TravelProvider } from './travel';
 import { SeriesFiller } from './SeriesFiller';
@@ -61,7 +63,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { userId } = useServices();
   const { tables } = useAppData();
-  // Plakietka na „Dziś”: przekazania czekające na moją decyzję (D70).
+  // Plakietka na „Moje sprawy”: przekazania czekające na moją decyzję (D70).
   const pending = incomingHandoffs(tables, userId).length;
   return (
     <View accessibilityRole="tablist" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
@@ -112,6 +114,8 @@ export function RootStack() {
       <SeriesFiller />
       <HandoffNotifier />
       <NotificationOpener />
+      <MyScopeProvider>
+      <GroupFilterProvider>
       <TravelProvider>
       <RemindersProvider>
       <CalendarSyncProvider>
@@ -140,6 +144,8 @@ export function RootStack() {
       </CalendarSyncProvider>
       </RemindersProvider>
       </TravelProvider>
+      </GroupFilterProvider>
+      </MyScopeProvider>
     </>
   );
 }

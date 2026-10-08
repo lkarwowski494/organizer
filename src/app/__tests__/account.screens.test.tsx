@@ -48,7 +48,7 @@ describe('niewysłane zmiany (M-166)', () => {
     await openAccount({ queued: 5 });
     await press(screen.getByTestId('sign-out'));
     expect(lastAlert().message).toBe(
-      'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach zostajesz zalogowany. Żeby wrócić, zaloguj się tym samym kontem.\n\n5 zmian czeka na wysłanie — wyśle się, gdy znów zalogujesz się tym kontem.',
+      'Przypomnienia i kalendarze „Organizer” znikną z tego iPhone’a, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach zostajesz zalogowany. Żeby wrócić, zaloguj się tym samym kontem.\n\n5 zmian czeka na wysłanie — wyśle się, gdy znów zalogujesz się tym kontem.',
     );
   });
 });

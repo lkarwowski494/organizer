@@ -74,10 +74,10 @@ describe('zadania na spotkaniu (D13)', () => {
     const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-07' }));
     await press(screen.getByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/)); // własny termin dziś
     await screen.findByTestId('screen-task');
-    expect(screen.getByText('Wydarzenie: Tańce, dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Wydarzenie: Tańce, dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-07', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } });
-    expect(screen.getByText('Jak wydarzenie: dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Jak wydarzenie: dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-relink'));
     await press(screen.getByTestId('pick-ev2-2026-10-09'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } });

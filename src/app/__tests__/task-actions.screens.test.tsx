@@ -48,7 +48,7 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: 'Odebrać paczkę' });
     await answerAlert('Zrobione');
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
-    await press(screen.getAllByLabelText('Dziś')[0]!);
+    await press(screen.getByTestId('tab-Today'));
     await press(await screen.findByLabelText('Następny dzień'));
     await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     await screen.findByTestId('screen-task');

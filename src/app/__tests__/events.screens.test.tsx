@@ -457,7 +457,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
     expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Logopeda', responsible_member_id: 'ala' });
-    await press(screen.getByLabelText('Dziś'));
+    await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Logopeda')).toBeNull(); // odpowiada Ala — nie u mnie
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByLabelText(/^Logopeda, 18:00/));
