@@ -86,6 +86,12 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
   };
 }
 
+/** Lokalny magazyn telefonu (stan lustra kalendarza, D95) w pamięci. */
+export function memoryLocal() {
+  const m = new Map<string, string>();
+  return { load: (k: string) => m.get(k) ?? null, save: (k: string, v: string | null) => void (v === null ? m.delete(k) : m.set(k, v)) };
+}
+
 export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<AccountApi> {
   return {
     signInWithApple: jest.fn(async () => {}),
@@ -126,6 +132,7 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     calendar,
     push: opts.push,
     prefs: opts.prefs,
+    local: memoryLocal(),
     userId: ME,
     displayName: 'Łukasz',
     newId: () => `new-${++id}`,

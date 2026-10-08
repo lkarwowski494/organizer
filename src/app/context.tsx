@@ -8,6 +8,7 @@ import type { CivilDate, LocalDateTime } from '../domain/civil-date';
 import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import type { AccountApi } from '../sync/account';
+import type { LocalStore } from './calendar-mirror';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import type { Snapshot } from '../sync/runtime';
@@ -33,6 +34,8 @@ export type AppServices = {
   push?: DevicePush;
   /** Drobne ustawienia na tym telefonie (np. „wprowadzenie obejrzane”); brak = nic nie zapamiętujemy. */
   prefs?: Prefs;
+  /** Dane tylko tego telefonu w lokalnej bazie (stan lustra kalendarza, D95); brak = funkcja wyłączona. */
+  local?: LocalStore;
   userId: string;
   displayName: string;
   newId: () => string;

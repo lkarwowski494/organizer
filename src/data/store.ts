@@ -76,3 +76,13 @@ export function writeState(db: DbAdapter, prev: ClientState, next: ClientState, 
     for (const [k, v] of kv) db.run('insert into sync_state (key, value) values (?, ?) on conflict (key) do update set value = excluded.value', [k, v]);
   });
 }
+
+/** Własne dane telefonu poza synchronizacją (np. stan lustra kalendarza, D95) w tabeli sync_state pod kluczem `local:<k>`. */
+export function loadLocal(db: DbAdapter, key: string): string | null {
+  return db.all<{ value: string }>('select value from sync_state where key = ?', [`local:${key}`])[0]?.value ?? null;
+}
+
+export function saveLocal(db: DbAdapter, key: string, value: string | null): void {
+  if (value === null) db.run('delete from sync_state where key = ?', [`local:${key}`]);
+  else db.run('insert into sync_state (key, value) values (?, ?) on conflict (key) do update set value = excluded.value', [`local:${key}`, value]);
+}

@@ -13,7 +13,7 @@ import {
 } from '../../domain/sync-engine/client';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
 import { migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
-import { readState, writeState } from '../store';
+import { loadLocal, readState, saveLocal, writeState } from '../store';
 import { memoryDb } from './sqlite';
 
 const normalize = (s: ClientState): ClientState => ({
@@ -186,5 +186,19 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     writeState(db, s0, s1, 42);
     writeState(db, s1, s1, 43);
     expect(db.all('select seq, code, rejected_at from rejected_ops')).toEqual([{ seq: 1, code: 'not_found', rejected_at: 42 }]);
+  });
+});
+
+describe('dane lokalne telefonu (D95)', () => {
+  it('zapis, odczyt, nadpisanie, usunięcie; nie mieszają się ze stanem synchronizacji', () => {
+    const db = memoryDb();
+    migrate(db);
+    expect(loadLocal(db, 'calendarMirror')).toBeNull();
+    saveLocal(db, 'calendarMirror', '{"a":1}');
+    saveLocal(db, 'calendarMirror', '{"a":2}');
+    expect(loadLocal(db, 'calendarMirror')).toBe('{"a":2}');
+    expect(readState(db, 'c').cursors).toEqual({});
+    saveLocal(db, 'calendarMirror', null);
+    expect(loadLocal(db, 'calendarMirror')).toBeNull();
   });
 });

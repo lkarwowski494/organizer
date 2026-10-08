@@ -13,6 +13,7 @@ import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
 import { useAppearance, useTheme } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
+import { useDeviceCalendar } from '../../app/calendar-sync';
 import { MuteSettings } from './MuteSettings';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
@@ -21,6 +22,7 @@ export function SettingsScreen({ navigation }: Props) {
   const { account, nowMs } = useServices();
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
+  const calendar = useDeviceCalendar();
   const { state, indicator } = useAppData();
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
@@ -72,6 +74,14 @@ export function SettingsScreen({ navigation }: Props) {
           <Body muted>{strings['reminders.info']}</Body>
           <MuteSettings />
         </>
+      ) : null}
+      {calendar.available && calendar.status === 'granted' ? (
+        <View testID="device-settings" style={{ gap: 10 }}>
+          <SectionTitle>{strings['device.title']}</SectionTitle>
+          <Segmented label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+          <Segmented label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+          <Body muted>{strings['device.mirrorInfo']}</Body>
+        </View>
       ) : null}
       <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
       <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />
