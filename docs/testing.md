@@ -15,7 +15,8 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Zmiana w `supabase/**`, `scripts/db/**`, `tests/db/**` albo w kodzie, który te testy importują (`src/domain/sync-engine/**`, `src/config/**`, `src/domain/__tests__/support/**`; pilnuje tego kontrakt w `.github/scripts/ci-scripts.test.mjs`); co noc; ręcznie | migracje od zera, pgTAP (RLS, sync, triggery), kontrakt config ↔ SQL, telefony i FakeServer na prawdziwym SQL (`tests/db`) | `db.yml`, Linux | ~5–25 min |
 | Każdy push na `main`, PR z tego repozytorium i ręcznie (D143; PR z forka — tylko składnia scenariuszy, decyzja właściciela 8.10.2026, M-79) | E2E Maestro na symulatorze iOS (build z `EXPO_PUBLIC_E2E=1`, scenariusze `.maestro/`), zrzuty ekranu porównane z wzorcami — różnica tylko w podsumowaniu przebiegu; wcześniej składnia scenariuszy na Linuksie | `e2e.yml`, macOS (standardowy runner, w repo publicznym bez opłat) | ~30–50 min |
 | Co noc | testy mutacyjne w 8 równoległych częściach z progiem liczonym na całości, pełny skan historii, audyt zależności (`nightly.yml`); testy bazy (`db.yml`); E2E z porównaniem zrzutów, które **oblewa** przebieg przy różnicy (`e2e.yml`, harmonogram); wydajność, długie symulacje synchronizacji, E2E na najmniejszym iPhonie, w ciemnym wyglądzie i przy dużej czcionce — **planowane, niezaimplementowane** | `nightly.yml`, `db.yml`, `e2e.yml` | ~30–60 min |
-| Przed wydaniem do TestFlight | `npm run check` na tym commicie (to samo co `ci.yml`, bez testów bazy, nocnych i E2E) | `ios-release.yml` (bramka) | — |
+| Przed wdrożeniem bazy i funkcji | zadanie `gate` bez sekretów i bez środowiska: zielone `ci.yml` i `db.yml` dla tego samego commitu na `main` (`.github/scripts/require-green-runs.sh`; trwający przebieg poczeka); sekrety tylko w krokach CLI, hasło bazy przez `SUPABASE_DB_PASSWORD` (audyt 2, M-155) | `supabase-deploy.yml` (bramka) | do 30 min czekania |
+| Przed wydaniem do TestFlight | zadanie `gate` na Linuksie, bez sekretów: commit z `main` (tag `v*` na commicie spoza `main` odrzucony, M-193) i zielony `db.yml` dla tego commitu (decyzja właściciela 8.10.2026, PWD-40 A); potem `npm run check` na tym commicie. E2E na razie tylko informacyjnie; **następny krok, jeszcze niewdrożony:** po tygodniu zielonych przebiegów `e2e.yml` także on będzie warunkiem wydania | `ios-release.yml` (bramka) | do 30 min czekania |
 
 ## Progi (D47 — maksymalne w logice)
 | Obszar | Próg | Narzędzie |
@@ -103,6 +104,10 @@ Przyjęcie wzorców (pierwsze albo po zamierzonej zmianie wyglądu): pobierz art
 przebiegu na `main`, obejrzyj zrzuty, `npm run e2e:accept -- <rozpakowany artefakt>/screenshots` i zatwierdź
 `.maestro/baselines/` osobnym commitem (z `device.txt` — urządzenie i wersja iOS, na których powstały). Zmiana obrazu
 symulatora albo Xcode na runnerze może wymagać przyjęcia wzorców od nowa.
+
+**Bramki wdrożenia i wydania.** `db.yml` rusza tylko przy zmianie swoich ścieżek; gdy commit, który chcesz wdrożyć albo
+wydać, ich nie zmienił, bramka zatrzyma przebieg z komunikatem — uruchom `db.yml` ręcznie na `main` (workflow_dispatch)
+i ponów po zielonym wyniku (nocny przebieg `db.yml` też tworzy wynik dla bieżącego `main`).
 
 **Brak maszyny macOS** (audyt 2, M-48). Gdy GitHub nie przydzieli runnera w ok. 15 min, zadanie `ios` kończy się bez
 żadnego kroku, z adnotacją „The job was not acquired by Runner of type hosted even after multiple attempts” — to brak
