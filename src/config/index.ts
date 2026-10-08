@@ -137,8 +137,19 @@ export const config = {
     PUSH_BATCH_MAX: 100,
     PULL_LIMIT_MAX: 1000,
     TOMBSTONE_DAYS: 30,
-    /** Wersja protokołu; klient ze starszą dostaje upgrade_required. */
-    SCHEMA_VERSION: 1,
+    /**
+     * Wersja protokołu synchronizacji tej aplikacji (wysyłana w sync_push i sync_pull). 2 = kursor z epoką, listy
+     * widoczne i zadania przeniesione poza wzrok, filtr encji (audyt 2, M-1, M-54, M-58; migracja 20261008310000).
+     * Zasada: podbijamy, gdy zmienia się znaczenie zapytania albo odpowiedzi; serwer zachowuje stare znaczenie dla
+     * starszych wersji, dopóki nie podniesiemy MIN_SCHEMA_VERSION.
+     */
+    SCHEMA_VERSION: 2,
+    /**
+     * Najstarsza wersja protokołu, którą serwer jeszcze obsługuje (private.schema_version() — test kontraktowy); starsza
+     * dostaje upgrade_required, a aplikacja pokazuje „Zaktualizuj aplikację”. Podniesienie wyłącza stare buildy u testerów,
+     * więc to decyzja właściciela (build 21 mówi protokołem 1).
+     */
+    MIN_SCHEMA_VERSION: 1,
     /**
      * Pętla synchronizacji (raport architektury, „Ograniczenie R1”): wysyłka ok. 1 s po lokalnej zmianie,
      * timer co 30–60 s, gdy kolejka nie jest pusta (wybrane 30 s), ponawianie z opóźnieniem 1 s → 60 s.

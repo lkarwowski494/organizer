@@ -7,8 +7,9 @@
 # nie używamy płatnych „larger runners”.
 # Bezpieczeństwo: tylko pull_request (nigdy pull_request_target), akcje przypięte do pełnego SHA, token tylko do odczytu,
 # żadnych sekretów ani środowisk (build symulatora nie jest podpisywany i nie łączy się z serwerem).
-# Artefakty: CLAUDE.md zabrania artefaktów z buildów iOS WYDANIA (ios-release.yml). Tu wysyłamy tylko zrzuty ekranu,
-# raport i logi Maestro oraz log xcodebuild z buildu symulatora E2E — bez aplikacji (.app) i bez sekretów; 7 dni.
+# Decyzja właściciela 8.10.2026 (audyt 2, M-79, PW-48 A): zadanie macOS tylko dla push na main, harmonogramu, ręcznego
+# uruchomienia i PR z tego repozytorium (PR z forka sprawdza tylko składnię scenariuszy); artefakt to wyłącznie zrzuty
+# ekranu (z obrazami różnic) i koniec logu xcodebuild — bez pełnego logu, logów Maestro i bez aplikacji (.app); 7 dni.
 name: e2e
 
 on:
@@ -48,12 +49,18 @@ jobs:
 
   ios:
     needs: flows-syntax
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Wersja Xcode przypięta jak w ios-release.yml (obraz macos-26: Xcode 26.6; SDK 57 wymaga Xcode ≥ 26.4).
+    # Audyt 2 (M-48): gdy GitHub nie przydzieli maszyny w ok. 15 min, zadanie kończy się adnotacją „The job was not
+    # acquired by Runner of type hosted even after multiple attempts” (8.10.2026 15:21–17:35 UTC trzy razy; standardowa
+    # pula arm64 ma stałą adnotację „Due to capacity constraints…”). To brak maszyny, nie błąd testów: ponów ręcznie.
     runs-on: macos-26
     timeout-minutes: 90
     env:
       E2E_DEVICE: iPhone 17
-      E2E_OUT: ${{ github.workspace }}/e2e-artifacts
+      # Wyniki robocze (logi Maestro, raport porównania) poza katalogiem artefaktu; do e2e-artifacts/ trafia tylko to,
+      # co publikujemy (krok „artefakt”).
+      E2E_OUT: ${{ github.workspace }}/e2e-work
       E2E_APP: ios/build/e2e/Build/Products/Release-iphonesimulator/Organizer.app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -91,9 +98,19 @@ jobs:
           args=()
           if [ "$FAIL_ON_DIFF" = "true" ]; then args+=(--fail); fi
           node scripts/e2e/compare-screenshots.mjs --baselines .maestro/baselines --actual "$E2E_OUT/screenshots" --out "$E2E_OUT/diff" "${args[@]}"
-      - name: log xcodebuild do artefaktu
+      - name: artefakt (tylko zrzuty i koniec logu)
         if: ${{ !cancelled() }}
-        run: cp ios/build/e2e-xcodebuild.log "$E2E_OUT/" 2>/dev/null || true
+        # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro, opis symulatora (dla e2e:accept) i ostatnie
+        # 200 wierszy logu xcodebuild bez wierszy `export` (zmienne środowiska buildu z faz skryptów).
+        run: |
+          mkdir -p e2e-artifacts/screenshots e2e-artifacts/diff e2e-artifacts/failures
+          find "$E2E_OUT/screenshots" -maxdepth 1 -name '*.png' -exec cp {} e2e-artifacts/screenshots/ \; 2>/dev/null || true
+          find "$E2E_OUT/diff" -maxdepth 1 -name '*.diff.png' -exec cp {} e2e-artifacts/diff/ \; 2>/dev/null || true
+          find "$E2E_OUT/maestro" -name '*.png' ! -name '[0-9][0-9]-*.png' -exec cp {} e2e-artifacts/failures/ \; 2>/dev/null || true
+          cp "$E2E_OUT/device.txt" e2e-artifacts/ 2>/dev/null || true
+          if [ -f ios/build/e2e-xcodebuild.log ]; then
+            tail -n 200 ios/build/e2e-xcodebuild.log | grep -v -E '^[[:space:]]*export ' > e2e-artifacts/xcodebuild-tail.txt || true
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:

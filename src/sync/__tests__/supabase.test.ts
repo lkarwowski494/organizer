@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { config } from '../../config';
-import { AUTH_REDIRECT, classify, parseAuthCallback, type RpcResult, supabaseAccount, supabaseTransport, type SupabaseLike } from '../supabase';
+import { AUTH_REDIRECT, classify, FATAL_CODES, parseAuthCallback, type RpcResult, supabaseAccount, supabaseTransport, type SupabaseLike } from '../supabase';
 import { TransportError } from '../transport';
 
 type Call = { fn: string; args: Record<string, unknown> };
@@ -51,8 +51,8 @@ describe('Supabase: transport synchronizacji', () => {
     const { client, calls } = fakeClient(({ fn }) => ({ data: fn === 'sync_fetch_scope' ? { rows: [{ e: 'lists', v: 1, row: {} }] } : fn === 'create_invite' ? { invite_id: 'i', token: 't'.repeat(64), expires_at: 'x', max_uses: 10 } : fn === 'accept_invite' ? { group_id: 'g' } : fn === 'create_join_code' ? { invite_id: 'i2', join_id: '482913507', code: '731064', expires_at: 'x' } : { ok: 1 }, error: null, status: 200 }));
     const t = supabaseTransport(client);
     const a = supabaseAccount(client, async () => ({ identityToken: 'jwt' }));
-    expect(await t.push({ client_id: 'c', schema_version: 1, ops: [] })).toEqual({ ok: 1 });
-    expect(await t.pull({ g: 3 }, 1000)).toEqual({ ok: 1 });
+    expect(await t.push({ client_id: 'c', schema_version: config.sync.SCHEMA_VERSION, ops: [] })).toEqual({ ok: 1 });
+    expect(await t.pull({ cursors: { g: { v: 3, p: 1 } }, schema_version: config.sync.SCHEMA_VERSION, entities: ['tasks'] }, 1000)).toEqual({ ok: 1 });
     expect(await t.fetchScope('l')).toEqual([{ e: 'lists', v: 1, row: {} }]);
     await a.createGroup({ groupId: 'g', name: 'Rodzina', ownerMemberId: 'm', displayName: 'Ł' });
     expect(await a.createInvite('g', 'admin')).toEqual({ inviteId: 'i', token: 't'.repeat(64), url: `${config.URL_SCHEME}://invite/${'t'.repeat(64)}`, expiresAt: 'x', maxUses: 10 });
@@ -75,7 +75,8 @@ describe('Supabase: transport synchronizacji', () => {
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
     expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'create_join_code', 'renew_join_code', 'rotate_join_id', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
-    expect(calls[1]!.args).toEqual({ cursors: { g: 3 }, lim: 1000 });
+    // Protokół 2 (audyt 2, M-1, M-58): kursor z epoką, wersja protokołu i encje znane telefonowi.
+    expect(calls[1]!.args).toEqual({ cursors: { g: { v: 3, p: 1 } }, lim: 1000, schema_version: 2, entities: ['tasks'] });
   });
 
   it('błędy: sieć, sesja, serwer — z treścią komunikatu', async () => {
@@ -86,8 +87,9 @@ describe('Supabase: transport synchronizacji', () => {
     ];
     const { client } = fakeClient(() => replies.shift()!);
     const t = supabaseTransport(client);
-    await expect(t.pull({}, 1)).rejects.toMatchObject({ kind: 'network' });
-    await expect(t.pull({}, 1)).rejects.toMatchObject({ kind: 'auth', message: 'JWT expired' });
+    const pull = { cursors: {}, schema_version: config.sync.SCHEMA_VERSION, entities: [] };
+    await expect(t.pull(pull, 1)).rejects.toMatchObject({ kind: 'network' });
+    await expect(t.pull(pull, 1)).rejects.toMatchObject({ kind: 'auth', message: 'JWT expired' });
     const e = await supabaseAccount(client, async () => ({ identityToken: null })).acceptInvite('t', 'x').catch((x: unknown) => x);
     expect(e).toBeInstanceOf(TransportError);
     expect(e).toMatchObject({ kind: 'server', message: 'invite_expired' });
@@ -98,6 +100,16 @@ describe('Supabase: transport synchronizacji', () => {
     expect(classify({ error: { message: '' }, status: 401 })).toBe('auth');
     expect(classify({ error: { message: '', code: 'PGRST301' }, status: 403 })).toBe('auth');
     expect(classify({ error: { message: '' }, status: 500 })).toBe('server');
+    // Audyt 2 (M-57): błędy trwałe protokołu — bez ponowień w kółko; inne odrzucenia serwera nadal ponawiane.
+    for (const code of FATAL_CODES) expect(classify({ error: { message: code, code: 'P0001' }, status: 400 })).toBe('fatal');
+    expect(classify({ error: { message: 'not_authenticated', code: 'P0001' }, status: 400 })).toBe('server');
+    expect(classify({ error: { message: 'upgrade_required', code: '22P02' }, status: 400 })).toBe('server');
+  });
+
+  it('upgrade_required z serwera: TransportError „fatal” z kodem (wskaźnik „Zaktualizuj aplikację”)', async () => {
+    const { client } = fakeClient(() => ({ data: null, error: { message: 'upgrade_required', code: 'P0001' }, status: 400 }));
+    const t = supabaseTransport(client);
+    await expect(t.push({ client_id: 'c', schema_version: config.sync.SCHEMA_VERSION, ops: [] })).rejects.toMatchObject({ kind: 'fatal', message: 'upgrade_required' });
   });
 });
 
