@@ -41,6 +41,9 @@ export function MemberScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{m.display_name}</Title>
       <Body muted>{`${d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name} · ${strings[`groups.role.${m.role}`]}`}</Body>
+      {d.group.kind === 'shared' && d.group.me.role !== 'child' ? (
+        <Button kind="secondary" label={strings['timetable.open']} testID="open-timetable" onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />
+      ) : null}
       {can.rename ? (
         <View style={{ gap: 8 }}>
           <Field label={strings['member.name']} value={name} onChangeText={setName} testID="member-name" />

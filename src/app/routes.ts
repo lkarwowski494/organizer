@@ -21,6 +21,8 @@ export type RootStackParams = {
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;
+  /** Plan lekcji osoby z tygodniami A/B (D112). */
+  Timetable: { groupId: string; memberId: string };
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
   /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */
