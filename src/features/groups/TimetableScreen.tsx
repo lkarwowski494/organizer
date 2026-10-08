@@ -16,6 +16,7 @@ import { type Lesson, timetableOps, type Week } from '../../domain/views/timetab
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
@@ -82,10 +83,10 @@ export function TimetableScreen({ route, navigation }: Props) {
                 <Field label={strings['timetable.lesson']} value={l.title} onChangeText={(title) => set(i, { title })} testID={`lesson-title-${i}`} />
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1 }}>
-                    <Field label={strings['event.start']} value={l.start} onChangeText={(start) => set(i, { start })} placeholder="08:00" testID={`lesson-start-${i}`} />
+                    <TimeField label={strings['event.start']} value={l.start} onChange={(start) => set(i, { start })} testID={`lesson-start-${i}`} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Field label={strings['timetable.end']} value={l.end} onChangeText={(end) => set(i, { end })} placeholder="08:45" testID={`lesson-end-${i}`} />
+                    <TimeField label={strings['timetable.end']} value={l.end} onChange={(end) => set(i, { end })} testID={`lesson-end-${i}`} />
                   </View>
                 </View>
                 <Segmented

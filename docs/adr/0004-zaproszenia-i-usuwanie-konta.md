@@ -7,7 +7,7 @@ Status: przyjęte.
 ## Decyzje właściciela (7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D48 | Ważność i limit linku zaproszenia | Domyślnie 7 dni i 10 użyć. Najwyżej 30 dni i 50 użyć (`config.invites`). | Link jednorazowy ważny 48 h: bezpieczniejszy, ale każdą osobę trzeba zapraszać osobno. |
+| D48 | Ważność i limit linku zaproszenia | Domyślnie 7 dni i 10 użyć. Najwyżej 30 dni i 50 użyć (`config.invites`). → zastąpione dla nowych zaproszeń przez D92–D93 (ADR 0020: ID grupy + kod 24 h); stare tokeny działają dalej. | Link jednorazowy ważny 48 h: bezpieczniejszy, ale każdą osobę trzeba zapraszać osobno. |
 | D49 | Co z grupą, której właściciel usuwa konto | Grupa przechodzi na dorosłego z najdłuższym stażem, najpierw na admina. Jeśli takiej osoby nie ma, grupa trafia do kosza na 30 dni. | Przed usunięciem konta trzeba ręcznie przekazać każdą grupę. |
 | D49 | Historia zmian usuniętej osoby | Zostaje, podpisana „Usunięty użytkownik”. | Zostaje z imieniem. |
 
@@ -32,5 +32,5 @@ Status: przyjęte.
 8. **Kosz grup czyści** `private.purge_deleted_groups()`, uruchamiane przez zadanie cykliczne tak jak `purge_tombstones`. Wywołać je może tylko `service_role`.
 
 ## Otwarte
-- **Kto uruchamia usunięcie.** Do wyboru są funkcja serwerowa `delete-account` (sprawdza JWT i woła `auth.admin.deleteUser`) albo RPC SQL. Decyzja zapadnie razem z ekranem ustawień.
-- **Sign in with Apple.** Usunięcie konta może wymagać unieważnienia tokenu Apple (REST API Apple). Trzeba to sprawdzić w wytycznych App Store i dokumentacji Apple przed implementacją; nie jest jeszcze zweryfikowane.
+- **Kto uruchamia usunięcie.** Do wyboru są funkcja serwerowa `delete-account` (sprawdza JWT i woła `auth.admin.deleteUser`) albo RPC SQL. Decyzja zapadnie razem z ekranem ustawień. → rozstrzygnięte: funkcja `delete-account` (ADR 0006, decyzja wykonawcza 4).
+- **Sign in with Apple.** Usunięcie konta może wymagać unieważnienia tokenu Apple (REST API Apple). Trzeba to sprawdzić w wytycznych App Store i dokumentacji Apple przed implementacją; nie jest jeszcze zweryfikowane. → rozstrzygnięte: unieważniamy token przez REST API Apple (O-036, ADR 0016, decyzja wykonawcza 5).

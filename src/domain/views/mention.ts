@@ -1,8 +1,8 @@
 /**
  * „@imię” w szybkim dodawaniu (D91, ADR 0019): „basen jutro 19.00 @Ala” → zadanie w grupie, w której jest Ala,
  * z Alą jako osobą odpowiedzialną. Imię porównujemy z początkiem imienia członka grupy bez wielkości liter i polskich
- * znaków („@ala”, „@Ala”, „@Alą” nie — odmiana nie jest rozpoznawana). Pomijamy mnie samego i grupy, w których jestem
- * dzieckiem (dziecko nie przypisuje, D34). Wiele dopasowań → telefon pyta, którą osobę i grupę wybrać.
+ * znaków („@ala”, „@Ala”; odmiana nie jest rozpoznawana: „@Alę” nie pasuje, a „@Alą” pasuje tylko dlatego, że ą → a).
+ * Pomijamy mnie samego i grupy, w których jestem dzieckiem (dziecko nie przypisuje, D34). Wiele dopasowań → telefon pyta, którą osobę i grupę wybrać.
  */
 import { groupsView } from './index';
 import type { Tables } from './model';

@@ -29,7 +29,7 @@ Dopowiedzenia (moje, w duchu D43): godziny 0 i 12–23 czytane dosłownie; seria
 startuje dziś; nieistniejąca data (31.04) nie jest rozpoznawana i zostaje w tytule.
 
 ## Testy
-Korpus 470 fraz w `src/domain/__tests__/fixtures/quickadd.pl.json` generowany przez
+Korpus 540 fraz (przeliczone 8.10.2026; pierwotnie 470, uzupełniany m.in. w ADR 0009) w `src/domain/__tests__/fixtures/quickadd.pl.json` generowany przez
 `scripts/gen-quickadd-corpus.py` z niezależną implementacją reguł na `datetime` Pythona (test różnicowy;
 `npm run check:corpus` pilnuje, że plik jest aktualny). Do tego testy własności (fast-check): data → fraza →
 parse = ta sama data; dzień tygodnia zawsze 1–7 dni naprzód; godzina bez dnia zawsze w ciągu 24 h w przyszłości;

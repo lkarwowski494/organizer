@@ -21,6 +21,7 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
@@ -176,10 +177,10 @@ export function EventEditScreen({ route, navigation }: Props) {
           {form.allDay ? null : (
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Field label={strings['event.start']} value={slot.start} onChangeText={(start) => setSlot(i, { start })} placeholder="18:00" testID={`event-start-${i}`} />
+                <TimeField label={strings['event.start']} value={slot.start} onChange={(start) => setSlot(i, { start })} testID={`event-start-${i}`} />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label={strings['event.end']} value={slot.end} onChangeText={(end) => setSlot(i, { end })} placeholder="19:00" testID={`event-end-${i}`} />
+                <TimeField label={strings['event.end']} value={slot.end} onChange={(end) => setSlot(i, { end })} testID={`event-end-${i}`} optional />
               </View>
             </View>
           )}

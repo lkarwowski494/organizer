@@ -47,6 +47,12 @@ describe('@imię w szybkim dodawaniu (D91)', () => {
     expect(mentionTargets({}, ME, 'ala')).toEqual([]);
   });
 
+  it('odmiana: „@Alą” pasuje do „Ala” (ą → a przy porównaniu bez polskich znaków), „@Alę” już nie (ADR 0019)', () => {
+    const t = base();
+    expect(mentionTargets(t, ME, 'Alą').map((x) => x.memberId)).toEqual(['ala']);
+    expect(mentionTargets(t, ME, 'Alę')).toEqual([]);
+  });
+
   it('członek bez imienia nie psuje dopasowania', () => {
     const t = base();
     put(t, 'group_members', 'x', { member_id: 'x', group_id: 'gf', user_id: 'u-x', display_name: undefined, role: 'member', deleted_at: null });

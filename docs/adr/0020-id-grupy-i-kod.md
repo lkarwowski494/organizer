@@ -30,3 +30,6 @@ Dołącza się, wpisując ID i kod albo klikając link, czyli dwa sposoby, jak p
    - Repozytorium strony zakłada właściciel (integracja nie może tworzyć repozytoriów; kroki w `docs/join-links.md`).
 8. **Universal Links w dwóch etapach.** Wpis `associatedDomains` trafi do aplikacji dopiero po włączeniu Associated Domains w App ID i odnowieniu profilu (`match-bootstrap` → `renew_profile`, `force: true`). Wcześniej build by się nie podpisał.
    - Do tego czasu link otwiera stronę z przyciskiem „Otwórz w aplikacji” (schemat aplikacji z Safari działa).
+
+## Sprostowanie (8.10.2026, audyt dokumentacji)
+Komentarz w wydanej migracji `20261008250000_join_codes.sql` (`private.random_digits`) mówi o „122 losowych bitach” i liczbie z 2^60. Funkcja bierze 15 pierwszych znaków szesnastkowych UUID z `gen_random_uuid` (wersja 4, RFC 9562), a 13. znak to stała cyfra wersji „4”. Losowych jest więc 56 bitów (14 znaków), nie 60. Wniosek się nie zmienia: przesunięcie modulo dla 10⁹ wynosi najwyżej 10⁹ / 2⁵⁶ ≈ 1,4 · 10⁻⁸, czyli jest pomijalne. Wydanych migracji nie edytujemy, więc poprawka jest tylko tutaj.

@@ -5,7 +5,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup , pickDate } from './harness';
+import { put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -190,7 +190,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await openEvent();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-following'));
-    await type(await screen.findByTestId('event-start-0'), '16:00');
+    await setTime('event-start-0', '16:00');
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByText('1 podpięte zadanie przejdzie razem z terminami.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));

@@ -30,7 +30,7 @@ Zgłoszenie właściciela:
 4. **Obowiązkowość pilnuje telefon, nie baza.** Powód jak w D68: starsze buildy tworzą listy bez tych pól.
 5. **Przekazanie (D70) obejmuje zakupy** (`handoffs.entity = 'lists'`).
 6. **Kontrast w motywie „Wstążki”:** kolory grup zostają z „Linii”, bo jaśniejsze z makiety (np. #FF8A3D) nie dają 3:1 z tłem. Zielona linia jest ciemniejsza: #15803D, nazwa #166534.
-7. **Zakupów nie ma w zakładce Kalendarz.** Są tylko w „Dotyczy mnie” i na liście. Do decyzji właściciela, jeśli potrzebne.
+7. **Zakupów nie ma w zakładce Kalendarz.** Są tylko w „Dotyczy mnie” i na liście. Do decyzji właściciela, jeśli potrzebne. → zastąpione przez D77 (ADR 0016, decyzja wykonawcza 4: zakupy w Kalendarzu).
 
 ## Zmiana koloru (właściciel, 7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |

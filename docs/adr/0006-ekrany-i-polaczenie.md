@@ -35,20 +35,20 @@ Status: przyjęte. Commity: 9753bab, 617081d, dbb3390.
    - Każdy ekran przechodzi audyt w obu trybach: etykiety, cel dotyku ≥ 44 pt, kolory tekstu tylko z palety.
 
 ## Otwarte (produktowe, do właściciela)
-- **Reguła „Dotyczy mnie”.** Obecnie pokazuje:
+- **Reguła „Dotyczy mnie”.** Obecnie pokazuje: → rozstrzygnięte przez O-035 i D66 (ADR 0011), D68 (ADR 0012); nazwa „Moje sprawy” (D89, ADR 0019), widok dni D62 (ADR 0009).
   - zadania przypisane do mnie;
   - nieprzypisane z grupy osobistej;
   - nieprzypisane z terminem z każdej grupy.
 
   Sekcje: zaległe, przypięte, dziś, jutro.
-- **Kolor grupy.** Obecnie przydzielany automatycznie według kolejności grup u danej osoby.
-- **Imię z Apple.** Apple podaje imię tylko przy pierwszym logowaniu. Dziś trafia do sesji, ale nie do profilu na serwerze.
-- **Unieważnienie tokenu Sign in with Apple przy usuwaniu konta.** Do sprawdzenia w dokumentacji Apple (ADR 0004).
-- **Intl w Hermesie na iPhonie** (strefa Europe/Warsaw). Wymaga spike'u S3 na urządzeniu.
+- **Kolor grupy.** Obecnie przydzielany automatycznie według kolejności grup u danej osoby. → rozstrzygnięte przez D56 (ADR 0007).
+- **Imię z Apple.** Apple podaje imię tylko przy pierwszym logowaniu. Dziś trafia do sesji, ale nie do profilu na serwerze. → rozstrzygnięte: imię trafia do profilu (O-036, ADR 0016).
+- **Unieważnienie tokenu Sign in with Apple przy usuwaniu konta.** Do sprawdzenia w dokumentacji Apple (ADR 0004). → rozstrzygnięte (O-036, ADR 0016).
+- **Intl w Hermesie na iPhonie** (strefa Europe/Warsaw). Wymaga spike'u S3 na urządzeniu. → sprawdzane na telefonie samosprawdzeniem D83 (ADR 0018).
 
 ## Dopisek: buildy bez zatwierdzania (7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D53 | Czy build do TestFlight wymaga zatwierdzenia właściciela | Nie. Środowisko `ios-release` dopuszcza tylko gałąź `main` i tagi `v*`, a buildy może uruchamiać także Claude, tak jak w Treningu. Baza (`supabase-prod`) nadal wymaga zatwierdzenia. | A: zatwierdzenie każdego builda; C: bez zatwierdzania tylko dla buildów, z innym podziałem uprawnień |
+| D53 | Czy build do TestFlight wymaga zatwierdzenia właściciela | Nie. Środowisko `ios-release` dopuszcza tylko gałąź `main` i tagi `v*`, a buildy może uruchamiać także Claude, tak jak w Treningu. Baza (`supabase-prod`) nadal wymaga zatwierdzenia. → część o `supabase-prod` zastąpiona przez D78 (ADR 0016: bez zatwierdzania na czas rozwoju). | A: zatwierdzenie każdego builda; C: bez zatwierdzania tylko dla buildów, z innym podziałem uprawnień |
 
 Ryzyko przyjęte świadomie. Zmiana na `main` z podmienionym workflow mogłaby odczytać klucz App Store Connect i hasło match. Oba da się unieważnić i wygenerować na nowo w kilka minut. Danych rodziny w bazie ta decyzja nie dotyczy.

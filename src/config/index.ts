@@ -2,7 +2,7 @@
  * Jedyne źródło liczb i reguł aplikacji (zasada „jedno źródło prawdy”).
  * Każda zmiana wartości tutaj wymaga wpisu w rejestrze decyzji (docs/adr).
  * Limity po stronie serwera (SQL) muszą być z nimi zgodne — pilnuje tego test kontraktowy
- * (dodawany w Etapie 1 razem z migracjami Supabase).
+ * src/config/__tests__/sql.contract.test.ts (funkcje private.* w supabase/migrations).
  */
 export const config = {
   /** D4: maksymalna głębokość zagnieżdżenia podzadań (0 = zadanie główne, 2 = pod-podzadanie). */
@@ -37,6 +37,25 @@ export const config = {
   events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62 },
 
   /**
+   * Zadania na spotkaniu (D13, D14; ADR 0008): jak daleko naprzód szukamy kolejnego wystąpienia serii (przepinanie,
+   * podgląd zmiany serii) i ile dni obejmuje lista spotkań do wyboru przy „Przepnij na inne spotkanie”.
+   * Wybory projektowe, bez źródła.
+   */
+  eventTasks: { LOOKAHEAD_DAYS: 400, PICKER_DAYS: 62 },
+
+  /**
+   * Powtarzanie zadań (D76, ADR 0016): jak daleko naprzód szukamy następnego terminu reguły kalendarzowej.
+   * Wybór projektowy, bez źródła (rok z zapasem obejmuje każdą regułę z formularza, także „co rok”).
+   */
+  repeat: { NEXT_SEARCH_DAYS: 400 },
+
+  /**
+   * Seria „N z rzędu” (D114, ADR 0028): okno wstecz w dniach i od ilu z rzędu licznik się pokazuje.
+   * Wybory projektowe, bez źródła.
+   */
+  streak: { DAYS: 400, MIN_SHOWN: 2 },
+
+  /**
    * Czas dojazdu (D116, D117): zapas doliczany do „wyjdź o”, co ile minut odświeżać, na ile godzin naprzód liczyć
    * (tylko dzisiejsze wydarzenia z miejscem) i najwięcej zapytań naraz (MapKit dławi zbyt wiele zapytań —
    * MKError.loadingThrottled). Wybory projektowe, bez źródła.
@@ -49,12 +68,16 @@ export const config = {
    */
   day: { GAP_MIN: 30 },
 
+  /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
+  time: { MINUTE_STEP: 5 },
+
   /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
    * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D107): różnica godzin
-   * i najkrótsze wspólne słowo nazwy. Wybory projektowe, bez źródła.
+   * i najkrótsze wspólne słowo nazwy; długość wydarzenia bez godziny końca zapisywanego w iPhonie („Dodaj do kalendarza”,
+   * ADR 0008, min). Wybory projektowe, bez źródła.
    */
-  calendar: { READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000, DUPLICATE_WINDOW_MIN: 30, DUPLICATE_MIN_WORD: 4 },
+  calendar: { DEFAULT_EVENT_MINUTES: 60, READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000, DUPLICATE_WINDOW_MIN: 30, DUPLICATE_MIN_WORD: 4 },
 
   /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
   HISTORY_LIMIT: 15,
@@ -85,6 +108,8 @@ export const config = {
      * powiadomień lokalnych, ale dokładnej liczby nie znaleźliśmy w przeczytanej dokumentacji Apple — otwarte pytanie.
      */
     MAX_SCHEDULED: 40,
+    /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
+    MORNING_LIST_MAX: 4,
   },
 
   /**
@@ -112,8 +137,10 @@ export const config = {
   },
 
   /**
-   * Zaproszenia linkiem (D48, decyzja właściciela z 7.10.2026): ważność 7 dni (maks. 30),
-   * domyślnie 10 użyć (maks. 50). Serwer egzekwuje je funkcjami private.invite_* (test kontraktowy).
+   * Zaproszenia. Nowe zaproszenia to wyłącznie ID grupy + kod (D92–D94, niżej); kod działa dla MAX_USES_LIMIT osób.
+   * DEFAULT_TTL_HOURS, MAX_TTL_HOURS i DEFAULT_MAX_USES to dawne zaproszenia linkiem z tokenem (D48, 7.10.2026:
+   * 7 dni, maks. 30, 10 użyć) — zastąpione przez D93 (ADR 0020); zostają, bo serwer nadal przyjmuje stare tokeny
+   * (private.invite_*, test kontraktowy).
    */
   invites: {
     /**
@@ -125,7 +152,7 @@ export const config = {
     CODE_TTL_HOURS: 24,
     JOIN_FAILS_PER_USER: 5,
     JOIN_FAILS_PER_GROUP: 20,
-    /** Strona z linkiem zaproszenia (GitHub Pages, D94); ścieżka /j/ obsługiwana też przez Universal Links. */
+    /** Strona z linkiem zaproszenia (GitHub Pages, D94). Universal Links dla /j/ dopiero po krokach z docs/join-links.md (bez associatedDomains w app.json). */
     JOIN_LINK: 'https://lkarwowski494.github.io/j/',
     DEFAULT_TTL_HOURS: 168,
     MAX_TTL_HOURS: 720,

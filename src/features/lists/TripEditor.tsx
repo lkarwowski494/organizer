@@ -4,7 +4,8 @@ import { View } from 'react-native';
 import { addDays, type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Field, Segmented } from '../../ui/components';
+import { Body, Segmented } from '../../ui/components';
+import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { parseDueFields } from './TaskScreen';
 
@@ -34,7 +35,7 @@ export function TripEditor({ value, onChange, adults, today, required }: { value
         ]}
       />
       <DateField label={strings['trip.date']} value={value.date} onChange={(date) => onChange({ ...value, date })} today={today} testID="trip-date" />
-      {value.date === '' ? null : <Field label={strings['trip.time']} value={value.time} onChangeText={(time) => onChange({ ...value, time })} placeholder="17:30" testID="trip-time" />}
+      {value.date === '' ? null : <TimeField label={strings['trip.time']} value={value.time} onChange={(time) => onChange({ ...value, time })} testID="trip-time" optional />}
       <Segmented
         label={strings['trip.who']}
         value={value.responsibleId ?? ''}

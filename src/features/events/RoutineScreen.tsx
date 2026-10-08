@@ -15,6 +15,7 @@ import { groupDetail, groupsView } from '../../domain/views';
 import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
+import { TimeField } from '../../ui/TimeField';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
@@ -57,10 +58,10 @@ export function RoutineScreen({ route, navigation }: Props) {
       <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Field label={strings['event.start']} value={start} onChangeText={(v) => (setStart(v), setError(null))} placeholder="07:00" testID="routine-start" />
+          <TimeField label={strings['event.start']} value={start} onChange={(v) => (setStart(v), setError(null))} testID="routine-start" />
         </View>
         <View style={{ flex: 1 }}>
-          <Field label={strings['event.end']} value={end} onChangeText={(v) => (setEnd(v), setError(null))} placeholder="07:30" testID="routine-end" />
+          <TimeField label={strings['event.end']} value={end} onChange={(v) => (setEnd(v), setError(null))} testID="routine-end" optional />
         </View>
       </View>
       {members.length > 1 ? (

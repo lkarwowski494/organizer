@@ -1,6 +1,6 @@
 # Nocny pełny zestaw testów (decyzja właściciela 6.10.2026, docs/testing.md): testy mutacyjne,
 # pełny skan sekretów w historii, audyt zależności. Tylko runner Linux — w repo publicznym bez opłat.
-# Ciężkie testy na symulatorze iOS (E2E, zrzuty ekranu, wydajność) dojdą tu wraz z pierwszym ekranem.
+# Ciężkie testy na symulatorze iOS (E2E, zrzuty ekranu, wydajność): planowane, niezaimplementowane (docs/testing.md).
 name: nightly
 
 on:

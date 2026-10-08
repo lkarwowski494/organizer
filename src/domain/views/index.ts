@@ -176,10 +176,11 @@ export type TodayItem = Task & { due: Due; line: number; groupName: string; list
 export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: TodayItem[]; tomorrow: TodayItem[] };
 
 /**
- * „Moje sprawy” (D0.4: wszystko z moich grup, co dotyczy mnie dziś). Zadanie dotyczy mnie, gdy
- * jest otwarte, widoczne dziś (start_date) i: przypisane do mnie, albo nieprzypisane w mojej grupie
- * osobistej, albo nieprzypisane z terminem (każdy w grupie może je zrobić). Sekcje: zaległe, przypięte
- * (bez terminu — tylko moje i osobiste, żeby wspólne bez terminu nie zalewały widoku), dziś, jutro.
+ * Reguła „Moje sprawy” (D89; wcześniej „Dotyczy mnie”, ADR 0006, 0011): zadanie dotyczy mnie, gdy jest otwarte,
+ * widoczne dziś (start_date) i: przypisane do mnie, albo nieprzypisane w mojej grupie osobistej, albo nieprzypisane
+ * z terminem (każdy w grupie może je zrobić). Bez terminu (przypięte) — tylko moje i osobiste, żeby wspólne bez terminu
+ * nie zalewały widoku. Ekran „Moje sprawy” układa dni z my-days.ts (D62); `todayView` niżej to dawny układ sekcji
+ * zaległe / przypięte / dziś / jutro.
  */
 /** Zadanie dotyczy mnie (reguła „Moje sprawy” powyżej, bez warunku „otwarte”). */
 export function concernsMeTask(x: Task, g: GroupItem, due: Due): boolean {

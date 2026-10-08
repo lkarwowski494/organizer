@@ -56,6 +56,8 @@ export class FakeServer {
       const l = this.lists.get(String(op.args.list_id));
       if (!l || !this.canSeeList(user, l)) throw new Error('not_found');
       if (l.owner !== user) throw new Error('forbidden:not_list_owner');
+      // Jak SQL (20261008290000_grant_deleted_list): listy z kosza nie udostępniamy.
+      if (op.cmd === 'grant_scope' && l.deleted_at) throw new Error('deleted:list');
       const set = this.allowed.get(String(l.id)) ?? new Set<string>();
       if (op.cmd === 'grant_scope') set.add(String(op.args.user));
       else set.delete(String(op.args.user));

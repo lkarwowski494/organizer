@@ -1,6 +1,6 @@
 /**
  * Zakres godzin w polu szybkiego dodawania (D99): „17–18”, „15:30-16:00”, „o 17.00–18.30”, „od 17 do 18”,
- * „od godz. 9 do 10:30”. Zakres oznacza czas trwania, więc szybkie dodanie tworzy wtedy wydarzenie, nie zadanie (D98).
+ * „od godz. 9 do 10:30”. Zakres oznacza czas trwania, więc szybkie dodanie tworzy wtedy wydarzenie, nie zadanie (D99).
  * Parser terminów (src/domain/quickadd.ts) zostaje bez zmian — zakres wycinamy przed nim (spacjami tej samej
  * długości, żeby pozycje odklikanych fragmentów się nie przesunęły).
  *
