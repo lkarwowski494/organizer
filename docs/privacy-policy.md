@@ -110,8 +110,8 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
   w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo admin może przywrócić w ciągu 30 dni;
   zaproszenia, które wystawiła, przestają działać.
 - **Dziennik wysyłki powiadomień:** 7 dni.
-- **Token powiadomień:** dopóki działa. Usuwamy go, gdy Apple zgłosi, że jest nieaktualny, i przy usunięciu konta.
-  Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
+- **Token powiadomień:** dopóki działa. Usuwamy go przy wylogowaniu (gdy jest internet), gdy Apple zgłosi, że jest
+  nieaktualny, i przy usunięciu konta. Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
 - **Wyciszenia grup:** dopóki ich nie wyłączysz albo nie usuniesz konta.
 
 ## Usunięcie konta

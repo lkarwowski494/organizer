@@ -7,7 +7,9 @@ import { join } from 'node:path';
 
 import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
+import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
+import { MONTHS_GENITIVE } from '../quickadd.pl';
 import { SHOPPING_CATEGORIES } from '../shopping.pl';
 import { groupLines } from '../theme';
 
@@ -97,6 +99,20 @@ describe('src/config zgodny z SQL', () => {
 
   it('dziennik push trzyma wpisy dłużej niż okno powiadomień (D82)', () => {
     expect(sqlConstant('push_log_retention_days') * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
+  });
+
+  // Audyt 2 (M-138): treści push układa serwer — te same teksty co w aplikacji, jedna data jak formatLongDate.
+  it("treści powiadomień push w SQL = strings['push.text.*'] i strings['trip.title']", () => {
+    const found = [...sql.matchAll(/function private\.push_texts\(\)[^$]*\$\$\s*select\s+'(\{[^']*\})'::jsonb/gi)].map((m) => JSON.parse(m[1]!) as Record<string, string>);
+    const keys = ['handoffPending', 'handoffAccepted', 'handoffDeclined', 'handoffAction', 'assignTask', 'assignTrip', 'assignEvent'] as const;
+    expect(found.at(-1)).toEqual({ ...Object.fromEntries(keys.map((k) => [k, strings[`push.text.${k}`]])), trip: strings['trip.title']('') });
+  });
+
+  it('data w treści push (private.pl_long_date) — nazwy dni i miesięcy jak w aplikacji, strefa config.TIME_ZONE', () => {
+    const body = [...sql.matchAll(/function private\.pl_long_date\(d date\)[^$]*\$\$([\s\S]*?)\$\$/gi)].at(-1)![1]!;
+    const arrays = [...body.matchAll(/array\[([^\]]*)\]/g)].map((m) => m[1]!.split(',').map((x) => x.trim().replace(/'/g, '')));
+    expect(arrays).toEqual([WEEKDAYS_NOMINATIVE.map((d) => d.charAt(0).toLocaleUpperCase('pl') + d.slice(1)), [...MONTHS_GENITIVE]]);
+    expect(body).toContain(`at time zone '${config.TIME_ZONE}'`);
   });
 
   it('id następnego terminu zadania w SQL = nextId() na telefonie (przyjęcie przekazania łańcucha, PW-31)', () => {

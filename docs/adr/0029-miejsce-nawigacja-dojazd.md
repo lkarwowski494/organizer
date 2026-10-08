@@ -23,6 +23,10 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 - **Moduł natywny** `modules/travel-time` (Swift, MapKit): czas dojazdu z położenia telefonu do współrzędnych celu. Położenie i adres → współrzędne: expo-location (zgoda tylko „podczas używania”; „zawsze” wyłączone — test kontraktowy Info.plist; opis ruchu dodany w D123, ADR 0032). Współrzędne celu zapamiętane na telefonie.
 - **Kiedy liczymy:** dzisiejsze wydarzenia, które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
 - **Powiadomienie:** „Czas wyjść: Basen” o godzinie wyjścia zastępuje przypomnienie „30 min przed”, jeśli dojazd jest policzony.
+  Decyzje właściciela z 8.10.2026 (audyt 2): osobny przełącznik „Czas wyjść” w Ustawieniach → Powiadomienia, domyślnie
+  włączony; wyłączony — zwykłe „N min przed” (PWD-17). Gdy wyjście już minęło (np. korki), a wydarzenie jeszcze nie — od
+  razu „Masz N min spóźnienia — wyjdź teraz” (forma neutralna, 8.10.2026), raz na termin i nie po „Czas wyjść”, który już przyszedł (PW-24). Na termin
+  z moją odpowiedzią „Nie będę” dojazdu nie liczymy i nie przypominamy (PW-23).
   - Plan powiadomień układa się, gdy aplikacja działa. Zmiana korków po zamknięciu aplikacji nie przesunie powiadomienia — ograniczenie powiadomień lokalnych.
 - **Do sprawdzenia na iPhonie (otwarte):**
   - Czy MapKit podaje czas dojazdu komunikacją w Polsce. Apple w opisie MKDirections pisze o trasach pieszych i samochodowych. Jeśli komunikacja nie zadziała, zostaje „Nawiguj” z trybem komunikacji, a „Wyjdź o” się nie pojawi.
