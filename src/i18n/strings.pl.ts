@@ -3,6 +3,7 @@
  * Klucze w notacji kropkowej, żeby ewentualne przejście na i18next było mechaniczne.
  */
 import { config } from '../config';
+import { formatMinutes } from '../domain/format';
 import { plural } from '../domain/plural';
 
 export const strings = {
@@ -15,7 +16,7 @@ export const strings = {
   'sync.offline': (n: number) => (n === 0 ? 'Offline' : `Offline · ${strings['sync.pending'](n)}`),
   'sync.syncing': 'Synchronizuję…',
   'sync.synced': (minutes: number | null) =>
-    minutes === null ? 'Zsynchronizowano' : minutes < 1 ? 'Przed chwilą' : `${minutes} min temu`,
+    minutes === null ? 'Zsynchronizowano' : minutes < 1 ? 'Przed chwilą' : `${formatMinutes(minutes)} temu`,
   'sync.error': 'Błąd synchronizacji · ponowię',
   'sync.authExpired': 'Zaloguj się ponownie',
   'sync.a11y': (label: string) => `Stan synchronizacji: ${label}`,
@@ -51,7 +52,6 @@ export const strings = {
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
-  'task.assignedTo': (name: string) => `dla: ${name}`,
   // D119: kto w wierszu zadania i wydarzenia; „Ty”, gdy to ja.
   'who.task': (p: { name: string; me: boolean }) => (p.me ? 'dla Ciebie' : `dla: ${p.name}`),
   // D124: potwierdzanie obecności.
@@ -65,9 +65,10 @@ export const strings = {
   'rsvp.other.maybe': 'Może',
   'rsvp.other.no': 'Nie będzie',
   'rsvp.you': 'Ty',
-  'rsvp.list.yes': (names: string) => `Będą: ${names}`,
+  // Audyt 2 (U-39): bez „Będą: Ala” dla jednej osoby — jak licznik w wierszu („2 tak, 1 nie”).
+  'rsvp.list.yes': (names: string) => `Tak: ${names}`,
   'rsvp.list.maybe': (names: string) => `Może: ${names}`,
-  'rsvp.list.no': (names: string) => `Nie będą: ${names}`,
+  'rsvp.list.no': (names: string) => `Nie: ${names}`,
   'rsvp.none': (n: number) => `Bez odpowiedzi: ${n}`,
   'rsvp.short': (c: { yes: number; maybe: number; no: number }) => [c.yes ? `${c.yes} tak` : '', c.maybe ? `${c.maybe} może` : '', c.no ? `${c.no} nie` : ''].filter(Boolean).join(', '),
   // D125: wybór godziny kafelkami.
@@ -169,6 +170,7 @@ export const strings = {
   'lessons.title': (name: string, n: number) => `${name}: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
   'lessons.show': 'dotknij, by zobaczyć lekcje',
   'lessons.hide': 'dotknij, by zwinąć',
+  'timetable.error.title': 'Wpisz nazwę lekcji.',
   'timetable.updated': 'Zapisano zmiany w planie lekcji (od dziś)',
   'timetable.saved': (n: number) => `Dodano plan: ${n} ${plural(n, { one: 'seria', few: 'serie', many: 'serii' })} wydarzeń`,
   'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane.',
@@ -280,7 +282,7 @@ export const strings = {
   'event.days': 'Dni tygodnia',
   'event.dayA11y': (day: string) => `W ${day}`,
   'event.slot': (n: number) => `Termin ${n}`,
-  'event.addSlot': 'Dodaj inny termin (inne dni lub godzina)',
+  'event.addSlot': 'Dodaj inny termin (inne dni albo godzina)',
   'event.addSlotHint': 'Np. poniedziałki 18:00 i soboty 12:00 — każdy termin to osobna seria.',
   'event.removeSlot': (n: number) => `Usuń termin ${n}`,
   'event.monthly': 'Który dzień miesiąca',
@@ -329,12 +331,11 @@ export const strings = {
   'event.moved': (from: string) => `Przeniesione z: ${from}`,
   'event.readOnly': 'Dzieci nie zmieniają wydarzeń.',
   'event.rowA11y': (title: string, when: string, group: string, recurring: boolean) => `${title}, ${when}, ${group}${recurring ? ', powtarza się' : ''}`,
-  'event.repeats': 'powtarza się',
   'event.groupEvents': 'Wydarzenia grupy',
   'event.noGroupEvents': 'Brak wydarzeń. Dodaj np. zajęcia, które powtarzają się co tydzień.',
   'event.next': (date: string) => `najbliżej: ${date}`,
   'event.ended': 'zakończone',
-  'event.addToCalendar': "Dodaj do kalendarza iPhone'a",
+  'event.addToCalendar': 'Dodaj do kalendarza iPhone’a',
   'event.calendarSaved': 'Dodano do kalendarza.',
   'event.calendarDenied': 'Brak zgody na dodawanie do kalendarza. Włączysz ją w Ustawieniach iPhone’a → Organizer → Kalendarze.',
   'event.tasks': 'Zadania na to wydarzenie',
@@ -346,13 +347,13 @@ export const strings = {
   'event.seriesTasks': 'Na każdy termin w serii (osobne zadanie na każdy):',
   'event.seriesStop': (title: string) => `Zakończ: ${title}`,
   'event.defaultList': 'Zadania',
-  'event.relinkQuestion': (n: number) => `${n} ${plural(n, { one: 'zadanie jest podpięte', few: 'zadania są podpięte', many: 'zadań jest podpiętych' })} do odwoływanych spotkań. Co z ${n === 1 ? 'nim' : 'nimi'}?`,
+  'event.relinkQuestion': (n: number) => `${n} ${plural(n, { one: 'zadanie jest podpięte', few: 'zadania są podpięte', many: 'zadań jest podpiętych' })} do odwoływanych wydarzeń. Co z ${n === 1 ? 'nim' : 'nimi'}?`,
   'event.relinkNext': (date: string) => `Przepnij na kolejne: ${date}`,
   'event.relinkOther': 'Przepnij na inny termin',
   'event.relinkUnlink': 'Odepnij (zostaną bez terminu)',
   'event.relinkDelete': 'Usuń zadania',
   'event.pickTitle': 'Wybierz termin',
-  'event.pickEmpty': 'Brak spotkań w tej grupie w najbliższych tygodniach.',
+  'event.pickEmpty': 'Brak wydarzeń w tej grupie w najbliższych tygodniach.',
   'event.previewTitle': 'Podgląd zmian',
   'event.previewDates': (dates: string) => `Najbliższe terminy po zmianie: ${dates}.`,
   'event.previewNone': 'Po zmianie seria nie ma już kolejnych terminów.',
@@ -392,6 +393,7 @@ export const strings = {
   'groups.inviteReady': 'Zaproszenie gotowe',
   'groups.joinId': 'ID grupy',
   'groups.joinCode': 'Kod',
+  // Audyt 2 (U-41): `until` na ekranie względne („jutro, 18:40”), w wiadomości bezwzględne — adresat czyta ją później.
   'groups.joinInfo': (until: string, people: number, link: boolean) =>
     `Ważny do: ${until}. Działa dla najwyżej ${people} ${plural(people, { one: 'osoby', few: 'osób', many: 'osób' })}. Wystarczy ${link ? 'link albo ' : ''}ID grupy z kodem.`,
   'groups.share': 'Wyślij zaproszenie',
@@ -408,9 +410,10 @@ export const strings = {
   'groups.rename': 'Zmień nazwę grupy',
   'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
   'groups.lists': 'Listy grupy',
-  'groups.color': 'Kolor linii',
+  'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
-  'groups.colorA11y': (name: string) => `Kolor: ${name}`,
+  // Audyt 2 (A-9): nazwa koloru po polsku (VoiceOver czytał klucz, np. „teal”); klucze z config/theme.ts (groupLines).
+  'groups.colorA11y': (key: string) => `Kolor: ${({ blue: 'niebieski', orange: 'pomarańczowy', green: 'zielony', violet: 'fioletowy', teal: 'morski', pink: 'różowy', cyan: 'turkusowy', red: 'czerwony' } as Record<string, string>)[key] ?? key}`,
   'groups.delete': 'Usuń grupę',
   'groups.deleteConfirm': (days: number) =>
     `Grupa zniknie u wszystkich. Przez ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} możesz ją przywrócić z kosza, potem zostanie usunięta na zawsze.`,
@@ -476,6 +479,10 @@ export const strings = {
   'rejected.op.delete': 'Usunięcie',
   'rejected.op.restore': 'Przywrócenie',
   'rejected.op.cmd': 'Polecenie',
+  // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
+  'rejected.cmd.move_task': 'Przeniesienie zadania',
+  'rejected.entity': (e: string) =>
+    (({ tasks: 'zadanie', lists: 'lista', events: 'wydarzenie', event_participants: 'uczestnik wydarzenia', event_overrides: 'zmiana terminu', event_task_series: 'stałe zadanie', event_rsvps: 'obecność', handoffs: 'przekazanie', object_members: 'dostęp do listy', group_members: 'osoba w grupie', groups: 'grupa', activity: 'historia' }) as Record<string, string>)[e] ?? e,
 
   'auth.title': 'Organizer',
   'auth.tagline': 'Wszystkie Twoje grupy na jednej mapie.',
@@ -529,8 +536,6 @@ export const strings = {
   'history.field.note': 'notatka',
   'history.field.assignee_member_id': 'osoba',
   'history.field.due_date': 'termin',
-  'history.field.due_time': 'godzina',
-  'history.field.deadline_mode': 'termin',
   'history.field.repeat': 'powtarzanie',
   'history.field.rollover': 'zaległe',
   'history.field.list_id': 'lista',

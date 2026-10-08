@@ -100,7 +100,7 @@ export function SettingsScreen({ navigation, route }: Props) {
               label={strings['reminders.morning']}
               value={reminders.settings.morning}
               onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
-              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m.replace(/^0/, '') }))}
+              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m }))}
             />
             <Body muted>{strings['reminders.info']}</Body>
             <MuteSettings />

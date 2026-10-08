@@ -32,7 +32,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 |---|---|---|
 | Logika domeny | testy przykładów + własności (fast-check) | ✅ |
 | Wiedza dziedzinowa (język, kalendarz) | korpusy z **niezależną** implementacją oczekiwań (`scripts/gen-quickadd-corpus.py`, `gen-rrule-corpus.py` — python-dateutil, `gen-holidays-corpus.py`, `gen-contrast-corpus.py`) — test różnicowy | ✅ parser dat, RRULE, święta, kontrast |
-| Jakość samych testów | testy mutacyjne (Stryker) | ✅ nocą |
+| Jakość samych testów | testy mutacyjne (Stryker, tylko z testami logiki — `jest.mutation.config.js`) | ✅ nocą (od 8.10.2026 bez testów ekranów: z nimi przebieg przekraczał limit czasu, audyt 2 D-1) |
 | Pokrycie | progi 100% w logice | ✅ |
 | Jedno źródło prawdy | testy kontraktowe w `src/config/__tests__`: `app.json` ↔ `src/config`, `src/config` ↔ funkcje `private.*` w SQL, strona `site/` ↔ config | ✅ |
 | Synchronizacja | symulator wielu klientów (fast-check, model-based): zbieżność, brak zgubionych operacji, idempotencja, utrata dostępu, zerwana / zduplikowana / opóźniona sieć (`sync-sim.test.ts`; telefony na prawdziwym SQL: `tests/db/phones-vs-sql.test.ts`) | ✅ |
@@ -51,7 +51,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 ## Polecenia
 ```bash
 npm run check           # wszystko szybkie: typy, lint, testy z progami pokrycia, funkcje Deno, korpusy
-npm run test:mutation   # testy mutacyjne (ok. 2–3 min lokalnie)
+npm run test:mutation   # testy mutacyjne (tylko projekt „domain”; czas zależy od liczby mutantów — mierzy go nocny przebieg)
 npm run check:audit     # nowe podatności w zależnościach
 python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quickadd.pl.json  # po zmianie reguł D42–D45
 ```
@@ -100,8 +100,9 @@ przebiegu na `main`, obejrzyj zrzuty, `npm run e2e:accept -- <rozpakowany artefa
 symulatora albo Xcode na runnerze może wymagać przyjęcia wzorców od nowa.
 
 ## Stan na 8.10.2026
-`npm run check`: 2153 testy Jest (2149 przechodzi, 4 pominięte — testy na prawdziwym Postgresie bez `PGHOST`; uruchamia je
-`npm run test:db` i `db.yml`) plus 11 testów Deno; pokrycie logiki 100%. Mutation score: ostatni pomiar 94,1% (6.10.2026,
-próg 90%, nocny przebieg). Baza audytu z 6.10.2026: 2 zgłoszenia (`braces`, `node-forge`) w narzędziach Expo/Jest,
+`npm run check`: 2207 testów Jest (2203 przechodzi, 4 pominięte — testy na prawdziwym Postgresie bez `PGHOST`; uruchamia je
+`npm run test:db` i `db.yml`) plus 11 testów Deno; pokrycie logiki 100%. Mutation score: ostatni pełny pomiar 95,38%
+(7.10.2026, próg 90%); nocny przebieg z 8.10 przerwany po 60 min (1113 z 5207 mutantów) — od teraz bez testów ekranów
+(audyt 2, D-1), wynik pierwszego takiego przebiegu do sprawdzenia. Baza audytu z 6.10.2026: 2 zgłoszenia (`braces`, `node-forge`) w narzędziach Expo/Jest,
 nie w kodzie aplikacji. E2E (Maestro, 6 scenariuszy) i porównanie zrzutów: zaimplementowane w `e2e.yml` (D143) — pierwszy przebieg na macOS
 i pierwsze wzorce zrzutów czekają na weryfikację. Nie ma jeszcze testów wydajności — planowane, otwarte w backlogu.

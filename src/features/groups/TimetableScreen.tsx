@@ -55,7 +55,7 @@ export function TimetableScreen({ route, navigation }: Props) {
   };
   const save = () => {
     const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, existing: plan.series, keepUntil: until === plan.until });
-    if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : strings[`event.error.${r.error}`], index: r.index });
+    if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.index });
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
     if (r.ops.length === 0) return navigation.goBack();
     store.dispatch(r.ops);

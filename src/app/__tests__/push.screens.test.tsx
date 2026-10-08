@@ -94,7 +94,7 @@ describe('przypomnienia (D75)', () => {
       });
       await flush();
       expect(push.replaceReminders.mock.calls.at(-1)![0].filter((r) => !r.id.startsWith('m|'))).toEqual([]);
-      await press(screen.getByLabelText('9:00'));
+      await press(screen.getByLabelText('09:00'));
       expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00' });
     } finally {
       jest.useRealTimers();
