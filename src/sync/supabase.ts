@@ -5,11 +5,10 @@
  * Wywołania RPC jak w migracjach (supabase/migrations): sync_push, sync_pull, sync_fetch_scope,
  * create_group, create_invite, accept_invite, revoke_invite. Logowanie Apple wg dokumentacji Supabase
  * (https://supabase.com/docs/guides/auth/social-login/auth-apple, wariant Expo: AppleAuthentication.signInAsync
- * → auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken })). Magic link: signInWithOtp
- * z emailRedirectTo = adres w schemacie aplikacji (D40), sesję z linku ustawia auth.setSession
- * (https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
+ * → auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken })). W becie tylko Apple (decyzja
+ * właściciela 8.10.2026, D177 / audyt 2 M-77): logowania linkiem z e-maila nie ma, więc aplikacja nie przyjmuje też sesji
+ * z linku — cudzy link z tokenami nie przełączy jej na obce konto (M-76).
  */
-import { config } from '../config';
 import { inviteUrl, joinUrl } from '../domain/invite-link';
 import type { PulledRow, PullResponse, PushResponse } from '../domain/sync-engine/client';
 import type { AccountApi, Invite, JoinInvite } from './account';
@@ -18,14 +17,16 @@ import { type SyncTransport, TransportError, type TransportErrorKind } from './t
 export type RpcError = { message: string; code?: string };
 export type RpcResult<T> = { data: T | null; error: RpcError | null; status: number };
 
+type Session = { refresh_token?: string; user: { id?: string; app_metadata?: { provider?: string; providers?: string[] } } };
+type AuthError = { message: string; status?: number } | null;
+
 export type SupabaseLike = {
   rpc<T>(fn: string, args: object): PromiseLike<RpcResult<T>>;
   auth: {
     signInWithIdToken(a: { provider: 'apple'; token: string }): Promise<{ error: { message: string } | null }>;
-    signInWithOtp(a: { email: string; options: { emailRedirectTo: string } }): Promise<{ error: { message: string } | null }>;
-    signOut(a?: { scope: 'local' | 'global' }): Promise<{ error: { message: string } | null }>;
+    signOut(a: { scope: 'local' }): Promise<{ error: { message: string } | null }>;
     updateUser(a: { data: Record<string, string> }): Promise<{ error: { message: string } | null }>;
-    getSession(): Promise<{ data: { session: { user: { id?: string; app_metadata?: { provider?: string } } } | null } }>;
+    getSession(): Promise<{ data: { session: Session | null } }>;
   };
   /** Tylko aktualizacja własnego profilu (D100; RLS i GRANT update (display_name) — migracja core). */
   from(table: 'profiles'): { update(v: { display_name: string }): { eq(col: 'user_id', v: string): PromiseLike<{ error: { message: string } | null }> } };
@@ -37,9 +38,6 @@ export type SupabaseLike = {
  * 5 min, jednorazowy) służy przy usuwaniu konta do unieważnienia tokenu Apple (wymóg Apple, ADR 0016).
  */
 export type AppleSignIn = (scopes?: 'none') => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
-
-/** Adres, na który wraca link z e-maila (Supabase: lista „Redirect URLs” = io.github.lkarwowski494.organizer://**). */
-export const AUTH_REDIRECT = `${config.URL_SCHEME}://auth/callback`;
 
 /**
  * Błędy trwałe protokołu (raise exception w sync_push / sync_pull, kod P0001): ponawianie nic nie zmieni, więc pętla
@@ -58,7 +56,7 @@ export function classify(r: { error: RpcError; status: number }): TransportError
   return 'server';
 }
 
-async function call<T>(client: SupabaseLike, fn: string, args: object): Promise<T> {
+async function call<T>(client: Pick<SupabaseLike, 'rpc'>, fn: string, args: object): Promise<T> {
   const r = await client.rpc<T>(fn, args);
   if (r.error) throw new TransportError(classify({ error: r.error, status: r.status }), r.error.message);
   return r.data as T;
@@ -86,52 +84,150 @@ function check(r: { error: { message: string } | null }): void {
 export type PushTokenMemory = { load(): Promise<string | null>; save(token: string | null): Promise<void> };
 const NO_MEMORY: PushTokenMemory = { load: async () => null, save: async () => {} };
 
-export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, memory: PushTokenMemory = NO_MEMORY): AccountApi {
+/**
+ * Wylogowanie bez internetu (audyt 2, decyzja koordynatora 8.10.2026): serwer nie wie, że token push tego telefonu
+ * trzeba zdjąć. Telefon zapamiętuje zadanie „wyrejestruj token” z tokenem odświeżania starej sesji (w aplikacji: pęk
+ * kluczy, tylko to urządzenie) i wykonuje je tą starą sesją, gdy wróci sieć — także wtedy, gdy zalogowane jest już inne
+ * konto. Bez sesji żadna funkcja serwera nie działa (D41), stąd stara sesja, a nie wywołanie anonimowe.
+ * Wylogowanie w zakresie „local” (D176) zamyka na serwerze tylko tę sesję (POST /logout?scope=local); bez sieci to
+ * wywołanie się nie udaje, więc sesja na serwerze żyje dalej i jej token odświeżania jeszcze działa.
+ */
+export type SignOutJob = { token: string; refreshToken: string };
+export type SignOutJobMemory = { load(): Promise<string | null>; save(value: string | null): Promise<void> };
+
+/** Osobny klient na starą sesję: bez zapisu sesji w pęku kluczy i bez odświeżania w tle, nie rusza bieżącego konta. */
+export type DetachedClient = {
+  rpc: SupabaseLike['rpc'];
+  auth: {
+    refreshSession(a: { refresh_token: string }): Promise<{ data: { session: { refresh_token: string } | null }; error: AuthError }>;
+    signOut(a: { scope: 'local' }): Promise<{ error: AuthError }>;
+  };
+};
+
+export type AccountOptions = { pushToken?: PushTokenMemory; signOutJobs?: SignOutJobMemory; detached?: () => DetachedClient };
+
+const isJob = (j: unknown): j is SignOutJob => typeof j === 'object' && j !== null && typeof (j as SignOutJob).token === 'string' && typeof (j as SignOutJob).refreshToken === 'string';
+function parseJobs(raw: string | null): SignOutJob[] {
+  try {
+    const v: unknown = JSON.parse(raw ?? '[]');
+    return Array.isArray(v) ? v.filter(isJob) : [];
+  } catch {
+    return [];
+  }
+}
+/** Błąd auth-js bez odpowiedzi serwera (status 0) albo po stronie serwera (5xx) — warto spróbować później. */
+const retryable = (e: { status?: number }) => !e.status || e.status >= 500;
+
+/** Konto z tożsamością Apple (app_metadata.providers — wszystkie połączone sposoby logowania). */
+const isApple = (s: Session | null) => !!s && (s.user.app_metadata?.providers ?? [s.user.app_metadata?.provider]).includes('apple');
+
+export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: AccountOptions = {}): AccountApi {
+  const memory = opts.pushToken ?? NO_MEMORY;
+  const jobs = opts.signOutJobs;
   // Token APNs zarejestrowany w tym uruchomieniu (przy starcie, powrocie do aplikacji i zmianie tokenu — HandoffNotifier).
   let pushToken: string | null = null;
+  let flushing: Promise<void> | null = null;
+  const loadJobs = async () => (jobs ? parseJobs(await jobs.load().catch(() => null)) : []);
+  const saveJobs = async (list: SignOutJob[]) => jobs?.save(list.length ? JSON.stringify(list) : null).catch(() => {});
+
+  /** Jedno zadanie starą sesją: true = zrobione albo bez szans (sesja nieważna), false = spróbować później. */
+  const runJob = async (job: SignOutJob, update: (j: SignOutJob) => Promise<void>): Promise<boolean> => {
+    const old = opts.detached!();
+    const r = await old.auth.refreshSession({ refresh_token: job.refreshToken });
+    if (r.error || !r.data.session) return !(r.error && retryable(r.error));
+    // Token odświeżania jest jednorazowy (rotacja) — nowy zapisany od razu, zanim cokolwiek się nie uda.
+    await update({ ...job, refreshToken: r.data.session.refresh_token });
+    try {
+      await call(old, 'unregister_push_token', { p_token: job.token });
+    } catch (e) {
+      // Sesja nieważna mimo odświeżenia — kończymy; brak sieci albo błąd serwera — później.
+      if ((e as TransportError).kind !== 'auth') return false;
+    }
+    // Stara sesja nie jest już potrzebna — zamknięta także na serwerze.
+    await old.auth.signOut({ scope: 'local' }).catch(() => {});
+    return true;
+  };
+
   return {
     async signInWithApple() {
       const credential = await apple();
       if (!credential.identityToken) throw new Error('apple:no_identity_token');
       check(await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }));
-      // O-036: imię z Apple (tylko przy pierwszym logowaniu) do profilu — w grupach widać imię, nie „Ja”.
+      // O-036: imię z Apple (tylko przy pierwszym logowaniu) do konta i profilu — w grupach widać imię, nie „Ja”.
+      // Profil tak jak przy „Twoje imię” (setMyName; audyt 2, M-186): wyzwalacz bazy tworzy go przy założeniu konta,
+      // zanim imię trafi do metadanych.
       const given = credential.fullName?.givenName?.trim();
       const full = [given, credential.fullName?.familyName?.trim()].filter(Boolean).join(' ');
-      if (given) check(await client.auth.updateUser({ data: { display_name: given, full_name: full } }));
-    },
-    async sendMagicLink(email) {
-      check(await client.auth.signInWithOtp({ email, options: { emailRedirectTo: AUTH_REDIRECT } }));
+      if (!given) return;
+      check(await client.auth.updateUser({ data: { display_name: given, full_name: full } }));
+      const user = (await client.auth.getSession()).data.session?.user.id;
+      if (user) check(await client.from('profiles').update({ display_name: given }).eq('user_id', user));
     },
     async signOut() {
       // Audyt 8.10.2026: po wylogowaniu telefon nie dostaje już powiadomień tego konta — token z tego uruchomienia
-      // albo zapamiętany (audyt 2, N-11). Brak sieci nie blokuje wylogowania — wtedy token zostaje na serwerze, aż
-      // APNs zgłosi go jako nieważny albo zaloguje się ktoś inny (zapamiętany token czeka na następne wylogowanie).
+      // albo zapamiętany (audyt 2, N-11).
       const token = pushToken ?? (await memory.load().catch(() => null));
       pushToken = null;
+      let job: SignOutJob | null = null;
       if (token) {
+        let handled = true;
         try {
           await call(client, 'unregister_push_token', { p_token: token });
-          await memory.save(null).catch(() => {});
-        } catch {
-          // jak wyżej
+        } catch (e) {
+          // Bez sieci albo błąd serwera: zadanie na później ze starą sesją. Sesja nieważna (auth) albo brak pamięci zadań —
+          // token zostaje zapamiętany (zdejmie go następne wylogowanie albo przejmie inne konto przy rejestracji).
+          const refreshToken = jobs && opts.detached && (e as TransportError).kind !== 'auth' ? (await client.auth.getSession()).data.session?.refresh_token : undefined;
+          handled = !!refreshToken;
+          if (refreshToken) {
+            job = { token, refreshToken };
+            await saveJobs([...(await loadJobs()), job]);
+          }
         }
+        // Token zdjęty albo przejęty przez zadanie — następne wylogowanie (innego konta) go nie powtarza.
+        if (handled) await memory.save(null).catch(() => {});
       }
+      // D176: tylko ten telefon (scope local; domyślny „global” wylogowałby też inne urządzenia konta).
+      const r = await client.auth.signOut({ scope: 'local' });
       // Audyt 2 (S-24): auth-js bez sieci i tak usuwa sesję z telefonu, ale zwraca błąd (GoTrueClient._signOut) —
       // wylogowanie się udało, więc bez wyjątku. Błąd tylko, gdy sesja została.
-      const r = await client.auth.signOut();
       if (r.error && (await client.auth.getSession()).data.session) throw new Error(r.error.message);
+      // Serwer zamknął sesję — zadanie starą sesją i tak by się nie udało.
+      if (job && !r.error) await saveJobs((await loadJobs()).filter((j) => j.refreshToken !== job.refreshToken));
     },
-    async deleteAccount() {
-      // Konto z Apple: świeży kod autoryzacji, żeby serwer unieważnił token Apple (wymóg Apple, O-036, ADR 0016).
-      const provider = (await client.auth.getSession()).data.session?.user.app_metadata?.provider;
-      const code = provider === 'apple' ? (await apple('none')).authorizationCode : null;
-      if (provider === 'apple' && !code) throw new Error('apple:no_authorization_code');
+    finishSignOut() {
+      // Jedno przejście naraz (start, powrót do aplikacji, zmiana konta i ponawianie mogą przyjść razem).
+      flushing ??= (async () => {
+        let list = await loadJobs();
+        for (const job of [...list]) {
+          let current = job;
+          const update = async (next: SignOutJob) => {
+            list = list.map((j) => (j === current ? next : j));
+            current = next;
+            await saveJobs(list);
+          };
+          const done = await runJob(job, update).catch(() => false);
+          if (done) {
+            list = list.filter((j) => j !== current);
+            await saveJobs(list);
+          }
+        }
+      })().finally(() => {
+        flushing = null;
+      });
+      return flushing;
+    },
+    async deleteAccount(beforeSignOut) {
+      // M-303 (PWD-34 A): konto z Apple potwierdza usunięcie świeżym kodem autoryzacji — serwer sprawdza go w Apple
+      // i unieważnia token Apple (wymóg Apple, O-036, ADR 0016). Okno Apple to ponowne potwierdzenie tożsamości.
+      const code = isApple((await client.auth.getSession()).data.session) ? ((await apple('none')).authorizationCode ?? null) : undefined;
+      if (code === null) throw new Error('apple:no_authorization_code');
       // Funkcja serwerowa sprawdza JWT i usuwa użytkownika; dane sprząta wyzwalacz bazy (D49, ADR 0004).
       check(await client.functions.invoke('delete-account', { method: 'POST', ...(code ? { body: { appleAuthorizationCode: code } } : {}) }));
-      // Konto już nie istnieje, więc tylko lokalne wylogowanie (globalne wymagałoby ważnej sesji na serwerze).
-      // Tokeny push usunął serwer razem z kontem (push_tokens: on delete cascade).
+      // Konto już nie istnieje: tokeny push usunął serwer razem z kontem (push_tokens: on delete cascade).
       pushToken = null;
       await memory.save(null).catch(() => {});
+      // Sprzątanie telefonu (M-64) przed końcem sesji — ekrany jeszcze działają.
+      await beforeSignOut?.().catch(() => {});
       check(await client.auth.signOut({ scope: 'local' }));
     },
     async setMyName(name) {
@@ -209,16 +305,4 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, memory
       check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { handoffId } }));
     },
   };
-}
-
-/** Sesja z linku w e-mailu: tokeny we fragmencie (#access_token=…&refresh_token=…) albo w zapytaniu. */
-export function parseAuthCallback(url: string): { access_token: string; refresh_token: string } | { error: string } | null {
-  if (!url.startsWith(AUTH_REDIRECT)) return null;
-  const rest = url.slice(AUTH_REDIRECT.length).replace(/^[?#]/, '');
-  const params = new URLSearchParams(rest.replace('#', '&'));
-  const error = params.get('error_description') ?? params.get('error');
-  if (error) return { error };
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  return access_token && refresh_token ? { access_token, refresh_token } : null;
 }

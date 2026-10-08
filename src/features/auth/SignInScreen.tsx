@@ -1,33 +1,20 @@
-/** Logowanie (D5): Sign in with Apple albo link na e-mail (magic link). Jedyny ekran przed sesją. */
+/**
+ * Logowanie: jedyny ekran przed sesją. W becie tylko Sign in with Apple (decyzja właściciela 8.10.2026, D177 / audyt 2
+ * M-77 — wbudowana wysyłka e-maili Supabase to 2 na godzinę na cały projekt). Logowanie linkiem z e-maila wróci razem
+ * z własnym dostawcą wysyłki.
+ */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { strings } from '../../i18n/strings.pl';
 import type { AccountApi } from '../../sync/account';
-import { Body, Button, Field, Screen } from '../../ui/components';
+import { Body, Screen } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
-// Wystarczająco ścisłe dla formularza (jedna „@”, kropka w domenie, bez spacji); ostatecznie sprawdza serwer.
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWithApple' | 'sendMagicLink'> }) {
+export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWithApple'> }) {
   const { c, font, size, scheme, line } = useTheme();
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const send = async () => {
-    const e = email.trim();
-    if (!EMAIL.test(e)) return setError(strings['auth.invalidEmail']);
-    setError(null);
-    try {
-      await account.sendMagicLink(e);
-      setSent(e);
-    } catch {
-      setError(strings['common.error']);
-    }
-  };
 
   return (
     <Screen testID="screen-sign-in">
@@ -46,10 +33,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
         style={{ height: size.TOUCH_TARGET + 8 }}
         onPress={() => void account.signInWithApple().catch(() => setError(strings['common.error']))}
       />
-      <Text style={{ textAlign: 'center', fontFamily: font.text600, color: c.inkMuted }}>{strings['auth.or']}</Text>
-      <Field label={strings['auth.email']} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" testID="email" />
-      <Button label={strings['auth.sendLink']} onPress={send} testID="send-link" />
-      {sent ? <Body>{strings['auth.linkSent'](sent)}</Body> : null}
+      <Body muted>{strings['auth.appleOnly']}</Body>
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
     </Screen>
   );

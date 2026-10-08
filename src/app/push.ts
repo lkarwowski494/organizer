@@ -11,7 +11,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { config } from '../config';
 import { parseTarget, targetPath } from '../domain/notification-target';
-import type { Reminder, ReminderSettings } from '../domain/views/reminders';
+import type { Reminder } from '../domain/views/reminders';
 
 export type PushStatus = 'granted' | 'denied' | 'undetermined';
 export type PushEnv = 'sandbox' | 'production';
@@ -30,20 +30,14 @@ export interface DevicePush {
    * powiadomienie, którym uruchomiono aplikację (raz). Zwraca wyłączenie nasłuchu.
    */
   onOpen(fn: (path: string) => void): () => void;
-  /** „Nie teraz” przy prośbie o powiadomienia — zapamiętane na telefonie. */
-  dismissed(): Promise<boolean>;
-  dismiss(): Promise<void>;
   /**
    * Przypomnienia (D75): podmienia wszystkie zaplanowane powiadomienia lokalne na nową listę. Błąd pojedynczej
    * pozycji nie zatrzymuje pozostałych — obietnica odrzuca się pierwszym z nich po zaplanowaniu reszty.
    */
   replaceReminders(list: Reminder[]): Promise<void>;
-  reminderSettings(): Promise<ReminderSettings | null>;
-  saveReminderSettings(s: ReminderSettings): Promise<void>;
 }
 
-const DISMISSED = 'pushPromptDismissed';
-const REMINDERS = 'reminderSettings';
+// „Nie teraz” i ustawienia przypomnień należą do konta (D175) — src/app/account-prefs.ts. Tu tylko plan na tym telefonie.
 const SCHEDULE = 'reminderSchedule';
 const asStatus = (s: string): PushStatus => (s === 'granted' || s === 'denied' ? s : 'undetermined');
 
@@ -147,21 +141,7 @@ export const expoDevicePush: DevicePush = {
   },
   env: () => apnsEnv(),
   onOpen: (fn) => openedPaths(Notifications, fn),
-  dismissed: async () => (await SecureStore.getItemAsync(DISMISSED)) === '1',
-  dismiss: () => SecureStore.setItemAsync(DISMISSED, '1'),
   replaceReminders: reminderScheduler(Notifications, Date.now, { load: () => SecureStore.getItemAsync(SCHEDULE), save: (v) => SecureStore.setItemAsync(SCHEDULE, v) }),
-  reminderSettings: async () => {
-    const raw = await SecureStore.getItemAsync(REMINDERS);
-    if (!raw) return null;
-    try {
-      const v = JSON.parse(raw) as Partial<ReminderSettings>;
-      // `leave` od PWD-17 — zapis sprzed niego go nie ma (= włączone).
-      return typeof v.leadMin === 'number' && typeof v.morning === 'string' ? { leadMin: v.leadMin, morning: v.morning, ...(typeof v.leave === 'boolean' ? { leave: v.leave } : {}) } : null;
-    } catch {
-      return null;
-    }
-  },
-  saveReminderSettings: (s) => SecureStore.setItemAsync(REMINDERS, JSON.stringify(s)),
 };
 
 type Responses = Pick<typeof Notifications, 'getLastNotificationResponse' | 'clearLastNotificationResponse' | 'addNotificationResponseReceivedListener'>;
