@@ -156,9 +156,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       {scope === 'all' && detail?.rule ? null : (
         <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set({ date })} today={today} testID="event-date" />
       )}
-      {only ? null : (
-        <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
-      )}
+      {/* D136: także „tylko to” może być na cały dzień. */}
+      <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
       {only ? null : (
         <Segmented label={strings['event.repeat']} value={form.repeat} onChange={(repeat) => set({ repeat })} options={REPEATS.map((r) => ({ value: r, label: strings[`event.repeat.${r}`] }))} />
       )}

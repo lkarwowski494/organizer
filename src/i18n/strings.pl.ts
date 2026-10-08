@@ -196,7 +196,6 @@ export const strings = {
   'task.delete': 'Usuń zadanie',
   'task.restore': 'Cofnij usunięcie',
   'task.deleted': 'Zadanie usunięte',
-  'task.save': 'Zapisz',
   'task.dueDate': 'Dzień',
   'task.dueTime': 'Godzina (opcjonalnie)',
   'task.invalidDate': 'Wybierz dzień w kalendarzu.',
@@ -609,6 +608,8 @@ export const strings = {
   'push.why': `Przypomnimy o sprawach z godziną (domyślnie ${config.reminders.LEAD_MIN} min wcześniej) i rano o tym, co na dziś. Dostaniesz też powiadomienie, gdy ktoś przekaże Ci zadanie, wydarzenie albo zakupy. Ustawisz to w Ustawieniach.`,
   'reminders.morningTitle': 'Dziś w Organizerze',
   'reminders.more': (n: number) => `i ${n} więcej`,
+  // D134: podzadania w treści przypomnienia rodzica.
+  'reminders.subtasks': (titles: string[]) => `do zrobienia: ${titles.join(', ')}`,
   'reminders.summary': (n: number, overdue: number) =>
     `${n} ${plural(n, { one: 'sprawa', few: 'sprawy', many: 'spraw' })}${overdue ? `, w tym ${overdue} ${plural(overdue, { one: 'zaległa', few: 'zaległe', many: 'zaległych' })}` : ''}`,
   'reminders.section': 'Przypomnienia',

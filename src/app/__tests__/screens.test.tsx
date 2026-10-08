@@ -122,11 +122,16 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    expect(screen.queryByTestId('task-save')).toBeNull(); // D130: bez „Zapisz”
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
+    await fireEvent(screen.getByTestId('task-title'), 'blur');
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-kwiaty', set: { title: 'Kupić kwiaty dla babci' } });
     await pickDate('task-date', '2026-10-09');
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'own', due_date: '2026-10-09' } });
+    const sent = store.dispatched.length;
     await setTime('task-time', '25:00');
-    await press(screen.getByTestId('task-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
+    expect(store.dispatched).toHaveLength(sent);
     await press(screen.getByLabelText('Ala'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
     await press(screen.getByLabelText('Nikt konkretny'));
@@ -136,8 +141,10 @@ describe('Listy i zadania', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
     expect(await screen.findByText('wstążka')).toBeTruthy();
     await setTime('task-time', '17:30');
+    expect(screen.queryByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeNull();
+    // Notatka bez wyjścia z pola — zapis przy opuszczeniu ekranu.
     await type(screen.getByTestId('task-note'), 'tulipany');
-    await press(screen.getByTestId('task-save'));
+    await press(screen.getByLabelText('Wróć'));
     const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));
     expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' }]));
     // Termin 9.10 to inny dzień niż oglądany (jutro), więc zadanie znika z widoku — otwieramy je z listy.

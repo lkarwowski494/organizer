@@ -88,3 +88,24 @@ describe('lekcje dziecka bez przypomnień (D127)', () => {
     expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '07:00' }, opts()).map((r) => r.id)).toEqual(['m|2026-10-08', 'e|mat|2026-10-08|2026-10-08']);
   });
 });
+
+describe('jedno przypomnienie z podzadaniami (D134)', () => {
+  it('podzadania i zadania wystąpienia bez własnych przypomnień; rodzic z listą; poranne liczy rodziców', () => {
+    const t = world();
+    const task = (id: string, extra: Row) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', parent_id: null, title: id, assignee_member_id: 'mf', deadline_mode: 'inherit', due_date: null, due_time: null, completed_at: null, deleted_at: null, rollover: true, ...extra });
+    task('karton', { parent_id: 'paczka' });
+    task('taśma', { parent_id: 'karton' });
+    // Zadanie wystąpienia „Tańce” jutro.
+    task('buty', { deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-08' });
+    const label = { ...opts().label, leave: (x: string) => `Wyjdź: ${x}`, subtasks: (xs: string[]) => `do zrobienia: ${xs.join(', ')}` };
+    const r = planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '08:00' }, opts({ label }));
+    expect(r.filter((x) => /karton|taśma|buty/.test(x.id))).toEqual([]);
+    expect(r.find((x) => x.id === 't|paczka|2026-10-07')!.body).toBe('17:30 · Rodzina · do zrobienia: karton, taśma');
+    expect(r.find((x) => x.id === 'e|ev|2026-10-08|2026-10-08')!.body).toBe('18:00 · Rodzina · do zrobienia: buty');
+    expect(r.find((x) => x.id === 'm|2026-10-08')!.body).toBe('2/0: kwiaty, 18:00 Tańce'); // bez „buty”
+    const leave = planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts({ label, leaveFor: (id: string) => (id === 'ev' ? { at: NOW + 1000, body: 'Wyjdź teraz' } : null) }));
+    expect(leave.find((x) => x.id.startsWith('l|'))!.body).toBe('Wyjdź teraz · do zrobienia: buty');
+    // Bez etykiety listy — treść jak dotąd.
+    expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts()).find((x) => x.id === 't|paczka|2026-10-07')!.body).toBe('17:30 · Rodzina');
+  });
+});

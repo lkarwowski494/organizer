@@ -167,6 +167,18 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByLabelText('Tańce, 16:00–17:00, 1 h, Rodzina, powtarza się')).toBeTruthy();
   });
 
+  it('D136: „tylko to” na cały dzień — znacznik w wyjątku, w Moich sprawach bez godziny', async () => {
+    const { store } = await openDances();
+    await press(screen.getByTestId('event-edit'));
+    await press(screen.getByTestId('scope-this'));
+    await screen.findByTestId('screen-event-edit');
+    await press(screen.getByLabelText('Cały dzień'));
+    await press(screen.getByTestId('event-save'));
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(store.dispatched).toEqual([expect.objectContaining({ entity: 'event_overrides', set: expect.objectContaining({ start_time: null, end_time: null, all_day: true }) })]);
+    expect(screen.getByLabelText(/^Tańce, cały dzień, Rodzina/)).toBeTruthy();
+  });
+
   it('„tylko to”: dalej niż 62 dni — błąd, nic nie zapisane (audyt 8.10.2026)', async () => {
     const { store } = await openDances();
     await press(screen.getByTestId('event-edit'));

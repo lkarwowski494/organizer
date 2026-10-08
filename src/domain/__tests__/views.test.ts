@@ -295,7 +295,7 @@ describe('kalendarz', () => {
     expect(days).toHaveLength(35);
     expect(days.at(-1)!.date).toBe('2026-11-01');
     expect(days.find((d) => d.date === '2026-11-01')!.holiday).toBe('Wszystkich Świętych');
-    expect(ids(days.find((d) => d.date === '2026-10-14')!.items)).toEqual(['k0', 'k1']);
+    expect(ids(days.find((d) => d.date === '2026-10-14')!.items)).toEqual(['k0', 'k2', 'k1']); // D135: zrobione też (przekreślone)
     expect(ids(days.find((d) => d.date === '2026-10-20')!.items)).toEqual(['ka', 'kb']);
     expect(days.filter((d) => d.items.length > 0)).toHaveLength(2);
   });

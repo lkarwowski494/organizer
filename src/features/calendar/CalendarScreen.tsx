@@ -82,7 +82,7 @@ export function CalendarScreen() {
                   line={x.task.line}
                   group={x.task.groupName}
                   depth={n.depth}
-                  meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
+                  meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={x.task.completed_at !== null} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
               </SwipeRow>
             );
   const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
