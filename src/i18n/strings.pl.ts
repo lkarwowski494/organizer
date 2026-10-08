@@ -21,6 +21,7 @@ export const strings = {
   'sync.authExpired': 'Zaloguj się ponownie',
   // Audyt 2 (M-57): serwer nie obsługuje już tej wersji aplikacji (upgrade_required) — kolejka czeka na aktualizację.
   'sync.upgrade': 'Zaktualizuj aplikację',
+  'sync.upgradeOpen': 'Otwórz TestFlight',
   'sync.a11y': (label: string) => `Stan synchronizacji: ${label}`,
 
   'tabs.today': 'Dziś',
@@ -524,7 +525,15 @@ export const strings = {
   'settings.open': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
   'settings.signOutAsk': 'Wylogować się?',
-  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić (wymaga internetu). Żeby wrócić, zaloguj się tym samym kontem.',
+  // D176: wylogowanie tylko tego telefonu.
+  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach zostajesz zalogowany. Żeby wrócić, zaloguj się tym samym kontem.',
+  // Wylogowanie bez internetu: token push zdejmie zaległe zadanie (src/sync/supabase.ts, finishSignOut).
+  'settings.signOutOffline': 'Powiadomienia tego konta przestaną przychodzić, gdy telefon połączy się z internetem.',
+  // Audyt 2 (M-166): niewysłane zmiany zostają w bazie konta na telefonie (D172 b) i wyślą się po ponownym zalogowaniu.
+  'settings.signOutPending': (n: number) =>
+    `${n} ${plural(n, { one: 'zmiana czeka', few: 'zmiany czekają', many: 'zmian czeka' })} na wysłanie — ${plural(n, { one: 'wyśle', few: 'wyślą', many: 'wyśle' })} się, gdy znów zalogujesz się tym kontem.`,
+  // D177: konto założone linkiem z e-maila — w becie nie da się do niego wrócić.
+  'settings.signOutEmail': 'To konto założono e-mailem. W wersji testowej logowanie e-mailem jest wyłączone, więc po wylogowaniu nie zalogujesz się do niego ponownie.',
   // D131: podstrony ustawień.
   'settings.section.notifications': 'Powiadomienia',
   'settings.section.calendar': 'Kalendarz i dojazd',
@@ -573,11 +582,8 @@ export const strings = {
 
   'auth.title': 'Organizer',
   'auth.tagline': 'Wszystkie Twoje grupy na jednej mapie.',
-  'auth.email': 'Adres e-mail',
-  'auth.sendLink': 'Wyślij link do logowania',
-  'auth.linkSent': (email: string) => `Wysłaliśmy link na ${email}. Otwórz go na tym iPhonie.`,
-  'auth.invalidEmail': 'Sprawdź adres e-mail',
-  'auth.or': 'albo',
+  // D177: w becie tylko Apple.
+  'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
 
   'confirm.doneTitle': 'Zrobione?',
   'confirm.doneYes': 'Zrobione',

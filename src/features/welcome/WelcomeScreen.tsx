@@ -1,6 +1,6 @@
 /**
  * Pierwsze kroki (D79, ADR 0017): trzy krótkie ekrany o tym, co aplikacja robi, potem wybór startu — grupa rodzinna,
- * kod zaproszenia albo na razie samemu. Pokazywane raz na telefonie (prefs „welcomeSeen”); wrócić można z Ustawień.
+ * kod zaproszenia albo na razie samemu. Pokazywane raz dla konta (prefs „welcomeSeen”, D175); wrócić można z Ustawień.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';

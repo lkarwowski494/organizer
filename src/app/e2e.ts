@@ -12,6 +12,7 @@
  */
 import type { DbAdapter } from '../data/db/adapter';
 import { applyOp, type Entity, type Op, type PulledRow, type PullRequest, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
+import { LEGACY_KEYS } from './account-prefs';
 import { WHATS_NEW_SEEN } from '../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
 import type { AccountApi } from '../sync/account';
@@ -199,9 +200,12 @@ export function e2eAccount(server: E2eServer, auth: { signIn(): Promise<void>; s
   };
   return {
     signInWithApple: auth.signIn,
-    sendMagicLink: ok,
     signOut: async () => auth.signOut(),
-    deleteAccount: async () => auth.signOut(),
+    deleteAccount: async (before) => {
+      await before?.();
+      auth.signOut();
+    },
+    finishSignOut: ok,
     setMyName: ok,
     createGroup: async (a) => server.createGroup(a, E2E_SESSION.userId),
     createInvite: offline,
@@ -232,20 +236,26 @@ export const e2ePush: DevicePush = {
   onToken: () => () => {},
   onOpen: () => () => {},
   env: async () => 'sandbox',
-  dismissed: async () => true,
-  dismiss: ok,
   replaceReminders: ok,
-  reminderSettings: async () => null,
-  saveReminderSettings: ok,
 };
 
-/** Drobne ustawienia telefonu w pamięci: wprowadzenie i „Co nowego” już obejrzane (nie zasłaniają ekranów). */
+/** Drobne ustawienia telefonu (nie konta) w pamięci. */
 export function e2ePrefs(): NonNullable<RootDeps['prefs']> {
-  const m = new Map<string, string>([
-    [WELCOME_SEEN, '1'],
-    [WHATS_NEW_SEEN, String(Number.MAX_SAFE_INTEGER)],
-  ]);
+  const m = new Map<string, string>();
   return { get: async (k) => m.get(k) ?? null, set: async (k, v) => void m.set(k, v) };
+}
+
+/**
+ * Ustawienia konta na start (D175 — trzymane w bazie konta, a ta w E2E jest w pamięci): wprowadzenie i „Co nowego” już
+ * obejrzane, żeby nie zasłaniały ekranów. Podane jak dawne ustawienia z pęku kluczy, które konto przejmuje przy
+ * zalogowaniu — za każdym razem (bez usuwania), bo każde zalogowanie w E2E ma świeżą bazę.
+ */
+export function e2eLegacyPrefs(): NonNullable<RootDeps['legacyPrefs']> {
+  const m = new Map<string, string>([
+    [LEGACY_KEYS[WELCOME_SEEN]!, '1'],
+    [LEGACY_KEYS[WHATS_NEW_SEEN]!, String(Number.MAX_SAFE_INTEGER)],
+  ]);
+  return { get: async (k) => m.get(k) ?? null, remove: ok };
 }
 
 export type E2eNative = {
@@ -280,18 +290,18 @@ export function e2eDeps(native: E2eNative): RootDeps {
     session: {
       current: async () => ((await allowed) && signedIn ? E2E_SESSION : null),
       onChange: (fn) => (listeners.add(fn), () => void listeners.delete(fn)),
-      setFromLink: ok,
     },
     account,
     calendar: { add: async () => 'canceled' },
     push: e2ePush,
     prefs: e2ePrefs(),
+    legacyPrefs: e2eLegacyPrefs(),
     appearance: { load: async () => appearance, save: async (a) => void (appearance = a) },
     transport: e2eTransport(server),
     openDb: native.openDb,
     newId: native.newId,
     subscribe: () => () => {},
-    links: { initial: async () => null, onUrl: () => () => {} },
+    links: { onUrl: () => () => {} },
     nowMs,
   };
 }

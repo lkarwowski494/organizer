@@ -1,5 +1,5 @@
 /**
- * Kalendarz iPhone'a w obie strony (D95, D96; ADR 0021): ustawienia na tym telefonie, odczyt moich wydarzeń (odświeżany
+ * Kalendarz iPhone'a w obie strony (D95, D96; ADR 0021): ustawienia konta na tym telefonie (D175), odczyt moich wydarzeń (odświeżany
  * przy wejściu do aplikacji) i lustro wydarzeń grup (po każdej zmianie danych, z opóźnieniem). Moje wydarzenia nie
  * wychodzą poza telefon — trzymamy je tylko w pamięci ekranu.
  */
