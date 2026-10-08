@@ -58,6 +58,19 @@ export const strings = {
   'task.assignedTo': (name: string) => `dla: ${name}`,
   // D119: kto w wierszu zadania i wydarzenia; „Ty”, gdy to ja.
   'who.task': (p: { name: string; me: boolean }) => `dla: ${p.me ? 'Ty' : p.name}`,
+  // D124: potwierdzanie obecności.
+  'rsvp.title': 'Obecność',
+  'rsvp.yes': 'Będę',
+  'rsvp.maybe': 'Może',
+  'rsvp.no': 'Nie będę',
+  'rsvp.mine': 'Twoja odpowiedź',
+  'rsvp.for': (name: string) => `Odpowiedź za: ${name}`,
+  'rsvp.you': 'Ty',
+  'rsvp.list.yes': (names: string) => `Będą: ${names}`,
+  'rsvp.list.maybe': (names: string) => `Może: ${names}`,
+  'rsvp.list.no': (names: string) => `Nie będą: ${names}`,
+  'rsvp.none': (n: number) => `Bez odpowiedzi: ${n}`,
+  'rsvp.short': (c: { yes: number; maybe: number; no: number }) => [c.yes ? `będą ${c.yes}` : '', c.maybe ? `może ${c.maybe}` : '', c.no ? `nie ${c.no}` : ''].filter(Boolean).join(', '),
   // D122: przerwa w widoku dnia.
   'day.gap': (length: string) => `wolne ${length}`,
   'day.gapA11y': (length: string) => `Wolne ${length}`,

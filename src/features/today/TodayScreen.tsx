@@ -25,6 +25,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
@@ -154,6 +155,11 @@ export function TodayScreen() {
     const p = personOf(tables, userId, memberId);
     return p ? [strings['who.task'](p)] : [];
   };
+  // D124: ile osób potwierdziło obecność.
+  const rsvpOf = (eventId: string, date: string) => {
+    const v = rsvpView(tables, userId, eventId, date);
+    return v && v.counts.yes + v.counts.maybe + v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
+  };
   const whoEvent = (memberId: string | null) => {
     const p = personOf(tables, userId, memberId);
     return p ? [strings['who.event'](p)] : [];
@@ -213,7 +219,7 @@ export function TodayScreen() {
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
-        extra={[...whoEvent(x.event.responsibleId), ...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
+        extra={[...whoEvent(x.event.responsibleId), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
