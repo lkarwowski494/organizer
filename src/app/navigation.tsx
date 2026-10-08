@@ -6,6 +6,7 @@
 import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -157,11 +158,17 @@ export const linking: LinkingOptions<RootStackParams> = {
   },
 };
 
-export function AppNavigation() {
+/**
+ * `pendingUrl` — link dotknięty, zanim nawigacja powstała (wylogowana aplikacja w tle, audyt 2 M-221): otwierany na
+ * starcie zamiast linku, którym uruchomiono aplikację (domyślne getInitialURL React Navigation).
+ */
+export function AppNavigation({ pendingUrl = null }: { pendingUrl?: string | null }) {
   const { scheme, c } = useTheme();
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+  const [start] = useState(pendingUrl);
+  const options = useMemo(() => (start ? { ...linking, getInitialURL: () => start } : linking), [start]);
   return (
-    <NavigationContainer linking={linking} theme={{ ...base, colors: { ...base.colors, background: c.ground, card: c.surface, text: c.ink, border: c.border, primary: c.ink } }}>
+    <NavigationContainer linking={options} theme={{ ...base, colors: { ...base.colors, background: c.ground, card: c.surface, text: c.ink, border: c.border, primary: c.ink } }}>
       <RootStack />
     </NavigationContainer>
   );

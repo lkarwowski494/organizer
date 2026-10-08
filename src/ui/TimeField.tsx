@@ -20,7 +20,8 @@ const HOURS = Array.from({ length: 24 }, (_, h) => pad(h));
 const MINUTES = Array.from({ length: 60 / config.time.MINUTE_STEP }, (_, i) => pad(i * config.time.MINUTE_STEP));
 const parts = (v: string) => /^(\d{1,2}):(\d{2})$/.exec(v.trim());
 
-export function TimeField({ label, value, onChange, testID, optional, disabledNote }: { label: string; value: string; onChange: (v: string) => void; testID: string; optional?: boolean; disabledNote?: string }) {
+/** `a11yLabel` — etykieta VoiceOver z kontekstem, gdy kilka pól na ekranie ma ten sam napis (audyt 2, M-145). */
+export function TimeField({ label, value, onChange, testID, optional, a11yLabel, disabledNote }: { label: string; value: string; onChange: (v: string) => void; testID: string; optional?: boolean; a11yLabel?: string; disabledNote?: string }) {
   const { c, font, size } = useTheme();
   const [open, setOpen] = useState(false);
   // Ręczne wpisywanie: tekst w polu, dopóki nie ma pełnej godziny albo nie wyjdę z pola (M-206).
@@ -60,7 +61,7 @@ export function TimeField({ label, value, onChange, testID, optional, disabledNo
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${shown}`}
+        accessibilityLabel={`${a11yLabel ?? label}: ${shown}`}
         accessibilityState={{ expanded: open && !disabled, disabled }}
         accessibilityValue={{ text: value.trim() }}
         accessibilityHint={disabledNote}

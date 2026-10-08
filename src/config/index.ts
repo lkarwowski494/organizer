@@ -143,6 +143,13 @@ export const config = {
   },
 
   /**
+   * Konto: ponawianie zaległego wyrejestrowania tokenu push po wylogowaniu bez sieci (src/sync/supabase.ts,
+   * finishSignOut) — co minutę, gdy aplikacja działa. Wybór projektowy, bez źródła: odczyt pęku kluczy jest tani,
+   * a minuta to dość szybko, by powiadomienia starego konta przestały przychodzić zaraz po powrocie sieci.
+   */
+  account: { SIGNOUT_RETRY_MS: 60_000 },
+
+  /**
    * Synchronizacja (architektura: protokół synchronizacji). Serwer egzekwuje te same wartości funkcjami
    * private.* w migracjach SQL — zgodność pilnuje test kontraktowy src/config/__tests__/sql.contract.test.ts.
    * Źródło wartości: raport „Organizer grup architektura MVP” (paczka do ok. 100 operacji, porcja pull
@@ -225,7 +232,7 @@ export const config = {
    * ale trzymany poza repozytorium, żeby skanery sekretów nie miały fałszywych alarmów.
    */
   SUPABASE_URL: 'https://rkokujgrziaaxabtxnlo.supabase.co',
-  /** D40: schemat linków głębokich (magic link, zaproszenia) = bundle ID, żeby nie kolidował z innymi aplikacjami. */
+  /** D40: schemat linków głębokich (zaproszenia; dawniej też magic link — w becie wyłączony, D177) = bundle ID, żeby nie kolidował z innymi aplikacjami. */
   URL_SCHEME: 'io.github.lkarwowski494.organizer',
 
   /**

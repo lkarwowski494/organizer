@@ -70,17 +70,18 @@ export function AddTaskScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['form.newTitle']}</Title>
       <DraftNote draft={draft} />
-      {/* D98: zadanie albo wydarzenie — wydarzenie ma czas od–do, osobę odpowiedzialną i uczestników (osobny formularz). */}
+      {/* D98: zadanie, wydarzenie albo rutyna (PWD-26) — wpisane nazwa, dzień, godzina, grupa i osoba przechodzą. */}
       <Segmented
         label={strings['form.kind']}
         value="task"
         onChange={(k) => {
-          if (k !== 'event') return;
+          if (k === 'task') return;
+          // Wpisane pola przechodzą do innego formularza — szkic zadania nie jest już potrzebny.
+          draft.saved();
+          if (k === 'routine') return navigation.replace('Routine', { groupId: form.groupId, title: form.title, kindSwitch: true });
           // Dorosły z „Dla kogo” staje się odpowiedzialnym (D66), dziecko — uczestnikiem, jak w szybkim dodaniu (M-255).
           const date = validDate(form.date) ? form.date : formatIsoDate(today);
           const child = form.assigneeId !== null && tables.group_members?.[form.assigneeId]?.role === 'child';
-          // Wpisane pola przechodzą do wydarzenia — szkic zadania nie jest już potrzebny.
-          draft.saved();
           navigation.replace('EventEdit', {
             groupId: form.groupId,
             date,
@@ -93,6 +94,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         options={[
           { value: 'task', label: strings['form.kind.task'] },
           { value: 'event', label: strings['form.kind.event'], hint: strings['form.kind.eventHint'] },
+          { value: 'routine', label: strings['form.kind.routine'], hint: strings['form.kind.routineHint'] },
         ]}
       />
       <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} testID="form-title" />

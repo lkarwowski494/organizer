@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
-import { DraftNote, useFormDraft } from '../../app/form-draft';
+import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
@@ -30,7 +30,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   const undo = useUndo();
   const groups = groupsView(tables, userId).filter((g) => g.me.role !== 'child');
   const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (groups[0]?.id ?? ''));
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(route.params?.title ?? '');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -39,7 +39,9 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
-  const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps });
+  const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps }, { restore: route.params?.title === undefined });
+  // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
+  useAnnounce(route.params?.kindSwitch ? strings['routine.title'] : null);
 
   const save = () => {
     const r = routineOps({ tables, userId, groupId, title, days, start, end, participantIds: who, steps, today, newId });
@@ -56,6 +58,23 @@ export function RoutineScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['routine.title']}</Title>
       <DraftNote draft={draft} />
+      {/* Audyt 2 (PWD-26): ten sam wybór rodzaju co w formularzu zadania i wydarzenia (D98) — nazwa i grupa przechodzą. */}
+      <Segmented
+        label={strings['form.kind']}
+        value="routine"
+        onChange={(k) => {
+          if (k === 'routine') return;
+          // Wpisane pola przechodzą do innego formularza — szkic rutyny nie jest już potrzebny.
+          draft.saved();
+          if (k === 'task') navigation.replace('AddTask', { title, groupId: groupId || undefined, kindSwitch: true });
+          else navigation.replace('EventEdit', { groupId: groupId || undefined, title, kindSwitch: true });
+        }}
+        options={[
+          { value: 'task', label: strings['form.kind.task'], hint: strings['form.kind.taskHint'] },
+          { value: 'event', label: strings['form.kind.event'], hint: strings['form.kind.eventHint'] },
+          { value: 'routine', label: strings['form.kind.routine'] },
+        ]}
+      />
       <Body muted>{strings['routine.info']}</Body>
       {groups.length > 1 ? (
         <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />

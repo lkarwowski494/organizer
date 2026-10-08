@@ -150,24 +150,16 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
 });
 
 describe('logowanie', () => {
-  it.each(['light', 'dark'] as Scheme[])('tryb %s: Apple, e-mail z walidacją, potwierdzenie wysłania, błąd', async (scheme) => {
+  it.each(['light', 'dark'] as Scheme[])('tryb %s: tylko Apple (D177), bez pola e-mail', async (scheme) => {
     const account = fakeAccount();
     const { wrap } = setup({ scheme, account });
     await render(wrap(<SignInScreen account={account} />));
     expect(screen.getByText('Organizer')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('apple-sign-in'));
     expect(account.signInWithApple).toHaveBeenCalled();
-    await fireEvent.changeText(screen.getByTestId('email'), 'zly adres');
-    await fireEvent.press(screen.getByTestId('send-link'));
-    expect(screen.getByText('Sprawdź adres e-mail')).toBeTruthy();
-    expect(account.sendMagicLink).not.toHaveBeenCalled();
-    await fireEvent.changeText(screen.getByTestId('email'), ' ala@example.com ');
-    await fireEvent.press(screen.getByTestId('send-link'));
-    expect(account.sendMagicLink).toHaveBeenCalledWith('ala@example.com');
-    expect(await screen.findByText('Wysłaliśmy link na ala@example.com. Otwórz go na tym iPhonie.')).toBeTruthy();
-    account.sendMagicLink.mockRejectedValueOnce(new Error('rate limit'));
-    await fireEvent.press(screen.getByTestId('send-link'));
-    expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeTruthy();
+    expect(screen.queryByTestId('email')).toBeNull();
+    expect(screen.queryByTestId('send-link')).toBeNull();
+    expect(screen.getByText('W wersji testowej logujesz się tylko przez Apple.')).toBeTruthy();
     expect(audit(screen.root!, scheme, 'Logowanie')).toEqual([]);
   });
 

@@ -21,6 +21,7 @@ export const strings = {
   'sync.authExpired': 'Zaloguj się ponownie',
   // Audyt 2 (M-57): serwer nie obsługuje już tej wersji aplikacji (upgrade_required) — kolejka czeka na aktualizację.
   'sync.upgrade': 'Zaktualizuj aplikację',
+  'sync.upgradeOpen': 'Otwórz TestFlight',
   'sync.a11y': (label: string) => `Stan synchronizacji: ${label}`,
 
   'tabs.today': 'Dziś',
@@ -118,6 +119,9 @@ export const strings = {
   'form.kind.event': 'Wydarzenie',
   'form.kind.eventHint': 'Otwiera formularz wydarzenia, wpisane dane zostają',
   'form.kind.taskHint': 'Otwiera formularz zadania, wpisane dane zostają',
+  'form.kind.routineHint': 'Otwiera formularz rutyny, wpisana nazwa i grupa zostają',
+  // Audyt 2 (PWD-26): rutyna także z pełnego formularza dodawania.
+  'form.kind.routine': 'Rutyna',
   'form.group': 'Grupa',
   'form.noDate': 'Bez terminu',
   'form.today': 'Dziś',
@@ -191,8 +195,10 @@ export const strings = {
   'streak': (n: number) => `seria: ${n} z rzędu`,
   'timetable.open': 'Plan lekcji',
   'timetable.title': (name: string) => `Plan lekcji – ${name}`,
-  'timetable.info': 'Każda lekcja staje się wydarzeniem cyklicznym z tą osobą jako uczestnikiem — widać je w Kalendarzu, „Moich sprawach” i kalendarzu iPhone’a. Zmiany w planie obowiązują od dziś; pojedynczą lekcję zmienisz jak zwykłe wydarzenie.',
+  'timetable.info': 'Każda lekcja staje się wydarzeniem cyklicznym z tą osobą jako uczestnikiem — widać je w Kalendarzu, „Moich sprawach” i kalendarzu iPhone’a. Zmiany w planie obowiązują od jutra; pojedynczą lekcję zmienisz jak zwykłe wydarzenie.',
   'timetable.thisWeek': (range: string) => `Ten tydzień (${range}) to`,
+  // D171: przełącznik zmienia nazwy tygodni, nie dni lekcji.
+  'timetable.thisWeekInfo': 'Zmiana tygodnia nie przesuwa lekcji — zamienia tylko litery A i B.',
   'timetable.weekA': 'Tydzień A',
   'timetable.weekB': 'Tydzień B',
   'timetable.both': 'Co tydzień',
@@ -201,7 +207,10 @@ export const strings = {
   'timetable.end': 'Koniec',
   'timetable.add': (day: string) => `Dodaj lekcję: ${day}`,
   'timetable.remove': 'Usuń lekcję',
-  'timetable.removeA11y': (n: number) => `Usuń lekcję ${n}`,
+  // Audyt 2 (M-145): numer lekcji w obrębie dnia i dzień — pola kolejnych lekcji różnią się dla VoiceOvera.
+  'timetable.lessonA11y': (n: number, day: string) => `Lekcja ${n}, ${day}`,
+  'timetable.fieldA11y': (field: string, n: number, day: string) => `${field}, lekcja ${n}, ${day}`,
+  'timetable.removeA11y': (n: number, day: string) => `Usuń lekcję ${n}, ${day}`,
   'timetable.until': 'Do dnia (opcjonalnie, np. koniec roku szkolnego)',
   'timetable.save': 'Zapisz plan',
   'timetable.empty': 'Dodaj co najmniej jedną lekcję.',
@@ -210,7 +219,7 @@ export const strings = {
   'lessons.show': 'dotknij, by zobaczyć lekcje',
   'lessons.hide': 'dotknij, by zwinąć',
   'timetable.error.title': 'Wpisz nazwę lekcji.',
-  'timetable.updated': 'Zapisano zmiany w planie lekcji (od dziś)',
+  'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
   'timetable.saved': (n: number) => `Dodano plan: ${n} ${plural(n, { one: 'seria', few: 'serie', many: 'serii' })} wydarzeń`,
   'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie o tej samej nazwie co wpis z aplikacji (ten sam dzień, podobna godzina) albo dodane przez Organizer jest ukrywane jako dubel — pod listą dnia widać, ile ukryto.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
@@ -549,7 +558,15 @@ export const strings = {
   'settings.open': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
   'settings.signOutAsk': 'Wylogować się?',
-  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić (wymaga internetu). Żeby wrócić, zaloguj się tym samym kontem.',
+  // D176: wylogowanie tylko tego telefonu.
+  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach zostajesz zalogowany. Żeby wrócić, zaloguj się tym samym kontem.',
+  // Wylogowanie bez internetu: token push zdejmie zaległe zadanie (src/sync/supabase.ts, finishSignOut).
+  'settings.signOutOffline': 'Powiadomienia tego konta przestaną przychodzić, gdy telefon połączy się z internetem.',
+  // Audyt 2 (M-166): niewysłane zmiany zostają w bazie konta na telefonie (D172 b) i wyślą się po ponownym zalogowaniu.
+  'settings.signOutPending': (n: number) =>
+    `${n} ${plural(n, { one: 'zmiana czeka', few: 'zmiany czekają', many: 'zmian czeka' })} na wysłanie — ${plural(n, { one: 'wyśle', few: 'wyślą', many: 'wyśle' })} się, gdy znów zalogujesz się tym kontem.`,
+  // D177: konto założone linkiem z e-maila — w becie nie da się do niego wrócić.
+  'settings.signOutEmail': 'To konto założono e-mailem. W wersji testowej logowanie e-mailem jest wyłączone, więc po wylogowaniu nie zalogujesz się do niego ponownie.',
   // D131: podstrony ustawień.
   'settings.section.notifications': 'Powiadomienia',
   'settings.section.calendar': 'Kalendarz i dojazd',
@@ -598,11 +615,8 @@ export const strings = {
 
   'auth.title': 'Organizer',
   'auth.tagline': 'Wszystkie Twoje grupy na jednej mapie.',
-  'auth.email': 'Adres e-mail',
-  'auth.sendLink': 'Wyślij link do logowania',
-  'auth.linkSent': (email: string) => `Wysłaliśmy link na ${email}. Otwórz go na tym iPhonie.`,
-  'auth.invalidEmail': 'Sprawdź adres e-mail',
-  'auth.or': 'albo',
+  // D177: w becie tylko Apple.
+  'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
 
   'confirm.doneTitle': 'Zrobione?',
   'confirm.doneYes': 'Zrobione',

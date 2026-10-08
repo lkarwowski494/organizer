@@ -3,7 +3,8 @@
  * sprawach; PW-37 / M-118 — później formularze wydarzenia, rutyny i listy): ustawienie „Grupa domyślna” („Ostatnio
  * użyta” albo konkretna grupa) i ostatnio użyta grupa. Start liczy `startGroup` (domain/views/default-group.ts);
  * `remember` to jedyne miejsce, które zapisuje ostatnio użytą grupę.
- * Tylko na tym telefonie, w lokalnej bazie (klucze local:*, jak stan lustra kalendarza): to wygoda jednego telefonu,
+ * Tylko na tym telefonie, w lokalnej bazie konta (klucze local:*, jak stan lustra kalendarza — więc osobno dla każdego
+ * konta, D175): to wygoda jednego telefonu,
  * a nie dane grupy, więc bez synchronizacji (drugi telefon może mieć inną grupę domyślną).
  */
 import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
