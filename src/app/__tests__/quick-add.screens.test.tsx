@@ -349,3 +349,82 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(radio('Grupa domyślna', 'Ostatnio użyta').props.accessibilityState.selected).toBe(true);
   });
 });
+
+describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
+  const shop = () => screen.queryByTestId('quick-shopping');
+  const pickGroup = async (name: string) => {
+    await press(screen.getByTestId('quick-group'));
+    await press(radio('Dodaj do grupy', name));
+  };
+  const openIn = async (group: string, base = sampleBase()) => {
+    const s = setup({ base });
+    s.services.local!.save('lastUsedGroup', group);
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    return s;
+  };
+
+  it('cały wpis to produkt: podpowiedź listy grupy; dotknięcie dodaje na listę, pasek „Zmień” otwiera listę', async () => {
+    const { store } = await openIn('gf');
+    await write('mleko');
+    expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
+    expect(shop()!.props.accessibilityLabel).toBe('Dodaj „mleko” do listy zakupów „Zakupy na weekend”');
+    await press(shop()!);
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'mleko', deadline_mode: 'none' } });
+    expect(screen.getByTestId('quick-add').props.value).toBe('');
+    const bar = screen.getByTestId('undo-bar');
+    expect(within(bar).getByText('Dodano: mleko · Zakupy na weekend')).toBeTruthy();
+    await press(within(bar).getByLabelText('Zmień'));
+    expect(await screen.findByTestId('screen-list')).toBeTruthy();
+  });
+
+  it('z ilością dosłownie; z terminem — produkt bez terminu na liście; „+” zostawia zadanie z terminem', async () => {
+    const { store } = await openIn('gf');
+    await write('mąka 1.5 kg');
+    await press(shop()!);
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lz', title: 'mąka 1.5 kg' } });
+    await write('mleko jutro');
+    expect(shop()).toBeTruthy();
+    await add();
+    const [list, task] = store.dispatched.slice(-2);
+    expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania' } });
+    expect(task).toMatchObject({ entity: 'tasks', group_id: 'gf', set: { title: 'mleko', due_date: '2026-10-08' } });
+    await write('chleb 2 szt. na jutro');
+    await press(shop()!);
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lz', title: 'chleb 2 szt.', due_date: null } });
+  });
+
+  it('zdanie, osoba albo zakres godzin — bez podpowiedzi; grupa bez listy zakupów — informacja, zostaje zadanie', async () => {
+    await openIn('gf');
+    for (const text of ['kupić mleko dla babci', 'karmić kota', 'mleko @ala', 'mleko @ja', 'mleko jutro 17–18']) {
+      await write(text);
+      expect(shop()).toBeNull();
+    }
+    await pickGroup('Osobiste');
+    await write('mleko');
+    expect(shop()).toBeNull();
+    expect(screen.getByText('„mleko” to produkt? W grupie „Osobiste” nie ma listy zakupów, więc dodasz zadanie.')).toBeTruthy();
+    // „#Rodzina” — podpowiedź listy tej grupy, jak chip.
+    await write('#Rodzina mleko');
+    expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
+  });
+
+  it('kilka list zakupów — ta, której ostatnio używano', async () => {
+    const base = sampleBase();
+    put(base, 'lists', 'lz2', { ...base.lists!.lz!, id: 'lz2', name: 'Biedronka', version: 2 });
+    put(base, 'tasks', 's-ser', { ...base.tasks!['s-chleb']!, id: 's-ser', list_id: 'lz2', title: 'ser', version: 5 });
+    await openIn('gf', base);
+    await write('masło');
+    expect(within(shop()!).getByText('Na listę: Biedronka')).toBeTruthy();
+  });
+
+  it('jedna grupa — sama podpowiedź, bez chipa grupy', async () => {
+    const solo = sampleBase();
+    for (const g of ['gf', 'gk']) solo.groups![g] = { ...solo.groups![g]!, deleted_at: '2026-10-01T00:00:00Z' };
+    put(solo, 'lists', 'lzp', { ...solo.lists!.lz!, id: 'lzp', group_id: 'u-me', name: 'Moje zakupy' });
+    await openIn('u-me', solo);
+    await write('masło');
+    expect(screen.queryByTestId('quick-group')).toBeNull();
+    expect(within(shop()!).getByText('Na listę: Moje zakupy')).toBeTruthy();
+  });
+});
