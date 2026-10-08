@@ -360,7 +360,6 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(await screen.findByTestId('today-event-ev-raz-2026-10-07'));
     await screen.findByTestId('screen-event');
     await press(screen.getByTestId('event-cancel'));
-    await press(screen.getByTestId('event-delete-confirm'));
     await screen.findByTestId('screen-today');
     expect(screen.getByText('Usunięto: Wizyta')).toBeTruthy();
   });
@@ -375,7 +374,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'events', id: 'ev-tance' });
   });
 
-  it('jednorazowe: zmiana bez pytania o zakres, usunięcie z potwierdzeniem', async () => {
+  it('jednorazowe: zmiana bez pytania o zakres, usunięcie bez pytania (D187)', async () => {
     const base = sampleBase();
     event(base, 'ev-1', { rrule: null, audience: 'group', title: 'Wywiadówka', start_time: null, end_time: null });
     const { store } = await open(base);
@@ -388,10 +387,6 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.queryByText(/Zmieniasz/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('event-cancel'));
-    expect(screen.getByText('Usunąć to wydarzenie u wszystkich w grupie?')).toBeTruthy();
-    await press(screen.getByLabelText('Anuluj'));
-    await press(screen.getByTestId('event-cancel'));
-    await press(screen.getByTestId('event-delete-confirm'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-1' }]);
     expect(screen.queryByTestId('today-event-ev-1-2026-10-07')).toBeNull();

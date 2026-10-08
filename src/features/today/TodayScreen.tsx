@@ -16,10 +16,12 @@ import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
+import { useEventActions } from '../../app/event-actions';
 import { localNow } from '../../app/clock';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
+import { rejectedCreateIds } from '../../domain/sync-engine/client';
 import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
@@ -53,6 +55,7 @@ const MODES: RangeMode[] = ['day', 'week', 'month'];
 export function TodayScreen() {
   const { userId, store, now, newId, prefs, needsName } = useServices();
   const actions = useTaskActions();
+  const events = useEventActions();
   const { tables, today, state } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size } = useTheme();
@@ -79,7 +82,7 @@ export function TodayScreen() {
   // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
   // Audyt 2: tylko w żywej grupie, w której nie jestem dzieckiem (T-2); odhaczone przez dziecko dostają następne
   // tutaj (T-12); kopia odrzucona przez serwer nie wraca w każdym cyklu synchronizacji.
-  const rejectedIds = useMemo(() => new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []))), [state.rejected]);
+  const rejectedIds = useMemo(() => rejectedCreateIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canCreate = (g: string) => groups.some((x) => x.id === g && x.me.role !== 'child');
     const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
@@ -152,7 +155,8 @@ export function TodayScreen() {
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
-      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
+      // D189 (audyt 2: PW-29 A, M-126): „Zmień” otwiera od razu edycję wydarzenia, jak „Zmień” zadania — formularz.
+      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('EventEdit', { eventId: event.id, date: q.form.date, scope: 'all' }), strings['form.change']);
       return done(t);
     }
     const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: t.memberId });
@@ -227,7 +231,7 @@ export function TodayScreen() {
         label={strings['today.moveOverdue'](count)}
         onPress={() => {
           store.dispatch(ops);
-          undo.show(strings['today.movedOverdue'](count), () => store.dispatch(back));
+          undo.show(strings['today.movedOverdue'](count), { ops: back }, { changed: ops });
         }}
       />
     );
@@ -250,7 +254,8 @@ export function TodayScreen() {
         meta={m.meta}
         alert={m.alert}
         checked={false}
-        onToggle={() => actions.finishTrip(task.id, task.title)}
+        // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
+        onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
         onOpen={() => nav.navigate('List', { listId: task.id })}
       />
     );
@@ -261,7 +266,8 @@ export function TodayScreen() {
     if (task.trip) return tripRow(task, key, day);
     const m = meta.task(task, day, n);
     return (
-      <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id) && task.completed_at === null} onDelete={() => actions.remove(task)}>
+      // Audyt 2 (M-124): zrobione też można usunąć — jak na liście i w Kalendarzu (kosz i „Cofnij” chronią).
+      <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id)} onDelete={() => actions.remove(task)} testID={`swipe-today-${task.id}`}>
         <StationRow
           testID={`today-${task.id}`}
           title={task.title}
@@ -285,7 +291,8 @@ export function TodayScreen() {
       <Fragment key={x.key}>
         <EventRow
           testID={`today-${x.key}`}
-          title={strings['lessons.title'](b.name, b.lessons.length)}
+          // Moje lekcje (dziecko z kontem, D127 — audyt 2, N-38) bez imienia.
+          title={groups.find((g) => g.id === b.groupId)?.me.member_id === b.memberId ? strings['lessons.mine'](b.lessons.length) : strings['lessons.title'](b.name, b.lessons.length)}
           time={timeLabel(b.start, b.end)}
           line={b.line}
           group={groupLabel(b.groupId, b.groupName)}
@@ -305,8 +312,9 @@ export function TodayScreen() {
     // PWD-32 B: wydarzenie dziecka, za które odpowiada ktoś inny — wyszarzone „Kuba: Basen”, z osobą odpowiedzialną.
     const info = !x.event.concernsMe && x.event.childInfo;
     return (
+      // Audyt 2 (M-239): termin przesuwa się jak zadanie — jednorazowe „Usuń”, termin serii „Odwołaj” (tylko ten, D57).
+      <SwipeRow key={x.key} title={x.event.title} enabled={canDelete(x.event.groupId)} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => events.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-today-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
       <EventRow
-        key={x.key}
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
         title={info ? strings['event.childInfo'](info.join(', '), x.event.title) : x.event.title}
         time={timeLabel(x.event.startTime, x.event.endTime)}
@@ -319,6 +327,7 @@ export function TodayScreen() {
         faded={past || !!info}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
+      </SwipeRow>
     );
   };
   const pinnedRows = nestEntries(pinned.map((p) => ({ kind: 'task' as const, key: `p-${p.id}`, task: p })), tables).map((n) => taskRow(n.entry.task, n.entry.key, null, n));

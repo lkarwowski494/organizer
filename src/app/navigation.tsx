@@ -24,6 +24,7 @@ import { ListsScreen } from '../features/lists/ListsScreen';
 import { NewListScreen } from '../features/lists/NewListScreen';
 import { TaskScreen } from '../features/lists/TaskScreen';
 import { RejectedScreen } from '../features/settings/RejectedScreen';
+import { RecentScreen } from '../features/groups/RecentScreen';
 import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
 import { NameScreen } from '../features/profile/NameScreen';
@@ -38,6 +39,7 @@ import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
+import { UndoLinks } from './UndoLinks';
 import { CalendarSyncProvider } from './calendar-sync';
 import { DefaultGroupProvider } from './default-group';
 import { MyScopeProvider } from './my-scope';
@@ -114,6 +116,7 @@ export function RootStack() {
       <SeriesFiller />
       <HandoffNotifier />
       <NotificationOpener />
+      <UndoLinks />
       <MyScopeProvider>
       <GroupFilterProvider>
       <TravelProvider>
@@ -133,6 +136,7 @@ export function RootStack() {
       <Stack.Screen name="Invite" component={InviteScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />
+      <Stack.Screen name="Recent" component={RecentScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}

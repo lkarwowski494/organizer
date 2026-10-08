@@ -18,7 +18,7 @@ import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, inheritDue, patchTask, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
-import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { asTask, checkOff, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -33,7 +33,7 @@ import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { AskPanel } from '../../ui/AskPanel';
-import { BackButton, Body, Button, Checkbox, ErrorText, Field, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
+import { BackButton, Body, Button, Checkbox, ErrorText, Field, GroupLine, META_SEP, MissingScreen, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
@@ -120,6 +120,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const linkedEvent = linked ? asEvent(tables.events?.[task.event_id!] ?? { id: task.event_id, group_id: task.group_id, start_date: task.occurrence_date }) : null;
   const membership = myMemberships(tables, userId).get(task.group_id);
   const canEdit = membership?.role !== 'child';
+  const canCheck = checkOff(tables, userId);
   // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
   const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
@@ -180,7 +181,8 @@ export function TaskScreen({ route, navigation }: Props) {
     <Screen testID="screen-task">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} />
+        {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
+        {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} /> : null}
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
         <GroupLine flex name={detail.list.groupName} line={detail.list.line} detail={groupLine} header={`${task.title}, ${detail.list.groupName}, ${groupLine.split(META_SEP).join(', ')}`} />
       </View>
@@ -334,7 +336,7 @@ export function TaskScreen({ route, navigation }: Props) {
                 store.dispatch(r.ops);
                 // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
                 navigation.goBack();
-                undo.show(strings['task.moved'](task.title, groupName(g)), () => store.dispatch(r.undo));
+                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.ops });
               },
             }))}
             onCancel={() => setMoving(false)}
@@ -348,17 +350,19 @@ export function TaskScreen({ route, navigation }: Props) {
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {/* M-251: ta sama linia opisu co na liście — termin, osoba, „czeka na wysłanie”. */}
           {(node?.children ?? []).map((ch) => (
-            <StationRow
-              key={ch.id}
-              testID={`sub-${ch.id}`}
-              title={ch.title}
-              line={detail.list.line}
-              meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
-              pending={pendingIds.has(ch.id)}
-              checked={ch.completed_at !== null}
-              onToggle={() => actions.toggle(ch)}
-              onOpen={() => navigation.push('Task', { taskId: ch.id })}
-            />
+            // Audyt 2 (M-124): podzadanie przesuwa się do usunięcia jak na liście (dorośli, D34).
+            <SwipeRow key={ch.id} title={ch.title} enabled={canEdit} onDelete={() => actions.remove(ch)} testID={`swipe-${ch.id}`}>
+              <StationRow
+                testID={`sub-${ch.id}`}
+                title={ch.title}
+                line={detail.list.line}
+                meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
+                pending={pendingIds.has(ch.id)}
+                checked={ch.completed_at !== null}
+                onToggle={canCheck(ch) ? () => actions.toggle(ch) : undefined}
+                onOpen={() => navigation.push('Task', { taskId: ch.id })}
+              />
+            </SwipeRow>
           ))}
           {canEdit ? (
             <QuickAddField value={sub} onChangeText={(v) => (setSub(v), setSubIgnore([]), setSubError(null))} onSubmit={addSub} placeholder={strings['task.addSubtask']}>
@@ -371,6 +375,7 @@ export function TaskScreen({ route, navigation }: Props) {
         <Button
           kind="danger"
           label={strings['task.delete']}
+          testID="task-delete"
           onPress={() => {
             // M-254: jak przesunięcie na liście — kosz, powrót i pasek „Cofnij”.
             title.drop();

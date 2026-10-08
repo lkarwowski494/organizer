@@ -79,7 +79,7 @@ select is((select completed_by from public.tasks where id = '44444444-0000-7000-
 
 -- ── K (child) ──
 select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000d', true);
-select lives_ok($$ update public.tasks set completed_at = now() where id = '44444444-0000-7000-8000-000000000003' $$, '27: dziecko odhacza');
+select throws_ok($$ update public.tasks set completed_at = now() where id = '44444444-0000-7000-8000-000000000003' $$, 'P0001', 'forbidden:not_own', '27: dziecko odhacza tylko swoje (to nieprzypisane — nie; swoje: child_account.test.sql)');
 select throws_ok($$ update public.tasks set title = 'x' where id = '44444444-0000-7000-8000-000000000003' $$, 'P0001', 'forbidden:child', '28: dziecko nie zmienia tytułu');
 select throws_ok($$ update public.tasks set deleted_at = now() where id = '44444444-0000-7000-8000-000000000003' $$, 'P0001', 'forbidden:child', '29: dziecko nie usuwa');
 select throws_ok($$ insert into public.tasks (id, group_id, list_id, title) values (gen_random_uuid(), '22222222-0000-7000-8000-000000000001', '33333333-0000-7000-8000-000000000001', 'X') $$,

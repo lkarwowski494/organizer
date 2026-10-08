@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useRef, useState } from 'react';
 import { Text, type TextInput, View } from 'react-native';
 
+import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
@@ -46,6 +47,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   const { eventId, scope = 'all' } = route.params;
   const detail = useMemo(() => (eventId ? eventDetail(tables, userId, eventId) : null), [tables, userId, eventId]);
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
+  const added = useAdded();
   const occurrence = route.params.date ?? formatIsoDate(today);
   // PW-37 A (M-118, D191): nowe wydarzenie bez wskazanej grupy (także „Dodaj do grupy” z kalendarza iPhone'a) startuje
   // z „Grupy domyślnej”, jak szybkie dodawanie; zapis zapamiętuje grupę jako ostatnio użytą.
@@ -117,7 +119,9 @@ export function EventEditScreen({ route, navigation }: Props) {
     setError(null);
     if (!detail) {
       draft.saved();
-      store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
+      // D189: „Dodano wydarzenie: … · Cofnij”.
+      const g = groups.find((x) => x.id === groupId);
+      added(strings['form.addedEvent'](r.fields[0]!.title, g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
       defaultGroup.remember(groupId);
       navigation.goBack();
     } else {
@@ -237,7 +241,7 @@ export function EventEditScreen({ route, navigation }: Props) {
               </View>
             </View>
           )}
-          {multi && form.slots.length > 1 ? <Button kind="secondary" label={strings['event.removeSlot'](i + 1)} onPress={() => set({ slots: form.slots.filter((_, j) => j !== i) })} /> : null}
+          {multi && form.slots.length > 1 ? <Button kind="danger" label={strings['event.removeSlot'](i + 1)} onPress={() => set({ slots: form.slots.filter((_, j) => j !== i) })} /> : null}
         </View>
       ))}
       {multi ? (

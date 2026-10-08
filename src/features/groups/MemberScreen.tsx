@@ -1,5 +1,6 @@
 /**
- * Osoba w grupie: imię (także dziecka), rola admin/członek, usunięcie z grupy, przekazanie własności (D55).
+ * Osoba w grupie: imię (także dziecka), rola (admin, członek, dziecko — osobom z kontem zmienia ją owner), usunięcie
+ * z grupy, przekazanie własności (D55), połączenie profilu dziecka z kontem dziecka (PW-14 B).
  * Co wolno — src/domain/views memberActions (zgodnie ze strażnikiem członkostw po stronie serwera).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,6 +10,7 @@ import { Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
+import type { JoinInvite } from '../../sync/account';
 import { remove, renameMember, restore, setRole } from '../../domain/views/commands';
 import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
@@ -17,6 +19,7 @@ import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, M
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
+import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Member'>;
@@ -27,11 +30,11 @@ const NAME_ERRORS: Record<NameError, string> = {
   tooLong: strings['name.error.tooLong'](config.profile.NAME_MAX_LENGTH),
 };
 
-const NONE: MemberActions = { rename: false, setRole: false, remove: false, makeOwner: false };
+const NONE: MemberActions = { rename: false, setRole: false, remove: false, makeOwner: false, link: false };
 
 export function MemberScreen({ route, navigation }: Props) {
   const { userId, store, account } = useServices();
-  const { tables } = useAppData();
+  const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
@@ -46,6 +49,8 @@ export function MemberScreen({ route, navigation }: Props) {
   const [confirmOwner, setConfirmOwner] = useState(false);
   const undo = useUndo();
   const [error, setError] = useState<string | null>(null);
+  // PW-14 B: kod połączenia profilu dziecka z kontem (bieżący ważny albo nowy, jeden na profil).
+  const [childCode, setChildCode] = useState<JoinInvite | null>(null);
   // Audyt 2 (R-33): własność przekazana — do pobrania zmian ten ekran czeka, a ekran grupy nie pokazuje opcji właściciela.
   const [transferred, setTransferred] = useState(false);
   // Wracamy, gdy pobranie pokaże, że nie jestem już właścicielem (moja rola, nie rola tej osoby — tę może jeszcze
@@ -61,11 +66,19 @@ export function MemberScreen({ route, navigation }: Props) {
     );
   }
   const can = transferred ? NONE : memberActions(d, m);
+  const makeChildCode = async (renew = false) => {
+    setError(null);
+    try {
+      setChildCode(await (renew ? account.renewChildCode(m.member_id) : account.createChildCode(m.member_id)));
+    } catch (e) {
+      setError(groupErrorText(e));
+    }
+  };
   return (
     <Screen testID="screen-member">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{m.display_name}</Title>
-      <Body muted>{`${d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name} · ${strings[`groups.role.${m.role}`]}`}</Body>
+      <Body muted>{[d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name, strings[`groups.role.${m.role}`], ...(m.role === 'child' && m.user_id !== null ? [strings['member.hasAccount']] : [])].join(' · ')}</Body>
       {/* D128: plan lekcji tylko przy dziecku. */}
       {d.group.kind === 'shared' && d.group.me.role !== 'child' && m.role === 'child' ? (
         <Button kind="secondary" label={strings['timetable.open']} testID="open-timetable" onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />
@@ -79,12 +92,42 @@ export function MemberScreen({ route, navigation }: Props) {
       {can.setRole ? (
         <Segmented
           label={strings['member.role']}
-          value={m.role}
-          onChange={(r) => store.dispatch(setRole(m.member_id, r as 'admin' | 'member'))}
+          // setRole tylko dla innej osoby niż ja (owner) — jej rola nie jest „owner”.
+          value={m.role as 'admin' | 'member' | 'child'}
+          onChange={(r) => store.dispatch(setRole(m.member_id, r))}
           options={[
             { value: 'admin', label: strings['groups.role.admin'] },
             { value: 'member', label: strings['groups.role.member'] },
+            { value: 'child', label: strings['groups.role.child'] },
           ]}
+        />
+      ) : null}
+      {can.setRole || (m.role === 'child' && m.user_id !== null) ? <Body muted>{strings['member.childRoleInfo']}</Body> : null}
+      {can.link && !childCode ? (
+        <View style={{ gap: 8 }}>
+          <Body muted>{strings['member.linkAbout'](m.display_name)}</Body>
+          <Button kind="secondary" label={strings['member.link']} testID="child-link" onPress={() => void makeChildCode()} />
+        </View>
+      ) : null}
+      {can.link && childCode ? (
+        <JoinCodeCard
+          code={childCode}
+          today={today}
+          title={strings['member.linkReady']}
+          note={strings['member.linkFor'](m.display_name)}
+          info={strings['member.linkInfo']}
+          message={(id, code, u) => strings['member.linkMessage'](m.display_name, d.group.name, config.invites.LINK_LIVE ? childCode.url : null, id, code, u, config.invites.TESTFLIGHT_LINK)}
+          onRenew={() => void makeChildCode(true)}
+          onRevoke={async () => {
+            setError(null);
+            try {
+              await account.revokeInvite(childCode.inviteId);
+              setChildCode(null);
+            } catch (e) {
+              setError(groupErrorText(e));
+            }
+          }}
+          testIDs={{ card: 'child-code-ready', code: 'child-code', renew: 'child-code-new' }}
         />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
@@ -114,7 +157,7 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {/* Decyzje z 8.10.2026 (PW-35 A, PW-16 A, D165): bez pytania — pasek „Cofnij” przywraca osobę (ten sam member_id,
           więc wracają plan lekcji, obecność i zadania); owner/admin może ją przywrócić przez config.sync.TOMBSTONE_DAYS dni
-          (kosz osób — później, D151). */}
+          (kosz osób na ekranie Grupy, D151). */}
       {can.remove ? (
         <Button
           kind="danger"
@@ -123,9 +166,10 @@ export function MemberScreen({ route, navigation }: Props) {
           onPress={() => {
             // Niezapisane imię osoby usuniętej przepada (serwer i tak nie zmienia usuniętych).
             name.drop();
-            store.dispatch(remove('group_members', m.member_id));
+            const op = remove('group_members', m.member_id);
+            store.dispatch(op);
             navigation.goBack();
-            undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)));
+            undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
           }}
         />
       ) : null}

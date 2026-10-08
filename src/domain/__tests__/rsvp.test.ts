@@ -1,7 +1,7 @@
 import { splitId } from '../event-split';
 import { applyOp, type NewOp, type Row } from '../sync-engine/client';
 import { editEvent, eventDetail, fieldsOf } from '../views/events';
-import { answerOps, RSVP_NAMESPACE, rsvpId, rsvpView } from '../views/rsvp';
+import { answerOps, RSVP_NAMESPACE, rsvpId, rsvpView, silencedForMe } from '../views/rsvp';
 
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, id: string, row: Row) => ((t[e] ??= {})[id] = row);
@@ -117,5 +117,33 @@ describe('obecność (D124)', () => {
     }
     delete t.groups!.gf;
     expect(rsvpView(t, 'u1', 'e1', '2026-10-07')).toBeNull();
+  });
+});
+
+describe('wyciszone terminy (PW-23, D160)', () => {
+  const no = (t: T, member: string, extra: Row = {}) =>
+    put(t, 'event_rsvps', `r-${member}`, { id: `r-${member}`, group_id: 'gf', event_id: 'e2', occurrence_date: '2026-10-07', member_id: member, answer: 'no', deleted_at: null, ...extra });
+
+  it('dziecko jedynym uczestnikiem i „nie będzie” — wyciszone dla dorosłego; dla dziecka z kontem (rola child) — nie', () => {
+    const t = world();
+    no(t, 'kuba');
+    expect([...silencedForMe(t, 'u1')]).toEqual(['e2|2026-10-07']);
+    expect([...silencedForMe(t, 'u3')]).toEqual([]);
+  });
+
+  it('usunięty wyjątek z osobą odpowiedzialną nie liczy się; żywy — dotyczy jej wprost', () => {
+    const t = world();
+    no(t, 'kuba');
+    put(t, 'event_overrides', 'o', { id: 'o', event_id: 'e2', occurrence_date: '2026-10-07', cancelled: false, responsible_member_id: 'me', deleted_at: '2026-10-06' });
+    expect(silencedForMe(t, 'u1').size).toBe(1);
+    t.event_overrides!.o = { ...t.event_overrides!.o!, deleted_at: null };
+    expect(silencedForMe(t, 'u1').size).toBe(0);
+  });
+
+  it('bez tabeli wydarzeń — nic', () => {
+    const t = world();
+    no(t, 'kuba');
+    delete t.events;
+    expect(silencedForMe(t, 'u1').size).toBe(0);
   });
 });

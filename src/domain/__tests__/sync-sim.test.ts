@@ -11,14 +11,20 @@
  *    zmianach” telefonu, który ją wysłał, także po zgubionej odpowiedzi (M-56),
  *  - idempotencja: żadna operacja nie została zastosowana dwa razy,
  *  - utrata dostępu: brak lokalnych wierszy z grup/list bez dostępu,
- *  - pętle „do ciszy” się kończą (wysyłka i pobieranie mają górną granicę obrotów — M-49).
+ *  - pętle „do ciszy” się kończą (wysyłka i pobieranie mają górną granicę obrotów — M-49),
+ *  - odtworzenie telefonu z kopii (M-8): zmiany zrobione po odtworzeniu docierają na serwer, a operacje z kopii nie są
+ *    stosowane drugi raz; nieudane pobranie udostępnionej listy ponawia się (M-53); kopie powtórzeń (identyfikatory
+ *    pochodne z generatorów src/domain/views) nie są odrzucane dwa razy na jednym telefonie.
  */
 import * as fc from 'fast-check';
 
 import { migrate } from '../../data/db/migrations';
 import { readState, writeState } from '../../data/store';
 import { memoryDb } from '../../data/__tests__/sqlite';
+import { parseIsoDate } from '../format';
+import { expiredRepeatOps, missingRepeatOps, nextId } from '../views/task-repeat';
 import {
+  adoptDevice,
   type ClientState,
   initialState,
   materialize,
@@ -31,7 +37,9 @@ import {
   pullRequest,
   type PushResponse,
   pushRequest,
+  rejectedCreateIds,
   type Row,
+  rowKey,
 } from '../sync-engine/client';
 import { FakeServer } from './support/fake-server';
 
@@ -47,6 +55,9 @@ const LIM = 3;
 type Phone = {
   user: string;
   state: ClientState;
+  /** Kopia iCloud (stan z bazy w chwili kopii) i operacje zrobione od tamtej chwili. */
+  backup?: ClientState;
+  sinceBackup: Set<string>;
   inflightPush?: { res?: PushResponse };
   inflightPull?: { res: PullResponse; req: ReturnType<typeof pullRequest> };
 };
@@ -55,7 +66,8 @@ type Cmd =
   | { t: 'mutate'; who: number; op: NewOp }
   | { t: 'push'; who: number; fate: 'ok' | 'lostRequest' | 'lostResponse' | 'delayed' }
   | { t: 'deliverPush'; who: number }
-  | { t: 'pull'; who: number; lim: number; fate: 'ok' | 'lost' | 'delayed' }
+  // failScope: pobranie udostępnionej listy (sync_fetch_scope) się nie udaje (M-53).
+  | { t: 'pull'; who: number; lim: number; fate: 'ok' | 'lost' | 'delayed'; failScope: boolean }
   | { t: 'deliverPull'; who: number }
   | { t: 'removeMember'; who: number }
   | { t: 'rejoin'; who: number }
@@ -63,6 +75,11 @@ type Cmd =
   | { t: 'purge'; keep: number }
   // Ponowne uruchomienie; resetCursors — jak lokalna migracja, która zeruje kursory (v5).
   | { t: 'restart'; who: number; resetCursors: boolean }
+  // Kopia iCloud i odtworzenie z niej na nowym iPhonie (M-8): stary telefon przepada, pęk kluczy nowego jest pusty.
+  | { t: 'backup'; who: number }
+  | { t: 'restore'; who: number }
+  // Generatory kopii powtórzeń na widoku telefonu, jak na ekranie Moje sprawy (D133, T-12).
+  | { t: 'derive'; who: number }
   // Ala (twórczyni list l1, l2) zmienia ich widoczność — także zawężenie (M-54); od razu wysłane.
   | { t: 'narrow'; list: string; to: 'group' | 'restricted' | 'private' }
   // Ala przenosi zadanie do swojej ukrytej listy l3 — inni tracą je z widoku (M-54); od razu wysłane.
@@ -119,13 +136,16 @@ const cmdArb: fc.Arbitrary<Cmd> = fc.oneof(
   { weight: 1, arbitrary: fc.record({ t: fc.constant('mutate' as const), who, op: restrictedListArb }) },
   { weight: 3, arbitrary: fc.record({ t: fc.constant('push' as const), who, fate: fc.constantFrom('ok' as const, 'lostRequest' as const, 'lostResponse' as const, 'delayed' as const) }) },
   { weight: 1, arbitrary: fc.record({ t: fc.constant('deliverPush' as const), who }) },
-  { weight: 3, arbitrary: fc.record({ t: fc.constant('pull' as const), who, lim: fc.integer({ min: 1, max: 6 }), fate: fc.constantFrom('ok' as const, 'lost' as const, 'delayed' as const) }) },
+  { weight: 3, arbitrary: fc.record({ t: fc.constant('pull' as const), who, lim: fc.integer({ min: 1, max: 6 }), fate: fc.constantFrom('ok' as const, 'lost' as const, 'delayed' as const), failScope: fc.boolean() }) },
   { weight: 1, arbitrary: fc.record({ t: fc.constant('deliverPull' as const), who }) },
   { weight: 1, arbitrary: fc.record({ t: fc.constant('removeMember' as const), who: notOwner }) },
   { weight: 1, arbitrary: fc.record({ t: fc.constant('rejoin' as const), who: notOwner }) },
   { weight: 1, arbitrary: fc.record({ t: fc.constant('setRole' as const), who: notOwner, role: fc.constantFrom('admin' as const, 'member' as const, 'child' as const) }) },
   { weight: 3, arbitrary: fc.record({ t: fc.constant('purge' as const), keep: fc.integer({ min: 0, max: 3 }) }) },
   { weight: 2, arbitrary: fc.record({ t: fc.constant('restart' as const), who, resetCursors: fc.boolean() }) },
+  { weight: 2, arbitrary: fc.record({ t: fc.constant('backup' as const), who }) },
+  { weight: 1, arbitrary: fc.record({ t: fc.constant('restore' as const), who }) },
+  { weight: 2, arbitrary: fc.record({ t: fc.constant('derive' as const), who }) },
   { weight: 2, arbitrary: fc.record({ t: fc.constant('narrow' as const), list: fc.constantFrom('l1', 'l2'), to: fc.constantFrom('group' as const, 'restricted' as const, 'private' as const) }) },
   { weight: 2, arbitrary: fc.record({ t: fc.constant('hide' as const), task: fc.constantFrom('t1', 't2', 't3') }) },
   {
@@ -170,7 +190,11 @@ function expectSameAsServer(state: ClientState | { base: ClientState['base'] }, 
 }
 
 /** Ile razy przebiegi doszły do sytuacji, które sprawdzamy (bez tego własność mogłaby przechodzić „na pusto”). */
-const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0 };
+const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0, restored: 0, scopeRetried: 0, derived: 0 };
+/** Dzień symulacji dla generatorów kopii powtórzeń (zadanie r1 ma termin wcześniej — „minione”). */
+const TODAY = parseIsoDate('2026-10-08');
+/** Odrzucone utworzenia kopii powtórzeń (lista zawężona, osoba usunięta, rola dziecka — zanim telefon się dowiedział). */
+let derivedRejected = 0;
 
 function observe(p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest>) {
   const base = p.state.base;
@@ -190,21 +214,39 @@ function run(cmds: Cmd[]) {
   server.addGroup(GROUP2, ['bartek', 'ala']);
   let n = 0;
   const newId = () => `op-${++n}`;
-  const phones: Phone[] = USERS.map((user, i) => ({ user, state: initialState(`client-${i}`) }));
+  const phones: Phone[] = USERS.map((user, i) => ({ user, state: initialState(`client-${i}`), sinceBackup: new Set() }));
   /** Każda operacja i telefon, który ją wysłał. */
   const allOps = new Map<string, number>();
+  /** Operacje telefonu sprzed odtworzenia z kopii: wolno je zgubić razem ze starym telefonem (nie dotarły na serwer). */
+  const lostWithPhone = new Set<string>();
+  /** …a ich odrzucenie widział stary telefon, nie odtworzony. */
+  const beforeRestore = new Set<string>();
+  let restores = 0;
 
-  const applyPull = (p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest>, snapshot?: ReturnType<FakeServer['visibleRows']>) => {
+  const applyPull = (p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest>, snapshot?: ReturnType<FakeServer['visibleRows']>, failScope = false) => {
     observe(p, res, req);
+    const before = p.state;
     const out = onPullResponse(p.state, res, req);
     p.state = out.state;
-    for (const s of out.fetchScopes) p.state = onFetchScope(p.state, server.fetchScope(p.user, s));
+    // Nieudane pobranie zawartości listy: telefon nic nie zapisuje, lista czeka na następne pobranie (M-53).
+    if (!failScope) {
+      for (const s of out.fetchScopes) {
+        const rows = server.fetchScope(p.user, s);
+        // Ponowienie po nieudanym pobraniu przyniosło coś, czego telefon nie miał — bez niego lista by nie dotarła.
+        if (before.scopes.includes(s) && before.scopesToFetch.includes(s) && rows.some((r) => !p.state.base[r.e]?.[rowKey(r.e, r.row)])) seen.scopeRetried++;
+        p.state = onFetchScope(p.state, rows, s);
+      }
+    }
     // Niezmiennik po każdym pełnym pobraniu na świeżo: stan potwierdzony = to, co serwer pokazywał w tej chwili
     // (łapie m.in. pozostawione wiersze list, do których cofnięto dostęp, i dziury w kursorach).
-    if (snapshot && !out.needMore) expectSameAsServer(p.state, snapshot);
+    if (snapshot && !out.needMore && !(failScope && out.fetchScopes.length)) expectSameAsServer(p.state, snapshot);
     return out.needMore;
   };
-  const record = (p: Phone, i: number) => allOps.set(p.state.pending[p.state.pending.length - 1]!.op_id, i);
+  const record = (p: Phone, i: number) => {
+    const id = p.state.pending[p.state.pending.length - 1]!.op_id;
+    allOps.set(id, i);
+    p.sinceBackup.add(id);
+  };
   /** Wysyłka do serwera (sieć doręcza żądanie) ze statystyką odpowiedzi. */
   const send = (p: Phone, req: ReturnType<typeof pushRequest>) => {
     const recalled = server.recalled;
@@ -213,6 +255,7 @@ function run(cmds: Cmd[]) {
     for (const r of res.results) {
       const op = req.ops.find((o) => o.seq === r.seq)!;
       if (r.code === 'forbidden:child') seen.child++;
+      if (r.status === 'rejected' && op.kind === 'create' && (op.id === nextId('r1') || op.id === nextId('r1s'))) derivedRejected++;
       if (r.status === 'ok' && op.kind === 'cmd' && op.cmd === 'move_task') seen.moved++;
     }
     return res;
@@ -240,6 +283,23 @@ function run(cmds: Cmd[]) {
     record(phones[1]!, 1);
   }
   phones[1]!.state = onPushResponse(phones[1]!.state, send(phones[1]!, pushRequest(phones[1]!.state)));
+  // Zadanie powtarzane z minionym terminem „tylko tego dnia” (D133) i podzadaniem — materiał dla generatorów kopii.
+  for (const op of [
+    { kind: 'create', entity: 'tasks', id: 'r1', group_id: GROUP, set: { list_id: 'l2', title: 'Podlać', deadline_mode: 'own', due_date: '2026-10-01', due_time: null, repeat: 'FREQ=DAILY', rollover: false } },
+    { kind: 'create', entity: 'tasks', id: 'r1s', group_id: GROUP, set: { list_id: 'l2', parent_id: 'r1', title: 'Konewka', deadline_mode: 'inherit' } },
+  ] as NewOp[]) {
+    phones[0]!.state = mutate(phones[0]!.state, op, newId);
+    record(phones[0]!, 0);
+  }
+  phones[0]!.state = onPushResponse(phones[0]!.state, send(phones[0]!, pushRequest(phones[0]!.state)));
+  // Telefony już zsynchronizowane (rodzina po kilku dniach): grupa pobierana od zera pokazuje się dopiero w komplecie,
+  // więc bez tego przez większość przebiegu telefony nie miałyby czego zawężać ani przenosić.
+  for (const p of phones) {
+    untilQuiet(20, () => {
+      const req = pullRequest(p.state);
+      return applyPull(p, server.pull(p.user, req, LIM), req);
+    }, 'pierwsze pobranie');
+  }
 
   for (const c of cmds) {
     const p = 'who' in c ? phones[c.who]! : phones[0]!;
@@ -265,7 +325,7 @@ function run(cmds: Cmd[]) {
         if (p.inflightPull) break; // jedno pobranie naraz na telefon
         const req = pullRequest(p.state);
         const res = server.pull(p.user, req, c.lim);
-        if (c.fate === 'ok') applyPull(p, res, req, server.visibleRows(p.user));
+        if (c.fate === 'ok') applyPull(p, res, req, server.visibleRows(p.user), c.failScope);
         if (c.fate === 'delayed') p.inflightPull = { res, req };
         break;
       }
@@ -293,6 +353,36 @@ function run(cmds: Cmd[]) {
         p.state = restarted(p.state);
         if (c.resetCursors) p.state = { ...p.state, cursors: {} };
         break;
+      case 'backup':
+        p.backup = restarted(p.state);
+        p.sinceBackup = new Set();
+        break;
+      case 'restore': {
+        if (!p.backup) break;
+        // Stary telefon przepada z tym, czego nie zdążył wysłać; operacje z kopii odtworzony telefon wyśle pod starym
+        // identyfikatorem (serwer rozpozna już przetworzone), nowe — pod nowym.
+        for (const [id, i] of allOps) if (i === c.who) beforeRestore.add(id);
+        for (const id of p.sinceBackup) lostWithPhone.add(id);
+        const old = server.clients.get(p.backup.clientId);
+        if (old && old.lastSeq >= p.backup.nextSeq) seen.restored++;
+        p.inflightPush = undefined;
+        p.inflightPull = undefined;
+        p.state = adoptDevice(restarted(p.backup), null, () => `client-${c.who}-r${++restores}`);
+        break;
+      }
+      case 'derive': {
+        const view = materialize(p.state);
+        const canCreate = (g: string) =>
+          Object.values(view.group_members ?? {}).some((m) => m.group_id === g && m.user_id === p.user && m.deleted_at == null && m.role !== 'child');
+        const skip = rejectedCreateIds(p.state);
+        const ops = [...expiredRepeatOps(view, TODAY, canCreate, skip), ...missingRepeatOps(view, TODAY, canCreate, (iso) => iso.slice(0, 10), skip)];
+        for (const op of ops) {
+          p.state = mutate(p.state, op, newId);
+          record(p, c.who);
+          seen.derived++;
+        }
+        break;
+      }
       case 'hide':
         p.state = mutate(p.state, { kind: 'cmd', cmd: 'move_task', args: { id: c.task, list_id: 'l3' } }, newId);
         record(p, 0);
@@ -339,14 +429,14 @@ function run(cmds: Cmd[]) {
       }, `pobieranie (${p.user})`);
     }
   }
-  return { server, phones, allOps };
+  return { server, phones, allOps, lostWithPhone, beforeRestore };
 }
 
 describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
   it('zbieżność, nic nie ginie, bez podwójnego zastosowania, czyszczenie po utracie dostępu, koniec pętli', () => {
     fc.assert(
       fc.property(fc.array(cmdArb, { minLength: 20, maxLength: 80 }), (cmds) => {
-        const { server, phones, allOps } = run(cmds);
+        const { server, phones, allOps, lostWithPhone, beforeRestore } = run(cmds);
         for (const p of phones) {
           const view = materialize(p.state);
           const visible = server.visibleRows(p.user);
@@ -367,19 +457,28 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
           }
         }
         for (const [id, i] of allOps) {
-          // Nic nie ginie: każda operacja zastosowana albo odrzucona — i nigdy dwa razy.
+          // Nic nie ginie: każda operacja zastosowana albo odrzucona — i nigdy dwa razy (także operacja z kopii, którą
+          // stary telefon zdążył wysłać). Wolno zginąć tylko temu, co nie opuściło starego telefonu przed odtworzeniem.
           const applied = server.applied.get(id) ?? 0;
           expect(applied <= 1).toBe(true);
-          expect(applied === 1 || server.rejectedOps.has(id)).toBe(true);
+          expect(applied === 1 || server.rejectedOps.has(id) || lostWithPhone.has(id)).toBe(true);
           // M-56: odrzucenie dociera do „Odrzuconych zmian” telefonu, także gdy pierwsza odpowiedź zginęła.
+          if (beforeRestore.has(id)) continue;
           const rejected = phones[i]!.state.rejected.find((r) => r.op.op_id === id);
           expect(rejected?.code).toBe(server.rejectedOps.get(id));
+        }
+        // Identyfikatory pochodne (kopie powtórzeń): telefon nie ponawia utworzenia, które serwer już odrzucił.
+        for (const p of phones) {
+          const ids = p.state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []));
+          expect(ids.filter((x) => x === nextId('r1') || x === nextId('r1s'))).toEqual([...new Set(ids.filter((x) => x === nextId('r1') || x === nextId('r1s')))]);
         }
       }),
       { numRuns: 800 },
     );
     // Każda badana sytuacja zdarzyła się wiele razy (próg z zapasem; przebiegi są losowe).
     for (const [k, v] of Object.entries(seen)) expect([k, v > 10]).toEqual([k, true]);
+    // Kopie bywają odrzucane (lista zawężona albo usunięta, zanim telefon się dowiedział) — własność wyżej nie jest pusta.
+    expect(derivedRejected > 10).toBe(true);
   });
 
   it('granica obrotów zgłasza nieskończone pobieranie (serwer z błędem M-1: resync w każdej porcji)', () => {

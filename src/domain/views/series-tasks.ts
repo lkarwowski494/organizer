@@ -28,8 +28,9 @@ export function createSeries(a: { id: string; groupId: string; eventId: string; 
  * Brakujące kopie od dziś na SERIES_TASK_WEEKS tygodni. Pomija: grupy, w których jestem dzieckiem (serwer odrzuci),
  * usunięte listy, odwołane wystąpienia (expandEvents) i kopie, które już istnieją (także usunięte). Definicja działa na
  * cały łańcuch serii po „to i następne” — także na terminy starej części przed dniem podziału (audyt 2, E-11).
+ * `skip` — kopie, których utworzenie serwer już odrzucił: bez tego telefon wysyłałby je od nowa po każdym pobraniu.
  */
-export function fillOps(t: Tables, userId: string, today: CivilDate): NewOp[] {
+export function fillOps(t: Tables, userId: string, today: CivilDate, skip: ReadonlySet<string> = new Set()): NewOp[] {
   const defs = rows(t, 'event_task_series', asSeries).filter((s) => s.deleted_at === null);
   if (defs.length === 0) return [];
   const adult = new Set(groupsView(t, userId).filter((g) => g.me.role !== 'child').map((g) => g.id));
@@ -42,7 +43,7 @@ export function fillOps(t: Tables, userId: string, today: CivilDate): NewOp[] {
     for (const o of occ) {
       if (!chain.has(o.eventId)) continue;
       const id = copyId(s.id, o.occurrenceDate);
-      if (t.tasks?.[id]) continue;
+      if (t.tasks?.[id] || skip.has(id)) continue;
       ops.push(createEventTask({ id, groupId: s.group_id, listId: s.list_id, eventId: o.eventId, occurrenceDate: o.occurrenceDate, title: s.title, seriesId: s.id }));
     }
   }

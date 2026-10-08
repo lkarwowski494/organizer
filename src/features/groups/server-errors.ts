@@ -16,6 +16,9 @@ export function groupErrorText(e: unknown): string {
   if (m === 'invite_revoked') return strings['invite.revoked'];
   if (m === 'invite_used_up') return strings['invite.usedUp'];
   if (m === 'invite_removed') return strings['invite.removed'];
+  if (m === 'invite_child_account') return strings['invite.childAccount'];
+  if (m === 'limit:groups') return strings['groups.error.limitGroups'](config.quotas.SHARED_GROUPS);
+  if (m === 'limit:invites') return strings['groups.error.limitInvites'](config.quotas.ACTIVE_INVITES);
   if (m.startsWith('invite_')) return strings['invite.invalid'];
   if (m === 'not_authenticated' || (e instanceof TransportError && e.kind === 'auth')) return strings['groups.error.session'];
   if (m.startsWith('forbidden')) return strings['groups.error.forbidden'];

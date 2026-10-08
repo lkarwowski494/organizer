@@ -91,7 +91,9 @@ describe('Wyślij uwagę', () => {
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('open-feedback'));
-    expect(screen.getByTestId('feedback-send').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('feedback-send'));
+    expect(screen.getByTestId('feedback-empty').props.children).toBe('Wpisz, co chcesz nam przekazać.');
+    expect(account.sendFeedback).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByTestId('feedback-text'), '  Brakuje stałych zakupów ');
     await press(screen.getByTestId('feedback-send'));
     await act(async () => {});

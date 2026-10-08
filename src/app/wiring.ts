@@ -3,6 +3,7 @@
  * Sign in with Apple, linki, kanały Realtime. Ten plik tylko składa moduły — logika i testy są w nich.
  * Wyjątek: build E2E (`appDeps`, D143) — atrapy z src/app/e2e.ts.
  */
+import NetInfo from '@react-native-community/netinfo';
 import { createClient } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Application from 'expo-application';
@@ -38,6 +39,9 @@ const apple = async (scopes?: 'none') =>
   AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
 const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
+
+/** Pęk kluczy bez przenoszenia do kopii i na nowy telefon (jak sesja). */
+const DEVICE_ONLY = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
 /** Ostatni zarejestrowany token push (audyt 2, N-11): wylogowanie zdejmuje go także po nieudanej rejestracji przy starcie. */
 const PUSH_TOKEN = 'pushToken';
@@ -109,9 +113,30 @@ export function realDeps(): RootDeps {
     session: {
       current: async () => toSession((await client.auth.getSession()).data.session?.user),
       onChange: (fn) => client.auth.onAuthStateChange((_e, s) => fn(toSession(s?.user))).data.subscription.unsubscribe,
+      // Audyt 2, M-9: po 401 z serwera. Nowy token przychodzi przez onAuthStateChange (TOKEN_REFRESHED); nieważny
+      // refresh token kończy sesję w auth-js (SIGNED_OUT → ekran logowania, dane konta zostają w jego bazie).
+      refresh: async () => {
+        const { error } = await client.auth.refreshSession();
+        if (error) throw error;
+      },
+      signOutLocal: async () => {
+        const { error } = await client.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+      },
     },
+    // Audyt 2, M-8: identyfikator instalacji także w pęku kluczy „tylko to urządzenie” — wpis z tym atrybutem „is not
+    // migrated to a new device when restoring from a backup” (https://docs.expo.dev/versions/v57.0.0/sdk/securestore/),
+    // a baza w Documents do kopii trafia. getItem/setItem — wersje synchroniczne z tej samej strony.
+    deviceClientId: {
+      load: (userId) => SecureStore.getItem(`clientId.${userId}`, DEVICE_ONLY),
+      save: (userId, id) => SecureStore.setItem(`clientId.${userId}`, id, DEVICE_ONLY),
+    },
+    // Audyt 2, M-10: NetInfo (https://docs.expo.dev/versions/v57.0.0/sdk/netinfo/, addEventListener → state.isConnected).
+    // Stan nieznany (null) traktujemy jak sieć — o braku połączenia i tak powie nieudane żądanie (captive portal).
+    network: { subscribe: (fn) => NetInfo.addEventListener((state) => fn(state.isConnected !== false)) },
+    // Jedno połączenie na plik: odświeżenie w tle (background.ts) i ekrany w tym samym procesie piszą przez nie po kolei.
     openDb: (userId) => {
-      const db = openDatabaseSync(dbName(userId));
+      const db = openDbs.get(userId) ?? openDatabaseSync(dbName(userId));
       openDbs.set(userId, db);
       return expoAdapter(db);
     },

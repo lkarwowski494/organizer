@@ -95,7 +95,6 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     const s = await openGroup(await open({ base: asOwner() }));
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('delete-group'));
-    await answerAlert('Usuń do kosza');
     await screen.findByTestId('screen-groups');
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(s.store.dispatched).toEqual([]);
@@ -267,10 +266,11 @@ describe('zaproszenie (audyt 2, R-19, PW-7)', () => {
     await openGroup(await open({ account }));
     await press(screen.getByTestId('invite'));
     await screen.findByTestId('invite-ready');
-    await press(screen.getByLabelText('Unieważnij kod'));
+    await press(screen.getByTestId('revoke'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.getByTestId('invite-ready')).toBeTruthy();
-    await press(screen.getByLabelText('Unieważnij kod'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(account.revokeInvite).toHaveBeenCalledTimes(2);
     expect(account.revokeInvite).toHaveBeenLastCalledWith('inv-2');
     expect(screen.queryByTestId('invite-ready')).toBeNull();
@@ -454,7 +454,11 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
 
   it('PW-36 A: grupa z Pierwszych kroków — „Zakupy”, „Zadania” i karta „Następne kroki” do „Nie teraz”', async () => {
     const prefs = memoryPrefs();
-    const s = setup({ prefs });
+    // Nowe konto (bez grupy wspólnej) — z grupą wspólną wyboru startu nie ma (PWD-20 A).
+    const base = sampleBase();
+    delete base.groups!.gf;
+    delete base.groups!.gk;
+    const s = setup({ prefs, base });
     await s.renderApp(<RootStack />);
     await press(await screen.findByTestId('welcome-skip'));
     await press(screen.getByTestId('welcome-family'));

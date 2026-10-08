@@ -9,6 +9,7 @@ import { monthGrid } from '../month-grid';
 import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
 import { parseIsoDate } from '../format';
+import { childOwner, type ChildOwner } from './child';
 import { concernsMe, liveMembers, ownPrivateList } from './concerns';
 import { occurrenceResolver } from './event-rows';
 import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
@@ -108,12 +109,14 @@ export type GroupDetail = {
   canDelete: boolean;
 };
 
-export type MemberActions = { rename: boolean; setRole: boolean; remove: boolean; makeOwner: boolean };
+/** `link` — „Połącz z kontem dziecka”: kod przypięty do profilu dziecka bez konta (PW-14 B, private.issue_child_code). */
+export type MemberActions = { rename: boolean; setRole: boolean; remove: boolean; makeOwner: boolean; link: boolean };
 
 /**
  * Co mogę zrobić z członkiem — jak strażnik członkostw (migracje invites, groups_edit, 20261008360000): imię osoby z kontem
  * zmienia ona sama albo owner, a profilu bez konta — owner albo admin (decyzja właściciela z 8.10.2026, PW-54 A); role
- * i przekazanie tylko owner; usuwa owner (każdego poza sobą) albo admin (tylko member/child).
+ * (osobom z kontem: admin, członek, dziecko) i przekazanie tylko owner (PW-14 B, migracja 20261008440000); usuwa owner
+ * (każdego poza sobą) albo admin (tylko member/child); profil dziecka z kontem łączy owner albo admin.
  * Nowy właściciel to dorosły z kontem (D49, D55).
  */
 export function memberActions(d: GroupDetail, m: Member): MemberActions {
@@ -124,9 +127,10 @@ export function memberActions(d: GroupDetail, m: Member): MemberActions {
   const admin = me.role === 'admin';
   return {
     rename: self || owner || (admin && m.user_id === null),
-    setRole: shared && owner && !self && m.role !== 'child' && m.user_id !== null,
+    setRole: shared && owner && !self && m.user_id !== null,
     remove: shared && !self && (owner || (admin && (m.role === 'member' || m.role === 'child'))),
     makeOwner: shared && owner && !self && m.user_id !== null && (m.role === 'admin' || m.role === 'member'),
+    link: shared && (owner || admin) && m.user_id === null && m.role === 'child',
   };
 }
 
@@ -156,9 +160,9 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
     .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.display_name.localeCompare(b.display_name, 'pl'));
   const manager = group.me.role === 'owner' || group.me.role === 'admin';
   const shared = group.kind === 'shared';
-  // Zgodnie ze strażnikiem członkostw (migracja invites): owner nie wychodzi (najpierw przekazuje grupę),
-  // zaproszenia tylko w grupach wspólnych, nazwę grupy zmienia owner/admin.
-  return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
+  // Zgodnie ze strażnikiem członkostw (migracje invites, 20261008440000): owner nie wychodzi (najpierw przekazuje grupę),
+  // dziecko też nie (wypisuje je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
+  return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner' && group.me.role !== 'child', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 
 /** Licznik listy liczy `listOpenCount` (zależy od dnia: ukryte do daty i minione — D61). */
@@ -291,13 +295,28 @@ export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: Toda
 export { liveMembers };
 
 /**
- * Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). `scope` — zakres
+ * Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). W grupie, w której
+ * jestem dzieckiem z kontem — tylko moje sprawy (PW-14 B, child.ts); `owns` — reguła zbudowana raz na widok. `scope` — zakres
  * Moich spraw w grupie (PW-2): zadanie dziecka bez konta jest wtedy tylko w „Wszystko” (nie jest przypisane do mnie).
  */
-export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>, scope: MyScope = 'all'): boolean {
+export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>, owns: ChildOwner, scope: MyScope = 'all'): boolean {
+  if (g.me.role === 'child') return owns(x, g.me.member_id);
   const a = x.assignee_member_id === null ? undefined : live.get(x.assignee_member_id);
-  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return scope === 'all' && g.me.role !== 'child' && memberCanSeeList(t, g.me.member_id, x.list_id);
+  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return scope === 'all' && memberCanSeeList(t, g.me.member_id, x.list_id);
   return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g), scope);
+}
+
+/**
+ * Czy mogę odhaczyć (albo cofnąć odhaczenie): dziecko z kontem — tylko swoje sprawy (child.ts; decyzja koordynatora
+ * z 8.10.2026, PW-14 B; serwer: forbidden:not_own). Ekrany nie pokazują pola odhaczenia, którego serwer nie przyjmie.
+ */
+export function checkOff(t: Tables, userId: string): (x: Task) => boolean {
+  const mine = myMemberships(t, userId);
+  const owns = childOwner(t, liveMembers(t));
+  return (x) => {
+    const me = mine.get(x.group_id);
+    return me?.role !== 'child' || owns(x, me.member_id);
+  };
 }
 
 /** Imię osoby zadania (żywej; usunięta z grupy — nikt, D132). */
@@ -346,12 +365,13 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
   const isoToday = formatIsoDate(today);
   const isoTomorrow = formatIsoDate(addDays(today, 1));
   const out: TodayView = { overdue: [], pinned: [], today: [], tomorrow: [] };
+  const owns = childOwner(t, live);
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
     if (!g || !l || l.kind === 'shopping' || x.completed_at !== null) continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(t, x, g, due, live, l) || !visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
+    if (!concernsMeTask(t, x, g, due, live, l, owns) || !visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (due === null) out.pinned.push(item);
     else if (due.date < isoToday) out.overdue.push(item);
@@ -390,6 +410,7 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
   const all = rows(t, 'tasks', asTask).filter(alive);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
+  const owns = childOwner(t, liveMembers(t));
   const byDate = new Map<string, CalendarItem[]>();
   const add = (date: string, item: CalendarItem) => byDate.set(date, [...(byDate.get(date) ?? []), item]);
   const doneOn = (date: string, completedAt: string | null) => {
@@ -403,6 +424,8 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     // D135: Kalendarz = co było zaplanowane — także zrobione (przekreślone) i minione, w dniu swojego terminu.
     // Niezrobione „widoczne od” późniejszego dnia (start_date) w dniu terminu jeszcze nie stoi — jak w Moich sprawach.
     if (!g || !l || l.kind === 'shopping' || due === null || (x.completed_at === null && !isVisible(x, parseIsoDate(due.date)))) continue;
+    // PW-14 B: dziecko z kontem widzi tylko swoje sprawy (child.ts).
+    if (g.me.role === 'child' && !owns(x, g.me.member_id)) continue;
     const expired = isExpired(x, due, isoToday, byId);
     const overdue = x.completed_at === null && !expired && due.date < isoToday;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null };

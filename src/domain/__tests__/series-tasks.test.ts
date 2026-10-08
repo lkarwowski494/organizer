@@ -63,6 +63,13 @@ describe('stałe zadania serii (D65)', () => {
     expect(dates(fillOps(t, ME, parseIsoDate('2026-10-14')))).toEqual(['2026-12-07']);
   });
 
+  it('audyt 2 (M-49): kopia odrzucona przez serwer nie jest wysyłana od nowa przy każdym pobraniu', () => {
+    const { t } = world();
+    const all = fillOps(t, ME, TODAY);
+    const skip = new Set([copyId(SERIES, '2026-10-12')]);
+    expect(fillOps(t, ME, TODAY, skip)).toEqual(all.slice(1));
+  });
+
   it('usunięta kopia nie wraca; odwołane wystąpienie bez kopii; dziecko, usunięta lista i usunięta definicja — nic', () => {
     const { t, d } = world();
     run(t, fillOps(t, ME, TODAY));

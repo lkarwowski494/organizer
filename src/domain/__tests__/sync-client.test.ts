@@ -2,6 +2,7 @@
  * Scenariusze klienta synchronizacji krok po kroku (uzupełnienie symulacji losowej).
  */
 import {
+  clearRejected,
   ENTITIES,
   initialState,
   materialize,
@@ -36,7 +37,7 @@ function syncAll(server: FakeServer, user: string, s: ClientState, lim = 100): C
     const req = pullRequest(st);
     const out = onPullResponse(st, server.pull(user, req, lim), req);
     st = out.state;
-    for (const sc of out.fetchScopes) st = onFetchScope(st, server.fetchScope(user, sc));
+    for (const sc of out.fetchScopes) st = onFetchScope(st, server.fetchScope(user, sc), sc);
     if (!out.needMore) return st;
   }
 }
@@ -107,6 +108,10 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(a.rejected).toHaveLength(1); // seq 99 nie jest z tej kolejki
     a = onPushResponse(mutate(a, { kind: 'patch', entity: 'tasks', id: 'n2', set: {} }, newId), { last_seq: 2, results: [{ seq: 2, status: 'rejected' }] });
     expect(a.rejected[1]!.code).toBe('unknown');
+    // „Wyczyść listę” (D190): lista pusta; pusta zostaje tym samym stanem.
+    const cleared = clearRejected(a);
+    expect(cleared.rejected).toEqual([]);
+    expect(clearRejected(cleared)).toBe(cleared);
   });
 
   it('paczka ograniczona do PUSH_BATCH_MAX i bez potwierdzonych operacji', () => {
@@ -135,7 +140,8 @@ describe('klient synchronizacji — scenariusze', () => {
     op({ kind: 'delete', entity: 'tasks', id: 't' }); // już usunięte
     op({ kind: 'cmd', cmd: 'grant_scope', args: {} }); // komenda: skutek tylko na serwerze
     expect(Object.keys(materialize(a))).toEqual(['tasks']);
-    expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: 'pending' } });
+    // Znacznik lokalnego usunięcia z numerem operacji (kaskada odróżnia dwa usunięcia, M-60).
+    expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: `pending:${a.pending.find((o) => o.kind === 'delete' && o.id === 't')!.seq}` } });
     op({ kind: 'restore', entity: 'tasks', id: 't' });
     expect(materialize(a).tasks?.t?.deleted_at).toBeNull();
   });
@@ -175,11 +181,11 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(Object.keys(out.state.base.object_members ?? {})).toEqual([]);
     expect(Object.keys(out.state.base.activity ?? {})).toEqual(['a2']);
     expect(Object.keys(out.state.base.group_members ?? {})).toEqual(['m']);
-    expect(onFetchScope(initialState('x'), [{ e: 'lists', v: 1, row: { id: 'l', group_id: 'g' } }]).base.lists).toEqual({ l: { id: 'l', group_id: 'g' } });
+    expect(onFetchScope(initialState('x'), [{ e: 'lists', v: 1, row: { id: 'l', group_id: 'g' } }], 'l').base.lists).toEqual({ l: { id: 'l', group_id: 'g' } });
   });
 
   it('stan początkowy jest pusty', () => {
-    expect(initialState('c1')).toEqual({ clientId: 'c1', nextSeq: 1, ackedSeq: 0, base: {}, pending: [], cursors: {}, purged: {}, entities: [], scopes: [], rejected: [] });
+    expect(initialState('c1')).toEqual({ clientId: 'c1', nextSeq: 1, ackedSeq: 0, base: {}, pending: [], cursors: {}, purged: {}, entities: [], scopes: [], scopesToFetch: [], rejected: [], staged: {}, legacy: [] });
   });
 
   it('udane i powtórzone operacje nie trafiają do odrzuconych', () => {
@@ -194,7 +200,8 @@ describe('klient synchronizacji — scenariusze', () => {
     let out = onPullResponse(initialState('c'), { groups: [g('g1', false), g('g2', true)], scopes: ['s1'] }, pullRequest(initialState('c')));
     expect(out.needMore).toBe(true);
     expect(out.fetchScopes).toEqual(['s1']);
-    out = onPullResponse(out.state, { groups: [g('g1', false), g('g2', false)], scopes: ['s1', 's2'] }, pullRequest(out.state));
+    const fetched = onFetchScope(out.state, [], 's1');
+    out = onPullResponse(fetched, { groups: [g('g1', false), g('g2', false)], scopes: ['s1', 's2'] }, pullRequest(fetched));
     expect(out.needMore).toBe(false);
     expect(out.fetchScopes).toEqual(['s2']);
   });
@@ -265,11 +272,15 @@ describe('protokół 2 (audyt 2): epoka kursora, pobranie od zera, listy widoczn
     let s: ClientState = { ...initialState('c'), entities: [...ENTITIES] };
     s = onPullResponse(s, { groups: [group({ cursor: 5, rows: [task('stary', 2), task('t1', 5)] })], scopes: [] }, pullRequest(s)).state;
     s = onPullResponse(s, { groups: [group({ cursor: 3, has_more: true, resync: true, purged: 4, rows: [task('t1', 3)] })], scopes: [] }, pullRequest(s)).state;
-    expect(Object.keys(s.base.tasks ?? {})).toEqual(['t1']);
+    // Do ostatniej porcji ekran widzi dotychczasowe wiersze (P2); porcja czeka obok.
+    expect(Object.keys(s.base.tasks ?? {})).toEqual(['stary', 't1']);
+    expect(s.base.tasks?.t1?.version).toBe(5);
+    expect(Object.keys(s.staged.g1?.tasks ?? {})).toEqual(['t1']);
     const req = pullRequest(s);
     expect(req.cursors).toEqual({ g1: { v: 3, p: 4 } });
     s = onPullResponse(s, { groups: [group({ cursor: 6, purged: 4, rows: [task('t2', 6)] })], scopes: [] }, req).state;
     expect(Object.keys(s.base.tasks ?? {}).sort()).toEqual(['t1', 't2']);
+    expect(s.staged).toEqual({});
   });
 
   it('M-176: pobranie od zera (kursor wyzerowany, np. migracja v5) czyści wiersze grupy, których serwer już nie ma', () => {

@@ -46,7 +46,10 @@ describe('nowa lista zakupów', () => {
     await press(screen.getByLabelText('Zakupy'));
     await press(screen.getByLabelText('Rodzina'));
     expect(screen.getByText(/We wspólnej grupie wybierz osobę albo dzień zakupów/)).toBeTruthy();
-    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
+    // PWD-5 A (M-274): przycisk aktywny — po naciśnięciu komunikat zamiast utworzenia.
+    await press(screen.getByTestId('create-list'));
+    expect(screen.getByTestId('list-error').props.children).toMatch(/^We wspólnej grupie wybierz osobę albo dzień zakupów/);
+    expect(store.dispatched).toEqual([]);
     // Dzieci nie robią zakupów.
     const who = screen.getByLabelText('Kto robi zakupy');
     expect(within(who).queryByLabelText('Kuba')).toBeNull();
@@ -66,16 +69,13 @@ describe('nowa lista zakupów', () => {
     await fireEvent.changeText(await screen.findByTestId('list-name'), 'Apteka');
     await press(screen.getByLabelText('Zakupy'));
     await press(screen.getByLabelText('Rodzina'));
-    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
     await pickDate('trip-date', '2026-10-12');
     expect(screen.getByTestId('trip-date').props.accessibilityValue.text).toBe('2026-10-12');
-    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByLabelText('Bez terminu'));
     // M-89, M-245: bez dnia godzina jest nieaktywna z wyjaśnieniem (jak w zadaniu).
     expect(screen.getByTestId('trip-time').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByText('Najpierw wybierz dzień.')).toBeTruthy();
     await press(screen.getByLabelText('Osobiste'));
-    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByTestId('create-list'));
     expect(store.dispatched.find((o) => (o as { entity: string }).entity === 'lists')).toMatchObject({ group_id: 'u-me', set: { due_date: null, responsible_member_id: null } });
   });
@@ -137,7 +137,8 @@ describe('zakupy na liście', () => {
     const trip = await screen.findByTestId('trip');
     expect(within(trip).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.')).toBeTruthy();
     await press(screen.getByTestId('trip-plan'));
-    expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('trip-save'));
+    expect(screen.getByTestId('trip-error').props.children).toMatch(/^We wspólnej grupie wybierz osobę albo dzień zakupów/);
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('trip-plan'));
     await press(screen.getByLabelText('Dziś'));

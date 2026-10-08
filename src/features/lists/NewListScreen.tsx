@@ -5,6 +5,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 
+import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
@@ -21,10 +22,11 @@ import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
 
 export function NewListScreen({ route, navigation }: Props) {
-  const { userId, store, newId } = useServices();
+  const { userId, newId } = useServices();
   const { tables, today } = useAppData();
   // Audyt 2 (P-71, R-12): bez grup, w których jestem dzieckiem — serwer odrzuca nową listę (forbidden:child).
   const groups = useMemo(() => formGroups(tables, userId), [tables, userId]);
+  const added = useAdded();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'tasks' | 'shopping'>(route.params.kind ?? 'tasks');
   // PW-37 A (M-118, D191): bez wskazanej grupy — „Grupa domyślna” jak w szybkim dodawaniu; utworzenie zapamiętuje grupę.
@@ -51,7 +53,8 @@ export function NewListScreen({ route, navigation }: Props) {
     const id = newId();
     saved.saved();
     defaultGroup.remember(groupId);
-    store.dispatch(createList({ id, groupId, kind, name: name.trim(), visibility: personal ? 'group' : visibility, trip: shopping && 'trip' in trip ? trip.trip : undefined }));
+    // D189: „Dodano listę: … · Cofnij”.
+    added(strings['form.addedList'](name.trim(), personal ? strings['groups.personal'] : (group?.name ?? '')), [createList({ id, groupId, kind, name: name.trim(), visibility: personal ? 'group' : visibility, trip: shopping && 'trip' in trip ? trip.trip : undefined })]);
     navigation.replace('List', { listId: id });
   };
 
