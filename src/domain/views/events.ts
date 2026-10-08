@@ -13,7 +13,7 @@ import { plural } from '../plural';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { groupsView, myMemberships } from './index';
-import { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
+import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
 import { rsvpId } from './rsvp';
 
@@ -80,7 +80,9 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
       if (date < isoFrom || date > isoTo) continue;
-      const responsibleId = o?.responsible_member_id ?? e.responsible_member_id;
+      const raw = o?.responsible_member_id ?? e.responsible_member_id;
+      // D132: osoba usunięta z grupy już nie odpowiada — wydarzenie wraca do reguły „nikt konkretny”.
+      const responsibleId = raw !== null && members.get(raw)?.deleted_at === null ? raw : null;
       out.push({
         eventId: e.id,
         occurrenceDate: occ,
@@ -95,7 +97,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         line: g.line,
         concernsMe: responsibleId === null ? byRule : responsibleId === g.me.member_id || iParticipate,
         responsibleId,
-        responsibleName: responsibleId === null ? null : (members.get(responsibleId)?.display_name ?? null),
+        responsibleName: responsibleId === null ? null : members.get(responsibleId)!.display_name,
         location: e.location,
       });
     }
@@ -192,6 +194,8 @@ export type EventFields = {
   responsibleId: string | null;
   /** Miejsce (D115) — całej serii; `undefined` = bez zmiany przy edycji. */
   location?: string | null;
+  /** Rodzaj (D126) — tylko przy utworzeniu; bez = zwykłe. */
+  kind?: EventKind;
 };
 
 const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
@@ -217,7 +221,7 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       entity: 'events',
       id,
       group_id: groupId,
-      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}) },
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}) },
     },
     ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], newId),
   ];
@@ -268,7 +272,8 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
   // „To i następne”: stara seria kończy się dzień wcześniej, nowa zaczyna się od tego wystąpienia (z nowymi wartościami);
   // zmiany pojedynczych wystąpień od tego dnia przechodzą do nowej serii.
   const occ = parseIsoDate(occurrenceDate);
-  const created = createEvent(e.group_id, { ...f, date: occurrenceDate, location: f.location === undefined ? e.location : f.location }, newId);
+  // Nowa seria „to i następne” zostaje tym samym rodzajem (lekcja zostaje lekcją).
+  const created = createEvent(e.group_id, { ...f, date: occurrenceDate, location: f.location === undefined ? e.location : f.location, kind: e.kind }, newId);
   const ops: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule!, occ)) } }, ...created.ops];
   for (const o of d.overrides.filter((x) => x.occurrence_date >= occurrenceDate)) {
     ops.push({ kind: 'delete', entity: 'event_overrides', id: o.id });

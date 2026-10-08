@@ -1,0 +1,17 @@
+appId: io.github.lkarwowski494.organizer
+name: 03 Wydarzenie cykliczne — odpowiedź „Będę”
+---
+- runFlow: common/launch.yaml
+- tapOn:
+    id: "today-event-0199a000-0000-7000-8000-000000000030-2026-10-07"
+- extendedWaitUntil:
+    visible:
+      id: "screen-event"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Będę"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Będę"
+- assertVisible: "Będą: Ty"
+- takeScreenshot: 03-event-rsvp

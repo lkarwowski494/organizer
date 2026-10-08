@@ -18,5 +18,7 @@ describe('kto (D119)', () => {
     expect(personOf(t, 'u1', null)).toBeNull();
     expect(personOf(t, 'u1', 'mx')).toBeNull();
     expect(personOf({}, 'u1', 'm1')).toBeNull();
+    // D132: usunięty z grupy — nikt konkretny.
+    expect(personOf({ group_members: { m9: { member_id: 'm9', user_id: 'u9', display_name: 'X', deleted_at: '2026-10-01' } } }, 'u1', 'm9')).toBeNull();
   });
 });

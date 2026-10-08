@@ -42,7 +42,7 @@ export function routineOps(a: {
   const r = validateForm({ ...f, title: a.title, repeat: a.days.length === 7 ? 'daily' : 'weekly', slots: [{ days: a.days, start: a.start, end: a.end }] });
   if ('error' in r) return { error: r.error };
   if (steps.length === 0) return { error: 'steps' };
-  const ev = createEvent(a.groupId, r.fields[0]!, a.newId);
+  const ev = createEvent(a.groupId, { ...r.fields[0]!, kind: 'routine' }, a.newId);
   const list = generalList(a.tables, a.userId, a.groupId, a.newId);
   return {
     eventId: ev.id,

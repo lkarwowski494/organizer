@@ -1,0 +1,81 @@
+appId: io.github.lkarwowski494.organizer
+name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
+---
+- runFlow: common/launch.yaml
+- tapOn:
+    id: "tab-Calendar"
+- scrollUntilVisible:
+    element:
+      id: "calendar-add-event"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "calendar-add-event"
+- extendedWaitUntil:
+    visible:
+      id: "screen-event-edit"
+    timeout: 10000
+- tapOn: "Rodzina"
+- tapOn:
+    id: "event-title"
+- inputText: "Wywiadówka"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "event-start-0"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-start-0"
+- scrollUntilVisible:
+    element:
+      id: "event-start-0-h-18"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-start-0-h-18"
+- scrollUntilVisible:
+    element:
+      id: "event-start-0-m-30"
+    direction: DOWN
+    timeout: 10000
+# Minuta zamyka panel.
+- tapOn:
+    id: "event-start-0-m-30"
+- scrollUntilVisible:
+    element:
+      id: "event-end-0"
+    direction: UP
+    timeout: 10000
+- tapOn:
+    id: "event-end-0"
+- scrollUntilVisible:
+    element:
+      id: "event-end-0-h-19"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-end-0-h-19"
+- scrollUntilVisible:
+    element:
+      id: "event-end-0-m-15"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-end-0-m-15"
+- scrollUntilVisible:
+    element:
+      id: "event-save"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-save"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Wywiadówka, 18:30.*"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: 04-event-form

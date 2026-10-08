@@ -35,7 +35,7 @@ describe('plan lekcji z tygodniami A/B (D112)', () => {
       '2026-10-12 Matematyka', '2026-10-13 Plastyka', '2026-10-14 Matematyka',
     ]);
     const ev = Object.values(t.events!).find((e) => e.title === 'Basen')!;
-    expect(ev).toMatchObject({ start_date: '2026-10-06', start_time: '10:00', end_time: '11:30', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU', audience: 'members' });
+    expect(ev).toMatchObject({ start_date: '2026-10-06', start_time: '10:00', end_time: '11:30', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU', audience: 'members', kind: 'lesson' });
     expect(Object.values(t.event_participants!).every((p) => p.member_id === 'kuba')).toBe(true);
   });
 

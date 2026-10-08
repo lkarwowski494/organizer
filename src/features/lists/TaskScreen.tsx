@@ -177,7 +177,7 @@ export function TaskScreen({ route, navigation }: Props) {
       {canEdit && !linked && task.parent_id === null ? (
         task.deadline_mode === 'own' && task.due_date ? (
           <>
-            <RepeatEditor value={repeatOf(tables, task.id)} weekday={isoWeekday(parseIsoDate(task.due_date))} onChange={(r) => store.dispatch(setRepeat(task.id, r))} />
+            <RepeatEditor value={repeatOf(tables, task.id)} weekday={isoWeekday(parseIsoDate(task.due_date))} onChange={(r) => store.dispatch(setRepeat(task.id, r, task.due_date))} />
             {repeatOf(tables, task.id) ? <Body muted>{strings['repeat.info']}</Body> : null}
           </>
         ) : (

@@ -89,10 +89,10 @@ export function GroupScreen({ route, navigation }: Props) {
           <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
           <Body>{`${strings['groups.joinId']}: ${groupDigits(invite.joinId)}`}</Body>
           <Text testID="join-code" style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${groupDigits(invite.code)}`}</Text>
-          <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT)}</Body>
+          <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}</Body>
           <Button
             label={strings['groups.share']}
-            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, invite.url, groupDigits(invite.joinId), groupDigits(invite.code), until(invite.expiresAt)) })}
+            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), until(invite.expiresAt)) })}
           />
           <Button
             kind="danger"

@@ -32,7 +32,7 @@ describe('rutyny (D113)', () => {
     const r = make();
     if ('error' in r) throw new Error(r.error);
     const t = apply(base(), r.ops);
-    expect(t.events![r.eventId]).toMatchObject({ title: 'Poranek Kuby', start_date: '2026-10-08', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', audience: 'members' });
+    expect(t.events![r.eventId]).toMatchObject({ title: 'Poranek Kuby', start_date: '2026-10-08', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', audience: 'members', kind: 'routine' });
     expect(Object.values(t.event_task_series!).map((s) => s.title)).toEqual(['Zęby', 'Ubranie', 'Plecak']);
     expect(Object.values(t.lists!).map((l) => l.name)).toEqual(['Zadania']);
     // Telefon dokłada kroki na wystąpienia.

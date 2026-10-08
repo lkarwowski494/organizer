@@ -1,0 +1,15 @@
+# Wspólny start: czysta instalacja (świeża baza i „serwer” w pamięci), czekanie na „Moje sprawy” z danymi demo.
+appId: io.github.lkarwowski494.organizer
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: "screen-today"
+    timeout: 60000
+- extendedWaitUntil:
+    visible: "Otwórz: Oddać książki do biblioteki,.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 5000

@@ -1,0 +1,31 @@
+appId: io.github.lkarwowski494.organizer
+name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka
+---
+- runFlow: common/launch.yaml
+- tapOn:
+    id: "tab-Lists"
+- tapOn:
+    id: "list-0199a000-0000-7000-8000-000000000022"
+- extendedWaitUntil:
+    visible:
+      id: "screen-list"
+    timeout: 10000
+- tapOn:
+    id: "quick-add"
+- inputText: "Ser żółty"
+- tapOn: "Dodaj"
+- scrollUntilVisible:
+    element: "Włóż do koszyka: Ser żółty"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Włóż do koszyka: Ser żółty"
+# Okno systemowe z potwierdzeniem (Alert.alert): tytuł „Do koszyka?”, przycisk „Do koszyka”.
+- extendedWaitUntil:
+    visible: "Do koszyka?"
+    timeout: 5000
+- tapOn: "Do koszyka"
+- scrollUntilVisible:
+    element: "Wyjmij z koszyka: Ser żółty"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: 05-shopping

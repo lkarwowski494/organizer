@@ -2,7 +2,7 @@ import { parseIsoDate } from '../format';
 import { uuidv5 } from '../ids';
 import type { Row } from '../sync-engine/client';
 import { asTask } from '../views/model';
-import { formatRepeat, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
+import { expiredRepeatOps, formatRepeat, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
 
 const d = parseIsoDate;
 const iso = (c: { y: number; m: number; d: number }) => `${c.y}-${String(c.m).padStart(2, '0')}-${String(c.d).padStart(2, '0')}`;
@@ -75,5 +75,37 @@ describe('powtarzanie zadań (D76)', () => {
       expect(repeatOps(t, asTask(t.tasks.t1), d('2026-10-12'))).toEqual([]);
     }
     expect(repeatOf({}, 'x')).toBeNull();
+  });
+});
+
+describe('D137: co miesiąc z dniem miesiąca', () => {
+  it('zapis i odczyt; ustawienie bierze dzień z terminu; następny termin wraca do tego dnia po przeniesieniu', () => {
+    expect(formatRepeat({ kind: 'monthly', day: 15 })).toBe('FREQ=MONTHLY;BYMONTHDAY=15');
+    expect(parseRepeat('FREQ=MONTHLY;BYMONTHDAY=15')).toEqual({ kind: 'monthly', day: 15 });
+    expect(parseRepeat('FREQ=MONTHLY;BYMONTHDAY=32')).toBeNull();
+    expect(setRepeat('t', { kind: 'monthly' }, '2026-10-15')).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } });
+    expect(setRepeat('t', { kind: 'monthly', day: 3 }, '2026-10-15')).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=3' } });
+    expect(setRepeat('t', { kind: 'monthly' })).toMatchObject({ set: { repeat: 'FREQ=MONTHLY' } });
+    // Czynsz 15., przeniesiony na 20.10 i odhaczony 20.10 → następny 15.11 (nie 20.11).
+    expect(nextDue({ kind: 'monthly', day: 15 }, parseIsoDate('2026-10-20'), parseIsoDate('2026-10-20'))).toEqual(parseIsoDate('2026-11-15'));
+  });
+});
+
+describe('D133: powtarzanie po przeminięciu („Tylko tego dnia”)', () => {
+  const T = (o: Row = {}): Row => ({ id: 'leki', group_id: 'g', list_id: 'l', parent_id: null, title: 'Leki', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-05', due_time: '08:00', start_date: null, completed_at: null, deleted_at: null, rollover: false, repeat: 'FREQ=DAILY', ...o });
+  const today = parseIsoDate('2026-10-08');
+  it('minione niezrobione dostaje następne od dziś; raz', () => {
+    const t = { tasks: { leki: T() } };
+    const ops = expiredRepeatOps(t, today, () => true);
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ kind: 'create', id: nextId('leki'), set: { due_date: '2026-10-08', due_time: '08:00', repeat: 'FREQ=DAILY', rollover: false } });
+    expect(expiredRepeatOps({ tasks: { ...t.tasks, [nextId('leki')]: T({ id: nextId('leki'), due_date: '2026-10-08' }) } }, today, () => true)).toEqual([]);
+  });
+  it('bez kopii: przechodzi dalej, zrobione, usunięte, dziś, bez powtarzania, termin po rodzicu, dziecko', () => {
+    for (const o of [{ rollover: true }, { completed_at: 'x' }, { deleted_at: 'x' }, { due_date: '2026-10-08' }, { repeat: null }, { deadline_mode: 'inherit' }, { due_date: null }]) {
+      expect(expiredRepeatOps({ tasks: { leki: T(o) } }, today, () => true)).toEqual([]);
+    }
+    expect(expiredRepeatOps({ tasks: { leki: T() } }, today, () => false)).toEqual([]);
+    expect(expiredRepeatOps({}, today, () => true)).toEqual([]);
   });
 });

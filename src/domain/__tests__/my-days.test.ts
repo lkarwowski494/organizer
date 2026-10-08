@@ -49,6 +49,15 @@ describe('zakresy i przesuwanie', () => {
 });
 
 describe('rolowanie i wygasanie (D61)', () => {
+  it('D132: zadanie osoby usuniętej z grupy wraca do „nikt konkretny” (z terminem — u wszystkich)', () => {
+    const t = world();
+    task(t, 'rachunek', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ala' });
+    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): ']);
+    put(t, 'group_members', 'ala', { ...t.group_members!.ala!, deleted_at: '2026-10-07T10:00:00Z' });
+    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): t-rachunek']);
+    expect(todayView(t, ME, TODAY).today.map((x) => x.id)).toEqual(['rachunek']);
+  });
+
   it('audyt 8.10.2026: pozycje list zakupów nie są sprawami (Moje sprawy, Kalendarz)', () => {
     const t = world();
     put(t, 'lists', 'lz', { id: 'lz', group_id: 'gp', kind: 'shopping', name: 'Zakupy', visibility: 'group', sort_key: 'a0', deleted_at: null });

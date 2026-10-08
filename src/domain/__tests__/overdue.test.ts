@@ -19,3 +19,12 @@ describe('przenieś zaległe na dziś (D111)', () => {
     });
   });
 });
+
+describe('D137: przeniesienie nie przesuwa cyklu co miesiąc', () => {
+  it('stare „co miesiąc” bez dnia dostaje dzień z dawnego terminu; cofnięcie zdejmuje', () => {
+    const t = { tasks: { czynsz: { id: 'czynsz', repeat: 'FREQ=MONTHLY' }, nowy: { id: 'nowy', repeat: 'FREQ=MONTHLY;BYMONTHDAY=5' } } };
+    const r = moveOverdueOps([task('czynsz', { due: { date: '2026-10-15', time: null } }), task('nowy')], '2026-10-20', t);
+    expect(r.ops.slice(2)).toEqual([{ kind: 'patch', entity: 'tasks', id: 'czynsz', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }]);
+    expect(r.undo.slice(2)).toEqual([{ kind: 'patch', entity: 'tasks', id: 'czynsz', set: { repeat: 'FREQ=MONTHLY' } }]);
+  });
+});

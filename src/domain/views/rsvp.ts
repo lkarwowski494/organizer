@@ -31,7 +31,8 @@ export function rsvpView(t: Tables, userId: string, eventId: string, date: strin
   const e = asEvent(raw);
   const mine = myMemberships(t, userId).get(e.group_id);
   const g = t.groups?.[e.group_id];
-  if (!mine || !g || g.kind !== 'shared' || e.deleted_at !== null) return null;
+  // D126: bez obecności przy lekcjach z planu i rutynach.
+  if (!mine || !g || g.kind !== 'shared' || e.deleted_at !== null || e.kind !== 'event') return null;
   const members = rows(t, 'group_members', asMember).filter((m) => m.group_id === e.group_id && m.deleted_at === null);
   const invitedIds = new Set(rows(t, 'event_participants', asParticipant).filter((p) => p.event_id === eventId && p.deleted_at === null).map((p) => p.member_id));
   const invited = e.audience === 'members' ? members.filter((m) => invitedIds.has(m.member_id)) : members;

@@ -1,33 +1,129 @@
-# Organizer — polityka prywatności (wersja testowa, 7.10.2026)
+# Organizer: polityka prywatności (wersja testowa, 8.10.2026)
 
-> Szkic do zatwierdzenia przez właściciela (ADR 0016). Opisuje, co aplikacja naprawdę robi z danymi
-> w tej wersji kodu. Nie jest poradą prawną.
+> Szkic do zatwierdzenia przez właściciela (ADR 0016, D142 w ADR 0035). Opisuje, co aplikacja naprawdę robi z danymi
+> w tej wersji kodu. Nie jest poradą prawną. Lista zmian względem wersji z 7.10.2026: `docs/privacy-policy-changes.md`.
 
 **Kto odpowiada za dane:** autor aplikacji Organizer (kontakt: adres e-mail podany w TestFlight jako „Feedback Email”).
 
-## Jakie dane zbieramy i po co
-- **Konto:** identyfikator z Sign in with Apple albo adres e-mail (logowanie linkiem) — żeby zalogować i rozpoznać osobę. Przy logowaniu przez Apple zapisujemy imię, jeśli Apple je przekaże.
-- **To, co wpisujesz:** grupy, osoby w grupach (także imiona dzieci bez kont), listy, zadania, zakupy, wydarzenia, przekazania i historia zmian — żeby działała aplikacja i widziały je osoby z Twoich grup.
-- **Token powiadomień** urządzenia (jeśli włączysz powiadomienia) — żeby wysłać powiadomienie o przekazaniu.
-- **Zgłoszenia błędów:** gdy aplikacja napotka błąd, wysyła jego opis techniczny (komunikat, miejsce w kodzie, nazwę ekranu, wersję aplikacji) — bez treści Twoich list, zadań i imion. Najwyżej 50 dziennie, przechowywane 90 dni.
-- **Uwagi:** tekst, który sam wyślesz z Ustawień („Wyślij uwagę”), z wersją aplikacji. Przechowywane 90 dni.
-- **Kalendarz iPhone'a** (tylko gdy połączysz go w aplikacji): aplikacja odczytuje Twoje wydarzenia, żeby pokazać je obok spraw grup, i zapisuje wydarzenia Twoich grup w osobnych kalendarzach „Organizer – nazwa grupy”. Twoje wydarzenia nie są wysyłane na serwer ani pokazywane innym osobom — zostają na telefonie. Połączenie wyłączysz w Ustawieniach aplikacji (kalendarze „Organizer” zostaną wtedy usunięte z iPhone'a) albo w Ustawieniach iPhone'a. Bez połączenia: tylko zapis wybranego wydarzenia, gdy dotkniesz „Dodaj do kalendarza”.
-- **Lokalizacja** (tylko gdy włączysz „Czas dojazdu” w Ustawieniach, zgoda iOS „podczas używania”): telefon ustala Twoje położenie, żeby policzyć czas dojazdu do dzisiejszych wydarzeń z miejscem. Liczy to aplikacja Mapy Apple (MapKit) — położenie i adres celu trafiają do Apple, nie na serwer Organizera i nie do innych osób. Aplikacja nie śledzi położenia w tle. Adres wydarzenia (pole „Miejsce”) jest częścią wydarzenia i widzą go osoby z grupy.
+Nie ma reklam, analityki ani śledzenia. Nie sprzedajemy danych. Twoje wpisy widzą tylko osoby z Twoich grup (zasady niżej),
+a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 
-Nie ma reklam, analityki ani śledzenia. Nie sprzedajemy i nie udostępniamy danych nikomu poza osobami z Twoich grup.
+## Jakie dane zbieramy i po co
+
+### Konto
+- **Logowanie przez Apple:** identyfikator konta Apple. Jeśli Apple przekaże imię i nazwisko (robi to tylko przy pierwszym
+  logowaniu), zapisujemy je w koncie, a imię staje się Twoim podpisem w grupach.
+- **Logowanie linkiem:** adres e-mail, na który wysyłamy link do logowania.
+- **Twoje imię:** to, które wpiszesz albo zmienisz w aplikacji. Widzą je osoby z Twoich grup.
+
+### To, co wpisujesz
+- Grupy, osoby w grupach (także imiona dzieci bez kont, które dodaje dorosły), listy, zadania, zakupy, wydarzenia
+  (z miejscem, jeśli je wpiszesz), przekazania i historia zmian. Potrzebujemy ich, żeby aplikacja działała na Twoich
+  telefonach i u osób z Twoich grup.
+- **Kto co widzi:**
+  - listę „Cała grupa” widzą wszyscy członkowie grupy, listę „Tylko ja” tylko Ty, a listę udostępnioną wybranym osobom
+    tylko te osoby;
+  - wydarzenia widzi cała grupa (także wtedy, gdy przy „Kogo dotyczy” wybierzesz konkretne osoby);
+  - **odpowiedzi o obecności** („będę / nie będę / może”) widzi cała grupa, razem z tym, kto odpowiedział
+    (dorosły może odpowiedzieć za dziecko bez konta);
+  - przekazanie widzą tylko dwie osoby, których dotyczy;
+  - historia zmian pokazuje, kto i co zmienił; widzą ją osoby, które widzą daną listę albo grupę.
+
+### Zaproszenia do grupy
+- Zaproszenie (link albo 6-cyfrowy kod do ID grupy) wysyłasz sam, np. w Wiadomościach. Na serwerze zapisujemy tylko
+  skrót kodu (nie sam kod), kto i kiedy je wystawił, termin ważności i liczbę użyć.
+- Przy dołączaniu kodem zapisujemy każdą nieudaną próbę (Twoje konto, ID grupy, czas), żeby utrudnić zgadywanie kodów.
+  Próby kasujemy po 1 dniu.
+
+### Powiadomienia
+- **Token powiadomień** tego iPhone'a (tylko jeśli zgodzisz się na powiadomienia). Używamy go, żeby powiadomić Cię, gdy:
+  - ktoś przekaże Ci zadanie, zakupy albo wydarzenie albo odpowie na Twoje przekazanie;
+  - ktoś przypisze Ci zadanie albo zakupy;
+  - ktoś ustawi Cię jako osobę odpowiedzialną za wydarzenie.
+- Treść powiadomienia zawiera imię osoby, która to zrobiła, i nazwę zadania, listy albo wydarzenia (przy wydarzeniu także
+  dzień). Powiadomienie o zadaniu albo zakupach dostaniesz tylko wtedy, gdy widzisz tę listę.
+- **Wyciszenie grupy:** jeśli wyciszysz grupę w Ustawieniach, zapisujemy na serwerze, które grupy wyciszyłeś. Wyciszenie
+  dotyczy przypisań i osoby odpowiedzialnej; przekazania (do przyjęcia) przychodzą zawsze.
+- **Dziennik wysyłki:** żeby nie wysłać tego samego powiadomienia dwa razy, serwer zapisuje, że powiadomienie o danej
+  zmianie już poszło (identyfikator zmiany i czas, bez treści). Te wpisy kasujemy po 7 dniach.
+- **Przypomnienia** o Twoich sprawach planuje sam telefon. Ich treść nie przechodzi przez nasz serwer.
+
+### Zgłoszenia błędów i samosprawdzenie
+- **Błędy:** gdy aplikacja napotka błąd, wysyła jego opis techniczny: komunikat błędu, miejsce w kodzie, nazwę ekranu albo
+  funkcji (np. „travel”, „render”) i wersję aplikacji. Aplikacja nie dołącza treści Twoich list, zadań, wydarzeń ani imion.
+- **Samosprawdzenie:** raz na każdą nową wersję aplikacji telefon sprawdza, czy działa poprawnie (strefa czasowa,
+  polskie litery, baza danych na telefonie) i wysyła wynik tą samą drogą co błędy: wersję bazy danych, wyniki testów
+  i wersję aplikacji. Bez treści z list.
+- Zgłoszenia są przypisane do Twojego konta. Wysyłamy najwyżej 50 dziennie z jednego konta. Czyta je tylko autor
+  aplikacji w panelu serwera.
+
+### Uwagi
+- Tekst, który sam wyślesz z Ustawień („Wyślij uwagę”), razem z wersją aplikacji i nazwą ekranu, z którego wysyłasz
+  (zawsze „Settings”). Uwaga jest przypisana do Twojego konta. Najwyżej 20 dziennie. Czyta je tylko autor aplikacji.
+
+### Dane techniczne synchronizacji
+- Losowy identyfikator kopii danych na Twoim telefonie (nie identyfikator urządzenia) i czas ostatniej synchronizacji,
+  żeby żadna zmiana nie zginęła ani nie zapisała się dwa razy.
+- Zapis, kiedy dostałeś albo straciłeś dostęp do grupy lub listy, żeby telefon wiedział, co pobrać albo usunąć.
+
+### Kalendarz iPhone'a (tylko gdy połączysz go w aplikacji)
+- **Odczyt:** aplikacja odczytuje Twoje wydarzenia (od 31 dni wstecz do 62 dni naprzód), żeby pokazać je obok
+  spraw grup. Twoje wydarzenia nie są wysyłane na serwer ani pokazywane innym osobom. Aplikacja trzyma je tylko na
+  ekranie, nie zapisuje ich. Na telefonie zapamiętuje tylko, których kalendarzy nie chcesz czytać.
+- **Zapis (lustro):** aplikacja zapisuje wydarzenia Twoich grup (od 7 dni wstecz do 90 dni naprzód) w osobnych
+  kalendarzach „Organizer – nazwa grupy”: nazwę wydarzenia, osobę odpowiedzialną, dzień, godziny i nazwę grupy.
+  Te kalendarze powstają na tym samym koncie co Twój domyślny kalendarz (zwykle iCloud), więc synchronizują się jak
+  Twoje pozostałe kalendarze na tym koncie.
+- Połączenie wyłączysz w Ustawieniach aplikacji (kalendarze „Organizer” zostaną wtedy usunięte z iPhone'a) albo
+  w Ustawieniach iPhone'a.
+- Bez połączenia: tylko zapis jednego wydarzenia, gdy dotkniesz „Dodaj do kalendarza” (zapisuje dopiero systemowy
+  formularz, a aplikacja nie dostaje wtedy dostępu do odczytu).
+
+### Lokalizacja (tylko gdy włączysz „Czas dojazdu”, zgoda iOS „podczas używania aplikacji”)
+- Telefon ustala Twoje położenie, żeby policzyć czas dojazdu do dzisiejszych wydarzeń z miejscem. Adres wydarzenia
+  zamienia na współrzędne i liczy czas dojazdu przez usługi Apple (geokoder i Mapy Apple, MapKit). Położenie i adres
+  celu trafiają więc do Apple.
+- **Położenie nigdy nie trafia na serwer Organizera** ani do innych osób. Aplikacja nie śledzi położenia w tle.
+- Na telefonie zapamiętujemy współrzędne adresów wydarzeń i wybrany środek transportu, żeby nie liczyć ich od nowa.
+- „Nawiguj” otwiera wybraną aplikację map (Mapy Apple albo Mapy Google) z adresem wydarzenia. Od tej chwili adres
+  przetwarza ta aplikacja według swoich zasad.
+- Adres wydarzenia (pole „Miejsce”) jest częścią wydarzenia i widzi go cała grupa.
+- **Czujniki ruchu:** aplikacja z nich nie korzysta i nigdy o nie nie pyta. Opis tej zgody jest w aplikacji tylko dlatego,
+  że Apple go wymaga: biblioteka lokalizacji, z której korzysta „Czas dojazdu”, zawiera taką funkcję.
 
 ## Gdzie są dane
 - Na serwerze Supabase w regionie Frankfurt (UE) i w bazie na Twoim telefonie.
-- Powiadomienia przechodzą przez Apple Push Notification service.
-- Przypomnienia planuje sam telefon.
+- Link do logowania wysyła e-mailem Supabase.
+- Powiadomienia przechodzą przez Apple Push Notification service (Apple), razem z ich treścią.
+- Lokalizacja i adresy do czasu dojazdu idą do Apple (MapKit). Lustro kalendarza synchronizuje Twoje konto kalendarza
+  (zwykle iCloud).
 
 ## Jak długo
-- Do usunięcia przez Ciebie. Usunięte listy, zadania i grupy leżą 30 dni w koszu, potem znikają.
-- **Usunięcie konta** (Ustawienia → Usuń konto) usuwa je z serwera:
-  - Twoja grupa osobista znika.
-  - Grupy wspólne przechodzą na innego dorosłego.
-  - W historii zmian zamiast Twojego imienia zostaje „Usunięty użytkownik”.
-  - Przy koncie Apple unieważniamy też token Sign in with Apple.
+- **Twoje wpisy:** do usunięcia przez Ciebie albo przez osobę z grupy, która może je usunąć.
+- **Kosz:** usunięte listy, zadania, wydarzenia i grupy leżą w koszu 30 dni, potem znikają na zawsze
+  (serwer sprząta raz na dobę, więc może to potrwać do jednego dnia dłużej). Grupę z kosza właściciel może przywrócić
+  w ciągu tych 30 dni.
+- **Zgłoszenia błędów, wyniki samosprawdzenia i uwagi:** 90 dni.
+- **Nieudane próby dołączenia kodem:** 1 dzień.
+- **Dziennik wysyłki powiadomień:** 7 dni.
+- **Token powiadomień:** dopóki działa. Usuwamy go, gdy Apple zgłosi, że jest nieaktualny, i przy usunięciu konta.
+  Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
+- **Wyciszenia grup:** dopóki ich nie wyłączysz albo nie usuniesz konta.
+
+## Usunięcie konta
+**Ustawienia → Usuń konto** usuwa konto z serwera:
+- Twoja grupa osobista znika od razu, razem z zawartością.
+- Twoje listy „Tylko ja” w grupach wspólnych trafiają do kosza i znikają po 30 dniach.
+- Grupę wspólną, której byłeś właścicielem, przejmuje dorosły z kontem i najdłuższym stażem w grupie (najpierw admin).
+  **Jeśli w grupie nie ma innego dorosłego z kontem, grupa trafia do kosza na 30 dni, a potem jest usuwana razem
+  z całą zawartością.**
+- To, co dodałeś w grupach wspólnych (zadania, wydarzenia, odpowiedzi o obecności, historia zmian), zostaje dla grupy,
+  ale zamiast Twojego imienia widać „Usunięty użytkownik”.
+- Linki zaproszeń, które wystawiłeś, przestają działać.
+- Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,
+  wyciszenia grup, Twoje zgłoszenia błędów i uwagi, dane techniczne synchronizacji.
+- Przy koncie Apple unieważniamy też token Sign in with Apple.
+- Kopia danych na tym iPhonie zostaje do usunięcia aplikacji.
 
 ## Twoje prawa
 Możesz poprawić swoje dane w aplikacji, usunąć konto w aplikacji albo napisać na adres kontaktowy z pytaniem o swoje dane.

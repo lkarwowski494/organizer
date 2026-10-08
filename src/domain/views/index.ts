@@ -183,9 +183,15 @@ export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: Toda
  * zaległe / przypięte / dziś / jutro.
  */
 /** Zadanie dotyczy mnie (reguła „Moje sprawy” powyżej, bez warunku „otwarte”). */
-export function concernsMeTask(x: Task, g: GroupItem, due: Due): boolean {
-  const unassigned = x.assignee_member_id === null;
-  return x.assignee_member_id === g.me.member_id || (unassigned && (g.kind === 'personal' || due !== null));
+/** Żywi członkowie (bez usuniętych) — osoba usunięta z grupy to „nikt konkretny” (D132). */
+export function liveMemberIds(t: Tables): Set<string> {
+  return new Set(rows(t, 'group_members', asMember).filter(alive).map((m) => m.member_id));
+}
+
+/** D132: zadanie osoby usuniętej z grupy (albo która wyszła) wraca do reguł nieprzypisanego — nie znika wszystkim. */
+export function concernsMeTask(x: Task, g: GroupItem, due: Due, live: ReadonlySet<string>): boolean {
+  const assignee = x.assignee_member_id !== null && live.has(x.assignee_member_id) ? x.assignee_member_id : null;
+  return assignee === g.me.member_id || (assignee === null && (g.kind === 'personal' || due !== null));
 }
 
 type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id'>;
@@ -212,6 +218,7 @@ export function isExpired(x: ExpiryTerms & Pick<Task, 'completed_at'>, due: Due,
 export function todayView(t: Tables, userId: string, today: CivilDate): TodayView {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
+  const live = liveMemberIds(t);
   const all = rows(t, 'tasks', asTask).filter(alive);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
@@ -224,7 +231,7 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
     if (!g || !l || l.kind === 'shopping' || x.completed_at !== null || !isVisible(x, today)) continue;
     const mine = x.assignee_member_id === g.me.member_id;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(x, g, due) || isExpired(x, due, isoToday, byId)) continue;
+    if (!concernsMeTask(x, g, due, live) || isExpired(x, due, isoToday, byId)) continue;
     const item: TodayItem = {
       ...x,
       due,

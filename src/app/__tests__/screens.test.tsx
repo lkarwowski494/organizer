@@ -215,11 +215,12 @@ describe('Grupy', () => {
     expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'member');
     expect(await screen.findByText('ID grupy: 482 913 507')).toBeTruthy();
     expect(screen.getByTestId('join-code').props.children).toBe('Kod: 731 064');
-    expect(screen.getByText('Ważny do: jutro · 10:00. Działa dla najwyżej 50 osób. Wystarczy link albo ID grupy z kodem.')).toBeTruthy();
+    expect(screen.getByText('Ważny do: jutro · 10:00. Działa dla najwyżej 50 osób. Wystarczy ID grupy z kodem.')).toBeTruthy();
     await press(screen.getByLabelText('Wyślij zaproszenie'));
     const msg = (share.mock.calls[0]![0] as { message: string }).message;
     expect(msg).toMatch(/^Zapraszam Cię do grupy „Rodzina” w Organizerze\./);
-    expect(msg).toContain('Dotknij linku: https://lkarwowski494.github.io/j/?g=482913507&c=731064');
+    expect(msg).not.toContain('https://'); // D141: bez martwego linku
+    expect(msg).toContain('W aplikacji: Grupy');
     expect(msg).toContain('Grupy → „Dołącz do grupy”');
     expect(msg).toContain('Kod: 731 064 (ważny do: jutro · 10:00)');
     expect(parseJoin(msg)).toEqual({ joinId: '482913507', code: '731064' });

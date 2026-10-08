@@ -1,0 +1,12 @@
+appId: io.github.lkarwowski494.organizer
+name: 01 „Moje sprawy” pokazują dane demo
+---
+- runFlow: common/launch.yaml
+- assertVisible: "Moje sprawy"
+- assertVisible: "Otwórz: Odebrać paczkę,.*"
+- assertVisible:
+    id: "today-event-0199a000-0000-7000-8000-000000000030-2026-10-07"
+- assertVisible: "Basen Kuby, 17:00.*"
+# Zadanie Ali nie dotyczy mnie — nie ma go w „Moich sprawach”.
+- assertNotVisible: ".*Umówić przegląd auta.*"
+- takeScreenshot: 01-today

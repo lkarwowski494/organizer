@@ -1,0 +1,16 @@
+# Scenariusze E2E (D143) dla buildu symulatora z EXPO_PUBLIC_E2E=1 (dane demo: src/app/e2e.ts).
+# Uruchamia je .github/workflows/e2e.yml; lokalnie: scripts/e2e/run-flows.sh (opis w docs/testing.md).
+# Selektory: `id` = testID z ekranów, tekst = etykieta VoiceOver (wyrażenie regularne dopasowane w całości) —
+# na iOS wiersz listy jest jednym elementem dostępności, więc dopasowujemy jego etykietę, nie wewnętrzny tekst.
+# Każdy scenariusz kończy się takeScreenshot o nazwie NN-opis; wzorce do porównania: .maestro/baselines/.
+flows:
+  - "*.yaml"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - 01-today
+    - 02-quick-add
+    - 03-event-rsvp
+    - 04-event-form
+    - 05-shopping
+    - 06-settings
