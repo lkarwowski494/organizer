@@ -9,6 +9,7 @@ dziś/dzisiaj, jutro, pojutrze (opcjonalnie z „na”); „w/we/na” + dzień 
 o godz. 7, o godzinie 7, 17:30); „co tydzień” → `FREQ=WEEKLY;BYDAY=<dzień startu>`.
 Rozpoznawanie ignoruje polskie znaki. Pierwszy fragment danego rodzaju wygrywa, kolejne zostają w tytule.
 Poza MVP: „w przyszły piątek”, „za 3 dni”, „do piątku”, „rano/wieczorem”, „codziennie”, +osoba, #grupa (Faza 1).
+„@imię” (D91) i „#grupa”, „@ja” (audyt 2, M-24) rozpoznaje osobno `domain/views/quick-target.ts`, poza parserem dat.
 
 ## Źródła językowe
 - Nazwy miesięcy w dopełniaczu i skróty, nazwy dni: Unicode CLDR 48.2.3 (pl, ca-gregorian).

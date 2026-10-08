@@ -52,7 +52,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const editing = route.params.taskId;
-  const [initial] = useState(() => formFromText(tables, userId, route.params.text ?? '', now()));
+  // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
+  const [initial] = useState(() => formFromText(tables, userId, route.params.text ?? '', now(), { chipGroupId: route.params.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
   const [form, setForm] = useState<TaskForm>(() => {
     const base = (editing ? formFromTask(tables, editing) : null) ?? initial.form;
     // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.

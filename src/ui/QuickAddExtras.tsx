@@ -10,7 +10,7 @@ import { strings } from '../i18n/strings.pl';
 import { Body, TokenChip } from './components';
 import { useTheme } from './theme';
 
-export function QuickAddExtras({ preview, error, onUnclick }: { preview: QuickPreview; error: string | null; onUnclick: (t: Fragment) => void }) {
+export function QuickAddExtras({ preview, error, onUnclick }: { preview: Pick<QuickPreview, 'tokens' | 'event' | 'unrecognizedDay'>; error: string | null; onUnclick: (t: Fragment) => void }) {
   const { c, font } = useTheme();
   return (
     <>

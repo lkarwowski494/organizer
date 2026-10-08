@@ -70,13 +70,14 @@ describe('nierozpoznany dzień i podgląd pola (audyt 2, M-23, M-256)', () => {
       tokens: [{ start: 6, end: 11, text: 'jutro' }, { start: 12, end: 17, text: '17–18' }],
       event: true,
       unrecognizedDay: null,
+      dated: true,
     });
     expect(quickPreview('basen 17–18 w piątek', NOW).tokens.map((t) => t.text)).toEqual(['17–18', 'w piątek']);
-    expect(quickPreview('basen jutro o 17', NOW)).toMatchObject({ title: 'basen', event: false, tokens: [{ text: 'jutro' }, { text: 'o 17' }] });
-    expect(quickPreview('basen w przyszły wtorek 17–18', NOW)).toEqual({ title: 'basen w przyszły wtorek 17–18', tokens: [], event: false, unrecognizedDay: { start: 8, end: 23, text: 'przyszły wtorek' } });
+    expect(quickPreview('basen jutro o 17', NOW)).toMatchObject({ title: 'basen', event: false, dated: true, tokens: [{ text: 'jutro' }, { text: 'o 17' }] });
+    expect(quickPreview('basen w przyszły wtorek 17–18', NOW)).toEqual({ title: 'basen w przyszły wtorek 17–18', tokens: [], event: false, unrecognizedDay: { start: 8, end: 23, text: 'przyszły wtorek' }, dated: false });
     // Odklikany zakres — zwykłe zadanie z zakresem w nazwie.
-    expect(quickPreview('basen 17–18', NOW, [{ start: 6, end: 11 }])).toEqual({ title: 'basen 17–18', tokens: [], event: false, unrecognizedDay: null });
-    expect(quickPreview('', NOW)).toEqual({ title: '', tokens: [], event: false, unrecognizedDay: null });
+    expect(quickPreview('basen 17–18', NOW, [{ start: 6, end: 11 }])).toEqual({ title: 'basen 17–18', tokens: [], event: false, unrecognizedDay: null, dated: false });
+    expect(quickPreview('', NOW)).toEqual({ title: '', tokens: [], event: false, unrecognizedDay: null, dated: false });
     // Sam termin albo sam zakres — nazwa pusta (nie ma czego dodać).
     expect(quickPreview('jutro', NOW).title).toBe('');
     expect(quickPreview('jutro 17–18', NOW).title).toBe('');

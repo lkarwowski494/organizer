@@ -37,6 +37,7 @@ import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
 import { CalendarSyncProvider } from './calendar-sync';
+import { DefaultGroupProvider } from './default-group';
 import { RemindersProvider } from './reminders';
 import { TravelProvider } from './travel';
 import { SeriesFiller } from './SeriesFiller';
@@ -111,6 +112,7 @@ export function RootStack() {
       <TravelProvider>
       <RemindersProvider>
       <CalendarSyncProvider>
+      <DefaultGroupProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
@@ -131,6 +133,7 @@ export function RootStack() {
       <Stack.Screen name="Routine" component={RoutineScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack.Navigator>
+      </DefaultGroupProvider>
       </CalendarSyncProvider>
       </RemindersProvider>
       </TravelProvider>

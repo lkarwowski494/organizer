@@ -20,7 +20,7 @@ import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, par
 import { useTaskActions } from '../../app/task-actions';
 import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
-import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
+import { addDays, type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
@@ -33,7 +33,11 @@ import { PushPrompt } from './PushPrompt';
 import { WhatsNew } from './WhatsNew';
 import { NAME_ASKED } from '../profile/NameScreen';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
-import { blankMention, type MentionResolution, type MentionTarget, resolveMention } from '../../domain/views/mention';
+import { startGroup } from '../../domain/views/default-group';
+import { needsAddressee, type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, withoutShortcuts } from '../../domain/views/quick-target';
+import { formMembers } from '../../domain/views/task-form';
+import { useDefaultGroup } from '../../app/default-group';
+import { QuickGroupChip } from './QuickGroupChip';
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
@@ -54,8 +58,13 @@ export function TodayScreen() {
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
-  // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem; żadnej — pytanie, czy bez osoby (audyt 2, M-169).
-  const [ask, setAsk] = useState<Extract<MentionResolution, { kind: 'many' | 'unknown' }> | null>(null);
+  // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24),
+  // albo we wspólnej grupie brak osoby i terminu (D68). `answers` — dotychczasowe odpowiedzi.
+  const [ask, setAsk] = useState<{ r: Exclude<QuickResolution, { kind: 'ok' | 'noGroup' }>; answers: QuickAnswers } | { addressee: QuickTarget } | null>(null);
+  // M-24: grupa wybrana chipem dla tego wpisu (null — start z ustawienia „Grupa domyślna”) i rozwinięty wybór.
+  const [chip, setChip] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const defaultGroup = useDefaultGroup();
   // Audyt 2 (M-168): nie ma czego dodać (sam termin, samo „@imię”) — pole zostaje, komunikat zamiast cichego czyszczenia.
   const [error, setError] = useState<string | null>(null);
   // D127: rozwinięte wiersze lekcji dziecka (klucz wiersza).
@@ -101,46 +110,73 @@ export function TodayScreen() {
   // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania. Podgląd mówi też, że powstanie
   // wydarzenie (audyt 2, M-256) albo że dnia nie rozpoznano (M-23).
   const preview = quickPreview(text, now(), ignore);
+  // M-24 (decyzja właściciela 8.10.2026): chip pokazuje, dokąd trafi wpis — grupę z „#”/„@”, gdy tekst ją wskazał,
+  // inaczej wybraną chipem albo start z ustawienia.
+  const personalLabel = strings['groups.personal'];
+  const addGroups = useMemo(() => quickGroups(tables, userId, personalLabel), [tables, userId, personalLabel]);
+  const chipGroup = (chip !== null && addGroups.some((g) => g.id === chip) ? chip : null) ?? startGroup(addGroups, defaultGroup.setting, defaultGroup.last);
+  const resolve = (answers: QuickAnswers) => resolveQuick(tables, userId, text, { chipGroupId: chipGroup, personalLabel, answers });
+  const resolved = text ? resolve({}) : null;
+  const target = resolved?.kind === 'ok' ? resolved.target : null;
+  const shownGroup = groups.find((g) => g.id === (target?.groupId ?? chipGroup));
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
   const label = mode === 'day' ? formatLongDate(at, today) : mode === 'week' ? formatRange(from, to, today) : formatMonth(at.y, at.m);
 
-  // Szybkie dodanie (D90, D91): „@imię” wybiera grupę i osobę; po dodaniu pasek „Dodano … · Zmień” otwiera pełny formularz.
-  const addWith = (target?: MentionTarget) => {
-    // „@imię” zastępujemy spacjami tej samej długości, żeby odklikane fragmenty (ignore) zachowały pozycje.
-    const body = target ? blankMention(text) : text;
-    const group = target ? target.groupName : strings['groups.personal'];
-    const q = quickEvent({ tables, userId, text: body, now: now(), ignore, groupId: target?.groupId, memberId: target?.memberId });
+  // Szybkie dodanie (D90, D91, M-24): grupa z chipa, „#Grupa” albo „@imię”, osoba z „@imię”/„@ja”; po dodaniu pasek
+  // „Dodano … · Zmień” otwiera pełny formularz. Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
+  const addWith = (t: QuickTarget, extra: { assigneeId?: string; dueDate?: string } = {}) => {
+    const memberId = extra.assigneeId ?? t.memberId;
+    const group = addGroups.find((g) => g.id === t.groupId)!.name;
+    const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: memberId ?? undefined });
     const event = q ? quickEventOps(q, newId) : null;
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
       undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
-      return clear();
+      return done(t);
     }
-    const ops = quickAddOps({ tables, userId, text: body, now: now(), ignore, newId, groupId: target?.groupId, assigneeId: target?.memberId });
+    const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: memberId, dueDate: extra.dueDate });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
-    // Bez żadnej grupy (np. przed pierwszym pobraniem danych) nie ma gdzie dodać — tekst zostaje w polu.
-    if (!created || created.kind !== 'create') return (setAsk(null), setError(strings['common.error']));
+    if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
     undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+    done(t);
+  };
+  // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
+  const done = (t: QuickTarget) => {
+    if (t.from === 'tag') defaultGroup.remember(t.groupId);
     clear();
+  };
+  const fail = (message: string) => {
+    setAsk(null);
+    setError(message);
   };
   const clear = () => {
     setText('');
     setIgnore([]);
     setAsk(null);
     setError(null);
+    setChip(null);
+    setPicking(false);
+  };
+  const proceed = (answers: QuickAnswers) => {
+    const r = resolve(answers);
+    // Bez żadnej grupy (np. przed pierwszym pobraniem danych) nie ma gdzie dodać — tekst zostaje w polu.
+    if (r.kind === 'noGroup') return fail(strings['common.error']);
+    if (r.kind !== 'ok') return setAsk({ r, answers });
+    if (needsAddressee(tables, userId, r.target, quickPreview(r.target.body, now(), ignore).dated)) return setAsk({ addressee: r.target });
+    addWith(r.target);
   };
   const submit = () => {
     if (text.trim() === '') return;
-    const r = resolveMention(tables, userId, text);
-    // M-168: sam termin („jutro”) albo samo „@Ala” — bez nazwy nie ma czego dodać.
-    if (quickPreview(r.kind === 'one' || r.kind === 'many' ? blankMention(text) : text, now(), ignore).title.trim() === '') return setError(strings['form.error.title']);
-    if (r.kind === 'many' || r.kind === 'unknown') return setAsk(r);
-    addWith(r.kind === 'one' ? r.target : undefined);
+    // M-168: sam termin („jutro”) albo samo „@Ala”/„#Rodzina” — bez nazwy nie ma czego dodać.
+    if (quickPreview(withoutShortcuts(text), now(), ignore).title.trim() === '') return fail(strings['form.error.title']);
+    proceed({});
   };
+  const n0 = now();
+  const dayIso = (k: number) => formatIsoDate(addDays({ y: n0.y, m: n0.m, d: n0.d }, k));
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
@@ -293,6 +329,23 @@ export function TodayScreen() {
         ))}
       </View>
       <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
+        {addGroups.length > 1 && shownGroup ? (
+          <QuickGroupChip
+            name={addGroups.find((g) => g.id === shownGroup.id)!.name}
+            line={shownGroup.line}
+            fromText={!!target && target.from !== 'chip'}
+            open={picking}
+            groups={addGroups}
+            value={chipGroup!}
+            onToggle={() => setPicking(!picking)}
+            onPick={(g) => {
+              // Zmiana chipem zostaje ostatnio użytą grupą (przy konkretnej grupie domyślnej — tylko dla tego wpisu).
+              setChip(g);
+              defaultGroup.remember(g);
+              setPicking(false);
+            }}
+          />
+        ) : null}
         <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button
@@ -301,29 +354,55 @@ export function TodayScreen() {
         a11yHint={strings['form.moreHint']}
         testID="add-more"
         onPress={() => {
-          // Z zakresem godzin — od razu formularz wydarzenia (D99); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu
-          // (przy kilku pyta pełny formularz zadania, audyt 2 M-170).
-          const r = resolveMention(tables, userId, text);
-          const one = r.kind === 'one' ? r.target : undefined;
-          const q = quickEvent({ tables, userId, text: one ? blankMention(text) : text, now: now(), ignore, groupId: one?.groupId, memberId: one?.memberId });
+          // Z zakresem godzin — od razu formularz wydarzenia (D99) w grupie, którą pokazuje chip; osoba z „@…” tylko przy
+          // jednym dopasowaniu (przy kilku pyta pełny formularz zadania, audyt 2 M-170).
+          const q = quickEvent({ tables, userId, text: target?.body ?? text, now: now(), ignore, groupId: target?.groupId ?? chipGroup ?? undefined, memberId: target?.memberId ?? undefined });
           if (q) nav.navigate('EventEdit', { groupId: q.groupId, date: q.form.date, title: q.form.title, start: q.form.slots[0]!.start, end: q.form.slots[0]!.end, responsibleId: q.form.responsibleId ?? undefined });
-          else nav.navigate('AddTask', { text });
+          else nav.navigate('AddTask', { text, defaultGroupId: chipGroup ?? undefined });
           clear();
         }}
       />
-      {ask?.kind === 'many' ? (
+      {ask && 'addressee' in ask ? (
+        // D68: we wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw — jak na liście.
         <AskPanel
-          testID="mention-choices"
-          title={strings['mention.ask'](ask.name)}
-          options={ask.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => addWith(t) }))}
+          testID="addressee-ask"
+          title={strings['addressee.ask']}
+          body={strings['addressee.why']}
+          options={[
+            ...formMembers(tables, ask.addressee.groupId).map((m) => ({ key: m.member_id, label: strings['addressee.for'](m.display_name), onPress: () => addWith(ask.addressee, { assigneeId: m.member_id }) })),
+            { key: 'today', label: strings['addressee.today'], onPress: () => addWith(ask.addressee, { dueDate: dayIso(0) }) },
+            { key: 'tomorrow', label: strings['addressee.tomorrow'], onPress: () => addWith(ask.addressee, { dueDate: dayIso(1) }) },
+          ]}
           onCancel={() => setAsk(null)}
         />
-      ) : ask?.kind === 'unknown' ? (
+      ) : ask?.r.kind === 'many' ? (
+        <AskPanel
+          testID="mention-choices"
+          title={strings['mention.ask'](ask.r.name)}
+          options={ask.r.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => proceed({ ...ask.answers, person: t }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'unknown' ? (
         <AskPanel
           testID="mention-unknown"
-          title={strings['mention.unknown'](ask.name)}
-          body={strings['mention.unknownInfo'](ask.name)}
-          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => addWith() }]}
+          title={strings['mention.unknown'](ask.r.name)}
+          body={strings['mention.unknownInfo'](ask.r.name)}
+          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'manyGroups' ? (
+        <AskPanel
+          testID="tag-choices"
+          title={strings['tag.ask'](ask.r.name)}
+          options={ask.r.groups.map((g) => ({ key: g.id, label: g.name, onPress: () => proceed({ ...ask.answers, group: g.id }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'unknownGroup' ? (
+        <AskPanel
+          testID="tag-unknown"
+          title={strings['tag.unknown'](ask.r.name)}
+          body={strings['tag.unknownInfo'](ask.r.name, ask.r.chip.name)}
+          options={[{ key: 'chip', label: strings['tag.addTo'](ask.r.chip.name), onPress: () => proceed({ ...ask.answers, skipTag: true }) }]}
           onCancel={() => setAsk(null)}
         />
       ) : null}

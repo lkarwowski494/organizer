@@ -1,5 +1,6 @@
 /**
- * Ustawienia (D131): strona główna z podstronami — Powiadomienia, Kalendarz i dojazd, Wygląd, Konto i dane.
+ * Ustawienia (D131): strona główna z podstronami — Powiadomienia, Kalendarz i dojazd, Wygląd, Dodawanie (grupa domyślna,
+ * audyt 2 M-24), Konto i dane.
  * Konto i dane: imię, odrzucone zmiany, wylogowanie (z potwierdzeniem), wyczyszczenie danych offline, usunięcie konta
  * (wymóg App Store 5.1.1(v), D5, D49) z potwierdzeniem wpisaniem słowa — operacji nie da się cofnąć.
  */
@@ -18,19 +19,27 @@ import { useDeviceCalendar } from '../../app/calendar-sync';
 import { useTravel } from '../../app/travel';
 import { TRAVEL_MODES } from '../../domain/travel';
 import { MuteSettings } from './MuteSettings';
+import { useDefaultGroup } from '../../app/default-group';
+import { LAST_USED } from '../../domain/views/default-group';
+import { quickGroups } from '../../domain/views/quick-target';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
-const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'account'];
+const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'adding', 'account'];
 
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
-  const { account, nowMs, displayName, resetLocal } = useServices();
+  const { account, nowMs, displayName, resetLocal, userId } = useServices();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
   const travel = useTravel();
-  const { state, indicator } = useAppData();
+  const { state, indicator, tables } = useAppData();
+  // M-24 (decyzja właściciela 8.10.2026): „Grupa domyślna” — skąd startuje chip przy polu dodawania w Moich sprawach.
+  const defaultGroup = useDefaultGroup();
+  const addGroups = quickGroups(tables, userId, strings['groups.personal']);
+  // Ustawionej grupy już nie ma — działa (i widać) „Ostatnio użyta”, jak w startGroup.
+  const defaultValue = addGroups.some((g) => g.id === defaultGroup.setting) ? defaultGroup.setting : LAST_USED;
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
   const [word, setWord] = useState('');
@@ -61,7 +70,7 @@ export function SettingsScreen({ navigation, route }: Props) {
         <BackButton onPress={() => navigation.goBack()} />
         <Title>{strings['settings.title']}</Title>
         <SyncChip indicator={indicator} nowMs={nowMs()} />
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => s !== 'adding' || defaultGroup.available).map((s) => (
           <NavRow key={s} title={strings[`settings.section.${s}`]} onPress={() => open(s)} testID={`settings-${s}`} />
         ))}
         <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
@@ -85,6 +94,17 @@ export function SettingsScreen({ navigation, route }: Props) {
             { value: 'dark', label: strings['settings.appearance.dark'] },
           ]}
         />
+      ) : null}
+      {section === 'adding' ? (
+        <>
+          <Segmented
+            label={strings['defaultGroup.setting']}
+            value={defaultValue}
+            onChange={defaultGroup.setSetting}
+            options={[{ value: LAST_USED, label: strings['defaultGroup.last'] }, ...addGroups.map((g) => ({ value: g.id, label: g.name }))]}
+          />
+          <Body muted>{strings['defaultGroup.info']}</Body>
+        </>
       ) : null}
       {section === 'notifications' ? (
         reminders.available ? (
