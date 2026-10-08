@@ -151,3 +151,36 @@ describe('zbiorcze przypomnienie nie przychodzi później niż własne (audyt 2:
     expect(r.map((x) => [x.id, x.body])).toEqual([['l|ev|2026-10-08|2026-10-08', 'Wyjdź teraz · do zrobienia: buty']]);
   });
 });
+
+describe('zadanie dziecka bez konta przypomina dorosłym (decyzja właściciela z 8.10.2026, PW-1)', () => {
+  function family(): T {
+    const t = world();
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    const task = (id: string, extra: Row) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', parent_id: null, title: id, assignee_member_id: 'kuba', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, completed_at: null, deleted_at: null, rollover: true, ...extra });
+    task('plecak', { due_time: '20:00' });
+    task('zeszyt', { due_date: '2026-10-05' });
+    return t;
+  }
+  const who = (p: { name: string; me: boolean }) => (p.me ? 'dla Ciebie' : `dla: ${p.name}`);
+
+  it('przypomnienie z imieniem dziecka (jak „dla: …” w wierszu, D119); poranne liczy także zaległe dziecka', () => {
+    const r = planReminders(family(), ME, TODAY, NOW, { leadMin: 30, morning: '08:00' }, opts({ label: { ...opts().label, who } }));
+    expect(r.find((x) => x.id === 't|plecak|2026-10-08')).toMatchObject({ title: 'plecak', body: '20:00 · Rodzina · dla: Kuba' });
+    // Moje zadanie bez dopisku (jak dotąd).
+    expect(r.find((x) => x.id === 't|paczka|2026-10-07')!.body).toBe('17:30 · Rodzina');
+    expect(r.find((x) => x.id === 'm|2026-10-08')!.body).toBe('3/0: kwiaty, 18:00 Tańce, 20:00 plecak');
+    const early = planReminders(family(), ME, TODAY, toMs({ ...TODAY, hh: 6, mm: 0 }), { leadMin: 0, morning: '07:00' }, opts({ days: 1 }));
+    expect(early.map((x) => [x.id, x.body])).toEqual([['m|2026-10-07', '4/2: rachunek, zeszyt, 09:00 rano, 17:30 paczka']]);
+    // Bez etykiety (starsze wywołania) — treść jak dotąd.
+    expect(planReminders(family(), ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts()).find((x) => x.id === 't|plecak|2026-10-08')!.body).toBe('20:00 · Rodzina');
+  });
+});
+
+describe('start_date („widoczne od”) a przypomnienia na kolejne dni (audyt 2: T-23)', () => {
+  it('zadanie widoczne od jutra z terminem jutro 17:00 ma przypomnienie zaplanowane już dziś', () => {
+    const t = world();
+    put(t, 'tasks', 'basen', { ...t.tasks!.paczka!, id: 'basen', title: 'basen', due_date: '2026-10-08', due_time: '17:00', start_date: '2026-10-08' });
+    const r = planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts({ days: 2 }));
+    expect(r.map((x) => x.id)).toEqual(['t|paczka|2026-10-07', 't|basen|2026-10-08', 'e|ev|2026-10-08|2026-10-08']);
+  });
+});

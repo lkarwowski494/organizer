@@ -38,7 +38,8 @@ create trigger group_members_y_departure after update of deleted_at on public.gr
   for each row execute function private.group_members_departure();
 
 -- ───────────────────────── Strażnicy: zapis serwera przy wyjściu i powrocie ─────────────────────────
--- Zastępuje wersję z 20261008280000_audit_fixes.sql. Jedyna zmiana: flaga organizer.member_cleanup (wyżej).
+-- Zastępuje wersję z 20261008330000_handoff_obligation.sql (łańcuch terminów zadania powtarzanego przy przyjęciu zostaje).
+-- Jedyna zmiana: flaga organizer.member_cleanup (wyżej).
 create or replace function private.handoffs_guard() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -48,6 +49,9 @@ declare
   l public.lists;
   current_responsible uuid;
   o_id uuid;
+  tid uuid;
+  moved int := 0;
+  n int;
 begin
   if (select auth.uid()) is null then return new; end if;
   -- Sprzątanie po osobie, która wyszła albo wróciła (private.group_members_departure, migracja 20261008361000).
@@ -120,7 +124,21 @@ begin
     if current_responsible is distinct from old.from_member then raise exception 'stale' using errcode = 'P0001'; end if;
 
     if old.entity = 'tasks' then
-      update public.tasks set assignee_member_id = old.to_member where id = old.entity_id and deleted_at is null;
+      -- PW-31: niezrobione terminy łańcucha (ten i kolejne kopie), które wciąż są u nadawcy; zrobionych nie ruszamy.
+      -- Łańcuch kończy się na pierwszym id, którego nie ma (kolejne id wynika z poprzedniego, więc cyklu nie ma).
+      tid := old.entity_id;
+      while tid is not null loop
+        update public.tasks set assignee_member_id = old.to_member
+          where id = tid and group_id = old.group_id and deleted_at is null and completed_at is null
+            and assignee_member_id is not distinct from old.from_member;
+        get diagnostics n = row_count;
+        moved := moved + n;
+        tid := private.next_task_id(tid);
+        if not exists (select 1 from public.tasks where id = tid) then tid := null; end if;
+      end loop;
+      -- Nic do przejęcia (zadanie już zrobione, bez następnego terminu u nadawcy): przekazanie nieaktualne, zostaje
+      -- oczekujące — odbiorca może je odrzucić, nadawca anulować (jak przy zmianie osoby, #8).
+      if moved = 0 then raise exception 'stale' using errcode = 'P0001'; end if;
     elsif old.entity = 'lists' then
       update public.lists set responsible_member_id = old.to_member where id = old.entity_id and deleted_at is null;
     elsif old.occurrence_date is null then
