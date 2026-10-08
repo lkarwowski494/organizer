@@ -20,7 +20,7 @@ import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, par
 import { useTaskActions } from '../../app/task-actions';
 import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
-import { addDays, type CivilDate, formatIsoDate } from '../../domain/civil-date';
+import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
@@ -34,8 +34,7 @@ import { WhatsNew } from './WhatsNew';
 import { NAME_ASKED } from '../profile/NameScreen';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 import { startGroup } from '../../domain/views/default-group';
-import { needsAddressee, type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, withoutShortcuts } from '../../domain/views/quick-target';
-import { formMembers } from '../../domain/views/task-form';
+import { type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, unseenInMyDays, withoutShortcuts } from '../../domain/views/quick-target';
 import { useDefaultGroup } from '../../app/default-group';
 import { QuickGroupChip, ShoppingChip } from './QuickGroupChip';
 import { recentShoppingList, shoppingItem } from '../../domain/views/quick-shopping';
@@ -59,9 +58,9 @@ export function TodayScreen() {
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
-  // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24),
-  // albo we wspólnej grupie brak osoby i terminu (D68). `answers` — dotychczasowe odpowiedzi.
-  const [ask, setAsk] = useState<{ r: Exclude<QuickResolution, { kind: 'ok' | 'noGroup' }>; answers: QuickAnswers } | { addressee: QuickTarget } | null>(null);
+  // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24).
+  // `answers` — dotychczasowe odpowiedzi.
+  const [ask, setAsk] = useState<{ r: Exclude<QuickResolution, { kind: 'ok' | 'noGroup' }>; answers: QuickAnswers } | null>(null);
   // M-24: grupa wybrana chipem dla tego wpisu (null — start z ustawienia „Grupa domyślna”) i rozwinięty wybór.
   const [chip, setChip] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -123,8 +122,11 @@ export function TodayScreen() {
   const fromText = !!target && target.from !== 'chip';
   // PW-3 wariant D: cały wpis (bez terminu, „#…”, bez osoby) to produkt — podpowiedź listy zakupów grupy wpisu, której
   // ostatnio używano. Najpierw dosłownie („mąka 1.5 kg” z ilością), potem bez rozpoznanego terminu („mleko jutro”).
+  const body = target ? quickPreview(target.body, now(), ignore) : null;
   const plain = target && target.memberId === null && !preview.event ? target : null;
-  const product = plain ? (shoppingItem(plain.body) ?? shoppingItem(quickPreview(plain.body, now(), ignore).title)) : null;
+  const product = plain && body ? (shoppingItem(plain.body) ?? shoppingItem(body.title)) : null;
+  // D68 po PW-18 b: zapis bez pytania; przed dodaniem napis, że nikt tego nie zobaczy w Moich sprawach.
+  const unseen = !!target && !!body && body.title.trim() !== '' && unseenInMyDays(tables, userId, target, body.dated);
   const shopList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
@@ -133,10 +135,9 @@ export function TodayScreen() {
 
   // Szybkie dodanie (D90, D91, M-24): grupa z chipa, „#Grupa” albo „@imię”, osoba z „@imię”/„@ja”; po dodaniu pasek
   // „Dodano … · Zmień” otwiera pełny formularz. Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
-  const addWith = (t: QuickTarget, extra: { assigneeId?: string; dueDate?: string } = {}) => {
-    const memberId = extra.assigneeId ?? t.memberId;
+  const addWith = (t: QuickTarget) => {
     const group = addGroups.find((g) => g.id === t.groupId)!.name;
-    const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: memberId ?? undefined });
+    const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: t.memberId ?? undefined });
     const event = q ? quickEventOps(q, newId) : null;
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
@@ -144,7 +145,7 @@ export function TodayScreen() {
       undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
       return done(t);
     }
-    const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: memberId, dueDate: extra.dueDate });
+    const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: t.memberId });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
@@ -182,7 +183,6 @@ export function TodayScreen() {
     // Bez żadnej grupy (np. przed pierwszym pobraniem danych) nie ma gdzie dodać — tekst zostaje w polu.
     if (r.kind === 'noGroup') return fail(strings['common.error']);
     if (r.kind !== 'ok') return setAsk({ r, answers });
-    if (needsAddressee(tables, userId, r.target, quickPreview(r.target.body, now(), ignore).dated)) return setAsk({ addressee: r.target });
     addWith(r.target);
   };
   const submit = () => {
@@ -191,8 +191,6 @@ export function TodayScreen() {
     if (quickPreview(withoutShortcuts(text), now(), ignore).title.trim() === '') return fail(strings['form.error.title']);
     proceed({});
   };
-  const n0 = now();
-  const dayIso = (k: number) => formatIsoDate(addDays({ y: n0.y, m: n0.m, d: n0.d }, k));
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
@@ -368,6 +366,7 @@ export function TodayScreen() {
           />
         ) : null}
         {plain && product && !shopList ? <Body muted>{strings['quick.noShoppingList'](product, addGroups.find((g) => g.id === plain.groupId)!.name)}</Body> : null}
+        {unseen ? <Body muted>{strings['quick.unseen']}</Body> : null}
         <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button
@@ -384,20 +383,7 @@ export function TodayScreen() {
           clear();
         }}
       />
-      {ask && 'addressee' in ask ? (
-        // D68: we wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw — jak na liście.
-        <AskPanel
-          testID="addressee-ask"
-          title={strings['addressee.ask']}
-          body={strings['addressee.why']}
-          options={[
-            ...formMembers(tables, ask.addressee.groupId).map((m) => ({ key: m.member_id, label: strings['addressee.for'](m.display_name), onPress: () => addWith(ask.addressee, { assigneeId: m.member_id }) })),
-            { key: 'today', label: strings['addressee.today'], onPress: () => addWith(ask.addressee, { dueDate: dayIso(0) }) },
-            { key: 'tomorrow', label: strings['addressee.tomorrow'], onPress: () => addWith(ask.addressee, { dueDate: dayIso(1) }) },
-          ]}
-          onCancel={() => setAsk(null)}
-        />
-      ) : ask?.r.kind === 'many' ? (
+      {ask?.r.kind === 'many' ? (
         <AskPanel
           testID="mention-choices"
           title={strings['mention.ask'](ask.r.name)}

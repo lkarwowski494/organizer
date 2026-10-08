@@ -227,6 +227,25 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
   });
 });
 
+describe('lista „Tylko ja” jak grupa osobista (decyzja właściciela z 8.10.2026, PW-18 A)', () => {
+  it('zadanie bez osoby z mojej prywatnej listy jest w moich sprawach (przypięte i z terminem); ze wspólnej — tylko z terminem', () => {
+    const t = world();
+    put(t, 'lists', 'lprv', { id: 'lprv', group_id: 'gf', kind: 'tasks', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf', sort_key: 'a0', deleted_at: null });
+    // Lista z tego telefonu przed wysłaniem: właściciela ustawi serwer.
+    put(t, 'lists', 'lnew', { id: 'lnew', group_id: 'gf', kind: 'tasks', name: 'Nowa', visibility: 'private', owner_member_id: null, sort_key: 'a0', deleted_at: null });
+    task(t, 'odkurzacz', { group_id: 'gf', list_id: 'lprv', deadline_mode: 'none', due_date: null });
+    task(t, 'szalik', { group_id: 'gf', list_id: 'lprv', due_date: '2026-10-07' });
+    task(t, 'nowe', { group_id: 'gf', list_id: 'lnew', deadline_mode: 'none', due_date: null });
+    task(t, 'wspolne', { group_id: 'gf', list_id: 'lf', deadline_mode: 'none', due_date: null });
+    // Zadanie Ali (żywej osoby) z mojej prywatnej listy nie jest moje — zostaje jej.
+    task(t, 'ali', { group_id: 'gf', list_id: 'lprv', deadline_mode: 'none', due_date: null, assignee_member_id: 'ala' });
+    const v = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(v.pinned.map((x) => x.id)).toEqual(['nowe', 'odkurzacz']);
+    expect(v.days[0]!.entries.map((e) => e.key)).toContain('t-szalik');
+    expect(todayView(t, ME, TODAY).pinned.map((x) => x.id)).toEqual(['nowe', 'odkurzacz']);
+  });
+});
+
 describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 — jak wydarzenie z dzieckiem, D58)', () => {
   function family(): T {
     const t = world();

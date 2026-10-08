@@ -30,6 +30,13 @@ export const config = {
   profile: { NAME_MAX_LENGTH: 100 },
 
   /**
+   * Najdłuższe nazwy (audyt 2, M-228): z ograniczeń kolumn w SQL — groups.name i lists.name do 200 znaków, tasks.title
+   * do 500 (test kontraktowy). Pole nie przyjmie więcej (maxLength) i mówi o tym, zamiast odrzucenia zmiany po
+   * synchronizacji. Wartości z pierwszych migracji, wybór projektowy bez źródła.
+   */
+  lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500 },
+
+  /**
    * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
    * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
    * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). Wybory projektowe, bez źródła.

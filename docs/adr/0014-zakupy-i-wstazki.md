@@ -3,7 +3,7 @@
 Zgłoszenie właściciela:
 - Stworzenie listy zakupów ma tworzyć zadanie „Zakupy” z terminem i osobą odpowiedzialną wybranymi przez tworzącego.
 - Lista zakupów ma być wpięta w to zadanie.
-- Odhaczanie zakupów z potwierdzeniem (jest od D59).
+- Odhaczanie zakupów z potwierdzeniem (jest od D59; od 8.10.2026 pozycja trafia do koszyka bez pytania, z „Cofnij” — zmiana D59).
 - Motyw i ikona: „Wstążki” (makieta C).
 
 ## Decyzje produktowe (właściciel, 7.10.2026)
@@ -22,7 +22,8 @@ Zgłoszenie właściciela:
 2. **Zakupy zrobione:**
    - kupione pozycje idą do kosza (30 dni), a dzień i osoba się czyszczą;
    - lista zostaje, gotowa na następne zakupy („Zaplanuj zakupy”);
-   - oczekujące przekazanie zakupów jest anulowane.
+   - oczekujące przekazanie zakupów jest anulowane;
+   - potem pasek „Cofnij” (D60; audyt 2, M-225): pozycje, dzień i osoba wracają, anulowane przekazanie zostaje anulowane.
 3. **„Dotyczy mnie”:** zakupy dotyczą mnie na zasadach zadania.
    - Dotyczą mnie: moja osoba, albo bez osoby z dniem, albo bez osoby w grupie osobistej.
    - Bez dnia: przypięte.
