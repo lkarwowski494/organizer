@@ -11,9 +11,9 @@ name: db
 on:
   push:
     branches: [main]
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', 'src/domain/sync-engine/**', 'src/config/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', '.github/workflows/db.yml']
   pull_request:
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', 'src/domain/sync-engine/**', 'src/config/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', '.github/workflows/db.yml']
   schedule:
     - cron: '47 0 * * *' # 2:47 czasu polskiego latem: także bez zmian w ścieżkach (cron GitHuba działa w UTC)
   workflow_dispatch:

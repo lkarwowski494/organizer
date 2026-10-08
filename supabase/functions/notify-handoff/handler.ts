@@ -8,16 +8,22 @@
  * 4. Audyt 2 (N-15): gdy żadne urządzenie nie przyjęło powiadomienia z powodu błędu APNs (500/503/429,
  *    ExpiredProviderToken, sieć), zaznaczenie z claim jest zwalniane (public.push_claim_release) i odpowiedź to 502 —
  *    telefon ponawia przy powrocie do aplikacji albo następnym uruchomieniu, a baza znów pozwala wysłać raz.
- * 5. D159: z `groups` (po moich zmianach, które mogą zmienić czyjeś przypomnienia) — ciche powiadomienia do urządzeń
+ * 5. Audyt 2 (M-185, D183): najwyżej config.quotas.NOTIFY_PER_HOUR próśb na konto na godzinę (public.notify_rate_hit,
+ *    przed pytaniem o odbiorców) — ponad limit 429 bez wysyłki; odpowiedź nie mówi, ile urządzeń ma odbiorca ({ ok: true });
+ *    wysyłka do urządzeń odbiorcy po APNS_PARALLEL naraz (tokenów jest najwyżej config.quotas.PUSH_TOKENS na konto).
+ * 6. D159: z `groups` (po moich zmianach, które mogą zmienić czyjeś przypomnienia) — ciche powiadomienia do urządzeń
  *    członków tych grup (public.wake_push_claim: kto, przerwa między powiadomieniami, zaległe), bez `except` (to
  *    urządzenie); `retry` — tylko zaległe. Odpowiedź: `retryInSec` — kiedy ponowić, żeby doszły zaległe; urządzenia
- *    z błędem APNs wracają do zaległych (public.wake_push_release).
+ *    z błędem APNs wracają do zaległych (public.wake_push_release). Też w limicie z punktu 5; liczby urządzeń odpowiedź nie podaje.
  */
 import { type ApnsEnv, cachedProviderToken, sendAlert, sendBackground } from '../_shared/apns.ts';
 import { type Env, firstKey } from '../_shared/keys.ts';
 
 /** Starszych przekazań nie powiadamiamy (np. sprzed instalacji wersji z push). Równe config.PUSH_MAX_AGE_H (test kontraktowy). */
 export const PUSH_MAX_AGE_H = 24;
+
+/** Ile wysyłek do APNs naraz. Wybór projektowy, bez źródła: kilka równoległych żądań HTTP/2 skraca czas działania funkcji. */
+export const APNS_PARALLEL = 5;
 
 /** Najwięcej grup w jednej prośbie o ciche powiadomienia. Równe config.wake.MAX_GROUPS i private.wake_max_groups() (test kontraktowy). */
 export const WAKE_MAX_GROUPS = 20;
@@ -66,50 +72,61 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
 
   const rpc = (name: string, args: object) =>
     fetchFn(`${url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, apikey: secret, 'content-type': 'application/json' }, body: JSON.stringify(args) });
+  // Starsza baza (bez migracji 20261008482000) nie zna licznika — 404; wtedy bez limitu, jak dotąd.
+  const rate = await rpc('notify_rate_hit', { p_user: user.id });
+  if (rate.ok && (await rate.json()) === false) return json(429, { error: 'rate_limited' });
   if (byGroups) return await wake(rpc, { p_user: user.id, p_groups: g, p_except: input.except ?? null, p_retry: input.retry === true }, { p8, keyId, teamId, topic, nowSec }, fetchFn);
   const claimRes = byHandoff
     ? await rpc('handoff_push_claim', { p_handoff: input.handoffId, p_user: user.id, p_max_age_h: PUSH_MAX_AGE_H })
     : await rpc('assignment_push_claim', { p_activity: input.activityId, p_user: user.id, p_max_age_h: PUSH_MAX_AGE_H });
   if (!claimRes.ok) return json(502, { error: 'claim_failed' });
   const claim = (await claimRes.json()) as Claim;
-  if (!claim) return json(200, { sent: 0 });
+  if (!claim) return json(200, { ok: true });
 
   const jwt = await cachedProviderToken(p8, keyId, teamId, nowSec);
   let sent = 0;
   let failed = 0;
-  for (const t of claim.tokens) {
-    const r = await sendAlert({ env: t.env, token: t.token, jwt, topic, title: claim.title, body: claim.body, ...(claim.path ? { data: { path: claim.path } } : {}) }, fetchFn);
-    if (r === 'sent') sent++;
-    else if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
-    else failed++;
+  for (let i = 0; i < claim.tokens.length; i += APNS_PARALLEL) {
+    await Promise.all(
+      claim.tokens.slice(i, i + APNS_PARALLEL).map(async (t) => {
+        const r = await sendAlert({ env: t.env, token: t.token, jwt, topic, title: claim.title, body: claim.body, ...(claim.path ? { data: { path: claim.path } } : {}) }, fetchFn);
+        if (r === 'sent') sent++;
+        else if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
+        else failed++;
+      }),
+    );
   }
   // Doszło choć na jedno urządzenie — bez ponowienia (inaczej to urządzenie dostałoby je drugi raz).
   if (sent === 0 && failed > 0) {
     if (claim.key) await rpc('push_claim_release', { p_key: claim.key });
     return json(502, { error: 'apns_failed' });
   }
-  return json(200, { sent });
+  return json(200, { ok: true });
 }
 
 type Rpc = (name: string, args: object) => Promise<Response>;
 
-/** Ciche powiadomienia (punkt 5 w nagłówku). */
+/** Ciche powiadomienia (punkt 6 w nagłówku). */
 async function wake(rpc: Rpc, args: object, k: { p8: string; keyId: string; teamId: string; topic: string; nowSec: number }, fetchFn: typeof fetch): Promise<Response> {
   const claimRes = await rpc('wake_push_claim', args);
   if (!claimRes.ok) return json(502, { error: 'claim_failed' });
   const claim = (await claimRes.json()) as { tokens: { token: string; env: ApnsEnv }[]; retryInSec: number | null };
-  if (claim.tokens.length === 0) return json(200, { sent: 0, retryInSec: claim.retryInSec });
+  if (claim.tokens.length === 0) return json(200, { ok: true, retryInSec: claim.retryInSec });
   const jwt = await cachedProviderToken(k.p8, k.keyId, k.teamId, k.nowSec);
   let sent = 0;
   const failed: string[] = [];
-  for (const t of claim.tokens) {
-    const r = await sendBackground({ env: t.env, token: t.token, jwt, topic: k.topic }, fetchFn);
-    if (r === 'sent') sent++;
-    else if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
-    else failed.push(t.token);
+  for (let i = 0; i < claim.tokens.length; i += APNS_PARALLEL) {
+    await Promise.all(
+      claim.tokens.slice(i, i + APNS_PARALLEL).map(async (t) => {
+        const r = await sendBackground({ env: t.env, token: t.token, jwt, topic: k.topic }, fetchFn);
+        if (r === 'sent') sent++;
+        else if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
+        else failed.push(t.token);
+      }),
+    );
   }
-  if (failed.length === 0) return json(200, { sent, retryInSec: claim.retryInSec });
+  if (failed.length === 0) return json(200, { ok: true, retryInSec: claim.retryInSec });
   // Urządzenia z błędem wracają do zaległych bez przerwy — telefon ponawia zaraz (retryInSec 0, sam dokłada odstęp).
-  await rpc('wake_push_release', { p_tokens: failed });
-  return sent === 0 ? json(502, { error: 'apns_failed' }) : json(200, { sent, retryInSec: 0 });
+  await rpc('wake_push_release', { p_tokens: failed.sort() });
+  return sent === 0 ? json(502, { error: 'apns_failed' }) : json(200, { ok: true, retryInSec: 0 });
 }

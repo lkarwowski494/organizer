@@ -6,8 +6,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { formatRule, parseRule } from '../../domain/rrule';
-import { emptyForm, type EventForm, validateForm } from '../../domain/views/event-form';
-import { formatRepeat, nextId, REPEAT_NAMESPACE, type Repeat } from '../../domain/views/task-repeat';
+import { formEventRules } from '../../domain/__tests__/support/form-rules';
+import { OVERRIDE_NAMESPACE } from '../../domain/views/events';
+import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
+import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
+import { formatRepeat, nextId, parseRepeat, REPEAT_NAMESPACE, type Repeat } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
@@ -52,6 +55,20 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
+    // Audyt 2, P16: retencja (M-62, M-68) i limity na konto (M-70, D183).
+    ['activity_days', config.retention.ACTIVITY_DAYS],
+    ['handoff_days', config.retention.HANDOFF_DAYS],
+    ['invite_days', config.retention.INVITE_DAYS],
+    ['access_event_days', config.retention.ACCESS_EVENT_DAYS],
+    ['sync_client_days', config.retention.SYNC_CLIENT_DAYS],
+    ['join_attempt_days', config.retention.JOIN_ATTEMPT_DAYS],
+    ['maintenance_run_days', config.retention.MAINTENANCE_RUN_DAYS],
+    ['max_shared_groups', config.quotas.SHARED_GROUPS],
+    ['max_active_invites', config.quotas.ACTIVE_INVITES],
+    ['max_push_tokens', config.quotas.PUSH_TOKENS],
+    ['max_sync_clients', config.quotas.SYNC_CLIENTS],
+    ['sync_push_per_minute', config.quotas.SYNC_PUSH_PER_MINUTE],
+    ['notify_per_hour', config.quotas.NOTIFY_PER_HOUR],
     ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
     ['wake_max_groups', config.wake.MAX_GROUPS],
   ])('private.%s() = %d', (name, value) => {
@@ -126,18 +143,29 @@ describe('src/config zgodny z SQL', () => {
     expect(nextId('77770000-0000-7000-8000-0000000004e1')).toBe('d81b13c9-e6b0-5fc0-82a2-97229c6595bc');
   });
 
+  // Audyt 2 (M-72): serwer sprawdza identyfikatory wyliczane na telefonie — te same przestrzenie nazw.
+  it('przestrzenie nazw UUIDv5 w strażnikach SQL = stałe telefonu', () => {
+    const body = (name: string) => [...sql.matchAll(new RegExp(`create (?:or replace )?function private\\.${name}\\(\\)[^$]*\\$\\$([\\s\\S]*?)\\$\\$`, 'gi'))].at(-1)![1]!;
+    expect(body('event_rsvps_id_guard')).toContain(`'${RSVP_NAMESPACE}'::uuid`);
+    expect(body('event_overrides_id_guard')).toContain(`'${OVERRIDE_NAMESPACE}'::uuid`);
+    expect(body('tasks_id_guard')).toContain(`'${COPY_NAMESPACE}'::uuid`);
+    // Przyjęcie przekazania terminu zakłada wyjątek z tym samym id co telefon (overrideId).
+    expect(body('handoffs_guard')).toContain(`private.uuid_v5('${OVERRIDE_NAMESPACE}'::uuid`);
+  });
+
+  it('historia trzymana dłużej niż okno powiadomień o przypisaniu i kosz (M-62)', () => {
+    expect(config.retention.ACTIVITY_DAYS * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
+    expect(config.retention.ACTIVITY_DAYS).toBeGreaterThanOrEqual(config.sync.TOMBSTONE_DAYS);
+  });
+
   it('brak definicji zgłaszany wprost', () => {
     expect(() => sqlConstant('nie_istnieje')).toThrow('Brak funkcji');
   });
 
-  // PWD-37 (audyt 2): każda reguła, którą zapisuje telefon (zadania i wydarzenia, także BYMONTHDAY=-1), przechodzi
-  // CHECK serwera — ostatnia definicja private.rrule_ok i warunek kolumny tasks.repeat.
-  it('reguły powtarzania z telefonu przechodzą private.rrule_ok i CHECK tasks.repeat', () => {
-    const defs = [...sql.matchAll(/create (?:or replace )?function private\.rrule_ok\(r text\)[\s\S]*?\$\$([\s\S]*?)\$\$/gi)];
-    const body = defs.at(-1)![1]!;
-    const rule = new RegExp(/r ~ '([^']+)'/.exec(body)![1]!);
-    const max = Number(/char_length\(r\) <= (\d+)/.exec(body)![1]);
-    const after = new RegExp(/or repeat ~ '(\^AFTER[^']+)'/.exec(sql)![1]!);
+  // PWD-37 (audyt 2): każda reguła, którą zapisuje telefon (zadania i wydarzenia, także BYMONTHDAY=-1), czyta telefon.
+  // Że serwer przyjmuje dokładnie te reguły (private.rrule_ok ⇔ parseRule, private.task_repeat_ok ⇔ parseRepeat), sprawdza
+  // na prawdziwym SQL tests/db/rrule-contract.test.ts (M-190) — także dla reguł z formularza wydarzenia z tego testu.
+  it('reguły powtarzania z formularzy telefon odczytuje; CHECK w SQL to funkcje z kontraktem na prawdziwej bazie', () => {
     const taskRules: Repeat[] = [
       { kind: 'daily' },
       { kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6] },
@@ -147,21 +175,12 @@ describe('src/config zgodny z SQL', () => {
       { kind: 'after', unit: 'DAILY', interval: 14 },
       { kind: 'after', unit: 'WEEKLY', interval: 99 },
     ];
-    for (const r of taskRules) {
-      const text = formatRepeat(r);
-      expect([text, rule.test(text) || after.test(text)]).toEqual([text, true]);
-    }
-    const ev = (over: Partial<EventForm>) => {
-      const v = validateForm({ ...emptyForm('2026-10-31'), title: 'X', slots: [{ days: [5, 6], start: '18:00', end: '' }], interval: '2', ends: 'until', until: '2027-12-31', ...over });
-      if ('error' in v) throw new Error(v.error);
-      return formatRule(v.fields[0]!.rule!);
-    };
-    const eventRules = [ev({ repeat: 'daily' }), ev({ repeat: 'weekly' }), ev({ repeat: 'monthly', monthly: 'day' }), ev({ repeat: 'monthly', monthly: 'last' }), ev({ repeat: 'monthly', monthly: 'lastDay' }), ev({ repeat: 'yearly' })];
+    for (const r of taskRules) expect(parseRepeat(formatRepeat(r))).toEqual(r.kind === 'weekly' ? { ...r, days: [...r.days].sort() } : r);
+    const eventRules = formEventRules();
     expect(eventRules).toContain('FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=-1');
-    for (const text of eventRules) {
-      expect([text, rule.test(text) && text.length <= max]).toEqual([text, true]);
-      expect(parseRule(text)).toBeTruthy();
-    }
+    for (const text of eventRules) expect(formatRule(parseRule(text))).toBe(text);
+    // Ostatnie definicje: reguła wydarzenia i powtarzanie zadania przez funkcje (nie wyrażenie skopiowane z telefonu).
+    expect(sql).toMatch(/alter table public\.tasks add constraint tasks_repeat_check check \(private\.task_repeat_ok\(repeat\)\)/);
   });
 });
 
