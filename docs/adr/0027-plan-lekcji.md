@@ -15,3 +15,25 @@ Z porównania z Domownikiem (plan zajęć domownika z tygodniami A/B). Właścic
 - **Edycja potem:** każdą lekcję zmienia się jak wydarzenie (ten, następne, wszystkie — D57). Osobnej tabeli planu nie ma, zgodnie z wyborem.
 - **Otwarte pytanie:** daty końca roku szkolnego nie wpisujemy domyślnie. Zależy od rozporządzenia na dany rok, bez przeczytanego źródła; użytkownik podaje „Do dnia” sam.
 - Logika w `src/domain/views/timetable.ts`, ekran `src/features/groups/TimetableScreen.tsx`.
+
+## Audyt 2 (8.10.2026)
+- **D171 (decyzja właściciela, PW-9 B):** który tydzień jest A, zapisuje się przy osobie — `group_members.week_a`, poniedziałek
+  jakiegoś tygodnia A (migracja `20261008430000_member_week_a`; zmienia ją dorosły z grupy, dziecko nie). Litery A/B są stałe
+  i zgodne ze szkołą; parzystość liczona z różnicy dni, więc rok z 53 tygodniami ISO jej nie psuje. Przełącznik „Ten tydzień
+  to A/B” zmienia tylko nazwy tygodni (litery lekcji zamieniają się razem z nim), nie przesuwa lekcji; zapis ustawia kotwicę.
+  Plan sprzed D171 (bez kotwicy): ten tydzień to A, jak dotąd. Odrzucone: zamiana liter bez zapisu (litery dalej „pływają”
+  co tydzień), ukrycie przełącznika przy edycji (niezgodne z nazwami szkoły).
+- **Edycja planu od jutra (M-14, zmienia D128):** seria bez zmian zostaje nietknięta; zmieniona (para ze starą: ta sama
+  nazwa albo te same dni i godziny) przechodzi poleceniem `split_event` jak „to i następne” — od jutra z odwołaniami,
+  zmianami terminów, obecnością, przekazaniami, zadaniami i stałymi zadaniami; zadania z terminów, których nowa seria nie
+  ma, idą na najbliższy nowy termin (domyślny wybór podglądu zmiany serii), kopie stałych zadań do kosza. Nierozpoczęta
+  seria zmienia się w miejscu; usunięta lekcja kończy się dziś (nierozpoczęta do kosza). Dzisiejsza lekcja zostaje, jak
+  była. Odrzucone: nowa seria od dziś z utratą wyjątków i zadań (stan sprzed audytu), osobne operacje przenoszenia
+  (nieatomowe, audyt 2 M-3).
+- **Lekcja z rodzeństwem (M-213):** zmiana albo usunięcie w planie jednego dziecka dotyczy tylko jego — seria trwa dla
+  pozostałych (`split_event` z tymi samymi polami bez tej osoby), a zmieniona lekcja tego dziecka to nowa seria. Sobota
+  i niedziela są w planie, gdy mają lekcje.
+- **Cofnięcie (M-215):** liczone w chwili cofnięcia (z kopiami stałych zadań dołożonymi w międzyczasie). Świadome ryzyko:
+  zmiana tej samej serii z innego telefonu w czasie paska „Cofnij” zostaje nadpisana — okno kilku sekund.
+- **Wejścia (PWD-26 A):** rutyna także jako „Rodzaj: Rutyna” w pełnym formularzu („Więcej”, nowe wydarzenie), a rutyna
+  i plan lekcji każdego dziecka także z ekranu grupy.

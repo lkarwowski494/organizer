@@ -134,12 +134,15 @@ export function EventEditScreen({ route, navigation }: Props) {
           label={strings['form.kind']}
           value="event"
           onChange={(k) => {
+            // Audyt 2 (PWD-26): rutyna też stąd — nazwa i grupa przechodzą do jej formularza.
+            if (k === 'routine') return navigation.replace('Routine', { groupId, title: form.title });
             if (k !== 'task') return;
             navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId });
           }}
           options={[
             { value: 'task', label: strings['form.kind.task'] },
             { value: 'event', label: strings['form.kind.event'] },
+            { value: 'routine', label: strings['form.kind.routine'] },
           ]}
         />
       )}
