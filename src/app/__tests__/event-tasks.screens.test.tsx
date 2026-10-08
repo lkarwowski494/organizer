@@ -3,7 +3,9 @@
  */
 import { fireEvent, screen } from '@testing-library/react-native';
 
-import type { NewOp, Row } from '../../domain/sync-engine/client';
+import { splitId } from '../../domain/event-split';
+import { materialize, type NewOp, type Row } from '../../domain/sync-engine/client';
+import { overrideId } from '../../domain/views/events';
 import { RootStack } from '../navigation';
 import { put, sampleBase, setup , pickDate, setTime } from './harness';
 
@@ -121,8 +123,10 @@ describe('odwołanie spotkania z zadaniami (D14)', () => {
     await press(screen.getByTestId('event-cancel'));
     await press(screen.getByTestId('scope-this'));
     await press(screen.getByLabelText('Przepnij na kolejne: śr. 14 paź'));
-    expect(lastOps(store.dispatched, 2)).toEqual([
-      { kind: 'create', entity: 'event_overrides', id: 'new-1', group_id: 'gf', set: { event_id: 'ev', occurrence_date: '2026-10-07', cancelled: true } },
+    const oid = overrideId('ev', '2026-10-07');
+    expect(lastOps(store.dispatched, 3)).toEqual([
+      { kind: 'create', entity: 'event_overrides', id: oid, group_id: 'gf', set: { event_id: 'ev', occurrence_date: '2026-10-07', start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, cancelled: true } },
+      { kind: 'patch', entity: 'event_overrides', id: oid, set: { cancelled: true } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-14' } },
     ]);
   });
@@ -162,7 +166,7 @@ describe('odwołanie spotkania z zadaniami (D14)', () => {
     await press(await screen.findByTestId('event-cancel'));
     await press(screen.getByTestId('scope-this'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
-    expect(store.dispatched).toHaveLength(1);
+    expect(store.dispatched.map((o) => o.kind)).toEqual(['create', 'patch']); // tylko wyjątek terminu, bez zadań
   });
 });
 
@@ -195,7 +199,10 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     expect(await screen.findByText('1 podpięte zadanie przejdzie razem z terminami.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'new-1', occurrence_date: '2026-10-14' } });
+    // Jedno polecenie podziału: zadanie przenosi ono samo (bez osobnej operacji).
+    expect(store.dispatched).toEqual([expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ tasks: [] }) })]);
+    expect(store.getSnapshot().state.pending).toHaveLength(1);
+    expect(materialize(store.getSnapshot().state).tasks!.strój).toMatchObject({ event_id: splitId('ev', '2026-10-07'), occurrence_date: '2026-10-14' });
   });
 
   it('seria kończy się wcześniej: brak kolejnych terminów', async () => {

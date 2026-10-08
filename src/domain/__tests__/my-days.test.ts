@@ -211,6 +211,16 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     ]);
   });
 
+  it('audyt 2 (E-15): wspólna lekcja rodzeństwa — w wierszu każdego dziecka', () => {
+    const t = school();
+    put(t, 'event_participants', 'p-mat-ola', { id: 'p-mat-ola', event_id: 'mat', member_id: 'ola', deleted_at: null });
+    const blocks = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.flatMap((e) => (e.kind === 'lessons' ? [e.block] : []));
+    expect(blocks.map((b) => [b.name, b.start, b.end, b.lessons.map((l) => l.title)])).toEqual([
+      ['Kuba', '08:00', '13:30', ['mat', 'pol', 'wf']],
+      ['Ola', '08:00', '10:45', ['mat', 'ang']],
+    ]);
+  });
+
   it('lekcja bez godziny; jestem uczestnikiem — osobno; dziecko widzi swoje lekcje osobno; inne dni bez lekcji', () => {
     const t = school();
     put(t, 'events', 'wf', { ...t.events!.wf!, start_time: null, end_time: null });

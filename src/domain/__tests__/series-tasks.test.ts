@@ -2,7 +2,8 @@ import { config } from '../../config';
 import { parseIsoDate } from '../format';
 import { parseRule } from '../rrule';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
-import { affectedByCancel, seriesCopiesCancelOps, seriesEditEffects, seriesTaskOps } from '../views/event-tasks';
+import { splitId } from '../event-split';
+import { affectedByCancel, seriesCopiesCancelOps, seriesEditEffects, seriesEditOps } from '../views/event-tasks';
 import { cancelEvent, createEvent, editEvent, eventDetail, type EventFields } from '../views/events';
 import { asSeries, copyId, createSeries, fillOps, seriesOf, stopOps } from '../views/series-tasks';
 
@@ -43,6 +44,8 @@ describe('stałe zadania serii (D65)', () => {
 
   it('kopie na SERIES_TASK_WEEKS tygodni od dziś, z identyfikatorem z definicji i daty; drugi raz nic', () => {
     const { t, id } = world();
+    // Inne wydarzenie w oknie nie dostaje kopii tej definicji.
+    put(t, 'events', 'inne', { id: 'inne', group_id: 'gf', title: 'Inne', start_date: '2026-10-08', start_time: null, end_time: null, rrule: null, audience: 'group', deleted_at: null });
     const ops = fillOps(t, ME, TODAY);
     expect(ops).toHaveLength(config.SERIES_TASK_WEEKS);
     expect(dates(ops).slice(0, 3)).toEqual(['2026-10-12', '2026-10-19', '2026-10-26']);
@@ -61,11 +64,11 @@ describe('stałe zadania serii (D65)', () => {
   });
 
   it('usunięta kopia nie wraca; odwołane wystąpienie bez kopii; dziecko, usunięta lista i usunięta definicja — nic', () => {
-    const { t, d, newId } = world();
+    const { t, d } = world();
     run(t, fillOps(t, ME, TODAY));
     run(t, [{ kind: 'delete', entity: 'tasks', id: copyId(SERIES, '2026-10-12') }]);
     expect(fillOps(t, ME, TODAY)).toEqual([]);
-    run(t, cancelEvent(d(), '2026-12-07', 'this', newId));
+    run(t, cancelEvent(d(), '2026-12-07', 'this'));
     expect(fillOps(t, ME, parseIsoDate('2026-10-14'))).toEqual([]);
     expect(fillOps(world('child').t, ME, TODAY)).toEqual([]);
     const w = world();
@@ -100,25 +103,47 @@ describe('kopie przy odwołaniu i zmianie serii', () => {
   });
 
   it('„to i następne”: definicja przechodzi do nowej serii; „wszystkie” z innym dniem: kopie znikających terminów usuwane', () => {
-    const { t, d, newId, fields } = world();
+    const { t, d, id, fields } = world();
     run(t, fillOps(t, ME, TODAY));
-    const ops = editEvent(d(), '2026-10-19', 'following', { ...fields, startTime: '17:00' }, newId);
+    const ops = editEvent(d(), '2026-10-19', 'following', { ...fields, startTime: '17:00' });
     const fx = seriesEditEffects(t, d(), '2026-10-19', 'following', ops);
-    const created = idOf(ops[1]!);
-    const out = seriesTaskOps(t, d(), ops, fx, 'nearest');
-    expect(out).toContainEqual({ kind: 'patch', entity: 'event_task_series', id: SERIES, set: { event_id: created } });
-    expect(out).toContainEqual({ kind: 'patch', entity: 'tasks', id: copyId(SERIES, '2026-10-19'), set: { event_id: created, occurrence_date: '2026-10-19' } });
-    run(t, [...ops, ...out]);
+    const created = splitId(id, '2026-10-19');
+    run(t, seriesEditOps(d(), ops, fx, 'nearest'));
+    // Polecenie podziału przenosi definicję i kopie z terminów od 19.10.
+    expect(t.event_task_series![SERIES]!.event_id).toBe(created);
+    expect(t.tasks![copyId(SERIES, '2026-10-19')]).toMatchObject({ event_id: created, occurrence_date: '2026-10-19' });
+    expect(t.tasks![copyId(SERIES, '2026-10-12')]!.event_id).toBe(id);
     expect(fillOps(t, ME, TODAY)).toEqual([]); // kopie mają te same identyfikatory — nic nowego
 
     const w = world();
     run(w.t, fillOps(w.t, ME, TODAY));
-    const all = editEvent(w.d(), '2026-10-12', 'all', { ...w.fields, rule: parseRule('FREQ=WEEKLY;BYDAY=TU') }, w.newId);
+    const all = editEvent(w.d(), '2026-10-12', 'all', { ...w.fields, rule: parseRule('FREQ=WEEKLY;BYDAY=TU') });
     const fx2 = seriesEditEffects(w.t, w.d(), '2026-10-12', 'all', all);
-    const out2 = seriesTaskOps(w.t, w.d(), all, fx2, 'nearest');
+    const out2 = seriesEditOps(w.d(), all, fx2, 'nearest').slice(all.length);
     expect(out2.every((o) => o.kind === 'delete' && o.entity === 'tasks')).toBe(true);
     expect(out2).toHaveLength(config.SERIES_TASK_WEEKS);
     run(w.t, [...all, ...out2]);
     expect(dates(fillOps(w.t, ME, TODAY))[0]).toBe('2026-10-13');
+  });
+
+  it('audyt 2 (E-11): podział daleko w przyszłości — definicja w nowej serii dalej dokłada kopie na terminy starej części', () => {
+    const { t, d, id, fields } = world();
+    run(t, fillOps(t, ME, TODAY));
+    // Podział od 28.12 (poza oknem kopii); 30.11 — kopie na 7.12, 14.12 i 21.12 (stara część) i od 28.12 (nowa).
+    const ops = editEvent(d(), '2026-12-28', 'following', { ...fields, startTime: '17:00' });
+    run(t, seriesEditOps(d(), ops, seriesEditEffects(t, d(), '2026-12-28', 'following', ops), 'nearest'));
+    expect(t.event_task_series![SERIES]!.event_id).toBe(splitId(id, '2026-12-28'));
+    const later = fillOps(t, ME, parseIsoDate('2026-11-30'));
+    expect(later.map((o) => [o.kind === 'create' ? o.set.event_id : '?', dates([o])[0]])).toEqual([
+      [id, '2026-12-07'],
+      [id, '2026-12-14'],
+      [id, '2026-12-21'],
+      [splitId(id, '2026-12-28'), '2026-12-28'],
+      [splitId(id, '2026-12-28'), '2027-01-04'],
+      [splitId(id, '2026-12-28'), '2027-01-11'],
+      [splitId(id, '2026-12-28'), '2027-01-18'],
+    ]);
+    // Na ekranie wydarzenia (stara część) widać tę samą definicję.
+    expect(seriesOf(t, id).map((s) => s.id)).toEqual([SERIES]);
   });
 });

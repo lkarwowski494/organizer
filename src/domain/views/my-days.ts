@@ -85,7 +85,8 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     else push(trip.due.date, trip);
   }
   const events = new Map<string, Occurrence[]>();
-  // D127: lekcje dziecka (sam w nich nie jestem) — jeden wiersz na dziecko i dzień.
+  // D127: lekcje dziecka (sam w nich nie jestem) — jeden wiersz na dziecko i dzień; wspólna lekcja rodzeństwa w wierszu
+  // każdego z dzieci (audyt 2, E-15: plan każdego dziecka kompletny).
   const lessons = new Map<string, Map<string, LessonBlock>>();
   for (const e of expandEvents(t, userId, from, to)) {
     if (!e.concernsMe) continue;
@@ -95,9 +96,11 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     }
     const day = lessons.get(e.date) ?? new Map<string, LessonBlock>();
     lessons.set(e.date, day);
-    const b = day.get(e.lessonFor.memberId);
-    if (b) b.lessons.push(e);
-    else day.set(e.lessonFor.memberId, { memberId: e.lessonFor.memberId, name: e.lessonFor.name, groupId: e.groupId, groupName: e.groupName, line: e.line, start: null, end: null, lessons: [e] });
+    for (const child of e.lessonFor) {
+      const b = day.get(child.memberId);
+      if (b) b.lessons.push(e);
+      else day.set(child.memberId, { memberId: child.memberId, name: child.name, groupId: e.groupId, groupName: e.groupName, line: e.line, start: null, end: null, lessons: [e] });
+    }
   }
   for (const day of lessons.values())
     for (const b of day.values()) {

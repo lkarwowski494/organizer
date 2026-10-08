@@ -18,7 +18,8 @@ import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
 import { listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
-import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, type Scope, timeLabel } from '../../domain/views/events';
+import { occurrenceOwner } from '../../domain/views/event-rows';
+import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
 import { createSeries, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
@@ -40,7 +41,9 @@ export function EventScreen({ route, navigation }: Props) {
   const { c, font, line } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
-  const { eventId, date } = route.params;
+  const { eventId: linked, date } = route.params;
+  // Audyt 2: termin po „to i następne” należy do nowej serii — stary link (przypomnienie, inny ekran) prowadzi do niej.
+  const eventId = useMemo(() => occurrenceOwner(tables, linked, date), [tables, linked, date]);
   const d = useMemo(() => eventDetail(tables, userId, eventId), [tables, userId, eventId]);
   const [ask, setAsk] = useState<'edit' | 'cancel' | 'delete' | null>(null);
   const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(null);
@@ -61,6 +64,9 @@ export function EventScreen({ route, navigation }: Props) {
   }
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
+  // Audyt 2 (E-18): odwołany albo nieistniejący termin — bez zadań, obecności, przekazania i dodawania do kalendarza.
+  const state = occurrenceState(d, date);
+  const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
   const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
@@ -80,7 +86,7 @@ export function EventScreen({ route, navigation }: Props) {
   const edit = (scope: Scope) => navigation.navigate('EventEdit', { eventId, date, scope });
   const finish = (scope: Scope, to: Relink | null) => {
     const affected = to ? affectedByCancel(tables, d, date, scope) : [];
-    const ops = [...cancelEvent(d, date, scope, newId), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)];
+    const ops = [...cancelEvent(d, date, scope), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)];
     const back = inverseOps(tables, ops);
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
@@ -129,11 +135,19 @@ export function EventScreen({ route, navigation }: Props) {
       <Body>{`${formatLongDate(parseIsoDate(occ.date), today)} · ${time}`}</Body>
       {occ.date !== date ? <Body muted>{strings['event.moved'](formatLongDate(parseIsoDate(date), today))}</Body> : null}
       <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date)) : strings['event.oneOff']}</Body>
+      {state === 'cancelled' ? (
+        <View style={{ gap: 8 }}>
+          <Body>{strings['event.cancelledInfo']}</Body>
+          {d.canEdit ? <Button kind="secondary" label={strings['event.restore']} testID="event-restore" onPress={() => store.dispatch(restoreOccurrence(d, date))} /> : null}
+        </View>
+      ) : state === 'missing' ? (
+        <Body>{strings['event.missingInfo']}</Body>
+      ) : null}
       {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
       <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
-      {iAmResponsible && d.canEdit ? (
+      {iAmResponsible && d.canEdit && active ? (
         waiting ? (
           <View style={{ gap: 8 }}>
             <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
@@ -166,9 +180,9 @@ export function EventScreen({ route, navigation }: Props) {
       ) : null}
 
       {/* D124: obecność na dzisiejszym i przyszłym terminie. */}
-      {rsvp && occ.date >= formatIsoDate(today) ? <RsvpBox view={rsvp} eventId={eventId} date={date} /> : null}
+      {rsvp && active && occ.date >= formatIsoDate(today) ? <RsvpBox view={rsvp} eventId={eventId} date={date} /> : null}
 
-      <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} />
+      {active ? <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
       {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
@@ -195,7 +209,7 @@ export function EventScreen({ route, navigation }: Props) {
           ))}
         </View>
       ) : null}
-      {d.canEdit ? (
+      {d.canEdit && active ? (
         <View style={{ gap: 8 }}>
           {taskLists.length > 1 ? <Segmented label={strings['event.taskList']} value={chosenList!.id} onChange={setListId} options={taskLists.map((l) => ({ value: l.id, label: l.name }))} /> : null}
           {recurring ? (
@@ -216,7 +230,7 @@ export function EventScreen({ route, navigation }: Props) {
 
       {!d.canEdit ? (
         <Body muted>{strings['event.readOnly']}</Body>
-      ) : relink ? (
+      ) : state === 'missing' ? null : relink ? (
         relink.picking ? (
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (

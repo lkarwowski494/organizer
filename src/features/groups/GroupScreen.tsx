@@ -189,7 +189,8 @@ export function GroupScreen({ route, navigation }: Props) {
           title={e.title}
           subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
           line={d.group.line}
-          onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.next ?? e.start })}
+          // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
+          onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
         />
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}

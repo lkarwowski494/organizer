@@ -11,7 +11,7 @@
  * pomysłu z src/domain/__tests__/support/fake-server.ts (bez RLS: osoba demo widzi wszystkie grupy).
  */
 import type { DbAdapter } from '../data/db/adapter';
-import { type Entity, type Op, type PulledRow, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
+import { applyOp, type Entity, type Op, type PulledRow, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
 import { WHATS_NEW_SEEN } from '../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
 import type { AccountApi } from '../sync/account';
@@ -124,7 +124,19 @@ export class E2eServer {
   }
 
   private apply(op: Op): void {
-    if (op.kind === 'cmd') return; // komendy (zakresy list ukrytych) nie zmieniają danych widocznych dla osoby demo
+    if (op.kind === 'cmd') {
+      // „To i następne” (split_event, audyt 2): ten sam algorytm co na telefonie i serwerze. Inne komendy (zakresy list
+      // ukrytych) nie zmieniają danych widocznych dla osoby demo.
+      const tables: { [e: string]: { [id: string]: Row } } = {};
+      for (const r of this.rows.values()) (tables[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
+      applyOp(tables, op);
+      for (const [e, rows] of Object.entries(tables)) {
+        for (const row of Object.values(rows)) {
+          if (this.rows.get(`${e}:${rowKey(e as Entity, row)}`)?.row !== row) this.put(e as Entity, row.deleted_at === 'pending' ? { ...row, deleted_at: this.nowIso() } : row);
+        }
+      }
+      return;
+    }
     const current = this.rows.get(`${op.entity}:${op.id}`)?.row;
     if (op.kind === 'create') {
       if (current) return; // powtórzone utworzenie (id nadaje telefon)

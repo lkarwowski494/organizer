@@ -25,7 +25,8 @@ describe('obecność (D124)', () => {
     expect(within(box).getByText('Bez odpowiedzi: 3')).toBeTruthy();
     expect(within(box).queryByLabelText('Ala')).toBeNull(); // za dorosłego nie
     await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Będę'));
-    expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'patch']);
+    // Audyt 2 (E-25): nowy wiersz — utworzenie, przywrócenie (gdyby serwer miał go w koszu) i zmiana.
+    expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'restore', 'patch']);
     expect(s.store.dispatched[0]).toMatchObject({ entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), group_id: 'gf', set: { member_id: 'mf', answer: 'yes', occurrence_date: '2026-10-07' } });
     await press(within(within(box).getByLabelText('Kuba')).getByLabelText('Nie będzie'));
     expect(within(box).getByText('Tak: Ty')).toBeTruthy();

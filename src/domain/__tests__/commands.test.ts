@@ -21,6 +21,21 @@ describe('operacje odwrotne do „Cofnij” (audyt 8.10.2026)', () => {
       { kind: 'patch', entity: 'events', id: 'e1', set: { rrule: 'FREQ=WEEKLY', note: null } },
     ]);
   });
+  it('audyt 2 (S-8): zmiana wiersza utworzonego w tej samej paczce — bez odwrotności (usunięcie wystarczy, bez null w polach)', () => {
+    expect(
+      inverseOps(t, [
+        { kind: 'create', entity: 'event_overrides', id: 'o3', group_id: 'g', set: { cancelled: true } },
+        { kind: 'patch', entity: 'event_overrides', id: 'o3', set: { cancelled: true } },
+        // Utworzenie istniejącego wiersza (powtórzenie) nie zwalnia jego zmiany z odwrotności.
+        { kind: 'create', entity: 'event_overrides', id: 'o1', group_id: 'g', set: { cancelled: true } },
+        { kind: 'patch', entity: 'event_overrides', id: 'o1', set: { cancelled: true } },
+      ]),
+    ).toEqual([
+      { kind: 'patch', entity: 'event_overrides', id: 'o1', set: { cancelled: false } },
+      { kind: 'delete', entity: 'event_overrides', id: 'o1' },
+      { kind: 'delete', entity: 'event_overrides', id: 'o3' },
+    ]);
+  });
   it('polecenie serwera — bez cofnięcia', () => {
     expect(inverseOps(t, [{ kind: 'cmd', cmd: 'move_task', args: {} }])).toBeNull();
   });

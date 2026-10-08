@@ -1,3 +1,4 @@
+import { splitId } from '../event-split';
 import { applyOp, type NewOp, type Row } from '../sync-engine/client';
 import { editEvent, eventDetail, fieldsOf } from '../views/events';
 import { answerOps, RSVP_NAMESPACE, rsvpId, rsvpView } from '../views/rsvp';
@@ -42,10 +43,10 @@ describe('obecność (D124)', () => {
     expect(v.groupId).toBe('gf');
   });
 
-  it('odpowiedzi: utworzenie + zmiana, potem sama zmiana; liczniki per termin', () => {
+  it('odpowiedzi: utworzenie + przywrócenie + zmiana, potem sama zmiana; liczniki per termin', () => {
     const t = world();
     const first = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'kuba', answer: 'no' });
-    expect(first.map((o) => o.kind)).toEqual(['create', 'patch']);
+    expect(first.map((o) => o.kind)).toEqual(['create', 'restore', 'patch']);
     apply(t, first);
     apply(t, answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'me', answer: 'yes' }));
     const again = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'kuba', answer: 'maybe' });
@@ -57,6 +58,18 @@ describe('obecność (D124)', () => {
     expect(v.people.map((p) => [p.name, p.answer])).toEqual([['Łukasz', 'yes'], ['Kuba', 'maybe'], ['Ala', null], ['Róża', null]]);
     expect(v.counts).toEqual({ yes: 1, no: 0, maybe: 1, none: 2 });
     expect(rsvpView(t, 'u1', 'e1', '2026-10-14')!.counts.none).toBe(4);
+  });
+
+  it('audyt 2 (E-25): odpowiedź na wiersz z kosza go przywraca; wiersz szukany po wydarzeniu, dniu i osobie', () => {
+    const t = world();
+    put(t, 'event_rsvps', 'stary', { id: 'stary', event_id: 'e1', occurrence_date: '2026-10-07', member_id: 'me', answer: 'no', deleted_at: '2026-10-07' });
+    expect(answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'me', answer: 'yes' })).toEqual([
+      { kind: 'restore', entity: 'event_rsvps', id: 'stary' },
+      { kind: 'patch', entity: 'event_rsvps', id: 'stary', set: { answer: 'yes' } },
+    ]);
+    // Żywy wiersz wygrywa z usuniętym o tym samym kluczu (np. stare dane po podziale serii z buildu 21).
+    put(t, 'event_rsvps', 'nowy', { id: 'nowy', event_id: 'e1', occurrence_date: '2026-10-07', member_id: 'me', answer: 'maybe', deleted_at: null });
+    expect(answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'me', answer: 'yes' })).toEqual([{ kind: 'patch', entity: 'event_rsvps', id: 'nowy', set: { answer: 'yes' } }]);
   });
 
   it('wybrane osoby: tylko uczestnicy; dziecko z kontem odpowiada tylko za siebie', () => {
@@ -71,20 +84,22 @@ describe('obecność (D124)', () => {
     expect(rsvpView(t, 'u1', 'e1', '2026-10-07')!.people.map((p) => p.memberId)).toEqual(['me', 'kuba', 'ala', 'ala0', 'roza']);
   });
 
-  it('audyt 8.10.2026: „to i następne” przenosi odpowiedzi od tego dnia do nowej serii', () => {
+  it('audyt 2 (E-2): „to i następne” przenosi odpowiedzi od tego dnia — wszystkich osób — do nowej serii, z tym samym identyfikatorem', () => {
     const t = world();
     put(t, 'events', 'ew', { group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'group', deleted_at: null, id: 'ew' });
-    expect(eventDetail(t, 'u1', 'ew')!.rsvps).toEqual([]);
     apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-07', memberId: 'me', answer: 'yes' }));
     apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-14', memberId: 'kuba', answer: 'no' }));
-    put(t, 'event_rsvps', 'stara', { id: 'stara', event_id: 'ew', occurrence_date: '2026-10-21', member_id: 'ala', answer: 'yes', deleted_at: 'x' });
+    // Odpowiedź innego dorosłego (Ala odpowiada sama, z drugiego telefonu).
+    put(t, 'event_rsvps', rsvpId('ew', '2026-10-21', 'ala'), { id: rsvpId('ew', '2026-10-21', 'ala'), group_id: 'gf', event_id: 'ew', occurrence_date: '2026-10-21', member_id: 'ala', answer: 'no', deleted_at: null });
     const d = eventDetail(t, 'u1', 'ew')!;
-    let n = 0;
-    const ops = editEvent(d, '2026-10-14', 'following', fieldsOf(d, '2026-10-14', 'following'), () => `n${++n}`);
-    const created = (ops.find((o) => o.kind === 'create' && o.entity === 'events') as { id: string }).id;
-    expect(ops.filter((o) => 'entity' in o && o.entity === 'event_rsvps')).toEqual([
-      { kind: 'delete', entity: 'event_rsvps', id: rsvpId('ew', '2026-10-14', 'kuba') },
-      { kind: 'create', entity: 'event_rsvps', id: rsvpId(created, '2026-10-14', 'kuba'), group_id: 'gf', set: { event_id: created, occurrence_date: '2026-10-14', member_id: 'kuba', answer: 'no' } },
+    apply(t, editEvent(d, '2026-10-14', 'following', fieldsOf(d, '2026-10-14', 'following')));
+    const sid = splitId('ew', '2026-10-14');
+    expect(t.event_rsvps![rsvpId('ew', '2026-10-07', 'me')]!.event_id).toBe('ew');
+    expect(t.event_rsvps![rsvpId('ew', '2026-10-14', 'kuba')]!.event_id).toBe(sid);
+    expect(rsvpView(t, 'u1', sid, '2026-10-21')!.people.find((p) => p.name === 'Ala')!.answer).toBe('no');
+    // Odpowiedź na termin nowej serii trafia w ten sam (przeniesiony) wiersz.
+    expect(answerOps(t, { groupId: 'gf', eventId: sid, date: '2026-10-14', memberId: 'kuba', answer: 'yes' })).toEqual([
+      { kind: 'patch', entity: 'event_rsvps', id: rsvpId('ew', '2026-10-14', 'kuba'), set: { answer: 'yes' } },
     ]);
   });
 

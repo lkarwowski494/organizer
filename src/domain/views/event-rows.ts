@@ -25,6 +25,8 @@ export type EventRow = {
   location: string | null;
   /** Rodzaj (D126–D128): zwykłe, lekcja z planu lekcji, rutyna; ustawiany tylko przy utworzeniu. */
   kind: EventKind;
+  /** Poprzedniczka po „to i następne” (audyt 2, M-96; ustawia tylko polecenie split_event) — razem jedna seria. */
+  split_from: string | null;
   deleted_at: string | null;
 };
 export type EventKind = 'event' | 'lesson' | 'routine';
@@ -38,10 +40,12 @@ export type Override = {
   start_time: string | null;
   end_time: string | null;
   title: string | null;
-  /** Inna osoba odpowiedzialna w tym wystąpieniu; `null` = jak w serii. */
+  /** Inna osoba odpowiedzialna w tym wystąpieniu; `null` = jak w serii (chyba że `responsible_cleared`). */
   responsible_member_id: string | null;
   /** D136: ten termin całodniowy (godziny wyjątku i serii pomijane). */
   all_day: boolean;
+  /** Audyt 2 (M-94): w tym terminie nikt konkretny, choć seria ma osobę odpowiedzialną (osoba wskazana wygrywa). */
+  responsible_cleared: boolean;
   deleted_at: string | null;
 };
 
@@ -59,6 +63,7 @@ export const asEvent = (r: Row): EventRow => ({
   responsible_member_id: s(r.responsible_member_id),
   location: s(r.location),
   kind: r.kind === 'lesson' || r.kind === 'routine' ? r.kind : 'event',
+  split_from: s(r.split_from),
   deleted_at: s(r.deleted_at),
 });
 export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });
@@ -73,8 +78,14 @@ export const asOverride = (r: Row): Override => ({
   title: s(r.title),
   responsible_member_id: s(r.responsible_member_id),
   all_day: r.all_day === true,
+  responsible_cleared: r.responsible_cleared === true,
   deleted_at: s(r.deleted_at),
 });
+
+/** Osoba odpowiedzialna za termin: wskazana w wyjątku, „nikt konkretny” z wyjątku albo osoba serii (D66; M-94). */
+export function occurrenceResponsible(o: Pick<Override, 'responsible_member_id' | 'responsible_cleared'> | undefined, e: Pick<EventRow, 'responsible_member_id'>): string | null {
+  return o?.responsible_member_id ?? (o?.responsible_cleared ? null : e.responsible_member_id);
+}
 
 /**
  * Godziny wystąpienia: całodniowe z wyjątku (D136), inaczej godzina wyjątku (z jego końcem) albo godziny serii.
@@ -126,10 +137,46 @@ export const asSeries = (r: Row): SeriesDef => ({
   deleted_at: r.deleted_at == null ? null : String(r.deleted_at),
 });
 
-/** Żywe definicje dla serii. */
+/** Żywe definicje dla serii — dla całego łańcucha po „to i następne” (jedna seria dla użytkownika, audyt 2 E-11). */
 export function seriesOf(t: Tables, eventId: string): SeriesDef[] {
+  const chain = seriesChain(t, eventId);
   return rows(t, 'event_task_series', asSeries)
-    .filter((s) => s.deleted_at === null && s.event_id === eventId)
+    .filter((s) => s.deleted_at === null && chain.has(s.event_id))
     .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+}
+
+/**
+ * Łańcuch serii po „to i następne” (events.split_from, audyt 2, M-96): wszystkie wiersze połączone z tym — z nim samym.
+ * Dla użytkownika to jedna seria: stałe zadania, seria rutyny i lista na ekranie grupy liczą się po całym łańcuchu.
+ */
+export function seriesChain(t: Tables, eventId: string): Set<string> {
+  const links = rows(t, 'events', asEvent).filter((e) => e.split_from !== null);
+  const out = new Set([eventId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const e of links) {
+      if (out.has(e.id) !== out.has(e.split_from!)) {
+        out.add(e.id).add(e.split_from!);
+        grew = true;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Seria łańcucha, do której należy termin (stary link albo przypomnienie po „to i następne” prowadzi do nowej serii);
+ * gdy termin nie należy do żadnej — ta sama.
+ */
+export function occurrenceOwner(t: Tables, eventId: string, occurrenceDate: string): string {
+  const d = parseIsoDate(occurrenceDate);
+  const has = (id: string) => {
+    const raw = t.events?.[id];
+    if (!raw || raw.deleted_at != null) return false;
+    const e = asEvent(raw);
+    return occurrences(parseIsoDate(e.start_date), ruleOf(e), d, d).length > 0;
+  };
+  if (has(eventId)) return eventId;
+  return [...seriesChain(t, eventId)].sort().find(has) ?? eventId;
 }
 
