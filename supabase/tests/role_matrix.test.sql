@@ -47,7 +47,7 @@ select is((select count(*)::int from public.invites), 0, 'member: nie widzi zapr
 
 -- CHILD (konto z rolą child)
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a3');
-select lives_ok($$ update public.tasks set completed_at = now() where id = '77777777-0000-7000-8000-0000000000d1' $$, 'child: odhacza');
+select throws_ok($$ update public.tasks set completed_at = now() where id = '77777777-0000-7000-8000-0000000000d1' $$, 'P0001', 'forbidden:not_own', 'child: odhacza tylko swoje (nieprzypisane — nie; swoje: child_account.test.sql)');
 select throws_ok($$ update public.tasks set title = 'C' where id = '77777777-0000-7000-8000-0000000000d1' $$, 'P0001', 'forbidden:child', 'child: nie edytuje');
 select throws_ok($$ update public.lists set name = 'C' where id = '77777777-0000-7000-8000-0000000000e1' $$, 'P0001', 'forbidden:child', 'child: nie edytuje list');
 select throws_ok($$ select public.create_invite('77777777-0000-7000-8000-000000000001') $$, 'P0001', 'forbidden', 'child: nie zaprasza');

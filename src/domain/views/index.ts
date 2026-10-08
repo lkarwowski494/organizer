@@ -302,6 +302,19 @@ export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live:
   return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g));
 }
 
+/**
+ * Czy mogę odhaczyć (albo cofnąć odhaczenie): dziecko z kontem — tylko swoje sprawy (child.ts; decyzja koordynatora
+ * z 8.10.2026, PW-14 B; serwer: forbidden:not_own). Ekrany nie pokazują pola odhaczenia, którego serwer nie przyjmie.
+ */
+export function checkOff(t: Tables, userId: string): (x: Task) => boolean {
+  const mine = myMemberships(t, userId);
+  const owns = childOwner(t, liveMembers(t));
+  return (x) => {
+    const me = mine.get(x.group_id);
+    return me?.role !== 'child' || owns(x, me.member_id);
+  };
+}
+
 /** Imię osoby zadania (żywej; usunięta z grupy — nikt, D132). */
 export const assigneeName = (x: Pick<Task, 'assignee_member_id'>, live: ReadonlyMap<string, Member>) => (x.assignee_member_id === null ? null : (live.get(x.assignee_member_id)?.display_name ?? null));
 

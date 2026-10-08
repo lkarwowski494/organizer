@@ -14,7 +14,7 @@ import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
-import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { asTask, checkOff, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import type { Task } from '../../domain/views/model';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
@@ -127,6 +127,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const linkedEvent = linked ? asEvent(tables.events?.[task.event_id!] ?? { id: task.event_id, group_id: task.group_id, start_date: task.occurrence_date }) : null;
   const membership = myMemberships(tables, userId).get(task.group_id);
   const canEdit = membership?.role !== 'child';
+  const canCheck = checkOff(tables, userId);
   // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
   const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
@@ -161,7 +162,8 @@ export function TaskScreen({ route, navigation }: Props) {
     <Screen testID="screen-task">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={task.completed_at ? strings['task.undone'] : strings['task.done']} />
+        {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
+        {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={task.completed_at ? strings['task.undone'] : strings['task.done']} /> : null}
         <Text style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>{`${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`}</Text>
       </View>
       {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
@@ -283,7 +285,7 @@ export function TaskScreen({ route, navigation }: Props) {
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {(node?.children ?? []).map((ch) => (
-            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
+            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={canCheck(ch) ? () => actions.toggle(ch) : undefined} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
           ))}
           {canEdit ? <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" /> : null}
           {canEdit ? <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} /> : null}
