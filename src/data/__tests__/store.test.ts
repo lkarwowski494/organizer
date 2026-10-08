@@ -330,8 +330,12 @@ describe('odporność zapisu (audyt 2, P2)', () => {
     writeState(db, s1, s2, 2);
     expect(readState(db, 'x').staged).toEqual({ g1: { tasks: { t1: row('t1', 3).row, t3: row('t3', 3).row } } });
     writeState(db, s2, s2, 3);
+    // Encja znika z porcji w całości (np. zawężona lista usunęła jej zadania).
+    const s2b: ClientState = { ...s2, staged: { g1: { lists: {} } } };
+    writeState(db, s2, s2b, 3);
+    expect(readState(db, 'x').staged).toEqual({});
     const s3 = { ...s2, staged: {} };
-    writeState(db, s2, s3, 4);
+    writeState(db, s2b, s3, 4);
     expect(readState(db, 'x').staged).toEqual({});
     // „Wyczyść dane” usuwa też porcje w toku.
     writeState(db, s3, s1, 5);

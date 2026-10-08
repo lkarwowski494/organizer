@@ -136,7 +136,7 @@ describe('klient synchronizacji — scenariusze', () => {
     op({ kind: 'cmd', cmd: 'grant_scope', args: {} }); // komenda: skutek tylko na serwerze
     expect(Object.keys(materialize(a))).toEqual(['tasks']);
     // Znacznik lokalnego usunięcia z numerem operacji (kaskada odróżnia dwa usunięcia, M-60).
-    expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: `pending:${a.pending.find((o) => o.kind === 'delete')!.seq}` } });
+    expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: `pending:${a.pending.find((o) => o.kind === 'delete' && o.id === 't')!.seq}` } });
     op({ kind: 'restore', entity: 'tasks', id: 't' });
     expect(materialize(a).tasks?.t?.deleted_at).toBeNull();
   });
