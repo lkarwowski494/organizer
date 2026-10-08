@@ -14,9 +14,10 @@ import { strings } from '../i18n/strings.pl';
 import type { AccountApi, ClientError } from '../sync/account';
 import { SyncRuntime } from '../sync/runtime';
 import type { SyncTransport } from '../sync/transport';
-import { parseAuthCallback } from '../sync/supabase';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
+import { config } from '../config';
+import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
 import { localNow } from './clock';
 import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
@@ -28,25 +29,32 @@ import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
 
 /** `needsName` i `emailName` — D100 (konto bez imienia; dawne imię zastępcze z adresu e-mail). */
-export type Session = { userId: string; displayName: string; needsName?: boolean; emailName?: string | null };
+/** `emailOnly` — konto bez logowania Apple (D177: w becie po wylogowaniu nie da się do niego wrócić). */
+export type Session = { userId: string; displayName: string; needsName?: boolean; emailName?: string | null; emailOnly?: boolean };
 
 export type RootDeps = {
   /** Bieżąca sesja i zmiany (logowanie, wylogowanie, wygaśnięcie). */
-  session: { current(): Promise<Session | null>; onChange(fn: (s: Session | null) => void): () => void; setFromLink(t: { access_token: string; refresh_token: string }): Promise<void> };
+  session: { current(): Promise<Session | null>; onChange(fn: (s: Session | null) => void): () => void };
   account: AccountApi;
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
   /** Czas dojazdu z Map Apple (D116); brak = bez tej funkcji. */
   travel?: TravelService;
   push?: DevicePush;
+  /** Ustawienia telefonu, nie konta (pęk kluczy; np. samosprawdzenie). Ustawienia konta są w jego bazie (D175, account-prefs). */
   prefs?: Prefs;
+  /** Dawne ustawienia konta w pęku kluczy (sprzed D175) — przejmuje je pierwsze zalogowane konto. */
+  legacyPrefs?: LegacyStore;
   transport: SyncTransport;
   /** Baza per użytkownik (osobny plik), więc po zmianie konta nic nie przecieka między osobami. */
   openDb(userId: string): DbAdapter;
+  /** Zamknięcie i usunięcie pliku bazy konta (po usunięciu konta, audyt 2 M-64). */
+  removeDb?(userId: string): void;
   newId(): string;
   /** Prywatne kanały Realtime (poke): wywołuje `onPoke` z wersją grupy albo bez (zmiana dostępu). */
   subscribe(topics: string[], onPoke: (topic: string, version: number | null) => void): () => void;
-  links: { initial(): Promise<string | null>; onUrl(fn: (url: string) => void): () => void };
+  /** Linki otwierające aplikację, gdy już działa (pierwszy link przy starcie czyta sama nawigacja). */
+  links: { onUrl(fn: (url: string) => void): () => void };
   /** Zapamiętany wygląd (D69). */
   appearance?: AppearanceStore;
   nowMs?: () => number;
@@ -65,13 +73,16 @@ function Loading() {
   );
 }
 
-function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
+function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Session; pendingUrl: string | null }) {
   const nowMs = deps.nowMs ?? Date.now;
   const db = useMemo(() => {
     const db = deps.openDb(session.userId);
     migrate(db);
     return db;
   }, [deps, session.userId]);
+  const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
+  // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
+  const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
   // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
   const [epoch, setEpoch] = useState(0);
   const runtime = useMemo(() => {
@@ -121,15 +132,50 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
     [deps, runtime, session.userId, groupIds],
   );
 
+  // Koniec sesji z tego telefonu (wylogowanie, usunięcie konta): sprzątanie zgłoszone przez moduły (onSignOut, np.
+  // kalendarze lustra — D172), zanim ekrany znikną. Po usunięciu konta także plik bazy (M-64) — przy odmontowaniu.
+  const leaving = useRef(new Set<() => Promise<void>>());
+  const removeDb = useRef(false);
+  const runLeaving = useCallback(async () => {
+    await Promise.all([...leaving.current].map((fn) => fn().catch(() => {})));
+  }, []);
+  useEffect(
+    () => () => {
+      if (removeDb.current) deps.removeDb?.(session.userId);
+    },
+    [deps, session.userId],
+  );
+  const account = useMemo(
+    () => ({
+      ...deps.account,
+      signOut: async () => {
+        await runLeaving();
+        await deps.account.signOut();
+      },
+      deleteAccount: () =>
+        deps.account.deleteAccount(async () => {
+          // Konta już nie ma na serwerze: bez dalszej synchronizacji; dane tego konta znikają z telefonu.
+          runtime.stop();
+          await runLeaving();
+          removeDb.current = true;
+        }),
+    }),
+    [deps, runtime, runLeaving],
+  );
+
   const services: AppServices = useMemo(
     () => ({
       store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }) },
-      account: deps.account,
+      account,
       calendar: deps.calendar,
       travel: deps.travel,
       push: deps.push,
-      prefs: deps.prefs,
-      local: { load: (k) => loadLocal(db, k), save: (k, v) => saveLocal(db, k, v) },
+      prefs,
+      local,
+      onSignOut: (fn) => {
+        leaving.current.add(fn);
+        return () => void leaving.current.delete(fn);
+      },
       resetLocal: () => {
         runtime.stop();
         wipeSynced(db);
@@ -139,12 +185,13 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       displayName: session.displayName,
       needsName: session.needsName,
       emailName: session.emailName,
+      emailOnly: session.emailOnly,
       newId: deps.newId,
       now: () => localNow(nowMs()),
       nowIso: () => new Date(nowMs()).toISOString(),
       nowMs,
     }),
-    [runtime, db, deps, session, nowMs],
+    [runtime, db, deps, session, nowMs, account, prefs, local],
   );
 
   // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).
@@ -155,7 +202,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
   return (
     <AppProvider services={services}>
       <ErrorBoundary report={report} version={appVersion()} colors={c}>
-        <AppNavigation />
+        <AppNavigation pendingUrl={pendingUrl} />
       </ErrorBoundary>
     </AppProvider>
   );
@@ -163,12 +210,21 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
 
 export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boolean }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [linkError, setLinkError] = useState<string | null>(null);
+  // Audyt 2 (M-221): link (np. zaproszenie) dotknięty, gdy nikt nie był zalogowany — nawigacja dostaje go po zalogowaniu.
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const signedIn = useRef(false);
+  useEffect(() => {
+    signedIn.current = !!session;
+  }, [session]);
 
   useEffect(() => {
     let alive = true;
     void deps.session.current().then((s) => alive && setSession((old) => (old === undefined ? s : old)));
-    const off = deps.session.onChange((s) => setSession(s));
+    const off = deps.session.onChange((s) => {
+      // Link oddany nawigacji przy jej starcie (useState w AppNavigation) — po końcu tamtej sesji już nie wraca.
+      if (signedIn.current) setPendingUrl(null);
+      setSession(s);
+    });
     return () => {
       alive = false;
       off();
@@ -189,27 +245,28 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
     shownFor.current = who;
   }, [session, deps]);
 
-  // Link z e-maila (magic link): tokeny → sesja. Linki zaproszeń obsługuje nawigacja (linking).
+  // Wylogowanie bez sieci (koordynator, 8.10.2026): zaległe wyrejestrowanie tokenu push starą sesją — przy starcie, przy
+  // każdej zmianie konta (także zaraz po zalogowaniu innego), po powrocie do aplikacji i co config.account.SIGNOUT_RETRY_MS.
+  const who = session === undefined ? undefined : (session?.userId ?? null);
   useEffect(() => {
-    const handle = (url: string | null) => {
-      const r = url ? parseAuthCallback(url) : null;
-      if (r && 'error' in r) setLinkError(r.error);
-      else if (r) void deps.session.setFromLink(r).catch(() => setLinkError(strings['common.error']));
+    const finish = () => void deps.account.finishSignOut().catch(() => {});
+    finish();
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && finish());
+    const timer = setInterval(finish, config.account.SIGNOUT_RETRY_MS);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
     };
-    void deps.links.initial().then(handle);
-    return deps.links.onUrl(handle);
-  }, [deps]);
+  }, [deps, who]);
+
+  // Linki obsługuje nawigacja (linking); bez sesji nawigacji jeszcze nie ma, więc ostatni link czeka na zalogowanie.
+  // Logowania z linku nie ma (D177, M-76): aplikacja nie przyjmuje sesji z adresu.
+  useEffect(() => deps.links.onUrl((url) => !signedIn.current && setPendingUrl(url)), [deps]);
 
   let body;
   if (!fontsLoaded || session === undefined) body = <Loading />;
-  else if (session === null)
-    body = (
-      <>
-        <SignInScreen account={deps.account} />
-        {linkError ? <Text accessibilityRole="alert" style={{ position: 'absolute', bottom: 40, left: 20, right: 20 }}>{linkError}</Text> : null}
-      </>
-    );
-  else body = <SignedIn key={session.userId} deps={deps} session={session} />;
+  else if (session === null) body = <SignInScreen account={deps.account} />;
+  else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} />;
 
   return (
     <SafeAreaProvider>

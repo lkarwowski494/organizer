@@ -12,12 +12,20 @@ export type Invite = { inviteId: string; token: string; url: string; expiresAt: 
 export type ClientError = { kind: 'crash' | 'error' | 'diagnostic'; message: string; stack: string | null; screen: string | null; appVersion: string };
 
 export interface AccountApi {
+  /** W becie jedyny sposób logowania (D177). */
   signInWithApple(): Promise<void>;
-  /** Magic link (D5): wysyła e-mail z linkiem io.github.lkarwowski494.organizer://… */
-  sendMagicLink(email: string): Promise<void>;
+  /** Wylogowanie tylko tego telefonu (D176); bez sieci token push zdejmie później `finishSignOut`. */
   signOut(): Promise<void>;
-  /** Usunięcie konta (D49): serwer przekazuje grupy i zaciera imię w historii. */
-  deleteAccount(): Promise<void>;
+  /**
+   * Zaległe sprzątanie po wylogowaniu bez sieci: wyrejestrowanie tokenu push starą sesją. Bez wyjątków — co się nie
+   * uda, zostaje na następny raz.
+   */
+  finishSignOut(): Promise<void>;
+  /**
+   * Usunięcie konta (D49): serwer przekazuje grupy i zaciera imię w historii. `beforeSignOut` — po udanym usunięciu na
+   * serwerze, przed końcem sesji (sprzątanie telefonu, M-64).
+   */
+  deleteAccount(beforeSignOut?: () => Promise<void>): Promise<void>;
   /** Moje imię w profilu konta (D100); członkostwa zmienia kolejka (domain/views/my-name). */
   setMyName(name: string): Promise<void>;
   createGroup(a: { groupId: string; name: string; ownerMemberId: string; displayName: string }): Promise<void>;

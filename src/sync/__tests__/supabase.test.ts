@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { config } from '../../config';
-import { AUTH_REDIRECT, classify, FATAL_CODES, parseAuthCallback, type RpcResult, supabaseAccount, supabaseTransport, type SupabaseLike } from '../supabase';
+import { classify, type DetachedClient, FATAL_CODES, type RpcResult, supabaseAccount, supabaseTransport, type SupabaseLike } from '../supabase';
 import { TransportError } from '../transport';
 
 type Call = { fn: string; args: Record<string, unknown> };
@@ -11,10 +11,9 @@ function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, 
   const calls: Call[] = [];
   const auth = {
     signInWithIdToken: jest.fn(async () => ({ error: null as { message: string } | null })),
-    signInWithOtp: jest.fn(async () => ({ error: null as { message: string } | null })),
-    signOut: jest.fn(async () => ({ error: null as { message: string } | null })),
+    signOut: jest.fn(async (_a: { scope: 'local' }) => ({ error: null as { message: string } | null })),
     updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
-    getSession: jest.fn(async () => ({ data: { session: null as { user: { id?: string; app_metadata?: { provider?: string } } } | null } })),
+    getSession: jest.fn(async () => ({ data: { session: null as { refresh_token?: string; user: { id?: string; app_metadata?: { provider?: string; providers?: string[] } } } | null } })),
   };
   const functions = { invoke: jest.fn(async () => ({ error: null as { message: string } | null })) };
   const profileUpdate = { error: null as { message: string } | null };
@@ -211,7 +210,7 @@ describe('Supabase: konto', () => {
     const memory = { load: jest.fn(async () => saved.v), save: jest.fn(async (v: string | null) => void (saved.v = v)) };
     let offline = false;
     const { client, calls, auth } = fakeClient((c) => (offline ? { data: null, error: { message: 'Failed to fetch' }, status: 0 } : { data: {}, error: null, status: 200 }));
-    const a = supabaseAccount(client, async () => ({ identityToken: null }), memory);
+    const a = supabaseAccount(client, async () => ({ identityToken: null }), { pushToken: memory });
     // Rejestracja w tym uruchomieniu się nie udała (start bez sieci) — zdejmujemy token zapamiętany wcześniej.
     await a.signOut();
     expect(calls).toEqual([{ fn: 'unregister_push_token', args: { p_token: 'ef'.repeat(32) } }]);
@@ -250,28 +249,42 @@ describe('Supabase: konto', () => {
     await expect(a.deleteAccount()).resolves.toBeUndefined();
   });
 
-  it('magic link z adresem powrotu w schemacie aplikacji, wylogowanie, usunięcie konta', async () => {
+  it('wylogowanie tylko tego telefonu (D176), usunięcie konta', async () => {
     const { client, auth, functions } = fakeClient();
     const a = supabaseAccount(client, async () => ({ identityToken: null }));
-    await a.sendMagicLink('ala@example.com');
-    expect(auth.signInWithOtp).toHaveBeenCalledWith({ email: 'ala@example.com', options: { emailRedirectTo: `${config.URL_SCHEME}://auth/callback` } });
     await a.signOut();
-    expect(auth.signOut).toHaveBeenLastCalledWith();
+    expect(auth.signOut).toHaveBeenLastCalledWith({ scope: 'local' });
     await a.deleteAccount();
     expect(functions.invoke).toHaveBeenCalledWith('delete-account', { method: 'POST' });
     expect(auth.signOut).toHaveBeenLastCalledWith({ scope: 'local' });
     functions.invoke.mockResolvedValueOnce({ error: { message: 'unauthorized' } });
     await expect(a.deleteAccount()).rejects.toThrow('unauthorized');
-    // Konto z Apple: świeży kod autoryzacji do unieważnienia tokenu; bez kodu — nie usuwamy.
+    // Konto z Apple (M-303): świeży kod autoryzacji — potwierdzenie i unieważnienie tokenu; bez kodu — nie usuwamy.
     const appleFn = jest.fn(async () => ({ identityToken: 'jwt', authorizationCode: 'code-1' }));
     auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { provider: 'apple' } } } } });
     await supabaseAccount(client, appleFn).deleteAccount();
     expect(appleFn).toHaveBeenCalledWith('none');
     expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1' } });
     await expect(supabaseAccount(client, async () => ({ identityToken: 'jwt', authorizationCode: null })).deleteAccount()).rejects.toThrow('apple:no_authorization_code');
+    await expect(supabaseAccount(client, async () => ({ identityToken: 'jwt' })).deleteAccount()).rejects.toThrow('apple:no_authorization_code');
+    // Apple dołączone do konta z innym pierwszym sposobem logowania (providers) — też kod.
+    auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { provider: 'email', providers: ['email', 'apple'] } } } } });
+    await supabaseAccount(client, appleFn).deleteAccount();
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1' } });
     auth.getSession.mockResolvedValue({ data: { session: { user: {} } } });
     await a.deleteAccount();
     expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST' });
+    // M-64: sprzątanie telefonu po udanym usunięciu na serwerze, przed końcem sesji; jego błąd nie zatrzymuje wylogowania.
+    const order: string[] = [];
+    functions.invoke.mockImplementationOnce(async () => (order.push('server'), { error: null }));
+    auth.signOut.mockImplementationOnce(async () => (order.push('signOut'), { error: null }));
+    await a.deleteAccount(async () => void order.push('before'));
+    expect(order).toEqual(['server', 'before', 'signOut']);
+    const before = jest.fn(async () => {});
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'x' } });
+    await expect(a.deleteAccount(before)).rejects.toThrow('x');
+    expect(before).not.toHaveBeenCalled();
+    await expect(a.deleteAccount(async () => Promise.reject(new Error('kalendarz')))).resolves.toBeUndefined();
     await a.notifyHandoff('h1');
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
     await a.notifyAssignment('a1');
@@ -279,13 +292,140 @@ describe('Supabase: konto', () => {
   });
 });
 
-describe('link z e-maila', () => {
-  it('tokeny we fragmencie albo w zapytaniu, błąd, obcy adres', () => {
-    expect(parseAuthCallback(`${AUTH_REDIRECT}#access_token=a&refresh_token=r&type=magiclink`)).toEqual({ access_token: 'a', refresh_token: 'r' });
-    expect(parseAuthCallback(`${AUTH_REDIRECT}?access_token=a&refresh_token=r`)).toEqual({ access_token: 'a', refresh_token: 'r' });
-    expect(parseAuthCallback(`${AUTH_REDIRECT}#error=access_denied&error_description=Email+link+is+invalid+or+has+expired`)).toEqual({ error: 'Email link is invalid or has expired' });
-    expect(parseAuthCallback(`${AUTH_REDIRECT}?error=server_error`)).toEqual({ error: 'server_error' });
-    expect(parseAuthCallback(`${AUTH_REDIRECT}#access_token=a`)).toBeNull();
-    expect(parseAuthCallback(`${config.URL_SCHEME}://invite/x`)).toBeNull();
+describe('imię z Apple w profilu (audyt 2, M-186)', () => {
+  it('pierwsze logowanie z imieniem: metadane konta i profil; bez sesji tylko metadane; błąd profilu zgłaszany', async () => {
+    const { client, auth, profiles, profileUpdate } = fakeClient();
+    const apple = async () => ({ identityToken: 'jwt', fullName: { givenName: 'Ala', familyName: 'Nowak' } });
+    await supabaseAccount(client, apple).signInWithApple();
+    expect(profiles).toEqual([]);
+    auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    await supabaseAccount(client, apple).signInWithApple();
+    expect(profiles).toEqual([{ table: 'profiles', values: { display_name: 'Ala' }, col: 'user_id', id: 'u1' }]);
+    profileUpdate.error = { message: 'denied' };
+    await expect(supabaseAccount(client, apple).signInWithApple()).rejects.toThrow('denied');
+  });
+});
+
+describe('wylogowanie bez internetu: zaległe wyrejestrowanie tokenu starą sesją', () => {
+  type Reply = { data: { session: { refresh_token: string } | null }; error: { message: string; status?: number } | null };
+  function setup(opts: { offline?: boolean; logoutFails?: boolean } = {}) {
+    const state = { offline: !!opts.offline, jobs: null as string | null, pushToken: 'ab'.repeat(32) as string | null };
+    const { client, calls, auth } = fakeClient((c) => (state.offline && c.fn === 'unregister_push_token' ? { data: null, error: { message: 'Failed to fetch' }, status: 0 } : { data: {}, error: null, status: 200 }));
+    auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt-old', user: { id: 'u1' } } } });
+    if (opts.logoutFails) auth.signOut.mockImplementation(async () => (auth.getSession.mockResolvedValue({ data: { session: null } }), { error: { message: 'Failed to fetch' } }));
+    // Stara sesja: odświeżenie tokenem z zadania, RPC i zamknięcie.
+    const oldCalls: Call[] = [];
+    const refresh = jest.fn(async (_a: { refresh_token: string }): Promise<Reply> => ({ data: { session: { refresh_token: 'rt-new' } }, error: null }));
+    let rpcReply: RpcResult<unknown> = { data: null, error: null, status: 200 };
+    const oldSignOut = jest.fn(async () => ({ error: null }));
+    const detached = jest.fn(
+      (): DetachedClient => ({
+        rpc: async <T,>(fn: string, args: object) => (oldCalls.push({ fn, args: args as Record<string, unknown> }), rpcReply as RpcResult<T>),
+        auth: { refreshSession: refresh, signOut: oldSignOut },
+      }),
+    );
+    const signOutJobs = { load: jest.fn(async () => state.jobs), save: jest.fn(async (v: string | null) => void (state.jobs = v)) };
+    const pushToken = { load: async () => state.pushToken, save: async (v: string | null) => void (state.pushToken = v) };
+    const a = supabaseAccount(client, async () => ({ identityToken: null }), { pushToken, signOutJobs, detached });
+    return { a, state, calls, auth, oldCalls, refresh, oldSignOut, detached, signOutJobs, setRpc: (r: RpcResult<unknown>) => (rpcReply = r) };
+  }
+
+  it('bez sieci: zadanie z tokenem odświeżania starej sesji; po powrocie sieci wyrejestrowanie tą sesją i jej zamknięcie', async () => {
+    const t = setup({ offline: true, logoutFails: true });
+    await t.a.signOut();
+    expect(JSON.parse(t.state.jobs!)).toEqual([{ token: 'ab'.repeat(32), refreshToken: 'rt-old' }]);
+    // Token przejęło zadanie — następne wylogowanie (innego konta) nie zdejmuje go swoją sesją.
+    expect(t.state.pushToken).toBeNull();
+    // Zamknięcie starej sesji bez odpowiedzi — zadanie i tak zrobione.
+    t.oldSignOut.mockRejectedValueOnce(new Error('fetch') as never);
+    await t.a.finishSignOut();
+    expect(t.refresh).toHaveBeenCalledWith({ refresh_token: 'rt-old' });
+    expect(t.oldCalls).toEqual([{ fn: 'unregister_push_token', args: { p_token: 'ab'.repeat(32) } }]);
+    expect(t.oldSignOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(t.state.jobs).toBeNull();
+    // Nic więcej do zrobienia.
+    await t.a.finishSignOut();
+    expect(t.detached).toHaveBeenCalledTimes(1);
+  });
+
+  it('serwer zamknął sesję mimo błędu wyrejestrowania — zadanie bez sensu, usunięte od razu', async () => {
+    const t = setup({ offline: true });
+    await t.a.signOut();
+    expect(t.state.jobs).toBeNull();
+    expect(t.signOutJobs.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('nadal bez sieci: zadanie zostaje (z nowym tokenem odświeżania po rotacji); nieważna sesja — zadanie porzucone', async () => {
+    const t = setup({ offline: true, logoutFails: true });
+    await t.a.signOut();
+    // Odświeżenie bez sieci (status 0) i błąd serwera (5xx) — próbujemy później.
+    t.refresh.mockResolvedValueOnce({ data: { session: null }, error: { message: 'fetch', status: 0 } });
+    await t.a.finishSignOut();
+    t.refresh.mockResolvedValueOnce({ data: { session: null }, error: { message: '5xx', status: 503 } });
+    await t.a.finishSignOut();
+    expect(JSON.parse(t.state.jobs!)).toHaveLength(1);
+    // Odświeżone, ale RPC bez sieci: zadanie zostaje z nowym tokenem (stary jest już zużyty).
+    t.setRpc({ data: null, error: { message: 'Failed to fetch' }, status: 0 });
+    await t.a.finishSignOut();
+    expect(JSON.parse(t.state.jobs!)).toEqual([{ token: 'ab'.repeat(32), refreshToken: 'rt-new' }]);
+    // RPC odrzucone jako brak sesji — kończymy (nic już tą sesją nie zrobimy).
+    t.setRpc({ data: null, error: { message: 'JWT expired', code: 'PGRST301' }, status: 401 });
+    await t.a.finishSignOut();
+    expect(t.state.jobs).toBeNull();
+    // Token odświeżania nieważny (np. sesja zamknięta) — porzucone; bez sesji w odpowiedzi — też.
+    t.state.jobs = JSON.stringify([{ token: 't1', refreshToken: 'r1' }, { token: 't2', refreshToken: 'r2' }]);
+    t.refresh.mockResolvedValueOnce({ data: { session: null }, error: { message: 'Invalid Refresh Token', status: 400 } }).mockResolvedValueOnce({ data: { session: null }, error: null });
+    await t.a.finishSignOut();
+    expect(t.state.jobs).toBeNull();
+    // Wyjątek po drodze (np. pęk kluczy) — zadanie zostaje, bez wyjątku na zewnątrz.
+    t.state.jobs = JSON.stringify([{ token: 't3', refreshToken: 'r3' }]);
+    t.refresh.mockRejectedValueOnce(new Error('boom'));
+    await expect(t.a.finishSignOut()).resolves.toBeUndefined();
+    expect(JSON.parse(t.state.jobs)).toHaveLength(1);
+  });
+
+  it('dwa wywołania naraz — jedno przejście; uszkodzony zapis i błąd pęku kluczy nie przeszkadzają', async () => {
+    const t = setup();
+    t.state.jobs = JSON.stringify([{ token: 't1', refreshToken: 'r1' }, { zly: 1 }]);
+    await Promise.all([t.a.finishSignOut(), t.a.finishSignOut()]);
+    expect(t.detached).toHaveBeenCalledTimes(1);
+    expect(t.state.jobs).toBeNull();
+    t.state.jobs = '{zły';
+    await t.a.finishSignOut();
+    t.state.jobs = '{"a":1}';
+    await t.a.finishSignOut();
+    expect(t.detached).toHaveBeenCalledTimes(1);
+    // Dwa zadania, oba bez sieci po odświeżeniu: każde ze swoim nowym tokenem.
+    t.state.jobs = JSON.stringify([{ token: 't1', refreshToken: 'r1' }, { token: 't2', refreshToken: 'r2' }]);
+    t.refresh.mockResolvedValueOnce({ data: { session: { refresh_token: 'n1' } }, error: null }).mockResolvedValueOnce({ data: { session: { refresh_token: 'n2' } }, error: null });
+    t.setRpc({ data: null, error: { message: 'Failed to fetch' }, status: 0 });
+    await t.a.finishSignOut();
+    expect(JSON.parse(t.state.jobs).map((j: { refreshToken: string }) => j.refreshToken)).toEqual(['n1', 'n2']);
+    t.setRpc({ data: null, error: null, status: 200 });
+    t.state.jobs = null;
+    t.signOutJobs.load.mockRejectedValueOnce(new Error('keychain'));
+    await expect(t.a.finishSignOut()).resolves.toBeUndefined();
+    t.state.jobs = JSON.stringify([{ token: 't1', refreshToken: 'r1' }]);
+    t.signOutJobs.save.mockRejectedValue(new Error('keychain'));
+    await expect(t.a.finishSignOut()).resolves.toBeUndefined();
+  });
+
+  it('bez pamięci zadań albo bez klienta starej sesji: wylogowanie jak dotąd; sesja nieważna — bez zadania', async () => {
+    const { client, auth } = fakeClient(() => ({ data: null, error: { message: 'Failed to fetch' }, status: 0 }));
+    auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt', user: {} } } });
+    const pushToken = { load: async () => 'ab', save: async () => {} };
+    await expect(supabaseAccount(client, async () => ({ identityToken: null }), { pushToken }).signOut()).resolves.toBeUndefined();
+    await expect(supabaseAccount(client, async () => ({ identityToken: null })).finishSignOut()).resolves.toBeUndefined();
+    const t = setup();
+    t.setRpc({ data: null, error: null, status: 200 });
+    const jwt = fakeClient(() => ({ data: null, error: { message: 'JWT expired', code: 'PGRST301' }, status: 401 }));
+    jwt.auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt', user: {} } } });
+    const jobs = { load: jest.fn(async () => null), save: jest.fn(async () => {}) };
+    await supabaseAccount(jwt.client, async () => ({ identityToken: null }), { pushToken, signOutJobs: jobs, detached: t.detached }).signOut();
+    expect(jobs.save).not.toHaveBeenCalled();
+    // Bez sesji (brak tokenu odświeżania) — też bez zadania.
+    const none = fakeClient(() => ({ data: null, error: { message: 'Failed to fetch' }, status: 0 }));
+    await supabaseAccount(none.client, async () => ({ identityToken: null }), { pushToken, signOutJobs: jobs, detached: t.detached }).signOut();
+    expect(jobs.save).not.toHaveBeenCalled();
   });
 });
