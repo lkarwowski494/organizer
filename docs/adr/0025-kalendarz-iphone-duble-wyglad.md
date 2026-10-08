@@ -19,3 +19,12 @@ kwadraciki prawie w każdym dniu siatki) i dublują wpisy wprowadzone w aplikacj
   - Kolejne dni wydarzenia wielodniowego („cd.”) nigdy nie są dublami.
   - Dubel jest ukrywany na liście dnia (Moje sprawy, Kalendarz) i nie daje kropki w siatce.
 - Ryzyko: rzadko ukryje wydarzenie, które nie było dublem (ta sama godzina i wspólne słowo, np. „Basen”). Wtedy można wyłączyć… nic — ukrywanie nie ma wyłącznika. Otwarte pytanie: czy dać przełącznik „Ukrywaj duble” (decyzja produktowa, do właściciela, jeśli zdarzy się w praktyce).
+
+## Audyt 2 (8.10.2026): D173 zastępuje regułę wspólnego słowa (PW-25 A)
+- Dubel: wpis z iPhone'a ze znacznikiem Organizera w notatce (kopia z „Dodaj do kalendarza” albo z lustra) albo o tej
+  samej nazwie po ujednoliceniu (małe litery, bez polskich znaków, znaki inne niż litery i cyfry jako spacja) co wpis
+  aplikacji tego dnia, przy godzinie ±30 min albo obu bez godziny. „Urodziny Ani” przy „Urodziny babci” już nie znika,
+  a „Bal” i „WF” z obu źródeł są dublami. Odrzucone: ostrzejsza reguła słów (dalej fałszywe trafienia); bez zmian.
+- Pod listą dnia (Moje sprawy, Kalendarz) wiersz „Ukryto N dubli z iPhone’a” — dotknięcie pokazuje ukryte (bez „Dodaj
+  do grupy”). `DUPLICATE_MIN_WORD` usunięty z `config.calendar`. Otwarte pytanie o przełącznik „Ukrywaj duble” — nieaktualne
+  (nic nie znika bez śladu).

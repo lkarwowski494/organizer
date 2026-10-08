@@ -16,8 +16,28 @@ export const buildNumber = () => Number(Application.nativeBuildVersion ?? Number
 export const appVersion = () => `${Application.nativeApplicationVersion ?? '?'} (${Application.nativeBuildVersion ?? '?'})`;
 
 const clip = (s: string | undefined | null, n: number) => (s == null ? null : s.slice(0, n));
-export function toClientError(e: unknown, kind: ClientError['kind'], screen: string | null, version: string): ClientError {
+/** Ramka stosu V8/Hermes: „at nazwa (plik:wiersz:kolumna)” albo „at plik:wiersz:kolumna”. */
+const FRAME = /^\s*at [\w$.<>[\] ]*(\([^()]*:\d+(:\d+)?\)|[^\s()]+:\d+(:\d+)?)$/;
+/** Kod błędu modułu natywnego (np. expo „E_CALENDAR_ERROR_UNKNOWN”) — tylko taki napis, bez treści. */
+const codeOf = (err: Error) => {
+  const c = (err as { code?: unknown }).code;
+  return typeof c === 'string' && /^[A-Za-z0-9_.-]{1,60}$/.test(c) ? c : null;
+};
+/**
+ * Zgłoszenie błędu. `opts.private` (audyt 2, M-159): błędy kalendarza iPhone'a i dojazdu mogą mieć w komunikacie nazwę
+ * kalendarza, tytuł wydarzenia albo adres — wysyłamy wtedy tylko nazwę i kod błędu oraz same ramki stosu (wiersze „at …”,
+ * bez pierwszego wiersza z komunikatem), zgodnie z polityką prywatności („nie dołącza treści”).
+ */
+export function toClientError(e: unknown, kind: ClientError['kind'], screen: string | null, version: string, opts: { private?: boolean } = {}): ClientError {
   const err = e instanceof Error ? e : new Error(String(e));
+  if (opts.private) {
+    const code = codeOf(err);
+    const frames = (err.stack ?? '')
+      .split('\n')
+      .filter((l) => FRAME.test(l) && !(err.message && l.includes(err.message)))
+      .join('\n');
+    return { kind, message: clip(code ? `${err.name} (${code})` : err.name, 500)!, stack: clip(frames || null, 4000), screen: clip(screen, 100), appVersion: version };
+  }
   return { kind, message: clip(`${err.name}: ${err.message}`, 500)!, stack: clip(err.stack, 4000), screen: clip(screen, 100), appVersion: version };
 }
 

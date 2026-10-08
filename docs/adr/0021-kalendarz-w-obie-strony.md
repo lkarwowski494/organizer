@@ -27,3 +27,33 @@ Wybór właściciela z listy kierunków: „Kalendarz w obie strony”.
    - Wszystkie liczby to wybory projektowe w `config.calendar`, bez źródła.
 4. **Konto dla nowych kalendarzy:** takie jak w kalendarzu domyślnym (zwykle iCloud). Dokumentacja expo-calendar nie mówi, czy na iOS konto jest wymagane, więc pierwszy błąd idzie do zgłoszeń (D80). Otwarte pytanie O-074: sprawdzić na iPhonie.
 5. **API:** klasy expo-calendar SDK 57 (`getCalendars`, `createCalendar`, `listEvents`, `ExpoCalendar.get`, `ExpoCalendarEvent.get`, `update`, `delete`), https://docs.expo.dev/versions/v57.0.0/sdk/calendar/.
+
+## Audyt 2 (8.10.2026): decyzje właściciela i wykonanie
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D172 (PW-5) | Co znika z telefonu przy wylogowaniu | Kalendarze „Organizer – …” tego telefonu (też przy usunięciu konta i zalogowaniu innego konta); baza aplikacji zostaje | Usuwać też bazę; pytać przy wylogowaniu |
+| D174 (PW-26) | Co trafia do lustra | Sprawy, które mnie dotyczą (reguła Moich spraw), lekcje dziecka jednym wpisem na dzień, wybór grup w Ustawieniach → Kalendarz i dojazd | Przełączniki lekcji; wszystko z lekcjami na końcu limitu |
+| PWD-2 | „Dodaj do kalendarza” przy lustrze | Zamiast przycisku „Jest w kalendarzu iPhone’a „Organizer – grupa””, gdy wystąpienie jest w lustrze | Przycisk z ostrzeżeniem |
+| D200 (PWD-33) | Wydarzenie z iPhone'a → grupa | „Dodaj do grupy” przy wierszu: formularz nowego wydarzenia (nazwa, dzień, godziny, miejsce, wybór grupy) z dopiskiem o kopii; oryginał ukrywa D173 | Do zaległości |
+
+Wykonanie (Claude; właściciel może zawetować):
+- **Kalendarze tego telefonu** (`pref.calendarMirrorOwned`, pęk kluczy): lista identyfikatorów kalendarzy lustra
+  utworzonych na tym telefonie dowolnym kontem. Usuwa je `removeMirrorCalendars` (wołane w `Root.tsx` przy braku sesji
+  i przy zmianie konta, jak czyszczenie przypomnień). `runMirror` usuwa kalendarz z listy, którego nie zna stan
+  zalogowanego konta (pozostałość po innym koncie albo reinstalacji), zamiast tworzyć drugi o tej samej nazwie.
+  Kalendarzy spoza listy (np. iPada z tym samym iCloud) nie usuwamy nigdy — odrzucone: usuwanie po nazwie „Organizer – ”
+  (przełączające się usuwanie między iPhone'em a iPadem) i przejmowanie po nazwie (dwa urządzenia pisałyby do jednego
+  kalendarza). Kalendarze „Organizer – …” spoza stanu konta nie są czytane jako „moje wydarzenia” (po nazwie).
+- **Nazwa i kolor kalendarza** nadążają za grupą (`ExpoCalendar.update` — modyfikowalne `title` i `color`, dokumentacja
+  SDK 57); stan pamięta zapisany wygląd (`looks`).
+- **Wpis lustra** ma miejsce wydarzenia i w notatce dopisek „Dodane przez aplikację Organizer” (D173). Lekcje dziecka:
+  nazwa jak w Moich sprawach („Kuba: 6 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce; wspólna lekcja
+  rodzeństwa w bloku każdego dziecka.
+- **Przebieg** zmiany w trakcie nie gubi (drugi przebieg po zakończeniu) i kończy się po bieżącym kroku przy nowszych
+  danych, wyłączeniu lustra albo wylogowaniu (stan zapisany po każdym kroku).
+- **Zgoda tylko na dodawanie** (iOS 17+, po „Dodaj do kalendarza”) to osobny stan `writeOnly` z „Połącz z kalendarzem”
+  (iOS pyta o pełny dostęp przy pierwszej takiej prośbie); odmowa — „Otwórz Ustawienia iPhone’a”. Ustawienia → Kalendarz
+  i dojazd zawsze mają sekcję kalendarza (po „Nie teraz” na karcie).
+- **Całodniowe** zapisujemy od północy telefonu (w podróży nie przesuwają się o dzień); z godziną — według Warszawy (R2),
+  koniec nigdy przed początkiem (godzina nieistniejąca wiosną). Zachowanie EventKit w innej strefie — do sprawdzenia na iPhonie.
+- **Błędy** kalendarza zgłaszamy bez komunikatu (tylko nazwa, kod i ramki stosu), bo mógłby zawierać nazwę kalendarza albo tytuł.
