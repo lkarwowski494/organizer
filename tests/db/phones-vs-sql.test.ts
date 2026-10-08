@@ -102,6 +102,40 @@ const cmdArb: fc.Arbitrary<Cmd> = fc.oneof(
   { weight: 1, arbitrary: fc.record({ t: fc.constant('role' as const), role: fc.constantFrom('member' as const, 'child' as const) }) },
 );
 
+/**
+ * Stały początek każdego przebiegu: sytuacje sprawdzane statystyką zachodzą zawsze, nie tylko przy szczęśliwym losowaniu
+ * (CI: losowe ciągi nie zawsze dawały resync). Bartek pobiera, Ala usuwa zadanie, nocne czyszczenie, Bartek pobiera ze
+ * starym kursorem (resync, M-1); dziecko próbuje dodać zadanie (forbidden:child); odrzucenie po powtórzonej paczce (M-56).
+ */
+const PREFIX: Cmd[] = [
+  { t: 'mutate', who: 'ala', op: { kind: 'create', entity: 'tasks', id: TASKS[0]!, group_id: G, set: { list_id: LIST, title: 'Śmieci' } } },
+  { t: 'push', who: 'ala', fate: 'ok' },
+  { t: 'pull', who: 'bartek', lim: 100, fate: 'ok' },
+  { t: 'mutate', who: 'ala', op: { kind: 'delete', entity: 'tasks', id: TASKS[0]! } },
+  { t: 'push', who: 'ala', fate: 'ok' },
+  { t: 'purge' },
+  { t: 'pull', who: 'bartek', lim: 1, fate: 'ok' },
+  { t: 'role', role: 'child' },
+  { t: 'mutate', who: 'bartek', op: { kind: 'create', entity: 'tasks', id: TASKS[1]!, group_id: G, set: { list_id: LIST, title: 'Kwiaty' } } },
+  { t: 'push', who: 'bartek', fate: 'ok' },
+  { t: 'role', role: 'member' },
+  { t: 'mutate', who: 'ala', op: { kind: 'patch', entity: 'tasks', id: TASKS[2]!, set: { title: 'nie ma' } } },
+  { t: 'push', who: 'ala', fate: 'twice' },
+];
+/** Stały koniec: pozycja zakupów, stały produkt i wydarzenie z wyjątkiem i uczestnikiem są w każdym przebiegu (statystyka encji). */
+const SUFFIX: Cmd[] = [
+  ...([
+    { kind: 'restore', entity: 'events', id: EVENTS[0]! },
+    { kind: 'create', entity: 'events', id: EVENTS[0]!, group_id: G, set: { title: 'Basen', start_date: '2026-10-12', start_time: '17:00', rrule: 'FREQ=WEEKLY;BYDAY=MO' } },
+    { kind: 'create', entity: 'event_overrides', id: OVERRIDE, group_id: G, set: { event_id: EVENTS[0]!, occurrence_date: '2026-10-19', cancelled: false } },
+    { kind: 'create', entity: 'event_participants', id: PARTICIPANT, group_id: G, set: { event_id: EVENTS[0]!, member_id: M.ala } },
+    { kind: 'restore', entity: 'tasks', id: ITEMS[0]! },
+    { kind: 'create', entity: 'tasks', id: ITEMS[0]!, group_id: G, set: { list_id: SHOP, title: 'Mleko' } },
+    { kind: 'cmd', cmd: 'staple_add', args: { list_id: SHOP, name: 'Chleb' } },
+  ] as NewOp[]).map((op): Cmd => ({ t: 'mutate', who: 'ala', op })),
+  { t: 'push', who: 'ala', fate: 'ok' },
+];
+
 /** Wiersze w porządku niezależnym od kolejności pobrania. */
 const sorted = (t: { [e: string]: { [k: string]: unknown } }) =>
   Object.fromEntries(Object.entries(t).filter(([, rows]) => Object.keys(rows).length > 0).sort(([a], [b]) => a.localeCompare(b))) as { [e: string]: { [k: string]: { [c: string]: unknown } } };
@@ -164,7 +198,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     // Statystyka przebiegów: test ma sens tylko wtedy, gdy losowe operacje naprawdę przechodzą (nie same odrzucenia).
     Object.assign(seen, { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0, purged: 0, resync: 0, child: 0, recalled: 0 });
     await fc.assert(
-      fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }), async (cmds) => {
+      fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }).map((c) => [...PREFIX, ...c, ...SUFFIX]), async (cmds) => {
         await db.query('begin');
         try {
           await as(null);
