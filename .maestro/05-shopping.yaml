@@ -1,5 +1,5 @@
 appId: io.github.lkarwowski494.organizer
-name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka
+name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytania, z „Cofnij”)
 ---
 - runFlow: common/launch.yaml
 - tapOn:
@@ -18,12 +18,8 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka
     element: "Włóż do koszyka: Ser żółty"
     direction: DOWN
     timeout: 10000
+# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
 - tapOn: "Włóż do koszyka: Ser żółty"
-# Okno systemowe z potwierdzeniem (Alert.alert): tytuł „Do koszyka?”, przycisk „Do koszyka”.
-- extendedWaitUntil:
-    visible: "Do koszyka?"
-    timeout: 5000
-- tapOn: "Do koszyka"
 - scrollUntilVisible:
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN
@@ -31,5 +27,10 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka
 # Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
 - extendedWaitUntil:
     visible: "Stan synchronizacji: Przed chwilą"
+    timeout: 15000
+# Pasek „W koszyku: … · Cofnij” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
     timeout: 15000
 - takeScreenshot: 05-shopping

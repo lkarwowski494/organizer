@@ -2,11 +2,14 @@
  * Przekazanie odpowiedzialności z potwierdzeniem (D70, decyzja właściciela z 7.10.2026, ADR 0013; migracja serwera
  * 20261008150000_handoffs). Do przyjęcia zadanie / wydarzenie zostaje u nadawcy; przyjęcie przenosi je na serwerze
  * w tej samej transakcji (telefon dostaje zmianę przy pobraniu), odrzucenie wraca do nadawcy jako informacja.
+ * Zadanie powtarzane przekazuje się jako obowiązek, nie jeden termin (decyzja właściciela z 8.10.2026; migracja
+ * 20261008330000_handoff_obligation): przekazanie dotyczy niezrobionych terminów łańcucha (`handoffSubjects`).
  */
 import type { NewOp, Row } from '../sync-engine/client';
 import { asEvent } from './event-rows';
 import { groupsView } from './index';
 import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
+import { nextId } from './task-repeat';
 import { memberCanSeeList } from './visibility';
 
 export type Handoff = {
@@ -34,10 +37,28 @@ export const asHandoff = (r: Row): Handoff => ({
   closed: r.closed === true,
 });
 
-export type HandoffItem = Handoff & { title: string; otherName: string; groupName: string; line: number };
+/** `subjects` — czego przekazanie dotyczy teraz (`handoffSubjects`). */
+export type HandoffItem = Handoff & { title: string; otherName: string; groupName: string; line: number; subjects: string[] };
 
 /** Klucz przedmiotu przekazania: zadanie, seria albo jeden termin. */
 export const handoffKey = (entity: string, entityId: string, occurrenceDate: string | null) => `${entity}|${entityId}|${occurrenceDate ?? ''}`;
+
+/**
+ * Czego przekazanie dotyczy teraz. Zadanie: niezrobione terminy łańcucha od przekazanego — ten i kolejne kopie (nextId) —
+ * tak jak przyjęcie na serwerze (private.handoffs_guard); zrobione zostają w historii nadawcy. Wydarzenie i zakupy: sam
+ * przedmiot, jeśli nie jest w koszu. Pusto — nie ma czego przyjmować (zrobione jednorazowe, w koszu, nieznane; audyt 2,
+ * T-5: „Przyjmij” przy zrobionym zadaniu przepisywało historię).
+ */
+export function handoffSubjects(t: Tables, h: Pick<Handoff, 'entity' | 'entity_id'>): string[] {
+  if (h.entity !== 'tasks') {
+    const raw = t[h.entity]?.[h.entity_id];
+    return raw && raw.deleted_at == null ? [h.entity_id] : [];
+  }
+  const out: string[] = [];
+  // Łańcuch kończy się na pierwszym id, którego nie ma; kolejne id wynika z poprzedniego, więc cyklu nie ma.
+  for (let id = h.entity_id, raw = t.tasks?.[id]; raw; id = nextId(id), raw = t.tasks?.[id]) if (raw.deleted_at == null && raw.completed_at == null) out.push(id);
+  return out;
+}
 
 function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boolean, other: (h: Handoff) => string): HandoffItem[] {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
@@ -49,24 +70,31 @@ function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boo
     // Nowe przekazanie przed wysłaniem nie ma nadawcy (ustawia go serwer) — to moje.
     const h = row.from_member === '' ? { ...row, from_member: g.me.member_id } : row;
     if (!pick(h, g.me.member_id)) continue;
-    const raw = t[h.entity]?.[h.entity_id];
+    const subjects = handoffSubjects(t, h);
+    const raw = t[h.entity]?.[subjects[0] ?? h.entity_id];
     // Zakupy (D73): tytuł to nazwa listy; ekran dopisuje „Zakupy:”.
     const title = !raw ? '' : h.entity === 'tasks' ? asTask(raw).title : h.entity === 'events' ? asEvent(raw).title : asList(raw).name;
-    out.push({ ...h, title, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line });
+    out.push({ ...h, title, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line, subjects });
   }
   return out.sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }
 
-/** Do potwierdzenia przeze mnie. */
-export const incomingHandoffs = (t: Tables, userId: string) => enrich(t, userId, (h, me) => h.to_member === me && h.status === 'pending', (h) => h.from_member);
+/**
+ * Do potwierdzenia przeze mnie — tylko, gdy jest co przyjąć (`handoffSubjects`). Przekazanie bez tego zostaje oczekujące:
+ * cofnięcie odhaczenia, przywrócenie z kosza albo następny termin przywracają je do skrzynki.
+ */
+export const incomingHandoffs = (t: Tables, userId: string) => enrich(t, userId, (h, me) => h.to_member === me && h.status === 'pending' && handoffSubjects(t, h).length > 0, (h) => h.from_member);
 
 /** Moje odrzucone, których jeszcze nie zamknąłem (informacja dla nadawcy). */
 export const declinedHandoffs = (t: Tables, userId: string) => enrich(t, userId, (h, me) => h.from_member === me && h.status === 'declined' && !h.closed, (h) => h.to_member);
 
-/** Moje oczekujące, po kluczu przedmiotu (do dopisku „czeka na przyjęcie”). */
+/**
+ * Moje oczekujące, po kluczu przedmiotu (do dopisku „czeka na przyjęcie”) — przy każdym terminie, którego dotyczą
+ * (zadanie powtarzane: także przy następnym, gdy przekazany już zrobiony).
+ */
 export function outgoingPending(t: Tables, userId: string): Map<string, HandoffItem> {
   const list = enrich(t, userId, (h, me) => h.from_member === me && h.status === 'pending', (h) => h.to_member);
-  return new Map(list.map((h) => [handoffKey(h.entity, h.entity_id, h.occurrence_date), h]));
+  return new Map(list.flatMap((h) => h.subjects.map((id) => [handoffKey(h.entity, id, h.occurrence_date), h] as const)));
 }
 
 /**

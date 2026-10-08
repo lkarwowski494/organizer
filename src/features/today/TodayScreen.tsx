@@ -145,19 +145,20 @@ export function TodayScreen() {
   const allDevice = useDeviceCalendar().days;
   const deviceOf = (d: (typeof view.days)[number]) =>
     withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
-  // D111: zaległe z własnym terminem jednym dotknięciem na dziś (z cofnięciem).
+  // D111: moje zaległe z własnym terminem i moje zaległe zakupy jednym dotknięciem na dziś (z cofnięciem); liczba spraw,
+  // nie operacji (audyt 2: T-11, P-56; które są moje — decyzja właściciela z 8.10.2026, overdue.ts).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
     const overdue = d.entries.flatMap((x) => (x.kind === 'overdue' ? [x.task] : []));
-    const { ops, undo: back } = moveOverdueOps(overdue, d.date, tables);
-    if (!ops.length) return null;
+    const { ops, undo: back, count } = moveOverdueOps(overdue, d.date, tables, groups);
+    if (!count) return null;
     return (
       <Button
         kind="secondary"
         testID="move-overdue"
-        label={strings['today.moveOverdue'](ops.length)}
+        label={strings['today.moveOverdue'](count)}
         onPress={() => {
           store.dispatch(ops);
-          undo.show(strings['today.movedOverdue'](ops.length), () => store.dispatch(back));
+          undo.show(strings['today.movedOverdue'](count), () => store.dispatch(back));
         }}
       />
     );

@@ -8,7 +8,10 @@ import { groupLines } from '../../config/theme';
 import { monthGrid } from '../month-grid';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
+import { parseIsoDate } from '../format';
+import { concernsMe, liveMembers, ownPrivateList } from './concerns';
 import { occurrenceResolver } from './event-rows';
+import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
 import { tripEntries } from './shopping-trip';
 import { memberCanSeeList } from './visibility';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
@@ -119,16 +122,16 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 
-export type ListItem = List & { line: number; groupName: string; open: number };
+/** Licznik listy liczy `listOpenCount` (zależy od dnia: ukryte do daty i minione — D61). */
+export type ListItem = List & { line: number; groupName: string };
 
 export function listsView(t: Tables, userId: string, groupId?: string): ListItem[] {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
-  const tasks = rows(t, 'tasks', asTask).filter((x) => alive(x) && x.completed_at === null);
   return rows(t, 'lists', asList)
     .filter((l) => alive(l) && groups.has(l.group_id) && (groupId === undefined || l.group_id === groupId))
     .map((l) => {
       const g = groups.get(l.group_id)!;
-      return { ...l, line: g.line, groupName: g.name, open: tasks.filter((x) => x.list_id === l.id).length };
+      return { ...l, line: g.line, groupName: g.name };
     })
     .sort((a, b) => groupOrder(groups, a.group_id) - groupOrder(groups, b.group_id) || a.sort_key.localeCompare(b.sort_key) || byName(a, b));
 }
@@ -137,76 +140,150 @@ function groupOrder(groups: Map<string, GroupItem>, id: string): number {
   return [...groups.keys()].indexOf(id);
 }
 
-/** `expired` — minęło bez odhaczenia (D61); na liście w sekcji zrobionych z dopiskiem. */
-export type TaskNode = Task & { due: Due; depth: number; children: TaskNode[]; assignee: string | null; expired: boolean };
+/**
+ * `expired` — minęło bez odhaczenia (D61); `closed` — zrobione albo minione (stoi w zamkniętych); `parentTitle` — rodzic
+ * podzadania, które stoi w otwartych, choć rodzic jest zamknięty (M-82). `depth` — prawdziwa głębokość w drzewie (D4).
+ */
+export type TaskNode = Task & { due: Due; depth: number; children: TaskNode[]; assignee: string | null; expired: boolean; closed: boolean; parentTitle: string | null };
 
-export type ListDetail = { list: ListItem; open: TaskNode[]; done: TaskNode[]; members: Member[] };
+/**
+ * Wiersz zamkniętych na ekranie listy: zadanie albo zwinięte minione kopie zadania powtarzanego (decyzja właściciela
+ * z 8.10.2026, audyt 2: PWD-14 A, M-283) — „12 razy minęło”, rozwijane. Zwijamy od dwóch minionych kopii jednego łańcucha
+ * (repeatHeads); `title` — z najnowszej kopii.
+ */
+export type DoneRow = { kind: 'task'; node: TaskNode } | { kind: 'run'; key: string; title: string; nodes: TaskNode[] };
+
+export type ListDetail = { list: ListItem; open: TaskNode[]; done: TaskNode[]; doneRows: DoneRow[]; members: Member[] };
+
+type ListState = { split: Split<Task>; due: (x: Task) => Due; expired: (x: Task) => boolean };
+
+/**
+ * Zadania listy na jej ekranie (list-tree.ts). Lista zadań: bez ukrytych do daty (start_date), zamknięte = zrobione albo
+ * minione (D61). Lista zakupów: pozycje bez terminów i ukrywania (D73), zamknięte = w koszyku (shoppingSplit).
+ */
+function listState(t: Tables, list: Pick<List, 'id' | 'kind'>, today: CivilDate): ListState {
+  const all = rows(t, 'tasks', asTask).filter((x) => alive(x) && x.list_id === list.id);
+  const byId = new Map(all.map((x) => [x.id, x]));
+  const occ = occurrenceResolver(t);
+  const due = (x: Task) => effectiveDue(x, byId, occ);
+  if (list.kind === 'shopping') return { split: shoppingSplit(t, list.id), due, expired: () => false };
+  const isoToday = formatIsoDate(today);
+  const expired = (x: Task) => isExpired(x, due(x), isoToday, byId);
+  const visible = all.filter((x) => isVisible(x, today));
+  return { split: splitList(visible, (x) => x.completed_at !== null || expired(x)), due, expired };
+}
+
+/**
+ * Licznik listy: „N otwarte”, a na liście zakupów „N do kupienia” (audyt 2, M-83, T-8, R-15) — tyle, ile wierszy stoi
+ * w otwartych na ekranie listy (listDetail), na ekranie List, w grupie i (zakupy) w Moich sprawach.
+ */
+export function listOpenCount(t: Tables, list: Pick<List, 'id' | 'kind'>, today: CivilDate): number {
+  return listState(t, list, today).split.open.length;
+}
 
 /**
  * Lista z drzewem zadań. Otwarte: przypięte (bez terminu) na górze, potem po terminie, potem sort_key
- * (compareByDue, D16). Zrobione osobno, razem z tymi, które minęły bez odhaczenia (D61) („W koszyku” na liście zakupów). Zadania z przyszłym start_date
- * są ukryte (D „przypnij za X dni”). Podzadania pod rodzicem, w tej samej kolejności.
+ * (compareByDue, D16). Zamknięte osobno: zrobione i te, które minęły bez odhaczenia (D61) („W koszyku” na liście
+ * zakupów). Zadania z przyszłym start_date („widoczne od”, funkcja bez UI — zob. visibleOnItsDay) są ukryte do tego dnia.
+ * Podzadania pod rodzicem, w tej samej kolejności, wszystkie (ekran zadania pokazuje je w całości); otwarte podzadanie
+ * zamkniętego rodzica stoi też w otwartych z dopiskiem rodzica (M-82) — ekran listy nie powtarza go w zamkniętych.
  */
 export function listDetail(t: Tables, userId: string, listId: string, today: CivilDate): ListDetail | null {
   const list = listsView(t, userId).find((l) => l.id === listId);
   if (!list) return null;
   const members = rows(t, 'group_members', asMember).filter((m) => alive(m) && m.group_id === list.group_id);
   const names = new Map(members.map((m) => [m.member_id, m.display_name]));
-  const all = rows(t, 'tasks', asTask).filter((x) => alive(x) && x.list_id === listId);
-  const byId = new Map(all.map((x) => [x.id, x]));
-  const occ = occurrenceResolver(t);
-  const isoToday = formatIsoDate(today);
+  const s = listState(t, list, today);
   const order = (a: TaskNode, b: TaskNode) => compareByDue(a.due, b.due) || a.sort_key.localeCompare(b.sort_key) || a.title.localeCompare(b.title, 'pl');
-  const build = (parent: string | null, depth: number, done: boolean): TaskNode[] =>
-    all
-      .filter((x) => x.parent_id === parent && (depth > 0 || (x.completed_at !== null || isExpired(x, effectiveDue(x, byId, occ), isoToday, byId)) === done) && isVisible(x, today))
-      .map((x) => ({
-        ...x,
-        due: effectiveDue(x, byId, occ),
-        expired: isExpired(x, effectiveDue(x, byId, occ), isoToday, byId),
-        depth,
-        assignee: x.assignee_member_id === null ? null : (names.get(x.assignee_member_id) ?? null),
-        children: depth < config.MAX_TASK_DEPTH ? build(x.id, depth + 1, done) : [],
-      }))
-      .sort(order);
+  const node = (x: Task, depth: number, parent: Task | null): TaskNode => {
+    const expired = s.expired(x);
+    return {
+      ...x,
+      due: s.due(x),
+      expired,
+      closed: x.completed_at !== null || expired,
+      parentTitle: parent?.title ?? null,
+      depth,
+      assignee: x.assignee_member_id === null ? null : (names.get(x.assignee_member_id) ?? null),
+      children: depth < config.MAX_TASK_DEPTH ? (s.split.children.get(x.id) ?? []).map((c) => node(c, depth + 1, null)).sort(order) : [],
+    };
+  };
+  const done = s.split.done.map((x) => node(x, 0, null)).sort(order);
+  const head = repeatHeads(t, list.id);
+  const runs = new Map<string, TaskNode[]>();
+  for (const n of done) if (n.expired) runs.set(head(n.id), [...(runs.get(head(n.id)) ?? []), n]);
+  const doneRows: DoneRow[] = [];
+  const shown = new Set<string>();
+  for (const n of done) {
+    const key = head(n.id);
+    const run = n.expired ? runs.get(key)! : [];
+    if (run.length < 2) doneRows.push({ kind: 'task', node: n });
+    else if (!shown.has(key)) {
+      shown.add(key);
+      doneRows.push({ kind: 'run', key, title: run.at(-1)!.title, nodes: run });
+    }
+  }
   // Audyt 2 (T-10, R-5): do wyboru osoby tylko ci, którzy widzą listę (serwer odrzuca innych); imiona — wszystkich.
-  return { list, open: build(null, 0, false), done: build(null, 0, true), members: members.filter((m) => memberCanSeeList(t, m.member_id, list.id)) };
+  return {
+    list,
+    open: s.split.open.map((r) => node(r.x, r.depth, r.parent)).sort(order),
+    done,
+    doneRows,
+    members: members.filter((m) => memberCanSeeList(t, m.member_id, list.id)),
+  };
 }
 
-/** `trip` — wpis zakupów z listy zakupów (D73, src/domain/views/shopping-trip.ts), nie zadanie. */
+/**
+ * `trip` — wpis zakupów z listy zakupów (D73, src/domain/views/shopping-trip.ts), nie zadanie. `assignee` — imię osoby
+ * zadania w Moich sprawach (ja albo dziecko bez konta); `null` — nikt konkretny.
+ */
 export type TodayItem = Task & { due: Due; line: number; groupName: string; listName: string; assignee: string | null; trip?: { listId: string; open: number } };
 export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: TodayItem[]; tomorrow: TodayItem[] };
 
 /**
- * Reguła „Moje sprawy” (D89; wcześniej „Dotyczy mnie”, ADR 0006, 0011): zadanie dotyczy mnie, gdy jest otwarte,
- * widoczne dziś (start_date) i: przypisane do mnie, albo nieprzypisane w mojej grupie osobistej, albo nieprzypisane
- * z terminem (każdy w grupie może je zrobić). Bez terminu (przypięte) — tylko moje i osobiste, żeby wspólne bez terminu
- * nie zalewały widoku. Ekran „Moje sprawy” układa dni z my-days.ts (D62); `todayView` niżej to dawny układ sekcji
- * zaległe / przypięte / dziś / jutro.
+ * Reguła „Moje sprawy” (D89; wcześniej „Dotyczy mnie”, ADR 0006, 0011): zadanie dotyczy mnie, gdy jest przypisane do mnie,
+ * albo nieprzypisane w mojej grupie osobistej, albo nieprzypisane z terminem (każdy w grupie może je zrobić). Bez terminu
+ * (przypięte) — tylko moje i osobiste, żeby wspólne bez terminu nie zalewały widoku. Osoba usunięta z grupy (albo która
+ * wyszła) to „nikt konkretny” (D132) — jej zadanie nie znika wszystkim. Zadanie dziecka bez konta (profil, D10) dotyczy
+ * każdego dorosłego tej grupy, który widzi listę — jak wydarzenie z dzieckiem-uczestnikiem (D58; decyzja właściciela
+ * z 8.10.2026, audyt 2: T-25, P-1). Warunki „otwarte”, „widoczne” i „nie minęło” sprawdza widok. Ekran „Moje sprawy”
+ * układa dni z my-days.ts (D62); `todayView` niżej to dawny układ sekcji zaległe / przypięte / dziś / jutro.
  */
-/** Zadanie dotyczy mnie (reguła „Moje sprawy” powyżej, bez warunku „otwarte”). */
-/** Żywi członkowie (bez usuniętych) — osoba usunięta z grupy to „nikt konkretny” (D132). */
-export function liveMemberIds(t: Tables): Set<string> {
-  return new Set(rows(t, 'group_members', asMember).filter(alive).map((m) => m.member_id));
+export { liveMembers };
+
+/** Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). */
+export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>): boolean {
+  const a = x.assignee_member_id === null ? undefined : live.get(x.assignee_member_id);
+  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return g.me.role !== 'child' && memberCanSeeList(t, g.me.member_id, x.list_id);
+  return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g));
 }
 
-/** D132: zadanie osoby usuniętej z grupy (albo która wyszła) wraca do reguł nieprzypisanego — nie znika wszystkim. */
-export function concernsMeTask(x: Task, g: GroupItem, due: Due, live: ReadonlySet<string>): boolean {
-  const assignee = x.assignee_member_id !== null && live.has(x.assignee_member_id) ? x.assignee_member_id : null;
-  return assignee === g.me.member_id || (assignee === null && (g.kind === 'personal' || due !== null));
+/** Imię osoby zadania (żywej; usunięta z grupy — nikt, D132). */
+export const assigneeName = (x: Pick<Task, 'assignee_member_id'>, live: ReadonlyMap<string, Member>) => (x.assignee_member_id === null ? null : (live.get(x.assignee_member_id)?.display_name ?? null));
+
+/**
+ * start_date („widoczne od”, D „przypnij za X dni”) — bez UI: żaden ekran go nie ustawia, logika czeka na tę funkcję.
+ * Przypięte i zaległe liczą się względem dziś, zadanie z terminem — względem dnia, w którym stoi (audyt 2, T-23).
+ */
+export function visibleOnItsDay(x: Pick<Task, 'start_date'>, due: Due, today: CivilDate): boolean {
+  return isVisible(x, due === null || due.date < formatIsoDate(today) ? today : parseIsoDate(due.date));
 }
 
-type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id'>;
+type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id' | 'completed_at'>;
 
 /**
  * Niezrobione zadanie po terminie mija zamiast przechodzić dalej (D61): „Tylko tego dnia” albo termin spotkania
  * (D13 — po spotkaniu przepada, jak decyzja właściciela z 7.10.2026). Pozostałe zaległe przechodzą na dziś.
  * O tym decyduje zadanie, od którego pochodzi termin: podzadanie z dziedziczonym terminem mija razem z rodzicem
  * (audyt 8.10.2026 — wcześniej zostawało samo jako zaległe). Zadanie podpięte do spotkania, ale z własnym terminem,
- * przechodzi dalej jak każde inne.
+ * przechodzi dalej jak każde inne. Podzadanie zrobionego zadania (odhaczonego z „Zostaw podzadania”) też mija po swoim
+ * terminie — następny termin zadania powtarzanego ma własne kopie podzadań (decyzja właściciela z 8.10.2026; audyt 2,
+ * T-13: wcześniej wisiało jako zaległe bez końca).
  */
-export function isExpired(x: ExpiryTerms & Pick<Task, 'completed_at'>, due: Due, isoToday: string, byId: ReadonlyMap<string, ExpiryTerms> = new Map()): boolean {
+export function isExpired(x: ExpiryTerms, due: Due, isoToday: string, byId: ReadonlyMap<string, ExpiryTerms> = new Map()): boolean {
   if (x.completed_at !== null || due === null || due.date >= isoToday) return false;
+  // Ograniczenie kroków jak w effectiveDue (uszkodzone dane lokalne, np. cykl).
+  for (let p = byId.get(x.parent_id ?? ''), step = 0; p && step < 8; p = byId.get(p.parent_id ?? ''), step++) if (p.completed_at !== null) return true;
   let source: ExpiryTerms = x;
   // Termin jest (due ≠ null), więc łańcuch „inherit” kończy się zadaniem z własnym terminem albo spotkaniem — effectiveDue
   // przeszedł go tą samą mapą. Ograniczenie kroków jak tam (uszkodzone dane lokalne).
@@ -220,7 +297,7 @@ export function isExpired(x: ExpiryTerms & Pick<Task, 'completed_at'>, due: Due,
 export function todayView(t: Tables, userId: string, today: CivilDate): TodayView {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
-  const live = liveMemberIds(t);
+  const live = liveMembers(t);
   const all = rows(t, 'tasks', asTask).filter(alive);
   const byId = new Map(all.map((x) => [x.id, x]));
   const occ = occurrenceResolver(t);
@@ -230,19 +307,10 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
-    if (!g || !l || l.kind === 'shopping' || x.completed_at !== null || !isVisible(x, today)) continue;
-    const mine = x.assignee_member_id === g.me.member_id;
+    if (!g || !l || l.kind === 'shopping' || x.completed_at !== null) continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(x, g, due, live) || isExpired(x, due, isoToday, byId)) continue;
-    const item: TodayItem = {
-      ...x,
-      due,
-      line: g.line,
-      groupName: g.name,
-      listName: l.name,
-      // W widoku są tylko zadania moje albo nieprzypisane, więc przypisana osoba to zawsze ja.
-      assignee: mine ? g.me.display_name : null,
-    };
+    if (!concernsMeTask(t, x, g, due, live, l) || !visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
+    const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (due === null) out.pinned.push(item);
     else if (due.date < isoToday) out.overdue.push(item);
     else if (due.date === isoToday) out.today.push(item);
@@ -272,7 +340,8 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const l = lists.get(x.list_id);
     const due = effectiveDue(x, byId, occ);
     // D135: Kalendarz = co było zaplanowane — także zrobione (przekreślone) i minione, w dniu swojego terminu.
-    if (!g || !l || l.kind === 'shopping' || due === null) continue;
+    // Niezrobione „widoczne od” późniejszego dnia (start_date) w dniu terminu jeszcze nie stoi — jak w Moich sprawach.
+    if (!g || !l || l.kind === 'shopping' || due === null || (x.completed_at === null && !isVisible(x, parseIsoDate(due.date)))) continue;
     const list = byDate.get(due.date) ?? [];
     list.push({ ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null });
     byDate.set(due.date, list);

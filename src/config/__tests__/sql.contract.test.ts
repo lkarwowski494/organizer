@@ -5,6 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { config } from '../index';
 import { SHOPPING_CATEGORIES } from '../shopping.pl';
@@ -56,6 +57,17 @@ describe('src/config zgodny z SQL', () => {
     expect(sql).toContain(`left(trim(p_message), ${config.feedback.MAX_LENGTH})`);
   });
 
+  it.each([
+    ['groups', 'name', config.lengths.GROUP_NAME],
+    ['lists', 'name', config.lengths.LIST_NAME],
+    ['tasks', 'title', config.lengths.TASK_TITLE],
+  ])('najdłuższa wartość public.%s.%s w SQL = config.lengths (audyt 2, M-228)', (table, column, max) => {
+    const block = new RegExp(`create table public\\.${table} \\(([\\s\\S]*?)\\n\\);`, 'i').exec(sql)?.[1] ?? '';
+    expect(block).toContain(`${column} text not null check (char_length(${column}) between 1 and ${max})`);
+    // Żadna późniejsza migracja nie zmienia tego ograniczenia.
+    expect(sql).not.toMatch(new RegExp(`alter table public\\.${table}\\b[^;]*char_length\\(${column}\\)`, 'i'));
+  });
+
   it('najdłuższe imię w SQL = config.profile.NAME_MAX_LENGTH (D100)', () => {
     expect(sql).toContain(`char_length(display_name) between 1 and ${config.profile.NAME_MAX_LENGTH}`);
     expect(sql).toContain(`char_length(display_name) <= ${config.profile.NAME_MAX_LENGTH}`);
@@ -78,6 +90,13 @@ describe('src/config zgodny z SQL', () => {
 
   it('dziennik push trzyma wpisy dłużej niż okno powiadomień (D82)', () => {
     expect(sqlConstant('push_log_retention_days') * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
+  });
+
+  it('id następnego terminu zadania w SQL = nextId() na telefonie (przyjęcie przekazania łańcucha, PW-31)', () => {
+    const found = [...sql.matchAll(/function private\.next_task_id\(id uuid\)[^$]*\$\$\s*select private\.uuid_v5\('([0-9a-f-]{36})'::uuid, id::text \|\| '\|next'\)/gi)].map((m) => m[1]);
+    expect(found.at(-1)).toBe(REPEAT_NAMESPACE);
+    // Ten sam wektor co pgTAP handoff_obligation (4), policzony niezależnie: Python uuid.uuid5.
+    expect(nextId('77770000-0000-7000-8000-0000000004e1')).toBe('d81b13c9-e6b0-5fc0-82a2-97229c6595bc');
   });
 
   it('brak definicji zgłaszany wprost', () => {

@@ -8,6 +8,7 @@ import { Text } from 'react-native';
 
 import { useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
+import { config } from '../../config';
 import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-link';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Title } from '../../ui/components';
@@ -66,7 +67,7 @@ export function InviteScreen({ route, navigation }: Props) {
           <Field label={strings['invite.paste']} value={paste} onChangeText={onPaste} autoCapitalize="none" autoCorrect={false} multiline testID="invite-input" />
         </>
       )}
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} testID="invite-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="invite-name" />
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
       <Button label={strings['invite.accept']} onPress={accept} disabled={busy || me.trim() === '' || !ready} testID="invite-accept" />
     </Screen>

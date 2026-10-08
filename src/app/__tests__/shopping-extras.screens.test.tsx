@@ -41,30 +41,34 @@ describe('działy', () => {
 
   it('dotknięcie pozycji: wybór działu wysyła zmianę i przenosi pozycję; pamięć grupy działa na nową pozycję', async () => {
     const { store } = await openList();
-    await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
-    expect(screen.getByTestId('category-picker')).toBeTruthy();
-    expect(screen.getByTestId('category-hygiene').props.accessibilityState.selected).toBe(true);
-    await press(screen.getByTestId('category-household'));
+    await press(screen.getByLabelText(/^Zmień pozycję: Mydło(,|$)/));
+    // Audyt 2 (M-238): dział to wybór jednej opcji (radio w grupie „Dział”), jak inne takie wybory.
+    const picker = screen.getByTestId('item-panel');
+    expect(within(picker).getByLabelText('Dział').props.accessibilityRole).toBe('radiogroup');
+    expect(within(picker).getAllByRole('radio')).toHaveLength(13);
+    expect(within(picker).getByRole('radio', { name: 'Higiena i kosmetyki' }).props.accessibilityState.selected).toBe(true);
+    expect(within(picker).getByRole('radio', { name: 'Chemia i dom' }).props.accessibilityState.selected).toBe(false);
+    await press(within(picker).getByRole('radio', { name: 'Chemia i dom' }));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-mydlo', set: { category: 'household' } });
     expect(within(screen.getByTestId('section-household')).getByText('Mydło')).toBeTruthy();
-    expect(screen.queryByTestId('category-picker')).toBeNull();
+    expect(screen.queryByTestId('item-panel')).toBeNull();
     // Druga pozycja o tej samej nazwie trafia od razu do zapamiętanego działu.
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'mydło');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
-    // Ponowne dotknięcie zamyka panel; „Anuluj” też.
-    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
-    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
-    expect(screen.queryByTestId('category-picker')).toBeNull();
-    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
-    await press(screen.getByText('Anuluj'));
-    expect(screen.queryByTestId('category-picker')).toBeNull();
+    // Ponowne dotknięcie zamyka panel; „Gotowe” też.
+    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    expect(screen.queryByTestId('item-panel')).toBeNull();
+    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    await press(within(screen.getByTestId('item-panel')).getByText('Gotowe'));
+    expect(screen.queryByTestId('item-panel')).toBeNull();
   });
 
   it('dziecko nie zmienia działów ani stałych', async () => {
     const b = base((x) => put(x, 'group_members', 'mf', { ...x.group_members!.mf!, role: 'child' }));
     await openList(b);
-    expect(screen.queryByLabelText(/^Zmień dział: Mydło(,|$)/)).toBeNull();
+    expect(screen.queryByLabelText(/^Zmień pozycję: Mydło(,|$)/)).toBeNull();
     expect(screen.queryByTestId('staples')).toBeNull();
   });
 });
@@ -92,11 +96,12 @@ describe('stałe zakupy', () => {
     expect(screen.getByText('Nie masz jeszcze stałych zakupów.')).toBeTruthy();
     await press(screen.getByTestId('staple-save'));
     expect(screen.getByText('Wpisz nazwę.')).toBeTruthy();
-    await fireEvent.changeText(screen.getByTestId('staple-name'), 'Mleko 2');
+    await fireEvent.changeText(screen.getByTestId('staple-name'), 'Jajka 10');
     expect(screen.queryByText('Wpisz nazwę.')).toBeNull();
     await press(screen.getByTestId('staple-save'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['Mleko 2'] } });
-    await fireEvent.changeText(screen.getByTestId('staple-name'), 'mleko');
+    // Stała bez ilości (decyzja właściciela z 8.10.2026, PWD-19 A).
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Jajka' } });
+    await fireEvent.changeText(screen.getByTestId('staple-name'), 'jajka');
     await fireEvent(screen.getByTestId('staple-name'), 'submitEditing');
     expect(screen.getByText('Ta pozycja już jest na liście stałych.')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('staple-name'), 'x'.repeat(201));
@@ -104,15 +109,19 @@ describe('stałe zakupy', () => {
     expect(screen.getByText('Za długa nazwa (najwyżej 200 znaków).')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('staple-name'), 'Mydło');
     await press(screen.getByTestId('staple-save'));
+    await fireEvent.changeText(screen.getByTestId('staple-name'), 'Mleko');
+    await press(screen.getByTestId('staple-save'));
     await press(screen.getByTestId('staples-done'));
-    expect(within(card()).getByText('Mleko 2, Mydło')).toBeTruthy();
-    // Mydło już czeka na liście — brakuje tylko mleka.
+    expect(within(card()).getByText('Jajka, Mydło, Mleko')).toBeTruthy();
+    // Mydło czeka na liście, mleko jest w koszyku (PWD-19 A: też „już na liście”) — brakuje tylko jajek.
+    expect(screen.getByTestId('staples-add').props.accessibilityLabel).toBe('Dodaj stałe (1)');
     await press(screen.getByTestId('staples-add'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'Mleko 2' } });
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'Jajka' } });
     expect(within(card()).getByText('Wszystkie stałe zakupy są już na liście.')).toBeTruthy();
     await press(screen.getByTestId('staples-edit'));
     await press(screen.getByLabelText('Usuń ze stałych: Mydło'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['Mleko 2'] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
+    expect(screen.queryByLabelText('Usuń ze stałych: Mydło')).toBeNull();
   });
 
   it('pełna lista stałych: komunikat z limitem', async () => {
@@ -125,11 +134,11 @@ describe('stałe zakupy', () => {
 
   it('z panelu pozycji: „Dodaj do stałych” i „Usuń ze stałych”', async () => {
     const { store } = await openList(base((x) => put(x, 'lists', 'lz', { ...x.lists!.lz!, staples: ['Mydło'] })));
-    await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
+    await press(screen.getByLabelText(/^Zmień pozycję: Mydło(,|$)/));
     await press(screen.getByText('Usuń ze stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: [] } });
-    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
+    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
     await press(screen.getByText('Dodaj do stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['2 kg jabłek'] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'jabłek' } });
   });
 });

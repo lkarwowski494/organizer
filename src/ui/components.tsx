@@ -7,6 +7,7 @@ import { type ReactNode, useRef, useState } from 'react';
 import { Dimensions, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { config } from '../config';
 import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from './theme';
@@ -240,6 +241,16 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
   );
 }
 
+/**
+ * Limit długości (audyt 2, M-228): `maxLength` z src/config (zgodny z SQL) — pole nie przyjmie więcej znaków
+ * (https://reactnative.dev/docs/0.86/textinput#maxlength), a przy limicie mówi o tym zamiast odrzucenia po synchronizacji.
+ */
+function LengthNote({ value, max }: { value: string | undefined; max: number | undefined }) {
+  const { c, font, size } = useTheme();
+  if (max === undefined || (value ?? '').length < max) return null;
+  return <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['common.maxLength'](max)}</Text>;
+}
+
 export function Field({ label, ...input }: TextInputProps & { label: string }) {
   const { c, font, size } = useTheme();
   return (
@@ -251,11 +262,15 @@ export function Field({ label, ...input }: TextInputProps & { label: string }) {
         style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 12, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
         {...input}
       />
+      <LengthNote value={input.value} max={input.maxLength} />
     </View>
   );
 }
 
-/** Pole szybkiego dodawania (D18): biała pigułka z okrągłym przyciskiem „Dodaj” w kolorze akcentu (D72). */
+/**
+ * Pole szybkiego dodawania (D18): biała pigułka z okrągłym przyciskiem „Dodaj” w kolorze akcentu (D72). Tytuł zadania
+ * i pozycji zakupów ma limit z SQL (config.lengths.TASK_TITLE; audyt 2, M-228).
+ */
 export function QuickAddField({ value, onChangeText, onSubmit, placeholder, children }: { value: string; onChangeText: (s: string) => void; onSubmit: () => void; placeholder: string; children?: ReactNode }) {
   const { c, font, size } = useTheme();
   // D102: po dodaniu klawiatura znika (także po „+”, nie tylko po klawiszu zatwierdzenia).
@@ -275,6 +290,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
           returnKeyType="done"
           placeholder={placeholder}
           placeholderTextColor={c.inkMuted}
+          maxLength={config.lengths.TASK_TITLE}
           style={{ flex: 1, color: c.ink, fontFamily: font.text400, fontSize: size.BODY, minHeight: size.TOUCH_TARGET }}
         />
         <Pressable
@@ -286,6 +302,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
           <Text style={{ color: c.inverseInk, fontSize: 24, lineHeight: 26, fontFamily: font.text700 }}>+</Text>
         </Pressable>
       </View>
+      <LengthNote value={value} max={config.lengths.TASK_TITLE} />
       {children}
     </View>
   );
