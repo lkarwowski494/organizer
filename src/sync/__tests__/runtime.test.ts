@@ -268,4 +268,68 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(errorKind(new Error('x'))).toBe('network');
     expect(new TransportError('auth', 'm')).toMatchObject({ name: 'TransportError', message: 'm', kind: 'auth' });
   });
+
+  it('M-55: odpowiedź, która przyszła po stop() („Wyczyść dane”), nie trafia do bazy ani do stanu', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const tr: SyncTransport = { ...real, pull: async (c, l) => (await gate, real.pull(c, l)), push: async (r) => (await gate, real.push(r)) };
+    const writes: unknown[] = [];
+    const { rt, flush } = harness(tr, { persist: (_p, nx) => writes.push(nx) });
+    rt.start();
+    await flush();
+    expect(rt.getSnapshot().indicator.state).toBe('syncing');
+    rt.stop();
+    release();
+    await flush();
+    expect(writes).toEqual([]);
+    expect(rt.getSnapshot().state.cursors).toEqual({});
+    // Wysyłka w locie przy stop(): to samo.
+    const b = harness({ ...real, push: async (r) => (await new Promise((res) => setImmediate(res)), real.push(r)) }, { persist: (_p, nx) => writes.push(nx) });
+    b.rt.event({ t: 'network', online: false });
+    b.rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    writes.length = 0;
+    b.rt.event({ t: 'network', online: true });
+    b.rt.stop();
+    await b.flush();
+    expect(writes).toEqual([]);
+    expect(b.rt.getSnapshot().state.ackedSeq).toBe(0);
+  });
+
+  it('M-53: nieudane pobranie udostępnionej listy ponawia się przy następnym pobraniu', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let fail = true;
+    const tr: SyncTransport = { ...real, fetchScope: (id) => (fail ? Promise.reject(new TypeError('Network request failed')) : real.fetchScope(id)) };
+    const { rt, flush, advance } = harness(tr);
+    rt.start();
+    await flush();
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'ukryta', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } });
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    expect(rt.getSnapshot().state.scopesToFetch).toEqual(['ukryta']);
+    expect(rt.getSnapshot().indicator).toMatchObject({ state: 'error', error: 'network' });
+    fail = false;
+    await advance(config.sync.BACKOFF_MAX_MS);
+    expect(rt.getSnapshot().state.scopesToFetch).toEqual([]);
+    expect(rt.getSnapshot().state.scopes).toEqual(['ukryta']);
+  });
+
+  it('M-178: odświeżenie po operacji serwerowej pobiera od razu, mimo przerwy po błędzie sieci', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let down = true;
+    const tr: SyncTransport = { ...real, pull: (c, l) => (down ? Promise.reject(new TypeError('Network request failed')) : real.pull(c, l)) };
+    const { rt, flush, advance } = harness(tr);
+    rt.start();
+    await flush();
+    await advance(1000); // druga nieudana próba → przerwa 2 s
+    down = false;
+    rt.event({ t: 'refresh' });
+    await flush();
+    expect(rt.getSnapshot().indicator.state).toBe('synced');
+  });
 });

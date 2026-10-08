@@ -1,4 +1,4 @@
--- Przekazanie jednego terminu serii (migracja 20261008396000_join_handoff_fixes): „nikt konkretny” w terminie
+-- Przekazanie jednego terminu serii (migracja 20261008486000_join_handoff_fixes): „nikt konkretny” w terminie
 -- (responsible_cleared) i wyjątek z identyfikatorem jak na telefonie przy przyjęciu.
 begin;
 select plan(7);

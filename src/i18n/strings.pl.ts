@@ -145,6 +145,11 @@ export const strings = {
   'reset.offline': 'Najpierw połącz się z internetem — bez niego telefon zostałby pusty, dopóki sieć nie wróci.',
   // Audyt 2 (M-57): ta wersja nie pobierze już danych z serwera — po wyczyszczeniu telefon zostałby pusty.
   'reset.upgrade': 'Najpierw zaktualizuj aplikację — ta wersja nie pobierze już danych z serwera, więc telefon zostałby pusty.',
+  // Audyt 2, M-177: baza zapisana przez nowszą wersję aplikacji (powrót do starszego buildu).
+  'newer.title': 'Dane z nowszej wersji',
+  'newer.info': 'Dane na tym iPhonie zapisała nowsza wersja aplikacji i ta wersja nie umie ich odczytać. Zainstaluj najnowszą wersję z TestFlight albo wyczyść dane na telefonie i pobierz je od nowa z serwera — przepadną tylko zmiany, które nie zostały jeszcze wysłane.',
+  // Audyt 2, M-9: sesja wygasła i nie dała się odświeżyć.
+  'auth.expiredInfo': 'Sesja wygasła. Zaloguj się ponownie tym samym kontem — zmiany, które czekają na wysłanie, zostaną na telefonie i wyjdą po zalogowaniu.',
   'travel.mode.driving': 'autem',
   'travel.mode.transit': 'komunikacją',
   'travel.mode.walking': 'pieszo',
@@ -216,6 +221,8 @@ export const strings = {
   'timetable.empty': 'Dodaj co najmniej jedną lekcję.',
   // D127: lekcje dziecka jednym wierszem w Moich sprawach.
   'lessons.title': (name: string, n: number) => `${name}: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
+  // Audyt 2 (N-38): moje lekcje (dziecko z kontem) — jak u dorosłych, bez imienia.
+  'lessons.mine': (n: number) => `${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
   'lessons.show': 'dotknij, by zobaczyć lekcje',
   'lessons.hide': 'dotknij, by zwinąć',
   'timetable.error.title': 'Wpisz nazwę lekcji.',
@@ -493,6 +500,8 @@ export const strings = {
   'groups.leaveConfirm': (days: number) =>
     `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie.`,
   'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
+  // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
+  'groups.childCannotLeave': 'Z tej grupy wypisuje Cię właściciel albo admin.',
   'groups.lists': 'Listy grupy',
   'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
@@ -541,6 +550,16 @@ export const strings = {
   'member.makeOwnerYes': 'Przekaż',
   // Audyt 2 (R-33): po przekazaniu czekamy na pobranie, żeby ekran grupy nie pokazywał już opcji właściciela.
   'member.transferPending': 'Przekazano. Pobieram zmiany…',
+  // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko dostaje konto przez połączenie profilu (plan lekcji i zadania zostają).
+  'member.link': 'Połącz z kontem dziecka',
+  'member.linkAbout': (name: string) => `${name} może mieć własną aplikację: zobaczy swoje sprawy i wydarzenia, odhaczy zadania i odpowie o obecności. Plan lekcji, zadania i obecność zostaną przy nim.`,
+  'member.linkReady': 'Kod dla konta dziecka',
+  'member.linkFor': (name: string) => `Połączy konto z profilem: ${name}`,
+  'member.linkInfo': (until: string) => `Ważny do: ${until}. Działa raz. Na telefonie dziecka: zaloguj się przez Apple, potem Grupy → „Dołącz do grupy” i wpisz ID grupy z kodem.`,
+  'member.linkMessage': (name: string, group: string, url: string | null, id: string, code: string, until: string, app: string | null) =>
+    `Kod do połączenia konta z profilem „${name}” w grupie „${group}” w Organizerze.\n\n${app ? `Nie masz jeszcze aplikacji? Zainstaluj ją przez TestFlight: ${app}\n\n` : ''}Zaloguj się w aplikacji przez Apple. ${url ? `Potem dotknij linku: ${url}\n\nAlbo` : 'Potem'}: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until}, działa raz)`,
+  'member.hasAccount': 'ma własne konto',
+  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania i odpowiada o obecności za siebie. Z grupy wypisuje je właściciel albo admin.',
 
   'invite.title': 'Zaproszenie do grupy',
   'invite.body': 'Wpisz ID grupy i kod z zaproszenia albo wklej całą wiadomość.',
@@ -551,6 +570,8 @@ export const strings = {
   'invite.usedUp': 'Z tego kodu skorzystała już największa dozwolona liczba osób. Poproś o nowe zaproszenie.',
   // Decyzja właściciela z 8.10.2026 (audyt 2, PW-6 A): osoba usunięta z grupy wraca tylko z zaproszenia wystawionego po usunięciu.
   'invite.removed': 'Usunięto Cię z tej grupy. Wrócić możesz tylko z nowym zaproszeniem — poproś o nie właściciela albo admina grupy.',
+  // PW-14 B: kod profilu dziecka wpisany na koncie, które jest (albo było) w tej grupie — np. na telefonie rodzica.
+  'invite.childAccount': 'Ten kod łączy profil dziecka z kontem dziecka, a to konto jest albo było już w tej grupie. Wpisz kod na telefonie dziecka, zalogowanym na jego konto.',
   // D140 odwrócona (8.10.2026): limit prób tylko na konto; kod po zbyt wielu cudzych błędnych próbach jest unieważniany.
   'invite.rateLimited': 'Za dużo nieudanych prób z tego konta. Spróbuj ponownie za godzinę.',
   'invite.paste': 'Wklej wiadomość albo link (opcjonalnie)',

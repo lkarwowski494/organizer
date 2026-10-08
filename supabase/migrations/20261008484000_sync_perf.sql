@@ -1,7 +1,7 @@
 -- Audyt 2, paczka P16: wydajność i kolejność blokad synchronizacji. Testy: supabase/tests/sync_perf.test.sql,
 -- tests/db/concurrency.test.ts (zakleszczenie), dotychczasowe testy protokołu (sync, sync_protocol_v2, tests/db).
 --  M-181 group_rows_since bez kwadratowego kosztu;
---  M-73  „scopes” w sync_pull tylko z moich grup (indeksy: migracja 20261008390000_retention);
+--  M-73  „scopes” w sync_pull tylko z moich grup (indeksy: migracja 20261008480000_retention);
 --  M-192 sync_push blokuje grupy paczki na początku, posortowane po id.
 -- Zastępuje: private.group_rows_since (20261008270000), public.sync_pull i public.sync_push (20261008310000 — poza zmianami
 -- opisanymi przy nich bez zmian).

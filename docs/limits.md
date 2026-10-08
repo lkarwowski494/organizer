@@ -21,7 +21,7 @@ Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
 
 ## Limity na konto i retencja (audyt 2, D183, D184, 8.10.2026)
 Żeby jedno konto nie zapełniło bazy Free ani nie wyczerpało Realtime i Edge Functions, serwer egzekwuje twarde limity
-(`config.quotas`, test kontraktowy z `private.max_*()`; migracja `20261008392000_quotas.sql`): 50 grup wspólnych (także
+(`config.quotas`, test kontraktowy z `private.max_*()`; migracja `20261008482000_quotas.sql`): 50 grup wspólnych (także
 w koszu), 20 aktywnych zaproszeń na grupę, 10 tokenów push (nadmiarowy najstarszy wypada), 20 instalacji (jw.),
 120 wywołań `sync_push` na minutę, 120 próśb o powiadomienie na godzinę. Wartości to wybory projektowe z zapasem nad zwykłym
 użyciem, bez źródła zewnętrznego. Codzienne sprzątanie (`call private.run_daily_maintenance()`, pg_cron 03:17 UTC) trzyma

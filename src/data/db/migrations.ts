@@ -59,9 +59,25 @@ create table sync_state (
   // migracji czyści pobranie od zera (onPullResponse, audyt 2, M-176). Nowa encja nie potrzebuje już takiego kroku:
   // telefon sam pobiera wszystko od zera, gdy kursory jej nie obejmują (ClientState.entities, M-58).
   { version: 5, sql: `${V5_TABLES.map(mirror).join('\n')}\ndelete from sync_state where key = 'cursors';` },
+  // Porcje grupy pobieranej w całości (ClientState.staged, audyt 2, P2): czekają tu do ostatniej porcji, ekran widzi
+  // dotychczasowe wiersze. Osobna tabela, bo tabele lustrzane są tym, co widać.
+  {
+    version: 6,
+    sql: `
+create table staged_rows (
+  group_id text not null,
+  entity text not null,
+  key text not null,
+  data text not null,
+  primary key (group_id, entity, key)
+);`,
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
+
+/** Błąd `migrate` dla bazy z nowszej wersji aplikacji (audyt 2, M-177) — korzeń pokazuje wtedy wyjaśnienie zamiast awarii. */
+export const isNewerSchema = (e: unknown): boolean => e instanceof Error && e.message.startsWith('local_schema_newer:');
 
 export function migrate(db: DbAdapter): number {
   const [{ user_version: current }] = db.all<{ user_version: number }>('pragma user_version') as [{ user_version: number }];

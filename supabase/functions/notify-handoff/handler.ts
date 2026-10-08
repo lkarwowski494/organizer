@@ -60,7 +60,7 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
 
   const rpc = (name: string, args: object) =>
     fetchFn(`${url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { authorization: `Bearer ${secret}`, apikey: secret, 'content-type': 'application/json' }, body: JSON.stringify(args) });
-  // Starsza baza (bez migracji 20261008392000) nie zna licznika — 404; wtedy bez limitu, jak dotąd.
+  // Starsza baza (bez migracji 20261008482000) nie zna licznika — 404; wtedy bez limitu, jak dotąd.
   const rate = await rpc('notify_rate_hit', { p_user: user.id });
   if (rate.ok && (await rate.json()) === false) return json(429, { error: 'rate_limited' });
   const claimRes = byHandoff

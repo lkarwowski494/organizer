@@ -1,4 +1,4 @@
--- Retencja i codzienne sprzątanie (audyt 2, paczka P16; migracja 20261008390000_retention).
+-- Retencja i codzienne sprzątanie (audyt 2, paczka P16; migracja 20261008480000_retention).
 begin;
 select plan(33);
 

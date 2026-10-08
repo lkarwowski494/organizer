@@ -1,6 +1,6 @@
 /**
  * Retencja na telefonie (audyt 2, M-62, M-68): te same terminy co codzienne sprzątanie serwera
- * (supabase/migrations/20261008390000_retention.sql, private.purge_group), żeby kopia na telefonie nie trzymała dłużej
+ * (supabase/migrations/20261008480000_retention.sql, private.purge_group), żeby kopia na telefonie nie trzymała dłużej
  * niż serwer. Serwer usuwa takie wiersze bez nagrobka; telefon z kursorem sprzed nich dostaje resync (purged_version),
  * a telefon, który je już ma, usuwa je sam tutaj:
  *  - historia zmian (activity) starsza niż config.retention.ACTIVITY_DAYS (decyzja właściciela z 8.10.2026, D184);

@@ -1,4 +1,4 @@
--- Limity na konto (D183, audyt 2, M-70; migracje 20261008392000_quotas i 20261008396000_join_handoff_fixes) oraz
+-- Limity na konto (D183, audyt 2, M-70; migracje 20261008482000_quotas i 20261008486000_join_handoff_fixes) oraz
 -- zgłoszenia bez sprzątania przy zapisie (M-191).
 begin;
 select plan(16);

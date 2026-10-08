@@ -17,7 +17,7 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
-import { listsView } from '../../domain/views';
+import { checkOff, listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
@@ -82,6 +82,8 @@ export function EventScreen({ route, navigation }: Props) {
   const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
+  // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
+  const canCheck = checkOff(tables, userId);
   const rsvp = rsvpView(tables, userId, eventId, date);
   const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
@@ -208,7 +210,7 @@ export function EventScreen({ route, navigation }: Props) {
           line={d.line}
           meta={[formatDue({ date: occ.date, time: occ.startTime }, today)]}
           checked={false}
-          onToggle={() => actions.toggle(t)}
+          onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
           onOpen={() => navigation.navigate('Task', { taskId: t.id })}
         />
       ))}

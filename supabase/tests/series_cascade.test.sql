@@ -1,4 +1,4 @@
--- Definicje stałych zadań razem z listą i wydarzeniem (audyt 2, M-74; migracja 20261008391000_series_cascade).
+-- Definicje stałych zadań razem z listą i wydarzeniem (audyt 2, M-74; migracja 20261008481000_series_cascade).
 begin;
 select plan(10);
 
