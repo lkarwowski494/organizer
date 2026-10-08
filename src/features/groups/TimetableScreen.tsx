@@ -1,6 +1,7 @@
 /**
  * Plan lekcji osoby z tygodniami A/B (D112, ADR 0027): lekcje pon.–pt. zapisane jako wydarzenia cykliczne z tą osobą
- * jako uczestnikiem. Potem każdą lekcję zmienia się jak zwykłe wydarzenie. Logika: domain/views/timetable.ts.
+ * jako uczestnikiem. Ekran otwiera się z obecnym planem, zapis go zastępuje od dziś (D128). Pojedynczą lekcję nadal
+ * zmienia się jak zwykłe wydarzenie. Logika: domain/views/timetable.ts.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { addDays, isoWeekday } from '../../domain/civil-date';
 import { formatRange } from '../../domain/format';
 import { groupDetail } from '../../domain/views';
-import { type Lesson, timetableOps, type Week } from '../../domain/views/timetable';
+import { type Lesson, memberTimetable, timetableOps, type Week } from '../../domain/views/timetable';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
@@ -31,9 +32,11 @@ export function TimetableScreen({ route, navigation }: Props) {
   const undo = useUndo();
   const d = groupDetail(tables, userId, route.params.groupId);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  // D128: obecny plan (stan z chwili otwarcia — zapis kończy dokładnie te serie).
+  const [plan] = useState(() => memberTimetable(tables, route.params.groupId, route.params.memberId, today));
+  const [lessons, setLessons] = useState<Lesson[]>(plan.lessons);
   const [thisWeek, setThisWeek] = useState<'A' | 'B'>('A');
-  const [until, setUntil] = useState('');
+  const [until, setUntil] = useState(plan.until);
   const [error, setError] = useState<{ text: string; index: number } | null>(null);
 
   if (!d || !m || d.group.me.role === 'child') {
@@ -51,12 +54,11 @@ export function TimetableScreen({ route, navigation }: Props) {
     setLessons([...lessons, { day, title: '', start: prev?.end ?? '08:00', end: '', week: 'both' }]);
   };
   const save = () => {
-    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId });
+    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, existing: plan.series });
     if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : strings[`event.error.${r.error}`], index: r.index });
     store.dispatch(r.ops);
-    // Cofnięcie usuwa utworzone serie (do kosza, jak każde wydarzenie).
-    const created = r.ops.flatMap((o) => (o.kind === 'create' && o.entity === 'events' ? [o.id] : []));
-    undo.show(strings['timetable.saved'](r.series), () => store.dispatch(created.map((id) => ({ kind: 'delete' as const, entity: 'events', id }))));
+    // Cofnięcie: nowe serie do kosza, stary plan wraca.
+    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo));
     navigation.goBack();
   };
 

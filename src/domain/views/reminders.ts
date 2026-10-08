@@ -38,6 +38,8 @@ export function planReminders(
     const timed: string[] = [];
     let overdue = 0;
     for (const e of entries) {
+      // D127: zwinięte lekcje dziecka — bez przypomnień i bez miejsca w porannym podsumowaniu (codzienna rutyna szkoły).
+      if (e.kind === 'lessons') continue;
       const title = e.kind === 'event' ? e.event.title : e.task.trip ? opts.label.trip(e.task.title) : e.task.title;
       // Zadania w dniu mają termin (myDays); odhaczone dziś i w przyszłości do widoku nie trafiają.
       const time = e.kind === 'event' ? e.event.startTime : e.kind === 'overdue' ? null : e.task.due!.time;

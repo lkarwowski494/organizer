@@ -94,7 +94,7 @@ describe('zakupy na liście zakupów (D73)', () => {
     put(t, 'lists', 'c', list('c', 'gf', { name: 'Rossmann', due_date: '2026-10-07', due_time: '18:00', responsible_member_id: 'mf' }));
     const v = myDays(t, ME, { y: 2026, m: 10, d: 7 }, 'day', { y: 2026, m: 10, d: 7 }, (iso) => iso.slice(0, 10));
     expect(v.pinned.map((x) => x.id)).toEqual(['a']);
-    expect(v.days[0]!.entries.map((x) => (x.kind === 'event' ? x.key : x.kind === 'overdue' ? `o:${x.task.id}:${x.task.overdueDays}` : `t:${x.task.id}`))).toEqual(['o:b:2', 't:c']);
+    expect(v.days[0]!.entries.map((x) => (x.kind === 'event' || x.kind === 'lessons' ? x.key : x.kind === 'overdue' ? `o:${x.task.id}:${x.task.overdueDays}` : `t:${x.task.id}`))).toEqual(['o:b:2', 't:c']);
   });
 
   it('pozycje: niekupione i w koszyku (bez podpozycji i usuniętych)', () => {

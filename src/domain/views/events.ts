@@ -38,6 +38,13 @@ export type Occurrence = {
   responsibleName: string | null;
   /** Miejsce serii (D115). */
   location: string | null;
+  /** Rodzaj wpisu (D126). */
+  kind: EventKind;
+  /**
+   * D127: lekcja planu dziecka, w której sam nie uczestniczę (dorosły) — „Moje sprawy” zwijają takie lekcje do jednego
+   * wiersza na dziecko i dzień; bez przypomnień. `null` dla wszystkiego innego.
+   */
+  lessonFor: { memberId: string; name: string } | null;
 };
 
 const MOVE_WINDOW_DAYS = config.events.MOVE_WINDOW_DAYS;
@@ -73,6 +80,8 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       (g.me.role !== 'child' && mine.some((m) => m?.role === 'child' && m.deleted_at === null));
     // D66: wskazana osoba odpowiedzialna — tylko ona i dorośli wskazani imiennie jako uczestnicy.
     const iParticipate = e.audience === 'members' && mine.some((m) => m?.member_id === g.me.member_id);
+    const child = e.kind === 'lesson' && !mine.some((m) => m?.member_id === g.me.member_id) ? mine.find((m) => m?.role === 'child' && m.deleted_at === null) : undefined;
+    const lessonFor = child ? { memberId: child.member_id, name: child.display_name } : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
     for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
       const occ = formatIsoDate(d);
@@ -99,6 +108,8 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         responsibleId,
         responsibleName: responsibleId === null ? null : members.get(responsibleId)!.display_name,
         location: e.location,
+        kind: e.kind,
+        lessonFor,
       });
     }
   }

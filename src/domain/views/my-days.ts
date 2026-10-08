@@ -9,7 +9,7 @@
 import { addDays, type CivilDate, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
 import { effectiveDue, isVisible } from '../deadlines';
 import { parseIsoDate } from '../format';
-import { agenda, type AgendaEntry } from './agenda';
+import { agenda, type LessonBlock, type AgendaEntry } from './agenda';
 import { occurrenceResolver } from './event-rows';
 import { expandEvents, type Occurrence } from './events';
 import { concernsMeTask, groupsView, isExpired, liveMemberIds, type TodayItem } from './index';
@@ -85,7 +85,28 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     else push(trip.due.date, trip);
   }
   const events = new Map<string, Occurrence[]>();
-  for (const e of expandEvents(t, userId, from, to)) if (e.concernsMe) events.set(e.date, [...(events.get(e.date) ?? []), e]);
+  // D127: lekcje dziecka (sam w nich nie jestem) — jeden wiersz na dziecko i dzień.
+  const lessons = new Map<string, Map<string, LessonBlock>>();
+  for (const e of expandEvents(t, userId, from, to)) {
+    if (!e.concernsMe) continue;
+    if (!e.lessonFor) {
+      events.set(e.date, [...(events.get(e.date) ?? []), e]);
+      continue;
+    }
+    const day = lessons.get(e.date) ?? new Map<string, LessonBlock>();
+    lessons.set(e.date, day);
+    const b = day.get(e.lessonFor.memberId);
+    if (b) b.lessons.push(e);
+    else day.set(e.lessonFor.memberId, { memberId: e.lessonFor.memberId, name: e.lessonFor.name, groupId: e.groupId, groupName: e.groupName, line: e.line, start: null, end: null, lessons: [e] });
+  }
+  for (const day of lessons.values())
+    for (const b of day.values()) {
+      // Godziny bloku: od najwcześniejszego początku do najpóźniejszego końca (lekcja bez końca liczy się początkiem).
+      const starts = b.lessons.flatMap((x) => (x.startTime ? [x.startTime.slice(0, 5)] : [])).sort();
+      const ends = b.lessons.flatMap((x) => (x.startTime ? [(x.endTime ?? x.startTime).slice(0, 5)] : [])).sort();
+      b.start = starts[0] ?? null;
+      b.end = ends.at(-1) ?? null;
+    }
 
   const days: MyDay[] = [];
   for (let d = from; toDayNumber(d) <= toDayNumber(to); d = addDays(d, 1)) {
@@ -94,7 +115,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     const past = iso < isoToday;
     const entries: MyEntry[] = [
       ...(isToday ? overdue.sort((a, b) => b.overdueDays - a.overdueDays || a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id)).map((x) => ({ kind: 'overdue' as const, key: `o-${x.id}`, task: x })) : []),
-      ...agenda(tasksByDay.get(iso) ?? [], events.get(iso) ?? []),
+      ...agenda(tasksByDay.get(iso) ?? [], events.get(iso) ?? [], [...(lessons.get(iso)?.values() ?? [])]),
     ];
     if (mode === 'day' || isToday || entries.length) days.push({ date: iso, past, isToday, entries });
   }
