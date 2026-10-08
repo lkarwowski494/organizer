@@ -8,6 +8,9 @@
  * (15.10, 15.10.2027, 15/10) i słowne (15 października, 15 paź 2027), godziny (o 17, o 17:30,
  * o godz. 7, 17:30, 18.00 i 22.30 — z kropką, gdy minuty nie mogą być miesiącem), „co tydzień”. Rozpoznawanie ignoruje polskie znaki („dzis”, „srode”).
  * Pierwszy fragment danego rodzaju wygrywa; kolejne zostają w tytule.
+ * Bezpiecznik (audyt 2, M-23): gdy tekst nazywa dzień, którego parser nie zna („w przyszły wtorek o 15”, „piątek o 18”),
+ * a żadnej daty nie rozpoznano, godzina i „co tydzień” nie są brane — zostają w tytule, termin jest pusty, a wynik
+ * podaje ten fragment (`unrecognizedDay`), żeby ekran powiedział, że dnia nie rozpoznano. Słowa: config/quickadd.pl.ts.
  *
  * Reguły rozstrzygania (decyzje właściciela 6.10.2026, docs/adr/0003):
  *  - D42 dzień tygodnia równy dzisiejszemu = ten dzień za tydzień,
@@ -19,8 +22,10 @@
 import {
   MONTHS_ABBREVIATED,
   MONTHS_GENITIVE,
+  NEXT_FORMS,
   QUICKADD_RULES,
   RRULE_WEEKDAYS,
+  WEEKDAY_FORMS,
   WEEKDAYS_ACCUSATIVE,
 } from '../config/quickadd.pl';
 import {
@@ -50,12 +55,16 @@ export type Due = {
   time: string | null;
 };
 
+export type Fragment = { start: number; end: number; text: string };
+
 export type QuickAddResult = {
   title: string;
   due: Due | null;
   /** Reguła powtarzania RFC 5545 bez DTSTART (start = `due`), np. „FREQ=WEEKLY”. */
   rrule: string | null;
   tokens: Token[];
+  /** Bezpiecznik (M-23): fragment, który nazywa dzień, ale nie został rozpoznany („przyszły wtorek”); `null` — brak. */
+  unrecognizedDay: Fragment | null;
 };
 
 export type QuickAddOptions = {
@@ -174,6 +183,28 @@ function findCandidates(folded: string): Candidate[] {
 const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) =>
   a.start < b.end && b.start < a.end;
 
+const WEEKDAY_WORDS = new Set<string>(WEEKDAY_FORMS.flat().map(fold));
+const NEXT_WORDS = new Set<string>(NEXT_FORMS.map(fold));
+
+/**
+ * Bezpiecznik (M-23): pierwszy fragment poza rozpoznanymi i odklikanymi, który nazywa dzień — nazwa dnia w dowolnej
+ * formie albo „przyszły/następny” razem ze słowem tuż po nim („przyszły wtorek”, „następnym tygodniu”).
+ */
+function findUnrecognizedDay(text: string, folded: string, taken: readonly { start: number; end: number }[]): Fragment | null {
+  const words: { start: number; end: number; w: string }[] = [];
+  const re = /[a-z0-9]+/g;
+  for (let m = re.exec(folded); m; m = re.exec(folded)) words.push({ start: m.index, end: m.index + m[0].length, w: m[0] });
+  const free = words.filter((x) => !taken.some((t) => overlaps(t, x)));
+  for (let i = 0; i < free.length; i++) {
+    const x = free[i]!;
+    if (!WEEKDAY_WORDS.has(x.w) && !NEXT_WORDS.has(x.w)) continue;
+    const next = free[i + 1];
+    const end = NEXT_WORDS.has(x.w) && next && folded.slice(x.end, next.start) === ' ' ? next.end : x.end;
+    return { start: x.start, end, text: text.slice(x.start, end) };
+  }
+  return null;
+}
+
 /** Wybiera nienachodzące na siebie fragmenty: wcześniejszy wygrywa (sortowanie stabilne). */
 function selectCandidates(candidates: Candidate[], ignore: QuickAddOptions['ignore']): Candidate[] {
   const sorted = candidates
@@ -256,9 +287,13 @@ function cleanTitle(text: string, tokens: Token[]): string {
 
 export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAddOptions = {}): QuickAddResult {
   const folded = fold(text);
-  const chosen = selectCandidates(findCandidates(folded), options.ignore);
+  let chosen = selectCandidates(findCandidates(folded), options.ignore);
 
   const dateC = chosen.find((c) => c.kind === 'date');
+  // Bezpiecznik (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z godziny i startu serii.
+  const unrecognizedDay = dateC ? null : findUnrecognizedDay(text, folded, [...chosen, ...(options.ignore ?? [])]);
+  // Daty wtedy nie ma, więc odpada wszystko: godzina i „co tydzień” zostają w tytule.
+  if (unrecognizedDay) chosen = [];
   const timeC = chosen.find((c) => c.kind === 'time');
   const recC = chosen.find((c) => c.kind === 'recurrence');
 
@@ -285,5 +320,5 @@ export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAd
   }
 
   const tokens: Token[] = chosen.map((c) => ({ kind: c.kind, start: c.start, end: c.end, text: text.slice(c.start, c.end) }));
-  return { title: cleanTitle(text, tokens), due, rrule, tokens };
+  return { title: cleanTitle(text, tokens), due, rrule, tokens, unrecognizedDay };
 }

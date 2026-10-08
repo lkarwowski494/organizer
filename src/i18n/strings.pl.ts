@@ -31,7 +31,8 @@ export const strings = {
   'today.title': 'Moje sprawy',
   'today.pinned': 'Przypięte',
   'today.today': 'Dziś',
-  'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd piątek” albo „mleko jutro o 17”.',
+  // Audyt 2 (M-23, U-45): przykłady, które parser rozumie jednoznacznie, i to zadania, nie zakupy.
+  'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd w piątek” albo „dentysta jutro o 17”.',
   'today.noDue': 'bez terminu',
   'today.range': 'Zakres',
   'today.range.day': 'Dzień',
@@ -48,9 +49,30 @@ export const strings = {
   'today.pastInfo': 'Minęło: zrobione i wydarzenia. Niezrobione z terminem przeszły na dziś; te „tylko tego dnia” i kroki rutyn minęły.',
 
   'quick.label': 'Szybkie dodawanie',
-  'quick.placeholder': 'np. „mleko jutro o 17”',
+  'quick.placeholder': 'np. „dentysta jutro o 17”',
   'quick.add': 'Dodaj',
   'quick.chipA11y': (text: string) => `Rozpoznano: ${text}. Dotknij, żeby zostawić w tytule`,
+  // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
+  'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
+  // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
+  'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
+  // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
+  'quick.groupChip': (group: string) => `Do: ${group}`,
+  'quick.group': (group: string) => `Dodasz do grupy: ${group}`,
+  'quick.groupHint': 'Dotknij, żeby wybrać inną grupę',
+  'quick.groupFromText': 'Grupę wskazuje tekst — zmienisz ją w tekście',
+  'quick.groupPick': 'Dodaj do grupy',
+  // D68 po PW-18 b: zapis bez pytania, ale mówimy przed dodaniem, że nikt tego nie zobaczy w Moich sprawach.
+  'quick.unseen': 'Bez osoby i terminu nikt nie zobaczy tego w „Moich sprawach” — dopisz np. „@ja” albo „jutro”.',
+  // PW-3 wariant D: cały wpis to produkt — podpowiedź listy zakupów (bez dotknięcia zostaje zadanie).
+  'quick.toShopping': (list: string) => `Na listę: ${list}`,
+  'quick.toShoppingA11y': (item: string, list: string) => `Dodaj „${item}” do listy zakupów „${list}”`,
+  'quick.toShoppingHint': 'Bez dotknięcia dodasz zadanie',
+  'quick.noShoppingList': (item: string, group: string) => `„${item}” to produkt? W grupie „${group}” nie ma listy zakupów, więc dodasz zadanie.`,
+  'tag.ask': (name: string) => `Którą grupę masz na myśli: #${name}?`,
+  'tag.unknown': (name: string) => `Nie ma grupy #${name}`,
+  'tag.unknownInfo': (name: string, group: string) => `Popraw nazwę albo dodaj do grupy „${group}” („#${name}” zostanie w nazwie).`,
+  'tag.addTo': (group: string) => `Dodaj do: ${group}`,
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
@@ -195,6 +217,10 @@ export const strings = {
   'form.addedEvent': (title: string, group: string) => `Dodano wydarzenie: ${title} · ${group}`,
   'mention.ask': (name: string) => `Kogo masz na myśli: @${name}?`,
   'mention.pick': (person: string, group: string) => `${person} · ${group}`,
+  // Audyt 2 (M-169): nieznane „@imię” — pytanie zamiast cichego dodania do Osobistych.
+  'mention.unknown': (name: string) => `Nie ma @${name} w Twoich grupach`,
+  'mention.unknownInfo': (name: string) => `Popraw imię albo dodaj bez osoby („@${name}” zostanie w nazwie). Siebie oznaczysz przez @ja.`,
+  'mention.addWithout': 'Dodaj bez osoby',
   'task.note': 'Notatka',
   'task.due': 'Termin',
   'task.dueNone': 'Bez terminu (przypięte)',
@@ -231,6 +257,8 @@ export const strings = {
   'lists.addItem': 'Dodaj produkt, np. „2 mleka”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
+  // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
+  'lists.emptyShopping': 'Lista jest pusta. Dopisz pierwszy produkt polem powyżej.',
   'lists.delete': 'Usuń listę',
   'lists.expired': 'minęło',
   'lists.expiredRun': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} minęło`,
@@ -463,6 +491,10 @@ export const strings = {
   'settings.section.notifications': 'Powiadomienia',
   'settings.section.calendar': 'Kalendarz i dojazd',
   'settings.section.appearance': 'Wygląd',
+  'settings.section.adding': 'Dodawanie',
+  'defaultGroup.setting': 'Grupa domyślna',
+  'defaultGroup.last': 'Ostatnio użyta',
+  'defaultGroup.info': 'Od tej grupy zaczyna chip przy polu dodawania w Moich sprawach. „Ostatnio użyta” to ta, którą ostatnio wybrano chipem albo przez #nazwę grupy. W tekście „#Rodzina” wybiera grupę, a „@ja” przypisuje sprawę Tobie.',
   'settings.section.account': 'Konto i dane',
   'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',
@@ -567,7 +599,7 @@ export const strings = {
   'welcome.1.example': 'Ala przekazuje Ci: odebrać Kubę z treningu',
   'welcome.2.title': 'Pisz po ludzku',
   'welcome.2.body': `Wpisz tak, jak mówisz — aplikacja sama rozpozna termin. Przypomni ${config.reminders.LEAD_MIN} min wcześniej, a rano powie, co na dziś.`,
-  'welcome.2.example': '„mleko jutro o 17” → mleko, jutro 17:00',
+  'welcome.2.example': '„dentysta jutro o 17” → dentysta, jutro 17:00',
   'welcome.next': 'Dalej',
   'welcome.skip': 'Pomiń',
   'welcome.start.title': 'Od czego zaczynasz?',

@@ -34,10 +34,13 @@ export type RootStackParams = {
   Routine: { groupId?: string } | undefined;
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
-  /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */
-  AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string };
+  /**
+   * Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”).
+   * `defaultGroupId` — grupa z chipa przy polu (M-24), gdy tekst nie wskazuje innej.
+   */
+  AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string; defaultGroupId?: string };
 };
 
-export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'account';
+export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'adding' | 'account';
 
 export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };
