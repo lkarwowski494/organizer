@@ -6,7 +6,7 @@ type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
 
 describe('o które przypisania poprosić o push (D81)', () => {
-  it('moje przypisanie komuś innemu (zadanie, zakupy), świeże; nie sobie, nie cudze, nie bez osoby', () => {
+  it('moje przypisanie komuś innemu (zadanie, zakupy, wydarzenie), świeże; nie sobie, nie cudze, nie bez osoby', () => {
     const t: T = {};
     put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-02-01T00:00:00Z', deleted_at: null });
     put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
@@ -23,7 +23,10 @@ describe('o które przypisania poprosić o push (D81)', () => {
     a('i-alien', { group_id: 'obca' });
     a('j-nodate', { created_at: undefined });
     a('k-nochanges', { changes: undefined });
-    expect(assignmentsToNotify(t, ME, NOW, 24)).toEqual(['a-task', 'b-list']);
+    // D88: wydarzenie (cała seria) i jeden termin serii.
+    a('l-override', { entity: 'event_overrides', changes: { responsible_member_id: [null, 'mm'] } });
+    a('m-participant', { entity: 'event_participants', changes: { member_id: [null, 'mm'] } });
+    expect(assignmentsToNotify(t, ME, NOW, 24)).toEqual(['a-task', 'b-list', 'h-event', 'l-override']);
     expect(assignmentsToNotify({}, ME, NOW, 24)).toEqual([]);
   });
 });

@@ -1,13 +1,14 @@
 /**
  * Przypisania, o które mam poprosić serwer o powiadomienie (D81, ADR 0017): wpisy aktywności, w których to ja
- * przypisałem komuś innemu zadanie (assignee_member_id) albo zakupy (responsible_member_id). Wpis aktywności powstaje
+ * przypisałem komuś innemu zadanie (assignee_member_id), zakupy albo wydarzenie (responsible_member_id). Wpis aktywności powstaje
  * na serwerze, więc jego obecność na telefonie znaczy, że zmiana dotarła. Serwer sprawdza wszystko jeszcze raz
  * (konto odbiorcy, wyciszenie grupy) i powiadamia najwyżej raz.
  */
 import { groupsView } from './index';
 import type { Tables } from './model';
 
-const COLUMN: Record<string, string> = { tasks: 'assignee_member_id', lists: 'responsible_member_id' };
+// D88: także osoba odpowiedzialna za wydarzenie (cała seria albo jeden termin).
+const COLUMN: Record<string, string> = { tasks: 'assignee_member_id', lists: 'responsible_member_id', events: 'responsible_member_id', event_overrides: 'responsible_member_id' };
 
 export function assignmentsToNotify(t: Tables, userId: string, nowMs: number, maxAgeH: number): string[] {
   const me = new Map(groupsView(t, userId).map((g) => [g.id, g.me.member_id]));
