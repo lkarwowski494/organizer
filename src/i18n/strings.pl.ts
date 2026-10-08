@@ -76,6 +76,8 @@ export const strings = {
   'form.added': (title: string, group: string) => `Dodano: ${title} · ${group}`,
   'form.change': 'Zmień',
   'date.pick': 'Wybierz dzień',
+  'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
+  'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
   'name.askTitle': 'Jak masz na imię?',
   'name.title': 'Twoje imię',
   'name.info': 'Tak zobaczą Cię inni w grupach. Imię ustawione w konkretnej grupie (np. „Tata”) zostaje.',

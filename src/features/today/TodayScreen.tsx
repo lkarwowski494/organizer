@@ -10,6 +10,7 @@ import { Pressable, Text, View } from 'react-native';
 import { quickAddOps } from '../../app/quickadd';
 import { findTimeRange, withoutRange } from '../../domain/time-range';
 import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
+import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -137,14 +138,20 @@ export function TodayScreen() {
       onOpen={() => nav.navigate('List', { listId: task.id })}
     />
   );
-  const taskRow = (task: TodayItem, key: string, alert?: string) => task.trip ? tripRow({ ...task, trip: task.trip }, key, alert) : (
+  // D104: podzadanie pod rodzicem (wcięcie), licznik u rodzica, dopisek rodzica, gdy go nie ma w tym dniu.
+  const nestMeta = (n?: Nesting) => [
+    ...(n?.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []),
+    ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []),
+  ];
+  const taskRow = (task: TodayItem, key: string, alert?: string, n?: Nesting) => task.trip ? tripRow({ ...task, trip: task.trip }, key, alert) : (
     <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id) && task.completed_at === null} onDelete={() => actions.remove(task)}>
       <StationRow
         testID={`today-${task.id}`}
         title={task.title}
         line={task.line}
         group={groupLabel(task.group_id, task.groupName)}
-        meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : [])]}
+        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : [])]}
+        depth={n?.depth}
         alert={alert}
         checked={task.completed_at !== null}
         onToggle={() => actions.toggle(task)}
@@ -152,7 +159,7 @@ export function TodayScreen() {
       />
     </SwipeRow>
   );
-  const entryRow = (x: MyEntry, past: boolean) =>
+  const entryRow = (x: MyEntry, past: boolean, n?: Nesting) =>
     x.kind === 'event' ? (
       <EventRow
         key={x.key}
@@ -162,13 +169,14 @@ export function TodayScreen() {
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
+        extra={n?.progress ? strings['nest.progress'](n.progress.done, n.progress.total) : undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
     ) : x.kind === 'overdue' ? (
-      taskRow(x.task, x.key, strings['today.overdueDays'](x.task.overdueDays))
+      taskRow(x.task, x.key, strings['today.overdueDays'](x.task.overdueDays), n)
     ) : (
-      taskRow(x.task, x.key)
+      taskRow(x.task, x.key, undefined, n)
     );
   const arrow = (k: number, a11y: string, glyph: string) => (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={() => setAnchor(shiftAnchor(mode, at, k))} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
@@ -252,7 +260,7 @@ export function TodayScreen() {
       {pinned.length ? (
         <View>
           <SectionTitle>{strings['today.pinned']}</SectionTitle>
-          {pinned.map((p) => taskRow(p, `p-${p.id}`))}
+          {nestEntries(pinned.map((p) => ({ kind: 'task' as const, key: `p-${p.id}`, task: p })), tables).map((n) => taskRow(n.entry.task, n.entry.key, undefined, n))}
         </View>
       ) : null}
       {view.days.map((d) =>
@@ -260,7 +268,7 @@ export function TodayScreen() {
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
-            {d.entries.map((x) => entryRow(x, d.past))}
+            {nestEntries(d.entries, tables).map((n) => entryRow(n.entry, d.past, n))}
             {(device.get(d.date) ?? []).map((e) => (
               <DeviceEventRow key={e.key} e={e} />
             ))}

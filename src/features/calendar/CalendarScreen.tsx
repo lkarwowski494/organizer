@@ -16,6 +16,7 @@ import { formatDue, formatLongDate, formatMonth, parseIsoDate } from '../../doma
 import { useTaskActions } from '../../app/task-actions';
 import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
+import { nestEntries } from '../../domain/views/nesting';
 import { eventsByDate, timeLabel } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
@@ -99,9 +100,9 @@ export function CalendarScreen() {
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
           {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
-          {agenda(day.items, dayEvents).map((x) =>
+          {nestEntries(agenda(day.items, dayEvents), tables).map(({ entry: x, ...n }) =>
             x.kind === 'event' ? (
-              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={n.progress ? strings['nest.progress'](n.progress.done, n.progress.total) : undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
             ) : x.task.trip ? (
               <StationRow
                 key={x.key}
@@ -116,7 +117,13 @@ export function CalendarScreen() {
               />
             ) : (
               <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
-                <StationRow testID={`cal-${x.task.id}`} title={x.task.title} line={x.task.line} group={x.task.groupName} meta={[formatDue(x.task.due!, today)]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
+                <StationRow
+                  testID={`cal-${x.task.id}`}
+                  title={x.task.title}
+                  line={x.task.line}
+                  group={x.task.groupName}
+                  depth={n.depth}
+                  meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today)]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
               </SwipeRow>
             ),
           )}

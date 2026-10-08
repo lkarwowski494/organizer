@@ -6,6 +6,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    fromBuild: 17,
+    items: [
+      'Zadania przypięte do wydarzenia i podzadania stoją teraz pod rodzicem, z wcięciem i mniejszą kropką. Rodzic pokazuje, ile już zrobione („1/3 zrobione”).',
+      'Gdy rodzica nie ma w tym dniu, podzadanie ma dopisek, np. „↳ Basen (wydarzenie)”.',
+    ],
+  },
+  {
     fromBuild: 16,
     items: [
       'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z Google i Outlooka dodanych w iPhonie) widać w Kalendarzu i w „Moich sprawach”.',
