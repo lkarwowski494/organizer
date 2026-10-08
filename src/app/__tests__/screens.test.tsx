@@ -510,7 +510,7 @@ describe('Ustawienia', () => {
     await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('sign-out'));
     expect(lastAlert().title).toBe('Wylogować się?');
-    expect(lastAlert().message).toMatch(/Powiadomienia tego konta przestaną przychodzić/);
+    expect(lastAlert().message).toMatch(/^Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić/);
     expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyloguj', 'destructive']]);
     await answerAlert('Anuluj');
     expect(s.account.signOut).not.toHaveBeenCalled();

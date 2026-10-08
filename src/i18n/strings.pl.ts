@@ -441,7 +441,7 @@ export const strings = {
   'settings.open': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
   'settings.signOutAsk': 'Wylogować się?',
-  'settings.signOutInfo': 'Powiadomienia tego konta przestaną przychodzić na ten telefon. Żeby wrócić, zaloguj się tym samym kontem.',
+  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić (wymaga internetu). Żeby wrócić, zaloguj się tym samym kontem.',
   // D131: podstrony ustawień.
   'settings.section.notifications': 'Powiadomienia',
   'settings.section.calendar': 'Kalendarz i dojazd',
