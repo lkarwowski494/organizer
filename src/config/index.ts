@@ -83,6 +83,17 @@ export const config = {
    * domyślnie 10 użyć (maks. 50). Serwer egzekwuje je funkcjami private.invite_* (test kontraktowy).
    */
   invites: {
+    /**
+     * Dołączanie jak w Zoom (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
+     * limity nieudanych prób na godzinę (osoba / ID grupy). SQL: private.join_* (test kontraktowy).
+     */
+    JOIN_ID_DIGITS: 9,
+    CODE_DIGITS: 6,
+    CODE_TTL_HOURS: 24,
+    JOIN_FAILS_PER_USER: 5,
+    JOIN_FAILS_PER_GROUP: 20,
+    /** Strona z linkiem zaproszenia (GitHub Pages, D94); ścieżka /j/ obsługiwana też przez Universal Links. */
+    JOIN_LINK: 'https://lkarwowski494.github.io/j/',
     DEFAULT_TTL_HOURS: 168,
     MAX_TTL_HOURS: 720,
     DEFAULT_MAX_USES: 10,

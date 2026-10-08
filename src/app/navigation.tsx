@@ -1,6 +1,7 @@
 /**
  * Nawigacja (D26): zakładki Dziś / Listy / Kalendarz / Grupy + ekrany nad nimi.
- * Linki głębokie (D40, schemat config.URL_SCHEME) skonfigurowane ręcznie: invite/<token>, list/<id>, task/<id>.
+ * Linki głębokie (D40, schemat config.URL_SCHEME) skonfigurowane ręcznie: invite/<token>, join?g=&c= (i https …/j/?g=&c=,
+ * D94), list/<id>, task/<id>.
  */
 import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
@@ -126,11 +127,12 @@ export function RootStack() {
 }
 
 export const linking: LinkingOptions<RootStackParams> = {
-  prefixes: [`${config.URL_SCHEME}://`],
+  // D94: link https ze strony zaproszeń (Universal Links, ścieżka /j/?g=…&c=…) i ten sam w schemacie aplikacji (…://join?g=…&c=…).
+  prefixes: [`${config.URL_SCHEME}://`, new URL(config.invites.JOIN_LINK).origin],
   config: {
     screens: {
       Tabs: { screens: { Today: 'today', Lists: 'lists', Calendar: 'calendar', Groups: 'groups' } },
-      Invite: 'invite/:token',
+      Invite: { path: 'invite/:token', alias: ['join', 'j'] },
       List: 'list/:listId',
       Task: 'task/:taskId',
     },

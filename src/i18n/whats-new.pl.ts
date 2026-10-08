@@ -6,6 +6,14 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    fromBuild: 15,
+    items: [
+      'Nowe zaproszenia: grupa ma stałe ID (9 cyfr), a „Zaproś” daje 6-cyfrowy kod ważny 24 godziny dla wielu osób.',
+      'Dołączasz, wpisując ID grupy i kod w Grupy → „Dołącz do grupy”, albo wklejając wiadomość z zaproszeniem.',
+      'Właściciel może zmienić ID grupy — wysłane kody przestają wtedy działać.',
+    ],
+  },
+  {
     fromBuild: 14,
     items: [
       '„Dotyczy mnie” nazywa się teraz „Moje sprawy”.',

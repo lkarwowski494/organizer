@@ -10,7 +10,7 @@
  * (https://supabase.com/docs/guides/auth/native-mobile-deep-linking).
  */
 import { config } from '../config';
-import { inviteUrl } from '../domain/invite-link';
+import { inviteUrl, joinUrl } from '../domain/invite-link';
 import type { PulledRow, PullResponse, PushResponse } from '../domain/sync-engine/client';
 import type { AccountApi, Invite } from './account';
 import { type SyncTransport, TransportError, type TransportErrorKind } from './transport';
@@ -107,6 +107,19 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     },
     async revokeInvite(inviteId) {
       await call(client, 'revoke_invite', { invite_id: inviteId });
+    },
+    async createJoinCode(groupId, role) {
+      const r = await call<{ invite_id: string; join_id: string; code: string; expires_at: string }>(client, 'create_join_code', { group_id: groupId, role });
+      return { inviteId: r.invite_id, joinId: r.join_id, code: r.code, url: joinUrl({ joinId: r.join_id, code: r.code }), expiresAt: r.expires_at };
+    },
+    async joinGroup(joinId, code, displayName) {
+      // Serwer zwraca błąd w treści (nie wyjątkiem), żeby zapis nieudanej próby nie został wycofany.
+      const r = await call<{ group_id?: string; error?: string }>(client, 'join_group', { join_id: joinId, code, display_name: displayName });
+      if (r.error || !r.group_id) throw new TransportError('server', r.error ?? 'invite_invalid');
+      return { groupId: r.group_id };
+    },
+    async rotateJoinId(groupId) {
+      return call<string>(client, 'rotate_join_id', { group_id: groupId });
     },
     async deleteGroup(groupId) {
       await call(client, 'delete_group', { group_id: groupId });

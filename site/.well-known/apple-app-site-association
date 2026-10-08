@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["8NQ9GHY8GF.io.github.lkarwowski494.organizer"],
+        "components": [{ "/": "/j/*", "comment": "Zaproszenie do grupy: /j/?g=<ID grupy>&c=<kod> (D94)" }]
+      }
+    ]
+  }
+}

@@ -7,7 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { groupLines, palettes, type Scheme } from '../../config/theme';
-import { inviteUrl } from '../../domain/invite-link';
+import { inviteUrl, joinUrl } from '../../domain/invite-link';
 import { SignInScreen } from '../../features/auth/SignInScreen';
 import { linking, RootStack } from '../navigation';
 import { fakeAccount, ME, put, sampleBase, setup } from './harness';
@@ -91,7 +91,8 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'))],
   ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'))],
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
-  ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz kodem zaproszenia'))],
+  ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz do grupy'))],
+  ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Zaproś'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
   ['Wyślij uwagę', async (p) => (await p('Ustawienia'), await p('Wyślij uwagę'))],
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
@@ -174,6 +175,20 @@ describe('linki głębokie (D40)', () => {
     expect(state('list/lz').routes.at(-1)).toMatchObject({ name: 'List', params: { listId: 'lz' } });
     expect(state('task/t1').routes.at(-1)).toMatchObject({ name: 'Task', params: { taskId: 't1' } });
     expect(state('calendar').routes[0]!.state!.routes[0]!.name).toBe('Calendar');
+  });
+
+  it('link ID + kod (D94): https ze strony zaproszeń i schemat aplikacji → Dołącz z wypełnionymi polami', async () => {
+    const url = joinUrl({ joinId: '482913507', code: '731064' });
+    expect(linking.prefixes).toContain('https://lkarwowski494.github.io');
+    const path = url.slice('https://lkarwowski494.github.io/'.length);
+    expect(state(path).routes.at(-1)).toMatchObject({ name: 'Invite', params: { g: '482913507', c: '731064' } });
+    expect(state('join?g=482913507&c=731064').routes.at(-1)).toMatchObject({ name: 'Invite', params: { g: '482913507', c: '731064' } });
+    const s = setup();
+    await render(s.wrap(<NavigationContainer initialState={{ routes: [{ name: 'Tabs' }, { name: 'Invite', params: { g: '482913507', c: '731064' } }] } as never}><RootStack /></NavigationContainer>));
+    expect((await screen.findByTestId('invite-join-id')).props.value).toBe('482 913 507');
+    expect(screen.getByTestId('invite-code').props.value).toBe('731 064');
+    await fireEvent.press(screen.getByTestId('invite-accept'));
+    expect(s.account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Łukasz');
   });
 
   it('zaproszenie z linku otwiera ekran bez pola wklejania', async () => {

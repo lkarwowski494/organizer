@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Zaproszenie do grupy · Organizer</title>
+<style>
+  :root { --ground: #f7f1e8; --surface: #fffaf3; --ink: #2b211b; --muted: #6b5a4d; --accent: #b4532a; --accent-ink: #ffffff; --border: #e3d6c6; }
+  @media (prefers-color-scheme: dark) { :root { --ground: #1c1714; --surface: #26201c; --ink: #f4ece2; --muted: #c4b3a3; --accent: #e07a4f; --accent-ink: #1c1714; --border: #3a312b; } }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 17px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin: 20px 0; }
+  .label { color: var(--muted); font-size: 14px; }
+  .value { font-size: 30px; font-weight: 800; letter-spacing: 2px; margin: 2px 0 12px; }
+  a.button { display: block; text-align: center; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700; padding: 15px; border-radius: 27px; min-height: 24px; }
+  p.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Zaproszenie do grupy</h1>
+  <p>Ktoś zaprasza Cię do wspólnej grupy w aplikacji Organizer.</p>
+  <div id="ok" hidden>
+    <a class="button" id="open" href="#">Otwórz w aplikacji</a>
+    <div class="card">
+      <div class="label">ID grupy</div><div class="value" id="g"></div>
+      <div class="label">Kod</div><div class="value" id="c"></div>
+      <p class="muted">Jeśli przycisk nie działa: otwórz Organizer → Grupy → „Dołącz do grupy” i wpisz ID grupy oraz kod.</p>
+    </div>
+  </div>
+  <p id="bad" class="card" hidden>Ten link jest niepełny. Poproś o nowe zaproszenie.</p>
+  <p class="muted">Nie masz jeszcze aplikacji? Organizer jest w fazie testów — poproś osobę zapraszającą o link do TestFlight.</p>
+  <p class="muted">Ta strona niczego nie zapisuje ani nie wysyła — ID i kod są tylko w adresie linku.</p>
+</main>
+<script>
+  // ID grupy: 9 cyfr (bez zera na początku), kod: 6 cyfr (src/config: invites.JOIN_ID_DIGITS, CODE_DIGITS).
+  var q = new URLSearchParams(location.search);
+  var g = (q.get('g') || '').replace(/\D/g, ''), c = (q.get('c') || '').replace(/\D/g, '');
+  var three = function (s) { return s.replace(/(\d{3})(?=\d)/g, '$1 '); };
+  if (/^[1-9]\d{8}$/.test(g) && /^\d{6}$/.test(c)) {
+    document.getElementById('g').textContent = three(g);
+    document.getElementById('c').textContent = three(c);
+    document.getElementById('open').href = 'io.github.lkarwowski494.organizer://join?g=' + g + '&c=' + c;
+    document.getElementById('ok').hidden = false;
+  } else {
+    document.getElementById('bad').hidden = false;
+  }
+</script>
+</body>
+</html>

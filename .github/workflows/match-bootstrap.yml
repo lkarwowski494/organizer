@@ -5,9 +5,17 @@
 # w actions/runner-images, images/macos/macos-26-arm64-Readme.md; SDK 57 wymaga Xcode ≥ 26.4).
 name: match-bootstrap
 
-# JEDNORAZOWO: tworzy certyfikat dystrybucyjny i profil App Store w prywatnym organizer-certs.
+# bootstrap_signing — JEDNORAZOWO: certyfikat dystrybucyjny i profil App Store w prywatnym organizer-certs.
+# renew_profile — nowy profil po włączeniu możliwości w App ID (Associated Domains, D94).
 on:
   workflow_dispatch:
+    inputs:
+      lane:
+        description: 'bootstrap_signing albo renew_profile'
+        required: true
+        default: bootstrap_signing
+        type: choice
+        options: [bootstrap_signing, renew_profile]
 
 permissions:
   contents: read
@@ -26,7 +34,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bundle install
-      - name: fastlane bootstrap_signing
+      - name: fastlane ${{ inputs.lane }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -34,8 +42,9 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_USER: ${{ secrets.MATCH_GIT_USER }}
           MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+          LANE: ${{ inputs.lane }}
         run: |
           # Nagłówek Basic liczony w kroku i maskowany w logach (dane złożone psują maskowanie sekretów).
           auth=$(printf '%s:%s' "$MATCH_GIT_USER" "$MATCH_GIT_TOKEN" | base64 | tr -d '\n')
           echo "::add-mask::$auth"
-          MATCH_GIT_BASIC_AUTHORIZATION="$auth" bundle exec fastlane ios bootstrap_signing
+          MATCH_GIT_BASIC_AUTHORIZATION="$auth" bundle exec fastlane ios "$LANE"
