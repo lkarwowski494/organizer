@@ -35,9 +35,10 @@ create temp table ids as select
   (select id from public.activity where entity = 'events' and entity_id = 'bbbb0000-0000-7000-8000-0000000001e2' and changes ? 'responsible_member_id') as series_a;
 
 select is(public.assignment_push_claim((select one_a from ids), '00000000-0000-7000-8000-0000000000a1', 24),
-  jsonb_build_object('title', 'Łukasz: odpowiadasz za wydarzenie', 'body', 'Dentysta · 14.10', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('ef', 32), 'env', 'production'))),
-  '3: jednorazowe — nazwa i dzień');
-select is(public.assignment_push_claim((select occ_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) ->> 'body', 'Basen · 19.10', '4: jeden termin serii — nazwa z serii i dzień terminu');
+  jsonb_build_object('title', 'Łukasz przypisuje Ci wydarzenie', 'body', 'Dentysta (' || private.pl_long_date('2026-10-14') || ')', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('ef', 32), 'env', 'production')),
+                     'key', 'assign|' || (select one_a from ids), 'path', 'event/bbbb0000-0000-7000-8000-0000000001e1/2026-10-14'),
+  '3: jednorazowe — nazwa i dzień (audyt 2, M-138: jak w aplikacji)');
+select is(public.assignment_push_claim((select occ_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) ->> 'body', 'Basen (' || private.pl_long_date('2026-10-19') || ')', '4: jeden termin serii — nazwa z serii i dzień terminu');
 select is(public.assignment_push_claim((select series_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) ->> 'body', 'Basen', '5: cała seria — sama nazwa');
 
 select * from finish();

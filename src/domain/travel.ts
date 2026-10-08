@@ -41,6 +41,7 @@ export type TravelTarget = { key: string; eventId: string; title: string; locati
 /**
  * Wydarzenia, dla których liczymy dojazd (D116): dzisiejsze, które mnie dotyczą, z miejscem i godziną, zaczynające się
  * od teraz do config.travel.AHEAD_HOURS naprzód; najbliższe config.travel.MAX_EVENTS (MapKit dławi zbyt wiele zapytań).
+ * `skip` — terminy z moją odpowiedzią „nie będę” (`<id wydarzenia>|<data wystąpienia>`, PW-23).
  */
 export function travelTargets(
   occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean }[],
@@ -48,9 +49,10 @@ export function travelTargets(
   nowMs: number,
   toMs: (date: string, time: string) => number,
   modeFor: (eventId: string) => TravelMode,
+  skip: ReadonlySet<string> = new Set(),
 ): TravelTarget[] {
   return occ
-    .filter((o) => o.concernsMe && o.date === isoToday && o.startTime !== null && o.location !== null && o.location.trim() !== '')
+    .filter((o) => o.concernsMe && o.date === isoToday && o.startTime !== null && o.location !== null && o.location.trim() !== '' && !skip.has(`${o.eventId}|${o.occurrenceDate}`))
     .map((o) => ({ key: `${o.eventId}|${o.occurrenceDate}`, eventId: o.eventId, title: o.title, location: o.location!.trim(), startMs: toMs(o.date, o.startTime!.slice(0, 5)), mode: modeFor(o.eventId) }))
     .filter((t) => t.startMs > nowMs && t.startMs <= nowMs + config.travel.AHEAD_HOURS * 3_600_000)
     .sort((a, b) => a.startMs - b.startMs || a.key.localeCompare(b.key))
