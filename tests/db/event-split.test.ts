@@ -14,7 +14,7 @@ import { splitId } from '../../src/domain/event-split';
 import { parseRule } from '../../src/domain/rrule';
 import { type ClientState, initialState, materialize, mutate, type NewOp, onPullResponse, onPushResponse, type PullResponse, type PushResponse, pullRequest, pushRequest, type Row } from '../../src/domain/sync-engine/client';
 import { seriesEditEffects, seriesEditOps } from '../../src/domain/views/event-tasks';
-import { editEvent, eventDetail, fieldsOf } from '../../src/domain/views/events';
+import { cancelEvent, editEvent, eventDetail, fieldsOf } from '../../src/domain/views/events';
 
 const enabled = !!process.env.PGHOST;
 const d = enabled ? describe : describe.skip;
@@ -93,13 +93,23 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     const res = await push(user, ops);
     expect(res.results.filter((r) => r.status === 'rejected')).toEqual([]);
   };
-  /** Telefon B: pełne pobranie od zera. */
-  async function phone(): Promise<ClientState> {
-    let s = initialState(id('009', 2));
-    s = { ...s, ackedSeq: seqs[id('009', 2)] ?? 0, nextSeq: (seqs[id('009', 2)] ?? 0) + 1 };
+  /** Grupa G: A (właściciel), B, Kuba (profil dziecka), R. */
+  async function family() {
+    await as(null);
+    await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test'), ($3, 'r@x.test')`, [U.a, U.b, U.r]);
+    await as('a');
+    await db.query(`select public.create_group($1, 'Rodzina', $2, 'A')`, [G, M.a]);
+    await as(null);
+    await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name, role) values ($1, $4, $5, 'B', 'member'), ($2, $4, null, 'Kuba', 'child'), ($3, $4, $6, 'R', 'member')`, [M.b, M.kuba, M.r, G, U.b, U.r]);
+  }
+  /** Telefon (domyślnie B): pełne pobranie od zera. */
+  async function phone(user: User = 'b'): Promise<ClientState> {
+    const client = id('009', user === 'a' ? 1 : 2);
+    let s = initialState(client);
+    s = { ...s, ackedSeq: seqs[client] ?? 0, nextSeq: (seqs[client] ?? 0) + 1 };
     for (let i = 0; i < 50; i++) {
       const req = pullRequest(s);
-      await as('b');
+      await as(user);
       const res: PullResponse = (await db.query(`select public.sync_pull($1::jsonb, 1000) r`, [JSON.stringify(req.cursors)])).rows[0].r;
       const out = onPullResponse(s, res, req.ackedAtStart);
       s = out.state;
@@ -115,12 +125,7 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
         await db.query('begin');
         for (const k of Object.keys(seqs)) delete seqs[k];
         try {
-          await as(null);
-          await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test'), ($3, 'r@x.test')`, [U.a, U.b, U.r]);
-          await as('a');
-          await db.query(`select public.create_group($1, 'Rodzina', $2, 'A')`, [G, M.a]);
-          await as(null);
-          await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name, role) values ($1, $4, $5, 'B', 'member'), ($2, $4, null, 'Kuba', 'child'), ($3, $4, $6, 'R', 'member')`, [M.b, M.kuba, M.r, G, U.b, U.r]);
+          await family();
           let n = 0;
           const fresh = (p: string) => id(p, ++n);
           const seed: NewOp[] = [
@@ -212,4 +217,26 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     expect(seen.moved).toBeGreaterThan(0);
     expect(seen.decisions).toBeGreaterThan(0);
   }, 240_000);
+
+  it('M-11 (S-8): dwa telefony zmieniają ten sam termin i dopisują tę samą osobę — bez odrzuceń, zmiany scalone', async () => {
+    await db.query('begin');
+    for (const k of Object.keys(seqs)) delete seqs[k];
+    try {
+      await family();
+      await ok('a', [{ kind: 'create', entity: 'events', id: E, group_id: G, set: { title: 'Basen', start_date: '2026-10-05', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group' } }]);
+      // Oba telefony mają ten sam stan, potem każdy offline zmienia termin 19.10 i uczestników.
+      const [ta, tb] = [materialize(await phone('a')), materialize(await phone('b'))];
+      const [da, dbb] = [eventDetail(ta, U.a, E)!, eventDetail(tb, U.b, E)!];
+      const kuba = (d: typeof da) => editEvent(d, '2026-10-12', 'all', { ...fieldsOf(d, '2026-10-12', 'all'), audience: 'members', participantIds: [M.kuba] });
+      await ok('a', [...cancelEvent(da, '2026-10-19', 'this'), ...kuba(da)]);
+      await ok('b', [...editEvent(dbb, '2026-10-19', 'this', { ...fieldsOf(dbb, '2026-10-19', 'this'), startTime: '16:00', endTime: '17:00' }), ...kuba(dbb)]);
+      await as(null);
+      const o = await db.query(`select cancelled, start_time::text from public.event_overrides where event_id = $1`, [E]);
+      expect(o.rows).toEqual([{ cancelled: true, start_time: '16:00:00' }]);
+      const p = await db.query(`select member_id from public.event_participants where event_id = $1 and deleted_at is null`, [E]);
+      expect(p.rows).toEqual([{ member_id: M.kuba }]);
+    } finally {
+      await db.query('rollback');
+    }
+  });
 });
