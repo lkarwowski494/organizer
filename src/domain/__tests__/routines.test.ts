@@ -1,4 +1,7 @@
-import type { NewOp, Row } from '../sync-engine/client';
+import { splitId } from '../event-split';
+import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
+import { seriesEditEffects, seriesEditOps } from '../views/event-tasks';
+import { editEvent, eventDetail, fieldsOf } from '../views/events';
 import { routineOps, routineStreak, routineUndoOps, taskStreak } from '../views/routines';
 import { copyId, fillOps } from '../views/series-tasks';
 import { nextId } from '../views/task-repeat';
@@ -78,6 +81,28 @@ describe('rutyny (D113)', () => {
     expect(routineStreak(t, 'brak', today)).toBe(0);
     put(t, 'events', 'old', { ...t.events![r.eventId]!, id: 'old', deleted_at: 'x' });
     expect(routineStreak(t, 'old', today)).toBe(0);
+  });
+
+  it('audyt 2 (E-10): po „to i następne” od dziś seria rutyny liczy się przez starą i nową część', () => {
+    const t = base();
+    put(t, 'lists', 'lf', { id: 'lf', group_id: 'gf', kind: 'tasks', name: 'Dom', visibility: 'group', sort_key: 'a0', deleted_at: null });
+    put(t, 'events', 'rano', { id: 'rano', group_id: 'gf', title: 'Poranek', start_date: '2026-10-01', start_time: '07:00:00', end_time: null, rrule: 'FREQ=DAILY', audience: 'group', kind: 'routine', deleted_at: null });
+    put(t, 'event_task_series', 's1', { id: 's1', group_id: 'gf', event_id: 'rano', list_id: 'lf', title: 'Zęby', deleted_at: null });
+    for (let d = 1; d <= 7; d++) {
+      const iso = `2026-10-0${d}`;
+      put(t, 'tasks', copyId('s1', iso), { id: copyId('s1', iso), group_id: 'gf', list_id: 'lf', title: 'Zęby', deadline_mode: 'event', event_id: 'rano', occurrence_date: iso, series_id: 's1', completed_at: `${iso}T07:00:00Z`, deleted_at: null });
+    }
+    // Odwołany 4.10 w starej części nie przerywa serii także po podziale.
+    for (const k of Object.keys(t.tasks!)) if (t.tasks![k]!.occurrence_date === '2026-10-04') delete t.tasks![k];
+    put(t, 'event_overrides', 'o4', { id: 'o4', event_id: 'rano', group_id: 'gf', occurrence_date: '2026-10-04', cancelled: true, deleted_at: null });
+    expect(routineStreak(t, 'rano', today)).toBe(6);
+    const d = eventDetail(t, ME, 'rano')!;
+    const ops = editEvent(d, '2026-10-08', 'following', { ...fieldsOf(d, '2026-10-08', 'following'), startTime: '07:30' });
+    for (const op of seriesEditOps(d, ops, seriesEditEffects(t, d, '2026-10-08', 'following', ops), 'nearest')) applyOp(t, { ...op, seq: 1, op_id: 'x' } as Op);
+    const next = splitId('rano', '2026-10-08');
+    expect(t.events![next]!.split_from).toBe('rano');
+    expect(routineStreak(t, next, today)).toBe(6);
+    expect(routineStreak(t, 'rano', today)).toBe(6);
   });
 
   it('seria zadania powtarzanego: odhaczone w terminie z rzędu; spóźnione przerywa', () => {

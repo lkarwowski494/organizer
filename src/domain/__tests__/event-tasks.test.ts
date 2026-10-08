@@ -3,7 +3,8 @@ import { parseRule } from '../rrule';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { todayView } from '../views';
 import { occurrenceResolver } from '../views/event-rows';
-import { affectedByCancel, attachedTasks, attachOps, createEventTask, nextOccurrence, relinkOps, seriesEditEffects, seriesTaskOps, upcomingInGroup } from '../views/event-tasks';
+import { splitId } from '../event-split';
+import { affectedByCancel, attachedTasks, attachOps, createEventTask, nextOccurrence, relinkOps, seriesEditEffects, seriesEditOps, upcomingInGroup } from '../views/event-tasks';
 import { cancelEvent, createEvent, editEvent, eventDetail, type EventFields } from '../views/events';
 import { asTask } from '../views/model';
 
@@ -45,25 +46,25 @@ const due = (t: T, id: string) => todayView(t, ME, parseIsoDate('2026-10-12')).t
 
 describe('termin z wystąpienia (D13)', () => {
   it('resolver: data po przeniesieniu i godzina z wyjątku; odwołane, nieistniejące i usunięta seria = brak', () => {
-    const { t, id, newId, d } = dances();
+    const { t, id, d } = dances();
     const occ = () => occurrenceResolver(t);
     expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-12', time: '18:00' });
     expect(occ()(id, '2026-10-13')).toBeNull(); // wtorek: nie ma takiego wystąpienia
     expect(occ()('nie-ma', '2026-10-12')).toBeNull();
-    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' }), newId));
+    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' })));
     expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-13', time: '17:00' });
-    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-12', startTime: null }), newId));
+    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-12', startTime: null })));
     expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-12', time: null }); // D136: bez godziny = ten termin całodniowy
-    run(t, cancelEvent(d(), '2026-10-19', 'this', newId));
+    run(t, cancelEvent(d(), '2026-10-19', 'this'));
     expect(occ()(id, '2026-10-19')).toBeNull();
     run(t, [{ kind: 'delete', entity: 'events', id }]);
     expect(occ()(id, '2026-10-12')).toBeNull();
   });
 
   it('zadanie idzie za przeniesionym spotkaniem w Moje sprawy', () => {
-    const { t, newId, d } = dances();
+    const { t, d } = dances();
     expect(due(t, 'strój')).toEqual({ date: '2026-10-12', time: '18:00' });
-    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' }), newId));
+    run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' })));
     expect(due(t, 'strój')).toEqual({ date: '2026-10-13', time: '17:00' });
   });
 
@@ -101,11 +102,11 @@ describe('odwołanie i usunięcie (D14)', () => {
   });
 
   it('kolejne wystąpienie (pomija odwołane), spotkania grupy do wyboru', () => {
-    const { t, id, newId, d } = dances();
+    const { t, id, d } = dances();
     expect(nextOccurrence(t, ME, id, '2026-10-12')).toBe('2026-10-19');
-    run(t, cancelEvent(d(), '2026-10-19', 'this', newId));
+    run(t, cancelEvent(d(), '2026-10-19', 'this'));
     expect(nextOccurrence(t, ME, id, '2026-10-12')).toBe('2026-10-26');
-    run(t, cancelEvent(d(), '2026-10-26', 'following', newId));
+    run(t, cancelEvent(d(), '2026-10-26', 'following'));
     expect(nextOccurrence(t, ME, id, '2026-10-12')).toBeNull();
     const list = upcomingInGroup(t, ME, 'gf', '2026-10-05', { eventId: id, occurrenceDate: '2026-10-05' });
     expect(list.map((o) => o.occurrenceDate)).toEqual(['2026-10-12']);
@@ -126,24 +127,51 @@ describe('odwołanie i usunięcie (D14)', () => {
 });
 
 describe('zmiana serii: podgląd skutków i przepięcie', () => {
-  it('„to i następne” z tym samym dniem: zadania od tego dnia przechodzą do nowej serii, wcześniejsze zostają', () => {
-    const { t, id, newId, d } = dances();
-    const ops = editEvent(d(), '2026-10-19', 'following', fields({ startTime: '17:00' }), newId);
+  it('„to i następne” z tym samym dniem: zadania od tego dnia (także zrobione) przechodzą do nowej serii, wcześniejsze zostają', () => {
+    const { t, id, d } = dances();
+    run(t, [{ kind: 'create', entity: 'tasks', id: 'zrobione', group_id: 'gf', set: { list_id: 'lf', title: 'Bilet', deadline_mode: 'event', event_id: id, occurrence_date: '2026-10-26', completed_at: '2026-10-08T10:00:00Z' } }]);
+    const ops = editEvent(d(), '2026-10-19', 'following', fields({ startTime: '17:00' }));
     const fx = seriesEditEffects(t, d(), '2026-10-19', 'following', ops);
-    const created = ops[1] as { id: string };
+    const sid = splitId(id, '2026-10-19');
     expect(fx.preview).toEqual(['2026-10-19', '2026-10-26', '2026-11-02']);
     expect(fx.kept.map((x) => x.id)).toEqual(['opłata']);
     expect(fx.lost).toEqual([]);
-    const taskOps = seriesTaskOps(t, d(), ops, fx, 'nearest');
-    expect(taskOps).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: created.id, occurrence_date: '2026-10-19' } }]);
-    run(t, [...ops, ...taskOps]);
-    expect(occurrenceResolver(t)(created.id, '2026-10-19')).toEqual({ date: '2026-10-19', time: '17:00' });
+    expect(fx.overridesLost).toBe(0);
+    // Jedno polecenie: zadania z terminów, które zostają, przenosi samo (bez osobnych operacji).
+    const all = seriesEditOps(d(), ops, fx, 'nearest');
+    expect(all).toEqual(ops);
+    run(t, all);
+    expect(occurrenceResolver(t)(sid, '2026-10-19')).toEqual({ date: '2026-10-19', time: '17:00' });
+    expect(t.tasks!.opłata).toMatchObject({ event_id: sid, occurrence_date: '2026-10-19' });
+    // Audyt 2 (E-21): zrobione zadanie z dnia po podziale nie traci dnia.
+    expect(t.tasks!.zrobione).toMatchObject({ event_id: sid, occurrence_date: '2026-10-26' });
     expect(t.tasks!.strój!.event_id).toBe(id);
   });
 
+  it('„to i następne” na wtorki: zadania z poniedziałków — na najbliższy termin albo odpięte, w tym samym poleceniu', () => {
+    const { t, id, d } = dances();
+    const ops = editEvent(d(), '2026-10-12', 'following', fields({ rule: parseRule('FREQ=WEEKLY;BYDAY=TU') }));
+    const fx = seriesEditEffects(t, d(), '2026-10-12', 'following', ops);
+    const sid = splitId(id, '2026-10-12');
+    expect(fx.preview).toEqual(['2026-10-13', '2026-10-20', '2026-10-27']);
+    expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([
+      ['buty', '2026-10-13'],
+      ['opłata', '2026-10-20'],
+      ['strój', '2026-10-13'],
+    ]);
+    const nearest = seriesEditOps(d(), ops, fx, 'nearest');
+    expect(nearest).toHaveLength(1);
+    expect(nearest[0]).toMatchObject({ kind: 'cmd', args: { tasks: [{ id: 'buty', action: 'relink', date: '2026-10-13' }, { id: 'opłata', action: 'relink', date: '2026-10-20' }, { id: 'strój', action: 'relink', date: '2026-10-13' }] } });
+    const moved = run(structuredClone(t), nearest);
+    expect(occurrenceResolver(moved)(sid, moved.tasks!.opłata!.occurrence_date as string)).toEqual({ date: '2026-10-20', time: '18:00' });
+    expect(moved.tasks!.buty).toMatchObject({ event_id: sid, occurrence_date: '2026-10-13' });
+    const unlinked = run(structuredClone(t), seriesEditOps(d(), ops, fx, 'unlink'));
+    expect(unlinked.tasks!.buty).toMatchObject({ event_id: null, occurrence_date: null, deadline_mode: 'none' });
+  });
+
   it('„wszystkie” z innym dniem: zadania tracą wystąpienie → najbliższe nowe albo odpięcie', () => {
-    const { t, id, newId, d } = dances();
-    const ops = editEvent(d(), '2026-10-12', 'all', fields({ rule: parseRule('FREQ=WEEKLY;BYDAY=TU') }), newId);
+    const { t, id, d } = dances();
+    const ops = editEvent(d(), '2026-10-12', 'all', fields({ rule: parseRule('FREQ=WEEKLY;BYDAY=TU') }));
     const fx = seriesEditEffects(t, d(), '2026-10-12', 'all', ops);
     expect(fx.preview).toEqual(['2026-10-13', '2026-10-20', '2026-10-27']);
     expect(fx.kept).toEqual([]);
@@ -152,12 +180,13 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
       ['opłata', '2026-10-20'],
       ['strój', '2026-10-13'],
     ]);
-    expect(seriesTaskOps(t, d(), ops, fx, 'nearest')).toEqual([
+    expect(seriesEditOps(d(), ops, fx, 'nearest')).toEqual([
+      ...ops,
       { kind: 'patch', entity: 'tasks', id: 'buty', set: { event_id: id, occurrence_date: '2026-10-13' } },
       { kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: id, occurrence_date: '2026-10-20' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: id, occurrence_date: '2026-10-13' } },
     ]);
-    expect(seriesTaskOps(t, d(), ops, fx, 'unlink').map((o) => ('set' in o ? o.set : null))).toEqual([
+    expect(seriesEditOps(d(), ops, fx, 'unlink').slice(ops.length).map((o) => ('set' in o ? o.set : null))).toEqual([
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
@@ -165,12 +194,35 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
   });
 
   it('seria kończy się przed zadaniem: brak najbliższego → odpięcie nawet przy „najbliższe”', () => {
-    const { t, newId, d } = dances();
-    const ops = editEvent(d(), '2026-10-05', 'all', fields({ until: '2026-10-12' }), newId);
+    const { t, d } = dances();
+    const ops = editEvent(d(), '2026-10-05', 'all', fields({ until: '2026-10-12' }));
     const fx = seriesEditEffects(t, d(), '2026-10-05', 'all', ops);
     expect(fx.kept.map((x) => x.id)).toEqual(['buty', 'strój']);
     expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([['opłata', null]]);
-    expect(seriesTaskOps(t, d(), ops, fx, 'nearest')).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
+    expect(seriesEditOps(d(), ops, fx, 'nearest').slice(ops.length)).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
+  });
+
+  it('„to i następne” krótsze niż zadanie: kopia stałego zadania do kosza, zwykłe bez najbliższego terminu — odpięte', () => {
+    const { t, id, d } = dances();
+    run(t, [{ ...createEventTask({ id: 'kopia', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-19', title: 'Nuty', seriesId: 'def' }) }]);
+    // Od 12.10 do 12.10: terminy 19.10 znikają, a kolejnych nie ma.
+    const ops = editEvent(d(), '2026-10-12', 'following', fields({ until: '2026-10-12' }));
+    const fx = seriesEditEffects(t, d(), '2026-10-12', 'following', ops);
+    expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([['kopia', null], ['opłata', null]]);
+    expect(seriesEditOps(d(), ops, fx, 'nearest')[0]).toMatchObject({ args: { tasks: [{ id: 'kopia', action: 'delete' }, { id: 'opłata', action: 'unlink' }] } });
+    // Inne operacje obok polecenia zostają bez zmian.
+    const extra: NewOp = { kind: 'patch', entity: 'tasks', id: 'buty', set: { title: 'Buty sportowe' } };
+    expect(seriesEditOps(d(), [...ops, extra], fx, 'nearest')[1]).toBe(extra);
+  });
+
+  it('„wszystkie” na jednorazowe: podgląd z jednym dniem; zmienione pojedynczo terminy przepadają', () => {
+    const { t, d } = dances();
+    run(t, editEvent(d(), '2026-10-19', 'this', fields({ date: '2026-10-19', title: 'Próba' })));
+    const ops = editEvent(d(), '2026-10-12', 'all', fields({ rule: null, date: '2026-10-12' }));
+    const fx = seriesEditEffects(t, d(), '2026-10-12', 'all', ops);
+    expect(fx.preview).toEqual(['2026-10-12']);
+    expect(fx.overridesLost).toBe(1);
+    expect(fx.kept.map((x) => x.id)).toEqual(['buty', 'strój']);
   });
 
   it('bez operacji na serii (np. pusta lista) — seria bez zmian', () => {

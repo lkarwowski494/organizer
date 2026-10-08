@@ -2,9 +2,11 @@
  * Potwierdzanie obecności (D124, ADR 0033): przy terminie wydarzenia grupy wspólnej „będę / nie będę / może”.
  * Kogo pytamy: uczestników (wydarzenie dla wybranych osób) albo całą grupę. Odpowiadam za siebie; dorosły także
  * za dziecko bez konta (dziecko z kontem odpowiada samo) — tak samo pilnuje serwer (event_rsvps_guard).
- * Identyfikator odpowiedzi to UUIDv5 z wydarzenia, daty i osoby (RFC 9562), więc dwa telefony piszą ten sam wiersz;
- * gdy telefon jeszcze go nie zna, wysyła utworzenie i zaraz zmianę — powtórzone utworzenie serwer pomija, a zmiana
- * i tak zapisze odpowiedź.
+ * Identyfikator odpowiedzi to UUIDv5 z wydarzenia, daty i osoby (RFC 9562), więc dwa telefony piszą ten sam wiersz.
+ * Gdy telefon jeszcze go nie zna, wysyła utworzenie, przywrócenie i zmianę: powtórzone utworzenie serwer pomija,
+ * przywrócenie ożywia wiersz z kosza, a zmiana zapisuje odpowiedź (audyt 2, E-25: wcześniej odpowiedź na wiersz
+ * usunięty po stronie serwera ginęła). Po „to i następne” odpowiedzi przechodzą do nowej serii z tym samym
+ * identyfikatorem (polecenie split_event), więc wiersz szukamy po wydarzeniu, dniu i osobie, a nie po identyfikatorze.
  */
 import { uuidv5 } from '../ids';
 import type { NewOp } from '../sync-engine/client';
@@ -50,12 +52,15 @@ export function rsvpView(t: Tables, userId: string, eventId: string, date: strin
   return { groupId: e.group_id, people, counts };
 }
 
-/** Odpowiedź osoby na termin: zmiana istniejącego wiersza albo utworzenie i zmiana (patrz nagłówek). */
+/** Odpowiedź osoby na termin: zmiana istniejącego wiersza, przywrócenie z kosza albo utworzenie (patrz nagłówek). */
 export function answerOps(t: Tables, a: { groupId: string; eventId: string; date: string; memberId: string; answer: Answer }): NewOp[] {
-  const id = rsvpId(a.eventId, a.date, a.memberId);
+  const same = Object.values(t.event_rsvps ?? {}).filter((r) => r.event_id === a.eventId && r.occurrence_date === a.date && r.member_id === a.memberId);
+  const row = same.find((r) => r.deleted_at == null) ?? same[0];
+  const id = row ? String(row.id) : rsvpId(a.eventId, a.date, a.memberId);
+  const restore: NewOp = { kind: 'restore', entity: 'event_rsvps', id };
   const patch: NewOp = { kind: 'patch', entity: 'event_rsvps', id, set: { answer: a.answer } };
-  if (t.event_rsvps?.[id]) return [patch];
-  return [{ kind: 'create', entity: 'event_rsvps', id, group_id: a.groupId, set: { event_id: a.eventId, occurrence_date: a.date, member_id: a.memberId, answer: a.answer } }, patch];
+  if (row) return row.deleted_at == null ? [patch] : [restore, patch];
+  return [{ kind: 'create', entity: 'event_rsvps', id, group_id: a.groupId, set: { event_id: a.eventId, occurrence_date: a.date, member_id: a.memberId, answer: a.answer } }, restore, patch];
 }
 
 /**

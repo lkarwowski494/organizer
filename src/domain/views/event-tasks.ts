@@ -3,14 +3,16 @@
  *  - przeniesienie jednego wystąpienia — zadania idą za nim same (klucz = data według reguły, termin liczy resolver),
  *  - odwołanie / usunięcie — telefon pyta: przepnij na kolejne wystąpienie serii, na inne spotkanie, odepnij, usuń,
  *  - zmiana serii („to i następne”, „wszystkie”) — podgląd skutków: zadania z wystąpień, które zostają, przechodzą
- *    same; z wystąpień, które znikają — na najbliższe nowe wystąpienie albo odpięte (wybór w podglądzie).
+ *    same; z wystąpień, które znikają — na najbliższe nowe wystąpienie albo odpięte (wybór w podglądzie). Przy „to
+ *    i następne” wszystko to robi jedno polecenie split_event (także zrobione zadania — audyt 2, E-21).
  */
 import { config } from '../../config';
 import { addDays, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
+import type { SplitArgs, SplitTask } from '../event-split';
 import { occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
-import { asEvent, ruleOf, seriesOf } from './event-rows';
+import { asEvent, ruleOf } from './event-rows';
 import { type EventDetail, expandEvents, type Occurrence, type Scope } from './events';
 import { asTask, rows, type Tables, type Task } from './model';
 
@@ -108,14 +110,20 @@ export type SeriesEffects = {
   kept: Task[];
   /** Zadania, których wystąpienie znika; `nearest` — najbliższe nowe wystąpienie od ich dnia (albo brak). */
   lost: { task: Task; nearest: string | null }[];
+  /** Ile zmienionych pojedynczo terminów przepada, bo nowa seria ich nie ma (audyt 2, E-20). */
+  overridesLost: number;
 };
 
-/** Seria po zmianie: wiersz z operacji editEvent (nowa seria przy „to i następne”, ta sama przy „wszystkie”). */
+type SplitCmd = Extract<NewOp, { kind: 'cmd' }> & { args: SplitArgs };
+const splitOf = (ops: readonly NewOp[]) => ops.find((o): o is SplitCmd => o.kind === 'cmd' && o.cmd === 'split_event');
+
+/** Seria po zmianie: nowa z polecenia split_event („to i następne”) albo ta sama zmieniona („wszystkie”). */
 function resulting(d: EventDetail, ops: NewOp[]): Series {
-  type SetOp = Extract<NewOp, { kind: 'create' | 'patch' }>;
-  const created = ops.find((o): o is SetOp => o.kind === 'create' && o.entity === 'events');
+  type SetOp = Extract<NewOp, { kind: 'patch' }>;
+  const split = splitOf(ops);
+  if (split) return { id: split.args.id, start: split.args.set.start_date, rule: ruleOf({ rrule: split.args.set.rrule }) };
   const patched = ops.find((o): o is SetOp => o.kind === 'patch' && o.entity === 'events' && o.id === d.event.id);
-  const row = asEvent({ ...d.event, ...(created ?? patched)?.set, id: created?.id ?? d.event.id });
+  const row = asEvent({ ...d.event, ...patched?.set });
   return { id: row.id, start: row.start_date, rule: ruleOf(row) };
 }
 
@@ -123,23 +131,30 @@ function resulting(d: EventDetail, ops: NewOp[]): Series {
 export function seriesEditEffects(t: Tables, d: EventDetail, occurrenceDate: string, scope: Exclude<Scope, 'this'>, ops: NewOp[]): SeriesEffects {
   const next = resulting(d, ops);
   const tasks = attachedTasks(t, d.event.id).filter((x) => next.id === d.event.id || x.occurrence_date! >= occurrenceDate);
-  const p = parseIsoDate(scope === 'all' ? occurrenceDate : next.start);
+  const p = parseIsoDate(scope === 'all' && next.rule !== null ? occurrenceDate : next.start);
   return {
     preview: occurrences(parseIsoDate(next.start), next.rule, p, addDays(p, LOOKAHEAD_DAYS)).slice(0, 3).map(formatIsoDate),
     kept: tasks.filter((x) => occursIn(next, x.occurrence_date!)),
     lost: tasks.filter((x) => !occursIn(next, x.occurrence_date!)).map((task) => ({ task, nearest: firstFrom(next, task.occurrence_date!) })),
+    overridesLost: splitOf(ops)?.args.drop_overrides.length ?? ops.filter((o) => o.kind === 'delete' && o.entity === 'event_overrides').length,
   };
 }
 
-/** Operacje dla zadań po zmianie serii: zostające przechodzą do serii wynikowej, znikające — wg wyboru. */
-export function seriesTaskOps(t: Tables, d: EventDetail, ops: NewOp[], effects: SeriesEffects, lost: 'nearest' | 'unlink'): NewOp[] {
+/**
+ * Wszystkie operacje zmiany serii po podglądzie: zadania z wystąpień, które znikają — kopie stałych zadań do kosza, inne
+ * na najbliższe nowe wystąpienie albo odpięte (wybór). Przy „to i następne” te decyzje idą w tym samym poleceniu
+ * split_event (wszystko albo nic), a zadania z terminów, które zostają, przenosi samo polecenie.
+ */
+export function seriesEditOps(d: EventDetail, ops: NewOp[], effects: SeriesEffects, lost: 'nearest' | 'unlink'): NewOp[] {
   const next = resulting(d, ops);
-  const out: NewOp[] = [];
-  if (next.id !== d.event.id) {
-    out.push(...effects.kept.flatMap((x) => relinkOps([x], { kind: 'occurrence', eventId: next.id, occurrenceDate: x.occurrence_date! })));
-    // Stałe zadania serii idą za nową serią (D65); kopie na nowe terminy dołoży telefon.
-    out.push(...seriesOf(t, d.event.id).map((s): NewOp => ({ kind: 'patch', entity: 'event_task_series', id: s.id, set: { event_id: next.id } })));
+  const split = splitOf(ops);
+  if (split) {
+    const tasks = effects.lost.map(({ task, nearest }): SplitTask =>
+      task.series_id !== null ? { id: task.id, action: 'delete' } : lost === 'nearest' && nearest ? { id: task.id, action: 'relink', date: nearest } : { id: task.id, action: 'unlink' },
+    );
+    return ops.map((o) => (o === split ? { ...split, args: { ...split.args, tasks } } : o));
   }
+  const out: NewOp[] = [...ops];
   for (const { task, nearest } of effects.lost) {
     // Kopia stałego zadania z terminu, który znika, nie przechodzi — na nowy termin powstanie własna kopia.
     if (task.series_id !== null) out.push({ kind: 'delete', entity: 'tasks', id: task.id });
@@ -147,4 +162,3 @@ export function seriesTaskOps(t: Tables, d: EventDetail, ops: NewOp[], effects: 
   }
   return out;
 }
-

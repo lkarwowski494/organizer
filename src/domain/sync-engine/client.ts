@@ -13,6 +13,7 @@
  * przeniesione poza wzrok, filtr encji): 20261008310000_sync_protocol_v2.sql.
  */
 import { config } from '../../config';
+import { applySplit } from '../event-split';
 
 /**
  * Encje, które ta wersja aplikacji zna i zapisuje (= tabele lustrzane w src/data/db/migrations.ts — pilnuje test).
@@ -138,7 +139,12 @@ export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): str
   return null;
 }
 
+/**
+ * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
+ * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split) i stałe zakupy.
+ */
 function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
+  if (op.cmd === 'split_event') return applySplit(tables, op.args);
   const id = String(op.args.list_id);
   const list = tables.lists?.[id];
   // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.

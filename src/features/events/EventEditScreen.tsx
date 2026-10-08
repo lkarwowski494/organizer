@@ -14,7 +14,7 @@ import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatLongDate, parseIsoDate , formatDue } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
-import { type SeriesEffects, seriesEditEffects, seriesTaskOps } from '../../domain/views/event-tasks';
+import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
 import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
@@ -53,8 +53,9 @@ export function EventEditScreen({ route, navigation }: Props) {
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
   const members = useMemo(() => groupDetail(tables, userId, groupId)?.members ?? [], [tables, userId, groupId]);
+  const personal = groups.find((g) => g.id === groupId)?.kind === 'personal';
   // D66: osobą odpowiedzialną jest tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
-  const adults = members.filter((m) => m.role !== 'child' && groups.find((g) => g.id === groupId)?.kind !== 'personal');
+  const adults = members.filter((m) => m.role !== 'child' && !personal);
 
   if (eventId && (!detail || !detail.canEdit)) {
     return (
@@ -82,7 +83,8 @@ export function EventEditScreen({ route, navigation }: Props) {
   const pos = DATE.test(form.date) ? weekdayPosition(form.date) : null;
 
   const save = () => {
-    const r = validateForm(only ? { ...form, repeat: 'none' } : form);
+    // W grupie osobistej „kogo dotyczy” nie ma (P-53) — zawsze cała grupa, czyli ja.
+    const r = validateForm({ ...form, ...(only ? { repeat: 'none' as const } : {}), ...(personal ? { audience: 'group' as const, participantIds: [] } : {}) });
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
@@ -90,7 +92,7 @@ export function EventEditScreen({ route, navigation }: Props) {
       store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
       navigation.goBack();
     } else {
-      const ops = editEvent(detail, occurrence, scope, r.fields[0]!, newId);
+      const ops = editEvent(detail, occurrence, scope, r.fields[0]!);
       if (scope !== 'this' && detail.rule) return setPreview({ ops, effects: seriesEditEffects(tables, detail, occurrence, scope, ops) });
       commit(ops);
     }
@@ -108,6 +110,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         <Title>{strings['event.previewTitle']}</Title>
         <Body>{effects.preview.length ? strings['event.previewDates'](effects.preview.map((x) => formatDue({ date: x, time: null }, today)).join(', ')) : strings['event.previewNone']}</Body>
         {effects.kept.length ? <Body muted>{strings['event.previewKept'](effects.kept.length)}</Body> : null}
+        {effects.overridesLost ? <Body>{strings['event.previewOverridesLost'](effects.overridesLost)}</Body> : null}
         {effects.lost.length ? (
           <View style={{ gap: 8 }}>
             <Body>{strings['event.previewLost'](effects.lost.length)}</Body>
@@ -115,7 +118,7 @@ export function EventEditScreen({ route, navigation }: Props) {
             <Segmented label={strings['event.previewLostChoice']} value={lostChoice} onChange={setLostChoice} options={[{ value: 'nearest', label: strings['event.previewNearest'] }, { value: 'unlink', label: strings['event.previewUnlink'] }]} />
           </View>
         ) : null}
-        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit([...preview.ops, ...seriesTaskOps(tables, detail, preview.ops, effects, lostChoice)])} />
+        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit(seriesEditOps(detail, preview.ops, effects, lostChoice))} />
         <Button kind="secondary" label={strings['event.previewBack']} onPress={() => setPreview(null)} />
       </Screen>
     );
@@ -153,13 +156,21 @@ export function EventEditScreen({ route, navigation }: Props) {
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
         <Field label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
       )}
-      {scope === 'all' && detail?.rule ? null : (
+      {/* Audyt 2: w serii „to i następne” zaczyna się od tego wystąpienia (E-6, napis wyżej), a „wszystkie” — od początku
+          serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
+      {detail?.rule && (scope === 'following' || (scope === 'all' && form.repeat !== 'none')) ? null : (
         <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set({ date })} today={today} testID="event-date" />
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
       {only ? null : (
-        <Segmented label={strings['event.repeat']} value={form.repeat} onChange={(repeat) => set({ repeat })} options={REPEATS.map((r) => ({ value: r, label: strings[`event.repeat.${r}`] }))} />
+        <Segmented
+          label={strings['event.repeat']}
+          value={form.repeat}
+          // Audyt 2 (E-7): seria „wszystkie” → jednorazowe: dzień otwartego terminu, nie pierwszy dzień serii (często miniony).
+          onChange={(repeat) => set(repeat === 'none' && detail?.rule && scope === 'all' ? { repeat, date: fieldsOf(detail, occurrence, 'this').date } : { repeat })}
+          options={REPEATS.map((r) => ({ value: r, label: strings[`event.repeat.${r}`] }))}
+        />
       )}
 
       {slots.map((slot, i) => (
@@ -213,7 +224,8 @@ export function EventEditScreen({ route, navigation }: Props) {
         </>
       ) : null}
 
-      {only ? null : (
+      {/* Audyt 2 (P-53): w grupie osobistej nie ma kogo wybierać. */}
+      {only || personal ? null : (
         <>
           <Segmented label={strings['event.audience']} value={form.audience} onChange={(audience) => set({ audience })} options={[{ value: 'group', label: strings['event.audience.group'] }, { value: 'members', label: strings['event.audience.members'] }]} />
           {form.audience === 'members' ? (

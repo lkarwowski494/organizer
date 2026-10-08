@@ -85,7 +85,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')],
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'))],
   ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'), await p('Wszystkie w serii'))],
-  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co tydzień'), await p('Dodaj inny termin (inne dni albo godzina)'), await p('Wybrane osoby'))],
+  // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
+  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj inny termin (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'))],
