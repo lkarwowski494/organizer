@@ -12,7 +12,7 @@
 import { config } from '../config';
 import { inviteUrl, joinUrl } from '../domain/invite-link';
 import type { PulledRow, PullResponse, PushResponse } from '../domain/sync-engine/client';
-import type { AccountApi, Invite } from './account';
+import type { AccountApi, Invite, JoinInvite } from './account';
 import { type SyncTransport, TransportError, type TransportErrorKind } from './transport';
 
 export type RpcError = { message: string; code?: string };
@@ -71,6 +71,9 @@ export function supabaseTransport(client: SupabaseLike): SyncTransport {
     fetchScope: async (listId) => (await call<{ rows: PulledRow[] }>(client, 'sync_fetch_scope', { list_id: listId })).rows,
   };
 }
+
+type JoinCodeRow = { invite_id: string; join_id: string; code: string; expires_at: string };
+const joinInvite = (r: JoinCodeRow): JoinInvite => ({ inviteId: r.invite_id, joinId: r.join_id, code: r.code, url: joinUrl({ joinId: r.join_id, code: r.code }), expiresAt: r.expires_at });
 
 function check(r: { error: { message: string } | null }): void {
   if (r.error) throw new Error(r.error.message);
@@ -151,8 +154,10 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, memory
       await call(client, 'revoke_invite', { invite_id: inviteId });
     },
     async createJoinCode(groupId, role) {
-      const r = await call<{ invite_id: string; join_id: string; code: string; expires_at: string }>(client, 'create_join_code', { group_id: groupId, role });
-      return { inviteId: r.invite_id, joinId: r.join_id, code: r.code, url: joinUrl({ joinId: r.join_id, code: r.code }), expiresAt: r.expires_at };
+      return joinInvite(await call<JoinCodeRow>(client, 'create_join_code', { group_id: groupId, role }));
+    },
+    async renewJoinCode(groupId, role) {
+      return joinInvite(await call<JoinCodeRow>(client, 'renew_join_code', { group_id: groupId, role }));
     },
     async joinGroup(joinId, code, displayName) {
       // Serwer zwraca błąd w treści (nie wyjątkiem), żeby zapis nieudanej próby nie został wycofany.

@@ -24,8 +24,13 @@ export interface AccountApi {
   createInvite(groupId: string, role: 'member' | 'admin'): Promise<Invite>;
   acceptInvite(token: string, displayName: string): Promise<{ groupId: string }>;
   revokeInvite(inviteId: string): Promise<void>;
-  /** Nowy 6-cyfrowy kod do ID grupy (owner/admin). */
+  /**
+   * Kod do ID grupy (owner/admin): bieżący ważny kod tej roli albo nowy, gdy ważnego nie ma — jeden aktywny kod na grupę
+   * i rolę (decyzja właściciela z 8.10.2026, PW-41 A).
+   */
   createJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
+  /** „Nowy kod”: kolejny kod tej roli; poprzedni przestaje działać (PW-41 A). */
+  renewJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
   /** Dołączenie ID + kod. Błędy (komunikat): invite_invalid, invite_expired, invite_revoked, invite_used_up, rate_limited. */
   joinGroup(joinId: string, code: string, displayName: string): Promise<{ groupId: string }>;
   /** Nowe ID grupy (owner); wszystkie kody na stare ID przestają działać. */

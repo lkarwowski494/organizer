@@ -59,6 +59,7 @@ describe('Supabase: transport synchronizacji', () => {
     expect(await a.acceptInvite('tok', 'Ł')).toEqual({ groupId: 'g' });
     await a.revokeInvite('i');
     await a.createJoinCode('g', 'member');
+    await a.renewJoinCode('g', 'member');
     await a.rotateJoinId('g');
     await a.deleteGroup('g');
     await a.restoreGroup('g');
@@ -73,7 +74,7 @@ describe('Supabase: transport synchronizacji', () => {
       expect(params.has(c.fn)).toBe(true);
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
-    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'create_join_code', 'rotate_join_id', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
+    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'create_join_code', 'renew_join_code', 'rotate_join_id', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
     // Protokół 2 (audyt 2, M-1, M-58): kursor z epoką, wersja protokołu i encje znane telefonowi.
     expect(calls[1]!.args).toEqual({ cursors: { g: { v: 3, p: 1 } }, lim: 1000, schema_version: 2, entities: ['tasks'] });
   });
@@ -116,6 +117,7 @@ describe('Supabase: konto', () => {
   it('ID grupy + kod: kod z linkiem; dołączenie; błąd w treści odpowiedzi', async () => {
     const replies: RpcResult<unknown>[] = [
       { data: { invite_id: 'i', join_id: '482913507', code: '731064', expires_at: 'x' }, error: null, status: 200 },
+      { data: { invite_id: 'i3', join_id: '482913507', code: '555111', expires_at: 'y' }, error: null, status: 200 },
       { data: { group_id: 'gf' }, error: null, status: 200 },
       { data: { error: 'rate_limited' }, error: null, status: 200 },
       { data: {}, error: null, status: 200 },
@@ -123,8 +125,11 @@ describe('Supabase: konto', () => {
     const { client, calls } = fakeClient(() => replies.shift()!);
     const a = supabaseAccount(client, async () => ({ identityToken: null }));
     expect(await a.createJoinCode('g', 'admin')).toEqual({ inviteId: 'i', joinId: '482913507', code: '731064', url: `${config.invites.JOIN_LINK}?g=482913507&c=731064`, expiresAt: 'x' });
+    // PW-41 A: „Nowy kod” — kolejny kod tej roli.
+    expect(await a.renewJoinCode('g', 'admin')).toEqual({ inviteId: 'i3', joinId: '482913507', code: '555111', url: `${config.invites.JOIN_LINK}?g=482913507&c=555111`, expiresAt: 'y' });
+    expect(calls[1]).toEqual({ fn: 'renew_join_code', args: { group_id: 'g', role: 'admin' } });
     expect(await a.joinGroup('482913507', '731064', 'Ala')).toEqual({ groupId: 'gf' });
-    expect(calls[1]).toEqual({ fn: 'join_group', args: { join_id: '482913507', code: '731064', display_name: 'Ala' } });
+    expect(calls[2]).toEqual({ fn: 'join_group', args: { join_id: '482913507', code: '731064', display_name: 'Ala' } });
     await expect(a.joinGroup('1', '2', 'x')).rejects.toMatchObject({ kind: 'server', message: 'rate_limited' });
     await expect(a.joinGroup('1', '2', 'x')).rejects.toMatchObject({ message: 'invite_invalid' });
     const params = sqlParams();

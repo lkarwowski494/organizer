@@ -179,17 +179,26 @@ export const config = {
   invites: {
     /**
      * Dołączanie jak w Zoom (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
-     * limity nieudanych prób na godzinę (osoba / ID grupy). SQL: private.join_* (test kontraktowy).
+     * limit nieudanych prób osoby na godzinę. D140 odwrócona (8.10.2026): zamiast limitu na ID grupy (cudze próby
+     * blokowały poprawny kod) kod przestaje działać po JOIN_FAILS_PER_CODE nieudanych próbach na swoje ID grupy — szansa
+     * odgadnięcia ≤ 100 / 10^6 na kod (rachunek w migracji 20261008362000_join_codes_v2). SQL: private.join_* (test
+     * kontraktowy).
      */
     JOIN_ID_DIGITS: 9,
     CODE_DIGITS: 6,
     CODE_TTL_HOURS: 24,
     JOIN_FAILS_PER_USER: 5,
-    JOIN_FAILS_PER_GROUP: 20,
+    JOIN_FAILS_PER_CODE: 100,
     /** Strona z linkiem zaproszenia (GitHub Pages, D94). Universal Links dla /j/ dopiero po krokach z docs/join-links.md (bez associatedDomains w app.json). */
     JOIN_LINK: 'https://lkarwowski494.github.io/j/',
     /** D141: link w wiadomości zaproszenia dopiero, gdy strona działa (docs/join-links.md, krok właściciela). */
     LINK_LIVE: false,
+    /**
+     * Decyzja właściciela z 8.10.2026 (audyt 2, PW-7 A): publiczny link TestFlight (https://testflight.apple.com/join/…)
+     * w wiadomości z zaproszeniem — skąd wziąć aplikację. `null`, dopóki właściciel go nie utworzy w App Store Connect
+     * (docs/testflight-beta.md, krok 3); do tego czasu wiadomość jest bez tego wiersza.
+     */
+    TESTFLIGHT_LINK: null as string | null,
     DEFAULT_TTL_HOURS: 168,
     MAX_TTL_HOURS: 720,
     DEFAULT_MAX_USES: 10,
