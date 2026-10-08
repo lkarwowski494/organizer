@@ -39,9 +39,12 @@ describe('Info.plist po wtyczkach', () => {
     }
     // D96: pełny dostęp do kalendarza, ale prywatne wydarzenia zostają na telefonie — tak mówi opis.
     expect(String(plist.NSCalendarsFullAccessUsageDescription)).toContain('nie opuszczają telefonu');
-    // D116: lokalizacja tylko „podczas używania” (czas dojazdu); bez „zawsze” i bez ruchu.
+    // D116: lokalizacja tylko „podczas używania” (czas dojazdu); bez „zawsze”.
     expect(String(plist.NSLocationWhenInUseUsageDescription)).toMatch(/^Organizer .*nie trafia na serwer/);
-    for (const key of ['NSLocationAlwaysAndWhenInUseUsageDescription', 'NSLocationAlwaysUsageDescription', 'NSMotionUsageDescription']) expect(plist[key]).toBeUndefined();
+    for (const key of ['NSLocationAlwaysAndWhenInUseUsageDescription', 'NSLocationAlwaysUsageDescription']) expect(plist[key]).toBeUndefined();
+    // D123: expo-location zawiera kod czujnika ruchu (CMMotionActivityManager), więc Apple wymaga opisu (ITMS-90683,
+    // odrzucony build 19), choć aplikacja nigdy o tę zgodę nie pyta. Opis mówi to wprost.
+    expect(String(plist.NSMotionUsageDescription)).toMatch(/^Organizer nie korzysta z czujników ruchu/);
   }, 60000);
 });
 

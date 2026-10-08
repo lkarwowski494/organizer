@@ -20,7 +20,7 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - **Dane:** `events.location` (tekst, do 300 znaków, `config.events.LOCATION_MAX_LENGTH`, test kontraktowy z SQL) — całej serii; „Tylko to” go nie zmienia. Migracja `20261008260000_event_location.sql`.
-- **Moduł natywny** `modules/travel-time` (Swift, MapKit): czas dojazdu z położenia telefonu do współrzędnych celu. Położenie i adres → współrzędne: expo-location (zgoda tylko „podczas używania”; „zawsze” i ruch wyłączone — test kontraktowy Info.plist). Współrzędne celu zapamiętane na telefonie.
+- **Moduł natywny** `modules/travel-time` (Swift, MapKit): czas dojazdu z położenia telefonu do współrzędnych celu. Położenie i adres → współrzędne: expo-location (zgoda tylko „podczas używania”; „zawsze” wyłączone — test kontraktowy Info.plist; opis ruchu dodany w D123, ADR 0032). Współrzędne celu zapamiętane na telefonie.
 - **Kiedy liczymy:** dzisiejsze wydarzenia, które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
 - **Powiadomienie:** „Czas wyjść: Basen” o godzinie wyjścia zastępuje przypomnienie „30 min przed”, jeśli dojazd jest policzony.
   - Plan powiadomień układa się, gdy aplikacja działa. Zmiana korków po zamknięciu aplikacji nie przesunie powiadomienia — ograniczenie powiadomień lokalnych.
