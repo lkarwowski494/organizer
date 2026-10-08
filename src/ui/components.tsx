@@ -4,7 +4,7 @@
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
 import { type ReactNode, type Ref, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { Dimensions, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -76,7 +76,23 @@ export function indicatorLabel(i: Indicator, nowMs: number): string {
   }
 }
 
+/**
+ * Wskaźnik synchronizacji. „Zaktualizuj aplikację” (upgrade_required) dostaje przycisk do publicznego linku TestFlight
+ * (decyzja koordynatora 8.10.2026), gdy link jest ustawiony (config.invites.TESTFLIGHT_LINK); bez niego — sam tekst.
+ */
 export function SyncChip({ indicator, nowMs }: { indicator: Indicator; nowMs: number }) {
+  const link = config.invites.TESTFLIGHT_LINK;
+  const chip = <SyncChipBody indicator={indicator} nowMs={nowMs} />;
+  if (indicator.state !== 'upgrade_required' || !link) return chip;
+  return (
+    <View style={{ gap: 8 }}>
+      {chip}
+      <Button kind="secondary" label={strings['sync.upgradeOpen']} testID="sync-upgrade" onPress={() => void Linking.openURL(link).catch(() => {})} />
+    </View>
+  );
+}
+
+function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: number }) {
   const { c, font } = useTheme();
   const warn = indicator.state === 'offline' || indicator.state === 'error' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required';
   const label = indicatorLabel(indicator, nowMs);
@@ -351,10 +367,11 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
   );
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+/** `a11yLabel` — etykieta VoiceOver grupy z kontekstem, gdy kilka grup na ekranie ma ten sam napis (audyt 2, M-145). */
+export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ gap: 6 }}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {options.map((o) => {

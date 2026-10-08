@@ -1,16 +1,15 @@
 import * as Application from 'expo-application';
 import * as Notifications from 'expo-notifications';
-import * as SecureStore from 'expo-secure-store';
 
 import type { Reminder } from '../../domain/views/reminders';
 import { apnsEnv, expoDevicePush, openedPaths, registerIfAllowed, reminderScheduler, showWhileOpen } from '../push';
 import { fakePush } from './harness';
+import { parseReminderSettings } from '../reminders';
 
 jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), SchedulableTriggerInputTypes: { DATE: 'date' } }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}) }));
 jest.mock('expo-application', () => ({ getIosPushNotificationServiceEnvironmentAsync: jest.fn(async () => null) }));
 const m = Notifications as jest.Mocked<typeof Notifications>;
-const ss = SecureStore as jest.Mocked<typeof SecureStore>;
 const app = Application as jest.Mocked<typeof Application>;
 
 describe('powiadomienia na iPhonie (D70)', () => {
@@ -34,27 +33,19 @@ describe('powiadomienia na iPhonie (D70)', () => {
     expect(await expoDevicePush.env()).toBe('production');
     app.getIosPushNotificationServiceEnvironmentAsync.mockResolvedValueOnce('development');
     expect(await expoDevicePush.env()).toBe('sandbox');
-    ss.getItemAsync.mockResolvedValueOnce('1').mockResolvedValueOnce(null);
-    expect([await expoDevicePush.dismissed(), await expoDevicePush.dismissed()]).toEqual([true, false]);
-    await expoDevicePush.dismiss();
-    expect(ss.setItemAsync).toHaveBeenCalledWith('pushPromptDismissed', '1');
   });
 
-  it('przypomnienia: podmiana zaplanowanych, zapis i odczyt ustawień (zły zapis = domyślne)', async () => {
+  it('przypomnienia: podmiana zaplanowanych; ustawienia (zły zapis = domyślne)', async () => {
     await expoDevicePush.replaceReminders([{ id: 'm|2026-10-08', at: 1_800_000_000_000, title: 'Dziś', body: 'kwiaty', target: { screen: 'today' } }]);
     expect(m.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
     // PWD-16: ścieżka do otwarcia w danych powiadomienia.
     expect(m.scheduleNotificationAsync).toHaveBeenCalledWith({ identifier: 'm|2026-10-08', content: { title: 'Dziś', body: 'kwiaty', sound: 'default', data: { path: 'today' } }, trigger: { type: 'date', date: 1_800_000_000_000 } });
-    await expoDevicePush.saveReminderSettings({ leadMin: 10, morning: 'off' });
-    expect(ss.setItemAsync).toHaveBeenLastCalledWith('reminderSettings', '{"leadMin":10,"morning":"off"}');
-    ss.getItemAsync.mockResolvedValueOnce('{"leadMin":10,"morning":"off"}').mockResolvedValueOnce(null).mockResolvedValueOnce('{zły').mockResolvedValueOnce('{"leadMin":"x"}');
-    expect(await expoDevicePush.reminderSettings()).toEqual({ leadMin: 10, morning: 'off' });
-    expect(await expoDevicePush.reminderSettings()).toBeNull();
-    expect(await expoDevicePush.reminderSettings()).toBeNull();
-    expect(await expoDevicePush.reminderSettings()).toBeNull();
+    expect(parseReminderSettings('{"leadMin":10,"morning":"off"}')).toEqual({ leadMin: 10, morning: 'off' });
+    expect(parseReminderSettings(null)).toBeNull();
+    expect(parseReminderSettings('{zły')).toBeNull();
+    expect(parseReminderSettings('{"leadMin":"x"}')).toBeNull();
     // PWD-17: „Czas wyjść” zapisany osobno; zapis sprzed niego bez pola (= włączone).
-    ss.getItemAsync.mockResolvedValueOnce('{"leadMin":10,"morning":"off","leave":false}');
-    expect(await expoDevicePush.reminderSettings()).toEqual({ leadMin: 10, morning: 'off', leave: false });
+    expect(parseReminderSettings('{"leadMin":10,"morning":"off","leave":false}')).toEqual({ leadMin: 10, morning: 'off', leave: false });
   });
 
   it('środowisko APNs: development → sandbox; production, brak profilu (App Store, TestFlight) i symulator → production', async () => {

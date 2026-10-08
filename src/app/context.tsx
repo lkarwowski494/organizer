@@ -35,10 +35,18 @@ export type AppServices = {
   travel?: TravelService;
   /** Powiadomienia push (D70); brak = bez push (np. testy, które go nie dotyczą). */
   push?: DevicePush;
-  /** Drobne ustawienia na tym telefonie (np. „wprowadzenie obejrzane”); brak = nic nie zapamiętujemy. */
+  /**
+   * Drobne ustawienia konta na tym telefonie (np. „wprowadzenie obejrzane”), osobno dla każdego konta (D175,
+   * account-prefs.ts); brak = nic nie zapamiętujemy.
+   */
   prefs?: Prefs;
   /** Dane tylko tego telefonu w lokalnej bazie (stan lustra kalendarza, D95); brak = funkcja wyłączona. */
   local?: LocalStore;
+  /**
+   * Sprzątanie telefonu przy wylogowaniu i usunięciu konta (np. kalendarze lustra w iPhonie, D172): funkcja wykonuje się,
+   * zanim sesja się skończy; zwraca wyrejestrowanie. Błąd nie zatrzymuje wylogowania.
+   */
+  onSignOut?: (fn: () => Promise<void>) => () => void;
   /** D121: wyczyść kopię danych na telefonie i pobierz od nowa (grupy i członkowie wracają z serwera). */
   resetLocal?: () => void;
   /**
@@ -52,6 +60,8 @@ export type AppServices = {
   needsName?: boolean;
   /** Początek adresu e-mail — dawne imię zastępcze (przed D100). */
   emailName?: string | null;
+  /** Konto bez Apple (D177): wylogowanie ostrzega, że w becie nie da się wrócić. */
+  emailOnly?: boolean;
   newId: () => string;
   /** Lokalny czas Europe/Warsaw (config.TIME_ZONE). */
   now: () => LocalDateTime;

@@ -4,7 +4,7 @@
  */
 import * as Application from 'expo-application';
 
-jest.mock('expo-sqlite', () => ({ openDatabaseSync: jest.fn(() => ({ execSync: jest.fn(), runSync: jest.fn(), getAllSync: jest.fn(() => []), withTransactionSync: (f: () => void) => f() })) }));
+jest.mock('expo-sqlite', () => ({ openDatabaseSync: jest.fn(() => ({ execSync: jest.fn(), runSync: jest.fn(), getAllSync: jest.fn(() => []), withTransactionSync: (f: () => void) => f(), closeSync: jest.fn() })), deleteDatabaseSync: jest.fn() }));
 jest.mock('expo-application', () => ({
   ...jest.requireActual('expo-application'),
   getIosApplicationReleaseTypeAsync: jest.fn(),
@@ -32,7 +32,7 @@ const ORIGINAL = { ...process.env };
 function load(env: { [k: string]: string | undefined }, release: Application.ApplicationReleaseType) {
   process.env = { ...ORIGINAL, ...env };
   let mod!: typeof import('../wiring');
-  let sqlite!: { openDatabaseSync: jest.Mock };
+  let sqlite!: { openDatabaseSync: jest.Mock; deleteDatabaseSync: jest.Mock };
   let secure!: { setItem: jest.Mock; AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: unknown };
   let netinfo!: { addEventListener: jest.Mock };
   jest.isolateModules(() => {
@@ -90,5 +90,20 @@ describe('appDeps (D143)', () => {
     expect(seen).toEqual([false, true, true]);
     expect(typeof deps.session.refresh).toBe('function');
     expect(typeof deps.session.signOutLocal).toBe('function');
+  });
+
+  it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty; błąd usuwania cichy', async () => {
+    const w = load({ EXPO_PUBLIC_E2E: undefined, EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test' }, Application.ApplicationReleaseType.SIMULATOR);
+    const deps = w.appDeps();
+    deps.openDb('u-1');
+    const db = w.sqlite.openDatabaseSync.mock.results.at(-1)!.value as { closeSync: jest.Mock };
+    deps.removeDb!('u-1');
+    expect(db.closeSync).toHaveBeenCalled();
+    expect(w.sqlite.deleteDatabaseSync).toHaveBeenCalledWith('organizer-u-1.db');
+    w.sqlite.deleteDatabaseSync.mockImplementationOnce(() => {
+      throw new Error('DeleteDatabaseException');
+    });
+    expect(() => deps.removeDb!('u-2')).not.toThrow();
+    expect(deps.legacyPrefs).toBeDefined();
   });
 });
