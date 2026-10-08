@@ -22,6 +22,8 @@ export function rejectionReason(code: string): string {
   if (head === 'deleted' || head === 'not_found') return strings['rejected.code.deleted'];
   if (head === 'cycle') return strings['rejected.code.cycle'];
   if (head === 'depth_exceeded') return strings['rejected.code.depth'];
+  // Audyt 2 (M-70): limity na konto (np. limit:groups przy dołączaniu z kolejki).
+  if (head === 'limit') return strings['rejected.code.limit'];
   return strings['rejected.code.other'];
 }
 

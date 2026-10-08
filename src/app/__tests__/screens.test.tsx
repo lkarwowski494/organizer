@@ -465,6 +465,7 @@ describe('Ustawienia', () => {
       { op: { seq: 7, op_id: 'o7', kind: 'restore' as const, entity: 'tasks' as const, id: 'y' }, code: 'coś_innego' },
       { op: { seq: 8, op_id: 'o8', kind: 'restore' as const, entity: 'tasks' as const, id: 'z' }, code: 'deleted:parent' },
       { op: { seq: 9, op_id: 'o9', kind: 'patch' as const, entity: 'handoffs' as const, id: 'h', set: { status: 'accepted' } }, code: 'stale' },
+      { op: { seq: 10, op_id: 'o10', kind: 'create' as const, entity: 'group_members' as const, id: 'gm', group_id: 'g', set: { display_name: 'Ja' } }, code: 'limit:groups' },
     ];
     await act(async () => {
       s.store.getSnapshot().state = { ...s.store.getSnapshot().state, rejected } as never;
@@ -472,7 +473,7 @@ describe('Ustawienia', () => {
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-account'));
-    expect(await screen.findByText('7 zmian')).toBeTruthy();
+    expect(await screen.findByText('8 zmian')).toBeTruthy();
     await press(screen.getByTestId('open-rejected'));
     expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
     expect(screen.getByText('Brak uprawnień')).toBeTruthy();
@@ -485,6 +486,8 @@ describe('Ustawienia', () => {
     expect(screen.getByText('Zmiana niezgodna z danymi na serwerze')).toBeTruthy();
     expect(screen.getByText(/Najpierw przywróć zadanie nadrzędne/)).toBeTruthy();
     expect(screen.getByText(/Przekazanie jest nieaktualne/)).toBeTruthy();
+    // Audyt 2 (M-70): limit konta.
+    expect(screen.getByText(/Przekroczony limit konta/)).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));

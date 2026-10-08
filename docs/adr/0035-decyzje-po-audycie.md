@@ -142,3 +142,33 @@ Decyzje techniczne (Claude; właściciel może zawetować):
   aplikacji: ekran z wyjaśnieniem i „Wyczyść i pobierz od nowa” (zostają dane `local:*`, M-177). Odświeżenie po
   operacji serwerowej omija przerwę po błędzie (M-178). Cofnięcie zegara przesuwa terminy pętli o ten sam odcinek
   (M-179). Generator kopii stałych zadań serii nie ponawia utworzenia odrzuconego przez serwer.
+
+## Decyzje właściciela po audycie 2 (8.10.2026) — retencja i limity serwera (paczka P16)
+| Pytanie | Decyzja | Odrzucone |
+|---|---|---|
+| PW-42 (M-67). Usunięte wydarzenie z przypiętymi zadaniami | A (D182): po 30 dniach w koszu zadania tracą przypięcie (dzień terminu jako własny termin), wydarzenie znika | Wyczyścić treść i zostawić wiersz; poprawić politykę |
+| PW-44 (M-70). Nadużycia jednego konta | A (D183): twarde limity w bazie, liczby w `src/config` (`quotas`) | Tylko monitoring |
+| PW-47 (M-62). Historia zmian | A (D184): 90 dni na serwerze i na telefonach (`retention.ACTIVITY_DAYS`) | Historia na żądanie |
+
+Wykonanie (Claude; właściciel może zawetować):
+- **D182.** Zadanie „jak spotkanie” dostaje datę terminu (po przeniesieniu wyjątkiem — datę po przeniesieniu), bez godziny;
+  zadanie z własnym terminem traci tylko przypięcie; kopie stałych zadań tracą wskazanie definicji. Zmiana idzie do telefonów
+  jak każda inna (nowa wersja wiersza); w historii zadania wpis bez autora („Ktoś”). Odrzucone: termin z godziną wydarzenia
+  (godzina wydarzenia nie była terminem zadania).
+- **D183 — liczby** (wybory projektowe, uzasadnienie w `src/config/index.ts`): 50 grup wspólnych na konto (także w koszu;
+  ponad limit tworzenie i dołączanie kończą się komunikatem, dołączanie nie liczy się jako nieudana próba kodu), 20 aktywnych
+  zaproszeń na grupę, 10 tokenów push i 20 instalacji na konto (nadmiarowy najdawniej używany wypada — bez błędu),
+  120 wywołań `sync_push` na minutę (ponad limit telefon ponawia z opóźnieniem), 120 próśb o powiadomienie na godzinę
+  (ponad limit powiadomienie nie idzie). Odrzucone: limit liczby zadań i list na grupę (zwykłe użycie trudno oszacować,
+  a limity wyżej już ograniczają tempo zapisów); limit Realtime osobno (sygnał idzie tylko po udanym `sync_push`).
+- **D184.** Telefon usuwa u siebie historię i rozstrzygnięte przekazania w tych samych terminach co serwer (przy każdym
+  pobraniu); ekran zadania mówi „Zmiany z ostatnich 90 dni.”.
+- **Sprzątanie (M-66, M-194).** Procedura z COMMIT po każdej grupie, tylko grupy z czymś do zrobienia; dziennik
+  `private.maintenance_runs`, problemy jako wpis diagnostyczny w `client_errors`. Odrzucone: limit grup na dobę z kursorem
+  (kosz mógłby się opóźniać).
+- **Instalacje (M-68).** Licznik instalacji nieużywanej 180 dni znika razem z jej odrzuceniami. Instalacja, która wróci
+  później, zaczyna licznik od nowa: niepotwierdzone zmiany z jej kolejki serwer przyjmie jak zmiany po powrocie z trybu
+  offline; jedyny skutek uboczny to powtórzenie zmiany, której potwierdzenie zginęło w sieci pół roku wcześniej.
+  Odrzucone: kod `client_unknown` i czyszczenie kolejki na telefonie (traci zmiany zrobione offline tuż przed powrotem).
+- **Dziennik dostępu (M-68).** `private.access_events` 30 dni. Odrzucone na teraz: zatrzymanie zapisu (testy kilku paczek
+  sprawdzają wpisy).

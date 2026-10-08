@@ -540,6 +540,9 @@ export const strings = {
   'groups.error.member': 'Tej osoby nie ma już w grupie.',
   'groups.error.tooLong': 'Nazwa grupy albo imię są za długie. Skróć je i spróbuj jeszcze raz.',
   'groups.error.session': 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
+  // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
+  'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
+  'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
   'member.name': 'Imię w grupie',
   'member.role': 'Rola',
   'member.remove': 'Usuń z grupy',
@@ -626,6 +629,7 @@ export const strings = {
   'rejected.code.other': 'Zmiana niezgodna z danymi na serwerze',
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
+  'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
   'rejected.op.create': 'Dodanie',
   'rejected.op.patch': 'Zmiana',
   'rejected.op.delete': 'Usunięcie',
@@ -712,6 +716,8 @@ export const strings = {
   'repeat.cycleAll': 'Też kolejne',
   'history.title': 'Historia',
   'history.empty': 'Brak zmian.',
+  // Audyt 2 (M-62, D184): historia trzymana config.retention.ACTIVITY_DAYS dni.
+  'history.retention': (days: number) => `Zmiany z ostatnich ${days} ${plural(days, { one: 'dnia', few: 'dni', many: 'dni' })}.`,
   'history.create': 'dodaje',
   'history.delete': 'usuwa',
   'history.restore': 'przywraca',

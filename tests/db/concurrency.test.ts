@@ -181,3 +181,42 @@ d('równoczesne stałe zakupy (audyt 2, M-111)', () => {
   }, 60_000);
 });
 
+
+// Audyt 2 (M-192): paczki dotykające tych samych dwóch grup w odwrotnej kolejności. Dotąd każda blokowała grupy w kolejności
+// operacji — A potem B kontra B potem A dawało deadlock_detected; teraz sync_push blokuje grupy paczki na początku, po id.
+d('paczki w odwrotnej kolejności grup', () => {
+  it('bez zakleszczeń', async () => {
+    const admin = await connect();
+    const [ua, ub] = [randomUUID(), randomUUID()];
+    await admin.query(`insert into auth.users (id, email) values ($1, 'a'), ($2, 'b')`, [ua, ub]);
+    const a = await connect(ua);
+    const b = await connect(ub);
+    const groups = [randomUUID(), randomUUID()];
+    const lists = [randomUUID(), randomUUID()];
+    const ca = randomUUID();
+    const cb = randomUUID();
+    for (const [i, g] of groups.entries()) {
+      await a.query(`select public.create_group($1, 'G', $2, 'A')`, [g, randomUUID()]);
+      await admin.query(`insert into public.group_members (member_id, group_id, user_id, display_name) values (gen_random_uuid(), $1, $2, 'B')`, [g, ub]);
+      await a.query(`select public.sync_push($1, 2, $2::jsonb)`, [ca, JSON.stringify([{ seq: i + 1, kind: 'create', entity: 'lists', id: lists[i], group_id: g, set: { kind: 'tasks', name: 'L' } }])]);
+    }
+    let seqA = 2;
+    let seqB = 0;
+    const task = (g: number, seq: number) => ({ seq, kind: 'create', entity: 'tasks', id: randomUUID(), group_id: groups[g], set: { list_id: lists[g], title: 'T' } });
+    // 30 rund wystarcza, żeby bez sortowania trafić w zakleszczenie (sprawdzone z wyłączonym private.lock_groups);
+    // z sortowaniem nie może się zdarzyć ani razu.
+    const errors: string[] = [];
+    try {
+      for (let round = 0; round < 30; round++) {
+        const res = await Promise.allSettled([
+          a.query(`select public.sync_push($1, 2, $2::jsonb)`, [ca, JSON.stringify([task(0, ++seqA), task(1, ++seqA)])]),
+          b.query(`select public.sync_push($1, 2, $2::jsonb)`, [cb, JSON.stringify([task(1, ++seqB), task(0, ++seqB)])]),
+        ]);
+        for (const r of res) if (r.status === 'rejected') errors.push(String((r.reason as Error).message));
+      }
+    } finally {
+      await Promise.all([admin, a, b].map((c) => c.end()));
+    }
+    expect(errors).toEqual([]);
+  }, 60_000);
+});

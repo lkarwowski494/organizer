@@ -20,12 +20,13 @@ select public.report_client_error('error', 'e' || g, null, null, null) from gene
 reset role;
 select is((select count(*)::int from public.client_errors where user_id = '00000000-0000-7000-8000-0000000000c1'), 50, '7: najwyżej 50 zgłoszeń dziennie na osobę');
 select is((select message from public.app_feedback), 'Brakuje mi listy stałych zakupów', '8: opinia przycięta ze spacji');
--- Retencja: stare wpisy znikają przy następnym zapisie.
+-- Retencja: stare wpisy kasuje codzienne sprzątanie (private.purge_logs), nie każdy zapis (audyt 2, M-191).
 update public.client_errors set created_at = now() - interval '91 days';
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c2');
 set local role authenticated;
 select public.report_client_error('error', 'nowy', null, null, null);
 reset role;
+select private.purge_logs();
 select is((select count(*)::int from public.client_errors), 1, '9: wpisy starsze niż 90 dni usunięte');
 
 select * from finish();

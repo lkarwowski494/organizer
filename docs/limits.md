@@ -18,3 +18,13 @@ Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
 | Build TestFlight | wygasa po 90 dniach | 80 dni | https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers |
 | Token `organizer-match` (fine-grained PAT) | wygasa po 1 roku od utworzenia (6.10.2026) | 30 dni przed wygaśnięciem | ustawienie właściciela |
 | Ciche pushe | 2–3/h zalecane | > 2/h na urządzenie | https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app |
+
+## Limity na konto i retencja (audyt 2, D183, D184, 8.10.2026)
+Żeby jedno konto nie zapełniło bazy Free ani nie wyczerpało Realtime i Edge Functions, serwer egzekwuje twarde limity
+(`config.quotas`, test kontraktowy z `private.max_*()`; migracja `20261008482000_quotas.sql`): 50 grup wspólnych (także
+w koszu), 20 aktywnych zaproszeń na grupę, 10 tokenów push (nadmiarowy najstarszy wypada), 20 instalacji (jw.),
+120 wywołań `sync_push` na minutę, 120 próśb o powiadomienie na godzinę. Wartości to wybory projektowe z zapasem nad zwykłym
+użyciem, bez źródła zewnętrznego. Codzienne sprzątanie (`call private.run_daily_maintenance()`, pg_cron 03:17 UTC) trzyma
+dane w granicach z `config.retention` (historia 90 dni, rozstrzygnięte przekazania 90, zaproszenia 30 po wygaśnięciu,
+dziennik dostępu 30, instalacje 180). Wynik każdego przebiegu: `private.maintenance_runs`; problem (pominięta grupa,
+przebieg niedokończony) — wpis `kind = 'diagnostic'`, `screen = 'daily_maintenance'` w `public.client_errors`.
