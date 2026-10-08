@@ -24,6 +24,8 @@ export type RootStackParams = {
     groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string;
     /** PWD-33 (D200): kopia wydarzenia z kalendarza iPhone'a — miejsce, cały dzień i dopisek o kopii. */
     location?: string; allDay?: boolean; fromDevice?: boolean;
+    /** Audyt 2 (M-255): z przełącznika rodzaju — dziecko jako uczestnik, ogłoszenie formularza. */
+    participantIds?: string[]; kindSwitch?: boolean;
   };
   /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
   Invite: { token?: string; g?: string; c?: string };
@@ -36,14 +38,14 @@ export type RootStackParams = {
   /** Plan lekcji osoby z tygodniami A/B (D112). */
   Timetable: { groupId: string; memberId: string };
   /** Nowa rutyna z krokami (D113); `groupId` — podpowiedź grupy, `title` — nazwa z pełnego formularza (PWD-26). */
-  Routine: { groupId?: string; title?: string } | undefined;
+  Routine: { groupId?: string; title?: string; kindSwitch?: boolean } | undefined;
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
   /**
-   * Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”).
+   * Formularz nowego zadania (D90): `text` z pola dodawania („Więcej”); `kindSwitch` — przejście z formularza wydarzenia.
    * `defaultGroupId` — grupa z chipa przy polu (M-24), gdy tekst nie wskazuje innej.
    */
-  AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string; defaultGroupId?: string };
+  AddTask: { text?: string; title?: string; date?: string; time?: string; groupId?: string; defaultGroupId?: string; kindSwitch?: boolean };
 };
 
 export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'adding' | 'account';

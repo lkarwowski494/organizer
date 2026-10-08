@@ -108,11 +108,11 @@ describe('powtarzanie zadania', () => {
     const base = sampleBase();
     put(base, 'tasks', 't-paczka', { ...base.tasks!['t-paczka']!, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
     const { store } = await openTask(base);
-    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     await answerAlert('Zrobione');
     expect(store.dispatched.at(-2)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: expect.any(String) } });
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', id: nextId('t-paczka'), set: { title: 'Odebrać paczkę', due_date: '2026-10-14', due_time: '18:00:00', repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
-    await press(screen.getByLabelText('Oznacz jako niezrobione'));
+    await press(screen.getByLabelText('Oznacz jako niezrobione: Odebrać paczkę'));
     expect(store.dispatched.slice(-2)).toEqual([
       { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: null } },
       { kind: 'delete', entity: 'tasks', id: nextId('t-paczka') },
@@ -127,7 +127,7 @@ describe('powtarzanie zadania', () => {
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
     await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
-    await press(await screen.findByLabelText('Usuń termin'));
+    await press(await screen.findByLabelText('Bez terminu'));
     expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null, repeat: null } });
   });
 });

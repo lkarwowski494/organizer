@@ -136,8 +136,9 @@ describe('Listy i zadania', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
     await press(screen.getByLabelText('Nikt konkretny'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
-    await type(screen.getByTestId('task-sub'), 'wstążka');
-    await press(screen.getAllByLabelText('Dodaj podzadanie').at(-1)!);
+    // Audyt 2 (M-244): podzadanie dodaje się jak w polu szybkiego dodawania.
+    await type(screen.getByTestId('quick-add'), 'wstążka');
+    await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
     expect(await screen.findByText('wstążka')).toBeTruthy();
     await setTime('task-time', '17:30');
@@ -154,12 +155,15 @@ describe('Listy i zadania', () => {
     await press(await screen.findByTestId('list-lf'));
     expect((await screen.findAllByText(/pt\. 9 paź · 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
     await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty\ dla\ babci(,|$)/));
+    // Audyt 2 (M-254): usunięcie z ekranu zadania jak przesunięcie na liście — powrót i pasek „Cofnij”.
     await press(await screen.findByLabelText('Usuń zadanie'));
-    expect(await screen.findByText('Zadanie usunięte')).toBeTruthy();
-    await press(screen.getByLabelText('Cofnij usunięcie'));
+    expect(await screen.findByTestId('screen-list')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty dla babci')).toBeTruthy();
+    await press(screen.getByLabelText('Cofnij'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty\ dla\ babci(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
-    await press(screen.getByLabelText('Usuń termin'));
+    await press(screen.getByLabelText('Bez terminu'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));

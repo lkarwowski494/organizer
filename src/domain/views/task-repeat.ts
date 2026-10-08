@@ -1,8 +1,11 @@
 /**
  * Powtarzanie zadań (D76, decyzja właściciela z 7.10.2026, ADR 0016). Zapis w `tasks.repeat`:
  *  - według kalendarza — reguła RRULE (RFC 5545, ten sam podzbiór co wydarzenia, src/domain/rrule.ts):
- *    „FREQ=DAILY”, „FREQ=WEEKLY;BYDAY=MO,TH”, „FREQ=MONTHLY” (ten sam dzień miesiąca co termin; miesiące bez tego
- *    dnia są pomijane, jak w RFC: „invalid date … is ignored”);
+ *    „FREQ=DAILY”, „FREQ=WEEKLY;BYDAY=MO,TH”, „FREQ=MONTHLY;BYMONTHDAY=n” (ten sam dzień miesiąca co termin; miesiące
+ *    bez tego dnia są pomijane, jak w RFC: „invalid date … is ignored”) albo „FREQ=MONTHLY;BYMONTHDAY=-1” — ostatni dzień
+ *    miesiąca (decyzja właściciela 8.10.2026, PWD-37; RFC 5545 §3.3.10, https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10:
+ *    „Valid values are 1 to 31 or -31 to -1. For example, -10 represents the tenth to the last day of the month”,
+ *    przykład „Monthly on the first and last day of the month … BYMONTHDAY=1,-1”);
  *  - od wykonania (D23) — „AFTER=DAILY;INTERVAL=n” albo „AFTER=WEEKLY;INTERVAL=n”.
  * Odhaczenie zadania z powtarzaniem tworzy następne z kolejnym terminem; odhaczone zostaje jako historia.
  * Id następnego = uuidv5(id + „|next”), więc dwa telefony odhaczające naraz nie zrobią dwóch kopii (serwer: utworzenie
@@ -17,7 +20,7 @@
  *  - T-19: D133 przy „od wykonania” — następne na dziś (nikt nie wykonał, więc nie ma od czego liczyć interwału).
  */
 import { config } from '../../config';
-import { addDays, type CivilDate, compareDates, formatIsoDate, toDayNumber } from '../civil-date';
+import { addDays, type CivilDate, compareDates, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
 import { nextAfterCompletion } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { uuidv5 } from '../ids';
@@ -33,7 +36,7 @@ export const nextId = (taskId: string) => uuidv5(REPEAT_NAMESPACE, `${taskId}|ne
 export type Repeat =
   | { kind: 'daily' }
   | { kind: 'weekly'; days: number[] } // 0 = poniedziałek
-  /** `day` — dzień miesiąca (D137), żeby przeniesienie terminu nie przesuwało cyklu; bez niego = dzień terminu. */
+  /** `day` — dzień miesiąca (D137), żeby przeniesienie terminu nie przesuwało cyklu; bez niego = dzień terminu; -1 = ostatni. */
   | { kind: 'monthly'; day?: number }
   | { kind: 'after'; unit: 'DAILY' | 'WEEKLY'; interval: number };
 
@@ -61,7 +64,7 @@ export function parseRepeat(s: string | null | undefined): Repeat | null {
   if (a) return { kind: 'after', unit: a[1] as 'DAILY' | 'WEEKLY', interval: Number(a[2]) };
   if (s === 'FREQ=DAILY') return { kind: 'daily' };
   if (s === 'FREQ=MONTHLY') return { kind: 'monthly' };
-  const m = /^FREQ=MONTHLY;BYMONTHDAY=([1-9]|[12]\d|3[01])$/.exec(s);
+  const m = /^FREQ=MONTHLY;BYMONTHDAY=([1-9]|[12]\d|3[01]|-1)$/.exec(s);
   if (m) return { kind: 'monthly', day: Number(m[1]) };
   const w = /^FREQ=WEEKLY;BYDAY=((?:MO|TU|WE|TH|FR|SA|SU)(?:,(?:MO|TU|WE|TH|FR|SA|SU))*)$/.exec(s);
   if (w) return { kind: 'weekly', days: w[1]!.split(',').map((c) => WEEKDAY_CODES.indexOf(c as (typeof WEEKDAY_CODES)[number])) };
@@ -223,3 +226,36 @@ export const setRepeat = (id: string, r: Repeat | null, dueDate?: string | null)
   id,
   set: { repeat: r ? formatRepeat(r.kind === 'monthly' && !r.day && dueDate ? { kind: 'monthly', day: Number(dueDate.slice(8, 10)) } : r) : null },
 });
+
+/**
+ * Zmiana terminu zadania powtarzanego (decyzja właściciela 8.10.2026, D181 / PW-32 A): telefon pyta „Tylko ten raz / Też
+ * kolejne”, gdy nowy dzień zmienia cykl — co tydzień: inny dzień tygodnia; co miesiąc: inny dzień miesiąca. Codziennie
+ * i „od wykonania” cyklu w kalendarzu nie mają, a termin już raz przeniesiony poza cykl (D137) nie wyznacza nowego —
+ * wtedy pytania nie ma. Zwraca regułę dla „Też kolejne” albo null (bez pytania).
+ *  - co tydzień: dzień starego terminu zamieniony na dzień nowego (inne dni zostają);
+ *  - co miesiąc: dzień nowego terminu; ostatni dzień miesiąca zostaje ostatnim, gdy nowy termin też nim jest.
+ */
+export function cycleChange(r: Repeat | null, oldDate: string, newDate: string): Repeat | null {
+  if (!r) return null;
+  const from = parseIsoDate(oldDate);
+  const to = parseIsoDate(newDate);
+  const lastDay = (d: CivilDate) => d.d === daysInMonth(d.y, d.m);
+  if (r.kind === 'weekly') {
+    if (!r.days.includes(isoWeekday(from))) return null;
+    const days = [...new Set(r.days.map((d) => (d === isoWeekday(from) ? isoWeekday(to) : d)))].sort((a, b) => a - b);
+    return formatRepeat({ kind: 'weekly', days }) === formatRepeat(r) ? null : { kind: 'weekly', days };
+  }
+  if (r.kind !== 'monthly') return null;
+  const onCycle = r.day === undefined || r.day === from.d || (r.day === -1 && lastDay(from));
+  if (!onCycle) return null;
+  const day = r.day === -1 && lastDay(to) ? -1 : to.d;
+  return day === (r.day ?? from.d) ? null : { kind: 'monthly', day };
+}
+
+/**
+ * „Tylko ten raz” (D137): reguła, która trzyma dotychczasowy cykl po przeniesieniu terminu — co miesiąc bez zapisanego
+ * dnia (zapis sprzed D137) dostaje dzień starego terminu; inaczej null (reguła już trzyma cykl).
+ */
+export function keepCycle(r: Repeat | null, oldDate: string): Repeat | null {
+  return r?.kind === 'monthly' && r.day === undefined ? { kind: 'monthly', day: parseIsoDate(oldDate).d } : null;
+}

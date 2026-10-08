@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { extractTag, quickGroups, resolveQuick, tagTargets, unseenInMyDays, withoutShortcuts } from '../views/quick-target';
+import { extractTag, quickGroups, resolveListQuick, resolveQuick, tagTargets, unseenInMyDays, withoutShortcuts } from '../views/quick-target';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -120,5 +120,42 @@ describe('nikt nie zobaczy w Moich sprawach (D68 po PW-18 b)', () => {
     expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBe(false);
     expect(unseenInMyDays(t, ME, { groupId: ME, memberId: null }, false)).toBe(false);
     expect(unseenInMyDays(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBe(false);
+  });
+});
+
+describe('pole dodawania na liście zadań: „@imię” i „@ja” (spójnie z Moimi sprawami)', () => {
+  const lists = () => {
+    const t = base();
+    const l = (id: string, gid: string, visibility = 'group', owner: string | null = null) => put(t, 'lists', id, { id, group_id: gid, kind: 'tasks', name: id, visibility, owner_member_id: owner, sort_key: 'a0', deleted_at: null });
+    l('lf', 'gf');
+    l('lprv', 'gf', 'private', 'mf');
+    l('lp', ME);
+    l('lc', 'gc');
+    put(t, 'group_members', 'alek', { member_id: 'alek', group_id: 'gf', user_id: 'u-alek', display_name: 'Alek', role: 'member', deleted_at: null });
+    return t;
+  };
+  const q = (listId: string, text: string, answers = {}) => resolveListQuick(lists(), ME, listId, text, answers);
+
+  it('osoba z grupy listy, która ją widzi; „@” znika z nazwy (spacjami, jak w Moich sprawach)', () => {
+    expect(q('lf', 'basen @Kuba jutro')).toEqual({ kind: 'ok', memberId: 'kuba', body: 'basen       jutro' });
+    // Alicja z innej grupy (Klasa 2b) się nie liczy — tylko grupa listy.
+    expect(q('lf', 'zebranie @al')).toEqual({ kind: 'many', name: 'al', targets: [expect.objectContaining({ memberId: 'ala' }), expect.objectContaining({ memberId: 'alek' })] });
+    expect(q('lf', 'zebranie @al', { person: { groupId: 'gf', groupName: 'Rodzina', memberId: 'alek', displayName: 'Alek' } })).toMatchObject({ kind: 'ok', memberId: 'alek' });
+    // Lista „Tylko ja”: nikt inny jej nie widzi.
+    expect(q('lprv', 'prezent @ala')).toEqual({ kind: 'unknown', name: 'ala' });
+    expect(q('lf', 'basen @Zosia')).toEqual({ kind: 'unknown', name: 'Zosia' });
+    expect(q('lf', 'basen @Zosia', { skipMention: true })).toEqual({ kind: 'ok', memberId: null, body: 'basen @Zosia' });
+  });
+
+  it('„@ja” — ja we wspólnej grupie, w osobistej bez osoby; bez „@” i „#” — tekst bez zmian', () => {
+    expect(q('lf', 'basen @ja')).toEqual({ kind: 'ok', memberId: 'mf', body: 'basen    ' });
+    expect(q('lp', 'basen @ja')).toEqual({ kind: 'ok', memberId: null, body: 'basen    ' });
+    expect(q('lf', 'basen #Klasa')).toEqual({ kind: 'ok', memberId: null, body: 'basen #Klasa' });
+    expect(resolveListQuick(lists(), ME, 'lf', 'basen')).toEqual({ kind: 'ok', memberId: null, body: 'basen' });
+  });
+
+  it('lista, na której jestem dzieckiem, albo nieznana — „@” zostaje w nazwie', () => {
+    expect(q('lc', 'basen @ala')).toEqual({ kind: 'ok', memberId: null, body: 'basen @ala' });
+    expect(q('brak', 'basen @ala')).toEqual({ kind: 'ok', memberId: null, body: 'basen @ala' });
   });
 });

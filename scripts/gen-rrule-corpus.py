@@ -44,6 +44,10 @@ fixed = [('FREQ=WEEKLY;BYDAY=MO,SA', date(2026, 10, 5)), ('FREQ=YEARLY', date(20
          ('FREQ=MONTHLY;BYMONTHDAY=-1', date(2026, 1, 1)), ('FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH', date(2026, 10, 7)),
          ('FREQ=MONTHLY;BYDAY=MO', date(2026, 10, 1)), ('FREQ=MONTHLY;BYDAY=5FR', date(2026, 1, 1)), ('FREQ=MONTHLY;BYDAY=1MO,-1FR', date(2026, 3, 1))]
 specs = fixed + [(rule(), date(2025, 6, 1) + timedelta(days=rnd.randint(0, 700))) for _ in range(400)]
+# Ostatni dzień miesiąca (PWD-37, audyt 2): luty zwykły i przestępny, co 2 miesiące, z końcem — dopisane na końcu,
+# żeby losowe przypadki wyżej zostały bez zmian.
+specs += [('FREQ=MONTHLY;BYMONTHDAY=-1', date(2026, 10, 31)), ('FREQ=MONTHLY;BYMONTHDAY=-1;COUNT=6', date(2027, 11, 30)),
+          ('FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=-1', date(2027, 12, 31)), ('FREQ=MONTHLY;BYMONTHDAY=-1;UNTIL=20280331', date(2028, 1, 31))]
 for text, anchor in specs:
     free = ';'.join(p for p in text.split(';') if not p.startswith(('COUNT', 'UNTIL')))
     first = rrulestr(free, dtstart=datetime.combine(anchor, datetime.min.time()))[0].date()
