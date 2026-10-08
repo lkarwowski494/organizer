@@ -115,7 +115,8 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Twoje wpisy:** do usunięcia przez Ciebie albo przez osobę z grupy, która może je usunąć.
 - **Kosz:** usunięte listy, zadania, wydarzenia i grupy leżą w koszu 30 dni, potem znikają na zawsze razem ze swoją
   historią zmian (serwer sprząta raz na dobę, więc może to potrwać do jednego dnia dłużej). Grupę z kosza właściciel może
-  przywrócić w ciągu tych 30 dni. Zadania przypięte do usuniętego wydarzenia zostają: po 30 dniach tracą przypięcie,
+  przywrócić w ciągu tych 30 dni, a listę, zadanie i wydarzenie — każdy dorosły z grupy, który je widzi (Grupy → Kosz).
+  Zadania przypięte do usuniętego wydarzenia zostają: po 30 dniach tracą przypięcie,
   a dzień tamtego terminu staje się ich własnym terminem.
 - **Historia zmian:** 90 dni (na serwerze i na telefonach).
 - **Rozstrzygnięte przekazania** (przyjęte, odrzucone, anulowane): 90 dni od decyzji.

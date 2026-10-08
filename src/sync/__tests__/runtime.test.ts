@@ -223,6 +223,20 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(readState(db, 'c-1')).toEqual(rt.getSnapshot().state);
   });
 
+  it('„Wyczyść listę” odrzuconych (D190): pusta lista w stanie i w bazie, ekran dostaje powiadomienie', () => {
+    const db = memoryDb();
+    migrate(db);
+    const initial = { ...initialState('c-1'), rejected: [{ op: { seq: 1, op_id: 'o1', kind: 'delete' as const, entity: 'tasks' as const, id: 't' }, code: 'forbidden' }] };
+    writeState(db, initialState('c-1'), initial, 1);
+    const { rt } = harness({ push: jest.fn(), pull: jest.fn(), fetchScope: jest.fn() }, { initial, persist: (p, nx, now) => writeState(db, p, nx, now) });
+    const seen = jest.fn();
+    rt.subscribe(seen);
+    rt.clearRejected();
+    expect(rt.getSnapshot().state.rejected).toEqual([]);
+    expect(readState(db, 'c-1').rejected).toEqual([]);
+    expect(seen).toHaveBeenCalled();
+  });
+
   it('kolejka z poprzedniego uruchomienia: od razu do wysłania', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);

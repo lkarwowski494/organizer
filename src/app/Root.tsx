@@ -266,7 +266,7 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
 
   const services: AppServices = useMemo(
     () => ({
-      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }) },
+      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }), clearRejected: () => runtime.clearRejected() },
       account,
       calendar: deps.calendar,
       travel: deps.travel,

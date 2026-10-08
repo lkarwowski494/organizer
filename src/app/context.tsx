@@ -7,13 +7,18 @@ import { createContext, type ReactNode, useContext, useMemo, useSyncExternalStor
 import type { CivilDate, LocalDateTime } from '../domain/civil-date';
 import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
+import { fingerprint, isStale } from '../domain/views/recent';
 import type { AccountApi } from '../sync/account';
 import type { LocalStore } from './calendar-mirror';
 import type { TravelService } from './travel-service';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import type { Snapshot } from '../sync/runtime';
-import { UndoProvider } from '../ui/undo';
+import { type UndoBackend, UndoProvider } from '../ui/undo';
+import { routineUndoOps } from '../domain/views/routines';
+
+/** Klucz „Ostatnich zmian” w bazie konta (`local:` w sync_state, D194 b). */
+const RECENT_KEY = 'recent.changes';
 
 export type AppStore = {
   getSnapshot: () => Snapshot;
@@ -22,6 +27,8 @@ export type AppStore = {
   dispatch: (op: NewOp | readonly NewOp[]) => void;
   /** Pobierz zmiany teraz (po operacji serwerowej, np. utworzeniu grupy albo przyjęciu zaproszenia). */
   refresh: () => void;
+  /** „Wyczyść listę” odrzuconych zmian (D190). */
+  clearRejected: () => void;
 };
 
 export type Prefs = { get(key: string): Promise<string | null>; set(key: string, value: string): Promise<void> };
@@ -72,9 +79,24 @@ export type AppServices = {
 const AppContext = createContext<AppServices | null>(null);
 
 export function AppProvider({ services, children }: { services: AppServices; children: ReactNode }) {
+  // D194: odcisk po zmianie i sprawdzenie przed cofnięciem — na stanie z oczekującymi zmianami (jak ekrany); lista
+  // w bazie konta (D194 b), cofnięcie rutyny liczone w chwili cofnięcia (kopie kroków z międzyczasu, audyt 2 E-3).
+  const { store, local } = services;
+  const backend = useMemo<UndoBackend>(
+    () => ({
+      fingerprint: (ops) => fingerprint(materialize(store.getSnapshot().state), ops),
+      isStale: (fp) => isStale(materialize(store.getSnapshot().state), fp),
+      run: (u) => store.dispatch(u.recipe === 'routine' ? routineUndoOps(materialize(store.getSnapshot().state), u.ops) : u.ops),
+      load: () => local?.load(RECENT_KEY) ?? null,
+      save: (json) => local?.save(RECENT_KEY, json),
+    }),
+    [store, local],
+  );
   return (
     <AppContext.Provider value={services}>
-      <UndoProvider>{children}</UndoProvider>
+      <UndoProvider nowMs={services.nowMs} backend={backend}>
+        {children}
+      </UndoProvider>
     </AppContext.Provider>
   );
 }

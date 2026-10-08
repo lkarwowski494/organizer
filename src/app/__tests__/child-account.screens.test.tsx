@@ -72,7 +72,9 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
     await press(screen.getByTestId('child-code-new'));
     expect(s.account.renewChildCode).toHaveBeenCalledWith('kuba');
     expect(await screen.findByText('Kod: 903 417')).toBeTruthy();
-    await press(screen.getByLabelText('Unieważnij kod'));
+    // D187: unieważnienie nieodwracalne — jedno pytanie (jak przy zaproszeniu do grupy).
+    await press(screen.getByTestId('revoke'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(s.account.revokeInvite).toHaveBeenLastCalledWith('inv-5');
     expect(screen.queryByTestId('child-code-ready')).toBeNull();
     expect(screen.getByLabelText('Połącz z kontem dziecka')).toBeTruthy();
@@ -109,7 +111,8 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
     await press(screen.getByLabelText('Połącz z kontem dziecka'));
     await screen.findByTestId('child-code-ready');
     expect(screen.queryByRole('alert')).toBeNull();
-    await press(screen.getByLabelText('Unieważnij kod'));
+    await press(screen.getByTestId('revoke'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.getByTestId('child-code-ready')).toBeTruthy();
   });
