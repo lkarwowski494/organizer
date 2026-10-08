@@ -36,7 +36,8 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
 - **D128.** Zapis kończy stare serie przed dziś (UNTIL = wczoraj, nierozpoczęte do kosza), nowe zaczynają się od
   pierwszego pasującego dnia od dziś; cofnięcie przywraca stary plan. Odrzucone: zmiana serii w miejscu (gubiłaby
   minione terminy, do których są przypięte zadania i obecność) i cięcie od poniedziałku (zmieniałoby minione dni tygodnia).
-  Litery A/B nie są zapisywane: przy otwarciu bieżący tydzień to A.
+  Litery A/B nie są zapisywane: przy otwarciu bieżący tydzień to A. **Zmienione w audycie 2** (ADR 0027): zmiany od jutra,
+  zmieniona seria przechodzi poleceniem „to i następne” z wyjątkami i zadaniami (M-14), tydzień A zapisany przy osobie (D171).
 - **D130.** Tytuł i notatka zapisują się po wyjściu z pola i przy opuszczeniu ekranu; termin po wyborze daty albo
   poprawnej godziny (niepoprawna — komunikat, bez zapisu). Odrzucone: zapis po każdym znaku (wiele zmian w kolejce).
   Audyt 2 (PW-20 A): tak samo nazwa grupy i imię osoby — pole podąża za danymi, dopóki go nie zmienię, zapis tylko
