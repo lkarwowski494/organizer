@@ -45,6 +45,9 @@ describe('Info.plist po wtyczkach', () => {
     // D123: expo-location zawiera kod czujnika ruchu (CMMotionActivityManager), więc Apple wymaga opisu (ITMS-90683,
     // odrzucony build 19), choć aplikacja nigdy o tę zgodę nie pyta. Opis mówi to wprost.
     expect(String(plist.NSMotionUsageDescription)).toMatch(/^Organizer nie korzysta z czujników ruchu/);
+    // Audyt 2 (N-18): aplikacja nie używa Face ID (SecureStore bez requireAuthentication), więc bez angielskiego
+    // opisu domyślnego wtyczki expo-secure-store — faceIDPermission: false usuwa klucz (@expo/config-plugins).
+    expect(plist.NSFaceIDUsageDescription).toBeUndefined();
   }, 60000);
 });
 

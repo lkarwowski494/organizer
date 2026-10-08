@@ -14,3 +14,7 @@
 - **Lokalna baza v5:** tabela lustrzana + wyzerowanie kursorów, bo starsza wersja aplikacji dostawała już odpowiedzi z serwera, ale nie mogła ich zapisać.
 - **„Co nowego”:** karta zbiera wszystkie wpisy od ostatnio obejrzanego buildu (wcześniej tylko najnowszy) — pominięty albo odrzucony build nie gubi nowości.
 - **Poza zakresem (backlog):** powiadomienie push do osoby odpowiedzialnej o odpowiedzi „nie będę”.
+- **„Nie będę” a przypomnienia** (PW-23, decyzja właściciela z 8.10.2026): moja odpowiedź „nie będę” na termin — bez
+  przypomnienia, „Czas wyjść”, liczenia dojazdu i miejsca w porannym podsumowaniu; wiersz zostaje (D129), zmiana odpowiedzi
+  przywraca przypomnienia, a zadania tego terminu przypominają same. Odpowiedź dorosłego za dziecko nie wycisza przypomnień
+  (pytanie do właściciela).

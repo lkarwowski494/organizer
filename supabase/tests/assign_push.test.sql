@@ -38,7 +38,8 @@ create temp table ids as select
 
 select is(public.assignment_push_claim((select task_a from ids), '00000000-0000-7000-8000-0000000000a2', 24), null, '1: nie autor — nic');
 select is(public.assignment_push_claim((select task_a from ids), '00000000-0000-7000-8000-0000000000a1', 24),
-  jsonb_build_object('title', 'Łukasz przypisuje Ci zadanie', 'body', 'Wynieść śmieci', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('cd', 32), 'env', 'production'))), '2: przypisanie zadania — do osoby z tokenem');
+  jsonb_build_object('title', 'Łukasz przypisuje Ci zadanie', 'body', 'Wynieść śmieci', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('cd', 32), 'env', 'production')),
+                     'key', 'assign|' || (select task_a from ids), 'path', 'task/aaaa0000-0000-7000-8000-0000000004d1'), '2: przypisanie zadania — do osoby z tokenem');
 select is(public.assignment_push_claim((select task_a from ids), '00000000-0000-7000-8000-0000000000a1', 24), null, '3: drugi raz — nic');
 select is(public.assignment_push_claim((select self_a from ids), '00000000-0000-7000-8000-0000000000a1', 24), null, '4: przypisanie sobie — nic');
 select is(public.assignment_push_claim((select plain_a from ids), '00000000-0000-7000-8000-0000000000a1', 24), null, '5: wpis bez przypisania — nic');
@@ -58,7 +59,8 @@ set local role authenticated;
 select public.set_push_mute('aaaa0000-0000-7000-8000-000000000001', false);
 reset role;
 select pg_temp.as_user('');
-select is(public.assignment_push_claim((select list_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) ->> 'body', 'Zakupy: Biedronka', '10: po odciszeniu — zakupy');
+select is(public.assignment_push_claim((select list_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) - 'tokens' - 'key' - 'title',
+  jsonb_build_object('body', 'Zakupy: Biedronka', 'path', 'list/aaaa0000-0000-7000-8000-0000000000c2'), '10: po odciszeniu — zakupy (otwiera listę, PWD-16)');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a3');
 set local role authenticated;
 select throws_ok($$ select public.set_push_mute('aaaa0000-0000-7000-8000-000000000001', true) $$, 'P0001', 'forbidden', '11: spoza grupy nie wycisza');

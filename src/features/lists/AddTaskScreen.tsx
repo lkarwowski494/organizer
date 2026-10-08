@@ -20,11 +20,13 @@ import {
   formUnseen,
   formWeekday,
   movedSubtasks,
+  pickCandidate,
   type TaskForm,
   validateForm,
 } from '../../domain/views/task-form';
 import { formatDue } from '../../domain/format';
 import { strings } from '../../i18n/strings.pl';
+import { AskPanel } from '../../ui/AskPanel';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
@@ -51,13 +53,17 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const editing = route.params.taskId;
+  // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
+  const [initial] = useState(() => formFromText(tables, userId, route.params.text ?? '', now(), { chipGroupId: route.params.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
   const [form, setForm] = useState<TaskForm>(() => {
-    const base = (editing ? formFromTask(tables, editing) : null) ?? formFromText(tables, userId, route.params.text ?? '', now()).form;
+    const base = (editing ? formFromTask(tables, editing) : null) ?? initial.form;
     // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
     const p = route.params;
     return { ...base, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.date ? { date: p.date } : {}), ...(p.time ? { time: p.time } : {}), ...(p.groupId ? { groupId: p.groupId } : {}) };
   });
   const [error, setError] = useState<FormError | null>(null);
+  // „@imię” pasujące do kilku osób (D91): pytanie jak w Moich sprawach, zamiast cicho zgubić wzmiankę (audyt 2, M-170).
+  const [choices, setChoices] = useState(editing ? [] : initial.candidates);
   const set = (patch: Partial<TaskForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
   const groups = formGroups(tables, userId);
   const members = formMembers(tables, form.groupId);
@@ -95,6 +101,14 @@ export function AddTaskScreen({ route, navigation }: Props) {
         />
       )}
       <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} testID="form-title" />
+      {choices.length && initial.mention ? (
+        <AskPanel
+          testID="mention-choices"
+          title={strings['mention.ask'](initial.mention)}
+          options={choices.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => (setForm((f) => pickCandidate(f, initial.mention!, t)), setChoices([]), setError(null)) }))}
+          onCancel={() => setChoices([])}
+        />
+      ) : null}
       <Segmented
         label={strings['form.group']}
         value={form.groupId}

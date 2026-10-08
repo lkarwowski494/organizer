@@ -20,7 +20,7 @@ EN (dla recenzji Apple):
 - Contact: imię, nazwisko, telefon, e-mail — Twoje dane (tylko w App Store Connect).
 - Sign-in required: **tak**. Nie trzeba konta demo: recenzent loguje się przez **Sign in with Apple** albo linkiem e-mail.
 - Notes:
-  > Sign in with Apple. To test: create a group (Grupy → Nowa grupa), add a list and a task with "jutro 17" (tomorrow 5 pm) in the quick-add field, then open "Dziś". Handoffs need a second account in the same group (invite code from Grupy → group → Zaproś).
+  > Sign in with Apple. To test: create a group (Grupy → Nowa grupa), add a list and a task such as "dentysta jutro o 17" (dentist, tomorrow 5 pm) in the quick-add field, then open "Dziś". Handoffs need a second account in the same group (invite code from Grupy → group → Zaproś).
 
 ## 3. Grupa zewnętrzna i link
 1. External Testing → „+” → nazwa np. „Testy publiczne”.
@@ -28,7 +28,7 @@ EN (dla recenzji Apple):
 3. Po akceptacji: Testers → **Create Public Link** → Open to Anyone (możesz ustawić limit, np. 50 osób).
 
 **What to Test**, PL:
-> Sprawdź: dodawanie szybkim polem („mleko jutro o 17”), listy zakupów z dniem i osobą, przekazanie zadania drugiej osobie, przypomnienia (Ustawienia → Przypomnienia), powtarzanie zadań, tryb jasny i ciemny. Uwagi wysyłaj zrzutem ekranu z TestFlight.
+> Sprawdź: dodawanie szybkim polem („dentysta jutro o 17”), listy zakupów z dniem i osobą, przekazanie zadania drugiej osobie, przypomnienia (Ustawienia → Przypomnienia), powtarzanie zadań, tryb jasny i ciemny. Uwagi wysyłaj zrzutem ekranu z TestFlight.
 
 ## 4. Pierwsze uruchomienie na iPhonie (O-037) — lista kontrolna
 - [ ] Kroje: nagłówki Bricolage Grotesque, tekst Atkinson Hyperlegible (nie systemowe).

@@ -57,7 +57,7 @@ async function world(claim: object | null, apns: number[] = [], claimStatus = 20
     calls.push({ url, init });
     if (url.endsWith('/auth/v1/user')) return Promise.resolve(new Response(JSON.stringify(user), { status: userStatus }));
     if (url.endsWith('/rpc/handoff_push_claim') || url.endsWith('/rpc/assignment_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
-    if (url.endsWith('/rpc/drop_push_token')) return Promise.resolve(new Response(null, { status: 204 }));
+    if (url.endsWith('/rpc/drop_push_token') || url.endsWith('/rpc/push_claim_release')) return Promise.resolve(new Response(null, { status: 204 }));
     return Promise.resolve(new Response('{"reason":"Unregistered"}', { status: apns[n++] ?? 200 }));
   }) as typeof fetch;
   return { env, f, calls };
@@ -105,6 +105,13 @@ Deno.test('nic do wysłania, błędy wejścia, sesji i konfiguracji', async () =
   assertEq((await handle(post({ handoffId: HANDOFF }), noKeys, w.f)).status, 500);
 });
 
+Deno.test('PWD-16: ścieżka sprawy w treści APNs (klucz „body”), bez niej — treść jak dotąd', async () => {
+  const claim = { title: 'Łukasz przypisuje Ci zadanie', body: 'Śmieci', tokens: [{ token: 'aa'.repeat(32), env: 'production' }], key: 'assign|x', path: 'task/t1' };
+  const w = await world(claim, [200]);
+  await handle(post({ activityId: HANDOFF }), w.env, w.f, 1_800_000_000);
+  assertEq(JSON.parse(String(w.calls[2]!.init!.body)), { aps: { alert: { title: 'Łukasz przypisuje Ci zadanie', body: 'Śmieci' }, sound: 'default' }, body: { path: 'task/t1' } });
+});
+
 Deno.test('przypisanie: activityId → assignment_push_claim; oba albo żaden id — błąd', async () => {
   const claim = { title: 'Łukasz przypisuje Ci zadanie', body: 'Śmieci', tokens: [{ token: 'aa'.repeat(32), env: 'production' }] };
   const w = await world(claim, [200]);
@@ -115,4 +122,33 @@ Deno.test('przypisanie: activityId → assignment_push_claim; oba albo żaden id
   const both = await world(null);
   assertEq((await handle(post({ activityId: HANDOFF, handoffId: HANDOFF }), both.env, both.f)).status, 400);
   assertEq((await handle(post({}), both.env, both.f)).status, 400);
+});
+
+Deno.test('audyt 2 (N-15): APNs nie przyjął nigdzie — zwolnienie zaznaczenia i 502; doszło choć raz — 200 bez zwalniania', async () => {
+  const tokens = [{ token: 'aa'.repeat(32), env: 'production' }, { token: 'bb'.repeat(32), env: 'production' }];
+  const claim = { title: 'Łukasz przekazuje Ci', body: 'Basen', tokens, key: `handoff|${HANDOFF}|pending` };
+  // 503 i 429: nic nie doszło.
+  const down = await world(claim, [503, 429]);
+  const r = await handle(post({ handoffId: HANDOFF }), down.env, down.f, 1_800_000_000);
+  assertEq(r.status, 502);
+  assertEq(await r.json(), { error: 'apns_failed' });
+  assertEq(down.calls.at(-1)!.url, 'https://x.supabase.co/rest/v1/rpc/push_claim_release');
+  assertEq(JSON.parse(String(down.calls.at(-1)!.init!.body)), { p_key: `handoff|${HANDOFF}|pending` });
+  // Jedno urządzenie przyjęło, drugie nie — bez ponowienia.
+  const half = await world(claim, [200, 503]);
+  const ok = await handle(post({ handoffId: HANDOFF }), half.env, half.f, 1_800_000_000);
+  assertEq(await ok.json(), { sent: 1 });
+  assertEq(half.calls.some((c) => c.url.endsWith('/rpc/push_claim_release')), false);
+  // Token nieaktualny i błąd: nic nie doszło — zwolnienie (nieaktualny już usunięty, ponowienie trafi do reszty).
+  const mixed = await world(claim, [410, 500]);
+  assertEq((await handle(post({ handoffId: HANDOFF }), mixed.env, mixed.f, 1_800_000_000)).status, 502);
+  assertEq(mixed.calls.map((c) => c.url.split('/').at(-1)), ['user', 'handoff_push_claim', 'aa'.repeat(32), 'drop_push_token', 'bb'.repeat(32), 'push_claim_release']);
+  // Same nieaktualne tokeny albo brak tokenów — 200, bez zwalniania (nie ma czego ponawiać).
+  const gone = await world(claim, [410, 410]);
+  assertEq(await (await handle(post({ handoffId: HANDOFF }), gone.env, gone.f, 1_800_000_000)).json(), { sent: 0 });
+  assertEq(gone.calls.some((c) => c.url.endsWith('/rpc/push_claim_release')), false);
+  // Baza sprzed migracji (bez „key”) — 502 bez zwalniania.
+  const legacy = await world({ ...claim, key: undefined }, [503, 503]);
+  assertEq((await handle(post({ activityId: HANDOFF }), legacy.env, legacy.f, 1_800_000_000)).status, 502);
+  assertEq(legacy.calls.some((c) => c.url.endsWith('/rpc/push_claim_release')), false);
 });

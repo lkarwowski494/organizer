@@ -11,7 +11,7 @@ import { useAppData, useServices } from '../../app/context';
 import { draftOf } from '../../app/device-calendar';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
-import { formatIsoDate } from '../../domain/civil-date';
+import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList, inverseOps } from '../../domain/views/commands';
@@ -41,9 +41,9 @@ export function EventScreen({ route, navigation }: Props) {
   const { c, font, line } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
-  const { eventId: linked, date } = route.params;
+  const { eventId: linked, date: linkedDate } = route.params;
   // Audyt 2: termin po „to i następne” należy do nowej serii — stary link (przypomnienie, inny ekran) prowadzi do niej.
-  const eventId = useMemo(() => occurrenceOwner(tables, linked, date), [tables, linked, date]);
+  const eventId = useMemo(() => (linkedDate === undefined ? linked : occurrenceOwner(tables, linked, linkedDate)), [tables, linked, linkedDate]);
   const d = useMemo(() => eventDetail(tables, userId, eventId), [tables, userId, eventId]);
   const [ask, setAsk] = useState<'edit' | 'cancel' | 'delete' | null>(null);
   const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(null);
@@ -62,6 +62,8 @@ export function EventScreen({ route, navigation }: Props) {
       </Screen>
     );
   }
+  // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
+  const date = linkedDate ?? nextOccurrence(tables, userId, eventId, formatIsoDate(addDays(today, -1))) ?? d.event.start_date;
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
   // Audyt 2 (E-18): odwołany albo nieistniejący termin — bez zadań, obecności, przekazania i dodawania do kalendarza.

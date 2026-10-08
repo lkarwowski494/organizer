@@ -40,13 +40,16 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
 - **D130.** Tytuł i notatka zapisują się po wyjściu z pola i przy opuszczeniu ekranu; termin po wyborze daty albo
   poprawnej godziny (niepoprawna — komunikat, bez zapisu). Odrzucone: zapis po każdym znaku (wiele zmian w kolejce).
 - **D131.** Jedna trasa `Settings` z parametrem `section`; wylogowanie z potwierdzeniem. Przy okazji (audyt):
-  wylogowanie wyrejestrowuje token powiadomień tego telefonu (`unregister_push_token`); bez sieci wylogowanie i tak
-  następuje.
+  wylogowanie wyrejestrowuje token powiadomień tego telefonu (`unregister_push_token`) — od audytu 2 także token
+  zarejestrowany w poprzednim uruchomieniu (zapamiętany w pęku kluczy); bez sieci wylogowanie i tak następuje.
 - **D132.** Audyt 2 (M-22): ta sama reguła dla zakupów — osoba odpowiedzialna za zakupy usunięta z grupy to „Nikt
   konkretny” (zakupy z dniem widzi każdy w grupie, edytor zakupów pokazuje „Nikt konkretny”). Jedna funkcja dla zadań
   i zakupów (`src/domain/views/concerns.ts`).
 - **D134.** Podzadania i zadania wystąpienia stojące w planie pod rodzicem nie mają własnych przypomnień; treść
   przypomnienia rodzica (także „Czas wyjść”) kończy się „do zrobienia: …”. Poranne podsumowanie liczy tylko rodziców.
+  Wyjątek (audyt 2, N-2, N-3; potwierdzony przez właściciela 8.10.2026): podzadanie z własną godziną, którego rodzic nie
+  ma przypomnienia albo ma je później, przypomina samo (z dopiskiem rodzica) i liczy się w porannym podsumowaniu.
+  Potwierdzone tego dnia także: powiadomienia przy otwartej aplikacji pokazują baner i grają dźwięk (N-1).
 - **D135.** `calendarMonth` bierze też zrobione zadania (odhaczone w wierszu) w dniu ich terminu.
 - **D136.** `event_overrides.all_day`; telefon wysyła pole tylko, gdy coś zmienia (nowy całodniowy termin w serii
   z godziną albo zdjęcie znacznika). Wymaga wdrożenia migracji 20261008300000 przed wydaniem buildu, który je wysyła.
