@@ -2,6 +2,7 @@ import * as fc from 'fast-check';
 
 import {
   type ClientState,
+  ENTITIES,
   initialState,
   mutate,
   type NewOp,
@@ -12,7 +13,7 @@ import {
   pushRequest,
 } from '../../domain/sync-engine/client';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
+import { ENTITY_TABLES, migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
 import { loadLocal, readState, saveLocal, wipeSynced, writeState } from '../store';
 import { memoryDb } from './sqlite';
 
@@ -53,6 +54,34 @@ describe('lokalna baza: migracje', () => {
     db.run("insert into sync_state (key, value) values ('cursors', '{\"g1\":9}'), ('clientId', 'c1'), ('local:x', '1')");
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(db.all<{ key: string }>('select key from sync_state order by key').map((r) => r.key)).toEqual(['clientId', 'local:x']);
+  });
+
+  it('tabele lustrzane = encje, które silnik wysyła serwerowi (audyt 2, M-58)', () => {
+    expect([...ENTITY_TABLES].sort()).toEqual([...ENTITIES].sort());
+  });
+
+  it('M-176: po aktualizacji z buildu 21 (v4, kursory zerowane przez v5) pierwsze pobranie usuwa wiersze, których serwer już nie ma', () => {
+    const db = memoryDb();
+    db.transaction(() => {
+      for (const m of MIGRATIONS.slice(0, 4)) db.exec(m.sql);
+      db.exec('pragma user_version = 4');
+    });
+    // Build 21: zadanie usunięte na serwerze i wyczyszczone z kosza zostało w telefonie; kursor, bez epoki i listy encji.
+    db.run("insert into tasks (key, group_id, scope_id, version, data) values ('stary', 'g1', 'l1', 1, '{\"id\":\"stary\",\"group_id\":\"g1\",\"list_id\":\"l1\",\"version\":1}')");
+    db.run("insert into sync_state (key, value) values ('cursors', '{\"g1\":9}'), ('client_id', 'c-21'), ('next_seq', '4'), ('acked_seq', '3')");
+    migrate(db);
+    let s = readState(db, 'nowy');
+    expect(s).toMatchObject({ clientId: 'c-21', cursors: {}, purged: {}, entities: [] });
+    const server = new FakeServer();
+    server.addGroup('g1', ['ala']);
+    const req = pullRequest(s);
+    const next = onPullResponse(s, server.pull('ala', req, 100), req).state;
+    writeState(db, s, next, 1);
+    s = readState(db, 'nowy');
+    expect(s.base.tasks).toBeUndefined();
+    expect(db.all('select key from tasks')).toEqual([]);
+    expect(s.entities).toEqual([...ENTITIES]);
+    expect(s.purged).toEqual({ g1: 0 });
   });
 
   it('baza z nowszej wersji aplikacji nie jest ruszana', () => {
@@ -104,7 +133,7 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
             if (!st.lose) commit(onPushResponse(s, res));
           } else if (st.t === 'pull') {
             const req = pullRequest(s);
-            const out = onPullResponse(s, server.pull('ala', req.cursors, st.lim), req.ackedAtStart);
+            const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
             commit(out.state);
             for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc)));
           } else {
@@ -136,13 +165,13 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
       { e: 'lists', v: 1, row: { id: 'l1', group_id: 'g1', version: 1 } },
       { e: 'tasks', v: 2, row: { id: 't1', group_id: 'g1', list_id: 'l1', version: 2 } },
       { e: 'event_task_series', v: 2, row: { id: 's1', group_id: 'g1', list_id: 'l1', event_id: 'e1', version: 2 } },
-    ] }], scopes: [] }, 0).state;
+    ] }], scopes: [] }, pullRequest(s0)).state;
     writeState(db, s0, s1, 1);
     expect(db.all('select key, group_id, scope_id, version from tasks')).toEqual([{ key: 't1', group_id: 'g1', scope_id: 'l1', version: 2 }]);
     // Stałe zadanie serii ma zakres listy (lista ukryta: znika z telefonu razem z nią).
     expect(db.all('select key, scope_id from event_task_series')).toEqual([{ key: 's1', scope_id: 'l1' }]);
     expect(db.all('select key, group_id, scope_id from groups')).toEqual([{ key: 'g1', group_id: 'g1', scope_id: null }]);
-    const s2 = onPullResponse(s1, { groups: [], scopes: [] }, 0).state;
+    const s2 = onPullResponse(s1, { groups: [], scopes: [] }, pullRequest(s1)).state;
     writeState(db, s1, s2, 2);
     expect(db.all('select count(*) n from tasks')).toEqual([{ n: 0 }]);
     expect(normalize(readState(db, 'c1'))).toEqual(normalize(s2));
@@ -155,7 +184,7 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     const spy = { ...db, run: (sql: string, p?: readonly (string | number | null)[]) => { writes.push(sql.trim().split(/\s+/).slice(0, 3).join(' ')); db.run(sql, p); } };
     const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ e: 'tasks' as const, v: i + 1, row: { id: `t${i}`, group_id: 'g1', list_id: 'l1', version: i + 1 } }));
     const s0 = readState(db, 'c1');
-    const s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 50, has_more: false, resync: false, rows: rows(50) }], scopes: [] }, 0).state;
+    const s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 50, has_more: false, resync: false, rows: rows(50) }], scopes: [] }, pullRequest(s0)).state;
     writeState(spy, s0, s1, 1);
     expect(writes.filter((w) => w.startsWith('insert into tasks'))).toHaveLength(50);
     writes.length = 0;
@@ -180,7 +209,7 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
       { e: 'activity', v: 2, row: { id: 'a1', group_id: 'g1', scope_id: 'l9', version: 2 } },
       { e: 'object_members', v: 3, row: { scope_id: 'l9', member_id: 'm1', group_id: 'g1', version: 3 } },
       { e: 'group_members', v: 4, row: { member_id: 'm1', group_id: 'g1', version: 4 } },
-    ] }], scopes: ['l9'] }, 0).state;
+    ] }], scopes: ['l9'] }, pullRequest(s0)).state;
     writeState(db, s0, s1, 1);
     expect(readState(db, 'inna').clientId).toBe('instalacja-1');
     expect(readState(db, 'inna').scopes).toEqual(['l9']);

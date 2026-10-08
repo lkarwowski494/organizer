@@ -33,6 +33,8 @@ jobs:
       - run: npm run test:coverage -- --ci
       - run: npm run check:functions
       - run: npm run check:corpus
+      # Skrypty CI (np. podział i próg testów mutacyjnych) i kontrakty workflow (audyt 2).
+      - run: node --test ".github/scripts/*.test.mjs"
 
   workflows-lint:
     # Składnia i typowe błędy w plikach workflow (także tych, które nie uruchamiają się przy każdej zmianie,
@@ -59,3 +61,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
           GITLEAKS_ENABLE_SUMMARY: true
+      # Reguły .gitleaks.toml na fałszywych sekretach tworzonych w czasie testu (audyt 2, M-195); gitleaks w PATH
+      # dopisał krok wyżej — ta sama wersja, którą skanuje repozytorium.
+      - name: reguły .gitleaks.toml
+        run: .github/scripts/test-gitleaks-rules.sh

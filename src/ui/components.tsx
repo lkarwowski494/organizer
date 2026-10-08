@@ -63,6 +63,8 @@ export function indicatorLabel(i: Indicator, nowMs: number): string {
       return strings['sync.offline'](i.pending);
     case 'auth_expired':
       return strings['sync.authExpired'];
+    case 'upgrade_required':
+      return strings['sync.upgrade'];
     case 'syncing':
       return strings['sync.syncing'];
     case 'error':
@@ -76,7 +78,7 @@ export function indicatorLabel(i: Indicator, nowMs: number): string {
 
 export function SyncChip({ indicator, nowMs }: { indicator: Indicator; nowMs: number }) {
   const { c, font } = useTheme();
-  const warn = indicator.state === 'offline' || indicator.state === 'error' || indicator.state === 'auth_expired';
+  const warn = indicator.state === 'offline' || indicator.state === 'error' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required';
   const label = indicatorLabel(indicator, nowMs);
   return (
     <View

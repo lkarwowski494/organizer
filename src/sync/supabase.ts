@@ -42,12 +42,19 @@ export type AppleSignIn = (scopes?: 'none') => Promise<{ identityToken: string |
 export const AUTH_REDIRECT = `${config.URL_SCHEME}://auth/callback`;
 
 /**
+ * Błędy trwałe protokołu (raise exception w sync_push / sync_pull, kod P0001): ponawianie nic nie zmieni, więc pętla
+ * czeka na powrót do aplikacji, a wskaźnik mówi, co zrobić (upgrade_required → „Zaktualizuj aplikację”; audyt 2, M-57).
+ */
+export const FATAL_CODES: readonly string[] = ['upgrade_required', 'client_mismatch', 'batch_too_large', 'invalid_batch', 'invalid_batch:seq', 'invalid_entities'];
+
+/**
  * Rodzaj błędu dla pętli: status 0 = fetch się nie udał (postgrest-js zwraca wtedy status 0),
- * 401 / kody PGRST30x = sesja (JWT) nieważna, reszta = błąd serwera (ponowienie z opóźnieniem).
+ * 401 / kody PGRST30x = sesja (JWT) nieważna, kod trwały protokołu = fatal, reszta = błąd serwera (ponowienie z opóźnieniem).
  */
 export function classify(r: { error: RpcError; status: number }): TransportErrorKind {
   if (r.status === 0) return 'network';
   if (r.status === 401 || r.error.code?.startsWith('PGRST30')) return 'auth';
+  if (r.error.code === 'P0001' && FATAL_CODES.includes(r.error.message)) return 'fatal';
   return 'server';
 }
 
@@ -60,7 +67,7 @@ async function call<T>(client: SupabaseLike, fn: string, args: object): Promise<
 export function supabaseTransport(client: SupabaseLike): SyncTransport {
   return {
     push: (req) => call<PushResponse>(client, 'sync_push', { client_id: req.client_id, schema_version: req.schema_version, ops: req.ops }),
-    pull: (cursors, limit) => call<PullResponse>(client, 'sync_pull', { cursors, lim: limit }),
+    pull: (req, limit) => call<PullResponse>(client, 'sync_pull', { cursors: req.cursors, lim: limit, schema_version: req.schema_version, entities: req.entities }),
     fetchScope: async (listId) => (await call<{ rows: PulledRow[] }>(client, 'sync_fetch_scope', { list_id: listId })).rows,
   };
 }
