@@ -20,6 +20,7 @@ import { timeLabel } from '../../domain/views/events';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
+import { WhatsNew } from './WhatsNew';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
@@ -161,6 +162,7 @@ export function TodayScreen() {
           </Pressable>
         )}
       </View>
+      <WhatsNew />
       <PushPrompt />
       <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}

@@ -6,7 +6,7 @@
 export type Invite = { inviteId: string; token: string; url: string; expiresAt: string; maxUses: number };
 
 /** Zgłoszenie błędu (D80): bez treści z tabel. */
-export type ClientError = { kind: 'crash' | 'error'; message: string; stack: string | null; screen: string | null; appVersion: string };
+export type ClientError = { kind: 'crash' | 'error' | 'diagnostic'; message: string; stack: string | null; screen: string | null; appVersion: string };
 
 export interface AccountApi {
   signInWithApple(): Promise<void>;
