@@ -5,6 +5,13 @@ import { Linking } from 'react-native';
 import { RootStack } from '../navigation';
 import { appStateEvents, fakeAccount, fakePush, put, sampleBase, setup } from './harness';
 
+/** Ustawienia konta (D175) w pamięci; wprowadzenie i „Co nowego” obejrzane (nie zasłaniają „Moich spraw”). */
+function memoryPrefs(initial: Record<string, string> = {}) {
+  const m = new Map(Object.entries({ welcomeSeen: '1', whatsNewBuild: String(Number.MAX_SAFE_INTEGER), ...initial }));
+  return { m, get: jest.fn(async (k: string) => m.get(k) ?? null), set: jest.fn(async (k: string, v: string) => void m.set(k, v)) };
+}
+const settingsOf = (prefs: ReturnType<typeof memoryPrefs>) => JSON.parse(prefs.m.get('reminderSettings')!);
+
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
 
@@ -35,16 +42,16 @@ describe('prośba o powiadomienia', () => {
     await press(screen.getByTestId('push-enable'));
     await flush();
     expect(account.registerPushToken).not.toHaveBeenCalled();
-    const p2 = fakePush();
-    await open({ push: p2 });
+    const prefs = memoryPrefs();
+    await open({ push: fakePush(), prefs });
     await press(screen.getAllByTestId('push-later').at(-1)!);
-    expect(p2.dismiss).toHaveBeenCalled();
+    expect(prefs.m.get('pushPromptDismissed')).toBe('1');
   });
 
   it('nie pyta: już zdecydowane, „Nie teraz” wcześniej, brak push; pyta też bez wspólnej grupy (przypomnienia)', async () => {
     await open({ push: fakePush({ status: jest.fn(async () => 'denied' as const) }) });
     expect(screen.queryByTestId('push-prompt')).toBeNull();
-    await open({ push: fakePush({ dismissed: jest.fn(async () => true) }) });
+    await open({ push: fakePush(), prefs: memoryPrefs({ pushPromptDismissed: '1' }) });
     expect(screen.queryByTestId('push-prompt')).toBeNull();
     const base = sampleBase();
     for (const g of ['gf', 'gk']) put(base, 'groups', g, { ...base.groups![g]!, deleted_at: 'x' });
@@ -77,7 +84,8 @@ describe('przypomnienia (D75)', () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     try {
       const push = fakePush({ status: jest.fn(async () => 'granted' as const) });
-      await open({ push });
+      const prefs = memoryPrefs();
+      await open({ push, prefs });
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
@@ -89,17 +97,17 @@ describe('przypomnienia (D75)', () => {
       await press(await screen.findByTestId('settings-notifications'));
       await screen.findByTestId('screen-settings-notifications');
       await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
-      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '08:00', leave: true });
+      expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '08:00', leave: true });
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
       await flush();
       expect(push.replaceReminders.mock.calls.at(-1)![0].filter((r) => !r.id.startsWith('m|'))).toEqual([]);
       await press(screen.getByLabelText('09:00'));
-      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00', leave: true });
+      expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: true });
       // PWD-17 (decyzja właściciela): „Czas wyjść” osobno.
       await press(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone'));
-      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00', leave: false });
+      expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: false });
       expect(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
     } finally {
       jest.useRealTimers();
@@ -109,8 +117,8 @@ describe('przypomnienia (D75)', () => {
   it('bez zgody nie planuje; zapamiętane ustawienia wczytane; bez push brak sekcji w Ustawieniach', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     try {
-      const push = fakePush({ reminderSettings: jest.fn(async () => ({ leadMin: 60, morning: 'off' })) });
-      await open({ push });
+      const push = fakePush();
+      await open({ push, prefs: memoryPrefs({ reminderSettings: '{"leadMin":60,"morning":"off"}' }) });
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
@@ -200,8 +208,8 @@ describe('zgoda na powiadomienia po „Nie teraz” i po odmowie (audyt 2: N-8, 
 
   it('„Nie teraz”, potem Ustawienia → Powiadomienia: „Włącz powiadomienia” pyta system, rejestruje token i od razu planuje', async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
-    const push = fakePush({ dismissed: jest.fn(async () => true) });
-    const { account } = await open({ push });
+    const push = fakePush();
+    const { account } = await open({ push, prefs: memoryPrefs({ pushPromptDismissed: '1' }) });
     expect(screen.queryByTestId('push-prompt')).toBeNull();
     await openNotificationSettings();
     const box = screen.getByTestId('push-access');

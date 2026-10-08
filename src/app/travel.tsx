@@ -1,5 +1,5 @@
 /**
- * Dojazd do najbliższych wydarzeń (D116, D117; ADR 0029; okno AHEAD_HOURS także po północy — audyt 2, M-211): ustawienia na tym telefonie (środek transportu, aplikacja
+ * Dojazd do najbliższych wydarzeń (D116, D117; ADR 0029; okno AHEAD_HOURS także po północy — audyt 2, M-211): ustawienia konta na tym telefonie (D175; środek transportu, aplikacja
  * nawigacji, włączenie), zmiana środka przy wydarzeniu (tylko u mnie), czas dojazdu z Map Apple odświeżany co
  * config.travel.REFRESH_MIN minut i przy powrocie do aplikacji, „Wyjdź o …” i „Nawiguj”.
  */
