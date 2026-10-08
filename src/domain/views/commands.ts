@@ -90,10 +90,6 @@ export function renameMember(memberId: string, name: string): NewOp {
   return { kind: 'patch', entity: 'group_members', id: memberId, set: { display_name: name } };
 }
 
-export function moveTask(id: string, parentId: string | null, listId?: string): NewOp {
-  return { kind: 'cmd', cmd: 'move_task', args: listId === undefined ? { id, parent_id: parentId } : { id, parent_id: parentId, list_id: listId } };
-}
-
 /**
  * Operacje odwrotne do `ops` względem stanu `t` sprzed nich — do paska „Cofnij” (audyt 8.10.2026: odwołanie albo
  * usunięcie wydarzenia było bez cofnięcia). Od końca: utworzenie → usunięcie, usunięcie ↔ przywrócenie, zmiana →

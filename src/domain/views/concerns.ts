@@ -8,19 +8,19 @@
  */
 import type { Due } from '../deadlines';
 import type { GroupItem } from './index';
-import { asMember, type List, rows, type Tables } from './model';
+import { asMember, type List, type Member, rows, type Tables } from './model';
 
-/** Żywi członkowie (bez usuniętych) — osoba usunięta z grupy to „nikt konkretny” (D132). */
-export function liveMemberIds(t: Tables): Set<string> {
-  return new Set(
+/** Żywi członkowie (bez usuniętych) po identyfikatorze — osoba usunięta z grupy to „nikt konkretny” (D132). */
+export function liveMembers(t: Tables): Map<string, Member> {
+  return new Map(
     rows(t, 'group_members', asMember)
       .filter((m) => m.deleted_at === null)
-      .map((m) => m.member_id),
+      .map((m) => [m.member_id, m]),
   );
 }
 
 /** Osoba sprawy według D132: usunięta z grupy albo nieznana → `null` (nikt konkretny). */
-export function livePerson(memberId: string | null, live: ReadonlySet<string>): string | null {
+export function livePerson(memberId: string | null, live: ReadonlyMap<string, Member>): string | null {
   return memberId !== null && live.has(memberId) ? memberId : null;
 }
 
@@ -33,7 +33,7 @@ export function ownPrivateList(l: Pick<List, 'visibility' | 'owner_member_id'>, 
 }
 
 /** `ownPrivate` — sprawa z mojej listy „Tylko ja” (ownPrivateList). */
-export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlySet<string>, ownPrivate: boolean): boolean {
+export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlyMap<string, Member>, ownPrivate: boolean): boolean {
   const who = livePerson(memberId, live);
   return who === g.me.member_id || (who === null && (g.kind === 'personal' || ownPrivate || due !== null));
 }

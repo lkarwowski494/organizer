@@ -263,9 +263,10 @@ export function TaskScreen({ route, navigation }: Props) {
             }}
             onCancel={() => setHanding(false)}
           />
-        ) : (
+        ) : task.completed_at === null ? (
+          // Zrobionego nie ma czego przekazywać (serwer: „nieaktualne”); powtarzane przekazuje się od następnego terminu.
           <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
-        )
+        ) : null
       ) : null}
       {canEdit ? (
       <Segmented

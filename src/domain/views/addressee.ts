@@ -6,6 +6,8 @@
  * bez osoby trafiają do Moich spraw właściciela (A); a zadanie bez osoby i terminu („kiedyś, ktokolwiek”) można zapisać —
  * miejsce, gdzie powstaje, mówi tylko, że nikt go nie zobaczy w Moich sprawach (b).
  */
+import { effectiveDue, type TaskTerms } from '../deadlines';
+import { occurrenceResolver } from './event-rows';
 import { groupsView } from './index';
 import { asList, type Tables, type Task } from './model';
 
@@ -17,7 +19,15 @@ export function addresseeRequired(t: Tables, userId: string, listId: string, par
   return l.kind === 'tasks' && l.visibility !== 'private' && groupsView(t, userId).find((g) => g.id === l.group_id)?.kind === 'shared';
 }
 
-/** Czy po zmianie zadanie zostałoby bez adresata, choć go potrzebuje. */
-export function lacksAddressee(t: Tables, userId: string, x: Pick<Task, 'list_id' | 'parent_id' | 'assignee_member_id' | 'deadline_mode'>): boolean {
-  return addresseeRequired(t, userId, x.list_id, x.parent_id) && x.assignee_member_id === null && x.deadline_mode === 'none';
+/**
+ * Czy po zmianie zadanie zostałoby bez adresata, choć go potrzebuje: bez żywej osoby (usunięta z grupy to „nikt
+ * konkretny”, D132) i bez terminu — własnego albo spotkania (odwołane wystąpienie to brak terminu, D14). Audyt 2 (T-15):
+ * wcześniej liczyły się samo pole osoby i tryb terminu, więc takie zadanie znikało wszystkim bez ostrzeżenia.
+ */
+export function lacksAddressee(t: Tables, userId: string, x: TaskTerms & Pick<Task, 'list_id' | 'assignee_member_id'>): boolean {
+  if (!addresseeRequired(t, userId, x.list_id, x.parent_id)) return false;
+  const person = x.assignee_member_id === null ? undefined : t.group_members?.[x.assignee_member_id];
+  if (person && person.deleted_at == null) return false;
+  // Zadanie główne, więc termin własny albo spotkania (bez rodziców); wystąpienia spotkań liczymy tylko dla trybu „event”.
+  return effectiveDue(x, new Map(), (eventId, date) => occurrenceResolver(t)(eventId, date)) === null;
 }
