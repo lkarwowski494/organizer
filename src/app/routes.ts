@@ -20,7 +20,13 @@ export type RootStackParams = {
    */
   Event: { eventId: string; date?: string };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */
-  EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string; participantIds?: string[]; kindSwitch?: boolean };
+  EventEdit: {
+    groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string;
+    /** PWD-33 (D200): kopia wydarzenia z kalendarza iPhone'a — miejsce, cały dzień i dopisek o kopii. */
+    location?: string; allDay?: boolean; fromDevice?: boolean;
+    /** Audyt 2 (M-255): z przełącznika rodzaju — dziecko jako uczestnik, ogłoszenie formularza. */
+    participantIds?: string[]; kindSwitch?: boolean;
+  };
   /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
   Invite: { token?: string; g?: string; c?: string };
   /** Bez `section` — strona główna ustawień; z nią — podstrona (D131). */

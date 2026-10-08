@@ -8,7 +8,8 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
-import { draftOf } from '../../app/device-calendar';
+import { useDeviceCalendar } from '../../app/calendar-sync';
+import { draftOf, withMark } from '../../app/device-calendar';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
@@ -53,6 +54,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [handing, setHanding] = useState(false);
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
   const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
+  const deviceCalendar = useDeviceCalendar();
 
   if (!d || d.event.deleted_at !== null) {
     return (
@@ -120,9 +122,11 @@ export function EventScreen({ route, navigation }: Props) {
     store.dispatch(ops);
     setTaskTitle('');
   };
+  const inMirror = deviceCalendar.mirrorCalendar(eventId, date, occ.date);
   const addToCalendar = async () => {
     setCalendarMsg(null);
-    const r = await calendar.add(draftOf(occ, d.groupName));
+    // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
+    const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
     setCalendarMsg(r === 'saved' ? strings['event.calendarSaved'] : r === 'denied' ? strings['event.calendarDenied'] : null);
   };
 
@@ -152,7 +156,7 @@ export function EventScreen({ route, navigation }: Props) {
       ) : state === 'missing' ? (
         <Body>{strings['event.missingInfo']}</Body>
       ) : null}
-      {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} /> : null}
+      {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} upcoming={active && occ.date >= formatIsoDate(today) && occ.startTime !== null} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
       <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
@@ -191,7 +195,8 @@ export function EventScreen({ route, navigation }: Props) {
       {/* D124: obecność na dzisiejszym i przyszłym terminie. */}
       {rsvp && active && occ.date >= formatIsoDate(today) ? <RsvpBox view={rsvp} eventId={eventId} date={date} /> : null}
 
-      {active ? <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
+      {/* PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie — „Dodaj” zrobiłby nieaktualizowany dubel. */}
+      {active ? inMirror ? <Body muted>{strings['event.inMirror'](inMirror)}</Body> : <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
       {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>

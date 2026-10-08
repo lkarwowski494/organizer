@@ -72,10 +72,11 @@ export const config = {
 
   /**
    * Czas dojazdu (D116, D117): zapas doliczany do „wyjdź o”, co ile minut odświeżać, na ile godzin naprzód liczyć
-   * (tylko dzisiejsze wydarzenia z miejscem) i najwięcej zapytań naraz (MapKit dławi zbyt wiele zapytań —
-   * MKError.loadingThrottled). Wybory projektowe, bez źródła.
+   * (wydarzenia z miejscem zaczynające się w tym oknie, także po północy — audyt 2, M-211) i najwięcej zapytań naraz
+   * (MapKit dławi zbyt wiele zapytań — MKError.loadingThrottled); adres, którego Mapy nie znalazły, sprawdzamy znowu po
+   * GEO_RETRY_H godzinach, a zapamiętanych adresów jest najwyżej GEO_MAX (audyt 2, M-106). Wybory projektowe, bez źródła.
    */
-  travel: { BUFFER_MIN: 5, REFRESH_MIN: 15, AHEAD_HOURS: 12, MAX_EVENTS: 8 },
+  travel: { BUFFER_MIN: 5, REFRESH_MIN: 15, AHEAD_HOURS: 12, MAX_EVENTS: 8, GEO_RETRY_H: 24, GEO_MAX: 200 },
 
   /**
    * Widok dnia „lista z przerwami” (D122): najkrótsza przerwa między sprawami z godziną, którą pokazujemy jako
@@ -94,11 +95,11 @@ export const config = {
 
   /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
-   * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D107): różnica godzin
-   * i najkrótsze wspólne słowo nazwy; długość wydarzenia bez godziny końca zapisywanego w iPhonie („Dodaj do kalendarza”,
+   * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D173): różnica godzin
+   * przy tej samej nazwie; długość wydarzenia bez godziny końca zapisywanego w iPhonie („Dodaj do kalendarza”,
    * ADR 0008, min). Wybory projektowe, bez źródła.
    */
-  calendar: { DEFAULT_EVENT_MINUTES: 60, READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000, DUPLICATE_WINDOW_MIN: 30, DUPLICATE_MIN_WORD: 4 },
+  calendar: { DEFAULT_EVENT_MINUTES: 60, READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000, DUPLICATE_WINDOW_MIN: 30 },
 
   /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
   HISTORY_LIMIT: 15,
