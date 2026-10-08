@@ -79,7 +79,8 @@ export function setGroupColor(id: string, color: string | null): NewOp {
   return { kind: 'patch', entity: 'groups', id, set: { color } };
 }
 
-export function setRole(memberId: string, role: 'admin' | 'member'): NewOp {
+/** Rolę osoby z kontem zmienia tylko owner (PW-14 B): admin, członek albo dziecko. */
+export function setRole(memberId: string, role: 'admin' | 'member' | 'child'): NewOp {
   return { kind: 'patch', entity: 'group_members', id: memberId, set: { role } };
 }
 

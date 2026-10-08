@@ -213,6 +213,8 @@ export function e2eAccount(server: E2eServer, auth: { signIn(): Promise<void>; s
     revokeInvite: ok,
     createJoinCode: offline,
     renewJoinCode: offline,
+    createChildCode: offline,
+    renewChildCode: offline,
     joinGroup: offline,
     rotateJoinId: offline,
     deleteGroup: offline,

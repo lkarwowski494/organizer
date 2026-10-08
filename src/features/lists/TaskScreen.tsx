@@ -18,7 +18,7 @@ import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, inheritDue, patchTask, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
-import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { asTask, checkOff, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -122,6 +122,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const linkedEvent = linked ? asEvent(tables.events?.[task.event_id!] ?? { id: task.event_id, group_id: task.group_id, start_date: task.occurrence_date }) : null;
   const membership = myMemberships(tables, userId).get(task.group_id);
   const canEdit = membership?.role !== 'child';
+  const canCheck = checkOff(tables, userId);
   // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
   const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
@@ -182,7 +183,8 @@ export function TaskScreen({ route, navigation }: Props) {
     <Screen testID="screen-task">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} />
+        {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
+        {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} /> : null}
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
         <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>
           {groupLine}
@@ -360,7 +362,7 @@ export function TaskScreen({ route, navigation }: Props) {
               meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
               pending={pendingIds.has(ch.id)}
               checked={ch.completed_at !== null}
-              onToggle={() => actions.toggle(ch)}
+              onToggle={canCheck(ch) ? () => actions.toggle(ch) : undefined}
               onOpen={() => navigation.push('Task', { taskId: ch.id })}
             />
           ))}
