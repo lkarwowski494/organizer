@@ -129,7 +129,7 @@ describe('Listy i zadania', () => {
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
-    await press(screen.getByLabelText('Dla każdego'));
+    await press(screen.getByLabelText('Nikt konkretny'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
     await type(screen.getByTestId('task-sub'), 'wstążka');
     await press(screen.getAllByLabelText('Dodaj podzadanie').at(-1)!);
@@ -159,9 +159,9 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Ala'));
     await press(screen.getByLabelText('Usuń termin'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
-    // Teraz bez terminu, więc „Dla każdego” też jest zablokowane.
+    // Teraz bez terminu, więc „Nikt konkretny” też jest zablokowane.
     const n = store.dispatched.length;
-    await press(screen.getByLabelText('Dla każdego'));
+    await press(screen.getByLabelText('Nikt konkretny'));
     expect(store.dispatched).toHaveLength(n);
   });
 

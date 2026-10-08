@@ -20,13 +20,13 @@ describe('kto i jak długo (D119, D120)', () => {
     const s = setup({ base: base() });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    expect(within(screen.getByTestId('today-t-paczka')).getByText(/dla: Ty/)).toBeTruthy();
+    expect(within(screen.getByTestId('today-t-paczka')).getByText(/dla Ciebie/)).toBeTruthy();
     expect(within(screen.getByTestId('today-t-korki')).queryByText(/dla:/)).toBeNull(); // nikt nieprzypisany
     expect(screen.queryByTestId('today-event-ev1-2026-10-07')).toBeNull(); // odpowiada Ala, nie dotyczy mnie
     expect(screen.getByLabelText(/^Zebranie, 19:00–19:45, 45 min, Rodzina/)).toBeTruthy();
     const zebranie = screen.getByTestId('today-event-ev2-2026-10-07');
     expect(within(zebranie).getByText(/45 min/)).toBeTruthy();
-    expect(within(zebranie).getByText(/odpowiada: Ty/)).toBeTruthy();
+    expect(within(zebranie).getByText(/odpowiadasz Ty/)).toBeTruthy();
     expect(screen.getByLabelText(/^Imieniny, cały dzień, Rodzina/)).toBeTruthy();
     expect(within(screen.getByTestId('today-event-ev3-2026-10-07')).queryByText(/odpowiada|min/)).toBeNull();
   });
@@ -36,7 +36,7 @@ describe('kto i jak długo (D119, D120)', () => {
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
     expect(within(await screen.findByTestId('cal-t-ala')).getByText(/dla: Ala/)).toBeTruthy();
-    expect(within(screen.getByTestId('cal-t-paczka')).getByText(/dla: Ty/)).toBeTruthy();
+    expect(within(screen.getByTestId('cal-t-paczka')).getByText(/dla Ciebie/)).toBeTruthy();
     const basen = screen.getByTestId('cal-event-ev1-2026-10-07');
     expect(within(basen).getByText(/1 h 30 min/)).toBeTruthy();
     expect(within(basen).getByText(/odpowiada: Ala/)).toBeTruthy();

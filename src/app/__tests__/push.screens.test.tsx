@@ -112,7 +112,7 @@ describe('przypomnienia (D75)', () => {
       expect(push.replaceReminders).not.toHaveBeenCalled();
       await press(screen.getByLabelText('Ustawienia'));
       await screen.findByTestId('screen-settings');
-      expect(screen.getByLabelText('1 godz.').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('1 h').props.accessibilityState.selected).toBe(true);
     } finally {
       jest.useRealTimers();
     }
