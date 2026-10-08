@@ -3,14 +3,18 @@
 #  - local:    zwykły Postgres 16 + nakładka scripts/db/supabase-shim.sql (ten sam zestaw co `npm run test:db`),
 #              z „otwartymi” uprawnieniami domyślnymi starszych projektów — sprawdza, że migracje same się zamykają;
 #  - supabase: prawdziwy stos Supabase CLI (Postgres 17, auth, realtime) — sprawdza zgodność z oryginałem.
+# Kiedy: zmiana bazy, testów tests/db albo kodu, który te testy importują (silnik synchronizacji, config — pilnuje tego
+# .github/scripts/ci-scripts.test.mjs), co noc na main i ręcznie (audyt 2, M-155).
 name: db
 
 on:
   push:
     branches: [main]
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', 'src/domain/sync-engine/**', 'src/config/**', '.github/workflows/db.yml']
   pull_request:
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/__tests__/support/**', 'src/domain/sync-engine/**', 'src/config/**', '.github/workflows/db.yml']
+  schedule:
+    - cron: '47 0 * * *' # 2:47 czasu polskiego latem: także bez zmian w ścieżkach (cron GitHuba działa w UTC)
   workflow_dispatch:
 
 permissions:
