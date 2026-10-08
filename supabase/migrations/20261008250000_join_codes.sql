@@ -32,6 +32,9 @@ begin
   return v;
 end $$;
 
+-- Istniejące grupy wspólne dostają ID przed włączeniem strażnika (strażnik blokuje zmianę ID zwykłą edycją).
+update public.groups set join_id = private.new_join_id() where kind = 'shared' and join_id is null;
+
 create function private.groups_join_id() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'INSERT' then
@@ -43,7 +46,6 @@ begin
 end $$;
 create trigger groups_a_join_id before insert or update on public.groups for each row execute function private.groups_join_id();
 
-update public.groups set join_id = private.new_join_id() where kind = 'shared' and join_id is null;
 
 -- Rodzaj zaproszenia: długi token (link/wiadomość) albo kod do ID grupy. Kod przyjmuje wyłącznie join_group (z limitem
 -- prób) — inaczej „ID:kod” podany jako token do accept_invite omijałby limit zgadywania.
