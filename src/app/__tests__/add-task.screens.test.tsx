@@ -1,5 +1,6 @@
 /** Szybkie i pełne dodawanie (D90, D91): „Więcej”, pasek „Dodano · Zmień”, przeniesienie do grupy z osobą, „@imię”. */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask } from '../../domain/views/commands';
@@ -20,44 +21,49 @@ const type = async (text: string) => {
 };
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
 
-describe('szybkie dodanie i „Zmień”', () => {
-  it('basen jutro 19.00 → Osobiste; „Zmień” → Rodzina, Ala odpowiedzialna: kopia w Rodzinie, oryginał do kosza', async () => {
+describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', () => {
+  it('basen jutro 19.00 → Osobiste; „Zmień” otwiera ekran zadania; „Przenieś do grupy” → Rodzina z podzadaniami, z „Cofnij”', async () => {
     const { store } = await open();
     await type('Basen jutro 19.00');
-    const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks') as { id: string };
     expect(created).toMatchObject({ group_id: 'u-me', set: { title: 'Basen', due_date: '2026-10-08', due_time: '19:00' } });
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano: Basen · Osobiste')).toBeTruthy();
+    // W tej chwili ktoś dodaje podzadania (np. drugi ekran) — przeniesienie bierze je ze sobą (audyt 2: T-33).
+    await act(async () => store.dispatch([0, 1].map((i) => createTask({ id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`czepek ${i}`, NOW) }))));
     await press(within(bar).getByLabelText('Zmień'));
-    expect(await screen.findByTestId('screen-add-task')).toBeTruthy();
-    expect(screen.getByText('Zmień zadanie')).toBeTruthy();
-    expect(screen.getByTestId('form-title').props.value).toBe('Basen');
-    expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('19:00');
-    await press(radio('Grupa', 'Rodzina'));
-    expect(screen.getByText(/powstanie tam kopia/)).toBeTruthy();
-    await press(radio('Dla kogo', 'Ala'));
-    await press(screen.getByTestId('form-save'));
-    // D97: nie lista tematyczna („Dom”), tylko ogólna „Zadania” grupy — powstaje, bo jej nie było.
-    const tail = store.dispatched.slice(-3);
-    expect(tail[0]).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania' } });
-    expect(tail[1]).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: (tail[0] as { id: string }).id, title: 'Basen', due_date: '2026-10-08', due_time: '19:00', assignee_member_id: 'ala' } });
-    expect(tail[2]).toEqual({ kind: 'delete', entity: 'tasks', id: (created as { id: string }).id });
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    expect(screen.getByTestId('task-title').props.value).toBe('Basen');
+    expect(screen.queryByTestId('screen-add-task')).toBeNull();
+    await press(screen.getByTestId('task-move'));
+    const panel = screen.getByTestId('move-groups');
+    expect(within(panel).queryByLabelText('Osobiste')).toBeNull(); // już tam jest
+    expect(within(panel).queryByLabelText('Klasa 2b')).toBeTruthy();
+    const before = store.dispatched.length;
+    await press(within(panel).getByLabelText('Rodzina'));
+    // D97: ogólna lista „Zadania” grupy — powstaje, bo jej nie było; kopia zadania i obu podzadań, oryginał do kosza.
+    const moved = store.dispatched.slice(before);
+    expect(moved.map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['create', 'lists'], ['create', 'tasks'], ['create', 'tasks'], ['create', 'tasks'], ['delete', 'tasks']]);
+    expect(moved[1]).toMatchObject({ group_id: 'gf', set: { list_id: (moved[0] as { id: string }).id, title: 'Basen', due_date: '2026-10-08', due_time: '19:00', parent_id: null } });
+    expect(moved[2]).toMatchObject({ group_id: 'gf', set: { title: 'czepek 0', parent_id: (moved[1] as { id: string }).id } });
+    expect(moved[4]).toEqual({ kind: 'delete', entity: 'tasks', id: created.id });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Przeniesiono do „Rodzina”: Basen')).toBeTruthy();
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(store.dispatched.at(-5)).toEqual({ kind: 'restore', entity: 'tasks', id: created.id });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'lists', id: (moved[0] as { id: string }).id });
   });
-});
 
-describe('„Zmień” na inną grupę a podzadania (audyt 2: T-33)', () => {
-  it('komunikat mówi, ile podzadań pójdzie do kosza z oryginałem (kopia ich nie ma)', async () => {
-    const { store } = await open();
-    await type('Urodziny jutro');
-    const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks') as { id: string };
-    // W tej chwili ktoś dodaje do niego podzadania (ekran zadania) — pasek „Zmień” jest jeszcze widoczny.
-    await act(async () => store.dispatch([0, 1].map((i) => createTask({ id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`prezent ${i}`, NOW) }))));
-    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Zmień'));
-    await screen.findByTestId('screen-add-task');
-    expect(screen.queryByText(/kosza/)).toBeNull();
-    await press(radio('Grupa', 'Rodzina'));
-    expect(screen.getByText('Zadanie trafi do innej grupy: powstanie tam kopia bez podzadań, a to zadanie razem z 2 podzadaniami pójdzie do kosza.')).toBeTruthy();
+  it('podzadanie i zadanie w trakcie przekazania nie mają „Przenieś do grupy”', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 's-1', { ...base.tasks!['t-paczka']!, id: 's-1', parent_id: 't-paczka', title: 'Kod odbioru', deadline_mode: 'inherit', due_date: null, due_time: null });
+    put(base, 'handoffs', 'h1', { id: 'h1', group_id: 'gf', entity: 'tasks', entity_id: 't-paczka', occurrence_date: null, from_member_id: 'mf', to_member_id: 'ala', status: 'pending', created_at: '2026-10-07T07:00:00Z', deleted_at: null, version: 1 });
+    await open(base);
+    await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę(,|$)/));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByTestId('task-move')).toBeNull();
+    await press(screen.getByLabelText(/^Otwórz: Kod odbioru(,|$)/));
+    expect(screen.queryByTestId('task-move')).toBeNull();
   });
 });
 
@@ -72,10 +78,10 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByText('Nowe zadanie')).toBeTruthy();
     expect(screen.getByTestId('form-title').props.value).toBe('Trening');
     expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
-    expect(radio('Termin', 'pt. 9 paź').props.accessibilityState.selected).toBe(true);
+    expect(radio('Kiedy', 'pt. 9 paź').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByLabelText('Lista')).toBeNull();
     await press(radio('Grupa', 'Klasa 2b'));
-    await press(radio('Termin', 'Jutro'));
+    await press(radio('Kiedy', 'Jutro'));
     await press(radio('Powtarzaj', 'Co tydzień'));
     await press(radio('Dla kogo', 'Pani Ewa'));
     await press(screen.getByTestId('form-save'));
@@ -85,7 +91,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 
-  it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; anuluj', async () => {
+  it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; bez „Anuluj”', async () => {
     const { store } = await open();
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
@@ -96,16 +102,18 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await press(radio('Grupa', 'Rodzina'));
     expect(screen.getByTestId('form-no-addressee')).toBeTruthy();
-    await press(radio('Termin', 'Dziś'));
+    await press(radio('Kiedy', 'Dziś'));
     expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await setTime('form-time', '25:00');
     await press(screen.getByTestId('form-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
-    await press(radio('Termin', 'Bez terminu'));
+    await press(radio('Kiedy', 'Bez terminu'));
     expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('');
     expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('');
+    // PWD-6: bez „Anuluj” — wystarczą gest i „Wróć” (wpisane zostaje w szkicu, D179).
+    expect(screen.queryByText('Anuluj')).toBeNull();
     const before = store.dispatched.length;
-    await press(screen.getByText('Anuluj'));
+    await press(screen.getByLabelText('Wróć'));
     expect(store.dispatched.length).toBe(before);
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
   });
@@ -180,13 +188,18 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     expect(screen.getByTestId('form-title').props.value).toBe('Basen');
     expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('18:00');
     expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
-    // Bez daty w zadaniu — wydarzenie na dziś; dziecko nie zostaje osobą odpowiedzialną.
-    await press(radio('Termin', 'Bez terminu'));
+    // Bez daty w zadaniu — wydarzenie na dziś; dziecko nie zostaje osobą odpowiedzialną, tylko uczestnikiem (M-255).
+    await press(radio('Kiedy', 'Bez terminu'));
     await press(radio('Dla kogo', 'Kuba'));
+    expect(radio('Rodzaj', 'Wydarzenie').props.accessibilityHint).toBe('Otwiera formularz wydarzenia, wpisane dane zostają');
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     await press(radio('Rodzaj', 'Wydarzenie'));
     await screen.findByTestId('screen-event-edit');
+    expect(announce).toHaveBeenCalledWith('Nowe wydarzenie');
     expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('2026-10-07');
     expect(radio('Osoba odpowiedzialna', 'Nikt konkretny').props.accessibilityState.selected).toBe(true);
+    expect(radio('Kogo dotyczy', 'Wybrane osoby').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Uczestnik: Kuba').props.accessibilityState).toMatchObject({ checked: true });
     // Całodniowe — do zadania bez godziny; dzień z kalendarza przechodzi.
     await press(radio('Pora', 'Cały dzień'));
     await pickDate('event-date', '2026-10-09');

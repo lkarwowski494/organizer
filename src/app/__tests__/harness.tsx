@@ -115,6 +115,8 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     revokeInvite: jest.fn(async () => {}),
     createJoinCode: jest.fn(async () => ({ inviteId: 'inv-2', joinId: '482913507', code: '731064', url: 'https://lkarwowski494.github.io/j/?g=482913507&c=731064', expiresAt: '2026-10-08T08:00:00Z' })),
     renewJoinCode: jest.fn(async () => ({ inviteId: 'inv-3', joinId: '482913507', code: '408215', url: 'https://lkarwowski494.github.io/j/?g=482913507&c=408215', expiresAt: '2026-10-08T09:00:00Z' })),
+    createChildCode: jest.fn(async () => ({ inviteId: 'inv-4', joinId: '482913507', code: '615290', url: 'https://lkarwowski494.github.io/j/?g=482913507&c=615290', expiresAt: '2026-10-08T08:00:00Z' })),
+    renewChildCode: jest.fn(async () => ({ inviteId: 'inv-5', joinId: '482913507', code: '903417', url: 'https://lkarwowski494.github.io/j/?g=482913507&c=903417', expiresAt: '2026-10-08T09:00:00Z' })),
     joinGroup: jest.fn(async () => ({ groupId: 'gf' })),
     rotateJoinId: jest.fn(async () => '555666777'),
     deleteGroup: jest.fn(async () => {}),

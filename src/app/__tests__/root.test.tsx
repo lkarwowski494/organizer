@@ -6,8 +6,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { AppState } from 'react-native';
 
 import { memoryDb } from '../../data/__tests__/sqlite';
-import type { PullResponse, PushResponse } from '../../domain/sync-engine/client';
-import type { SyncTransport } from '../../sync/transport';
+import { migrate } from '../../data/db/migrations';
+import { writeState } from '../../data/store';
+import { initialState, mutate, type PullResponse, type PushResponse } from '../../domain/sync-engine/client';
+import { type SyncTransport, TransportError } from '../../sync/transport';
 import { type RootDeps, Root, type Session } from '../Root';
 import { e2eLegacyPrefs } from '../e2e';
 import { fakeAccount } from './harness';
@@ -24,7 +26,8 @@ const personal = {
 const member = { e: 'group_members' as const, v: 2, row: { member_id: ME, group_id: ME, user_id: ME, display_name: 'Ala', role: 'owner', version: 2, deleted_at: null } };
 
 function makeDeps(over: Partial<RootDeps> = {}) {
-  let sessionListener: (s: Session | null) => void = () => {};
+  // Kilku słuchaczy naraz (jak onAuthStateChange): korzeń i silnik synchronizacji (M-9).
+  const sessionListeners = new Set<(s: Session | null) => void>();
   let urlListener: (u: string) => void = () => {};
   let pokes: ((topic: string, v: number | null) => void) | null = null;
   const topics: string[][] = [];
@@ -58,7 +61,7 @@ function makeDeps(over: Partial<RootDeps> = {}) {
   const deps: RootDeps = {
     session: {
       current: jest.fn(async () => null as Session | null),
-      onChange: (fn) => ((sessionListener = fn), () => (sessionListener = () => {})),
+      onChange: (fn) => (sessionListeners.add(fn), () => void sessionListeners.delete(fn)),
     },
     account: fakeAccount(),
     // Wprowadzenie i „Co nowego” obejrzane (jak w E2E) — nie zasłaniają ekranów.
@@ -90,7 +93,7 @@ function makeDeps(over: Partial<RootDeps> = {}) {
     topics,
     pushes,
     pulls: () => pulls,
-    signIn: (s: Session | null) => act(() => sessionListener(s)),
+    signIn: (s: Session | null) => act(() => sessionListeners.forEach((fn) => fn(s))),
     openUrl: (u: string) => act(() => urlListener(u)),
     poke: (topic: string, v: number | null) => act(() => pokes?.(topic, v)),
   };
@@ -284,5 +287,110 @@ describe('korzeń aplikacji', () => {
     await t.signIn({ userId: ME, displayName: 'Ala' });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     await waitFor(() => expect(t.pulls()).toBeGreaterThan(0));
+  });
+});
+
+describe('odporność synchronizacji (audyt 2, P2)', () => {
+  const signedIn = (over: Partial<RootDeps['session']> = {}) => ({ current: async () => ({ userId: ME, displayName: 'Ala' }) as Session, onChange: () => () => {}, ...over });
+
+  it('M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy) — nowy identyfikator, kolejka z kopii pod starym', async () => {
+    const saved = new Map<string, string>();
+    const t = makeDeps({ session: signedIn(), deviceClientId: { load: (u) => saved.get(u) ?? null, save: (u, id) => void saved.set(u, id) } });
+    // Kopia: baza z identyfikatorem „stary” i niewysłaną zmianą.
+    const db = memoryDb();
+    t.dbs.set(ME, db);
+    migrate(db);
+    const s0 = initialState('stary');
+    writeState(db, s0, mutate(s0, { kind: 'create', entity: 'lists', id: 'l1', group_id: ME, set: { kind: 'tasks', name: 'Dom' } }, () => 'op-a'), 1);
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-today');
+    const id = saved.get(ME)!;
+    expect(id).not.toBe('stary');
+    expect(db.all<{ value: string }>("select value from sync_state where key = 'client_id'")[0]!.value).toBe(id);
+    await waitFor(() => expect(t.pushes.length).toBeGreaterThan(0));
+    expect(t.pushes[0]).toMatchObject({ client_id: 'stary', ops: [{ seq: 1 }] });
+  });
+
+  it('M-10: NetInfo — „Offline” we wskaźniku, a po powrocie sieci od razu pobranie', async () => {
+    let net: (online: boolean) => void = () => {};
+    const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByText('Osobiste');
+    await act(() => net(false));
+    expect(await screen.findByText('Offline')).toBeTruthy();
+    const before = t.pulls();
+    await act(() => net(true));
+    await waitFor(() => expect(t.pulls()).toBe(before + 1));
+  });
+
+  it('M-10: bez połączenia (nieudane żądanie, np. captive portal) czyszczenie danych jest zablokowane', async () => {
+    // Ponowienia po błędzie nie nadchodzą (timer stoi) — stan „błąd sieci” zostaje.
+    const t = makeDeps({ session: signedIn(), setTimer: () => () => {} });
+    t.deps.transport = { ...t.deps.transport, pull: async () => Promise.reject(new TypeError('Network request failed')) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-today');
+    await fireEvent.press(screen.getByLabelText('Ustawienia'));
+    await fireEvent.press(await screen.findByTestId('settings-account'));
+    await fireEvent.press(await screen.findByTestId('reset-start'));
+    expect(screen.getByText(/Najpierw połącz się z internetem/)).toBeTruthy();
+    expect(screen.getByTestId('reset-confirm').props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('M-9: po 401 jedna prośba o odświeżenie tokenu; nowy token tego konta wznawia synchronizację', async () => {
+    let listener: (s: Session | null) => void = () => {};
+    const refresh = jest.fn(async () => {});
+    const signOutLocal = jest.fn(async () => {});
+    const t = makeDeps({ session: signedIn({ onChange: (fn) => ((listener = fn), () => {}), refresh, signOutLocal }) });
+    const real = t.deps.transport;
+    let expired = true;
+    t.deps.transport = { ...real, pull: (r, l) => (expired ? Promise.reject(new TransportError('auth', 'jwt expired')) : real.pull(r, l)) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    expect(await screen.findByText('Zaloguj się ponownie')).toBeTruthy();
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    // Odświeżenie innego konta (zmiana osoby) nie zdejmuje stanu; tego samego — tak.
+    expired = false;
+    await act(() => listener({ userId: 'u-2', displayName: 'Ola' }));
+    expect(screen.getByText('Zaloguj się ponownie')).toBeTruthy();
+    await act(() => listener({ userId: ME, displayName: 'Ala' }));
+    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Zaloguj się ponownie')).toBeNull());
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('M-9: sesja, której nie da się odświeżyć — w Ustawieniach „Zaloguj się ponownie” bez czyszczenia danych', async () => {
+    const refresh = jest.fn(async () => Promise.reject(new Error('refresh_token_not_found')));
+    const signOutLocal = jest.fn(async () => {});
+    const t = makeDeps({ session: signedIn({ refresh, signOutLocal }), removeDb: jest.fn() });
+    t.deps.transport = { ...t.deps.transport, pull: () => Promise.reject(new TransportError('auth', 'jwt expired')) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-today');
+    await fireEvent.press(screen.getByLabelText('Ustawienia'));
+    expect(await screen.findByText(/Sesja wygasła/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('sign-in-again'));
+    expect(signOutLocal).toHaveBeenCalledTimes(1);
+    // Nie „Wyloguj” (sprzątanie konta) i nie usunięcie bazy: kolejka czeka na ponowne zalogowanie.
+    expect(t.deps.account.signOut).not.toHaveBeenCalled();
+    expect(t.deps.removeDb).not.toHaveBeenCalled();
+    // Powrót do aplikacji: kolejna próba i kolejna prośba o odświeżenie (nie w kółko w tle).
+    await act(() => appStateHandlers.forEach((h) => h('active')));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+  });
+
+  it('M-177: baza z nowszej wersji — wyjaśnienie zamiast awarii; „Wyczyść i pobierz od nowa” otwiera aplikację', async () => {
+    const t = makeDeps({ session: signedIn() });
+    const db = memoryDb();
+    db.exec('pragma user_version = 999');
+    t.dbs.set(ME, db);
+    await render(<Root deps={t.deps} fontsLoaded />);
+    expect(await screen.findByTestId('screen-newer-data')).toBeTruthy();
+    expect(screen.getByText(/zapisała nowsza wersja aplikacji/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('newer-reset'));
+    expect(await screen.findByText('Osobiste')).toBeTruthy();
+  });
+
+  it('inny błąd otwarcia bazy nie jest ukrywany', async () => {
+    const t = makeDeps({ session: signedIn(), openDb: () => { throw new Error('dysk'); } });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(render(<Root deps={t.deps} fontsLoaded />)).rejects.toThrow('dysk');
   });
 });

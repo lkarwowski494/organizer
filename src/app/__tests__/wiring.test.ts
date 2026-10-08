@@ -10,6 +10,18 @@ jest.mock('expo-application', () => ({
   getIosApplicationReleaseTypeAsync: jest.fn(),
 }));
 
+// Biblioteka podaje własną atrapę do Jest (moduł natywny); zdarzenie sieci wywołujemy ręcznie.
+jest.mock('@react-native-community/netinfo', () => require('@react-native-community/netinfo/jest/netinfo-mock.js')); // eslint-disable-line @typescript-eslint/no-require-imports
+jest.mock('expo-secure-store', () => {
+  const kv = new Map<string, string>();
+  return {
+    ...jest.requireActual('expo-secure-store'),
+    getItem: jest.fn((k: string) => kv.get(k) ?? null),
+    setItem: jest.fn((k: string, v: string) => void kv.set(k, v)),
+    getItemAsync: jest.fn(async () => null),
+  };
+});
+
 const ORIGINAL = { ...process.env };
 
 /**
@@ -21,14 +33,18 @@ function load(env: { [k: string]: string | undefined }, release: Application.App
   process.env = { ...ORIGINAL, ...env };
   let mod!: typeof import('../wiring');
   let sqlite!: { openDatabaseSync: jest.Mock; deleteDatabaseSync: jest.Mock };
+  let secure!: { setItem: jest.Mock; AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: unknown };
+  let netinfo!: { addEventListener: jest.Mock };
   jest.isolateModules(() => {
     /* eslint-disable @typescript-eslint/no-require-imports -- uzasadnienie wyżej */
     (require('expo-application').getIosApplicationReleaseTypeAsync as jest.Mock).mockResolvedValue(release);
     mod = require('../wiring');
     sqlite = require('expo-sqlite');
+    secure = require('expo-secure-store');
+    netinfo = require('@react-native-community/netinfo');
     /* eslint-enable @typescript-eslint/no-require-imports */
   });
-  return { ...mod, sqlite };
+  return { ...mod, sqlite, secure, netinfo };
 }
 
 afterEach(() => {
@@ -55,6 +71,25 @@ describe('appDeps (D143)', () => {
     expect(deps.nowMs).toBeUndefined(); // prawdziwy zegar
     expect(deps.calendar.sync).toBeDefined(); // kalendarz iPhone'a (atrapa E2E go nie ma)
     expect(await deps.session.current()).toBeNull(); // bez zapisanej sesji w pęku kluczy
+  });
+
+  it('prawdziwe zależności: identyfikator instalacji w pęku kluczy „tylko to urządzenie” (M-8), sieć z NetInfo (M-10)', () => {
+    const w = load({ EXPO_PUBLIC_E2E: undefined, EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test' }, Application.ApplicationReleaseType.SIMULATOR);
+    const deps = w.appDeps();
+    const { secure, netinfo } = w;
+    expect(deps.deviceClientId!.load('u1')).toBeNull();
+    deps.deviceClientId!.save('u1', 'c1');
+    expect(deps.deviceClientId!.load('u1')).toBe('c1');
+    expect(secure.setItem).toHaveBeenCalledWith('clientId.u1', 'c1', { keychainAccessible: secure.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY });
+    const seen: boolean[] = [];
+    deps.network!.subscribe((online) => seen.push(online));
+    const listener = netinfo.addEventListener.mock.calls.at(-1)![0] as (s: { isConnected: boolean | null }) => void;
+    listener({ isConnected: false });
+    listener({ isConnected: true });
+    listener({ isConnected: null }); // stan nieznany = sieć (o braku powie nieudane żądanie)
+    expect(seen).toEqual([false, true, true]);
+    expect(typeof deps.session.refresh).toBe('function');
+    expect(typeof deps.session.signOutLocal).toBe('function');
   });
 
   it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty; błąd usuwania cichy', async () => {

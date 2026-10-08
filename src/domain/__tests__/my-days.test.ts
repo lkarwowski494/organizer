@@ -221,7 +221,7 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     ]);
   });
 
-  it('lekcja bez godziny; jestem uczestnikiem — osobno; dziecko widzi swoje lekcje osobno; inne dni bez lekcji', () => {
+  it('lekcja bez godziny; jestem uczestnikiem — osobno; dziecko z kontem — swoje lekcje jednym wierszem; inne dni bez lekcji', () => {
     const t = school();
     put(t, 'events', 'wf', { ...t.events!.wf!, start_time: null, end_time: null });
     put(t, 'events', 'pol', { ...t.events!.pol!, start_time: null });
@@ -232,7 +232,10 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     put(t, 'event_participants', 'p-ang-me', { id: 'p-ang-me', event_id: 'ang', member_id: 'mf', deleted_at: null });
     expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 e-ang-2026-10-07 e-basen-2026-10-07']);
     put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, user_id: 'u-kuba' });
-    expect(keys(myDays(t, 'u-kuba', TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): e-mat-2026-10-07 e-pol-2026-10-07 e-wf-2026-10-07 e-basen-2026-10-07']);
+    // Audyt 2 (N-38): dziecko z kontem — jego lekcje zwijają się jak u dorosłych (D127), bez przypomnień przed każdą.
+    const kid = myDays(t, 'u-kuba', TODAY, 'day', TODAY, local);
+    expect(keys(kid)).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 e-basen-2026-10-07']);
+    expect(kid.days[0]!.entries.find((e) => e.kind === 'lessons')).toMatchObject({ block: { memberId: 'kuba', lessons: [{ title: 'mat' }, { title: 'pol' }, { title: 'wf' }] } });
     expect(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local).days[0]!.entries).toEqual([]);
   });
 });

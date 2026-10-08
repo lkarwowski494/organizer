@@ -54,13 +54,13 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Oznacz jako zrobione: Wybrać tulipany'));
     await answerAlert('Anuluj');
-    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
     // Z niezrobionym podzadaniem — pytanie z wyborem (decyzja właściciela z 8.10.2026).
     expect(lastAlert().message).toBe('Kupić kwiaty: zostało 1 niezrobione podzadanie.');
     await answerAlert('Zostaw podzadania');
     expect(store.dispatched.at(-1)).toMatchObject({ id: 't-kwiaty', set: { completed_at: expect.any(String) } });
     const n = (Alert.alert as unknown as jest.Mock).mock.calls.length;
-    await press(screen.getByLabelText('Oznacz jako niezrobione'));
+    await press(screen.getByLabelText('Oznacz jako niezrobione: Kupić kwiaty'));
     expect((Alert.alert as unknown as jest.Mock).mock.calls).toHaveLength(n); // cofnięcie bez okna
     expect(store.dispatched.at(-1)).toMatchObject({ id: 't-kwiaty', set: { completed_at: null } });
   });
@@ -274,7 +274,7 @@ describe('odhaczenie zadania z niezrobionymi podzadaniami (decyzja właściciela
     await answerAlert('Anuluj');
     await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
     await screen.findByTestId('screen-task');
-    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
     await answerAlert('Anuluj');
     // Podzadanie z własnym podzadaniem pyta tak samo.

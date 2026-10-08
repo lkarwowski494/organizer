@@ -27,11 +27,12 @@ jest.mock('../navigation', () => ({
 
 const ME = 'u-1';
 function makeDeps(account = fakeAccount()) {
-  let listener: (s: Session | null) => void = () => {};
+  // Kilku słuchaczy naraz (jak onAuthStateChange): korzeń i silnik synchronizacji (M-9).
+  const listeners = new Set<(s: Session | null) => void>();
   const dbs = new Map<string, ReturnType<typeof memoryDb>>();
   const removeDb = jest.fn();
   const deps: RootDeps = {
-    session: { current: async () => null, onChange: (fn) => ((listener = fn), () => {}) },
+    session: { current: async () => null, onChange: (fn) => (listeners.add(fn), () => void listeners.delete(fn)) },
     account,
     calendar: { add: async () => 'saved' },
     transport: { push: async () => ({ last_seq: 0, results: [] }), pull: async () => ({ groups: [], scopes: [] }), fetchScope: async () => [] },
@@ -42,7 +43,7 @@ function makeDeps(account = fakeAccount()) {
     links: { onUrl: () => () => {} },
     setTimer: () => () => {},
   };
-  return { deps, dbs, removeDb, account, emit: (s: Session | null) => listener(s), signIn: (s: Session | null) => act(() => listener(s)) };
+  return { deps, dbs, removeDb, account, emit: (s: Session | null) => listeners.forEach((fn) => fn(s)), signIn: (s: Session | null) => act(() => listeners.forEach((fn) => fn(s))) };
 }
 
 let appState: ((s: string) => void)[] = [];

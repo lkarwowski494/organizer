@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { createList } from '../../domain/views/commands';
@@ -31,6 +32,8 @@ export function NewListScreen({ route, navigation }: Props) {
   const group = groups.find((g) => g.id === groupId);
   const personal = group?.kind === 'personal';
   const [draft, setDraft] = useState<TripDraft>({ date: '', time: '', responsibleId: null });
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Utwórz” zostawia wpisane pola (app/form-draft).
+  const saved = useFormDraft('list:new', { name, kind, groupId, visibility, trip: draft }, { name: setName, kind: setKind, groupId: setGroupId, visibility: setVisibility, trip: setDraft });
   const trip = readTrip(draft);
   const shopping = kind === 'shopping';
   const tripError = shopping && 'error' in trip ? trip.error : null;
@@ -40,6 +43,7 @@ export function NewListScreen({ route, navigation }: Props) {
 
   const create = () => {
     const id = newId();
+    saved.saved();
     // D189: „Dodano listę: … · Cofnij”.
     added(strings['form.addedList'](name.trim(), personal ? strings['groups.personal'] : (group?.name ?? '')), [createList({ id, groupId, kind, name: name.trim(), visibility: personal ? 'group' : visibility, trip: shopping && 'trip' in trip ? trip.trip : undefined })]);
     navigation.replace('List', { listId: id });
@@ -49,6 +53,7 @@ export function NewListScreen({ route, navigation }: Props) {
     <Screen testID="screen-new-list">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{kind === 'shopping' ? strings['lists.newShopping'] : strings['lists.new']}</Title>
+      <DraftNote draft={saved} />
       <Field label={strings['lists.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.LIST_NAME} testID="list-name" />
       <Segmented label={strings['lists.kindLabel']} value={kind} onChange={setKind} options={[{ value: 'tasks', label: strings['lists.kind.tasks'] }, { value: 'shopping', label: strings['lists.kind.shopping'] }]} />
       <Segmented label={strings['lists.group']} value={groupId} onChange={(g) => (setGroupId(g), setDraft({ ...draft, responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />

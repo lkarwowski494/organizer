@@ -71,7 +71,9 @@ describe('nowa lista zakupów', () => {
     expect(screen.getByTestId('trip-date').props.accessibilityValue.text).toBe('2026-10-12');
     expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByLabelText('Bez terminu'));
-    expect(screen.queryByTestId('trip-time')).toBeNull();
+    // M-89, M-245: bez dnia godzina jest nieaktywna z wyjaśnieniem (jak w zadaniu).
+    expect(screen.getByTestId('trip-time').props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByText('Najpierw wybierz dzień.')).toBeTruthy();
     await press(screen.getByLabelText('Osobiste'));
     expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByTestId('create-list'));

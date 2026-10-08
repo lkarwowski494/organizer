@@ -77,7 +77,8 @@ export function CalendarScreen() {
                 group={x.task.groupName}
                 meta={[formatDue(x.task.due!, today), strings['trip.open'](x.task.trip.open), ...who(x.task.assignee_member_id, 'who.task')]}
                 checked={false}
-                onToggle={() => actions.finishTrip(x.task.id, x.task.title)}
+                // PW-14 B (audyt 2, R-11): dziecko z kontem — zakupy bez pola odhaczenia.
+                onToggle={roles.get(x.task.group_id)?.role !== 'child' ? () => actions.finishTrip(x.task.id, x.task.title) : undefined}
                 onOpen={() => nav.navigate('List', { listId: x.task.id })}
               />
             ) : (
