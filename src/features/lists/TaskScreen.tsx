@@ -340,7 +340,7 @@ export function TaskScreen({ route, navigation }: Props) {
                 store.dispatch(r.ops);
                 // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
                 navigation.goBack();
-                undo.show(strings['task.moved'](task.title, groupName(g)), () => store.dispatch(r.undo));
+                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.ops });
               },
             }))}
             onCancel={() => setMoving(false)}

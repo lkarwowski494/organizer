@@ -158,7 +158,7 @@ export function ListScreen({ route, navigation }: Props) {
     const op = removeStaple(listRow, name);
     store.dispatch(op);
     const names = op.kind === 'cmd' ? (op.args.names as string[]) : [];
-    undo.show(strings['undo.stapleRemoved'](name), () => store.dispatch(names.map((n): NewOp => ({ kind: 'cmd', cmd: 'staple_add', args: { list_id: list.id, name: n } }))), { changed: [op] });
+    undo.show(strings['undo.stapleRemoved'](name), { ops: names.map((n): NewOp => ({ kind: 'cmd', cmd: 'staple_add', args: { list_id: list.id, name: n } })) }, { changed: [op] });
   };
   // Audyt 2 (M-82, T-7): pole zaznaczone tylko przy odhaczonym — minione ma dopisek „minęło” bez ptaszka. W zamkniętych
   // nie powtarzam otwartych podzadań: stoją w otwartych z dopiskiem rodzica (listDetail). Wcięcie według miejsca na ekranie.

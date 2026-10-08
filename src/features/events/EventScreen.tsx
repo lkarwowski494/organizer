@@ -98,7 +98,7 @@ export function EventScreen({ route, navigation }: Props) {
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
-    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), () => store.dispatch(back), { changed: ops });
+    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
     navigation.goBack();
   };
   const stopSeries = (s: SeriesDef) => {
@@ -106,7 +106,7 @@ export function EventScreen({ route, navigation }: Props) {
     // Same usunięcia (definicja i kopie), więc odwrotność zawsze istnieje.
     const back = inverseOps(tables, ops)!;
     store.dispatch(ops);
-    undo.show(strings['undo.seriesStopped'](s.title), () => store.dispatch(back), { changed: ops });
+    undo.show(strings['undo.seriesStopped'](s.title), { ops: back }, { changed: ops });
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
   const cancel = (scope: Scope) => (affectedByCancel(tables, d, date, scope).length ? (setAsk(null), setRelink({ scope, picking: false })) : finish(scope, null));

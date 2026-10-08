@@ -16,6 +16,6 @@ export function useAdded() {
     const back = inverseOps(tables, ops);
     store.dispatch(ops);
     // Polecenia serwera (np. „to i następne”) nie mają odwrotności — wtedy bez paska.
-    if (back) undo.show(message, () => store.dispatch(back), { changed: ops });
+    if (back) undo.show(message, { ops: back }, { changed: ops });
   };
 }

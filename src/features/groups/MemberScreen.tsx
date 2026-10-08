@@ -172,7 +172,7 @@ export function MemberScreen({ route, navigation }: Props) {
             const op = remove('group_members', m.member_id);
             store.dispatch(op);
             navigation.goBack();
-            undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)), { changed: [op] });
+            undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
           }}
         />
       ) : null}

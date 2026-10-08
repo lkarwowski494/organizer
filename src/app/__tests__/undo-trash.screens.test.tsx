@@ -5,6 +5,8 @@
  * zadania z jego ekranu (M-254).
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { Fragment } from 'react';
 import { AccessibilityInfo, ScrollView } from 'react-native';
 
 import { config } from '../../config';
@@ -90,7 +92,7 @@ describe('kosz na ekranie Grupy (M-34, D151)', () => {
     await screen.findByTestId('screen-groups');
     expect(screen.queryByTestId('trash')).toBeNull();
     await press(screen.getByTestId('open-recent'));
-    expect(await screen.findByText('Od uruchomienia aplikacji nie było zmian do cofnięcia.')).toBeTruthy();
+    expect(await screen.findByText('Nie ma jeszcze zmian do cofnięcia.')).toBeTruthy();
   });
 });
 
@@ -151,7 +153,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     expect(within(bar()).getByTestId('undo-message').props.accessibilityRole).toBeUndefined();
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
-    expect(await screen.findByText('Od uruchomienia aplikacji nie było zmian do cofnięcia.')).toBeTruthy();
+    expect(await screen.findByText('Nie ma jeszcze zmian do cofnięcia.')).toBeTruthy();
   });
 
   it(`pamięta najwyżej config.RECENT_MAX zmian`, async () => {
@@ -163,6 +165,65 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(await screen.findByTestId('open-recent'));
     expect(screen.getAllByTestId(/^recent-\d+$/)).toHaveLength(config.RECENT_MAX);
     expect(screen.queryByText('Usunięto: Zadanie 0')).toBeNull();
+  });
+});
+
+/** Ponowne uruchomienie aplikacji: nowe drzewo (nowy UndoProvider) na tych samych usługach i tej samej bazie konta. */
+async function restart(s: ReturnType<typeof setup>, r: Awaited<ReturnType<ReturnType<typeof setup>['renderApp']>>) {
+  await act(async () => r.rerender(<Fragment key="po-restarcie">{s.wrap(<NavigationContainer><RootStack /></NavigationContainer>)}</Fragment>));
+}
+
+describe('Ostatnie zmiany w bazie konta (D194 b)', () => {
+  it('po ponownym uruchomieniu: cofnięcie z operacji działa, zmiana przez serwer zostaje z wyjaśnieniem, cofnięte — „Cofnięto”', async () => {
+    const base = sampleBase();
+    base.group_members!.mf = { ...base.group_members!.mf, role: 'owner' };
+    const s = setup({ base });
+    const first = await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Usuń: Odebrać paczkę'));
+    await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
+    await press(within(bar()).getByLabelText('Cofnij'));
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Usuń: Rodzina'));
+    await screen.findByText('Usunięto grupę: Rodzina');
+    await restart(s, first);
+    await press(await screen.findByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-recent'));
+    const entries = await screen.findAllByTestId(/^recent-\d+$/);
+    expect(entries).toHaveLength(3);
+    expect(within(entries[0]!).getByText(/szła przez serwer/)).toBeTruthy();
+    expect(within(entries[0]!).queryByLabelText(/^Cofnij: /)).toBeNull();
+    expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
+    await press(within(entries[2]!).getByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
+    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-paczka' });
+    expect(within(entries[2]!).getByText('Cofnięto')).toBeTruthy();
+  });
+
+  it('po ponownym uruchomieniu sprawdzenie zmian działa z zapisanym odciskiem; bez cofnięcia rzeczy zmienionej w międzyczasie', async () => {
+    const s = setup();
+    const first = await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Usuń: Odebrać paczkę'));
+    await act(async () => {
+      s.store.getSnapshot().state = { ...s.store.getSnapshot().state, pending: [] };
+      s.store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, deleted_at: null, version: 5 } } }));
+    });
+    await restart(s, first);
+    await press(await screen.findByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-recent'));
+    const n = s.store.dispatched.length;
+    await press(await screen.findByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
+    expect(s.store.dispatched).toHaveLength(n);
+    expect(await screen.findByText(/Nie cofnięto: to zmieniło się od tamtej chwili/)).toBeTruthy();
+  });
+
+  it('uszkodzony zapis — pusta lista, bez błędu', async () => {
+    const s = setup();
+    s.services.local!.save('recent.changes', '{zły');
+    await s.renderApp(<RootStack />);
+    await press(await screen.findByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-recent'));
+    expect(await screen.findByText('Nie ma jeszcze zmian do cofnięcia.')).toBeTruthy();
   });
 });
 

@@ -34,7 +34,7 @@ export function useEventActions() {
       // Same usunięcia i zmiany wierszy, bez poleceń serwera — odwrotność zawsze istnieje.
       const back = inverseOps(tables, ops)!;
       store.dispatch(ops);
-      undo.show(strings[scope === 'all' ? 'undo.deleted' : 'undo.eventCancelled'](fieldsOf(d, date, 'this').title), () => store.dispatch(back), { changed: ops });
+      undo.show(strings[scope === 'all' ? 'undo.deleted' : 'undo.eventCancelled'](fieldsOf(d, date, 'this').title), { ops: back }, { changed: ops });
     },
   };
 }

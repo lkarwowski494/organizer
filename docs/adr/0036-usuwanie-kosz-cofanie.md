@@ -9,7 +9,7 @@ zawetować.
 | D187 | Kiedy pytać przy usuwaniu (PW-16 A, M-121) | Bez „Na pewno?” — zawsze pasek „Cofnij” i kosz. Pytanie tylko przy rzeczach nieodwracalnych (usunięcie konta, wyjście z grupy, przekazanie własności, zmiana ID grupy, unieważnienie kodu) i przy liście z zadaniami („Usunąć listę „Dom” i 23 zadania?”). Wspólną listę usuwa każdy dorosły | Pytanie przy wszystkim, co dotyczy innych; usuwanie listy tylko przez autora albo admina |
 | D189 | Pasek po dodaniu (PW-29 A, M-126) | Po utworzeniu z formularza „Dodano … · Cofnij”; po szybkim dodaniu „Dodano … · Zmień” (D90); „Zmień” przy wydarzeniu otwiera od razu edycję | „Zmień · Cofnij” w jednym pasku |
 | D190 | Odrzucone zmiany (PW-30 A, M-137) | Jednorazowy pasek „Serwer nie przyjął N zmian — Zobacz”, nazwy rzeczy na liście, „Wyczyść listę” | Bez powiadamiania |
-| D194 | Cofanie przy VoiceOverze (PW-10 C+A, M-38) | Lista „Ostatnie zmiany” z „Cofnij” bez limitu czasu i sprawdzeniem, czy rzecz się nie zmieniła; przy VoiceOverze pasek nie znika sam, dostaje fokus i ma „Zamknij” | Dłuższy pasek dla wszystkich (60 s) |
+| D194 | Cofanie przy VoiceOverze (PW-10 C+A, M-38) | Lista „Ostatnie zmiany” z „Cofnij” bez limitu czasu i sprawdzeniem, czy rzecz się nie zmieniła, zapisana w bazie konta (b, koordynator 8.10.2026); przy VoiceOverze pasek nie znika sam, dostaje fokus i ma „Zamknij” | Dłuższy pasek dla wszystkich (60 s) |
 
 ## Wykonanie
 
@@ -45,12 +45,16 @@ zawetować.
   aplikacji widać na liście). Nazwa rzeczy przy zmianie, usunięciu i przywróceniu bierze się z danych na telefonie.
   „Wyczyść listę” usuwa wpisy także z bazy telefonu (`clearRejected`, `rejected_ops`).
 - **Ostatnie zmiany (D194, `src/ui/undo.tsx`, `src/domain/views/recent.ts`).** Każdy pasek „Cofnij” jest też wpisem
-  listy (najwyżej `config.RECENT_MAX` = 30 od uruchomienia aplikacji; po zamknięciu aplikacji lista jest pusta — trwałe
-  jest to, co w koszu). Paski „Zmień” i „Zobacz” to nie zmiany — nie trafiają na listę. Przed cofnięciem (z listy i z
-  paska) porównujemy pola, które zmiana ustawiła, i to, czy rzecz istnieje, z chwilą zaraz po zmianie; inna wartość =
-  ktoś (albo ja) zmienił to od tamtej pory — nie cofamy i mówimy dlaczego. Porównanie zna zapis serwera (godzina
-  z sekundami, znacznik czasu w innej strefie). Wejście: „Ostatnie zmiany” na ekranie Grupy i treść paska (strzałka „›”).
-  Odrzucone: zapis listy w bazie (cofnięcia części zmian to wywołania serwera, nie operacje do zapisania).
+  listy (najwyżej `config.RECENT_MAX` = 30). Decyzja koordynatora z 8.10.2026 (D194 b): lista jest w bazie konta
+  (`local:recent.changes`) i przeżywa ponowne uruchomienie. Cofnięcie zapisujemy jako operacje — stałe albo według
+  przepisu liczone w chwili cofnięcia (rutyna: `routineUndoOps`, z kopiami kroków dołożonymi w międzyczasie); hurtowe
+  odhaczenie z podzadaniami liczy cofnięcie zaraz po zmianie. Cofnięcia, których nie da się zapisać, po ponownym
+  uruchomieniu zostają w historii z wyjaśnieniem: grupa (usunięcie i przywrócenie idą przez serwer — wskazanie na Kosz)
+  i plan lekcji (cofnięcie liczone z całego planu w chwili cofnięcia). Paski „Zmień” i „Zobacz” to nie zmiany — nie
+  trafiają na listę. Przed cofnięciem (z listy i z paska) porównujemy pola, które zmiana ustawiła, i to, czy rzecz istnieje,
+  z chwilą zaraz po zmianie (odcisk też jest w zapisie); inna wartość = ktoś (albo ja) zmienił to od tamtej pory — nie
+  cofamy i mówimy dlaczego. Porównanie zna zapis serwera (godzina z sekundami, znacznik czasu w innej strefie). Wejście:
+  „Ostatnie zmiany” na ekranie Grupy i treść paska (strzałka „›”). Uszkodzony zapis — pusta lista (to wygoda, nie dane).
 - **VoiceOver (D194).** Pasek przy włączonym czytniku nie znika sam, dostaje fokus (`AccessibilityInfo
   .sendAccessibilityEvent(…, 'focus')`, React Native 0.86) i ma „Zamknij”; `accessibilityLiveRegion` działa tylko na
   Androidzie. Do sprawdzenia na iPhonie: czy VoiceOver czyta treść paska od razu po przeniesieniu fokusu.

@@ -3,7 +3,7 @@
  * Jeden pasek naraz; nowy zastępuje poprzedni. Znika po config.UNDO_MS albo po „Cofnij”.
  *
  * Decyzja właściciela z 8.10.2026 (audyt 2: PW-10 C+A, M-38; D194):
- *  - każda zmiana z „Cofnij” trafia też do „Ostatnich zmian” (config.RECENT_MAX ostatnich od uruchomienia aplikacji)
+ *  - każda zmiana z „Cofnij” trafia też do „Ostatnich zmian” (config.RECENT_MAX ostatnich, w bazie konta — D194 b)
  *    z „Cofnij” bez limitu czasu; przed cofnięciem sprawdzamy, czy rzecz nie zmieniła się od tamtej chwili
  *    (`changed` → odcisk, src/domain/views/recent.ts) — jeśli tak, nie cofamy i mówimy dlaczego;
  *  - przy włączonym VoiceOverze pasek nie znika sam (zostaje do „Cofnij”, „Zamknij” albo następnego paska), a fokus
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
+import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from './theme';
 
@@ -30,16 +31,36 @@ export type UndoOptions = {
   action?: string;
   /** Operacje, które zrobiły zmianę (już wysłane do `dispatch`) — do sprawdzenia przed cofnięciem (D194). */
   changed?: readonly NewOp[];
+  /**
+   * Cofnięcie jako funkcja nie przeżyje ponownego uruchomienia — dlaczego (do wyjaśnienia na liście): „server” — idzie
+   * przez serwer (grupa), „plan” — plan lekcji liczony w chwili cofnięcia z całego planu.
+   */
+  lost?: RecentLost;
 };
 
-export type RecentEntry = { id: number; message: string; at: number; state: 'open' | 'undone' | 'stale' };
+/**
+ * Cofnięcie: operacje (zapisywane w bazie konta — działają też po ponownym uruchomieniu), operacje według przepisu
+ * liczone w chwili cofnięcia (rutyna) albo funkcja (tylko w tym uruchomieniu).
+ */
+export type UndoAction = RecentUndo | (() => void);
+
+export type RecentEntry = Pick<RecentRecord, 'id' | 'message' | 'at' | 'state' | 'lost'>;
+
+/** Baza konta i dane dla „Ostatnich zmian” (AppProvider). */
+export type UndoBackend = {
+  fingerprint: (ops: readonly NewOp[]) => Fingerprint;
+  isStale: (fp: Fingerprint) => boolean;
+  run: (u: RecentUndo) => void;
+  load: () => string | null;
+  save: (json: string) => void;
+};
 
 type Undo = {
-  /** Bez `onUndo` — sam komunikat (np. „Nie cofnięto…”). `opts` jako tekst = napis przycisku. */
-  show: (message: string, onUndo?: () => void, opts?: string | UndoOptions) => void;
+  /** Bez `undo` — sam komunikat (np. „Nie cofnięto…”). `opts` jako tekst = napis przycisku. */
+  show: (message: string, undo?: UndoAction, opts?: string | UndoOptions) => void;
   /** Ostatnie zmiany, najnowsze pierwsze. */
   recent: readonly RecentEntry[];
-  /** Cofnięcie z listy; „stale” — rzecz się zmieniła, niczego nie zmieniamy; „gone” — już cofnięte. */
+  /** Cofnięcie z listy; „stale” — rzecz się zmieniła, niczego nie zmieniamy; „gone” — już cofnięte albo niemożliwe. */
   undoRecent: (id: number) => 'undone' | 'stale' | 'gone';
   /** Nawigacja do „Ostatnich zmian” (podpina ją komponent wewnątrz nawigacji). */
   bindOpenRecent: (fn: (() => void) | null) => void;
@@ -48,17 +69,24 @@ const UndoContext = createContext<Undo>({ show: () => {}, recent: [], undoRecent
 
 type Bar = { message: string; onUndo?: () => void; action: string; n: number; entry: number | null };
 
-/** `track` — odcisk po zmianie: zwraca sprawdzenie „czy od tej chwili coś się zmieniło” (AppProvider, materialize). */
-export function UndoProvider({ children, nowMs = Date.now, track }: { children: ReactNode; nowMs?: () => number; track?: (ops: readonly NewOp[]) => () => boolean }) {
+export function UndoProvider({ children, nowMs = Date.now, backend }: { children: ReactNode; nowMs?: () => number; backend?: UndoBackend }) {
   const { c, font, size } = useTheme();
   const insets = useSafeAreaInsets();
   const [bar, setBar] = useState<Bar | null>(null);
-  const [recent, setRecent] = useState<readonly RecentEntry[]>([]);
+  // D194 b: lista z bazy konta (przeżywa ponowne uruchomienie).
+  const [records, setRecords] = useState<readonly RecentRecord[]>(() => parseRecent(backend?.load() ?? null));
   const [reader, setReader] = useState(false);
   const [openRecent, setOpenRecent] = useState<{ fn: () => void } | null>(null);
-  const n = useRef(0);
-  const actions = useRef(new Map<number, { undo: () => void; stale: () => boolean }>());
+  const n = useRef(Math.max(0, ...records.map((r) => r.id)));
+  // Cofnięcia-funkcje (tylko w tym uruchomieniu).
+  const actions = useRef(new Map<number, () => void>());
   const focus = useRef<View>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) return void (first.current = false);
+    backend?.save(JSON.stringify(records));
+  }, [records, backend]);
+  const recent = useMemo(() => records.map(({ id, message, at, state, lost }) => ({ id, message, at, state, lost })), [records]);
 
   useEffect(() => {
     let live = true;
@@ -72,42 +100,47 @@ export function UndoProvider({ children, nowMs = Date.now, track }: { children: 
     };
   }, []);
 
-  const mark = useCallback((id: number, state: RecentEntry['state']) => setRecent((r) => r.map((e) => (e.id === id ? { ...e, state } : e))), []);
+  const mark = useCallback((id: number, state: RecentRecord['state']) => setRecords((r) => r.map((e) => (e.id === id ? { ...e, state, ...(state === 'undone' ? { undo: null } : {}) } : e))), []);
 
   const undoRecent = useCallback(
     (id: number) => {
-      const a = actions.current.get(id);
-      if (!a) return 'gone' as const;
-      if (a.stale()) {
+      const rec = records.find((e) => e.id === id);
+      const fn = actions.current.get(id);
+      if (!rec || rec.state === 'undone' || rec.state === 'lost' || (!fn && !rec.undo)) return 'gone' as const;
+      if (rec.fp && backend?.isStale(rec.fp)) {
         mark(id, 'stale');
         return 'stale' as const;
       }
       actions.current.delete(id);
-      a.undo();
+      if (fn) fn();
+      else backend?.run(rec.undo!);
       mark(id, 'undone');
       return 'undone' as const;
     },
-    [mark],
+    [records, backend, mark],
   );
 
   const show = useCallback(
-    (message: string, onUndo?: () => void, opts?: string | UndoOptions) => {
+    (message: string, undo?: UndoAction, opts?: string | UndoOptions) => {
       const o = typeof opts === 'string' ? { action: opts } : (opts ?? {});
       const action = o.action ?? strings['undo.action'];
+      const fn = typeof undo === 'function' ? undo : undefined;
+      const ops = typeof undo === 'object' ? undo : undefined;
+      const onUndo = fn ?? (ops ? () => backend?.run(ops) : undefined);
       let entry: number | null = null;
       if (onUndo && action === strings['undo.action']) {
         const id = ++n.current;
         entry = id;
-        actions.current.set(id, { undo: onUndo, stale: o.changed && track ? track(o.changed) : () => false });
-        const at = nowMs();
-        setRecent((r) => {
+        if (fn) actions.current.set(id, fn);
+        const rec: RecentRecord = { id, message, at: nowMs(), state: 'open', undo: ops ?? null, lost: fn ? (o.lost ?? 'server') : null, fp: o.changed && backend ? backend.fingerprint(o.changed) : null };
+        setRecords((r) => {
           for (const e of r.slice(config.RECENT_MAX - 1)) actions.current.delete(e.id);
-          return [{ id, message, at, state: 'open' as const }, ...r].slice(0, config.RECENT_MAX);
+          return [rec, ...r].slice(0, config.RECENT_MAX);
         });
       }
       setBar({ message, onUndo, action, n: ++n.current, entry });
     },
-    [nowMs, track],
+    [nowMs, backend],
   );
 
   useEffect(() => {

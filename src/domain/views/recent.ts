@@ -57,3 +57,52 @@ export function isStale(t: Tables, fp: Fingerprint): boolean {
     return alive(r) !== f.alive || Object.entries(f.fields).some(([k, v]) => !sameValue(r?.[k], v));
   });
 }
+
+/**
+ * Zapis „Ostatnich zmian” w bazie konta (decyzja koordynatora z 8.10.2026, D194 b): lista przeżywa ponowne
+ * uruchomienie. Cofnięcie zapisujemy jako operacje — stałe albo liczone w chwili cofnięcia według przepisu (rutyna:
+ * kopie kroków dołożone w międzyczasie, routineUndoOps). Cofnięcia, których nie da się zapisać (wywołanie serwera —
+ * grupa; plan lekcji liczony z całego planu), zostają po ponownym uruchomieniu tylko w historii, z powodem (`lost`).
+ */
+export type RecentUndo = { ops: readonly NewOp[]; recipe?: 'routine' };
+export type RecentLost = 'server' | 'plan';
+export type RecentRecord = {
+  id: number;
+  message: string;
+  at: number;
+  state: 'open' | 'undone' | 'stale' | 'lost';
+  undo: RecentUndo | null;
+  /** Dlaczego po ponownym uruchomieniu nie da się cofnąć (cofnięcie nie było zapisywalne). */
+  lost: RecentLost | null;
+  fp: Fingerprint | null;
+};
+
+const STATES = ['open', 'undone', 'stale', 'lost'] as const;
+const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+
+function asUndo(x: unknown): RecentUndo | null {
+  if (!isObj(x) || !Array.isArray(x.ops) || !x.ops.every(isObj)) return null;
+  return x.recipe === 'routine' ? { ops: x.ops as unknown as NewOp[], recipe: 'routine' } : { ops: x.ops as unknown as NewOp[] };
+}
+
+/**
+ * Odczyt po uruchomieniu. Wpis otwarty bez zapisanego cofnięcia staje się „lost”; uszkodzone wpisy pomijamy (zapis
+ * z innej wersji aplikacji, ręczna zmiana bazy) — lista to wygoda, nie dane.
+ */
+export function parseRecent(json: string | null): RecentRecord[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json ?? '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((r): RecentRecord[] => {
+    if (!isObj(r) || typeof r.id !== 'number' || typeof r.message !== 'string' || typeof r.at !== 'number') return [];
+    const state = STATES.find((s) => s === r.state) ?? 'open';
+    const undo = asUndo(r.undo);
+    const lost = r.lost === 'plan' ? 'plan' : r.lost === 'server' ? 'server' : null;
+    const fp = Array.isArray(r.fp) ? (r.fp as Fingerprint) : null;
+    return [{ id: r.id, message: r.message, at: r.at, state: state === 'open' && undo === null ? 'lost' : state, undo, lost: lost ?? (undo === null ? 'server' : null), fp }];
+  });
+}

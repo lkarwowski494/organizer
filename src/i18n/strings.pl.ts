@@ -674,13 +674,15 @@ export const strings = {
   // Ostatnie zmiany (decyzja właściciela z 8.10.2026, audyt 2: PW-10 C+A, M-38; D194).
   'recent.title': 'Ostatnie zmiany',
   'recent.openHint': 'Otwiera ostatnie zmiany',
-  'recent.info': (n: number) => `Zmiany od uruchomienia aplikacji, najwyżej ${n}. „Cofnij” działa bez limitu czasu, ale nie nadpisze rzeczy, która od tamtej chwili się zmieniła.`,
-  'recent.empty': 'Od uruchomienia aplikacji nie było zmian do cofnięcia.',
+  'recent.info': (n: number) => `Twoje ostatnie zmiany na tym telefonie, najwyżej ${n}. „Cofnij” działa bez limitu czasu, ale nie nadpisze rzeczy, która od tamtej chwili się zmieniła.`,
+  'recent.empty': 'Nie ma jeszcze zmian do cofnięcia.',
   'recent.undoA11y': (message: string) => `Cofnij: ${message}`,
   'recent.undone': 'Cofnięto',
   'recent.stale': 'Nie cofnięto: to zmieniło się od tamtej chwili (u Ciebie albo u kogoś w grupie). Popraw ręcznie, jeśli trzeba.',
   'recent.staleBar': (message: string) => `Nie cofnięto: ${message} — to się w międzyczasie zmieniło`,
   'recent.at': (time: string) => `o ${time}`,
+  'recent.lost.server': 'Tej zmiany nie cofniesz już stąd: szła przez serwer, a aplikacja była od tego czasu zamknięta. Usuniętą grupę przywrócisz z Kosza (Grupy), a przywróconą usuniesz na jej ekranie.',
+  'recent.lost.plan': 'Tej zmiany nie cofniesz już stąd: plan lekcji cofa się tylko do zamknięcia aplikacji. Popraw plan na jego ekranie.',
 
   // Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151).
   'trash.info': (days: number) => `Usunięte rzeczy czekają tu ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}, potem znikają na dobre. Przywrócić może ten, kto ma prawo je zmieniać.`,
