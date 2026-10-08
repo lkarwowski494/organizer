@@ -9,6 +9,7 @@ import { materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import type { AccountApi } from '../sync/account';
 import type { LocalStore } from './calendar-mirror';
+import type { TravelService } from './travel-service';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import type { Snapshot } from '../sync/runtime';
@@ -30,6 +31,8 @@ export type AppServices = {
   account: AccountApi;
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
+  /** Czas dojazdu (D116); brak = funkcja wyłączona (testy, telefon bez modułu). */
+  travel?: TravelService;
   /** Powiadomienia push (D70); brak = bez push (np. testy, które go nie dotyczą). */
   push?: DevicePush;
   /** Drobne ustawienia na tym telefonie (np. „wprowadzenie obejrzane”); brak = nic nie zapamiętujemy. */

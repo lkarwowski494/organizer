@@ -34,6 +34,8 @@ export type Occurrence = {
   /** Osoba odpowiedzialna w tym wystąpieniu (D66) i jej imię. */
   responsibleId: string | null;
   responsibleName: string | null;
+  /** Miejsce serii (D115). */
+  location: string | null;
 };
 
 /** O ile dni wolno przenieść wystąpienie — tyle zapasu bierzemy przy rozwijaniu, żeby przeniesione nie zniknęło. */
@@ -88,6 +90,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         concernsMe: responsibleId === null ? byRule : responsibleId === g.me.member_id || iParticipate,
         responsibleId,
         responsibleName: responsibleId === null ? null : (members.get(responsibleId)?.display_name ?? null),
+        location: e.location,
       });
     }
   }
@@ -176,6 +179,8 @@ export type EventFields = {
   participantIds: string[];
   /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsibleId: string | null;
+  /** Miejsce (D115) — całej serii; `undefined` = bez zmiany przy edycji. */
+  location?: string | null;
 };
 
 const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
@@ -201,7 +206,7 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       entity: 'events',
       id,
       group_id: groupId,
-      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId },
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}) },
     },
     ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], newId),
   ];
@@ -235,7 +240,16 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
         kind: 'patch',
         entity: 'events',
         id: e.id,
-        set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId },
+        set: {
+          title: f.title,
+          start_date: formatIsoDate(start),
+          start_time: f.startTime,
+          end_time: f.endTime,
+          rrule: ruleText(f.rule, f.until),
+          audience: f.audience,
+          responsible_member_id: f.responsibleId,
+          ...(f.location !== undefined && (f.location || null) !== e.location ? { location: f.location || null } : {}),
+        },
       },
       ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], newId),
     ];
@@ -243,7 +257,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
   // „To i następne”: stara seria kończy się dzień wcześniej, nowa zaczyna się od tego wystąpienia (z nowymi wartościami);
   // zmiany pojedynczych wystąpień od tego dnia przechodzą do nowej serii.
   const occ = parseIsoDate(occurrenceDate);
-  const created = createEvent(e.group_id, { ...f, date: occurrenceDate }, newId);
+  const created = createEvent(e.group_id, { ...f, date: occurrenceDate, location: f.location === undefined ? e.location : f.location }, newId);
   const ops: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule!, occ)) } }, ...created.ops];
   for (const o of d.overrides.filter((x) => x.occurrence_date >= occurrenceDate)) {
     ops.push({ kind: 'delete', entity: 'event_overrides', id: o.id });
@@ -291,6 +305,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     audience: e.audience,
     participantIds: d.participants.filter(alive).map((p) => p.member_id),
     responsibleId: o?.responsible_member_id ?? e.responsible_member_id,
+    location: e.location,
   };
 }
 

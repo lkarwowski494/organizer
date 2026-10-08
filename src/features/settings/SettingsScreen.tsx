@@ -14,6 +14,8 @@ import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmente
 import { useAppearance, useTheme } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
+import { useTravel } from '../../app/travel';
+import { TRAVEL_MODES } from '../../domain/travel';
 import { MuteSettings } from './MuteSettings';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
@@ -23,6 +25,7 @@ export function SettingsScreen({ navigation }: Props) {
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
+  const travel = useTravel();
   const { state, indicator } = useAppData();
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
@@ -91,6 +94,18 @@ export function SettingsScreen({ navigation }: Props) {
           ) : null}
         </View>
       ) : null}
+      <SectionTitle>{strings['travel.section']}</SectionTitle>
+      <View testID="travel-settings" style={{ gap: 10 }}>
+        <Segmented label={strings['travel.navApp']} value={travel.navApp} onChange={travel.setNavApp} options={[{ value: 'apple', label: strings['travel.apple'] }, { value: 'google', label: strings['travel.google'] }]} />
+        {travel.available ? (
+          <>
+            <Segmented label={strings['travel.enabled']} value={travel.enabled ? 'on' : 'off'} onChange={(v) => void travel.setEnabled(v === 'on')} options={[{ value: 'on', label: strings['travel.on'] }, { value: 'off', label: strings['travel.off'] }]} />
+            {travel.status === 'denied' ? <Body muted>{strings['travel.denied']}</Body> : null}
+            <Segmented label={strings['travel.defaultMode']} value={travel.mode} onChange={travel.setMode} options={TRAVEL_MODES.map((m) => ({ value: m, label: strings[`travel.option.${m}`] }))} />
+            <Body muted>{strings['travel.info']}</Body>
+          </>
+        ) : null}
+      </View>
       <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
       <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
       <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />

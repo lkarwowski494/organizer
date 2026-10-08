@@ -60,3 +60,16 @@ describe('plan przypomnień (D75)', () => {
     expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '08:00' }, opts({ max: 2 })).map((x) => x.id)).toEqual(['e|ev2|2026-10-07|2026-10-07', 't|paczka|2026-10-07']);
   });
 });
+
+describe('„Czas wyjść” zamiast przypomnienia przed (D117)', () => {
+  it('wydarzenie z policzonym dojazdem — o godzinie wyjścia; bez dojazdu — jak dotąd; minione wyjście — nic', () => {
+    const leave = Date.UTC(2026, 9, 8, 15, 20);
+    const base = opts({ label: { trip: (n: string) => n, morningTitle: 'Dziś', more: (n: number) => `+${n}`, summary: () => 's', leave: (t: string) => `Czas wyjść: ${t}` } });
+    const r = planReminders(world(), ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, { ...base, leaveFor: (id, occ) => (id === 'ev' && occ === '2026-10-08' ? { at: leave, body: 'Wyjdź teraz · 25 min autem' } : null) });
+    expect(r.filter((x) => x.id.startsWith('l|') || x.id.startsWith('e|'))).toEqual([{ id: 'l|ev|2026-10-08|2026-10-08', at: leave, title: 'Czas wyjść: Tańce', body: 'Wyjdź teraz · 25 min autem' }]);
+    const past = planReminders(world(), ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, { ...base, leaveFor: () => ({ at: NOW - 1, body: 'x' }) });
+    expect(past.some((x) => x.id.startsWith('l|') || x.id.startsWith('e|'))).toBe(false);
+    const none = planReminders(world(), ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, { ...base, leaveFor: () => null });
+    expect(none.some((x) => x.id.startsWith('e|ev'))).toBe(true);
+  });
+});

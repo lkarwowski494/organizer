@@ -122,7 +122,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName'>> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
   const store = memoryStore(state, opts.indicator);
@@ -134,6 +134,7 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     account,
     calendar,
     push: opts.push,
+    travel: opts.travel,
     prefs: opts.prefs,
     local: memoryLocal(),
     userId: ME,

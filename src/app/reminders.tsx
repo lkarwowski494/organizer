@@ -11,6 +11,7 @@ import { formatIsoDate } from '../domain/civil-date';
 import { strings } from '../i18n/strings.pl';
 import { localNow, localToMs } from './clock';
 import { useAppData, useServices } from './context';
+import { useTravel } from './travel';
 
 const DEFAULTS: ReminderSettings = { leadMin: config.reminders.LEAD_MIN, morning: config.reminders.MORNING };
 const DEBOUNCE_MS = 1500;
@@ -22,6 +23,7 @@ export const useReminderSettings = () => useContext(Ctx);
 export function RemindersProvider({ children }: { children: ReactNode }) {
   const { push, userId, nowMs } = useServices();
   const { tables, today } = useAppData();
+  const travel = useTravel();
   const [settings, setState] = useState<ReminderSettings>(DEFAULTS);
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -46,14 +48,19 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
             max: config.reminders.MAX_SCHEDULED,
             toMs: localToMs,
             localDate: (iso) => formatIsoDate(localNow(Date.parse(iso))),
-            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'], summary: strings['reminders.summary'] },
+            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'], summary: strings['reminders.summary'], leave: strings['travel.leaveTitle'] },
+            // D117: wydarzenie z policzonym dojazdem — „Czas wyjść” o godzinie wyjścia.
+            leaveFor: (id, occ) => {
+              const i = travel.info(id, occ);
+              return i ? { at: i.leaveMs, body: strings['travel.leaveBody'](i.minutes, strings[`travel.mode.${i.mode}`]) } : null;
+            },
           });
           return push.replaceReminders(list);
         })
         .catch(() => {});
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [push, tables, userId, today, nowMs, settings, version]);
+  }, [push, tables, userId, today, nowMs, settings, version, travel]);
   const api = useMemo<Api>(
     () => ({
       settings,

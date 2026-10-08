@@ -29,6 +29,16 @@ export const config = {
    */
   profile: { NAME_MAX_LENGTH: 100 },
 
+  /** Miejsce wydarzenia (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length() (test kontraktowy). Wybór projektowy. */
+  events: { LOCATION_MAX_LENGTH: 300 },
+
+  /**
+   * Czas dojazdu (D116, D117): zapas doliczany do „wyjdź o”, co ile minut odświeżać, na ile godzin naprzód liczyć
+   * (tylko dzisiejsze wydarzenia z miejscem) i najwięcej zapytań naraz (MapKit dławi zbyt wiele zapytań —
+   * MKError.loadingThrottled). Wybory projektowe, bez źródła.
+   */
+  travel: { BUFFER_MIN: 5, REFRESH_MIN: 15, AHEAD_HOURS: 12, MAX_EVENTS: 8 },
+
   /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
    * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D107): różnica godzin

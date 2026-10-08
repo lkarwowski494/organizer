@@ -35,3 +35,9 @@ export function localToMs(t: LocalDateTime): number {
   const earlier = wall - offset(wall - 3_600_000 * 2);
   return localNow(earlier).hh === t.hh && localNow(earlier).mm === t.mm && earlier < first ? earlier : first;
 }
+
+/** Godzina chwili w Warszawie, „16:35”. */
+export function formatTime(ms: number): string {
+  const t = localNow(ms);
+  return `${String(t.hh).padStart(2, '0')}:${String(t.mm).padStart(2, '0')}`;
+}

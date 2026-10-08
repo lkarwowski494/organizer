@@ -23,6 +23,7 @@ import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPendi
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
 
@@ -117,6 +118,7 @@ export function EventScreen({ route, navigation }: Props) {
       <Body>{`${formatLongDate(parseIsoDate(occ.date), today)} · ${time}`}</Body>
       {occ.date !== date ? <Body muted>{strings['event.moved'](formatLongDate(parseIsoDate(date), today))}</Body> : null}
       <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date)) : strings['event.oneOff']}</Body>
+      {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
       <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}

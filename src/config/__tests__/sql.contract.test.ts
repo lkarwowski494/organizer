@@ -46,6 +46,7 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_user', config.invites.JOIN_FAILS_PER_USER],
     ['join_fails_per_group', config.invites.JOIN_FAILS_PER_GROUP],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
+    ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });

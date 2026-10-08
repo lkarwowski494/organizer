@@ -21,6 +21,8 @@ export type EventRow = {
   audience: 'group' | 'members';
   /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsible_member_id: string | null;
+  /** Miejsce — adres albo nazwa (D115); `null` = brak. */
+  location: string | null;
   deleted_at: string | null;
 };
 export type Participant = { id: string; event_id: string; member_id: string; deleted_at: string | null };
@@ -50,6 +52,7 @@ export const asEvent = (r: Row): EventRow => ({
   rrule: s(r.rrule),
   audience: r.audience === 'members' ? 'members' : 'group',
   responsible_member_id: s(r.responsible_member_id),
+  location: s(r.location),
   deleted_at: s(r.deleted_at),
 });
 export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });

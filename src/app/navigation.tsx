@@ -38,6 +38,7 @@ import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
 import { CalendarSyncProvider } from './calendar-sync';
 import { RemindersProvider } from './reminders';
+import { TravelProvider } from './travel';
 import { SeriesFiller } from './SeriesFiller';
 import type { RootStackParams, TabParams } from './routes';
 
@@ -107,6 +108,7 @@ export function RootStack() {
     <>
       <SeriesFiller />
       <HandoffNotifier />
+      <TravelProvider>
       <RemindersProvider>
       <CalendarSyncProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -131,6 +133,7 @@ export function RootStack() {
       </Stack.Navigator>
       </CalendarSyncProvider>
       </RemindersProvider>
+      </TravelProvider>
     </>
   );
 }

@@ -22,6 +22,7 @@ import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
+import type { TravelService } from './travel-service';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
 
@@ -34,6 +35,8 @@ export type RootDeps = {
   account: AccountApi;
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
+  /** Czas dojazdu z Map Apple (D116); brak = bez tej funkcji. */
+  travel?: TravelService;
   push?: DevicePush;
   prefs?: Prefs;
   transport: SyncTransport;
@@ -118,6 +121,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }) },
       account: deps.account,
       calendar: deps.calendar,
+      travel: deps.travel,
       push: deps.push,
       prefs: deps.prefs,
       local: { load: (k) => loadLocal(db, k), save: (k, v) => saveLocal(db, k, v) },

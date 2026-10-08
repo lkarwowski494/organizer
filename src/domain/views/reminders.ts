@@ -1,6 +1,7 @@
 /**
  * Plan przypomnień na telefonie (D75, ADR 0016). Z tego, co dotyczy mnie (myDays, ten sam widok co „Moje sprawy”):
- *  - sprawa z godziną (zadanie, wydarzenie, zakupy): `leadMin` minut przed;
+ *  - sprawa z godziną (zadanie, wydarzenie, zakupy): `leadMin` minut przed; wydarzenie z policzonym dojazdem (D117) —
+ *    zamiast tego „Czas wyjść” o godzinie wyjścia (`leaveFor`);
  *  - poranne podsumowanie o `morning` (D110): ile spraw na ten dzień, w tym zaległych, i pierwsze z nich — zaległe,
  *    bez godziny, potem z godziną („17:00 Tańce”). Wysyłane, gdy dzień ma cokolwiek (dawniej tylko sprawy bez godziny).
  * Tylko przyszłe chwile, najbliższe `max`. Zamiana czasu warszawskiego na chwilę — wstrzykiwana (`toMs`).
@@ -21,7 +22,9 @@ export function planReminders(
   today: CivilDate,
   nowMs: number,
   s: ReminderSettings,
-  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string } },
+  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string };
+    leaveFor?: (eventId: string, occurrenceDate: string) => { at: number; body: string } | null;
+  },
 ): Reminder[] {
   const out: Reminder[] = [];
   for (let k = 0; k < opts.days; k++) {
@@ -43,6 +46,13 @@ export function planReminders(
         continue;
       }
       timed.push(`${time.slice(0, 5)} ${title}`);
+      if (e.kind === 'event' && opts.leaveFor) {
+        const leave = opts.leaveFor(e.event.eventId, e.event.occurrenceDate);
+        if (leave) {
+          if (leave.at > nowMs) out.push({ id: `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`, at: leave.at, title: opts.label.leave!(title), body: leave.body });
+          continue;
+        }
+      }
       if (s.leadMin <= 0) continue;
       const at = opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) - s.leadMin * 60_000;
       const group = e.kind === 'event' ? e.event.groupName : e.task.groupName;

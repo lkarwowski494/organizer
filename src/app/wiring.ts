@@ -18,6 +18,7 @@ import { chunkedSecureStorage } from '../sync/session-storage';
 import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { expoDevicePush } from './push';
+import { expoTravel } from './travel-service';
 import type { RootDeps, Session } from './Root';
 
 const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
@@ -48,6 +49,7 @@ export function realDeps(): RootDeps {
   return {
     account: supabaseAccount(sb, apple),
     calendar: expoDeviceCalendar,
+    travel: expoTravel,
     push: expoDevicePush,
     prefs: { get: (k) => SecureStore.getItemAsync(`pref.${k}`), set: (k, v) => SecureStore.setItemAsync(`pref.${k}`, v) },
     appearance: { load: () => SecureStore.getItemAsync('appearance'), save: (a) => SecureStore.setItemAsync('appearance', a) },

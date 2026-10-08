@@ -19,7 +19,8 @@ import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { useTaskActions } from '../../app/task-actions';
-import { localNow } from '../../app/clock';
+import { formatTime, localNow } from '../../app/clock';
+import { useTravel } from '../../app/travel';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';
@@ -162,6 +163,12 @@ export function TodayScreen() {
     />
   );
   // D104: podzadanie pod rodzicem (wcięcie), licznik u rodzica, dopisek rodzica, gdy go nie ma w tym dniu.
+  // D117: „Wyjdź o …” przy dzisiejszym wydarzeniu z miejscem.
+  const travel = useTravel();
+  const leaveOf = (eventId: string, occ: string) => {
+    const i = travel.info(eventId, occ);
+    return i ? [strings['travel.leave'](formatTime(i.leaveMs), i.minutes, strings[`travel.mode.${i.mode}`])] : [];
+  };
   // D114: seria (od 2 z rzędu) przy rutynie i zadaniu powtarzanym.
   const streakOf = (k: number) => (k >= 2 ? [strings['streak'](k)] : []);
   const nestMeta = (n?: Nesting) => [
@@ -194,7 +201,7 @@ export function TodayScreen() {
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
-        extra={[...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
+        extra={[...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
