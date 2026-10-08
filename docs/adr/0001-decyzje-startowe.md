@@ -49,7 +49,8 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D40 | Linki głębokie | schemat `io.github.lkarwowski494.organizer://` (`config.URL_SCHEME`) |
 | D35–D37 | Identyfikacja | iOS 16.4+; bundle `io.github.lkarwowski494.organizer`; nazwa robocza „Organizer” |
 
-## Otwarte (do decyzji właściciela)
+## Otwarte (do decyzji właściciela) — rozstrzygnięte
 - Licencja kodu przed upublicznieniem repozytorium (szablon Expo zawierał licencję MIT 650 Industries —
-  usunięta, bo dotyczyła szablonu; brak licencji = wszelkie prawa zastrzeżone).
-- `supportsTablet` (domyślnie `true` z szablonu): przy publikacji wymaga zrzutów ekranu iPada.
+  usunięta, bo dotyczyła szablonu; brak licencji = wszelkie prawa zastrzeżone). → Rozstrzygnięte przez D39: bez pliku licencji.
+- `supportsTablet` (domyślnie `true` z szablonu): przy publikacji wymaga zrzutów ekranu iPada. → Rozstrzygnięte
+  8.10.2026 (D200, drobna decyzja PWD-25): iPad wspierany od razu, z ograniczoną szerokością treści; zrzuty iPada przy publikacji.
