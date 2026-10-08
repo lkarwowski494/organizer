@@ -3,14 +3,6 @@
 # Selektory: `id` = testID z ekranów, tekst = etykieta VoiceOver (wyrażenie regularne dopasowane w całości) —
 # na iOS wiersz listy jest jednym elementem dostępności, więc dopasowujemy jego etykietę, nie wewnętrzny tekst.
 # Każdy scenariusz kończy się takeScreenshot o nazwie NN-opis; wzorce do porównania: .maestro/baselines/.
+# Kolejność nie ma znaczenia: każdy scenariusz startuje od czystej instalacji (common/launch.yaml).
 flows:
   - "*.yaml"
-executionOrder:
-  continueOnFailure: true
-  flowsOrder:
-    - 01-today
-    - 02-quick-add
-    - 03-event-rsvp
-    - 04-event-form
-    - 05-shopping
-    - 06-settings

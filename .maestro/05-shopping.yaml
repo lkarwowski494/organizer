@@ -28,4 +28,8 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN
     timeout: 10000
+# Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
+- extendedWaitUntil:
+    visible: "Stan synchronizacji: Przed chwilą"
+    timeout: 15000
 - takeScreenshot: 05-shopping

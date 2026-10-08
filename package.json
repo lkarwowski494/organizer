@@ -61,7 +61,12 @@
     "test:mutation": "stryker run",
     "test:coverage": "jest --coverage",
     "check:audit": "node scripts/audit-check.mjs",
-    "test:db": "bash scripts/db/test-db.sh && PGHOST=${PGHOST:-/tmp} PGPORT=${PGPORT:-54329} PGUSER=${PGUSER:-postgres} jest --selectProjects db"
+    "test:db": "bash scripts/db/test-db.sh && PGHOST=${PGHOST:-/tmp} PGPORT=${PGPORT:-54329} PGUSER=${PGUSER:-postgres} jest --selectProjects db",
+    "e2e:check": "scripts/e2e/check-flows.sh",
+    "e2e:build": "scripts/e2e/build-ios.sh",
+    "e2e:run": "scripts/e2e/run-flows.sh",
+    "e2e:compare": "node scripts/e2e/compare-screenshots.mjs --baselines .maestro/baselines --actual e2e-artifacts/screenshots --out e2e-artifacts/diff",
+    "e2e:accept": "scripts/e2e/accept-baselines.sh"
   },
   "private": true
 }

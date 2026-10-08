@@ -1,9 +1,11 @@
 /**
  * Prawdziwe zależności korzenia aplikacji (na iPhonie): Supabase z sesją w pęku kluczy, expo-sqlite,
  * Sign in with Apple, linki, kanały Realtime. Ten plik tylko składa moduły — logika i testy są w nich.
+ * Wyjątek: build E2E (`appDeps`, D143) — atrapy z src/app/e2e.ts.
  */
 import { createClient } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
@@ -17,21 +19,10 @@ import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
 import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
+import { e2eDeps } from './e2e';
 import { expoDevicePush } from './push';
 import { expoTravel } from './travel-service';
 import type { RootDeps, Session } from './Root';
-
-const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
-  auth: {
-    storage: chunkedSecureStorage(SecureStore, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY }),
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
-
-// Odświeżanie tokenu tylko na pierwszym planie (zalecenie Supabase dla React Native).
-AppState.addEventListener('change', (s) => (s === 'active' ? client.auth.startAutoRefresh() : client.auth.stopAutoRefresh()));
 
 type User = { id: string; email?: string; user_metadata?: { full_name?: string; display_name?: string } };
 // D100: bez imienia w koncie (logowanie e-mailem) pytamy o nie; do tego czasu — początek adresu jak dotąd.
@@ -44,7 +35,37 @@ const toSession = (u: User | null | undefined): Session | null => {
 const apple = async (scopes?: 'none') =>
   AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
+const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
+
+/**
+ * Zależności tego buildu. Build E2E (D143, EXPO_PUBLIC_E2E=1 tylko w .github/workflows/e2e.yml) dostaje atrapy w pamięci
+ * (src/app/e2e.ts); każdy inny — Supabase. Porównanie wprost z `process.env.EXPO_PUBLIC_E2E`: tylko taki zapis Expo
+ * podmienia przy budowaniu na stałą (https://docs.expo.dev/guides/environment-variables/), więc bez flagi warunek jest
+ * stale fałszywy.
+ */
+export function appDeps(): RootDeps {
+  if (process.env.EXPO_PUBLIC_E2E === '1') {
+    return e2eDeps({
+      openDb: () => expoAdapter(openDatabaseSync(':memory:')),
+      newId,
+      isSimulator: async () => (await Application.getIosApplicationReleaseTypeAsync()) === Application.ApplicationReleaseType.SIMULATOR,
+    });
+  }
+  return realDeps();
+}
+
 export function realDeps(): RootDeps {
+  // Klient tworzony dopiero tutaj (nie przy imporcie modułu): build E2E nie ma klucza Supabase, a createClient bez klucza rzuca wyjątek.
+  const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
+    auth: {
+      storage: chunkedSecureStorage(SecureStore, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY }),
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  });
+  // Odświeżanie tokenu tylko na pierwszym planie (zalecenie Supabase dla React Native).
+  AppState.addEventListener('change', (s) => (s === 'active' ? client.auth.startAutoRefresh() : client.auth.stopAutoRefresh()));
   const sb = client as unknown as SupabaseLike;
   return {
     account: supabaseAccount(sb, apple),
@@ -63,7 +84,7 @@ export function realDeps(): RootDeps {
       },
     },
     openDb: (userId) => expoAdapter(openDatabaseSync(`organizer-${userId}.db`)),
-    newId: () => uuidv7((n) => Crypto.getRandomBytes(n)),
+    newId,
     subscribe: (topics, onPoke) => {
       void client.realtime.setAuth();
       const channels = topics.map((topic) =>
