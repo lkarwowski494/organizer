@@ -109,6 +109,25 @@ describe('miejsce wydarzenia (D115)', () => {
   });
 });
 
+describe('osoba usunięta z grupy w formularzu (audyt 2, E-1)', () => {
+  it('„to i następne” nie przenosi usuniętej osoby odpowiedzialnej ani uczestnika do nowej serii', () => {
+    const t = {} as Parameters<typeof put>[0];
+    put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
+    put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', display_name: 'Ala', role: 'member', deleted_at: '2026-10-06T10:00:00Z' });
+    put(t, 'events', 'e', { id: 'e', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '17:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: 'ala', deleted_at: null });
+    put(t, 'event_participants', 'p1', { id: 'p1', event_id: 'e', member_id: 'ala', deleted_at: null });
+    put(t, 'event_participants', 'p2', { id: 'p2', event_id: 'e', member_id: 'mf', deleted_at: null });
+    put(t, 'event_overrides', 'o1', { id: 'o1', event_id: 'e', occurrence_date: '2026-10-19', responsible_member_id: 'ala', deleted_at: null });
+    const d = eventDetail(t, ME, 'e')!;
+    expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ responsibleId: null, participantIds: ['mf'] });
+    expect(fieldsOf(d, '2026-10-19', 'this').responsibleId).toBeNull();
+    let n = 0;
+    const ops = editEvent(d, '2026-10-12', 'following', fieldsOf(d, '2026-10-12', 'following'), () => `n${++n}`);
+    expect(JSON.stringify(ops)).not.toContain('"ala"');
+  });
+});
+
 describe('całodniowy pojedynczy termin (D136)', () => {
   it('„tylko to” bez godziny w serii z godziną: znacznik, widoki bez godzin; powrót godziny zdejmuje znacznik; „to i następne” go przenosi', () => {
     const base = { title: 'Basen', date: '2026-10-05', startTime: '17:00', endTime: '18:00', rule: null, until: null, audience: 'group' as const, participantIds: [], responsibleId: null };

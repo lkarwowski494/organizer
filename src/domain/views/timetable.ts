@@ -7,10 +7,11 @@
  *  - ta sama lekcja (nazwa, godziny, tydzień) w kilka dni = jedna seria z kilkoma dniami.
  *
  * Edycja planu (D128): ekran otwiera się z obecnym planem osoby (`memberTimetable` — trwające serie lekcji z tą osobą).
- * Zapis kończy dotychczasowe serie przed dziś (UNTIL = wczoraj; seria, która jeszcze się nie zaczęła, idzie do kosza),
- * a nowe zaczynają się od pierwszego pasującego dnia od dziś — miniona część planu zostaje, jak była, a zadania
- * i obecność przy minionych lekcjach nie tracą swojego terminu. Litery A/B nie są zapisywane: przy otwarciu ten tydzień
- * to A, a seria co 2 tygodnie trafia do A albo B według tego, czy wypada w tym tygodniu.
+ * Seria bez zmian zostaje nietknięta (audyt 2, E-5). Zmieniona kończy się przed dziś (UNTIL = wczoraj; seria, która
+ * jeszcze się nie zaczęła, idzie do kosza), a nowa zaczyna od pierwszego pasującego dnia od dziś — miniona część
+ * zmienionej serii zostaje, jak była, a jej dzisiejsze i przyszłe terminy tracą wyjątki i przypięte zadania.
+ * Litery A/B nie są zapisywane: przy otwarciu ten tydzień to A, a seria co 2 tygodnie trafia do A albo B według
+ * tego, czy wypada w tym tygodniu.
  */
 import { addDays, type CivilDate, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
 import { parseIsoDate } from '../format';
@@ -24,8 +25,13 @@ import { rows, type Tables } from './model';
 export type Week = 'both' | 'A' | 'B';
 export type Lesson = { day: number; title: string; start: string; end: string; week: Week };
 
-/** Seria planu, którą zapis zakończy (D128). */
-export type PlanSeries = { id: string; start_date: string; rrule: string };
+/** Opis serii do porównania planów (audyt 2, E-5): seria bez zmian zostaje nietknięta. */
+type Spec = { title: string; start: string; end: string; days: number[]; interval: number; thisWeek: boolean; until: string | null };
+/** Seria obecnego planu (D128): zapis kończy ją tylko, gdy w nowym planie nie ma takiej samej. */
+export type PlanSeries = { id: string; start_date: string; rrule: string; spec: Spec };
+
+const sameSpec = (a: Spec, b: Spec, ignoreUntil: boolean) =>
+  a.title === b.title && a.start === b.start && a.end === b.end && a.interval === b.interval && a.thisWeek === b.thisWeek && a.days.join() === b.days.join() && (ignoreUntil || a.until === b.until);
 export type CurrentPlan = { lessons: Lesson[]; until: string; series: PlanSeries[] };
 
 const mondayOf = (d: CivilDate) => addDays(d, -isoWeekday(d));
@@ -40,14 +46,16 @@ export function memberTimetable(t: Tables, groupId: string, memberId: string, to
   for (const e of rows(t, 'events', asEvent)) {
     const rule = ruleOf(e);
     if (e.kind !== 'lesson' || e.deleted_at !== null || e.group_id !== groupId || !mine.has(e.id) || !rule || rule.freq !== 'WEEKLY' || (rule.until !== null && rule.until < iso)) continue;
-    series.push({ id: e.id, start_date: e.start_date, rrule: e.rrule! });
     untils.add(rule.until ?? '');
     const start = parseIsoDate(e.start_date);
     // Co 2 tygodnie: tydzień A, gdy seria wypada w tym tygodniu (liczba tygodni od jej początku parzysta).
     const weeks = Math.round((toDayNumber(mondayOf(today)) - toDayNumber(mondayOf(start))) / 7);
-    const week: Week = rule.interval === 1 ? 'both' : ((weeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
-    const days = rule.byday.length ? rule.byday.map((b) => b.wd) : [isoWeekday(start)];
-    for (const day of days) lessons.push({ day, title: e.title, start: (e.start_time ?? '').slice(0, 5), end: (e.end_time ?? '').slice(0, 5), week });
+    const thisWeek = rule.interval === 1 || ((weeks % 2) + 2) % 2 === 0;
+    const week: Week = rule.interval === 1 ? 'both' : thisWeek ? 'A' : 'B';
+    const days = [...new Set(rule.byday.length ? rule.byday.map((b) => b.wd) : [isoWeekday(start)])].sort((x, y) => x - y);
+    const times = { start: (e.start_time ?? '').slice(0, 5), end: (e.end_time ?? '').slice(0, 5) };
+    series.push({ id: e.id, start_date: e.start_date, rrule: e.rrule!, spec: { title: e.title, ...times, days, interval: rule.interval, thisWeek, until: rule.until } });
+    for (const day of days) lessons.push({ day, title: e.title, ...times, week });
   }
   lessons.sort((a, b) => a.day - b.day || a.start.localeCompare(b.start) || a.title.localeCompare(b.title, 'pl'));
   // Jedna data końca dla całego planu — tylko gdy wszystkie serie ją mają.
@@ -56,8 +64,10 @@ export function memberTimetable(t: Tables, groupId: string, memberId: string, to
 }
 
 /**
- * Plan do zapisu. Z `existing` (edycja, D128): najpierw zakończenie starych serii, nowe od dziś; `undo` przywraca
- * stary plan (nowe serie do kosza, stare z poprzednią regułą albo z kosza).
+ * Plan do zapisu. Z `existing` (edycja, D128): serie bez zmian zostają nietknięte (audyt 2, E-5: z odwołanymi
+ * lekcjami, zadaniami na terminach i swoją datą końca); zmienione kończą się wczoraj, a nowe zaczynają od dziś.
+ * `keepUntil` — pole „do dnia” bez zmiany: porównanie pomija datę końca (różne daty końca zostają, E-27).
+ * `undo` przywraca stary plan (nowe serie do kosza, stare z poprzednią regułą albo z kosza).
  */
 export function timetableOps(a: {
   groupId: string;
@@ -68,6 +78,7 @@ export function timetableOps(a: {
   until: string | null;
   newId: () => string;
   existing?: readonly PlanSeries[];
+  keepUntil?: boolean;
 }): { ops: NewOp[]; undo: NewOp[]; series: number } | { error: FormError | 'empty'; index: number } {
   const existing = a.existing ?? [];
   const lessons = a.lessons.map((l, index) => ({ ...l, index, title: l.title.trim(), start: l.start.trim(), end: l.end.trim() })).filter((l) => l.title || l.start || l.end);
@@ -81,10 +92,17 @@ export function timetableOps(a: {
     groups.set(k, [...(groups.get(k) ?? []), l]);
   }
   const ops: NewOp[] = [];
+  const kept = new Set<string>();
   for (const g of groups.values()) {
     const l = g[0]!;
     const offset = l.week === 'both' || l.week === a.thisWeek ? 0 : 7;
     const days = [...new Set(g.map((x) => x.day))].sort((x, y) => x - y);
+    const spec: Spec = { title: l.title, start: l.start, end: l.end, days, interval: l.week === 'both' ? 1 : 2, thisWeek: offset === 0, until: a.until };
+    const same = existing.find((x) => !kept.has(x.id) && sameSpec(x.spec, spec, a.keepUntil === true));
+    if (same) {
+      kept.add(same.id);
+      continue;
+    }
     let date = formatIsoDate(addDays(monday, offset + days[0]!));
     if (existing.length) {
       // Edycja: pierwszy dzień serii od dziś (w tygodniu właściwym dla A/B; co 2 tygodnie — następny jest 14 dni dalej).
@@ -107,7 +125,7 @@ export function timetableOps(a: {
   }
   const end: NewOp[] = [];
   const undo: NewOp[] = ops.flatMap((o) => (o.kind === 'create' && o.entity === 'events' ? [{ kind: 'delete' as const, entity: 'events', id: o.id }] : []));
-  for (const x of existing) {
+  for (const x of existing.filter((e) => !kept.has(e.id))) {
     if (x.start_date >= isoToday) {
       end.push({ kind: 'delete', entity: 'events', id: x.id });
       undo.push({ kind: 'restore', entity: 'events', id: x.id });

@@ -35,7 +35,8 @@ describe('rutyny (D113)', () => {
     const bar = await screen.findByTestId('undo-bar');
     expect(within(bar).getByText('Dodano rutynę: Poranek Kuby')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(s.store.dispatched.slice(-3).map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['delete', 'events'], ['delete', 'event_task_series'], ['delete', 'event_task_series']]);
+    // Audyt 2 (E-3): definicje kroków, wydarzenie i nowa (pusta) lista; kopie kroków też, jeśli już powstały.
+    expect(s.store.dispatched.slice(-4).map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['delete', 'event_task_series'], ['delete', 'event_task_series'], ['delete', 'events'], ['delete', 'lists']]);
   });
 
   it('seria zadania powtarzanego w „Moich sprawach” (D114)', async () => {

@@ -79,6 +79,17 @@ describe('plan lekcji (D112)', () => {
     expect(store.dispatched.slice(-2)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'events', id: 'mat', set: { rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
   });
 
+  it('zapis bez zmian: nic nie wysyła i nie pokazuje paska (audyt 2, E-5)', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    const { store } = await openTimetable(base);
+    await press(screen.getByTestId('timetable-save'));
+    expect(await screen.findByTestId('screen-member')).toBeTruthy();
+    expect(store.dispatched).toEqual([]);
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
+  });
+
   it('D128: przycisk planu tylko przy dziecku', async () => {
     const s = setup();
     await s.renderApp(<RootStack />);

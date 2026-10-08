@@ -97,7 +97,9 @@ describe('edycja planu (D128)', () => {
     const t = apply(base(), (run([L({}), L({ day: 2 }), L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' }), L({ day: 1, title: 'Plastyka', start: '10:00', end: '11:30', week: 'B' })]) as { ops: NewOp[] }).ops);
     const p = memberTimetable(t, 'gf', 'kuba', today);
     const [mat, basen, plast] = ['Matematyka', 'Basen', 'Plastyka'].map((x) => Object.values(t.events!).find((e) => e.title === x)!.id as string);
-    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: p.lessons.filter((l) => l.title !== 'Plastyka'), thisWeek: 'A', today, until: null, newId, existing: p.series });
+    // Zmienione godziny końca (bez zmian seria zostałaby nietknięta — audyt 2, E-5).
+    const lessons = p.lessons.filter((l) => l.title !== 'Plastyka').map((l) => ({ ...l, end: l.title === 'Basen' ? '11:45' : '08:50' }));
+    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek: 'A', today, until: null, newId, existing: p.series });
     if ('error' in r) throw new Error(r.error);
     expect(r.ops.slice(0, 3)).toEqual([
       { kind: 'patch', entity: 'events', id: mat, set: { rrule: 'FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261007' } },
@@ -120,6 +122,42 @@ describe('edycja planu (D128)', () => {
     const end = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: [], thisWeek: 'A', today, until: null, newId, existing: p.series });
     expect(end).toMatchObject({ series: 0 });
     expect((end as { ops: NewOp[] }).ops.every((o) => o.kind !== 'create')).toBe(true);
+  });
+});
+
+describe('zapis planu bez zmian niczego nie rusza (audyt 2: E-5, E-27)', () => {
+  const plan = () => apply(base(), (run([L({}), L({ day: 2 }), L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' })]) as { ops: NewOp[] }).ops);
+  const save = (t: T, lessons: Lesson[], extra: Partial<Parameters<typeof timetableOps>[0]> = {}) =>
+    timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek: 'A', today, until: memberTimetable(t, 'gf', 'kuba', today).until || null, newId, existing: memberTimetable(t, 'gf', 'kuba', today).series, ...extra });
+
+  it('ten sam plan: zero operacji (odwołane lekcje i zadania na terminach zostają)', () => {
+    const t = plan();
+    const r = save(t, memberTimetable(t, 'gf', 'kuba', today).lessons);
+    expect(r).toEqual({ ops: [], undo: [], series: 2 });
+  });
+
+  it('zmiana jednej serii: tylko ona kończy się i powstaje od nowa', () => {
+    const t = plan();
+    const lessons = memberTimetable(t, 'gf', 'kuba', today).lessons.map((l) => (l.title === 'Basen' ? { ...l, start: '10:15' } : l));
+    const r = save(t, lessons);
+    if ('error' in r) throw new Error(r.error);
+    const basen = Object.values(t.events!).find((e) => e.title === 'Basen')!.id as string;
+    expect(r.ops.filter((o) => o.kind !== 'create')).toEqual([{ kind: 'patch', entity: 'events', id: basen, set: { rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20261007' } }]);
+    expect(r.ops.filter((o) => o.kind === 'create' && o.entity === 'events').map((o) => (o as unknown as { set: { title: string } }).set.title)).toEqual(['Basen']);
+  });
+
+  it('różne daty końca serii: bez zmiany pola „do dnia” każda zostaje ze swoją', () => {
+    const t = plan();
+    const [mat, basen] = ['Matematyka', 'Basen'].map((x) => Object.values(t.events!).find((e) => e.title === x)!);
+    put(t, 'events', mat!.id as string, { ...mat!, rrule: `${mat!.rrule};UNTIL=20270625` });
+    put(t, 'events', basen!.id as string, { ...basen!, rrule: `${basen!.rrule};UNTIL=20270130` });
+    const p = memberTimetable(t, 'gf', 'kuba', today);
+    expect(p.until).toBe('');
+    expect(save(t, p.lessons, { until: null, keepUntil: true })).toEqual({ ops: [], undo: [], series: 2 });
+    // Wpisana nowa data końca dotyczy wszystkich serii.
+    const r = save(t, p.lessons, { until: '2027-06-30', keepUntil: false });
+    if ('error' in r) throw new Error(r.error);
+    expect(r.ops.filter((o) => o.kind === 'create' && o.entity === 'events').map((o) => (o as unknown as { set: { rrule: string } }).set.rrule)).toEqual(['FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20270630', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20270630']);
   });
 });
 
