@@ -76,3 +76,16 @@ Wykonanie (Claude; właściciel może zawetować):
 - **PWD-14 A.** Zwinięte są minione, nieodhaczone kopie jednego łańcucha powtarzania (identyfikatory nextId), od dwóch
   w górę; odhaczone kopie zostają osobno. Kalendarz bez zmian (D135: co było zaplanowane).
 - **PW-18, PW-15** — szczegóły w ADR 0012 (D68) i 0007 (D59).
+
+## Decyzje właściciela po audycie 2 (8.10.2026) — konto i dane na telefonie
+| ID | Pytanie | Decyzja | Odrzucone |
+|---|---|---|---|
+| D175 | Ustawienia na telefonie (M-165) | Ustawienia konta (pytanie o imię, wprowadzenie, „Co nowego”, „Nie teraz”, przypomnienia, kalendarz iPhone'a, dojazd, grupa domyślna) osobno dla konta — w bazie konta (`local:pref.*`); wygląd wspólny dla telefonu; zgody iOS zawsze z systemu. Dawne wspólne ustawienia z pęku kluczy przejmuje raz pierwsze zalogowane konto | Wspólne dla telefonu |
+| D176 | Zakres wylogowania (M-63) | Tylko ten telefon (`signOut({ scope: 'local' })`) | Wszystkie urządzenia |
+| D177 | Logowanie w becie (M-77) | Tylko „Zaloguj przez Apple”; logowanie linkiem z e-maila usunięte z aplikacji (także przyjmowanie sesji z linku — M-76). Dostawcę Email w Supabase Auth właściciel wyłącza po wydaniu buildu (O-110); do tego czasu aplikacja go nie używa | CAPTCHA z limitem 2/h; własna domena + Resend (płatna domena) |
+| PWD-34 | Usunięcie konta (M-303) | Konto z Apple potwierdza usunięcie świeżym kodem Apple; serwer sprawdza go w Apple (`/auth/token`, `sub` = tożsamość Apple konta). Bez klucza Sign in with Apple w sekretach — sama obecność kodu (błąd konfiguracji nie blokuje prawa do usunięcia) | Sama sesja |
+
+Wykonanie (Claude): wylogowanie bez internetu zostawia zadanie „wyrejestruj token push” z tokenem odświeżania starej
+sesji w pęku kluczy (tylko to urządzenie); telefon wykonuje je tą starą sesją po powrocie sieci (start, zmiana konta,
+powrót do aplikacji, co minutę) i zamyka ją — bez funkcji serwera dostępnych bez logowania (D41). Po usunięciu konta
+z telefonu znika plik bazy konta (M-64). Link dotknięty, gdy nikt nie był zalogowany, otwiera się po zalogowaniu (M-221).

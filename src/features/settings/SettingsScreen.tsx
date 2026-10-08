@@ -22,19 +22,22 @@ import { MuteSettings } from './MuteSettings';
 import { useDefaultGroup } from '../../app/default-group';
 import { LAST_USED } from '../../domain/views/default-group';
 import { quickGroups } from '../../domain/views/quick-target';
+import { pendingCount } from '../../domain/sync-engine/client';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'adding', 'account'];
 
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
-  const { account, nowMs, displayName, resetLocal, userId } = useServices();
+  const { account, nowMs, displayName, resetLocal, userId, emailOnly } = useServices();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
   const travel = useTravel();
   const { state, indicator, tables } = useAppData();
+  // Audyt 2 (M-166): zmiany naprawdę czekające na serwer (bez wysłanych, które czekają już tylko na pobranie).
+  const pending = pendingCount(state);
   // M-24 (decyzja właściciela 8.10.2026): „Grupa domyślna” — skąd startuje chip przy polu dodawania w Moich sprawach.
   const defaultGroup = useDefaultGroup();
   const addGroups = quickGroups(tables, userId, strings['groups.personal']);
@@ -58,10 +61,21 @@ export function SettingsScreen({ navigation, route }: Props) {
   };
 
   const signOut = () =>
-    Alert.alert(strings['settings.signOutAsk'], strings['settings.signOutInfo'], [
-      { text: strings['common.cancel'], style: 'cancel' },
-      { text: strings['settings.signOut'], style: 'destructive', onPress: () => void account.signOut() },
-    ]);
+    Alert.alert(
+      strings['settings.signOutAsk'],
+      [
+        strings['settings.signOutInfo'],
+        indicator.state === 'offline' ? strings['settings.signOutOffline'] : null,
+        pending ? strings['settings.signOutPending'](pending) : null,
+        emailOnly ? strings['settings.signOutEmail'] : null,
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      [
+        { text: strings['common.cancel'], style: 'cancel' },
+        { text: strings['settings.signOut'], style: 'destructive', onPress: () => void account.signOut().catch(() => {}) },
+      ],
+    );
   const open = (s: SettingsSection) => navigation.push('Settings', { section: s });
 
   if (!section) {
@@ -194,7 +208,7 @@ export function SettingsScreen({ navigation, route }: Props) {
               <Body muted>{strings['reset.info']}</Body>
               {resetting ? (
                 <>
-                  {state.pending.length ? <Body>{strings['reset.pending'](state.pending.length)}</Body> : null}
+                  {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
                   {/* Bez połączenia telefon zostałby pusty do powrotu sieci (audyt 8.10.2026), a po upgrade_required — na stałe (audyt 2, M-57). */}
                   {indicator.state === 'offline' || indicator.state === 'auth_expired' ? <Body>{strings['reset.offline']}</Body> : null}
                   {indicator.state === 'upgrade_required' ? <Body>{strings['reset.upgrade']}</Body> : null}
@@ -210,6 +224,7 @@ export function SettingsScreen({ navigation, route }: Props) {
           <Body muted>{strings['settings.deleteInfo'](config.sync.TOMBSTONE_DAYS)}</Body>
           {deleting ? (
             <View style={{ gap: 8 }}>
+              {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
               <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" />
               {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
               <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={busy || word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} onPress={del} testID="delete-confirm" />

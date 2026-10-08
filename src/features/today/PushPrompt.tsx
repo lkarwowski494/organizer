@@ -1,12 +1,13 @@
 /**
  * Prośba o powiadomienia na „Moje sprawy” (D70, D75; ADR 0015, 0016): przypomnienia dotyczą każdego, więc karta
- * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie —
+ * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę dla tego konta (D175) —
  * włączyć można potem w Ustawieniach → Powiadomienia (audyt 2, N-8). Zgoda i jej skutki (token, plan przypomnień)
  * w jednym miejscu: RemindersProvider.enable — ten sam przycisk w Ustawieniach robi to samo.
  */
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
+import { PUSH_DISMISSED } from '../../app/account-prefs';
 import { useServices } from '../../app/context';
 import { useReminderSettings } from '../../app/reminders';
 import { strings } from '../../i18n/strings.pl';
@@ -14,22 +15,23 @@ import { Body, Button } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function PushPrompt() {
-  const { push } = useServices();
+  const { push, prefs } = useServices();
   const { status, enable } = useReminderSettings();
   const { c, font } = useTheme();
-  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  // Bez pamięci ustawień (np. testy) nic nie odłożono.
+  const [dismissed, setDismissed] = useState<boolean | null>(prefs ? null : false);
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!push) return;
-    push
-      .dismissed()
-      .then((d) => live && setDismissed(d))
+    if (!prefs) return;
+    prefs
+      .get(PUSH_DISMISSED)
+      .then((d) => live && setDismissed(d === '1'))
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [push]);
+  }, [prefs]);
   if (!push || hidden || dismissed !== false || status !== 'undetermined') return null;
   return (
     <View testID="push-prompt" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
@@ -51,7 +53,7 @@ export function PushPrompt() {
         testID="push-later"
         onPress={() => {
           setHidden(true);
-          push.dismiss().catch(() => {});
+          prefs?.set(PUSH_DISMISSED, '1').catch(() => {});
         }}
       />
     </View>

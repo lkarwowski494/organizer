@@ -13,7 +13,8 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 ### Konto
 - **Logowanie przez Apple:** identyfikator konta Apple. Jeśli Apple przekaże imię i nazwisko (robi to tylko przy pierwszym
   logowaniu), zapisujemy je w koncie, a imię staje się Twoim podpisem w grupach.
-- **Logowanie linkiem:** adres e-mail, na który wysyłamy link do logowania.
+- **Konta założone wcześniej linkiem z e-maila:** adres e-mail. W wersji testowej nowych logowań e-mailem nie ma —
+  logujesz się tylko przez Apple.
 - **Twoje imię:** to, które wpiszesz albo zmienisz w aplikacji. Widzą je osoby z Twoich grup.
 
 ### To, co wpisujesz
@@ -94,7 +95,6 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 
 ## Gdzie są dane
 - Na serwerze Supabase w regionie Frankfurt (UE) i w bazie na Twoim telefonie.
-- Link do logowania wysyła e-mailem Supabase.
 - Powiadomienia przechodzą przez Apple Push Notification service (Apple), razem z ich treścią.
 - Lokalizacja i adresy do czasu dojazdu idą do Apple (MapKit). Lustro kalendarza synchronizuje Twoje konto kalendarza
   (zwykle iCloud).
@@ -126,8 +126,11 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - Linki zaproszeń, które wystawiłeś, przestają działać.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,
   wyciszenia grup, Twoje zgłoszenia błędów i uwagi, dane techniczne synchronizacji.
-- Przy koncie Apple unieważniamy też token Sign in with Apple.
-- Kopia danych na tym iPhonie zostaje do usunięcia aplikacji.
+- Przy koncie Apple usunięcie potwierdzasz oknem Apple, a my unieważniamy token Sign in with Apple.
+- Z tego iPhone'a znika kopia danych konta razem z jego ustawieniami (plik bazy konta). Po zwykłym wylogowaniu kopia
+  zostaje na telefonie, żeby po ponownym zalogowaniu nie pobierać wszystkiego od nowa.
+- W pęku kluczy iPhone'a zostają drobne dane telefonu (np. wybrany wygląd); pęk kluczy może przetrwać usunięcie
+  aplikacji.
 
 ## Twoje prawa
 Możesz poprawić swoje dane w aplikacji, usunąć konto w aplikacji albo napisać na adres kontaktowy z pytaniem o swoje dane.

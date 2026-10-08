@@ -1,5 +1,5 @@
 /**
- * Korzeń aplikacji na atrapach: sesja, link z e-maila, baza (better-sqlite3), serwer (transport w pamięci),
+ * Korzeń aplikacji na atrapach: sesja, linki, baza (better-sqlite3), serwer (transport w pamięci),
  * sygnały Realtime i powrót na pierwszy plan — bez telefonu i bez sieci.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -7,9 +7,9 @@ import { AppState } from 'react-native';
 
 import { memoryDb } from '../../data/__tests__/sqlite';
 import type { PullResponse, PushResponse } from '../../domain/sync-engine/client';
-import { AUTH_REDIRECT } from '../../sync/supabase';
 import type { SyncTransport } from '../../sync/transport';
 import { type RootDeps, Root, type Session } from '../Root';
+import { e2eLegacyPrefs } from '../e2e';
 import { fakeAccount } from './harness';
 
 // Oficjalna atrapa (react-native-safe-area-context/jest/mock): bez niej SafeAreaProvider czeka na wymiary ekranu z natywnej strony.
@@ -59,9 +59,10 @@ function makeDeps(over: Partial<RootDeps> = {}) {
     session: {
       current: jest.fn(async () => null as Session | null),
       onChange: (fn) => ((sessionListener = fn), () => (sessionListener = () => {})),
-      setFromLink: jest.fn(async () => {}),
     },
     account: fakeAccount(),
+    // Wprowadzenie i „Co nowego” obejrzane (jak w E2E) — nie zasłaniają ekranów.
+    legacyPrefs: e2eLegacyPrefs(),
     calendar: { add: jest.fn(async () => 'saved' as const) },
     transport,
     openDb: (u) => dbs.get(u) ?? (dbs.set(u, memoryDb()), dbs.get(u)!),
@@ -71,7 +72,7 @@ function makeDeps(over: Partial<RootDeps> = {}) {
       pokes = fn;
       return () => (pokes = null);
     },
-    links: { initial: async () => null, onUrl: (fn) => ((urlListener = fn), () => (urlListener = () => {})) },
+    links: { onUrl: (fn) => ((urlListener = fn), () => (urlListener = () => {})) },
     nowMs: () => clock,
     // Czas symulowany: timer „mija” od razu, a zegar przesuwa się o jego długość.
     setTimer: (fn, ms) => {
@@ -108,7 +109,7 @@ afterEach(() => jest.restoreAllMocks());
 describe('wylogowanie a przypomnienia (audyt 2, N-4)', () => {
   it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, dismissed: async () => true, dismiss: async () => {}, replaceReminders, reminderSettings: async () => null, saveReminderSettings: async () => {} };
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
     const t = makeDeps({ push });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji: przypomnienia z poprzedniego uruchomienia (np. sprzed wylogowania) też idą precz.
@@ -139,7 +140,7 @@ describe('korzeń aplikacji', () => {
   });
 
   it('szybkie dodawanie trafia do bazy i na serwer; poke z nową wersją pobiera, ze starą — nie', async () => {
-    const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {}, setFromLink: async () => {} } });
+    const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} } });
     await render(<Root deps={t.deps} fontsLoaded />);
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     await screen.findByText('Osobiste');
@@ -160,7 +161,7 @@ describe('korzeń aplikacji', () => {
   });
 
   it('„Wyczyść dane na telefonie” (D121): pusta baza, pobranie od zera, dane z serwera wracają', async () => {
-    const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {}, setFromLink: async () => {} } });
+    const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} } });
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByText('Osobiste');
     const db = t.dbs.get(ME)!;
@@ -190,22 +191,50 @@ describe('korzeń aplikacji', () => {
     expect(await screen.findByTestId('screen-sign-in')).toBeTruthy();
   });
 
-  it('link z e-maila: tokeny do sesji; błąd z linku i błąd ustawienia sesji pokazane', async () => {
-    const setFromLink = jest.fn(async () => {});
-    const t = makeDeps({
-      links: { initial: async () => `${AUTH_REDIRECT}#access_token=a&refresh_token=r`, onUrl: (fn) => ((urlFn = fn), () => {}) },
-      session: { current: async () => null, onChange: () => () => {}, setFromLink },
-    });
-    let urlFn: (u: string) => void = () => {};
+  it('M-76: link z cudzymi tokenami nie loguje (logowania z linku nie ma, D177) — zostaje ekran logowania', async () => {
+    const t = makeDeps();
     await render(<Root deps={t.deps} fontsLoaded />);
-    await waitFor(() => expect(setFromLink).toHaveBeenCalledWith({ access_token: 'a', refresh_token: 'r' }));
-    await act(() => urlFn(`${AUTH_REDIRECT}#error=access_denied&error_description=Link+wygas%C5%82`));
-    expect(await screen.findByText('Link wygasł')).toBeTruthy();
-    setFromLink.mockRejectedValueOnce(new Error('x'));
-    await act(() => urlFn(`${AUTH_REDIRECT}#access_token=b&refresh_token=c`));
-    expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeTruthy();
-    await act(() => urlFn('io.github.lkarwowski494.organizer://invite/x'));
-    expect(setFromLink).toHaveBeenCalledTimes(2);
+    await t.openUrl('io.github.lkarwowski494.organizer://auth/callback#access_token=a&refresh_token=r');
+    expect(screen.getByTestId('screen-sign-in')).toBeTruthy();
+    expect(t.deps.session).not.toHaveProperty('setFromLink');
+  });
+
+  it('M-221: link zaproszenia dotknięty bez zalogowania otwiera się po zalogowaniu (raz)', async () => {
+    const t = makeDeps();
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-sign-in');
+    await t.openUrl('io.github.lkarwowski494.organizer://join?g=482913507&c=731064');
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    expect(await screen.findByTestId('screen-invite')).toBeTruthy();
+    // Wylogowanie i ponowne zalogowanie — link już nie wraca.
+    await t.signIn(null);
+    await screen.findByTestId('screen-sign-in');
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(screen.queryByTestId('screen-invite')).toBeNull();
+  });
+
+  it('D175: ustawienia konta osobno dla konta; dawne wspólne ustawienia przejmuje pierwsze konto, drugie zaczyna od zera', async () => {
+    const keychain = new Map([
+      ['pref.welcomeSeen', '1'],
+      ['pref.whatsNewBuild', String(Number.MAX_SAFE_INTEGER)],
+    ]);
+    const t = makeDeps({ legacyPrefs: { get: async (k) => keychain.get(k) ?? null, remove: async (k) => void keychain.delete(k) } });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    await screen.findByText('Osobiste');
+    expect(screen.queryByTestId('screen-welcome')).toBeNull();
+    expect(keychain.size).toBe(0);
+    expect(t.dbs.get(ME)!.all('select key, value from sync_state where key like ?', ['local:pref.%'])).toContainEqual({ key: 'local:pref.welcomeSeen', value: '1' });
+    // Drugie konto na tym telefonie: wprowadzenie od początku.
+    await t.signIn(null);
+    await t.signIn({ userId: 'u-2', displayName: 'Ola' });
+    expect(await screen.findByTestId('screen-welcome')).toBeTruthy();
+    // Powrót pierwszego konta — jego ustawienia czekają w jego bazie.
+    await t.signIn(null);
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    await screen.findByText('Osobiste');
+    expect(screen.queryByTestId('screen-welcome')).toBeNull();
   });
 
   it('domyślny zegar i timer (bez wstrzykniętych) też działają', async () => {
