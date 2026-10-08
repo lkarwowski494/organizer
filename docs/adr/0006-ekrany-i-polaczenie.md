@@ -38,7 +38,9 @@ Status: przyjęte. Commity: 9753bab, 617081d, dbb3390.
 - **Reguła „Dotyczy mnie”.** Obecnie pokazuje: → rozstrzygnięte przez O-035 i D66 (ADR 0011), D68 (ADR 0012); nazwa „Moje sprawy” (D89, ADR 0019), widok dni D62 (ADR 0009).
   - zadania przypisane do mnie;
   - nieprzypisane z grupy osobistej;
-  - nieprzypisane z terminem z każdej grupy.
+  - nieprzypisane z terminem z każdej grupy;
+  - zadania dziecka bez konta — u każdego dorosłego tej grupy, który widzi listę, z imieniem dziecka w wierszu
+    i w przypomnieniu (decyzja właściciela z 8.10.2026, audyt 2; ta sama reguła co wydarzenie z dzieckiem, D58).
 
   Sekcje: zaległe, przypięte, dziś, jutro.
 - **Kolor grupy.** Obecnie przydzielany automatycznie według kolejności grup u danej osoby. → rozstrzygnięte przez D56 (ADR 0007).

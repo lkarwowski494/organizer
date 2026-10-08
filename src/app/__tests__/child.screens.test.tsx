@@ -38,3 +38,22 @@ describe('dziecko w grupie (D34)', () => {
     expect(screen.queryByTestId('group-add-event')).toBeNull();
   });
 });
+
+describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1)', () => {
+  it('u dorosłego w Moich sprawach z „dla: Kuba” — dodane przez @Kuba, przypięte i z terminem; lista bez ostrzeżenia', async () => {
+    const b = sampleBase();
+    put(b, 'tasks', 't-pokoj', { ...b.tasks!['t-books']!, id: 't-pokoj', group_id: 'gf', list_id: 'lf', title: 'Posprzątać pokój', assignee_member_id: 'kuba' });
+    const s = setup({ base: b });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    expect(screen.getByLabelText('Otwórz: Posprzątać pokój, Rodzina, bez terminu, dla: Kuba')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'spakować plecak dziś 20:00 @Kuba');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'spakować plecak', assignee_member_id: 'kuba', due_time: '20:00' } });
+    expect(await screen.findByLabelText('Otwórz: spakować plecak, Rodzina, dziś · 20:00, dla: Kuba')).toBeTruthy();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    expect(await screen.findByLabelText(/^Otwórz: Posprzątać pokój/)).toBeTruthy();
+    expect(screen.queryByText(/nikt tego nie widzi/)).toBeNull();
+  });
+});

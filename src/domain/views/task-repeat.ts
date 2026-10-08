@@ -6,22 +6,25 @@
  *  - od wykonania (D23) — „AFTER=DAILY;INTERVAL=n” albo „AFTER=WEEKLY;INTERVAL=n”.
  * Odhaczenie zadania z powtarzaniem tworzy następne z kolejnym terminem; odhaczone zostaje jako historia.
  * Id następnego = uuidv5(id + „|next”), więc dwa telefony odhaczające naraz nie zrobią dwóch kopii (serwer: utworzenie
- * istniejącego id nic nie robi). Cofnięcie odhaczenia usuwa nietkniętą kopię. Podzadania nie są kopiowane.
+ * istniejącego id nic nie robi). Cofnięcie odhaczenia usuwa nietkniętą kopię. Następne dostaje kopie podzadań (decyzja
+ * właściciela z 8.10.2026; wcześniej powstawało bez nich, a stare wisiały jako zaległe — audyt 2, T-13): `copyOps`.
  * Audyt 2:
  *  - T-1: ponowne odhaczenie przywraca kopię z kosza (cofnięcie ją tam odłożyło; inaczej powtarzanie by się kończyło);
  *  - T-3: kopia bez osoby, która nie może jej dostać (usunięta z grupy, nie widzi listy) — „nikt konkretny” (D132);
  *  - T-4: cofnięcie odhaczenia minionego „Tylko tego dnia” zostawia następne (D133 i tak by je zrobiło);
  *  - T-2, T-12: kopie robi tylko telefon, któremu serwer na to pozwoli (żywa grupa i lista, nie dziecko); kopię po
- *    odhaczeniu przez dziecko dokłada telefon dorosłego (`missingRepeatOps`); operacji raz odrzuconej telefon nie ponawia.
+ *    odhaczeniu przez dziecko dokłada telefon dorosłego (`missingRepeatOps`); operacji raz odrzuconej telefon nie ponawia;
+ *  - T-19: D133 przy „od wykonania” — następne na dziś (nikt nie wykonał, więc nie ma od czego liczyć interwału).
  */
 import { config } from '../../config';
-import { addDays, type CivilDate, compareDates, formatIsoDate } from '../civil-date';
+import { addDays, type CivilDate, compareDates, formatIsoDate, toDayNumber } from '../civil-date';
 import { nextAfterCompletion } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { uuidv5 } from '../ids';
 import { occurrences, parseRule, WEEKDAY_CODES } from '../rrule';
 import type { NewOp, Row } from '../sync-engine/client';
 import { asTask, type Tables, type Task } from './model';
+import { descendants, subtasksOf } from './nesting';
 import { memberCanSeeList } from './visibility';
 
 export const REPEAT_NAMESPACE = 'e21c312a-9090-47c5-9490-c54305c7ddd1';
@@ -85,47 +88,81 @@ export function nextDue(r: Repeat, due: CivilDate, done: CivilDate): CivilDate {
 export function repeatOps(t: Tables, task: Task, doneDate: CivilDate, canCreate = true): NewOp[] {
   const r = repeatOf(t, task.id);
   if (!r || task.due_date === null || task.deadline_mode !== 'own' || !canCreate) return [];
+  if (task.completed_at === null) return copyOps(t, task, r, formatIsoDate(nextDue(r, parseIsoDate(task.due_date), doneDate)));
+  // T-4: minione „Tylko tego dnia” i tak dostaje następne (D133) — cofnięcie go nie zdejmuje.
+  if (!task.rollover && task.due_date < formatIsoDate(doneDate)) return [];
+  // Cofnięcie: kopia jeszcze nietknięta — znika razem ze swoimi podzadaniami (serwer robi to kaskadą, tasks_cascade;
+  // telefon od razu, żeby kopie podzadań nie zostały bez rodzica); ruszona (odhaczona, usunięta) zostaje.
   const id = nextId(task.id);
-  const existing = t.tasks?.[id] ? asTask(t.tasks[id]!) : null;
-  if (task.completed_at !== null) {
-    // T-4: minione „Tylko tego dnia” i tak dostaje następne (D133) — cofnięcie go nie zdejmuje.
-    if (!task.rollover && task.due_date < formatIsoDate(doneDate)) return [];
-    // Cofnięcie: kopia jeszcze nietknięta — znika; ruszona (odhaczona, usunięta) zostaje.
-    return existing && existing.completed_at === null && existing.deleted_at === null ? [{ kind: 'delete', entity: 'tasks', id }] : [];
-  }
-  const due = formatIsoDate(nextDue(r, parseIsoDate(task.due_date), doneDate));
-  if (existing) {
-    // T-1: kopia w koszu, nieodhaczona (cofnięte odhaczenie) — wraca z terminem liczonym od tego odhaczenia.
-    if (existing.deleted_at !== null && existing.completed_at === null)
-      return [
-        { kind: 'restore', entity: 'tasks', id },
-        { kind: 'patch', entity: 'tasks', id, set: { due_date: due, due_time: task.due_time } },
-      ];
-    // Kopia już jest (drugi telefon, wcześniejsze odhaczenie) — nic nie dokładamy.
-    return [];
-  }
-  const assignee = task.assignee_member_id !== null && memberCanSeeList(t, task.assignee_member_id, task.list_id) ? task.assignee_member_id : null;
-  return [
-    {
+  const copy = t.tasks?.[id] ? asTask(t.tasks[id]!) : null;
+  if (!copy || copy.completed_at !== null || copy.deleted_at !== null) return [];
+  return [{ kind: 'delete', entity: 'tasks', id }, ...subtasksOf(t, id).map((x): NewOp => ({ kind: 'delete', entity: 'tasks', id: x.id }))];
+}
+
+/** Osoba kopii: tylko taka, która może ją dostać — inaczej „nikt konkretny” (D132, T-3). */
+const visibleAssignee = (t: Tables, x: Task) => (x.assignee_member_id !== null && memberCanSeeList(t, x.assignee_member_id, x.list_id) ? x.assignee_member_id : null);
+
+/**
+ * Następne zadanie z terminem `due` i kopie podzadań (decyzja właściciela z 8.10.2026): wszystkie żywe podzadania — także
+ * zrobione, kopia jest niezrobiona — z tymi samymi tytułami, notatkami i kolejnością, do `config.MAX_TASK_DEPTH` poziomów.
+ * Id kopii podzadania = nextId(podzadania), więc dwa telefony nie zrobią dwóch. Termin podzadania: „jak nadrzędne” i „bez
+ * terminu” zostają, własny przesuwa się o tyle dni co zadanie, „ze spotkania” (tamto już było) — „jak nadrzędne”.
+ * Kopia zadania, która już jest, zostaje — dokładamy tylko brakujące kopie podzadań (np. zrobiona na starszej wersji
+ * aplikacji); odhaczona — nic; w koszu (cofnięte odhaczenie, T-1) wraca z nowym terminem i z podzadaniami usuniętymi
+ * razem z nią (jak kaskada przywrócenia na serwerze).
+ */
+function copyOps(t: Tables, task: Task, r: Repeat, due: string): NewOp[] {
+  const id = nextId(task.id);
+  const copy = t.tasks?.[id] ? asTask(t.tasks[id]!) : null;
+  if (copy && copy.completed_at !== null) return [];
+  const ops: NewOp[] = [];
+  const mark = copy?.deleted_at ?? null;
+  if (!copy)
+    ops.push({
       kind: 'create',
       entity: 'tasks',
       id,
       group_id: task.group_id,
+      set: { list_id: task.list_id, parent_id: task.parent_id, title: task.title, note: task.note, sort_key: task.sort_key, assignee_member_id: visibleAssignee(t, task), deadline_mode: 'own', due_date: due, due_time: task.due_time, rollover: task.rollover, repeat: formatRepeat(r) },
+    });
+  else if (mark !== null) {
+    ops.push({ kind: 'restore', entity: 'tasks', id }, { kind: 'patch', entity: 'tasks', id, set: { due_date: due, due_time: task.due_time } });
+    for (const x of descendants(t, id, (x) => x.deleted_at === mark)) ops.push({ kind: 'restore', entity: 'tasks', id: x.id });
+  }
+  // Żywe po tych operacjach: kopia i jej podzadania (obecne albo wracające z nią) — pod nimi mogą powstać brakujące.
+  const alive = new Set([id, ...descendants(t, id, (x) => x.deleted_at === null || x.deleted_at === mark).map((x) => x.id)]);
+  const shift = toDayNumber(parseIsoDate(due)) - toDayNumber(parseIsoDate(task.due_date!));
+  for (const s of subtasksOf(t, task.id)) {
+    const sid = nextId(s.id);
+    const parent = nextId(s.parent_id!);
+    if (t.tasks?.[sid] || !alive.has(parent)) continue;
+    alive.add(sid);
+    const own = s.deadline_mode === 'own' && s.due_date !== null;
+    ops.push({
+      kind: 'create',
+      entity: 'tasks',
+      id: sid,
+      group_id: s.group_id,
       set: {
-        list_id: task.list_id,
-        parent_id: task.parent_id,
-        title: task.title,
-        note: task.note,
-        sort_key: task.sort_key,
-        assignee_member_id: assignee,
-        deadline_mode: 'own',
-        due_date: due,
-        due_time: task.due_time,
-        rollover: task.rollover,
-        repeat: formatRepeat(r),
+        list_id: s.list_id,
+        parent_id: parent,
+        title: s.title,
+        note: s.note,
+        sort_key: s.sort_key,
+        assignee_member_id: visibleAssignee(t, s),
+        deadline_mode: own ? 'own' : s.deadline_mode === 'none' ? 'none' : 'inherit',
+        due_date: own ? formatIsoDate(addDays(parseIsoDate(s.due_date!), shift)) : null,
+        due_time: own ? s.due_time : null,
+        rollover: s.rollover,
       },
-    },
-  ];
+    });
+  }
+  return ops;
+}
+
+/** D133: pierwszy termin od dziś — według kalendarza pierwszy dzień reguły, od wykonania dziś (audyt 2, T-19). */
+function firstDueFrom(r: Repeat, due: CivilDate, today: CivilDate): CivilDate {
+  return r.kind === 'after' ? today : nextDue(r, due, addDays(today, -1));
 }
 
 /** Zadanie z powtarzaniem, któremu ten telefon może dołożyć kopię (żywa lista, grupa, w której nie jestem dzieckiem). */
@@ -152,7 +189,8 @@ export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: (groupI
   for (const row of Object.values(t.tasks ?? {})) {
     const x = asTask(row);
     if (x.completed_at !== null || x.rollover || !copyable(t, x, canCreate, skip) || x.due_date! >= isoToday) continue;
-    out.push(...repeatOps(t, x, addDays(today, -1)));
+    const r = repeatOf(t, x.id)!;
+    out.push(...copyOps(t, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), today))));
   }
   return out;
 }
