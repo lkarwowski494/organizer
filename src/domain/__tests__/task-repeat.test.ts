@@ -34,6 +34,8 @@ describe('powtarzanie zadań (D76)', () => {
     [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-21', '2026-10-22'], // zaległe — nie wraca w przeszłość
     [{ kind: 'monthly' }, '2026-01-31', '2026-01-31', '2026-03-31'], // luty bez 31. pominięty (RFC 5545)
     [{ kind: 'daily' }, '2026-10-07', '2026-10-07', '2026-10-08'],
+    // Decyzja właściciela z 8.10.2026: zaległe „codziennie” odhaczone dziś — następne jutro (dzisiejsze nie powstaje osobno).
+    [{ kind: 'daily' }, '2026-10-05', '2026-10-08', '2026-10-09'],
     [{ kind: 'weekly', days: [0] }, '2026-10-14', '2026-10-14', '2026-10-19'], // termin poza dniem reguły
     [{ kind: 'after', unit: 'DAILY', interval: 3 }, '2026-10-07', '2026-10-09', '2026-10-12'],
     [{ kind: 'after', unit: 'WEEKLY', interval: 2 }, '2026-10-07', '2026-10-05', '2026-10-19'],
@@ -106,6 +108,16 @@ describe('D133: powtarzanie po przeminięciu („Tylko tego dnia”)', () => {
     expect(ops).toHaveLength(1);
     expect(ops[0]).toMatchObject({ kind: 'create', id: nextId('leki'), set: { due_date: '2026-10-08', due_time: '08:00', repeat: 'FREQ=DAILY', rollover: false } });
     expect(expiredRepeatOps(world({ leki: T(), [nextId('leki')]: T({ id: nextId('leki'), due_date: '2026-10-08' }) }), today, () => true)).toEqual([]);
+  });
+  it('audyt 2 (T-19): „od wykonania” — następne dziś (nikt nie wykonał, więc nie ma od czego liczyć); według kalendarza — pierwszy dzień reguły od dziś', () => {
+    const due = (repeat: string, due_date = '2026-10-05') => {
+      const op = expiredRepeatOps(world({ leki: T({ repeat, due_date }) }), today, () => true)[0];
+      return op?.kind === 'create' ? op.set.due_date : null;
+    };
+    expect(due('AFTER=WEEKLY;INTERVAL=1')).toBe('2026-10-08');
+    expect(due('AFTER=DAILY;INTERVAL=3', '2026-10-07')).toBe('2026-10-08');
+    expect(due('FREQ=WEEKLY;BYDAY=MO')).toBe('2026-10-12'); // 5.10 to poniedziałek; następny poniedziałek od dziś
+    expect(due('FREQ=WEEKLY;BYDAY=TH')).toBe('2026-10-08'); // dziś czwartek
   });
   it('bez kopii: przechodzi dalej, zrobione, usunięte, dziś, bez powtarzania, termin po rodzicu, dziecko', () => {
     for (const o of [{ rollover: true }, { completed_at: 'x' }, { deleted_at: 'x' }, { due_date: '2026-10-08' }, { repeat: null }, { deadline_mode: 'inherit' }, { due_date: null }]) {
@@ -190,5 +202,100 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
 
   it('okno brakujących kopii krótsze niż kosz (kopia wyczyszczona z kosza nie wraca)', () => {
     expect(config.repeat.MISSING_COPY_DAYS).toBeLessThan(config.sync.TOMBSTONE_DAYS);
+  });
+});
+
+describe('kopie podzadań w następnym terminie (decyzja właściciela z 8.10.2026; audyt 2: T-13)', () => {
+  const sub = (id: string, parent: string, sort: string, o: Row = {}): Row => ({ id, group_id: 'g', list_id: 'l', parent_id: parent, title: id, note: null, sort_key: sort, assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true, completed_at: null, deleted_at: null, ...o });
+  const g = (): Record<string, Record<string, Row>> => ({
+    groups: { g: { id: 'g', name: 'Rodzina', kind: 'shared', deleted_at: null } },
+    group_members: {
+      m: { member_id: 'm', group_id: 'g', user_id: 'u', display_name: 'Ja', role: 'admin', deleted_at: null },
+      ala: { member_id: 'ala', group_id: 'g', user_id: 'u-ala', display_name: 'Ala', role: 'member', deleted_at: null },
+    },
+    lists: { l: { id: 'l', group_id: 'g', kind: 'tasks', name: 'Dom', visibility: 'group', owner_member_id: 'm', deleted_at: null } },
+    tasks: {
+      t1: { id: 't1', group_id: 'g', list_id: 'l', parent_id: null, title: 'Sprzątanie', note: null, sort_key: 'a1', assignee_member_id: 'm', deadline_mode: 'own', due_date: '2026-10-12', due_time: '10:00', rollover: true, repeat: 'FREQ=WEEKLY;BYDAY=MO', completed_at: null, deleted_at: null },
+      odk: sub('odk', 't1', 'a1', { note: 'też pod łóżkiem', assignee_member_id: 'ala' }),
+      okna: sub('okna', 'odk', 'a1', { deadline_mode: 'none' }),
+      kosz: sub('kosz', 't1', 'a2', { deadline_mode: 'own', due_date: '2026-10-11', due_time: '18:00', rollover: false, completed_at: '2026-10-11T17:00:00Z' }),
+      tort: sub('tort', 't1', 'a3', { deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-12' }),
+      stare: sub('stare', 't1', 'a0', { deleted_at: '2026-10-01T00:00:00Z' }),
+      podstare: sub('podstare', 'stare', 'a0'),
+    },
+  });
+  const N = nextId;
+  const created = (ops: ReturnType<typeof repeatOps>) => ops.map((o) => (o.kind === 'create' ? [o.id, o.set.parent_id, o.set.deadline_mode, o.set.due_date ?? null] : o.kind === 'cmd' ? [o.kind] : [o.kind, o.id]));
+
+  it('odhaczenie: następne z kopiami wszystkich żywych podzadań (niezrobione, tytuł, notatka, kolejność, osoba, terminy)', () => {
+    const ops = repeatOps(g(), asTask(g().tasks!.t1!), d('2026-10-12'));
+    expect(created(ops)).toEqual([
+      [N('t1'), null, 'own', '2026-10-19'],
+      [N('odk'), N('t1'), 'inherit', null],
+      [N('okna'), N('odk'), 'none', null],
+      [N('kosz'), N('t1'), 'own', '2026-10-18'], // własny termin przesunięty o tyle samo dni co zadanie
+      [N('tort'), N('t1'), 'inherit', null], // termin ze spotkania (tamto już było) — jak nadrzędne
+    ]);
+    expect(ops[1]).toEqual({ kind: 'create', entity: 'tasks', id: N('odk'), group_id: 'g', set: { list_id: 'l', parent_id: N('t1'), title: 'odk', note: 'też pod łóżkiem', sort_key: 'a1', assignee_member_id: 'ala', deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } });
+    expect(ops[3]).toMatchObject({ set: { due_time: '18:00', rollover: false } });
+    expect(ops.some((o) => o.kind === 'create' && 'completed_at' in o.set)).toBe(false);
+    // Osoba, która nie może dostać kopii (usunięta z grupy) — „nikt konkretny” (D132), jak przy kopii zadania.
+    const t = g();
+    t.group_members!.ala = { ...t.group_members!.ala!, deleted_at: 'x' };
+    expect(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))[1]).toMatchObject({ set: { assignee_member_id: null } });
+  });
+
+  it('dwa telefony nie robią dwóch kopii; kopia zrobiona bez podzadań (starsza wersja) dostaje brakujące; odhaczona — nic', () => {
+    const t = g();
+    for (const o of repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))) if (o.kind === 'create') t.tasks![o.id] = { ...o.set, id: o.id, group_id: o.group_id, deleted_at: null };
+    expect(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))).toEqual([]);
+    delete t.tasks![N('okna')];
+    delete t.tasks![N('kosz')];
+    t.tasks![N('tort')] = { ...t.tasks![N('tort')]!, deleted_at: '2026-10-13T08:00:00Z' }; // ktoś usunął w następnym — nie wraca
+    expect(created(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12')))).toEqual([
+      [N('okna'), N('odk'), 'none', null],
+      [N('kosz'), N('t1'), 'own', '2026-10-18'],
+    ]);
+    // Pod usuniętą kopią podzadania nic nie powstaje (serwer odrzuciłby deleted:parent).
+    t.tasks![N('odk')] = { ...t.tasks![N('odk')]!, deleted_at: '2026-10-13T08:00:00Z' };
+    expect(created(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12')))).toEqual([[N('kosz'), N('t1'), 'own', '2026-10-18']]);
+    t.tasks![N('t1')] = { ...t.tasks![N('t1')]!, completed_at: '2026-10-19T08:00:00Z' };
+    expect(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))).toEqual([]);
+  });
+
+  it('cofnięcie odhaczenia zdejmuje kopię razem z jej podzadaniami; ponowne odhaczenie przywraca te, które poszły z nią', () => {
+    const t = g();
+    for (const o of repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))) if (o.kind === 'create') t.tasks![o.id] = { ...o.set, id: o.id, group_id: o.group_id, deleted_at: null };
+    t.tasks![N('kosz')] = { ...t.tasks![N('kosz')]!, completed_at: '2026-10-13T08:00:00Z' }; // ruszona — i tak idzie z rodzicem (jak kaskada serwera)
+    t.tasks!.dodane = sub('dodane', N('t1'), 'a9'); // dodane już w następnym
+    const undo = repeatOps(t, asTask({ ...t.tasks!.t1!, completed_at: '2026-10-12T08:00:00Z' }), d('2026-10-12'));
+    expect(undo).toEqual([N('t1'), N('odk'), N('okna'), N('kosz'), N('tort'), 'dodane'].map((id) => ({ kind: 'delete', entity: 'tasks', id })));
+    // W koszu z tym samym znacznikiem (cofnięcie) — wracają; usunięta wcześniej osobno — zostaje (jak tasks_cascade).
+    for (const o of undo) if (o.kind === 'delete') t.tasks![o.id] = { ...t.tasks![o.id]!, deleted_at: 'pending' };
+    t.tasks![N('tort')] = { ...t.tasks![N('tort')]!, deleted_at: '2026-10-12T09:00:00Z' };
+    delete t.tasks![N('okna')];
+    expect(created(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12')))).toEqual([
+      ['restore', N('t1')],
+      ['patch', N('t1')],
+      ['restore', N('odk')],
+      ['restore', N('kosz')],
+      ['restore', 'dodane'],
+      [N('okna'), N('odk'), 'none', null],
+    ]);
+  });
+
+  it('D133 (minione „Tylko tego dnia”) i kopia po odhaczeniu przez dziecko też mają podzadania; najwyżej MAX_TASK_DEPTH poziomów', () => {
+    const t = g();
+    t.tasks!.t1 = { ...t.tasks!.t1!, rollover: false, due_date: '2026-10-05' };
+    expect(created(expiredRepeatOps(t, d('2026-10-08'), () => true)).map((x) => x[0])).toEqual([N('t1'), N('odk'), N('okna'), N('kosz'), N('tort')]);
+    const u = g();
+    u.tasks!.t1 = { ...u.tasks!.t1!, completed_at: '2026-10-12T08:00:00Z' };
+    expect(missingRepeatOps(u, d('2026-10-12'), () => true, (iso) => iso.slice(0, 10))).toHaveLength(5);
+    // Uszkodzone dane lokalne: poziom głębiej niż pozwala serwer — bez kopii (i bez pętli przy cyklu).
+    const w = g();
+    w.tasks!.za = sub('za', 'okna', 'a1');
+    w.tasks!.cykl1 = sub('cykl1', 'cykl2', 'a1');
+    w.tasks!.cykl2 = sub('cykl2', 'cykl1', 'a1');
+    expect(created(repeatOps(w, asTask(w.tasks!.t1!), d('2026-10-12'))).map((x) => x[0])).toEqual([N('t1'), N('odk'), N('okna'), N('kosz'), N('tort')]);
   });
 });
