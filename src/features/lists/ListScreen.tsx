@@ -24,6 +24,8 @@ import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
+import { addStaple, addStaplesOps, categoryMemory, categoryOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
+import { CategoryPicker, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
@@ -38,6 +40,7 @@ export function ListScreen({ route, navigation }: Props) {
   const [ask, setAsk] = useState(false);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
+  const [picking, setPicking] = useState<string | null>(null);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
 
@@ -64,8 +67,8 @@ export function ListScreen({ route, navigation }: Props) {
   const groupKind = groupsView(tables, userId).find((g) => g.id === list.group_id)?.kind ?? 'shared';
   const planError = planned && 'error' in planned ? planned.error : null;
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(groupKind, planned.trip);
-  const add = (extra: { assigneeId?: string; dueDate?: string } = {}) => {
-    store.dispatch(quickAddOps({ tables, userId, text, now: now(), ignore: [], newId, listId: list.id, ...extra }));
+  const add = (extra: { assigneeId?: string; dueDate?: string } = {}, value = text) => {
+    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: [], newId, listId: list.id, ...extra }));
     setText('');
     setAsk(false);
   };
@@ -78,6 +81,11 @@ export function ListScreen({ route, navigation }: Props) {
   };
   const n = now();
   const day = (k: number) => formatIsoDate(addDays({ y: n.y, m: n.m, d: n.d }, k));
+  // D85, D86: działy, pamięć grupy, stałe zakupy (tylko dorośli zmieniają listę i działy; dziecko odhacza).
+  const listRow = tables.lists?.[list.id] ?? {};
+  const staples = staplesOf(listRow);
+  const memory = shopping ? categoryMemory(tables, list.group_id) : new Map();
+  const editable = shopping && canDelete;
   const rows = (nodes: TaskNode[], done: boolean): React.ReactNode[] =>
     nodes.flatMap((t) => [
       <SwipeRow key={t.id} title={t.title} enabled={canDelete} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
@@ -92,9 +100,31 @@ export function ListScreen({ route, navigation }: Props) {
           alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
           shopping={shopping}
           onToggle={() => actions.toggle(t, shopping)}
-          onOpen={shopping ? undefined : () => navigation.navigate('Task', { taskId: t.id })}
+          onOpen={shopping ? (editable && !done ? () => setPicking(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
+          openLabel={shopping ? strings['shop.pickCategory'](parseQuantity(t.title).name) : undefined}
         />
       </SwipeRow>,
+      ...(picking === t.id
+        ? [
+            <CategoryPicker
+              key={`pick-${t.id}`}
+              item={t.title}
+              current={categoryOf(tables.tasks?.[t.id] ?? {}, memory)}
+              isStaple={staples.some((s) => itemKey(s) === itemKey(t.title))}
+              onPick={(cat) => (store.dispatch(setCategory(t.id, cat)), setPicking(null))}
+              onToggleStaple={() => {
+                const has = staples.find((s) => itemKey(s) === itemKey(t.title));
+                if (has) store.dispatch(removeStaple(listRow, has));
+                else {
+                  const r = addStaple(listRow, t.title);
+                  if (r.ok) store.dispatch(r.op);
+                }
+                setPicking(null);
+              }}
+              onClose={() => setPicking(null)}
+            />,
+          ]
+        : []),
       ...rows(t.children, done),
     ]);
 
@@ -160,7 +190,10 @@ export function ListScreen({ route, navigation }: Props) {
           )}
         </View>
       ) : null}
-      <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']} />
+      {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
+      <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+        {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} /> : null}
+      </QuickAddField>
       {ask ? (
         <View testID="addressee-ask" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
@@ -178,7 +211,16 @@ export function ListScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{strings['lists.emptyItems']}</Body> : null}
-      <View>{rows(detail.open, false)}</View>
+      {shopping ? (
+        sections(detail.open, tables, list.group_id).map((sec) => (
+          <View key={sec.key} testID={`section-${sec.key}`}>
+            <SectionTitle>{sec.name}</SectionTitle>
+            {rows(sec.items, false)}
+          </View>
+        ))
+      ) : (
+        <View>{rows(detail.open, false)}</View>
+      )}
       {detail.done.length ? (
         <View>
           <SectionTitle>{shopping ? strings['lists.inCart'] : strings['lists.done']}</SectionTitle>

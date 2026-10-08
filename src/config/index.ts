@@ -17,6 +17,12 @@ export const config = {
    */
   feedback: { ERRORS_PER_DAY: 50, PER_DAY: 20, RETENTION_DAYS: 90, MAX_LENGTH: 2000 },
 
+  /**
+   * Zakupy (D85, D86): ile podpowiedzi przy wpisywaniu, ile stałych pozycji na liście i ich długość
+   * (SQL: private.staples_max(), private.staple_max_length(); test kontraktowy). Wybory projektowe, bez źródła.
+   */
+  shopping: { SUGGESTIONS: 5, STAPLES_MAX: 50, STAPLE_MAX_LENGTH: 200 },
+
   /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
   HISTORY_LIMIT: 15,
 

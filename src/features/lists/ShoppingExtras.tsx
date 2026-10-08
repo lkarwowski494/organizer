@@ -1,0 +1,117 @@
+/**
+ * Dodatki listy zakupów (D85, D86; ADR 0018): wybór działu pozycji, podpowiedzi przy wpisywaniu i stałe zakupy.
+ * Logika w src/domain/views/shopping.ts; tu tylko widok i wysyłka operacji.
+ */
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+
+import { config } from '../../config';
+import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shopping.pl';
+import type { NewOp, Row } from '../../domain/sync-engine/client';
+import { addStaple, itemKey, removeStaple, staplesOf } from '../../domain/views/shopping';
+import { strings } from '../../i18n/strings.pl';
+import { Body, Button, Field, SectionTitle } from '../../ui/components';
+import { useTheme } from '../../ui/theme';
+
+function Chip({ label, selected, onPress, testID, a11yLabel }: { label: string; selected?: boolean; onPress: () => void; testID?: string; a11yLabel?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel ?? label}
+      accessibilityState={{ selected: !!selected }}
+      onPress={onPress}
+      style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: selected ? c.inverseBg : c.control, backgroundColor: selected ? c.inverseBg : c.surface }}
+    >
+      <Text style={{ fontFamily: font.text700, fontSize: 15, color: selected ? c.inverseInk : c.ink }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** Panel pod pozycją: dział (zaznaczony bieżący) i przełącznik „stała pozycja”. */
+export function CategoryPicker({ item, current, isStaple, onPick, onToggleStaple, onClose }: {
+  item: string;
+  current: ShoppingCategory;
+  isStaple: boolean;
+  onPick: (c: ShoppingCategory) => void;
+  onToggleStaple: () => void;
+  onClose: () => void;
+}) {
+  const { c } = useTheme();
+  return (
+    <View testID="category-picker" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+      <Body muted>{strings['shop.categoryHint']}</Body>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {SHOPPING_CATEGORIES.map((cat) => (
+          <Chip key={cat.key} label={cat.name} selected={cat.key === current} onPress={() => onPick(cat.key)} testID={`category-${cat.key}`} />
+        ))}
+      </View>
+      <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={item} />
+      <Button kind="secondary" label={strings['common.cancel']} onPress={onClose} />
+    </View>
+  );
+}
+
+/** Podpowiedzi z wcześniejszych zakupów pod polem dodawania. */
+export function Suggestions({ names, onPick }: { names: readonly string[]; onPick: (name: string) => void }) {
+  if (names.length === 0) return null;
+  return (
+    <View testID="suggestions" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {names.map((n) => (
+        <Chip key={n} label={n} a11yLabel={strings['shop.suggest'](n)} onPress={() => onPick(n)} testID={`suggest-${itemKey(n)}`} />
+      ))}
+    </View>
+  );
+}
+
+/** Karta „Stałe zakupy”: dodanie brakujących jednym dotknięciem i edycja listy stałych. */
+export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row; missing: number; onAddMissing: () => void; onEdit: (op: NewOp) => void }) {
+  const { c } = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const staples = staplesOf(list);
+  const save = () => {
+    const r = addStaple(list, text);
+    if (!r.ok) {
+      const messages = {
+        empty: strings['shop.stapleError.empty'],
+        duplicate: strings['shop.stapleError.duplicate'],
+        full: strings['shop.stapleError.full'](config.shopping.STAPLES_MAX),
+        tooLong: strings['shop.stapleError.tooLong'](config.shopping.STAPLE_MAX_LENGTH),
+      };
+      return setError(messages[r.error]);
+    }
+    onEdit(r.op);
+    setText('');
+    setError(null);
+  };
+  return (
+    <View testID="staples" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+      <SectionTitle>{strings['shop.staples']}</SectionTitle>
+      {staples.length === 0 && !editing ? <Body muted>{strings['shop.staplesInfo']}</Body> : null}
+      {staples.length > 0 && !editing ? <Body>{staples.join(', ')}</Body> : null}
+      {!editing && staples.length > 0 ? (
+        missing > 0 ? <Button label={strings['shop.staplesAdd'](missing)} testID="staples-add" onPress={onAddMissing} /> : <Body muted>{strings['shop.staplesAll']}</Body>
+      ) : null}
+      {editing ? (
+        <>
+          {staples.length === 0 ? <Body muted>{strings['shop.staplesNone']}</Body> : null}
+          {staples.map((s) => (
+            <View key={s} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <Body>{s}</Body>
+              <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemKey(s)}`} onPress={() => onEdit(removeStaple(list, s))} />
+            </View>
+          ))}
+          <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} testID="staple-name" />
+          {error ? <Body>{error}</Body> : null}
+          <Button label={strings['shop.stapleSave']} testID="staple-save" onPress={save} />
+          <Button kind="secondary" label={strings['shop.staplesDone']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
+        </>
+      ) : (
+        <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />
+      )}
+    </View>
+  );
+}

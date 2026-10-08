@@ -7,6 +7,7 @@ import { join } from 'node:path';
 
 import { strings } from '../../i18n/strings.pl';
 import { config } from '../index';
+import { SHOPPING_CATEGORIES } from '../shopping.pl';
 import { groupLines } from '../theme';
 
 const dir = join(__dirname, '../../../supabase/migrations');
@@ -38,6 +39,8 @@ describe('src/config zgodny z SQL', () => {
     ['client_errors_per_day', config.feedback.ERRORS_PER_DAY],
     ['feedback_per_day', config.feedback.PER_DAY],
     ['feedback_retention_days', config.feedback.RETENTION_DAYS],
+    ['staples_max', config.shopping.STAPLES_MAX],
+    ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });
@@ -50,6 +53,11 @@ describe('src/config zgodny z SQL', () => {
   it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {
     const found = [...sql.matchAll(/function private\.deleted_user_label\(\)[^$]*\$\$\s*select\s+'([^']*)'::text\s*\$\$/gi)];
     expect(found.map((m) => m[1])).toEqual([strings['member.deleted']]);
+  });
+
+  it('działy zakupów w SQL = src/config/shopping.pl.ts (D85)', () => {
+    const found = [...sql.matchAll(/function private\.shopping_categories\(\)[^$]*\$\$\s*select array\[([^\]]*)\]/gi)].map((m) => m[1]!.split(',').map((x) => x.trim().replace(/'/g, '')));
+    expect(found.at(-1)).toEqual(SHOPPING_CATEGORIES.map((c) => c.key));
   });
 
   it('klucze kolorów grup w SQL = paleta linii (D56)', () => {
