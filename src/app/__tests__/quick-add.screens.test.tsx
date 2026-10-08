@@ -256,28 +256,24 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
   });
 
-  it('wspólna grupa bez osoby i terminu: pytanie „dla kogo albo na kiedy” (D68), jak na liście', async () => {
+  it('wspólna grupa bez osoby i terminu: zapis bez pytania, wcześniej napis, że nikt tego nie zobaczy (D68 po PW-18 b)', async () => {
     const { store } = await openWith({ lastUsedGroup: 'gf' });
-    const n = store.dispatched.length;
+    const unseen = 'Bez osoby i terminu nikt nie zobaczy tego w „Moich sprawach” — dopisz np. „@ja” albo „jutro”.';
     await write('kupić chleb');
+    expect(screen.getByText(unseen)).toBeTruthy();
     await add();
-    const ask = screen.getByTestId('addressee-ask');
-    expect(store.dispatched.length).toBe(n);
-    await press(within(ask).getByText('Dla: Ala'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'kupić chleb', assignee_member_id: 'ala' } });
-    await write('wynieść śmieci');
-    await add();
-    await press(within(screen.getByTestId('addressee-ask')).getByText('Na jutro'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'wynieść śmieci', due_date: '2026-10-08' } });
-    await write('podlać kwiaty');
-    await add();
-    await press(within(screen.getByTestId('addressee-ask')).getByText('Na dziś'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'podlać kwiaty', due_date: '2026-10-07' } });
-    await write('x');
-    await add();
-    await press(within(screen.getByTestId('addressee-ask')).getByText('Anuluj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expect(screen.getByTestId('quick-add').props.value).toBe('x');
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'kupić chleb', deadline_mode: 'none' } });
+    expect(store.dispatched.at(-1)).not.toHaveProperty('set.assignee_member_id');
+    // Z osobą albo terminem — bez napisu; w osobistej też.
+    for (const text of ['kupić chleb @ja', 'kupić chleb jutro', 'jutro']) {
+      await write(text);
+      expect(screen.queryByText(unseen)).toBeNull();
+    }
+    await press(screen.getByTestId('quick-group'));
+    await press(radio('Dodaj do grupy', 'Osobiste'));
+    await write('kupić chleb');
+    expect(screen.queryByText(unseen)).toBeNull();
   });
 
   it('„#…” bez grupy — pytanie, „Dodaj do” zostawia „#…” w nazwie; kilka grup — wybór', async () => {

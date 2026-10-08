@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { extractTag, needsAddressee, quickGroups, resolveQuick, tagTargets, withoutShortcuts } from '../views/quick-target';
+import { extractTag, quickGroups, resolveQuick, tagTargets, unseenInMyDays, withoutShortcuts } from '../views/quick-target';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -112,13 +112,13 @@ describe('„@ja” i „@imię” z grupą wpisu (audyt 2, M-24)', () => {
   });
 });
 
-describe('adresat przed dodaniem', () => {
-  it('D68: wspólna grupa bez osoby i terminu wymaga adresata', () => {
+describe('nikt nie zobaczy w Moich sprawach (D68 po PW-18 b)', () => {
+  it('wspólna grupa bez osoby i terminu — tak; z osobą, terminem albo w osobistej — nie', () => {
     const t = base();
-    expect(needsAddressee(t, ME, { groupId: 'gf', memberId: null }, false)).toBe(true);
-    expect(needsAddressee(t, ME, { groupId: 'gf', memberId: null }, true)).toBe(false);
-    expect(needsAddressee(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBe(false);
-    expect(needsAddressee(t, ME, { groupId: ME, memberId: null }, false)).toBe(false);
-    expect(needsAddressee(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBe(false);
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, false)).toBe(true);
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, true)).toBe(false);
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBe(false);
+    expect(unseenInMyDays(t, ME, { groupId: ME, memberId: null }, false)).toBe(false);
+    expect(unseenInMyDays(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBe(false);
   });
 });

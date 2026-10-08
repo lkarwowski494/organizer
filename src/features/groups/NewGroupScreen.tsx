@@ -5,6 +5,7 @@ import { Text } from 'react-native';
 
 import { useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
+import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Button, Field, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
@@ -37,8 +38,8 @@ export function NewGroupScreen({ navigation, route }: Props) {
     <Screen testID="screen-new-group">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['groups.new']}</Title>
-      <Field label={strings['groups.name']} value={name} onChangeText={setName} autoFocus testID="group-name" />
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} testID="group-my-name" />
+      <Field label={strings['groups.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.GROUP_NAME} testID="group-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="group-my-name" />
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
       <Button label={strings['groups.create']} onPress={create} disabled={busy || name.trim() === '' || me.trim() === ''} testID="create-group" />
     </Screen>

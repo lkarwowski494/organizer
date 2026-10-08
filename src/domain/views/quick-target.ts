@@ -129,7 +129,11 @@ export function resolveQuick(t: Tables, userId: string, text: string, o: { chipG
   return { kind: 'ok', target: { groupId: group.id, memberId, body, from } };
 }
 
-/** D68: we wspólnej grupie zadanie bez osoby i bez terminu — najpierw pytanie, dla kogo albo na kiedy. */
-export function needsAddressee(t: Tables, userId: string, target: Pick<QuickTarget, 'groupId' | 'memberId'>, dated: boolean): boolean {
+/**
+ * D68 po zmianie właściciela z 8.10.2026 (PW-18 b): we wspólnej grupie zadanie bez osoby i terminu zapisuje się bez
+ * pytania, ale nikt go nie zobaczy w Moich sprawach — pole dodawania mówi to przed dodaniem. (Szybkie dodanie trafia na
+ * ogólną listę grupy, nigdy na listę „Tylko ja”, więc wyjątek A tu nie zachodzi.)
+ */
+export function unseenInMyDays(t: Tables, userId: string, target: Pick<QuickTarget, 'groupId' | 'memberId'>, dated: boolean): boolean {
   return !dated && target.memberId === null && groupsView(t, userId).find((g) => g.id === target.groupId)?.kind === 'shared';
 }

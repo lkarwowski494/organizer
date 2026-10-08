@@ -1,7 +1,10 @@
 /**
  * Adresat zadania (D68, decyzja właściciela z 7.10.2026, ADR 0012): we wspólnej grupie zadanie główne na liście zadań
- * musi mieć osobę albo termin (własny, z zadania nadrzędnego albo ze spotkania) — inaczej nie trafi do niczyjego
+ * potrzebuje osoby albo terminu (własnego, z zadania nadrzędnego albo ze spotkania) — inaczej nie trafi do niczyjego
  * „Moje sprawy”. Grupa osobista, listy zakupów i podzadania (mają kontekst rodzica) są poza regułą.
+ * Zmiana (decyzja właściciela z 8.10.2026, audyt 2: PW-18, M-108): lista „Tylko ja” też jest poza regułą — jej zadania
+ * bez osoby trafiają do Moich spraw właściciela (A); a zadanie bez osoby i terminu („kiedyś, ktokolwiek”) można zapisać —
+ * miejsce, gdzie powstaje, mówi tylko, że nikt go nie zobaczy w Moich sprawach (b).
  */
 import { effectiveDue, type TaskTerms } from '../deadlines';
 import { occurrenceResolver } from './event-rows';
@@ -13,7 +16,7 @@ export function addresseeRequired(t: Tables, userId: string, listId: string, par
   const raw = t.lists?.[listId];
   if (!raw) return false;
   const l = asList(raw);
-  return l.kind === 'tasks' && groupsView(t, userId).find((g) => g.id === l.group_id)?.kind === 'shared';
+  return l.kind === 'tasks' && l.visibility !== 'private' && groupsView(t, userId).find((g) => g.id === l.group_id)?.kind === 'shared';
 }
 
 /**

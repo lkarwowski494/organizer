@@ -53,7 +53,9 @@ odrzuconą przy D91.
 - **„@ja”**: ja jako osoba we wspólnej grupie (w osobistej bez osoby); ma pierwszeństwo przed imionami na „Ja…”
   („@jan” nadal znajduje Jana). **„@imię”**: najpierw osoba z grupy wpisu (z „#” albo z chipa), dopiero bez niej
   wszystkie grupy (D91); po „#” — tylko osoby z tej grupy.
-- Wspólna grupa z chipa albo „#” bez osoby i terminu — pytanie „Dla kogo albo na kiedy?” (D68), jak na liście.
+- Wspólna grupa z chipa albo „#” bez osoby i terminu: zapis bez pytania (D68 po zmianie PW-18 b, ADR 0012), a pod
+  polem przed dodaniem napis „Bez osoby i terminu nikt nie zobaczy tego w „Moich sprawach” — dopisz np. „@ja” albo
+  „jutro”.”
 - **Podpowiedź „Na listę: <lista>”** (`domain/views/quick-shopping.ts`) obok chipa grupy, gdy cały wpis (po zdjęciu
   rozpoznanego terminu, „#…”, bez osoby i bez zakresu godzin) to jeden produkt ze słownika działów, z ilością albo bez
   („mleko”, „chleb 2 szt.”, „mąka 1.5 kg”, „papier toaletowy”). Nigdy nie przenosi sama: „+” dodaje zadanie, dotknięcie

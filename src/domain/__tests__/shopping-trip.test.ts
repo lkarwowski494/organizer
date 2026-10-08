@@ -3,7 +3,8 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, finishTripOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripSet } from '../views/shopping-trip';
+import { asTrip, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
+import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
 const setOf = (op: NewOp) => (op as { set: Row }).set;
@@ -42,11 +43,15 @@ describe('zakupy na liście zakupów (D73)', () => {
     expect(hasTrip({ date: null, time: null, responsibleId: 'mf' })).toBe(true);
   });
 
-  it('we wspólnej grupie osoba albo dzień obowiązkowe, w osobistej nie', () => {
-    expect(tripLacksAddressee('shared', { date: null, responsibleId: null })).toBe(true);
-    expect(tripLacksAddressee('shared', { date: '2026-10-08', responsibleId: null })).toBe(false);
-    expect(tripLacksAddressee('shared', { date: null, responsibleId: 'mf' })).toBe(false);
-    expect(tripLacksAddressee('personal', { date: null, responsibleId: null })).toBe(false);
+  it('we wspólnej grupie osoba albo dzień obowiązkowe, w osobistej i na liście „Tylko ja” nie (PW-18 A)', () => {
+    expect(tripRequired('shared', 'group')).toBe(true);
+    expect(tripRequired('shared', 'restricted')).toBe(true);
+    expect(tripRequired('shared', 'private')).toBe(false);
+    expect(tripRequired('personal', 'group')).toBe(false);
+    expect(tripLacksAddressee(true, { date: null, responsibleId: null })).toBe(true);
+    expect(tripLacksAddressee(true, { date: '2026-10-08', responsibleId: null })).toBe(false);
+    expect(tripLacksAddressee(true, { date: null, responsibleId: 'mf' })).toBe(false);
+    expect(tripLacksAddressee(false, { date: null, responsibleId: null })).toBe(false);
   });
 
   it('pola: godzina tylko z dniem; nowa lista i planowanie', () => {
@@ -147,5 +152,54 @@ describe('zakupy na liście zakupów (D73)', () => {
     expect(day.items.map((x) => [x.id, x.trip?.listId])).toEqual([['mine', 'mine'], ['hers', 'hers']]);
     expect(calendarMonth(t, ME, 2026, 10).flatMap((d) => d.items.map((x) => x.id))).not.toContain('nodate');
     expect(tripEntries(t, groups(t), true).map((x) => x.id).sort()).toEqual(['hers', 'mine', 'nodate']);
+  });
+
+  it('audyt 2 (M-22, R-7): zakupy osoby usuniętej z grupy wracają do „nikt konkretny” (D132), nie znikają wszystkim', () => {
+    const t = world();
+    put(t, 'lists', 'l1', list('l1', 'gf', { due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'l2', list('l2', 'gf', { name: 'Lidl', responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'l3', list('l3', ME, { name: 'Apteka', responsible_member_id: 'nieznany' }));
+    item(t, 'mleko', 'l1', false);
+    // Z dniem: jak zadanie bez osoby — każdy w grupie; bez dnia we wspólnej grupie: nikt (jak zadanie bez adresata);
+    // w grupie osobistej: przypięte.
+    const e = tripEntries(t, groups(t));
+    expect(e.map((x) => [x.id, x.assignee]).sort()).toEqual([['l1', null], ['l3', null]]);
+    expect(e.find((x) => x.id === 'l1')).toMatchObject({ due: { date: '2026-10-08', time: '17:00:00' }, trip: { open: 1 } });
+    const v = myDays(t, ME, { y: 2026, m: 10, d: 7 }, 'day', { y: 2026, m: 10, d: 8 }, (iso) => iso.slice(0, 10));
+    expect(v.days[0]!.entries.map((x) => (x.kind === 'task' ? x.task.id : x.kind))).toEqual(['l1']);
+    expect(v.pinned.map((x) => x.id)).toEqual(['l3']);
+    // Przypomnienie przychodzi (wcześniej plan przypomnień też go nie miał).
+    const reminders = planReminders(t, ME, { y: 2026, m: 10, d: 7 }, Date.UTC(2026, 9, 7, 8, 0), { leadMin: 30, morning: 'off' }, {
+      days: 2, max: 10, toMs: (x) => Date.UTC(x.y, x.m - 1, x.d, x.hh - 2, x.mm), localDate: (iso) => iso.slice(0, 10), label: { trip: (n) => `Zakupy: ${n}`, morningTitle: '', more: () => '', summary: () => '' },
+    });
+    expect(reminders.map((r) => r.title)).toEqual(['Zakupy: Biedronka']);
+  });
+
+  it('audyt 2 (M-225): „Cofnij” po „Zakupy zrobione” przywraca pozycje, dzień i osobę; anulowane przekazanie zostaje anulowane', () => {
+    const t = world();
+    put(t, 'lists', 'l', list('l', 'gf', { due_date: '2026-10-07', due_time: '18:00:00', responsible_member_id: 'mf' }));
+    item(t, 'mleko', 'l', false);
+    item(t, 'chleb', 'l', true);
+    put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'l', occurrence_date: null, from_member: 'mf', to_member: 'mm', status: 'pending', closed: false });
+    const now = '2026-10-07T10:00:00.000Z';
+    const before = JSON.parse(JSON.stringify(t)) as T;
+    for (const all of [false, true]) {
+      const t2 = JSON.parse(JSON.stringify(before)) as T;
+      const ops = finishTripOps(t2, ME, 'l', all, now);
+      const back = finishTripUndoOps(t2, ops);
+      expect(back.some((o) => o.kind === 'patch' && o.entity === 'handoffs')).toBe(false);
+      run(t2, [...ops, ...back]);
+      expect(t2.lists!.l).toEqual(before.lists!.l);
+      expect(t2.tasks).toEqual(before.tasks);
+      expect(t2.handoffs!.h!.status).toBe('cancelled');
+    }
+  });
+
+  it('PW-18 A: zakupy z mojej listy „Tylko ja” bez osoby, której już nie ma, są moje (jak w grupie osobistej)', () => {
+    const t = world();
+    put(t, 'lists', 'lp', list('lp', 'gf', { name: 'Prezenty', visibility: 'private', owner_member_id: 'mf', responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'lq', list('lq', 'gf', { name: 'Nowa', visibility: 'private', owner_member_id: null, responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'lg', list('lg', 'gf', { name: 'Wspólna', responsible_member_id: 'dawny' }));
+    expect(tripEntries(t, groups(t)).map((x) => x.id).sort()).toEqual(['lp', 'lq']);
   });
 });
