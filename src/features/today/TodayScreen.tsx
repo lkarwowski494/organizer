@@ -134,7 +134,7 @@ export function TodayScreen() {
   const label = mode === 'day' ? formatLongDate(at, today) : mode === 'week' ? formatRange(from, to, today) : formatMonth(at.y, at.m);
 
   // Szybkie dodanie (D90, D91, M-24): grupa z chipa, „#Grupa” albo „@imię”, osoba z „@imię”/„@ja”; po dodaniu pasek
-  // „Dodano … · Zmień” otwiera pełny formularz. Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
+  // „Dodano … · Zmień” otwiera ekran zadania (jedyny ekran zmiany zadania, D178). Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
   const addWith = (t: QuickTarget) => {
     const group = addGroups.find((g) => g.id === t.groupId)!.name;
     const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: t.memberId ?? undefined });
@@ -149,7 +149,7 @@ export function TodayScreen() {
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
-    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('Task', { taskId: created.id }), strings['form.change']);
     done(t);
   };
   // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.

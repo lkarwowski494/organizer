@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { addDays, isoWeekday } from '../../domain/civil-date';
@@ -38,6 +39,9 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [thisWeek, setThisWeek] = useState<'A' | 'B'>('A');
   const [until, setUntil] = useState(plan.until);
   const [error, setError] = useState<{ text: string; index: number } | null>(null);
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisany plan (app/form-draft); nakłada się
+  // na plan z chwili ponownego otwarcia tylko w polach, które zmieniłem.
+  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil });
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
@@ -56,6 +60,7 @@ export function TimetableScreen({ route, navigation }: Props) {
   const save = () => {
     const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, existing: plan.series, keepUntil: until === plan.until });
     if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.index });
+    draft.saved();
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
     if (r.ops.length === 0) return navigation.goBack();
     store.dispatch(r.ops);
@@ -68,6 +73,7 @@ export function TimetableScreen({ route, navigation }: Props) {
     <Screen testID="screen-timetable">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['timetable.title'](m.display_name)}</Title>
+      <DraftNote draft={draft} />
       <Body muted>{strings['timetable.info']}</Body>
       <Segmented
         label={strings['timetable.thisWeek'](formatRange(monday, addDays(monday, 6), today))}

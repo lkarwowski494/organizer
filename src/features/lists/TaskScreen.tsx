@@ -1,37 +1,44 @@
 /**
- * Zadanie: tytuł, notatka, termin (własny / bez terminu / jak nadrzędne — D15, D16), osoba,
- * podzadania (do MAX_TASK_DEPTH, D4), usunięcie z możliwością cofnięcia (kosz, R1 „nic nie ginie”).
+ * Zadanie — jedyny ekran zmiany zadania (decyzja właściciela 8.10.2026, D178 / PW-19 A; „Zmień” po szybkim dodaniu też
+ * tu prowadzi): tytuł, notatka, termin (Dziś / Jutro / Inny dzień / Bez terminu, a w podzadaniu też „Jak zadanie
+ * nadrzędne” — D15, D16; audyt 2: M-204, M-245), osoba, przeniesienie do innej grupy (task-move.ts), podzadania
+ * (do MAX_TASK_DEPTH, D4), usunięcie z paskiem „Cofnij” (kosz, R1 „nic nie ginie”).
+ * D130: każda zmiana zapisuje się od razu — bez „Zapisz” i „Anuluj” (PWD-6): tytuł i notatka po wyjściu z pola
+ * (ui/live-text), termin po wyborze dnia albo poprawnej godziny.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
-import { formatIsoDate, isoWeekday, isValidDate } from '../../domain/civil-date';
+import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
+import { createTask, inheritDue, patchTask, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
-import type { Task } from '../../domain/views/model';
-import type { NewOp } from '../../domain/sync-engine/client';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
-import { repeatOf, setRepeat } from '../../domain/views/task-repeat';
+import { cycleChange, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
+import { moveTargets, moveTaskOps } from '../../domain/views/task-move';
 import { taskHistory } from '../../domain/views/history';
+import { personOf } from '../../domain/views/who';
 import { RepeatEditor } from './RepeatEditor';
 import { TaskHistory } from './TaskHistory';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
-import { DateField } from '../../ui/DateField';
+import { AskPanel } from '../../ui/AskPanel';
+import { BackButton, Body, Button, Checkbox, ErrorText, Field, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { DueFields } from '../../ui/DueFields';
+import { useLiveText } from '../../ui/live-text';
+import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { useTheme } from '../../ui/theme';
+import { useUndo } from '../../ui/undo';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Task'>;
 
@@ -47,18 +54,8 @@ export function parseDueFields(date: string, time: string): { error: string } | 
   return { due: { date: date.trim(), time: t === '' ? null : t } };
 }
 
-/** Pola, które edytuję (brak klucza = pole pokazuje dane). */
-type Edits = { title?: string; note?: string; date?: string; time?: string };
-
-/** D130: zmiany tytułu i notatki do zapisu — tylko edytowane pola (pusty tytuł zostaje stary). */
-function textOps(e: Edits, cur: Task): NewOp[] {
-  const title = e.title?.trim();
-  const note = e.note === undefined ? undefined : e.note.trim() || null;
-  return [
-    ...(title && title !== cur.title ? [patchTask(cur.id, { title })] : []),
-    ...(note !== undefined && note !== cur.note ? [patchTask(cur.id, { note })] : []),
-  ];
-}
+/** Pola terminu, które edytuję (brak klucza = pole pokazuje dane). */
+type Edits = { date?: string; time?: string };
 
 function find(nodes: TaskNode[], id: string): TaskNode | undefined {
   for (const n of nodes) {
@@ -72,35 +69,30 @@ function find(nodes: TaskNode[], id: string): TaskNode | undefined {
 export function TaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
   const actions = useTaskActions();
-  const { tables, today } = useAppData();
+  const undo = useUndo();
+  const { tables, today, state } = useAppData();
   const { c, font } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
   const task = raw ? asTask(raw) : null;
   const detail = useMemo(() => (task ? listDetail(tables, userId, task.list_id, today) : null), [tables, userId, task?.list_id, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   const node = detail && task ? (find([...detail.open, ...detail.done], task.id) ?? null) : null;
-  // D130 + audyt 2 (T-22): pole podąża za danymi (także zmianami z drugiego telefonu), dopóki go nie edytuję;
-  // zapisuje się tylko to, co zmieniłem, i od tej chwili pole znów pokazuje dane.
+  const editable = task !== null && task.deleted_at === null && myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
+  // D130 + audyt 2 (T-22, M-202): tytuł i notatka podążają za danymi, dopóki ich nie edytuję; zapis tylko zmienionych.
+  // Pusty tytuł się nie zapisuje — pole wraca do zapisanego z komunikatem; pusta notatka = bez notatki.
+  const title = useLiveText(task?.title ?? '', (v) => editable && store.dispatch(patchTask(task!.id, { title: v })), { empty: strings['form.error.title'] });
+  const note = useLiveText(task?.note ?? '', (v) => editable && store.dispatch(patchTask(task!.id, { note: v || null })), { allowEmpty: true });
+  // Termin: pole podąża za danymi, dopóki go nie zmieniam (T-22) — zmieniona część z pola, druga z danych.
   const [edit, setEdit] = useState<Edits>({});
-  const cur = { title: task?.title ?? '', note: task?.note ?? '', date: task?.due_date ?? '', time: task?.due_time?.slice(0, 5) ?? '' };
-  const shown = (k: keyof Edits) => edit[k] ?? cur[k];
   const [error, setError] = useState<string | null>(null);
+  // D181: nowy dzień zadania powtarzanego zmieniający cykl — pytanie „Tylko ten raz / Też kolejne”.
+  const [cycleAsk, setCycleAsk] = useState<{ due: { date: string; time: string | null }; next: Repeat } | null>(null);
   const [sub, setSub] = useState('');
+  const [subIgnore, setSubIgnore] = useState<{ start: number; end: number }[]>([]);
+  const [subError, setSubError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [handing, setHanding] = useState(false);
-  // D130: przy opuszczeniu ekranu zapisujemy też tekst z pola, z którego nie wyszło się wcześniej.
-  const editable = task !== null && task.deleted_at === null && myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
-  const latest = useRef({ edit, task, editable });
-  useEffect(() => {
-    latest.current = { edit, task, editable };
-  });
-  useEffect(
-    () => () => {
-      const l = latest.current;
-      const ops = l.task && l.editable ? textOps(l.edit, l.task) : [];
-      if (ops.length) store.dispatch(ops);
-    },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const [moving, setMoving] = useState(false);
 
   if (!task || !detail) {
     return (
@@ -110,6 +102,7 @@ export function TaskScreen({ route, navigation }: Props) {
       </Screen>
     );
   }
+  // Usunięte gdzie indziej albo otwarte z linku do usuniętego (z tego ekranu usunięcie wraca z paskiem „Cofnij”, M-254).
   if (task.deleted_at !== null) {
     return (
       <Screen testID="screen-task-deleted">
@@ -120,6 +113,8 @@ export function TaskScreen({ route, navigation }: Props) {
     );
   }
 
+  const cur = { date: task.deadline_mode === 'own' ? (task.due_date ?? '') : '', time: task.deadline_mode === 'own' ? (task.due_time?.slice(0, 5) ?? '') : '' };
+  const shown = (k: keyof Edits) => edit[k] ?? cur[k];
   const depth = node?.depth ?? 0;
   // D13: podpięcie do wystąpienia spotkania; termin wystąpienia liczy resolver (null = odwołane / zmienione).
   const linked = task.event_id !== null && task.occurrence_date !== null;
@@ -130,50 +125,80 @@ export function TaskScreen({ route, navigation }: Props) {
   // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
   const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
-  // D130: każda zmiana zapisuje się od razu — tytuł i notatka po wyjściu z pola (i przy opuszczeniu ekranu),
-  // termin po wyborze daty albo poprawnej godziny. Bez przycisku „Zapisz”.
-  const commitText = () => {
-    const ops = textOps(edit, task);
-    if (ops.length) store.dispatch(ops);
-    setEdit(({ title: _t, note: _n, ...rest }) => rest);
+  const repeat = task.parent_id === null ? repeatOf(tables, task.id) : null;
+  // D178: przeniesienie zadania głównego do innej grupy (z podzadaniami); w trakcie przekazania — po jego zakończeniu.
+  const targets = canEdit && task.parent_id === null && !waiting ? moveTargets(tables, userId, task) : [];
+
+  const writeDue = (due: { date: string; time: string | null }, r: Repeat | null) => {
+    store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
   };
-  // Termin: zmieniona część z pola, druga — z danych (chyba że też ją właśnie zmieniam).
-  const changeDue = (patch: Pick<Edits, 'date' | 'time'>) => {
+  const changeDue = (patch: Edits) => {
     const next = { ...edit, ...patch };
     const d = next.date ?? cur.date;
     const t = next.time ?? cur.time;
     setEdit(next);
+    // Bez dnia godziny nie ma (pole godziny jest wtedy nieaktywne, M-89).
     if (d.trim() === '') return;
     const r = parseDueFields(d, t);
     if ('error' in r) return setError(r.error);
     setError(null);
-    setEdit(({ date: _d, time: _t, ...rest }) => rest);
-    if (r.due.date !== task.due_date || r.due.time !== (task.due_time?.slice(0, 5) ?? null) || task.deadline_mode !== 'own') store.dispatch(setDue(task.id, r.due));
+    setEdit({});
+    const same = task.deadline_mode === 'own' && r.due.date === task.due_date && r.due.time === (task.due_time?.slice(0, 5) ?? null);
+    if (same) return;
+    const old = task.deadline_mode === 'own' ? task.due_date : null;
+    const changed = old ? cycleChange(repeat, old, r.due.date) : null;
+    if (changed) return setCycleAsk({ due: r.due, next: changed });
+    writeDue(r.due, old ? keepCycle(repeat, old) : null);
   };
+  const noDue = () => {
+    // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez terminu i osoby też wolno — wtedy dopisek task.noAddressee.
+    setEdit({});
+    setError(null);
+    if (task.deadline_mode !== 'none') store.dispatch(setDue(task.id, null));
+  };
+  const inherit = () => {
+    setEdit({});
+    setError(null);
+    if (task.deadline_mode !== 'inherit') store.dispatch(inheritDue(task.id));
+  };
+  // Podzadanie dodaje się jak w polu dodawania (M-244): rozpoznane fragmenty to chipy do odklikania.
+  const subParsed = parseQuickAdd(sub, now(), { ignore: subIgnore });
   const addSub = () => {
-    const parsed = parseQuickAdd(sub, now());
-    if (parsed.title.trim() === '') return;
-    store.dispatch(createTask({ id: newId(), groupId: task.group_id, listId: task.list_id, parentId: task.id, parsed }));
+    if (sub.trim() === '') return;
+    if (subParsed.title.trim() === '') return setSubError(strings['form.error.title']);
+    store.dispatch(createTask({ id: newId(), groupId: task.group_id, listId: task.list_id, parentId: task.id, parsed: subParsed }));
     setSub('');
+    setSubIgnore([]);
+    setSubError(null);
   };
+  const whoOf = (memberId: string | null) => {
+    const p = personOf(tables, userId, memberId);
+    return p ? [strings['who.task'](p)] : [];
+  };
+  const groupLine = `${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`;
+  const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
 
   return (
     <Screen testID="screen-task">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={task.completed_at ? strings['task.undone'] : strings['task.done']} />
-        <Text style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>{`${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`}</Text>
+        <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} />
+        {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
+        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>
+          {groupLine}
+        </Text>
       </View>
       {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
-          <Field label={strings['task.title']} value={shown('title')} onChangeText={(v) => setEdit((e) => ({ ...e, title: v }))} onBlur={commitText} onSubmitEditing={commitText} testID="task-title" />
-          <Field label={strings['task.note']} value={shown('note')} onChangeText={(v) => setEdit((e) => ({ ...e, note: v }))} onBlur={commitText} multiline testID="task-note" />
+          <Field label={strings['task.title']} {...title.field} maxLength={config.lengths.TASK_TITLE} testID="task-title" />
+          {title.error ? <ErrorText>{title.error}</ErrorText> : null}
+          <Field label={strings['task.note']} {...note.field} onSubmitEditing={undefined} multiline testID="task-note" />
         </>
       ) : (
         <>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
           {task.note ? <Body>{task.note}</Body> : null}
         </>
       )}
@@ -182,41 +207,55 @@ export function TaskScreen({ route, navigation }: Props) {
         {task.deadline_mode === 'none'
           ? strings['task.dueNone']
           : task.deadline_mode === 'inherit'
-            ? strings['task.dueInherit']
+            ? `${strings['task.dueInherit']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
             : task.deadline_mode === 'event'
               ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
-      {canEdit ? <DateField label={strings['task.dueDate']} value={shown('date')} onChange={(d) => changeDue({ date: d })} today={today} testID="task-date" /> : null}
-      {canEdit ? <TimeField label={strings['task.dueTime']} value={shown('time')} onChange={(t) => changeDue({ time: t })} testID="task-time" optional /> : null}
-      {canEdit && task.deadline_mode !== 'none' ? (
-        <Button
-          kind="secondary"
-          label={strings['task.clearDue']}
-          onPress={() => {
-            // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez terminu i osoby też wolno — wtedy dopisek task.noAddressee.
-            store.dispatch(setDue(task.id, null));
-            setEdit(({ date: _d, time: _t, ...rest }) => rest);
-          }}
+      {canEdit ? (
+        <DueFields
+          date={shown('date')}
+          time={shown('time')}
+          onDate={(d) => (d === '' ? noDue() : changeDue({ date: d }))}
+          onTime={(t) => changeDue({ time: t })}
+          today={today}
+          testID="task"
+          extra={task.parent_id !== null ? { label: strings['task.dueInherit'], selected: task.deadline_mode === 'inherit' && edit.date === undefined, onPress: inherit } : undefined}
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
-      {canEdit && task.deadline_mode !== 'none' && !linked ? (
-        <Segmented
-          label={strings['task.rollover']}
-          value={task.rollover ? 'roll' : 'day'}
-          onChange={(v) => store.dispatch(patchTask(task.id, { rollover: v === 'roll' }))}
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      {cycleAsk ? (
+        <AskPanel
+          testID="cycle-ask"
+          title={strings['repeat.cycleAsk']}
           options={[
-            { value: 'roll', label: strings['task.rollover.roll'] },
-            { value: 'day', label: strings['task.rollover.day'] },
+            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!)), setCycleAsk(null)) },
+            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next), setCycleAsk(null)) },
           ]}
+          onCancel={() => setCycleAsk(null)}
         />
+      ) : null}
+      {canEdit && task.deadline_mode !== 'none' && !linked ? (
+        // M-81: podzadanie z terminem nadrzędnego przechodzi albo mija razem z nim — przełącznik nic by nie zmienił.
+        task.deadline_mode === 'inherit' ? (
+          <Body muted>{strings['task.rolloverInherit']}</Body>
+        ) : (
+          <Segmented
+            label={strings['task.rollover']}
+            value={task.rollover ? 'roll' : 'day'}
+            onChange={(v) => store.dispatch(patchTask(task.id, { rollover: v === 'roll' }))}
+            options={[
+              { value: 'roll', label: strings['task.rollover.roll'] },
+              { value: 'day', label: strings['task.rollover.day'] },
+            ]}
+          />
+        )
       ) : null}
       {canEdit && !linked && task.parent_id === null ? (
         task.deadline_mode === 'own' && task.due_date ? (
           <>
-            <RepeatEditor value={repeatOf(tables, task.id)} weekday={isoWeekday(parseIsoDate(task.due_date))} onChange={(r) => store.dispatch(setRepeat(task.id, r, task.due_date))} />
-            {repeatOf(tables, task.id) ? <Body muted>{strings['repeat.info']}</Body> : null}
+            <RepeatEditor value={repeat} date={parseIsoDate(task.due_date)} onChange={(r) => store.dispatch(setRepeat(task.id, r, task.due_date))} />
+            {repeat ? <Body muted>{strings['repeat.info']}</Body> : null}
           </>
         ) : (
           <Body muted>{strings['repeat.needsDue']}</Body>
@@ -248,6 +287,21 @@ export function TaskScreen({ route, navigation }: Props) {
           ) : null}
         </View>
       ) : null}
+      {canEdit ? (
+        <View style={{ gap: 6 }}>
+          <Segmented
+            label={strings['task.assignee']}
+            value={task.assignee_member_id ?? ''}
+            onChange={(v) => {
+              setError(null);
+              store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
+            }}
+            options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+          />
+          {/* D180 (PW-21 B): obie drogi zostają — opis różnicy przy polu. */}
+          <Body muted>{strings['task.assigneeHint']}</Body>
+        </View>
+      ) : null}
       {mine && canEdit ? (
         waiting ? (
           <View style={{ gap: 8 }}>
@@ -268,30 +322,69 @@ export function TaskScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
         ) : null
       ) : null}
-      {canEdit ? (
-      <Segmented
-        label={strings['task.assignee']}
-        value={task.assignee_member_id ?? ''}
-        onChange={(v) => {
-          setError(null);
-          store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
-        }}
-        options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
-      />
+      {targets.length ? (
+        moving ? (
+          <AskPanel
+            testID="move-groups"
+            title={strings['task.moveAsk']}
+            body={strings['task.moveInfo']}
+            options={targets.map((g) => ({
+              key: g.id,
+              label: groupName(g),
+              onPress: () => {
+                const r = moveTaskOps(tables, userId, task.id, g.id, newId)!;
+                title.drop();
+                note.drop();
+                store.dispatch(r.ops);
+                // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
+                navigation.goBack();
+                undo.show(strings['task.moved'](task.title, groupName(g)), () => store.dispatch(r.undo));
+              },
+            }))}
+            onCancel={() => setMoving(false)}
+          />
+        ) : (
+          <Button kind="secondary" label={strings['task.move']} testID="task-move" onPress={() => setMoving(true)} />
+        )
       ) : null}
       {depth < config.MAX_TASK_DEPTH ? (
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
+          {/* M-251: ta sama linia opisu co na liście — termin, osoba, „czeka na wysłanie”. */}
           {(node?.children ?? []).map((ch) => (
-            <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
+            <StationRow
+              key={ch.id}
+              testID={`sub-${ch.id}`}
+              title={ch.title}
+              line={detail.list.line}
+              meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
+              pending={pendingIds.has(ch.id)}
+              checked={ch.completed_at !== null}
+              onToggle={() => actions.toggle(ch)}
+              onOpen={() => navigation.push('Task', { taskId: ch.id })}
+            />
           ))}
-          {canEdit ? <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" /> : null}
-          {canEdit ? <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} /> : null}
+          {canEdit ? (
+            <QuickAddField value={sub} onChangeText={(v) => (setSub(v), setSubIgnore([]), setSubError(null))} onSubmit={addSub} placeholder={strings['task.addSubtask']}>
+              <QuickAddExtras preview={{ tokens: subParsed.tokens, event: false, unrecognizedDay: subParsed.unrecognizedDay }} error={subError} onUnclick={(t) => setSubIgnore([...subIgnore, { start: t.start, end: t.end }])} />
+            </QuickAddField>
+          ) : null}
         </View>
       ) : null}
-      {canEdit ? <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} /> : null}
+      {canEdit ? (
+        <Button
+          kind="danger"
+          label={strings['task.delete']}
+          onPress={() => {
+            // M-254: jak przesunięcie na liście — kosz, powrót i pasek „Cofnij”.
+            title.drop();
+            note.drop();
+            actions.remove(task);
+            navigation.goBack();
+          }}
+        />
+      ) : null}
       <TaskHistory entries={taskHistory(tables, task.id, config.HISTORY_LIMIT)} today={today} />
     </Screen>
   );
 }
-

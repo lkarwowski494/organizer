@@ -20,7 +20,7 @@ export type RootStackParams = {
    */
   Event: { eventId: string; date?: string };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */
-  EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string };
+  EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string; participantIds?: string[]; kindSwitch?: boolean };
   /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
   Invite: { token?: string; g?: string; c?: string };
   /** Bez `section` — strona główna ustawień; z nią — podstrona (D131). */
@@ -36,10 +36,10 @@ export type RootStackParams = {
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
   /**
-   * Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”).
+   * Formularz nowego zadania (D90): `text` z pola dodawania („Więcej”); `kindSwitch` — przejście z formularza wydarzenia.
    * `defaultGroupId` — grupa z chipa przy polu (M-24), gdy tekst nie wskazuje innej.
    */
-  AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string; defaultGroupId?: string };
+  AddTask: { text?: string; title?: string; date?: string; time?: string; groupId?: string; defaultGroupId?: string; kindSwitch?: boolean };
 };
 
 export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'adding' | 'account';

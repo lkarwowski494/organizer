@@ -20,9 +20,12 @@ import { patchTask, remove, renameList, restore } from '../../domain/views/comma
 import { type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
+import { AskPanel } from '../../ui/AskPanel';
+import { extractMention } from '../../domain/views/mention';
+import { extractTag, type ListResolution, type QuickAnswers, resolveListQuick } from '../../domain/views/quick-target';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -32,6 +35,8 @@ import { addStaple, addStaplesOps, categoryMemory, categoryOf, itemKey, missingS
 import { listMarks } from './ListsScreen';
 import { ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
+
+type ListAnswers = Pick<QuickAnswers, 'person' | 'skipMention'>;
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
 
@@ -64,6 +69,7 @@ export function ListScreen({ route, navigation }: Props) {
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [ask, setAsk] = useState<{ r: Exclude<ListResolution, { kind: 'ok' }>; answers: ListAnswers } | null>(null);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
@@ -72,7 +78,7 @@ export function ListScreen({ route, navigation }: Props) {
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
-  const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)));
+  const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)), { empty: strings['lists.error.nameEmpty'] });
 
   if (!detail) {
     return (
@@ -107,12 +113,21 @@ export function ListScreen({ route, navigation }: Props) {
   const planError = planned && 'error' in planned ? planned.error : null;
   const tripNeeds = tripRequired(groupKind, list.visibility);
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(tripNeeds, planned.trip);
-  const add = (value = text) => {
-    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: value === text ? ignore : [], newId, listId: list.id }));
+  const add = (value = text, assigneeId: string | null = null, ign = value === text ? ignore : []) => {
+    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: ign, newId, listId: list.id, assigneeId }));
     setText('');
     setIgnore([]);
     setError(null);
+    setAsk(null);
   };
+  // Spójnie z Moimi sprawami (audyt 2): „@imię” przypisuje osobę, która widzi tę listę, „@ja” — mnie; kilka osób albo
+  // żadna — pytanie pod polem. „#…” nie zmienia grupy (wyznacza ją lista) — podpowiedź pod polem, zostaje w nazwie.
+  const proceed = (answers: ListAnswers) => {
+    const r = resolveListQuick(tables, userId, list.id, text, answers);
+    if (r.kind !== 'ok') return setAsk({ r, answers });
+    add(r.body, r.memberId, ignore);
+  };
+  const tag = shopping ? null : (extractTag(text)?.name ?? null);
   // Lista zadań: rozpoznane fragmenty to chipy do odklikania (D18), jak w Moich sprawach. Zakupy — bez terminów (audyt 2, M-20).
   const parsed = shopping ? null : parseQuickAdd(text, now(), { ignore });
   // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): zadanie bez osoby i terminu też się zapisuje, bez pytania —
@@ -120,8 +135,9 @@ export function ListScreen({ route, navigation }: Props) {
   const submit = () => {
     if (text.trim() === '') return;
     // Audyt 2 (M-168): sam termin („jutro”) — nie ma czego dodać; pole zostaje z komunikatem.
-    if (parsed && parsed.title.trim() === '') return setError(strings['form.error.title']);
-    add();
+    if (parsed && parseQuickAdd(extractMention(text).text, now()).title.trim() === '') return setError(strings['form.error.title']);
+    if (shopping) return add();
+    proceed({});
   };
   // D85, D86: działy, pamięć grupy, stałe zakupy (tylko dorośli zmieniają listę i działy; dziecko odhacza).
   const listRow = tables.lists?.[list.id] ?? {};
@@ -259,13 +275,30 @@ export function ListScreen({ route, navigation }: Props) {
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
-        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+          {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (
             <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
           ) : (
             <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} />
           )}
         </QuickAddField>
+      ) : null}
+      {ask?.r.kind === 'many' ? (
+        <AskPanel
+          testID="mention-choices"
+          title={strings['mention.ask'](ask.r.name)}
+          options={ask.r.targets.map((t) => ({ key: t.memberId, label: t.displayName, onPress: () => proceed({ ...ask.answers, person: t }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'unknown' ? (
+        <AskPanel
+          testID="mention-unknown"
+          title={strings['mention.unknownList'](ask.r.name)}
+          body={strings['mention.unknownInfo'](ask.r.name)}
+          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
+          onCancel={() => setAsk(null)}
+        />
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}
       {shopping ? (
@@ -284,7 +317,8 @@ export function ListScreen({ route, navigation }: Props) {
           {detail.doneRows.flatMap(doneRow)}
         </View>
       ) : null}
-      {canDelete ? <Field label={strings['lists.name']} {...rename} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
+      {canDelete ? <Field label={strings['lists.name']} {...rename.field} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
+      {rename.error ? <ErrorText>{rename.error}</ErrorText> : null}
       {canDelete ? (
         <Button
           kind="danger"

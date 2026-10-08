@@ -37,11 +37,11 @@ describe('zadania na spotkaniu (D13)', () => {
     expect(screen.getByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/)).toBeTruthy();
     await openEvent();
     expect(screen.getByTestId('event-task-strój')).toBeTruthy();
-    await type(screen.getByTestId('event-task-title'), '  ');
-    await press(screen.getByTestId('event-task-add'));
+    await type(screen.getByTestId('quick-add'), '  ');
+    await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched).toHaveLength(0);
-    await type(screen.getByTestId('event-task-title'), 'Kupić baletki');
-    await press(screen.getByTestId('event-task-add'));
+    await type(screen.getByTestId('quick-add'), 'Kupić baletki');
+    await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched).toEqual([
       { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Kupić baletki', sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } },
     ]);
@@ -57,16 +57,16 @@ describe('zadania na spotkaniu (D13)', () => {
     delete b.tasks!.strój;
     const { store } = await open(b);
     await openEvent();
-    await type(screen.getByTestId('event-task-title'), 'Baletki');
-    await press(screen.getByTestId('event-task-add'));
+    await type(screen.getByTestId('quick-add'), 'Baletki');
+    await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched[0]).toEqual({ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } });
     expect(store.dispatched[1]).toMatchObject({ entity: 'tasks', set: { list_id: 'new-1' } });
     // Druga lista zadań w grupie → wybór.
     store.dispatch({ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } });
     expect(await screen.findByLabelText('Na liście')).toBeTruthy();
     await press(screen.getByLabelText('Szkoła'));
-    await type(screen.getByTestId('event-task-title'), 'Zeszyt');
-    await press(screen.getByTestId('event-task-add'));
+    await type(screen.getByTestId('quick-add'), 'Zeszyt');
+    await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.at(-1)).toMatchObject({ entity: 'tasks', set: { list_id: 'l2', title: 'Zeszyt' } });
   });
 
@@ -242,8 +242,8 @@ describe('na każde spotkanie w serii (D65)', () => {
     const { store } = await open(b);
     await openEvent();
     await press(screen.getByLabelText('Na każdy termin w serii'));
-    await type(screen.getByTestId('event-task-title'), 'Spakować strój');
-    await press(screen.getByTestId('event-task-add'));
+    await type(screen.getByTestId('quick-add'), 'Spakować strój');
+    await press(screen.getByLabelText('Dodaj'));
     const def = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'event_task_series') as Extract<NewOp, { kind: 'create' }>;
     expect(def).toMatchObject({ group_id: 'gf', set: { event_id: 'ev', list_id: 'lf', title: 'Spakować strój' } });
     const copies = store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'tasks') as Extract<NewOp, { kind: 'create' }>[];

@@ -305,7 +305,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
     expect(radio('Grupa', 'Klasa 2b').props.accessibilityState.selected).toBe(true);
-    await press(screen.getByText('Anuluj'));
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     await write('zebranie jutro 17–18');
     await press(screen.getByTestId('add-more'));
