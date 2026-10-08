@@ -2,7 +2,7 @@
 -- kod przypięty do profilu dziecka i połączenie konta z tym profilem, a potem zasady dziecka z kontem — każda po stronie
 -- serwera: tylko odhacza, bez list, zakupów i przekazań, obecność tylko za siebie, nie wychodzi samo, rolę zmienia owner.
 begin;
-select plan(46);
+select plan(53);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000c1', 'o@x.test'),
@@ -39,11 +39,18 @@ insert into public.lists (id, group_id, kind, name, owner_member_id, due_date) v
   ('c0c00000-0000-7000-8000-0000000000e2', 'c0c00000-0000-7000-8000-000000000001', 'shopping', 'Zakupy', 'c0c00000-0000-7000-8000-0000000000a1', '2026-10-10');
 insert into public.tasks (id, group_id, list_id, title, assignee_member_id) values
   ('c0c00000-0000-7000-8000-0000000000d1', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Posprzątać pokój', 'c0c00000-0000-7000-8000-0000000000b1'),
-  ('c0c00000-0000-7000-8000-0000000000d2', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Rachunek', 'c0c00000-0000-7000-8000-0000000000a3');
+  ('c0c00000-0000-7000-8000-0000000000d2', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Rachunek', 'c0c00000-0000-7000-8000-0000000000a3'),
+  ('c0c00000-0000-7000-8000-0000000000d3', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Przedszkole', null),
+  ('c0c00000-0000-7000-8000-0000000000d6', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e2', 'Chleb', null),
+  ('c0c00000-0000-7000-8000-0000000000d7', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e2', 'Sok', 'c0c00000-0000-7000-8000-0000000000b1');
+insert into public.tasks (id, group_id, list_id, title, parent_id, depth) values
+  ('c0c00000-0000-7000-8000-0000000000d4', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Odkurzyć', 'c0c00000-0000-7000-8000-0000000000d1', 1);
 insert into public.events (id, group_id, title, start_date, start_time, audience) values
   ('c0c00000-0000-7000-8000-0000000001e1', 'c0c00000-0000-7000-8000-000000000001', 'Basen', '2026-10-12', '17:00', 'members');
 insert into public.event_participants (id, event_id, group_id, member_id) values
   (gen_random_uuid(), 'c0c00000-0000-7000-8000-0000000001e1', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000b1');
+insert into public.tasks (id, group_id, list_id, title, event_id, occurrence_date, deadline_mode) values
+  ('c0c00000-0000-7000-8000-0000000000d5', 'c0c00000-0000-7000-8000-000000000001', 'c0c00000-0000-7000-8000-0000000000e1', 'Ręcznik', 'c0c00000-0000-7000-8000-0000000001e1', '2026-10-12', 'event');
 
 -- ───────── 1–10: kod przypięty do profilu dziecka ─────────
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c3');
@@ -93,7 +100,7 @@ insert into pg_temp.c values ('j', public.join_group(pg_temp.jid(), pg_temp.code
 select is((select v ->> 'member_id' from pg_temp.c where k = 'j'), 'c0c00000-0000-7000-8000-0000000000b1', '16: konto dziecka to ten sam member_id co profil');
 select is(private.my_role('c0c00000-0000-7000-8000-000000000001'), 'child', '17: z rolą dziecko');
 select is((select display_name from public.group_members where member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 'Kuba K.', '18: imię wpisane przy dołączaniu (jak przy powrocie, R-25)');
-select is((select count(*)::int from public.tasks where assignee_member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 1, '19: zadania profilu zostają i są widoczne dziecku');
+select is((select count(*)::int from public.tasks where assignee_member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 2, '19: zadania profilu zostają i są widoczne dziecku');
 select is((select count(*)::int from public.event_participants where member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 1, '20: udział w wydarzeniach też');
 select is((select count(*)::int from public.group_members where group_id = 'c0c00000-0000-7000-8000-000000000001' and deleted_at is null), 5, '21: bez nowego wiersza członka');
 reset role;
@@ -156,6 +163,15 @@ select is(pg_temp.push('c0c00000-0000-7000-8000-00000000c0c4', 1, '{"kind":"crea
   'ok', '43: obecność za siebie');
 select is(pg_temp.push('c0c00000-0000-7000-8000-00000000c0c4', 2, '{"kind":"create","entity":"event_rsvps","id":"c0c00000-0000-7000-8000-000000000702","group_id":"c0c00000-0000-7000-8000-000000000001","set":{"event_id":"c0c00000-0000-7000-8000-0000000001e1","occurrence_date":"2026-10-12","member_id":"c0c00000-0000-7000-8000-0000000000a1","answer":"no"}}'),
   'forbidden:not_self', '44: nie za innych');
+
+-- ───────── 47–53: dziecko odhacza tylko swoje sprawy (migracja 20261008441000) ─────────
+select throws_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d2' $$, 'P0001', 'forbidden:not_own', '47: nie odhacza zadania dorosłego');
+select throws_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d3' $$, 'P0001', 'forbidden:not_own', '48: ani nieprzypisanego zadania rodziców (P-70)');
+select lives_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d4' $$, '49: podzadanie swojego zadania — tak');
+select lives_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d5' $$, '50: zadanie przy swoim wydarzeniu — tak');
+select throws_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d6' $$, 'P0001', 'forbidden:not_own', '51: pozycja zakupów, za które odpowiada dorosły — nie');
+select lives_ok($$ update public.tasks set completed_at = now() where id = 'c0c00000-0000-7000-8000-0000000000d7' $$, '52: pozycja przypisana do dziecka — tak');
+select lives_ok($$ update public.tasks set completed_at = null where id = 'c0c00000-0000-7000-8000-0000000000d1' $$, '53: cofnięcie odhaczenia swojego — tak');
 
 -- ───────── 45–46: powrót i usunięcie konta ─────────
 -- Konto, które już jest (było) w grupie, nie połączy się z innym profilem.

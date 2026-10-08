@@ -65,6 +65,15 @@ export class FakeServer {
     return g.version;
   }
 
+  private childOwns(task: Stored, me: string): boolean {
+    let cur: Stored | undefined = task;
+    for (let step = 0; cur && step < 8; step++) {
+      if (cur.assignee_member_id != null) return cur.assignee_member_id === me;
+      cur = cur.parent_id == null ? undefined : this.tasks.get(String(cur.parent_id));
+    }
+    return false;
+  }
+
   private member(group: string, user: string): Member | undefined {
     const m = this.groups.get(group)?.members.get(user);
     return m && !m.deleted ? m : undefined;
@@ -152,6 +161,12 @@ export class FakeServer {
       // list nie zmienia wcale (lists_guard); widoczność zmienia tylko twórca listy.
       const changes = Object.entries(op.set).some(([k, v]) => k !== 'completed_at' && (r[k] ?? null) !== (v ?? null));
       if (child && (op.entity === 'lists' || changes)) throw new Error('forbidden:child');
+      // PW-14 B (migracja 20261008441000): dziecko odhacza tylko swoje sprawy. Model upraszcza private.child_owns_task:
+      // swoje = przypisane do dziecka (identyfikator członka jak w memberRows) albo podzadanie takiego; zadania przy
+      // wydarzeniach i listy z osobą zakupów — w testach SQL (child_account.test.sql), generator ich tu nie tworzy.
+      if (child && op.entity === 'tasks' && 'completed_at' in op.set && (r.completed_at ?? null) !== (op.set.completed_at ?? null) && !this.childOwns(r, `${g}:${user}`)) {
+        throw new Error('forbidden:not_own');
+      }
       if (op.entity === 'lists' && op.set.visibility !== undefined && op.set.visibility !== r.visibility && r.owner !== user) throw new Error('forbidden:not_list_owner');
       t.set(op.id, { ...r, ...op.set, version: this.bump(g) });
       // D139 (lists_widen_bump): lista poszerzona do „cała grupa” — jej zadania z nowymi wersjami, żeby trafiły do nowych osób.

@@ -67,7 +67,10 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   (admin / członek / dziecko) zmienia tylko owner (admin: `forbidden:role`); w Moich sprawach, przypomnieniach,
   Kalendarzu i na liście wydarzeń grupy — tylko swoje sprawy (przypisane do niego, ich podzadania, zadania przy
   wydarzeniach, które go dotyczą) i wydarzenia, w których uczestniczy (albo całej grupy); zakupy grupy widzi bez pola
-  odhaczenia; swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd. Migracja
+  odhaczenia; swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
+  (i cofa odhaczenie) tylko swoje sprawy i pozycje przypisane do niego albo z zakupów, za które odpowiada — serwer
+  `forbidden:not_own` (`private.child_owns_task`, migracja `20261008441000_child_check_off.sql`), ekrany bez pola
+  odhaczenia przy cudzych (decyzja koordynatora z 8.10.2026, zasada właściciela; odrzucone: odhacza wszystko, D34). Migracja
   `20261008440000_child_account.sql`, testy `supabase/tests/child_account.test.sql`, `src/domain/views/child.ts`.
   Odrzucone: osobne zaproszenie dziecka (nowy wiersz obok profilu — A), na razie bez kont dzieci (C); ukrywanie cudzych
   spraw przed dzieckiem w RLS (zmiana widoczności przy każdej zmianie roli — wymagałaby sygnału nowego zakresu jak D139;

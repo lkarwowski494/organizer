@@ -4,7 +4,7 @@
  */
 import type { CivilDate } from '../civil-date';
 import type { Row } from '../sync-engine/client';
-import { calendarMonth, liveMembers, todayView } from '../views';
+import { calendarMonth, checkOff, liveMembers, todayView } from '../views';
 import { childEventConcerns, childOwner } from '../views/child';
 import { asTask, type Tables } from '../views/model';
 import { myDays } from '../views/my-days';
@@ -101,6 +101,28 @@ describe('childOwner: zadanie jest sprawą dziecka', () => {
     const owns = childOwner(t, liveMembers(t));
     const mine = Object.keys(t.tasks!).filter((id) => owns(asTask(t.tasks![id]!), 'kuba')).sort();
     expect(mine).toEqual(['dawnego', 'krok', 'moje', 'mop', 'pod-krokiem', 'pod-moim', 'pod-pod-moim', 'przy-dawnym']);
+  });
+});
+
+describe('pozycje zakupów i odhaczanie (decyzja koordynatora z 8.10.2026: dziecko odhacza tylko swoje)', () => {
+  it('pozycja jest dziecka, gdy przypisana do niego albo dziecko odpowiada za zakupy; checkOff tylko u dziecka', () => {
+    const t = world();
+    add(t, 'sok', { assignee_member_id: 'kuba' }, 'lz');
+    add(t, 'ali', { assignee_member_id: 'ala' });
+    add(t, 'moje', { assignee_member_id: 'kuba' });
+    const owns = childOwner(t, liveMembers(t));
+    const item = (id: string) => asTask(t.tasks![id]!);
+    expect([owns(item('chleb'), 'kuba'), owns(item('sok'), 'kuba')]).toEqual([false, true]);
+    // Lista zakupów, za które odpowiada dziecko (dane spoza dzisiejszego UI — reguła jak w SQL).
+    put(t, 'lists', 'lz', { ...t.lists!.lz!, responsible_member_id: 'kuba' });
+    expect(childOwner(t, liveMembers(t))(item('chleb'), 'kuba')).toBe(true);
+    const kid = checkOff(t, KID);
+    expect(['chleb', 'sok', 'ali', 'moje'].map((id) => kid(item(id)))).toEqual([true, true, false, true]);
+    // Dane bez list (np. przed pierwszym pobraniem) — pozycja bez osoby nie jest dziecka.
+    expect(childOwner({ tasks: { chleb: t.tasks!.chleb! } }, liveMembers(t))(item('chleb'), 'kuba')).toBe(false);
+    // Dorosły odhacza wszystko; zadanie spoza moich grup — jak dotąd (rozstrzyga serwer).
+    const adult = checkOff(t, 'u-ala');
+    expect(['chleb', 'ali'].map((id) => adult(item(id)))).toEqual([true, true]);
   });
 });
 
