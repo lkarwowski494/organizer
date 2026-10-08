@@ -3,7 +3,7 @@
 ## Decyzje produktowe (właściciel, 7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D75 | Przypomnienia | Na telefonie: 30 min przed sprawą z godziną i o 8:00 zbiorcze dla spraw bez godziny. Osoba zmienia to w Ustawieniach. | Wybór przy każdej sprawie; push z serwera (pg_cron) |
+| D75 | Przypomnienia | Na telefonie: 30 min przed sprawą z godziną i o 8:00 zbiorcze dla spraw bez godziny. Osoba zmienia to w Ustawieniach. → poranne zbiorcze zastąpione przez D110 (ADR 0026: podsumowanie całego dnia); przy wydarzeniu z policzonym dojazdem „Czas wyjść” zamiast 30 min przed (D117, ADR 0029). | Wybór przy każdej sprawie; push z serwera (pg_cron) |
 | D76 | Powtarzanie i historia | Proste powtarzanie: codziennie, co tydzień w wybrane dni, co miesiąc, co N dni lub tygodni od wykonania. Historia „kto, co, kiedy” na ekranie zadania. | Ogólny kanał „Co nowego” |
 | D77 | Zakupy | Ilości przy pozycjach i zakupy w Kalendarzu. Lista stałych zakupów do backlogu. | Działy sklepu; podpowiedzi z historii (na później) |
 | O-048 | Szerokie testy | Publiczny link TestFlight | Tylko zaproszenia e-mailem |

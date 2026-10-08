@@ -14,7 +14,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 1. **Reguła powtarzania to podzbiór RRULE z RFC 5545** (https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10): DAILY, WEEKLY, MONTHLY, YEARLY, INTERVAL, BYDAY (w MONTHLY także z numerem), BYMONTHDAY, COUNT, UNTIL, tydzień od poniedziałku.
    - Cytaty z RFC są w `src/domain/rrule.ts`.
-   - Rozwijanie sprawdza korpus 436 przypadków z niezależnej implementacji, python-dateutil 2.9.0.post0 (`scripts/gen-rrule-corpus.py`).
+   - Rozwijanie sprawdza korpus 409 przypadków (przeliczone z `rrule.json` 8.10.2026; wcześniej podane tu 436 nie zgadzało się z plikiem) z niezależnej implementacji, python-dateutil 2.9.0.post0 (`scripts/gen-rrule-corpus.py`).
    - Odrzucone: biblioteka rrule.js. Liczy na `Date` w UTC, a my trzymamy daty cywilne Europe/Warsaw (R2). Zmiana czasu nie może przesuwać zajęć.
 2. **Różne godziny w różne dni to osobne serie.** Przykład: pon. 18:00 i sob. 12:00. Formularz pozwala dodać kilka terminów naraz, a każdy termin zapisuje się jako osobna seria.
    - Powód: RFC 5545 daje serii jedną godzinę startu (DTSTART).
@@ -53,5 +53,5 @@ Decyzja wykonawcza: przesuwanie zrobione na poziomym `ScrollView` z RN, bez nowe
 - Odrzucone: react-native-gesture-handler. To nowa zależność natywna i trudniejsze testy.
 
 ## Do zrobienia później
-- D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami).
-- Przypomnienia o wydarzeniach (push).
+- D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami). → zrobione w ADR 0008.
+- Przypomnienia o wydarzeniach (push). → zrobione: przypomnienia lokalne D75 (ADR 0016) i push do osoby odpowiedzialnej D88 (ADR 0018).

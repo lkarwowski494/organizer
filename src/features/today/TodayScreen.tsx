@@ -1,5 +1,5 @@
 /**
- * „Moje sprawy” — rdzeń produktu (D0.4): moje sprawy ze wszystkich grup na jednej mapie linii. Dzień / tydzień /
+ * „Moje sprawy” (D89) — rdzeń produktu: moje sprawy ze wszystkich grup na jednej liście, z kolorem grupy. Dzień / tydzień /
  * miesiąc ze strzałkami (wczoraj, jutro…), zaległe przechodzą na dziś z czerwonym znacznikiem (D61).
  */
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { config } from '../../config';
 import { quickAddOps } from '../../app/quickadd';
 import { findTimeRange, withoutRange } from '../../domain/time-range';
 import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
@@ -99,7 +100,7 @@ export function TodayScreen() {
     const q = quickEvent({ tables, userId, text: body, now: now(), ignore, groupId: target?.groupId, memberId: target?.memberId });
     const event = q ? quickEventOps(q, newId) : null;
     if (q && event) {
-      // D98: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
+      // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
       undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
       return clear();
@@ -187,7 +188,7 @@ export function TodayScreen() {
     return i ? [strings['travel.leave'](formatTime(i.leaveMs), i.minutes, strings[`travel.mode.${i.mode}`])] : [];
   };
   // D114: seria (od 2 z rzędu) przy rutynie i zadaniu powtarzanym.
-  const streakOf = (k: number) => (k >= 2 ? [strings['streak'](k)] : []);
+  const streakOf = (k: number) => (k >= config.streak.MIN_SHOWN ? [strings['streak'](k)] : []);
   const nestMeta = (n?: Nesting) => [
     ...(n?.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []),
     ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []),
@@ -265,7 +266,7 @@ export function TodayScreen() {
         a11yHint={strings['form.moreHint']}
         testID="add-more"
         onPress={() => {
-          // Z zakresem godzin — od razu formularz wydarzenia (D98); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu.
+          // Z zakresem godzin — od razu formularz wydarzenia (D99); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu.
           const { text: rest, mention } = extractMention(text);
           const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
           const one = targets.length === 1 ? targets[0] : undefined;

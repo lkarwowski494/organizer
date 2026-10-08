@@ -6,7 +6,6 @@ import { config } from '../config';
 import { plural } from '../domain/plural';
 
 export const strings = {
-  'app.name': 'Organizer',
   'app.loading': 'Wczytywanie…',
 
   /** Podpis członka po usunięciu konta (D49); serwer wpisuje ten sam tekst (private.deleted_user_label, test kontraktowy). */
@@ -27,10 +26,8 @@ export const strings = {
   'tabs.groups': 'Grupy',
 
   'today.title': 'Moje sprawy',
-  'today.overdue': 'Zaległe',
   'today.pinned': 'Przypięte',
   'today.today': 'Dziś',
-  'today.tomorrow': 'Jutro',
   'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd piątek” albo „mleko jutro o 17”.',
   'today.noDue': 'bez terminu',
   'today.range': 'Zakres',
@@ -51,7 +48,6 @@ export const strings = {
   'quick.placeholder': 'np. „mleko jutro o 17”',
   'quick.add': 'Dodaj',
   'quick.chipA11y': (text: string) => `Rozpoznano: ${text}. Dotknij, żeby zostawić w tytule`,
-  'quick.target': (list: string) => `Doda do: ${list}`,
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
@@ -74,6 +70,15 @@ export const strings = {
   'rsvp.list.no': (names: string) => `Nie będą: ${names}`,
   'rsvp.none': (n: number) => `Bez odpowiedzi: ${n}`,
   'rsvp.short': (c: { yes: number; maybe: number; no: number }) => [c.yes ? `${c.yes} tak` : '', c.maybe ? `${c.maybe} może` : '', c.no ? `${c.no} nie` : ''].filter(Boolean).join(', '),
+  // D125: wybór godziny kafelkami.
+  'time.pick': 'Wybierz godzinę',
+  'time.hour': 'Godzina',
+  'time.minute': 'Minuty',
+  'time.hourA11y': (h: string) => `Godzina ${h}`,
+  'time.minuteA11y': (m: string) => `Minuty ${m}`,
+  'time.manual': 'Inna godzina',
+  'time.manualHint': 'GG:MM',
+  'time.clear': 'Bez godziny',
   // D122: przerwa w widoku dnia.
   'day.gap': (length: string) => `wolne ${length}`,
   'day.gapA11y': (length: string) => `Wolne ${length}`,
@@ -153,7 +158,7 @@ export const strings = {
   'timetable.both': 'Co tydzień',
   'timetable.week': 'Kiedy',
   'timetable.lesson': 'Lekcja',
-  'timetable.end': 'Koniec (GG:MM)',
+  'timetable.end': 'Koniec',
   'timetable.add': (day: string) => `Dodaj lekcję: ${day}`,
   'timetable.remove': 'Usuń lekcję',
   'timetable.removeA11y': (n: number) => `Usuń lekcję ${n}`,
@@ -188,7 +193,7 @@ export const strings = {
   'task.deleted': 'Zadanie usunięte',
   'task.save': 'Zapisz',
   'task.dueDate': 'Dzień',
-  'task.dueTime': 'Godzina (GG:MM, opcjonalnie)',
+  'task.dueTime': 'Godzina (opcjonalnie)',
   'task.invalidDate': 'Wybierz dzień w kalendarzu.',
   'task.invalidTime': 'Wpisz godzinę jako GG:MM, np. 17:30',
   'task.clearDue': 'Usuń termin',
@@ -212,14 +217,12 @@ export const strings = {
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
   'lists.delete': 'Usuń listę',
-  'lists.rename': 'Zmień nazwę',
   'lists.expired': 'minęło',
   'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”',
   'today.moveOverdue': (n: number) => `Przenieś zaległe na dziś (${n})`,
   'today.movedOverdue': (n: number) => `Przeniesiono na dziś: ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}`,
   'today.overdueDays': (n: number) => (n === 1 ? 'zaległe od wczoraj' : `zaległe od ${n} dni`),
   'lists.pendingItem': 'czeka na wysłanie',
-  'shop.categoryOf': (name: string) => `Dział: ${name}`,
   'shop.pickCategory': (item: string) => `Zmień dział: ${item}`,
   'shop.categoryHint': 'Wybór zapamiętamy w tej grupie dla tej nazwy.',
   'shop.addStaple': 'Dodaj do stałych',
@@ -245,7 +248,6 @@ export const strings = {
   'calendar.title': 'Kalendarz',
   'calendar.prev': 'Poprzedni miesiąc',
   'calendar.next': 'Następny miesiąc',
-  'calendar.today': 'Dziś',
   'calendar.dayA11y': (date: string, n: number, holiday: string | null, events = 0) =>
     `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}`,
   'calendar.empty': 'Tego dnia nic nie ma.',
@@ -261,8 +263,8 @@ export const strings = {
   'event.when': 'Pora',
   'event.allDay': 'Cały dzień',
   'event.atTime': 'O godzinie',
-  'event.start': 'Początek (GG:MM)',
-  'event.end': 'Koniec (GG:MM, opcjonalnie)',
+  'event.start': 'Początek',
+  'event.end': 'Koniec (opcjonalnie)',
   'event.repeat': 'Powtarzanie',
   'event.repeat.none': 'Nie powtarza się',
   'event.repeat.daily': 'Codziennie',
@@ -411,8 +413,6 @@ export const strings = {
   'groups.trash': 'Kosz',
   'groups.trashLeft': (days: number) => `usunięcie za ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}`,
   'groups.restore': (name: string) => `Przywróć: ${name}`,
-  'groups.memberOpen': (name: string) => `Osoba: ${name}`,
-  'member.title': 'Osoba w grupie',
   'member.name': 'Imię w grupie',
   'member.saveName': 'Zapisz imię',
   'member.role': 'Rola',
@@ -431,7 +431,6 @@ export const strings = {
   'invite.paste': 'Wklej wiadomość albo link (opcjonalnie)',
   'invite.joinId': 'ID grupy (9 cyfr)',
   'invite.code': 'Kod (6 cyfr)',
-  'invite.joined': 'Dołączono do grupy',
 
   'settings.title': 'Ustawienia',
   'settings.open': 'Ustawienia',
@@ -467,7 +466,6 @@ export const strings = {
 
   'auth.title': 'Organizer',
   'auth.tagline': 'Wszystkie Twoje grupy na jednej mapie.',
-  'auth.apple': 'Zaloguj się przez Apple',
   'auth.email': 'Adres e-mail',
   'auth.sendLink': 'Wyślij link do logowania',
   'auth.linkSent': (email: string) => `Wysłaliśmy link na ${email}. Otwórz go na tym iPhonie.`,

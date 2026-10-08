@@ -1,6 +1,6 @@
 -- Protokół synchronizacji (migracja 20261006120200_sync): sync_push, sync_pull, sync_fetch_scope, purge.
 begin;
-select plan(48);
+select plan(50);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-00000000000a', 'a@x.test'), ('00000000-0000-7000-8000-00000000000b', 'b@x.test');
@@ -155,6 +155,15 @@ select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000a
 select is((public.sync_push('aaaaaaaa-0000-7000-8000-000000000001', 1, '[{"seq":25,"kind":"cmd","cmd":"revoke_scope","args":{"list_id":"66666666-0000-7000-8000-000000000002","member_id":"55555555-0000-7000-8000-0000000000b1"}}]') -> 'results' -> 0 ->> 'status'), 'ok', '39: revoke_scope');
 select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000b', true);
 select is((public.sync_pull('{}') -> 'scopes'), '[]'::jsonb, '40: po cofnięciu zakres znika');
+-- Lista z kosza: udostępnienie odrzucone (20261008290000_grant_deleted_list; znalazł test różnicowy sync-sim).
+select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000a', true);
+select is((public.sync_push('aaaaaaaa-0000-7000-8000-000000000001', 1, '[
+  {"seq":26,"kind":"delete","entity":"lists","id":"66666666-0000-7000-8000-000000000002"},
+  {"seq":27,"kind":"cmd","cmd":"grant_scope","args":{"list_id":"66666666-0000-7000-8000-000000000002","member_id":"55555555-0000-7000-8000-0000000000b1"}},
+  {"seq":28,"kind":"restore","entity":"lists","id":"66666666-0000-7000-8000-000000000002"}
+]') -> 'results' -> 1 ->> 'code'), 'deleted:list', '40a: udostępnienie listy z kosza odrzucone');
+select is((select count(*)::int from public.object_members where scope_id = '66666666-0000-7000-8000-000000000002' and member_id = '55555555-0000-7000-8000-0000000000b1' and deleted_at is null), 0, '40b: bez aktywnego dostępu');
+select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000b', true);
 
 -- B wychodzi z grupy → grupa znika z pull (klient usuwa jej dane lokalnie).
 select is((public.sync_push('bbbbbbbb-0000-7000-8000-000000000001', 1, '[{"seq":3,"kind":"delete","entity":"group_members","id":"55555555-0000-7000-8000-0000000000b1"}]') -> 'results' -> 0 ->> 'status'), 'ok', '41: B wychodzi');
@@ -176,7 +185,7 @@ select ok(not exists (select 1 from jsonb_array_elements(public.sync_pull('{}') 
 
 -- Regresja (test różnicowy): „cofnij dostęp” osobie bez dostępu NIE może jej go dać.
 select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-00000000000a', true);
-select is((public.sync_push('aaaaaaaa-0000-7000-8000-000000000001', 1, '[{"seq":26,"kind":"cmd","cmd":"revoke_scope","args":{"list_id":"66666666-0000-7000-8000-000000000002","member_id":"55555555-0000-7000-8000-0000000000a1"}}]') -> 'results' -> 0 ->> 'status'), 'ok', '47: cofnięcie bez wpisu — bez błędu');
+select is((public.sync_push('aaaaaaaa-0000-7000-8000-000000000001', 1, '[{"seq":29,"kind":"cmd","cmd":"revoke_scope","args":{"list_id":"66666666-0000-7000-8000-000000000002","member_id":"55555555-0000-7000-8000-0000000000a1"}}]') -> 'results' -> 0 ->> 'status'), 'ok', '47: cofnięcie bez wpisu — bez błędu');
 reset role;
 select is((select count(*)::int from public.object_members where scope_id = '66666666-0000-7000-8000-000000000002' and member_id = '55555555-0000-7000-8000-0000000000a1'), 0, '48: cofnięcie bez wpisu niczego nie wstawia');
 

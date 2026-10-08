@@ -6,6 +6,7 @@
  *    bez godziny, potem z godziną („17:00 Tańce”). Wysyłane, gdy dzień ma cokolwiek (dawniej tylko sprawy bez godziny).
  * Tylko przyszłe chwile, najbliższe `max`. Zamiana czasu warszawskiego na chwilę — wstrzykiwana (`toMs`).
  */
+import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { myDays } from './my-days';
@@ -62,8 +63,9 @@ export function planReminders(
     const all = [...untimed, ...timed];
     if (s.morning !== 'off' && all.length) {
       const at = opts.toMs({ ...parseIsoDate(iso), ...hm(s.morning) });
-      const shown = all.slice(0, 4).join(', ');
-      const list = all.length > 4 ? `${shown} ${opts.label.more(all.length - 4)}` : shown;
+      const max = config.reminders.MORNING_LIST_MAX;
+      const shown = all.slice(0, max).join(', ');
+      const list = all.length > max ? `${shown} ${opts.label.more(all.length - max)}` : shown;
       if (at > nowMs) out.push({ id: `m|${iso}`, at, title: opts.label.morningTitle, body: `${opts.label.summary(all.length, overdue)}: ${list}` });
     }
   }

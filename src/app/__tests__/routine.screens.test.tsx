@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -18,7 +18,7 @@ describe('rutyny (D113)', () => {
     expect(screen.getByText('Wpisz nazwę rutyny.')).toBeTruthy();
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek Kuby');
-    await fireEvent.changeText(screen.getByTestId('routine-start'), '07:00');
+    await setTime('routine-start', '07:00');
     await press(screen.getByTestId('routine-save'));
     expect(screen.getByText('Dodaj co najmniej jeden krok.')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('routine-step-0'), 'Zęby');

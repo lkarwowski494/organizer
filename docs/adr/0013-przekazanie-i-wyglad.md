@@ -26,6 +26,6 @@ Zgłoszenie właściciela: do nowej wersji tryb jasny, nowa ikona i wyraźniejsz
    - Sekcja „Do potwierdzenia” na „Dotyczy mnie”.
    - Plakietka z liczbą na zakładce „Dziś”.
    - Na ekranie zadania lub wydarzenia: „Czeka na przyjęcie: X” z możliwością anulowania.
-7. **Powiadomienie push to osobny etap.**
+7. **Powiadomienie push to osobny etap.** → zrobione w ADR 0015.
    - Wymaga tokenów urządzeń, funkcji wysyłającej przez APNs i włączenia Push Notifications w identyfikatorze aplikacji w Apple Developer.
    - Do tego czasu przekazanie widać w aplikacji po synchronizacji.

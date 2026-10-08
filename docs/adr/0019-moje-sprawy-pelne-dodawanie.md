@@ -22,7 +22,7 @@ Zgłoszenie właściciela:
    - Zmiana listy w tej samej grupie to zwykłe przeniesienie (`move_task`), więc historia zostaje.
    - Odrzucone: przenoszenie między grupami po stronie serwera. Wymagałoby nowego RPC przenoszącego też historię i podzadania. Do rozważenia, gdy „Zmień” będzie dostępne dla starszych zadań.
 3. **„@imię”:**
-   - Działa jak początek imienia, bez wielkości liter i polskich znaków, bez odmiany: „@Alą” nie pasuje do „Ala”.
+   - Działa jak początek imienia, bez wielkości liter i polskich znaków, bez odmiany: „@Alę” nie pasuje do „Ala”. (Poprawka 8.10.2026: wcześniej był tu przykład „@Alą”, ale ten pasuje, bo bez polskich znaków ą → a; test w `src/domain/__tests__/mention.test.ts`.)
    - Nie pasuje do mnie samego ani do grup, w których jestem dzieckiem.
    - Bez dopasowania tekst zostaje w nazwie.
    - Parser dat (D18, korpus z niezależnym wzorcem) się nie zmienił. „@imię” jest rozpoznawane osobno (`domain/views/mention.ts`) i przed parsowaniem zastępowane spacjami, żeby odklikane fragmenty zachowały pozycje.

@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { setup } from './harness';
+import { setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
@@ -24,7 +24,7 @@ describe('plan lekcji (D112)', () => {
     await press(radio('Ten tydzień (5–11 października) to', 'Tydzień B'));
     await press(screen.getByTestId('lesson-add-4'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Basen');
-    await fireEvent.changeText(screen.getByTestId('lesson-end-0'), '09:00');
+    await setTime('lesson-end-0', '09:00');
     await press(within(screen.getByLabelText('Kiedy')).getByLabelText('Tydzień B'));
     await press(screen.getByTestId('timetable-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Basen', start_date: '2026-10-09' } });
@@ -37,14 +37,14 @@ describe('plan lekcji (D112)', () => {
     expect(screen.getByText('Dodaj co najmniej jedną lekcję.')).toBeTruthy();
     await press(screen.getByTestId('lesson-add-0'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka');
-    await fireEvent.changeText(screen.getByTestId('lesson-end-0'), '08:45');
+    await setTime('lesson-end-0', '08:45');
     await press(screen.getByTestId('lesson-add-0'));
-    expect(screen.getByTestId('lesson-start-1').props.value).toBe('08:45');
+    expect(screen.getByTestId('lesson-start-1').props.accessibilityValue.text).toBe('08:45');
     await fireEvent.changeText(screen.getByTestId('lesson-title-1'), 'Plastyka');
-    await fireEvent.changeText(screen.getByTestId('lesson-end-1'), '08:00');
+    await setTime('lesson-end-1', '08:00');
     await press(screen.getByTestId('timetable-save'));
     expect(screen.getByText(/Koniec musi być/)).toBeTruthy();
-    await fireEvent.changeText(screen.getByTestId('lesson-end-1'), '09:30');
+    await setTime('lesson-end-1', '09:30');
     await press(within(screen.getAllByLabelText('Kiedy')[1]!).getByLabelText('Tydzień B'));
     await press(screen.getByTestId('lesson-add-2'));
     await press(screen.getAllByText('Usuń lekcję')[2]!);

@@ -18,6 +18,7 @@ import {
 
 import type { DeviceEvent } from '../domain/views/calendar-sync';
 
+import { config } from '../config';
 import { addDays, formatIsoDate } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
 import { localToMs } from './clock';
@@ -110,8 +111,8 @@ export function toDeviceEvent(e: { id: string; calendarId: string; title: string
   return { ...base, allDay: true, startDate: localIso(start), endDate: localIso(endExclusive > atLeast ? endExclusive : atLeast) };
 }
 
-/** Domyślna długość wydarzenia bez godziny końca w kalendarzu iPhone'a (min). Wybór projektowy, bez źródła. */
-const DEFAULT_MINUTES = 60;
+/** Domyślna długość wydarzenia bez godziny końca w kalendarzu iPhone'a (min, config.calendar). */
+const DEFAULT_MINUTES = config.calendar.DEFAULT_EVENT_MINUTES;
 
 /** Wystąpienie (dzień, godziny Europe/Warsaw) → szkic wydarzenia kalendarza iPhone'a. */
 export function draftOf(o: { title: string; date: string; startTime: string | null; endTime: string | null }, notes?: string): CalendarDraft {

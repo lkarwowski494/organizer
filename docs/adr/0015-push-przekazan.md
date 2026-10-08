@@ -26,7 +26,7 @@ Decyzja właściciela D70: przekazanie to „push + w aplikacji”. Ten dokument
    - token dostawcy JWT ES256, używany ponownie przez 30 minut w ciepłej instancji (Apple: nie częściej niż co 20 minut, nie dłużej niż godzinę);
    - wtyczka `expo-notifications` ustawia środowisko „production”, bo buildy idą przez TestFlight.
 6. **Zgoda na powiadomienia:**
-   - prośba to karta „Powiadomienia o przekazaniach” na „Dotyczy mnie”, tylko dla osób we wspólnej grupie;
+   - prośba to karta „Powiadomienia o przekazaniach” na „Dotyczy mnie”, tylko dla osób we wspólnej grupie; → zastąpione: karta dla każdego (ADR 0016, decyzja wykonawcza 1).
    - „Włącz” otwiera okno systemowe, „Nie teraz” chowa kartę na tym telefonie;
    - włączyć później można w Ustawieniach iPhone'a.
 

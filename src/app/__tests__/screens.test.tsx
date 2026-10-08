@@ -7,7 +7,7 @@ import { Alert, Share } from 'react-native';
 
 import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
-import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate } from './harness';
+import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate, setTime } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
   const s = setup(opts);
@@ -124,7 +124,7 @@ describe('Listy i zadania', () => {
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
     await pickDate('task-date', '2026-10-09');
-    await type(screen.getByTestId('task-time'), '25:00');
+    await setTime('task-time', '25:00');
     await press(screen.getByTestId('task-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));
@@ -135,7 +135,7 @@ describe('Listy i zadania', () => {
     await press(screen.getAllByLabelText('Dodaj podzadanie').at(-1)!);
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
     expect(await screen.findByText('wstążka')).toBeTruthy();
-    await type(screen.getByTestId('task-time'), '17:30');
+    await setTime('task-time', '17:30');
     await type(screen.getByTestId('task-note'), 'tulipany');
     await press(screen.getByTestId('task-save'));
     const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));

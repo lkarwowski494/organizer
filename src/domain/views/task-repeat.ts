@@ -8,6 +8,7 @@
  * Id następnego = uuidv5(id + „|next”), więc dwa telefony odhaczające naraz nie zrobią dwóch kopii (serwer: utworzenie
  * istniejącego id nic nie robi). Cofnięcie odhaczenia usuwa nietkniętą kopię. Podzadania nie są kopiowane.
  */
+import { config } from '../../config';
 import { addDays, type CivilDate, compareDates, formatIsoDate } from '../civil-date';
 import { nextAfterCompletion } from '../deadlines';
 import { parseIsoDate } from '../format';
@@ -64,7 +65,7 @@ export function nextDue(r: Repeat, due: CivilDate, done: CivilDate): CivilDate {
   const from = addDays(compareDates(done, due) > 0 ? done : due, 1);
   const rule = parseRule(formatRepeat(r));
   // Reguła tygodniowa liczy tygodnie od startu; start = termin (dzień z reguły albo poza nią — wtedy pierwsze trafienie później).
-  return occurrences(due, rule, from, addDays(from, 400))[0]!;
+  return occurrences(due, rule, from, addDays(from, config.repeat.NEXT_SEARCH_DAYS))[0]!;
 }
 
 /** Odhaczenie (albo cofnięcie) zadania z powtarzaniem: operacje razem z samym odhaczeniem. */

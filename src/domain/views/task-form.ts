@@ -1,6 +1,6 @@
 /**
  * Pełny formularz zadania (D90, ADR 0019): „Więcej” przy polu dodawania i „Zmień” po szybkim dodaniu. Wypełniony tym,
- * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, listy, osoby i powtarzania.
+ * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, osoby i powtarzania (bez wyboru listy, D97).
  *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
  *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
  *    (z notatką) na ogólnej liście nowej grupy, a stare idzie do kosza (można je przywrócić).

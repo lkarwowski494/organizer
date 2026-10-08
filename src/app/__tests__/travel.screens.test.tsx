@@ -4,7 +4,7 @@ import { Linking } from 'react-native';
 
 import type { TravelService } from '../travel-service';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
@@ -115,7 +115,7 @@ describe('dojazd (D115–D117)', () => {
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-event'));
     await fireEvent.changeText(await screen.findByTestId('event-title'), 'Dentysta');
-    await fireEvent.changeText(screen.getByTestId('event-start-0'), '15:00');
+    await setTime('event-start-0', '15:00');
     await fireEvent.changeText(screen.getByTestId('event-location'), ' Przychodnia, ul. Zdrowa 2 ');
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Dentysta', location: 'Przychodnia, ul. Zdrowa 2' } });

@@ -6,7 +6,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup , pickDate } from './harness';
+import { put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -41,11 +41,11 @@ describe('Wydarzenia: dodawanie', () => {
     expect(screen.getByLabelText('W środę').props.accessibilityState.checked).toBe(true); // dzień z kalendarza
     await press(screen.getByLabelText('W środę'));
     await press(screen.getByLabelText('W poniedziałek'));
-    await type(screen.getByTestId('event-start-0'), '18:00');
-    await type(screen.getByTestId('event-end-0'), '19:00');
+    await setTime('event-start-0', '18:00');
+    await setTime('event-end-0', '19:00');
     await press(screen.getByTestId('event-add-slot'));
     await press(screen.getByLabelText('W sobotę (Termin 2)'));
-    await type(screen.getByTestId('event-start-1'), '12:00');
+    await setTime('event-start-1', '12:00');
     await press(screen.getByLabelText('Wybrane osoby'));
     await press(screen.getByLabelText('Uczestnik: Kuba'));
     await press(screen.getByTestId('event-save'));
@@ -72,13 +72,13 @@ describe('Wydarzenia: dodawanie', () => {
     await type(screen.getByTestId('event-title'), 'Basen');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
-    await type(screen.getByTestId('event-start-0'), '7:00');
+    await setTime('event-start-0', '7:00');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await press(screen.getByLabelText('Co tydzień'));
-    await type(screen.getByTestId('event-start-0'), '07:00');
+    await setTime('event-start-0', '07:00');
     await press(screen.getByTestId('event-add-slot'));
-    await type(screen.getByTestId('event-start-1'), '08:00');
+    await setTime('event-start-1', '08:00');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Wybierz co najmniej jeden dzień tygodnia.')).toBeTruthy();
     await press(screen.getByLabelText('Usuń termin 2'));
@@ -111,7 +111,7 @@ describe('Wydarzenia: dodawanie', () => {
     expect(screen.queryByLabelText('Grupa')).toBeTruthy(); // wybór grupy, podpowiedziana Rodzina
     expect(screen.getByLabelText('Rodzina').props.accessibilityState.selected).toBe(true);
     await type(screen.getByTestId('event-title'), 'Zebranie');
-    await type(screen.getByTestId('event-start-0'), '19:00');
+    await setTime('event-start-0', '19:00');
     await press(screen.getByLabelText('Co miesiąc'));
     await pickDate('event-date', '2026-10-28');
     expect(screen.getByLabelText('28. dnia')).toBeTruthy();
@@ -157,8 +157,8 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByText('Zmieniasz tylko to jedno wystąpienie.')).toBeTruthy();
     expect(screen.queryByLabelText('Powtarzanie')).toBeNull();
     expect(screen.queryByLabelText('Kogo dotyczy')).toBeNull();
-    await type(screen.getByTestId('event-start-0'), '16:00');
-    await type(screen.getByTestId('event-end-0'), '17:00');
+    await setTime('event-start-0', '16:00');
+    await setTime('event-end-0', '17:00');
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(store.dispatched).toEqual([
@@ -201,8 +201,8 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('scope-following'));
     expect(await screen.findByText('Zmieniasz to wystąpienie i wszystkie następne. Pierwsze zmienione: Środa, 7 października.')).toBeTruthy();
     expect(screen.getByText('Od dnia')).toBeTruthy();
-    await type(screen.getByTestId('event-start-0'), '18:00');
-    await type(screen.getByTestId('event-end-0'), '');
+    await setTime('event-start-0', '18:00');
+    await setTime('event-end-0', '');
     await press(screen.getByTestId('event-save'));
     // Podgląd skutków przed zapisem serii.
     expect(await screen.findByText('Najbliższe terminy po zmianie: dziś, śr. 14 paź, śr. 21 paź.')).toBeTruthy();
@@ -343,7 +343,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     await press(await screen.findByTestId('calendar-add-event'));
     await press(await screen.findByLabelText('Rodzina'));
     await type(screen.getByTestId('event-title'), 'Logopeda');
-    await type(screen.getByTestId('event-start-0'), '18:00');
+    await setTime('event-start-0', '18:00');
     expect(screen.getByLabelText('Osoba odpowiedzialna')).toBeTruthy();
     expect(within(screen.getByLabelText('Osoba odpowiedzialna')).queryByLabelText('Kuba')).toBeNull();
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));

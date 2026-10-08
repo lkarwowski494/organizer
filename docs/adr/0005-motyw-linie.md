@@ -5,7 +5,7 @@ Makiety: https://claude.ai/artifact/UXcjuXUntnGC5FfUFDtXre (A · Linie).
 
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D50 | Kierunek wyglądu i motyw marki | A · Linie: każda grupa to kolorowa linia z kropkami-stacjami, „Dotyczy mnie” to przesiadka; jasne chłodne tło, Schibsted Grotesk + Atkinson Hyperlegible Next | B · Lodówka (magnesy i kartki na ciepłym papierze) |
+| D50 | Kierunek wyglądu i motyw marki | A · Linie: każda grupa to kolorowa linia z kropkami-stacjami, „Dotyczy mnie” to przesiadka; jasne chłodne tło, Schibsted Grotesk + Atkinson Hyperlegible Next → motyw i kroje zastąpione przez D72 i D74 (ADR 0014: „Wstążki”, Bricolage Grotesque); „Dotyczy mnie” to dziś „Moje sprawy” (D89). | B · Lodówka (magnesy i kartki na ciepłym papierze) |
 
 ## Progi i poprawki po pomiarze (moje, według źródeł)
 Progi: WCAG 2.2 SC 1.4.3 (tekst ≥ 4,5:1), SC 1.4.11 (elementy sterujące i grafika ≥ 3:1), Apple HIG
@@ -18,4 +18,4 @@ Pomiar makiety wykazał i poprawił:
 - szary nieaktywnej zakładki #64748B: 4,40:1 do tła → wolno go używać tylko na białym pasku (4,76:1).
 
 ## Otwarte (produktowe)
-- Tryb ciemny: nie jest jeszcze zaprojektowany.
+- Tryb ciemny: nie jest jeszcze zaprojektowany. → rozstrzygnięte przez D51 (ADR 0006).

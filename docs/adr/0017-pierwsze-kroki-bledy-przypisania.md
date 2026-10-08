@@ -24,4 +24,4 @@ Wybrał trzy rzeczy z czterech zaproponowanych. Stałe zakupy i podpowiedzi zost
    - Baza sprawdza, czy wołający jest autorem, czy odbiorca ma konto i nie jest autorem, czy wpis nie jest starszy niż 24 h, czy grupa nie jest wyciszona. Powiadamia najwyżej raz (`private.push_log`).
    - Odrzucone: wyzwalacz w bazie z `pg_net`. Powód jak w ADR 0015 (sekret i adres funkcji w bazie).
 4. **Wyciszenie** dotyczy przypisań. Przekazania (D70) czekają na decyzję, więc przychodzą zawsze. Wyciszenia są zapisane na serwerze (`push_mutes`), bo serwer decyduje o wysyłce.
-5. **Wydarzenia z osobą odpowiedzialną** (D66) na razie nie wysyłają powiadomienia o przypisaniu. Do decyzji właściciela, jeśli potrzebne.
+5. **Wydarzenia z osobą odpowiedzialną** (D66) na razie nie wysyłają powiadomienia o przypisaniu. Do decyzji właściciela, jeśli potrzebne. → zastąpione przez D88 (ADR 0018).

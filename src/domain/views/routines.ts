@@ -8,6 +8,7 @@
  *  - Seria zadania powtarzanego: ile ostatnich powtórzeń z rzędu odhaczono najpóźniej w dniu terminu (łańcuch kopii
  *    po identyfikatorze następnego, task-repeat.ts).
  */
+import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences } from '../rrule';
@@ -20,8 +21,8 @@ import { generalList } from './task-form';
 import { nextId } from './task-repeat';
 import { asTask, rows, type Tables } from './model';
 
-/** Jak daleko wstecz liczymy serię (dni). Wybór projektowy, bez źródła. */
-const STREAK_DAYS = 400;
+/** Jak daleko wstecz liczymy serię (dni, config.streak.DAYS). */
+const STREAK_DAYS = config.streak.DAYS;
 
 export function routineOps(a: {
   tables: Tables;

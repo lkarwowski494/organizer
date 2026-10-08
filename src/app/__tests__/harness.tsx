@@ -204,3 +204,9 @@ export async function pickDate(testID: string, iso: string) {
   }
   throw new Error(`pickDate: nie znaleziono ${iso}`);
 }
+
+/** Pole godziny (D125): rozwinięcie panelu i ręczne wpisanie — jak dawniej wpisanie w pole tekstowe. */
+export async function setTime(testID: string, value: string) {
+  if (!screen.queryByTestId(`${testID}-panel`)) await fireEvent.press(await screen.findByTestId(testID));
+  await fireEvent.changeText(screen.getByTestId(`${testID}-manual`), value);
+}

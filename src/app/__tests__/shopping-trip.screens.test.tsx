@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { answerAlert, lastAlert, put, sampleBase, setup , pickDate } from './harness';
+import { answerAlert, lastAlert, put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -34,7 +34,7 @@ describe('nowa lista zakupów', () => {
     expect(within(who).queryByLabelText('Kuba')).toBeNull();
     await press(within(who).getByLabelText('Ala'));
     await press(screen.getByLabelText('Jutro'));
-    await fireEvent.changeText(screen.getByTestId('trip-time'), '18:30');
+    await setTime('trip-time', '18:30');
     await press(screen.getByTestId('create-list'));
     expect(store.dispatched.find((o) => (o as { entity: string }).entity === 'lists')).toMatchObject({
       kind: 'create', group_id: 'gf', set: { kind: 'shopping', name: 'Biedronka', due_date: '2026-10-08', due_time: '18:30', responsible_member_id: 'ala' },

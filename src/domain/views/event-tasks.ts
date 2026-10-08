@@ -5,6 +5,7 @@
  *  - zmiana serii („to i następne”, „wszystkie”) — podgląd skutków: zadania z wystąpień, które zostają, przechodzą
  *    same; z wystąpień, które znikają — na najbliższe nowe wystąpienie albo odpięte (wybór w podglądzie).
  */
+import { config } from '../../config';
 import { addDays, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences, type Rule } from '../rrule';
@@ -13,9 +14,8 @@ import { asEvent, ruleOf, seriesOf } from './event-rows';
 import { type EventDetail, expandEvents, type Occurrence, type Scope } from './events';
 import { asTask, rows, type Tables, type Task } from './model';
 
-/** Jak daleko szukamy kolejnego wystąpienia / spotkań do wyboru. */
-const LOOKAHEAD_DAYS = 400;
-const PICKER_DAYS = 62;
+/** Jak daleko szukamy kolejnego wystąpienia / spotkań do wyboru (config.eventTasks). */
+const { LOOKAHEAD_DAYS, PICKER_DAYS } = config.eventTasks;
 
 /** Otwarte zadania podpięte do serii (opcjonalnie: tylko do jednego wystąpienia). */
 export function attachedTasks(t: Tables, eventId: string, occurrenceDate?: string): Task[] {

@@ -23,7 +23,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D4 | Podzadania | do 2 poziomów (`config.MAX_TASK_DEPTH`) |
 | D5 | Logowanie | Sign in with Apple + magic link; usuwanie konta w aplikacji |
 | D6 | Push | bezpośrednio APNs z Edge Function (potwierdzone spike'iem S1, ADR 0002) |
-| D7 | Kalendarz iPhone | „Dodaj do kalendarza” (zapis); ICS po MVP |
+| D7 | Kalendarz iPhone | „Dodaj do kalendarza” (zapis); ICS po MVP. → rozszerzone przez D95–D96 (ADR 0021): odczyt i lustro grup |
 | D8/D24 | SDK | nowy projekt, Expo SDK 57; 58 po Etapie 1 |
 | D9 | Buildy | GitHub Actions + fastlane, repo publiczne po audycie |
 | D10/D19/D34 | Dzieci | profile bez kont, pochwała zamiast punktów, tryb dziecka |
@@ -35,7 +35,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D20 | Import ze zdjęcia | później, bez ustalonej fazy |
 | D21 | Po Fazie 1 | rodzina + sloty „biorę to” + kolizje między grupami |
 | D23 | Powtarzanie zadań | wg kalendarza lub od wykonania |
-| D25 | ORM | Drizzle 0.45, migracje SQL źródłem prawdy |
+| D25 | ORM | Drizzle 0.45, migracje SQL źródłem prawdy. → zastąpione: zwykły SQL przez `src/data/db` (`DbAdapter`, migracje w `migrations.ts`), Drizzle nie został użyty (8.10.2026) |
 | D26 | Nawigacja | React Navigation |
 | D27 | Testy | Jest (domain + app), fast-check, Stryker |
 | D28 | Certyfikaty | fastlane match w prywatnym `organizer-certs` |

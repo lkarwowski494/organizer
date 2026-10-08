@@ -27,6 +27,7 @@ import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Checkbox, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
@@ -148,7 +149,7 @@ export function TaskScreen({ route, navigation }: Props) {
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
       {canEdit ? <DateField label={strings['task.dueDate']} value={date} onChange={setDate} today={today} testID="task-date" /> : null}
-      {canEdit ? <Field label={strings['task.dueTime']} value={time} onChangeText={setTime} placeholder="17:30" testID="task-time" /> : null}
+      {canEdit ? <TimeField label={strings['task.dueTime']} value={time} onChange={setTime} testID="task-time" optional /> : null}
       {canEdit && task.deadline_mode !== 'none' ? (
         <Button
           kind="secondary"

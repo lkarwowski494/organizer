@@ -7,7 +7,11 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 22,
-    items: ['Obecność przy wydarzeniu grupy: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. W wierszu widać, ile osób odpowiedziało.'],
+    items: [
+      'Obecność przy wydarzeniu grupy: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. W wierszu widać, ile osób odpowiedziało.',
+      'Godzinę wybierasz kafelkami (godzina, potem minuty) — bez pisania.',
+      'Po przeglądzie aplikacji: odwołanie wydarzenia da się cofnąć, dziecko nie widzi pól, których nie może zmienić, i sporo drobnych poprawek.',
+    ],
   },
   {
     // Buildy 19 i 20 odrzucone przez Apple (ITMS-90683, D123) — pierwszy z tymi zmianami w TestFlight to 21.
