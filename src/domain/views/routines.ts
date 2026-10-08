@@ -12,7 +12,7 @@ import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences } from '../rrule';
-import type { NewOp } from '../sync-engine/client';
+import type { Entity, NewOp } from '../sync-engine/client';
 import { asEvent, asOverride, asSeries, ruleOf } from './event-rows';
 import { emptyForm, type FormError, validateForm } from './event-form';
 import { createEvent } from './events';
@@ -48,6 +48,22 @@ export function routineOps(a: {
     eventId: ev.id,
     ops: [...ev.ops, ...list.ops, ...steps.map((title) => createSeries({ id: a.newId(), groupId: a.groupId, eventId: ev.id, listId: list.listId, title }))],
   };
+}
+
+/**
+ * Audyt 2 (E-3): cofnięcie nowej rutyny — liczone w chwili cofnięcia, bo SeriesFiller zdążył już dołożyć kopie kroków
+ * na kolejne tygodnie. Usuwa wydarzenie, definicje kroków, ich kopie i listę „Ogólne”, jeśli powstała przy tym
+ * zapisie i nie ma w niej nic innego.
+ */
+export function routineUndoOps(t: Tables, created: readonly NewOp[]): NewOp[] {
+  const ids = (entity: Entity) => created.flatMap((o) => (o.kind === 'create' && o.entity === entity ? [o.id] : []));
+  const series = new Set(ids('event_task_series'));
+  const lists = new Set(ids('lists'));
+  const copies = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null && x.series_id !== null && series.has(x.series_id));
+  const gone = new Set(copies.map((x) => x.id));
+  const emptyLists = [...lists].filter((l) => !rows(t, 'tasks', asTask).some((x) => x.list_id === l && x.deleted_at === null && !gone.has(x.id)));
+  const del = (entity: Entity, id: string): NewOp => ({ kind: 'delete', entity, id });
+  return [...copies.map((x) => del('tasks', x.id)), ...[...series].map((id) => del('event_task_series', id)), ...ids('events').map((id) => del('events', id)), ...emptyLists.map((id) => del('lists', id))];
 }
 
 export function routineStreak(t: Tables, eventId: string, today: CivilDate): number {

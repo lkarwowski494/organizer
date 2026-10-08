@@ -1,5 +1,5 @@
 import type { NewOp, Row } from '../sync-engine/client';
-import { routineOps, routineStreak, taskStreak } from '../views/routines';
+import { routineOps, routineStreak, routineUndoOps, taskStreak } from '../views/routines';
 import { copyId, fillOps } from '../views/series-tasks';
 import { nextId } from '../views/task-repeat';
 
@@ -103,3 +103,32 @@ describe('rutyny (D113)', () => {
     expect(taskStreak(t, 'solo', local)).toBe(0);
   });
 });
+
+const ent = (o: NewOp) => ('entity' in o ? o.entity : null);
+const oid = (o: NewOp) => ('id' in o ? o.id : null);
+
+describe('cofnięcie nowej rutyny (audyt 2, E-3)', () => {
+  it('usuwa też kopie kroków dołożone w międzyczasie i nową listę, jeśli nic w niej nie ma', () => {
+    const r = make();
+    if ('error' in r) throw new Error(r.error);
+    const t = apply(base(), r.ops);
+    apply(t, fillOps(t, ME, today));
+    const copies = Object.values(t.tasks!).map((x) => x.id as string);
+    expect(copies.length).toBeGreaterThan(10);
+    const undo = routineUndoOps(t, r.ops);
+    const listId = Object.keys(t.lists!)[0]!;
+    expect(undo.filter((o) => ent(o) === 'tasks').map(oid).sort()).toEqual([...copies].sort());
+    expect(undo.filter((o) => ent(o) !== 'tasks')).toEqual([
+      ...Object.keys(t.event_task_series!).map((id) => ({ kind: 'delete', entity: 'event_task_series', id })),
+      { kind: 'delete', entity: 'events', id: r.eventId },
+      { kind: 'delete', entity: 'lists', id: listId },
+    ]);
+    // Lista, do której ktoś zdążył dopisać zadanie, zostaje; kopia już usunięta — pomijana.
+    put(t, 'tasks', 'inne', { id: 'inne', group_id: 'gf', list_id: listId, title: 'Inne', deleted_at: null, series_id: null });
+    put(t, 'tasks', copies[0]!, { ...t.tasks![copies[0]!]!, deleted_at: 'x' });
+    const again = routineUndoOps(t, r.ops);
+    expect(again.some((o) => ent(o) === 'lists')).toBe(false);
+    expect(again.filter((o) => ent(o) === 'tasks')).toHaveLength(copies.length - 1);
+  });
+});
+

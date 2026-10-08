@@ -295,7 +295,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       entity: 'event_overrides',
       id: newId(),
       group_id: e.group_id,
-      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: o.responsible_member_id, ...(o.all_day ? { all_day: true } : {}) },
+      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: liveOrNull(d, o.responsible_member_id), ...(o.all_day ? { all_day: true } : {}) },
     });
   }
   // Odpowiedzi o obecności (D124) od tego dnia też przechodzą do nowej serii (audyt 8.10.2026).
@@ -317,6 +317,8 @@ export function cancelEvent(d: EventDetail, occurrenceDate: string, scope: Scope
     : [{ kind: 'create', entity: 'event_overrides', id: newId(), group_id: e.group_id, set: { event_id: e.id, occurrence_date: occurrenceDate, cancelled: true } }];
 }
 
+const liveOrNull = (d: EventDetail, id: string | null) => (id !== null && d.members.some((m) => m.member_id === id) ? id : null);
+
 /**
  * Wartości formularza dla wystąpienia w wybranym zakresie: „this” — to wystąpienie (z jego zmianami), „following” —
  * seria od tego dnia, „all” — cała seria od początku. Koniec serii zawsze jako data (COUNT → data ostatniego wystąpienia).
@@ -337,8 +339,10 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     rule: d.rule ? { ...d.rule, count: null, until: null } : null,
     until,
     audience: e.audience,
-    participantIds: d.participants.filter(alive).map((p) => p.member_id),
-    responsibleId: o?.responsible_member_id ?? e.responsible_member_id,
+    // Audyt 2 (E-1): tylko osoby, które są w grupie (D132) — osoba usunięta przeniesiona do nowej serii
+    // („to i następne”) sprawiała, że serwer odrzucał nową serię, a starą i tak ucinał.
+    participantIds: d.participants.filter((p) => alive(p) && d.members.some((m) => m.member_id === p.member_id)).map((p) => p.member_id),
+    responsibleId: liveOrNull(d, o?.responsible_member_id ?? e.responsible_member_id),
     location: e.location,
   };
 }

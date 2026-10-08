@@ -12,7 +12,8 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
-import { routineOps } from '../../domain/views/routines';
+import { materialize } from '../../domain/sync-engine/client';
+import { routineOps, routineUndoOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
@@ -41,8 +42,8 @@ export function RoutineScreen({ route, navigation }: Props) {
     const r = routineOps({ tables, userId, groupId, title, days, start, end, participantIds: who, steps, today, newId });
     if ('error' in r) return setError(r.error === 'steps' ? strings['routine.error.steps'] : r.error === 'title' ? strings['routine.error.title'] : strings[`event.error.${r.error}`]);
     store.dispatch(r.ops);
-    const created = r.ops.flatMap((o) => (o.kind === 'create' && (o.entity === 'events' || o.entity === 'event_task_series') ? [{ kind: 'delete' as const, entity: o.entity, id: o.id }] : []));
-    undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(created));
+    // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
+    undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
     navigation.goBack();
   };
 
