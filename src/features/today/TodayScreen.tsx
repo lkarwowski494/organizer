@@ -16,7 +16,7 @@ import { routineStreak, taskStreak } from '../../domain/views/routines';
 import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
-import { formatDue, formatLongDate, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
+import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { useTaskActions } from '../../app/task-actions';
 import { formatTime, localNow } from '../../app/clock';
@@ -25,6 +25,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
@@ -37,7 +38,7 @@ import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -221,6 +222,9 @@ export function TodayScreen() {
     ) : (
       taskRow(x.task, x.key, undefined, n)
     );
+  const spanOf = ({ entry: x }: { entry: MyEntry }): Span =>
+    x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
+  const nowMin = now().hh * 60 + now().mm;
   const arrow = (k: number, a11y: string, glyph: string) => (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={() => setAnchor(shiftAnchor(mode, at, k))} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: 26, color: c.ink }}>{glyph}</Text>
@@ -312,10 +316,10 @@ export function TodayScreen() {
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
             {d.isToday ? moveOverdueButton(d) : null}
-            {nestEntries(d.entries, tables).map((n) => entryRow(n.entry, d.past, n))}
-            {deviceOf(d).map((e) => (
-              <DeviceEventRow key={e.key} e={e} />
-            ))}
+            {/* D122: wydarzenia z iPhone'a według godziny; w widoku dnia przerwy „wolne …” (dziś od teraz). */}
+            {dayPlan(nestEntries(d.entries, tables), deviceOf(d), spanOf, { nowMin: d.isToday ? nowMin : null, gaps: mode === 'day' && !d.past }).map((r) =>
+              r.kind === 'entry' ? entryRow(r.item.entry, d.past, r.item) : r.kind === 'device' ? <DeviceEventRow key={r.item.key} e={r.item} /> : <GapRow key={r.key} testID={`today-${r.key}`} length={formatMinutes(r.minutes)} />,
+            )}
           </View>
         ),
       )}

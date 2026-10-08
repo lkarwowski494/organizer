@@ -381,6 +381,18 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
   );
 }
 
+/** Przerwa w widoku dnia (D122): cienka linia z „wolne 2 h 30 min” pośrodku, wcięta jak treść wierszy. */
+export function GapRow({ length, testID }: { length: string; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <View testID={testID} accessible accessibilityLabel={strings['day.gapA11y'](length)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30, paddingLeft: 38 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />
+      <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['day.gap'](length)}</Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />
+    </View>
+  );
+}
+
 /** Wybór wielu opcji (dni tygodnia, uczestnicy): każda opcja to pole wyboru z tekstem. */
 export function Toggles<T extends string | number>({ values, options, onChange, label }: { values: T[]; options: { value: T; label: string; a11y?: string }[]; onChange: (v: T[]) => void; label: string }) {
   const { c, font, size } = useTheme();

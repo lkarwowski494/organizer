@@ -62,8 +62,16 @@ export function formatDue(due: { date: string; time: string | null }, today: Civ
  * precedes the unit and a space is always used to separate the unit from the number”.
  */
 export function formatLength(start: string, end: string): string {
-  const min = (x: string) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5));
-  const all = min(end) - min(start);
+  return formatMinutes(minutesOf(end) - minutesOf(start));
+}
+
+/** Godzina „17:30” albo „17:30:00” → minuty od północy. */
+export function minutesOf(time: string): number {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+}
+
+/** Liczba minut jak długość (D120): „45 min”, „1 h”, „2 h 30 min”. */
+export function formatMinutes(all: number): string {
   const h = Math.floor(all / 60);
   const m = all % 60;
   return [h ? `${h} h` : '', m || !h ? `${m} min` : ''].filter(Boolean).join(' ');

@@ -86,6 +86,13 @@ describe('kalendarz iPhone’a', () => {
     expect(prefs.m.get('calendarAsked')).toBe('1');
   });
 
+  it('lista z przerwami (D122): moje wydarzenie z iPhone’a według godziny, przerwy wokół niego', async () => {
+    await open(fakeSync({ status: jest.fn(async () => 'granted' as const) }), memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
+    await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca');
+    // teraz 10:00; Dentysta 16:00–17:00, korki 17:30, paczka 18:00.
+    expect(screen.getAllByTestId(/^(today-gap|device-|today-t-(korki|paczka))/).map((e) => e.props.testID)).toEqual(['today-gap-600-960', 'device-d|x1', 'today-gap-1020-1050', 'today-t-korki', 'today-gap-1050-1080', 'today-t-paczka']);
+  });
+
   it('Ustawienia: wyłączenie odczytu chowa wydarzenia; wyłączenie lustra usuwa kalendarze grup', async () => {
     const sync = fakeSync({ status: jest.fn(async () => 'granted' as const) });
     const { prefs, services } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarMirror: '1' }));
