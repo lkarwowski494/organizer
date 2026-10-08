@@ -79,7 +79,7 @@ export function TimetableScreen({ route, navigation }: Props) {
     draft.saved();
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
-    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))));
+    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan' });
     navigation.goBack();
   };
 

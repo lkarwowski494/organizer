@@ -1,6 +1,7 @@
 /**
- * Ostatnie zmiany (decyzja właściciela z 8.10.2026, audyt 2: PW-10 C+A, M-38; D194): moje zmiany z „Cofnij” od
- * uruchomienia aplikacji, „Cofnij” bez limitu czasu. Rzecz zmieniona od tamtej chwili nie jest nadpisywana — wpis mówi
+ * Ostatnie zmiany (decyzja właściciela z 8.10.2026, audyt 2: PW-10 C+A, M-38; D194): moje zmiany z „Cofnij” (zapisane
+ * w bazie konta — D194 b), „Cofnij” bez limitu czasu. Zmiany, których cofnięcie nie przeżyło zamknięcia aplikacji, zostają
+ * z wyjaśnieniem. Rzecz zmieniona od tamtej chwili nie jest nadpisywana — wpis mówi
  * dlaczego. Wejście: Grupy (obok Kosza) i treść paska „Cofnij”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -38,6 +39,8 @@ export function RecentScreen({ navigation }: Props) {
           <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{when(e.at)}</Text>
           {e.state === 'undone' ? (
             <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{strings['recent.undone']}</Text>
+          ) : e.state === 'lost' ? (
+            <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings[`recent.lost.${e.lost ?? 'server'}`]}</Text>
           ) : e.state === 'stale' ? (
             <Text accessibilityRole="alert" style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>
               {strings['recent.stale']}

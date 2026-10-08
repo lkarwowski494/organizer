@@ -218,7 +218,7 @@ export function TodayScreen() {
         label={strings['today.moveOverdue'](count)}
         onPress={() => {
           store.dispatch(ops);
-          undo.show(strings['today.movedOverdue'](count), () => store.dispatch(back), { changed: ops });
+          undo.show(strings['today.movedOverdue'](count), { ops: back }, { changed: ops });
         }}
       />
     );

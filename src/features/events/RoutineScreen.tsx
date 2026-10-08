@@ -13,8 +13,7 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
-import { materialize } from '../../domain/sync-engine/client';
-import { routineOps, routineUndoOps } from '../../domain/views/routines';
+import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
@@ -48,8 +47,9 @@ export function RoutineScreen({ route, navigation }: Props) {
     if ('error' in r) return setError(r.error === 'steps' ? strings['routine.error.steps'] : r.error === 'title' ? strings['routine.error.title'] : strings[`event.error.${r.error}`]);
     draft.saved();
     store.dispatch(r.ops);
-    // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
-    undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
+    // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie (przepis „routine”
+    // w AppProvider, także po ponownym uruchomieniu — D194 b).
+    undo.show(strings['routine.saved'](title.trim()), { ops: r.ops, recipe: 'routine' });
     navigation.goBack();
   };
 

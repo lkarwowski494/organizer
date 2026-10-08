@@ -10,13 +10,13 @@
  */
 import { Alert } from 'react-native';
 
-import { materialize } from '../domain/sync-engine/client';
+import { materialize, type NewOp } from '../domain/sync-engine/client';
 import { inverseOps, remove, restore, toggleDone } from '../domain/views/commands';
 import { subtasksOf } from '../domain/views/nesting';
 import { finishTripOps, finishTripUndoOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
-import { checkOff, groupsView, type Task } from '../domain/views';
+import { checkOff, groupsView, type Tables, type Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
 import { useAppData, useServices } from './context';
@@ -45,7 +45,7 @@ export function useTaskActions() {
         const ops = opsFor();
         const back = inverseOps(tables, ops)!;
         store.dispatch(ops);
-        return undo.show(strings['undo.inCart'](t.title), () => store.dispatch(back), { changed: ops });
+        return undo.show(strings['undo.inCart'](t.title), { ops: back }, { changed: ops });
       }
       // PW-14 B: dziecko z kontem odhacza razem tylko swoje podzadania (cudze serwer odrzuci: forbidden:not_own).
       const can = checkOff(tables, userId);
@@ -55,15 +55,13 @@ export function useTaskActions() {
           { text: strings['common.cancel'], style: 'cancel' },
           { text: strings['confirm.doneYes'], onPress: () => void done() },
         ]);
-      // „Cofnij” po hurtowym odhaczeniu: ze stanu w chwili cofnięcia — jak odznaczenie zadania (następne znika, jeśli
-      // nietknięte) i podzadania odhaczone razem z nim.
-      const back = () => {
-        const now = materialize(store.getSnapshot().state);
-        const parent = now.tasks?.[t.id];
-        if (!parent || parent.completed_at == null) return;
-        const p = asTask(parent);
-        const subs = open.flatMap((s) => (now.tasks?.[s.id]?.completed_at != null ? [asTask(now.tasks[s.id]!)] : []));
-        store.dispatch([toggleDone(p, nowIso()), ...subs.map((s) => toggleDone(s, nowIso())), ...repeatOps(now, p, today, canCreate)]);
+      // „Cofnij” po hurtowym odhaczeniu: jak odznaczenie zadania (następne znika, jeśli nietknięte) i podzadania odhaczone
+      // razem z nim — liczone zaraz po odhaczeniu, żeby dało się je zapisać w „Ostatnich zmianach” (D194 b); zmianę
+      // w międzyczasie wyłapuje sprawdzenie przed cofnięciem.
+      const backOps = (now: Tables): NewOp[] => {
+        const p = asTask(now.tasks![t.id]!);
+        const subs = open.map((s) => asTask(now.tasks![s.id]!));
+        return [toggleDone(p, nowIso()), ...subs.map((s) => toggleDone(s, nowIso())), ...repeatOps(now, p, today, canCreate)];
       };
       Alert.alert(strings['confirm.doneTitle'], strings['confirm.subtasksLeft'](t.title, open.length), [
         { text: strings['common.cancel'], style: 'cancel' },
@@ -71,7 +69,8 @@ export function useTaskActions() {
         {
           text: strings['confirm.allDone'],
           onPress: () => {
-            undo.show(strings['undo.doneWithSubtasks'](t.title, open.length), back, { changed: done(open) });
+            const changed = done(open);
+            undo.show(strings['undo.doneWithSubtasks'](t.title, open.length), { ops: backOps(materialize(store.getSnapshot().state)) }, { changed });
           },
         },
       ]);
@@ -86,7 +85,7 @@ export function useTaskActions() {
         const ops = finishTripOps(tables, userId, listId, all, nowIso());
         const back = finishTripUndoOps(tables, ops);
         store.dispatch(ops);
-        undo.show(strings['undo.tripDone'](name), () => store.dispatch(back), { changed: ops });
+        undo.show(strings['undo.tripDone'](name), { ops: back }, { changed: ops });
       };
       Alert.alert(
         strings['trip.confirmTitle'],
@@ -106,7 +105,7 @@ export function useTaskActions() {
     remove(t: Item) {
       const op = remove('tasks', t.id);
       store.dispatch(op);
-      undo.show(strings['undo.deleted'](t.title), () => store.dispatch(restore('tasks', t.id)), { changed: [op] });
+      undo.show(strings['undo.deleted'](t.title), { ops: [restore('tasks', t.id)] }, { changed: [op] });
     },
     /**
      * Usunięcie listy (D187, audyt 2: PW-16 A, M-121): pusta — od razu, z „Cofnij” i koszem; z zadaniami — jedno pytanie
@@ -118,7 +117,7 @@ export function useTaskActions() {
       const go = () => {
         const op = remove('lists', list.id);
         store.dispatch(op);
-        undo.show(strings['undo.listDeleted'](list.name), () => store.dispatch(restore('lists', list.id)), { changed: [op] });
+        undo.show(strings['undo.listDeleted'](list.name), { ops: [restore('lists', list.id)] }, { changed: [op] });
         after?.();
       };
       if (n === 0) return go();

@@ -74,7 +74,7 @@ export function TrashSection() {
   const restore = (e: TrashEntry) => {
     const ops: NewOp[] = [{ kind: 'restore', entity: e.entity, id: e.id }];
     store.dispatch(ops);
-    undo.show(strings['groups.restored'](e.title), () => store.dispatch({ kind: 'delete', entity: e.entity, id: e.id }), { changed: ops });
+    undo.show(strings['groups.restored'](e.title), { ops: [{ kind: 'delete', entity: e.entity, id: e.id }] }, { changed: ops });
   };
   const meta = (e: TrashEntry) =>
     [e.groupName, e.listName, e.kind === 'list' && e.tasks > 0 ? strings['trash.withTasks'](e.tasks, e.shopping) : null, strings['groups.trashLeft'](e.daysLeft)].filter(Boolean).join(' · ');

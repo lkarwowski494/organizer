@@ -96,7 +96,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const removeMember = (m: Member) => {
     const op = remove('group_members', m.member_id);
     store.dispatch(op);
-    undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)), { changed: [op] });
+    undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
   };
 
   return (

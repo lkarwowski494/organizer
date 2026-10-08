@@ -1,7 +1,7 @@
 import { config } from '../../config';
 import type { NewOp, Row } from '../sync-engine/client';
 import { applyOp } from '../sync-engine/client';
-import { fingerprint, isStale, sameValue } from '../views/recent';
+import { fingerprint, isStale, parseRecent, sameValue } from '../views/recent';
 import { TRASH_KINDS, trashView } from '../views/trash';
 
 const ME = 'u-me';
@@ -138,5 +138,33 @@ describe('ostatnie zmiany: sprawdzenie, czy rzecz się nie zmieniła (D194)', ()
     expect(fingerprint({}, [{ kind: 'patch', entity: 'tasks', id: 'x', set: { title: 'a' } }])).toEqual([{ entity: 'tasks', id: 'x', alive: false, fields: { title: null } }]);
     put(t, 'lists', 'zak', { ...t.lists!.zak!, staples: ['Chleb', 'Masło'] });
     expect(isStale(t, fp)).toBe(true);
+  });
+});
+
+describe('zapis ostatnich zmian w bazie konta (D194 b)', () => {
+  const op = { kind: 'restore', entity: 'tasks', id: 't' } as const;
+  it('wpisy wracają; otwarte bez zapisanego cofnięcia — „lost” z powodem; przepis rutyny zostaje', () => {
+    const json = JSON.stringify([
+      { id: 3, message: 'Usunięto: A', at: 5, state: 'open', undo: { ops: [op] }, lost: null, fp: [] },
+      { id: 2, message: 'Usunięto grupę: R', at: 4, state: 'open', undo: null, lost: 'server', fp: null },
+      { id: 1, message: 'Zapisano plan', at: 3, state: 'open', undo: null, lost: 'plan', fp: null },
+      { id: 0, message: 'Rutyna', at: 2, state: 'undone', undo: { ops: [op], recipe: 'routine' }, lost: null, fp: null },
+      { id: -1, message: 'Stare', at: 1, state: 'dziwny', undo: { ops: 'x' } },
+      { id: 'zły', message: 'x', at: 1 },
+      null,
+    ]);
+    expect(parseRecent(json)).toEqual([
+      { id: 3, message: 'Usunięto: A', at: 5, state: 'open', undo: { ops: [op] }, lost: null, fp: [] },
+      { id: 2, message: 'Usunięto grupę: R', at: 4, state: 'lost', undo: null, lost: 'server', fp: null },
+      { id: 1, message: 'Zapisano plan', at: 3, state: 'lost', undo: null, lost: 'plan', fp: null },
+      { id: 0, message: 'Rutyna', at: 2, state: 'undone', undo: { ops: [op], recipe: 'routine' }, lost: null, fp: null },
+      { id: -1, message: 'Stare', at: 1, state: 'lost', undo: null, lost: 'server', fp: null },
+    ]);
+  });
+  it('pusto, uszkodzony zapis i nie-tablica — pusta lista', () => {
+    expect(parseRecent(null)).toEqual([]);
+    expect(parseRecent('{')).toEqual([]);
+    expect(parseRecent('{"a":1}')).toEqual([]);
+    expect(parseRecent(JSON.stringify([{ id: 1, message: 'm', at: 1, undo: { ops: [1] } }]))[0]).toMatchObject({ state: 'lost', undo: null });
   });
 });
