@@ -56,12 +56,15 @@ export function deviceDays(
     const end = toLocal(Math.max(e.startMs, e.endMs - 1));
     const first = formatIsoDate(s);
     const last = formatIsoDate(end);
-    const sameDay = first === last;
+    // Godziny na każdym dniu (audyt 8.10.2026 — wcześniej kolejne dni bez godzin, a koniec o północy jako „00:00”,
+    // więc widok dnia z przerwami (D122) pokazywał „wolne” w środku wydarzenia): pierwszy dzień do 24:00, kolejne od 00:00.
+    const e2 = toLocal(e.endMs);
+    const lastEnd = formatIsoDate(e2) === last ? `${pad(e2.hh)}:${pad(e2.mm)}` : '24:00';
     for (let d = first, i = 0; d <= last && i < 366; i++) {
       push(d, {
         ...base,
-        time: d === first ? `${pad(s.hh)}:${pad(s.mm)}` : null,
-        endTime: sameDay ? `${pad(toLocal(e.endMs).hh)}:${pad(toLocal(e.endMs).mm)}` : null,
+        time: d === first ? `${pad(s.hh)}:${pad(s.mm)}` : '00:00',
+        endTime: d === last ? lastEnd : '24:00',
         continued: d !== first,
       });
       d = formatIsoDate(addDays(isoDate(d), 1));

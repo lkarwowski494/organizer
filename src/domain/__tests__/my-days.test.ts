@@ -1,7 +1,7 @@
 import type { CivilDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import type { Row } from '../sync-engine/client';
-import { isExpired, listDetail, todayView } from '../views';
+import { calendarMonth, isExpired, listDetail, todayView } from '../views';
 import { myDays, rangeOf, shiftAnchor } from '../views/my-days';
 
 const ME = 'u-me';
@@ -49,6 +49,34 @@ describe('zakresy i przesuwanie', () => {
 });
 
 describe('rolowanie i wygasanie (D61)', () => {
+  it('audyt 8.10.2026: pozycje list zakupów nie są sprawami (Moje sprawy, Kalendarz)', () => {
+    const t = world();
+    put(t, 'lists', 'lz', { id: 'lz', group_id: 'gp', kind: 'shopping', name: 'Zakupy', visibility: 'group', sort_key: 'a0', deleted_at: null });
+    task(t, 'mleko', { list_id: 'lz', deadline_mode: 'none', due_date: null });
+    task(t, 'chleb', { list_id: 'lz' });
+    const v = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(v.pinned.map((x) => x.id)).toEqual([]);
+    expect(keys(v)).toEqual(['2026-10-07 (dziś): ']);
+    expect(todayView(t, ME, TODAY).today.map((x) => x.id)).toEqual([]);
+    expect(calendarMonth(t, ME, 2026, 10).flatMap((d) => d.items.map((x) => x.id))).toEqual([]);
+  });
+
+  it('audyt 8.10.2026: podzadanie z dziedziczonym terminem mija razem z rodzicem (spotkanie, „tylko tego dnia”); własny termin przy spotkaniu przechodzi dalej', () => {
+    const t = world();
+    ev(t, 'basen', '2026-10-05');
+    task(t, 'spakuj', { deadline_mode: 'event', due_date: null, event_id: 'basen', occurrence_date: '2026-10-05' });
+    task(t, 'ręcznik', { parent_id: 'spakuj', deadline_mode: 'inherit', due_date: null });
+    task(t, 'kartka', { due_date: '2026-10-06', rollover: false });
+    task(t, 'koperta', { parent_id: 'kartka', deadline_mode: 'inherit', due_date: null });
+    task(t, 'pod-koperta', { parent_id: 'koperta', deadline_mode: 'inherit', due_date: null });
+    ev(t, 'zebranie', '2026-10-12');
+    task(t, 'prezent', { due_date: '2026-10-06', event_id: 'zebranie', occurrence_date: '2026-10-12' });
+    task(t, 'sierota', { parent_id: 'brak', deadline_mode: 'inherit', due_date: null });
+    const v = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(keys(v)).toEqual(['2026-10-07 (dziś): o-prezent']);
+    expect(listDetail(t, ME, 'lp', TODAY)!.done.filter((x) => x.expired).map((x) => x.id).sort()).toEqual(['kartka', 'spakuj']);
+  });
+
   it('zaległe przechodzą na dziś z liczbą dni (najstarsze na górze); termin bez zmian', () => {
     const t = world();
     task(t, 'paczka', { due_date: '2026-10-04' });
@@ -69,8 +97,8 @@ describe('rolowanie i wygasanie (D61)', () => {
     const v = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect(keys(v)).toEqual(['2026-10-07 (dziś): t-życzeniaDziś']);
     expect(todayView(t, ME, TODAY).overdue).toEqual([]);
-    expect(isExpired({ rollover: false, event_id: null, completed_at: 'x' }, { date: '2026-10-01', time: null }, '2026-10-07')).toBe(false);
-    expect(isExpired({ rollover: false, event_id: null, completed_at: null }, null, '2026-10-07')).toBe(false);
+    expect(isExpired({ rollover: false, deadline_mode: 'own', parent_id: null, completed_at: 'x' }, { date: '2026-10-01', time: null }, '2026-10-07')).toBe(false);
+    expect(isExpired({ rollover: false, deadline_mode: 'own', parent_id: null, completed_at: null }, null, '2026-10-07')).toBe(false);
   });
 
   it('remis zaległych: tytuł, potem id', () => {

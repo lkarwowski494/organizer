@@ -61,7 +61,8 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
-    if (!g || !l) continue;
+    // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
+    if (!g || !l || l.kind === 'shopping') continue;
     const due = effectiveDue(x, byId, occ);
     if (!concernsMeTask(x, g, due)) continue;
     const mine = x.assignee_member_id === g.me.member_id;
@@ -71,7 +72,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
       if (d < isoToday) push(d, item); // odhaczone dziś znikają z widoku (jak dotąd); historia dla minionych dni
       continue;
     }
-    if (!isVisible(x, today) || isExpired(x, due, isoToday)) continue;
+    if (!isVisible(x, today) || isExpired(x, due, isoToday, byId)) continue;
     if (due === null) pinned.push(item);
     else if (due.date < isoToday) overdue.push({ ...item, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(due.date)) });
     else push(due.date, item);

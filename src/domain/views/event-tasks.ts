@@ -87,9 +87,10 @@ export function createEventTask(a: { id: string; groupId: string; listId: string
   };
 }
 
-/** Podpięcie istniejącego zadania do wystąpienia; termin od teraz „jak spotkanie”. */
+/** Podpięcie istniejącego zadania do wystąpienia; termin od teraz „jak spotkanie”, bez powtarzania (powtarzanie wymaga
+ * własnego terminu — ograniczenie tasks_repeat_needs_due; audyt 8.10.2026: wcześniej serwer odrzucał podpięcie). */
 export function attachOps(task: Pick<Task, 'id'>, eventId: string, occurrenceDate: string): NewOp[] {
-  return [{ kind: 'patch', entity: 'tasks', id: task.id, set: { event_id: eventId, occurrence_date: occurrenceDate, deadline_mode: 'event', due_date: null, due_time: null } }];
+  return [{ kind: 'patch', entity: 'tasks', id: task.id, set: { event_id: eventId, occurrence_date: occurrenceDate, deadline_mode: 'event', due_date: null, due_time: null, repeat: null } }];
 }
 
 type Series = { id: string; start: string; rule: Rule | null };

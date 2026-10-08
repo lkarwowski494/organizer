@@ -158,11 +158,11 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
   const order = (a: TaskNode, b: TaskNode) => compareByDue(a.due, b.due) || a.sort_key.localeCompare(b.sort_key) || a.title.localeCompare(b.title, 'pl');
   const build = (parent: string | null, depth: number, done: boolean): TaskNode[] =>
     all
-      .filter((x) => x.parent_id === parent && (depth > 0 || (x.completed_at !== null || isExpired(x, effectiveDue(x, byId, occ), isoToday)) === done) && isVisible(x, today))
+      .filter((x) => x.parent_id === parent && (depth > 0 || (x.completed_at !== null || isExpired(x, effectiveDue(x, byId, occ), isoToday, byId)) === done) && isVisible(x, today))
       .map((x) => ({
         ...x,
         due: effectiveDue(x, byId, occ),
-        expired: isExpired(x, effectiveDue(x, byId, occ), isoToday),
+        expired: isExpired(x, effectiveDue(x, byId, occ), isoToday, byId),
         depth,
         assignee: x.assignee_member_id === null ? null : (names.get(x.assignee_member_id) ?? null),
         children: depth < config.MAX_TASK_DEPTH ? build(x.id, depth + 1, done) : [],
@@ -187,12 +187,25 @@ export function concernsMeTask(x: Task, g: GroupItem, due: Due): boolean {
   return x.assignee_member_id === g.me.member_id || (unassigned && (g.kind === 'personal' || due !== null));
 }
 
+type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id'>;
+
 /**
- * Niezrobione zadanie po terminie mija zamiast przechodzić dalej (D61): „Tylko tego dnia” albo zadanie na spotkaniu
+ * Niezrobione zadanie po terminie mija zamiast przechodzić dalej (D61): „Tylko tego dnia” albo termin spotkania
  * (D13 — po spotkaniu przepada, jak decyzja właściciela z 7.10.2026). Pozostałe zaległe przechodzą na dziś.
+ * O tym decyduje zadanie, od którego pochodzi termin: podzadanie z dziedziczonym terminem mija razem z rodzicem
+ * (audyt 8.10.2026 — wcześniej zostawało samo jako zaległe). Zadanie podpięte do spotkania, ale z własnym terminem,
+ * przechodzi dalej jak każde inne.
  */
-export function isExpired(x: Pick<Task, 'rollover' | 'event_id' | 'completed_at'>, due: Due, isoToday: string): boolean {
-  return x.completed_at === null && due !== null && due.date < isoToday && (!x.rollover || x.event_id !== null);
+export function isExpired(x: ExpiryTerms & Pick<Task, 'completed_at'>, due: Due, isoToday: string, byId: ReadonlyMap<string, ExpiryTerms> = new Map()): boolean {
+  if (x.completed_at !== null || due === null || due.date >= isoToday) return false;
+  let source: ExpiryTerms = x;
+  // Ograniczenie kroków jak w effectiveDue (uszkodzone dane lokalne).
+  for (let step = 0; step < 8 && source.deadline_mode === 'inherit' && source.parent_id !== null; step++) {
+    const parent = byId.get(source.parent_id);
+    if (!parent) break;
+    source = parent;
+  }
+  return !source.rollover || source.deadline_mode === 'event';
 }
 
 export function todayView(t: Tables, userId: string, today: CivilDate): TodayView {
@@ -207,10 +220,10 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
-    if (!g || !l || x.completed_at !== null || !isVisible(x, today)) continue;
+    if (!g || !l || l.kind === 'shopping' || x.completed_at !== null || !isVisible(x, today)) continue;
     const mine = x.assignee_member_id === g.me.member_id;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(x, g, due) || isExpired(x, due, isoToday)) continue;
+    if (!concernsMeTask(x, g, due) || isExpired(x, due, isoToday, byId)) continue;
     const item: TodayItem = {
       ...x,
       due,
@@ -248,7 +261,7 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
     const due = effectiveDue(x, byId, occ);
-    if (!g || !l || due === null || x.completed_at !== null) continue;
+    if (!g || !l || l.kind === 'shopping' || due === null || x.completed_at !== null) continue;
     const list = byDate.get(due.date) ?? [];
     list.push({ ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null });
     byDate.set(due.date, list);
