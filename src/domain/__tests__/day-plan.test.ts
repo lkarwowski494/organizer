@@ -40,6 +40,11 @@ describe('lista z przerwami (D122)', () => {
     expect(plan([e('a', '11:00')], [], now)).toEqual(['wolne 1 h', 'a']);
   });
 
+  it('audyt 8.10.2026: kilkudniowe z iPhone’a (00:00–24:00) zajmuje cały dzień — bez „wolne” w środku', () => {
+    expect(plan([e('zadanie', '13:00')], [d('konferencja', '00:00', '24:00')])).toEqual(['konferencja', 'zadanie']);
+    expect(plan([e('zadanie', '13:00')], [d('konferencja-koniec', '00:00', '12:00')])).toEqual(['konferencja-koniec', 'wolne 1 h', 'zadanie']);
+  });
+
   it('bez przerw (miniony dzień, tydzień): wplecione, bez „wolne”; pusto: pusto; podzadanie bez rodzica zostaje', () => {
     expect(plan([e('a', '08:00'), e('b', '12:00')], [d('x', '10:00')], null, false)).toEqual(['a', 'x', 'b']);
     expect(plan([], [])).toEqual([]);

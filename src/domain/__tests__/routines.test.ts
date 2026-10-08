@@ -67,6 +67,14 @@ describe('rutyny (D113)', () => {
     expect(routineStreak(t, r.eventId, today)).toBe(3);
     done('2026-10-08');
     expect(routineStreak(t, r.eventId, today)).toBe(4);
+    // Audyt 8.10.2026: odwołany termin (bez kroków) nie przerywa serii; usunięte odwołanie — znów przerywa.
+    for (const s of defs) delete t.tasks![copyId(s, '2026-10-06')];
+    put(t, 'event_overrides', 'o6', { id: 'o6', event_id: r.eventId, group_id: 'gf', occurrence_date: '2026-10-06', cancelled: true, deleted_at: null });
+    expect(routineStreak(t, r.eventId, today)).toBe(3);
+    put(t, 'event_overrides', 'o6', { id: 'o6', event_id: r.eventId, group_id: 'gf', occurrence_date: '2026-10-06', cancelled: true, deleted_at: 'x' });
+    expect(routineStreak(t, r.eventId, today)).toBe(2);
+    put(t, 'event_overrides', 'o7', { id: 'o7', event_id: r.eventId, group_id: 'gf', occurrence_date: '2026-10-07', cancelled: false, deleted_at: null });
+    put(t, 'event_overrides', 'oX', { id: 'oX', event_id: 'inne', group_id: 'gf', occurrence_date: '2026-10-06', cancelled: true, deleted_at: null });
     expect(routineStreak(t, 'brak', today)).toBe(0);
     put(t, 'events', 'old', { ...t.events![r.eventId]!, id: 'old', deleted_at: 'x' });
     expect(routineStreak(t, 'old', today)).toBe(0);

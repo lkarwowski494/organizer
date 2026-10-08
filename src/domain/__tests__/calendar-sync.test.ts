@@ -29,12 +29,12 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
     expect(days.get('2026-10-09')).toEqual([
       { key: 'd|b', title: 'Urlop', calendarId: 'c1', calendarTitle: 'Praca', time: null, endTime: null, continued: true },
       { key: 'd|a', title: 'Dentysta', calendarId: 'c1', calendarTitle: 'Praca', time: '16:00', endTime: '17:30', continued: false },
-      { key: 'd|c', title: 'Konferencja', calendarId: 'c1', calendarTitle: 'Praca', time: '20:00', endTime: null, continued: false },
-      { key: 'd|d', title: 'Do północy', calendarId: 'c1', calendarTitle: 'Praca', time: '22:00', endTime: '00:00', continued: false },
+      { key: 'd|c', title: 'Konferencja', calendarId: 'c1', calendarTitle: 'Praca', time: '20:00', endTime: '24:00', continued: false },
+      { key: 'd|d', title: 'Do północy', calendarId: 'c1', calendarTitle: 'Praca', time: '22:00', endTime: '24:00', continued: false },
     ]);
-    expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.continued])).toEqual([
-      ['d|c', null, true],
-      ['d|b', null, true],
+    expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.endTime, e.continued])).toEqual([
+      ['d|b', null, null, true],
+      ['d|c', '00:00', '12:00', true],
     ]);
     expect(days.get('2026-10-08')!.map((e) => [e.key, e.continued])).toEqual([['d|b', false]]);
   });

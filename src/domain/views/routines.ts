@@ -12,7 +12,7 @@ import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { occurrences } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
-import { asEvent, asSeries, ruleOf } from './event-rows';
+import { asEvent, asOverride, asSeries, ruleOf } from './event-rows';
 import { emptyForm, type FormError, validateForm } from './event-form';
 import { createEvent } from './events';
 import { createSeries } from './series-tasks';
@@ -56,7 +56,9 @@ export function routineStreak(t: Tables, eventId: string, today: CivilDate): num
   const series = new Set(rows(t, 'event_task_series', asSeries).filter((s) => s.event_id === eventId).map((s) => s.id));
   const copies = rows(t, 'tasks', asTask).filter((x) => x.event_id === eventId && x.series_id !== null && series.has(x.series_id) && x.deleted_at === null);
   const isoToday = formatIsoDate(today);
-  const dates = occurrences(parseIsoDate(e.start_date), ruleOf(e), addDays(today, -STREAK_DAYS), today).map(formatIsoDate).reverse();
+  // Odwołany termin nie ma kroków i nie przerywa serii (audyt 8.10.2026).
+  const cancelled = new Set(rows(t, 'event_overrides', asOverride).filter((o) => o.event_id === eventId && o.deleted_at === null && o.cancelled).map((o) => o.occurrence_date));
+  const dates = occurrences(parseIsoDate(e.start_date), ruleOf(e), addDays(today, -STREAK_DAYS), today).map(formatIsoDate).filter((d) => !cancelled.has(d)).reverse();
   let n = 0;
   for (const d of dates) {
     const mine = copies.filter((x) => x.occurrence_date === d);

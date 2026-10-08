@@ -75,7 +75,7 @@ describe('termin z wystąpienia (D13)', () => {
       group_id: 'g',
       set: { list_id: 'l', parent_id: null, title: 'T', sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'e', occurrence_date: '2026-10-12' },
     });
-    expect(attachOps({ id: 'x' }, 'e', '2026-10-12')).toEqual([{ kind: 'patch', entity: 'tasks', id: 'x', set: { event_id: 'e', occurrence_date: '2026-10-12', deadline_mode: 'event', due_date: null, due_time: null } }]);
+    expect(attachOps({ id: 'x' }, 'e', '2026-10-12')).toEqual([{ kind: 'patch', entity: 'tasks', id: 'x', set: { event_id: 'e', occurrence_date: '2026-10-12', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } }]);
   });
 });
 
