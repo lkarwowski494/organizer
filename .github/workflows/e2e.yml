@@ -1,0 +1,100 @@
+# E2E na symulatorze iOS (D143): Maestro przechodzi scenariusze .maestro/ na buildzie z EXPO_PUBLIC_E2E=1 (atrapy
+# w pamięci zamiast Supabase — src/app/e2e.ts), robi zrzuty ekranu i porównuje je z wzorcami (.maestro/baselines/).
+# Przy każdej zmianie (push na main, PR) i co noc; w nocy (i przy ręcznym uruchomieniu) różnica zrzutów oblewa przebieg,
+# przy push/PR jest tylko w podsumowaniu. Opis: docs/testing.md.
+#
+# Koszty: standardowe runnery macOS w repo publicznym są bez opłat (D143, https://docs.github.com/en/billing/concepts/product-billing/github-actions);
+# nie używamy płatnych „larger runners”.
+# Bezpieczeństwo: tylko pull_request (nigdy pull_request_target), akcje przypięte do pełnego SHA, token tylko do odczytu,
+# żadnych sekretów ani środowisk (build symulatora nie jest podpisywany i nie łączy się z serwerem).
+# Artefakty: CLAUDE.md zabrania artefaktów z buildów iOS WYDANIA (ios-release.yml). Tu wysyłamy tylko zrzuty ekranu,
+# raport i logi Maestro oraz log xcodebuild z buildu symulatora E2E — bez aplikacji (.app) i bez sekretów; 7 dni.
+name: e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '37 2 * * *' # 4:37 czasu polskiego latem, po nightly.yml (cron GitHuba działa w UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  # Kolejny push na main zastępuje poprzedni przebieg (macOS ~30–50 min); nocny przebieg nie jest przerywany.
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+jobs:
+  flows-syntax:
+    # Składnia scenariuszy na Linuksie (szybko, przed kilkudziesięcioma minutami na macOS).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: scripts/e2e/install-maestro.sh
+      - run: scripts/e2e/check-flows.sh
+
+  ios:
+    needs: flows-syntax
+    # Wersja Xcode przypięta jak w ios-release.yml (obraz macos-26: Xcode 26.6; SDK 57 wymaga Xcode ≥ 26.4).
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      E2E_DEVICE: iPhone 17
+      E2E_OUT: ${{ github.workspace }}/e2e-artifacts
+      E2E_APP: ios/build/e2e/Build/Products/Release-iphonesimulator/Organizer.app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - name: symulator
+        id: sim
+        run: |
+          scripts/e2e/boot-simulator.sh
+          mkdir -p "$E2E_OUT"
+          xcrun simctl list devices booted > "$E2E_OUT/device.txt"
+      - name: build symulatora (EXPO_PUBLIC_E2E=1)
+        # Flaga ustawiana tylko tutaj (i w scripts/e2e/build-ios.sh); test kontraktowy src/app/__tests__/e2e-flag.test.ts.
+        env:
+          EXPO_PUBLIC_E2E: '1'
+        run: scripts/e2e/build-ios.sh "${{ steps.sim.outputs.udid }}"
+      - run: scripts/e2e/install-maestro.sh
+      - name: scenariusze Maestro
+        run: scripts/e2e/run-flows.sh "${{ steps.sim.outputs.udid }}" "$E2E_APP" "$E2E_OUT"
+      - name: porównanie zrzutów z wzorcami
+        if: ${{ !cancelled() }}
+        env:
+          FAIL_ON_DIFF: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          args=()
+          if [ "$FAIL_ON_DIFF" = "true" ]; then args+=(--fail); fi
+          node scripts/e2e/compare-screenshots.mjs --baselines .maestro/baselines --actual "$E2E_OUT/screenshots" --out "$E2E_OUT/diff" "${args[@]}"
+      - name: log xcodebuild do artefaktu
+        if: ${{ !cancelled() }}
+        run: cp ios/build/e2e-xcodebuild.log "$E2E_OUT/" 2>/dev/null || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-${{ github.run_number }}-${{ github.run_attempt }}
+          path: e2e-artifacts/
+          retention-days: 7
+          if-no-files-found: warn

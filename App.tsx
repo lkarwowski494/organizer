@@ -8,9 +8,9 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 
 import { Root } from './src/app/Root';
-import { realDeps } from './src/app/wiring';
+import { appDeps } from './src/app/wiring';
 
-const deps = realDeps();
+const deps = appDeps();
 
 export default function App() {
   const [fontsLoaded] = useFonts({

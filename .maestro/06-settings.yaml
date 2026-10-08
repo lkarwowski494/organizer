@@ -7,6 +7,18 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings"
     timeout: 10000
-- assertVisible:
-    id: "sign-out"
+- assertVisible: "Ustawienia"
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Ustawienia"
+    direction: UP
+    timeout: 10000
+# Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
+- extendedWaitUntil:
+    visible: "Stan synchronizacji: Przed chwilą"
+    timeout: 15000
 - takeScreenshot: 06-settings

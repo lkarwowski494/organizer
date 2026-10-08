@@ -13,8 +13,8 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 |---|---|---|---|
 | Każda zmiana (push, PR) | typy, lint (0 ostrzeżeń), testy jednostkowe + własności + korpusy, pokrycie z progami, testy kontraktowe, Deno check/lint funkcji, aktualność korpusów parsera dat i kontrastu (`check:corpus`; korpusy RRULE i świąt generuje się ręcznie, wymagają python-dateutil), skan sekretów | `ci.yml`, Linux | ~2–5 min |
 | Zmiana w `supabase/**` | migracje od zera, pgTAP (RLS, sync, triggery), kontrakt config ↔ SQL | `db.yml`, Linux | ~5–10 min |
-| Każdy push na `main` | E2E Maestro na symulatorze iOS — **planowane, niezaimplementowane** (brak `e2e.yml` i scenariuszy; pozycja otwarta w backlogu, wymaga decyzji o minutach macOS) | `e2e.yml`, macOS | ~20–40 min |
-| Co noc | testy mutacyjne, pełny skan historii, audyt zależności (działa); zrzuty ekranu, wydajność, długie symulacje synchronizacji, E2E na najmniejszym iPhonie i dużej czcionce — **planowane, niezaimplementowane** | `nightly.yml` | ~30–60 min |
+| Każdy push na `main` i każdy PR (D143) | E2E Maestro na symulatorze iOS (build z `EXPO_PUBLIC_E2E=1`, scenariusze `.maestro/`), zrzuty ekranu porównane z wzorcami — różnica tylko w podsumowaniu przebiegu; wcześniej składnia scenariuszy na Linuksie | `e2e.yml`, macOS (standardowy runner, w repo publicznym bez opłat) | ~30–50 min |
+| Co noc | testy mutacyjne, pełny skan historii, audyt zależności (`nightly.yml`); E2E z porównaniem zrzutów, które **oblewa** przebieg przy różnicy (`e2e.yml`, harmonogram); wydajność, długie symulacje synchronizacji, E2E na najmniejszym iPhonie, w ciemnym wyglądzie i przy dużej czcionce — **planowane, niezaimplementowane** | `nightly.yml`, `e2e.yml` | ~30–60 min |
 | Przed wydaniem do TestFlight | `npm run check` na tym commicie (to samo co `ci.yml`, bez testów bazy, nocnych i E2E) | `ios-release.yml` (bramka) | — |
 
 ## Progi (D47 — maksymalne w logice)
@@ -23,7 +23,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | `src/domain`, `src/config`, `src/sync`, `src/data` | 100% linii, gałęzi, funkcji, instrukcji | Jest `coverageThreshold` (`npm run test:coverage`) |
 | `src/domain`, `src/config`, `src/sync`, `src/data` | ≥ 90% wykrytych celowych usterek (mutation score) | Stryker (`npm run test:mutation`, nocą) |
 | SQL | każda tabela × rola × operacja w macierzy RLS; każda funkcja RPC z testem sukcesu i każdego kodu odrzucenia | pgTAP |
-| Ekrany | każdy ekran ma test RNTL (`src/app/__tests__/*.screens.test.tsx`); każda funkcja ma scenariusz E2E — E2E planowane, niezaimplementowane | RNTL, Maestro |
+| Ekrany | każdy ekran ma test RNTL (`src/app/__tests__/*.screens.test.tsx`); każda funkcja ma scenariusz E2E — na razie 6 scenariuszy (lista niżej), pozostałe funkcje do uzupełnienia | RNTL, Maestro |
 | Lint | 0 ostrzeżeń | ESLint `--max-warnings 0` |
 | Zależności | 0 nowych zgłoszeń high/critical względem `scripts/audit-baseline.json` | `npm run check:audit` (nocą) |
 
@@ -41,8 +41,8 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Funkcje serwerowe (Edge) | `deno check` + `deno lint` + `deno test` (`*_test.ts`, z udawanym APNs i API Apple) | ✅ |
 | Ekrany | RNTL: zachowanie przez role i etykiety (wymusza dostępność) | ✅ |
 | Dostępność | etykiety VoiceOver w RNTL ✅; kontrast kolorów w testach motywu ✅; E2E przy największej czcionce Dynamic Type — planowane, niezaimplementowane | częściowo |
-| Wygląd | porównanie zrzutów ekranu z symulatora (najmniejszy i największy wspierany iPhone, jasny/ciemny) | planowane, niezaimplementowane (otwarte w backlogu) |
-| Przepływy użytkownika | Maestro na symulatorze iOS: onboarding, szybkie dodanie, wspólna lista, wydarzenie cykliczne z przypiętym zadaniem, offline → online | planowane, niezaimplementowane (otwarte w backlogu) |
+| Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | częściowo: iPhone 17, jasny wygląd; najmniejszy i największy iPhone, ciemny wygląd — planowane |
+| Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
 | Teksty | wszystkie teksty w `strings.pl.ts`, odmiana przez `plural()` — pilnowane przeglądem kodu; reguły lint na teksty poza `strings.pl.ts` nie ma | częściowo |
 | Wydajność | czas startu, rozwijanie 50 serii RRULE × 5 lat, lista 1 000 pozycji — progi w `src/config` | nocą, od Etapu 2 |
 | Bezpieczeństwo | gitleaks przy każdej zmianie i na pełnej historii ✅; audyt zależności ✅; reguły workflow (bez `pull_request_target`, akcje przypięte do SHA) | ✅ |
@@ -56,9 +56,52 @@ npm run check:audit     # nowe podatności w zależnościach
 python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quickadd.pl.json  # po zmianie reguł D42–D45
 ```
 
+## E2E i zrzuty ekranu (D143)
+**Jak to działa.** `e2e.yml` buduje aplikację dla symulatora z flagą `EXPO_PUBLIC_E2E=1`. Wtedy `appDeps()` w
+`src/app/wiring.ts` podaje korzeniowi aplikacji atrapy z `src/app/e2e.ts` zamiast Supabase i modułów natywnych:
+zalogowana osoba demo, „serwer” w pamięci z semantyką `sync_push`/`sync_pull` (wersje grup, kursory, duplikaty),
+świeża baza SQLite w pamięci przy każdym starcie, zegar od środy 7.10.2026 08:00 UTC (dalej płynie), wyłączone
+powiadomienia, kalendarz bez zapisu, bez dojazdu, wprowadzenie i „Co nowego” już obejrzane. Dane demo: grupa
+osobista i „Rodzina” (ja i Ala — dorośli, Kuba — profil dziecka bez konta), zadania, cotygodniowy „Basen Kuby” (środa
+17:00–18:00) i lista „Zakupy”. Ekrany, pętla synchronizacji i baza działają naprawdę — atrapy mają tylko sieć i system.
+
+**Bezpieczeństwo flagi.** (1) Ustawia ją wyłącznie krok buildu w `e2e.yml` (i `scripts/e2e/build-ios.sh`); test
+kontraktowy `src/app/__tests__/e2e-flag.test.ts` oblewa CI, jeśli flaga pojawi się w `ios-release.yml`, fastlane,
+`app.json`, `eas.json`, `package.json` albo plikach `.env*`, oraz pilnuje zasad workflow (bez `pull_request_target`,
+akcje przypięte do SHA, `contents: read`). (2) Nawet z flagą sesja demo powstaje tylko na symulatorze
+(`Application.getIosApplicationReleaseTypeAsync() === SIMULATOR`); na telefonie zostaje ekran logowania bez działającego
+logowania. Artefakty `e2e.yml` to zrzuty, raport JUnit i logi Maestro oraz log xcodebuild — nigdy plik `.app`; 7 dni.
+
+**Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
+`01-today` (dane demo na „Moich sprawach”), `02-quick-add` („Kupić mleko jutro” widać jutro), `03-event-rsvp` („Będę”
+na wydarzeniu cyklicznym), `04-event-form` (nowe wydarzenie, kafelki `event-start-0-h-18` / `-m-30` z `TimeField`),
+`05-shopping` (produkt do listy i do koszyka z potwierdzeniem), `06-settings`. Selektory: `id` = `testID`, tekst =
+etykieta VoiceOver (wyrażenie regularne w całości; na iOS wiersz to jeden element). Te same kroki na RNTL przechodzi
+`src/app/__tests__/e2e.screens.test.tsx` w zwykłym CI — błąd w danych demo, tekstach albo `testID` wychodzi od razu,
+bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teście, `npm run e2e:check`.
+
+**Uruchomienie lokalnie** (Mac z Xcode 26.4+, Java 17+):
+```bash
+scripts/e2e/install-maestro.sh                          # Maestro w przypiętej wersji (suma SHA-256), potem PATH: ~/.maestro-cli/maestro/bin
+udid=$(scripts/e2e/boot-simulator.sh "iPhone 17")       # symulator: pasek stanu 9:41, jasny wygląd, bez autokorekty
+npm run e2e:build -- "$udid"                            # expo prebuild + xcodebuild Release dla symulatora z EXPO_PUBLIC_E2E=1
+npm run e2e:run -- "$udid" ios/build/e2e/Build/Products/Release-iphonesimulator/Organizer.app
+npm run e2e:compare                                     # porównanie z .maestro/baselines (wyniki w e2e-artifacts/)
+npm run e2e:check                                       # sama składnia scenariuszy (działa też na Linuksie)
+```
+
+**Wzorce zrzutów** (`.maestro/baselines/NN-opis.png`). Porównanie liczy piksele różniące się ponad próg koloru
+pixelmatch (0,1) i oblewa zrzut, gdy jest ich więcej niż 0,1% (`--max-ratio`); inny rozmiar (inny symulator) też jest
+błędem, a zrzut bez wzorca — tylko „new”. Przy push i PR wynik jest w podsumowaniu przebiegu (z obrazami różnic
+`*.diff.png` w artefakcie), w nocy różnica oblewa przebieg. Dopóki wzorców nie ma, przebieg tylko zapisuje zrzuty.
+Przyjęcie wzorców (pierwsze albo po zamierzonej zmianie wyglądu): pobierz artefakt `e2e-<numer>-<próba>` zielonego
+przebiegu na `main`, obejrzyj zrzuty, `npm run e2e:accept -- <rozpakowany artefakt>/screenshots` i zatwierdź
+`.maestro/baselines/` osobnym commitem (z `device.txt` — urządzenie i wersja iOS, na których powstały). Zmiana obrazu
+symulatora albo Xcode na runnerze może wymagać przyjęcia wzorców od nowa.
+
 ## Stan na 8.10.2026
-`npm run check`: 2094 testy Jest (2090 przechodzi, 4 pominięte — testy na prawdziwym Postgresie bez `PGHOST`; uruchamia je
+`npm run check`: 2153 testy Jest (2149 przechodzi, 4 pominięte — testy na prawdziwym Postgresie bez `PGHOST`; uruchamia je
 `npm run test:db` i `db.yml`) plus 11 testów Deno; pokrycie logiki 100%. Mutation score: ostatni pomiar 94,1% (6.10.2026,
 próg 90%, nocny przebieg). Baza audytu z 6.10.2026: 2 zgłoszenia (`braces`, `node-forge`) w narzędziach Expo/Jest,
-nie w kodzie aplikacji. Nie ma jeszcze: E2E (Maestro), porównania zrzutów ekranu, testów wydajności — planowane,
-otwarte w backlogu.
+nie w kodzie aplikacji. E2E (Maestro, 6 scenariuszy) i porównanie zrzutów: zaimplementowane w `e2e.yml` (D143) — pierwszy przebieg na macOS
+i pierwsze wzorce zrzutów czekają na weryfikację. Nie ma jeszcze testów wydajności — planowane, otwarte w backlogu.
