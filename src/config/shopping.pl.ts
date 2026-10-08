@@ -9,6 +9,13 @@
  *     inny rdzeń, więc osobny wpis), wpis bez „*” musi pasować całe słowo (krótkie rdzenie: „ser” ≠ „serwetki”).
  *     Gdy pasuje kilka wpisów, wygrywa najdłuższy („żelk*” przed „żel*”).
  *  Nierozpoznane → „Inne”. Każdy wpis występuje w słowniku raz (test).
+ *
+ * Poprawki ze źródłem (audyt 2, M-230): „masło orzechowe” to nie nabiał — „Masło orzechowe – wyrób spożywczy wytwarzany
+ * z nasion orzachy podziemnej (tzw. orzeszków ziemnych)” (https://pl.wikipedia.org/wiki/Masło_orzechowe); „Peanut butter
+ * is the food prepared by grinding one of the shelled and roasted peanut ingredients” (21 CFR 164.150(a),
+ * https://www.law.cornell.edu/cfr/text/21/164.150). Dział „Spiżarnia” jak inne pasty do pieczywa w słowniku (dżem, miód,
+ * nutella) — konwencja słownika, nie twierdzenie o układzie sklepu. Tofu i napoje roślinne („mleko owsiane”) — otwarte
+ * pytanie (O-059: brak przeczytanego źródła o dziale w polskich sklepach).
  */
 export const SHOPPING_CATEGORIES = [
   { key: 'produce', name: 'Owoce i warzywa' },
@@ -65,6 +72,7 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'proszek do pieczenia', 'bułka tarta', 'kisiel*', 'galaretk*', 'rosół', 'kostk*', 'bulion*', 'zupk*', 'zup*', 'orzech*',
     'migdał*', 'rodzynk*', 'słonecznik*', 'pestk*', 'siemię', 'oliwk*', 'ogórki konserwowe', 'korniszon*', 'ketchupu', 'chrzan*',
     'curry', 'papryka słodka', 'cynamon*', 'wanili*', 'żelatyn*', 'skrobi*', 'kukurydza w puszce', 'tuńczyk w puszce', 'hummus*',
+    'masło orzechow*', 'masła orzechow*',
   ],
   sweets: [
     'czekolad*', 'cukierk*', 'cukierków', 'baton*', 'ciastk*', 'ciastek', 'ciasto', 'ciasta', 'herbatnik*', 'wafl*', 'wafelk*',

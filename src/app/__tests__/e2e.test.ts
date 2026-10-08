@@ -70,6 +70,22 @@ describe('E2eServer', () => {
     expect(fresh.rows.map((r) => r.row.id ?? r.row.member_id)).toEqual(['m9', 't1']);
   });
 
+  it('audyt 2 (M-111): stałe zakupy jako polecenia — jak na serwerze; inne polecenia bez zmian danych', () => {
+    const s = new E2eServer(e2eSeed(), () => NOW);
+    const list = () => s.pull({}, 1000).groups.flatMap((x) => x.rows).find((r) => r.e === 'lists' && r.row.id === E2E_IDS.shoppingList)!.row;
+    const before = list().version;
+    s.push(req([
+      { seq: 1, op_id: 'o1', kind: 'cmd', cmd: 'staple_add', args: { list_id: E2E_IDS.shoppingList, name: 'Mleko' } },
+      { seq: 2, op_id: 'o2', kind: 'cmd', cmd: 'staple_add', args: { list_id: E2E_IDS.shoppingList, name: 'Chleb' } },
+      { seq: 3, op_id: 'o3', kind: 'cmd', cmd: 'staple_remove', args: { list_id: E2E_IDS.shoppingList, names: ['Mleko'] } },
+      { seq: 4, op_id: 'o4', kind: 'cmd', cmd: 'staple_add', args: { list_id: 'brak', name: 'Mleko' } },
+    ]));
+    expect(list()).toMatchObject({ staples: ['Chleb'] });
+    expect(Number(list().version)).toBeGreaterThan(Number(before));
+    s.push(req([{ seq: 1, op_id: 'p1', kind: 'delete', entity: 'lists', id: E2E_IDS.shoppingList }, { seq: 2, op_id: 'p2', kind: 'cmd', cmd: 'staple_add', args: { list_id: E2E_IDS.shoppingList, name: 'Woda' } }], 'c3'));
+    expect(list()).toMatchObject({ staples: ['Chleb'] });
+  });
+
   it('nowa grupa jak RPC create_group i transport z tymi samymi danymi', async () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
     s.createGroup({ groupId: 'g2', name: 'Działka', ownerMemberId: 'm2', displayName: 'Łukasz' }, E2E_IDS.me);
