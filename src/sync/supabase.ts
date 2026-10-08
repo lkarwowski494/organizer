@@ -159,6 +159,12 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, memory
     async renewJoinCode(groupId, role) {
       return joinInvite(await call<JoinCodeRow>(client, 'renew_join_code', { group_id: groupId, role }));
     },
+    async createChildCode(memberId) {
+      return joinInvite(await call<JoinCodeRow>(client, 'create_child_code', { member_id: memberId }));
+    },
+    async renewChildCode(memberId) {
+      return joinInvite(await call<JoinCodeRow>(client, 'renew_child_code', { member_id: memberId }));
+    },
     async joinGroup(joinId, code, displayName) {
       // Serwer zwraca błąd w treści (nie wyjątkiem), żeby zapis nieudanej próby nie został wycofany.
       const r = await call<{ group_id?: string; error?: string }>(client, 'join_group', { join_id: joinId, code, display_name: displayName });

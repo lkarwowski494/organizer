@@ -12,6 +12,7 @@ describe('groupErrorText', () => {
     ['invite_revoked', strings['invite.revoked']],
     ['invite_used_up', strings['invite.usedUp']],
     ['invite_removed', strings['invite.removed']],
+    ['invite_child_account', strings['invite.childAccount']],
     ['invite_invalid', strings['invite.invalid']],
     ['not_authenticated', strings['groups.error.session']],
     ['forbidden', strings['groups.error.forbidden']],

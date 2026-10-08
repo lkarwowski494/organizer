@@ -31,7 +31,17 @@ export interface AccountApi {
   createJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
   /** „Nowy kod”: kolejny kod tej roli; poprzedni przestaje działać (PW-41 A). */
   renewJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
-  /** Dołączenie ID + kod. Błędy (komunikat): invite_invalid, invite_expired, invite_revoked, invite_used_up, rate_limited. */
+  /**
+   * „Połącz z kontem dziecka” (owner/admin; decyzja właściciela z 8.10.2026, PW-14 B): jednorazowy kod przypięty do profilu
+   * dziecka bez konta — dziecko dołącza nim jak zwykłym kodem i staje się tym profilem. Bieżący ważny kod albo nowy.
+   */
+  createChildCode(memberId: string): Promise<JoinInvite>;
+  /** „Nowy kod” przy profilu dziecka; poprzedni przestaje działać. */
+  renewChildCode(memberId: string): Promise<JoinInvite>;
+  /**
+   * Dołączenie ID + kod. Błędy (komunikat): invite_invalid, invite_expired, invite_revoked, invite_used_up, invite_removed,
+   * invite_child_account (kod profilu dziecka na koncie, które jest albo było w grupie), rate_limited.
+   */
   joinGroup(joinId: string, code: string, displayName: string): Promise<{ groupId: string }>;
   /** Nowe ID grupy (owner); wszystkie kody na stare ID przestają działać. */
   rotateJoinId(groupId: string): Promise<string>;

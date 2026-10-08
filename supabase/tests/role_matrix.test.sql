@@ -26,8 +26,8 @@ create function pg_temp.as_user(u text) returns void language sql as $$ select s
 -- ADMIN
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a1');
 select lives_ok($$ insert into public.group_members (member_id, group_id, display_name, role) values (gen_random_uuid(), '77777777-0000-7000-8000-000000000001', 'Nowe dziecko', 'child') $$, 'admin: dodaje profil dziecka');
-select lives_ok($$ update public.group_members set role = 'child' where member_id = '77777777-0000-7000-8000-0000000000f2' $$, 'admin: zmienia rolę membera');
-select lives_ok($$ update public.group_members set role = 'member' where member_id = '77777777-0000-7000-8000-0000000000f2' $$, 'admin: i z powrotem');
+select throws_ok($$ update public.group_members set role = 'child' where member_id = '77777777-0000-7000-8000-0000000000f2' $$, 'P0001', 'forbidden:role', 'admin: nie zmienia ról — tylko owner (PW-14 B)');
+select throws_ok($$ update public.group_members set role = 'member' where member_id = '77777777-0000-7000-8000-0000000000f3' $$, 'P0001', 'forbidden:role', 'admin: także dziecku z kontem');
 select throws_ok($$ update public.group_members set role = 'admin' where member_id = '77777777-0000-7000-8000-0000000000f2' $$, 'P0001', 'forbidden:role', 'admin: nie mianuje adminów');
 select throws_ok($$ update public.group_members set deleted_at = now() where member_id = '77777777-0000-7000-8000-0000000000f0' $$, 'P0001', 'forbidden:role', 'admin: nie usuwa ownera');
 select lives_ok($$ update public.group_members set display_name = 'Zmienione' where member_id = '77777777-0000-7000-8000-0000000000c9' $$, 'admin: zmienia nazwę profilu dziecka');
@@ -52,7 +52,7 @@ select throws_ok($$ update public.tasks set title = 'C' where id = '77777777-000
 select throws_ok($$ update public.lists set name = 'C' where id = '77777777-0000-7000-8000-0000000000e1' $$, 'P0001', 'forbidden:child', 'child: nie edytuje list');
 select throws_ok($$ select public.create_invite('77777777-0000-7000-8000-000000000001') $$, 'P0001', 'forbidden', 'child: nie zaprasza');
 select lives_ok($$ update public.group_members set color = '#00ff00' where member_id = '77777777-0000-7000-8000-0000000000f3' $$, 'child: zmienia swój kolor');
-select lives_ok($$ update public.group_members set deleted_at = now() where member_id = '77777777-0000-7000-8000-0000000000f3' $$, 'child: może wyjść z grupy');
+select throws_ok($$ update public.group_members set deleted_at = now() where member_id = '77777777-0000-7000-8000-0000000000f3' $$, 'P0001', 'forbidden:child', 'child: nie wychodzi sam z grupy (PW-14 B)');
 
 -- OBCY
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a4');
