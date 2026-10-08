@@ -25,8 +25,10 @@ export type SupabaseLike = {
     signInWithOtp(a: { email: string; options: { emailRedirectTo: string } }): Promise<{ error: { message: string } | null }>;
     signOut(a?: { scope: 'local' | 'global' }): Promise<{ error: { message: string } | null }>;
     updateUser(a: { data: Record<string, string> }): Promise<{ error: { message: string } | null }>;
-    getSession(): Promise<{ data: { session: { user: { app_metadata?: { provider?: string } } } | null } }>;
+    getSession(): Promise<{ data: { session: { user: { id?: string; app_metadata?: { provider?: string } } } | null } }>;
   };
+  /** Tylko aktualizacja własnego profilu (D100; RLS i GRANT update (display_name) — migracja core). */
+  from(table: 'profiles'): { update(v: { display_name: string }): { eq(col: 'user_id', v: string): PromiseLike<{ error: { message: string } | null }> } };
   functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ error: { message: string } | null }> };
 };
 
@@ -93,6 +95,11 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       check(await client.functions.invoke('delete-account', { method: 'POST', ...(code ? { body: { appleAuthorizationCode: code } } : {}) }));
       // Konto już nie istnieje, więc tylko lokalne wylogowanie (globalne wymagałoby ważnej sesji na serwerze).
       check(await client.auth.signOut({ scope: 'local' }));
+    },
+    async setMyName(name) {
+      check(await client.auth.updateUser({ data: { display_name: name } }));
+      const user = (await client.auth.getSession()).data.session?.user.id;
+      if (user) check(await client.from('profiles').update({ display_name: name }).eq('user_id', user));
     },
     async createGroup(a) {
       await call(client, 'create_group', { group_id: a.groupId, name: a.name, owner_member_id: a.ownerMemberId, owner_display_name: a.displayName });

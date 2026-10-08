@@ -18,6 +18,8 @@ export interface AccountApi {
   signOut(): Promise<void>;
   /** Usunięcie konta (D49): serwer przekazuje grupy i zaciera imię w historii. */
   deleteAccount(): Promise<void>;
+  /** Moje imię w profilu konta (D100); członkostwa zmienia kolejka (domain/views/my-name). */
+  setMyName(name: string): Promise<void>;
   createGroup(a: { groupId: string; name: string; ownerMemberId: string; displayName: string }): Promise<void>;
   createInvite(groupId: string, role: 'member' | 'admin'): Promise<Invite>;
   acceptInvite(token: string, displayName: string): Promise<{ groupId: string }>;

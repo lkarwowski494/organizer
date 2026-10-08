@@ -37,7 +37,14 @@ export function EventEditScreen({ route, navigation }: Props) {
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
   const occurrence = route.params.date ?? formatIsoDate(today);
   const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : (groups[0]?.id ?? '')));
-  const [form, setForm] = useState<EventForm>(() => (detail ? formOf(fieldsOf(detail, occurrence, scope)) : emptyForm(occurrence)));
+  const [form, setForm] = useState<EventForm>(() => {
+    if (detail) return formOf(fieldsOf(detail, occurrence, scope));
+    // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
+    const { title, start, end, responsibleId } = route.params;
+    const f = emptyForm(occurrence);
+    const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');
+    return { ...f, title: title ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
+  });
   const [error, setError] = useState<string | null>(null);
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
@@ -114,6 +121,21 @@ export function EventEditScreen({ route, navigation }: Props) {
     <Screen testID="screen-event-edit">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{detail ? strings['event.edit'] : strings['event.new']}</Title>
+      {detail ? null : (
+        // D98: zadanie albo wydarzenie — wpisane nazwa, dzień, godzina i grupa przechodzą do formularza zadania.
+        <Segmented
+          label={strings['form.kind']}
+          value="event"
+          onChange={(k) => {
+            if (k !== 'task') return;
+            navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId });
+          }}
+          options={[
+            { value: 'task', label: strings['form.kind.task'] },
+            { value: 'event', label: strings['form.kind.event'] },
+          ]}
+        />
+      )}
       {detail && detail.rule ? (
         <Body muted>
           {scope === 'this' ? strings['event.scopeThisInfo'] : scope === 'following' ? strings['event.scopeFollowingInfo'](formatLongDate(parseIsoDate(occurrence), today)) : strings['event.scopeAllInfo']}

@@ -1,6 +1,7 @@
 /**
  * Pełny formularz zadania (D90, ADR 0019): „Więcej” przy polu dodawania (wypełniony tym, co wpisałeś) i „Zmień” po
- * szybkim dodaniu (to samo zadanie). Grupa, lista, dzień i godzina, osoba, powtarzanie. Logika: domain/views/task-form.
+ * szybkim dodaniu (to samo zadanie). Rodzaj (zadanie albo wydarzenie, D98), grupa, dzień i godzina, osoba, powtarzanie;
+ * bez wyboru listy (D97). Logika: domain/views/task-form.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
@@ -8,17 +9,15 @@ import { Text } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
-import { addDays, formatIsoDate } from '../../domain/civil-date';
+import { addDays, formatIsoDate, isValidDate } from '../../domain/civil-date';
 import {
   type FormError,
   formFromTask,
   formFromText,
   formGroups,
-  formLists,
   formMembers,
   formOps,
   formWeekday,
-  NEW_LIST_NAME,
   type TaskForm,
   validateForm,
 } from '../../domain/views/task-form';
@@ -28,6 +27,11 @@ import { useTheme } from '../../ui/theme';
 import { RepeatEditor } from './RepeatEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'AddTask'>;
+
+const validDate = (s: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  return !!m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3]));
+};
 
 const ERRORS: Record<FormError, string> = {
   title: strings['form.error.title'],
@@ -43,11 +47,15 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const editing = route.params.taskId;
-  const [form, setForm] = useState<TaskForm>(() => (editing ? formFromTask(tables, editing) : null) ?? formFromText(tables, userId, route.params.text ?? '', now()).form);
+  const [form, setForm] = useState<TaskForm>(() => {
+    const base = (editing ? formFromTask(tables, editing) : null) ?? formFromText(tables, userId, route.params.text ?? '', now()).form;
+    // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
+    const p = route.params;
+    return { ...base, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.date ? { date: p.date } : {}), ...(p.time ? { time: p.time } : {}), ...(p.groupId ? { groupId: p.groupId } : {}) };
+  });
   const [error, setError] = useState<FormError | null>(null);
   const set = (patch: Partial<TaskForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
   const groups = formGroups(tables, userId);
-  const lists = formLists(tables, userId, form.groupId);
   const members = formMembers(tables, form.groupId);
   const originalGroup = editing ? tables.tasks?.[editing]?.group_id : undefined;
   const day = (k: number) => formatIsoDate(addDays(today, k));
@@ -64,20 +72,31 @@ export function AddTaskScreen({ route, navigation }: Props) {
     <Screen testID="screen-add-task">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{editing ? strings['form.editTitle'] : strings['form.newTitle']}</Title>
+      {editing ? null : (
+        // D98: zadanie albo wydarzenie — wydarzenie ma czas od–do, osobę odpowiedzialną i uczestników (osobny formularz).
+        <Segmented
+          label={strings['form.kind']}
+          value="task"
+          onChange={(k) => {
+            if (k !== 'event') return;
+            // Osoba zadania staje się odpowiedzialną za wydarzenie (formularz wydarzenia przyjmie tylko dorosłego, D66).
+            const date = validDate(form.date) ? form.date : formatIsoDate(today);
+            navigation.replace('EventEdit', { groupId: form.groupId, date, title: form.title, start: form.time || undefined, responsibleId: form.assigneeId ?? undefined });
+          }}
+          options={[
+            { value: 'task', label: strings['form.kind.task'] },
+            { value: 'event', label: strings['form.kind.event'] },
+          ]}
+        />
+      )}
       <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} testID="form-title" />
       <Segmented
         label={strings['form.group']}
         value={form.groupId}
-        onChange={(g) => set({ groupId: g, listId: null, assigneeId: null })}
+        onChange={(g) => set({ groupId: g, assigneeId: null })}
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
       {originalGroup && originalGroup !== form.groupId ? <Body muted>{strings['form.moved']}</Body> : null}
-      <Segmented
-        label={strings['form.list']}
-        value={form.listId ?? lists[0]?.id ?? ''}
-        onChange={(l) => set({ listId: l })}
-        options={lists.length ? lists.map((l) => ({ value: l.id, label: l.name })) : [{ value: '', label: strings['form.listNew'](NEW_LIST_NAME) }]}
-      />
       <Segmented
         label={strings['task.due']}
         value={dateChoice}

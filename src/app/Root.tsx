@@ -25,7 +25,8 @@ import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
 
-export type Session = { userId: string; displayName: string };
+/** `needsName` i `emailName` — D100 (konto bez imienia; dawne imię zastępcze z adresu e-mail). */
+export type Session = { userId: string; displayName: string; needsName?: boolean; emailName?: string | null };
 
 export type RootDeps = {
   /** Bieżąca sesja i zmiany (logowanie, wylogowanie, wygaśnięcie). */
@@ -122,6 +123,8 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       local: { load: (k) => loadLocal(db, k), save: (k, v) => saveLocal(db, k, v) },
       userId: session.userId,
       displayName: session.displayName,
+      needsName: session.needsName,
+      emailName: session.emailName,
       newId: deps.newId,
       now: () => localNow(nowMs()),
       nowIso: () => new Date(nowMs()).toISOString(),

@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formFromTask, formFromText, formGroups, formLists, formMembers, formOps, formWeekday, NEW_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
+import { formFromTask, formFromText, formGroups, formMembers, formOps, formWeekday, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -23,11 +23,11 @@ function base(): T {
   m('mk', 'gk', ME, 'Łukasz');
   m('alicja', 'gk', 'u-al', 'Alicja');
   m('mc', 'gc', ME, 'Łukasz', 'child');
-  const l = (id: string, gid: string, kind = 'tasks') => put(t, 'lists', id, { id, group_id: gid, kind, name: id, visibility: 'group', sort_key: 'a0', deleted_at: null });
+  const l = (id: string, gid: string, kind = 'tasks', name = id) => put(t, 'lists', id, { id, group_id: gid, kind, name, visibility: 'group', sort_key: 'a0', deleted_at: null });
   l('lp', ME);
-  l('lf', 'gf');
-  l('lf2', 'gf');
-  l('lz', 'gf', 'shopping');
+  l('lf', 'gf', 'tasks', 'Balet – Róża');
+  l('lf2', 'gf', 'tasks', 'Zadania');
+  l('lz', 'gf', 'shopping', 'Zadania');
   put(t, 'tasks', 't1', { id: 't1', group_id: ME, list_id: 'lp', parent_id: null, title: 'Basen', note: 'czepek', sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00:00', repeat: null, completed_at: null, deleted_at: null });
   put(t, 'tasks', 't2', { id: 't2', group_id: 'gf', list_id: 'lf', parent_id: null, title: 'Śmieci', note: null, sort_key: 'a0', assignee_member_id: 'ala', deadline_mode: 'none', due_date: null, due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=MO', completed_at: null, deleted_at: null });
   return t;
@@ -36,10 +36,9 @@ function base(): T {
 const form = (over: Partial<TaskForm> = {}): TaskForm => ({ title: 'Basen', groupId: ME, listId: null, date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null, ...over });
 
 describe('pełny formularz zadania (D90)', () => {
-  it('grupy (bez tych, gdzie jestem dzieckiem), listy zadań grupy, osoby bez usuniętych', () => {
+  it('grupy (bez tych, gdzie jestem dzieckiem), osoby bez usuniętych', () => {
     const t = base();
     expect(formGroups(t, ME).map((g) => g.id)).toEqual([ME, 'gf', 'gk']);
-    expect(formLists(t, ME, 'gf').map((l) => l.id).sort()).toEqual(['lf', 'lf2']);
     expect(formMembers(t, 'gf').map((m) => m.display_name)).toEqual(['Ala', 'Kuba', 'Łukasz']);
     put(t, 'group_members', 'nn', { member_id: 'nn', group_id: 'gk', user_id: 'u-n', deleted_at: null });
     expect(formMembers(t, 'gk').map((m) => m.display_name)).toEqual(['', 'Alicja', 'Łukasz']);
@@ -96,24 +95,33 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formWeekday(form({ date: '2026-13-01' }), { y: 2026, m: 10, d: 8 })).toBe(3);
   });
 
-  it('nowe: pierwsza lista zadań grupy, osoba, powtarzanie; grupa bez listy — nowa lista', () => {
+  it('ogólna lista grupy (D97): osobista — pierwsza lista zadań; wspólna — „Zadania” (nie tematyczna, nie zakupy); brak — nowa', () => {
+    const t = base();
+    const id = () => 'nl';
+    expect(generalList(t, ME, ME, id)).toEqual({ listId: 'lp', ops: [] });
+    expect(generalList(t, ME, 'gf', id)).toEqual({ listId: 'lf2', ops: [] });
+    expect(generalList(t, ME, 'gk', id)).toEqual({ listId: 'nl', ops: [{ kind: 'create', entity: 'lists', id: 'nl', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } }] });
+    delete t.lists!.lp;
+    expect(generalList(t, ME, ME, id).ops[0]).toMatchObject({ group_id: ME, set: { name: PERSONAL_LIST_NAME } });
+  });
+
+  it('nowe: ogólna lista grupy, osoba, powtarzanie; grupa bez listy — nowa lista', () => {
     const t = base();
     let n = 0;
     const id = () => `n${++n}`;
     const r = formOps(t, ME, form({ groupId: 'gf', assigneeId: 'ala', repeat: { kind: 'daily' } }), id);
     expect(r.taskId).toBe('n1');
     expect(r.ops).toEqual([
-      { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
+      { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'gf', set: { list_id: 'lf2', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
       { kind: 'patch', entity: 'tasks', id: 'n1', set: { repeat: 'FREQ=DAILY' } },
     ]);
-    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf2', time: '' }), id).ops[0]).toMatchObject({ set: { list_id: 'lf2', due_time: null } });
-    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lz' }), id).ops[0]).toMatchObject({ set: { list_id: 'lf' } });
+    expect(formOps(t, ME, form({ groupId: 'gf', time: '' }), id).ops[0]).toMatchObject({ set: { list_id: 'lf2', due_time: null } });
     const g = formOps(t, ME, form({ groupId: 'gk', date: '' }), id);
-    expect(g.ops[0]).toEqual({ kind: 'create', entity: 'lists', id: 'n4', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } });
-    expect(g.ops[1]).toMatchObject({ kind: 'create', id: 'n5', set: { list_id: 'n4', deadline_mode: 'none', due_date: null } });
+    expect(g.ops[0]).toEqual({ kind: 'create', entity: 'lists', id: 'n3', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } });
+    expect(g.ops[1]).toMatchObject({ kind: 'create', id: 'n4', set: { list_id: 'n3', deadline_mode: 'none', due_date: null } });
   });
 
-  it('„Zmień” w tej samej grupie: tylko zmienione pola; inna lista — przeniesienie', () => {
+  it('„Zmień” w tej samej grupie: tylko zmienione pola, zadanie zostaje na swojej liście', () => {
     const t = base();
     const id = () => 'x';
     expect(formOps(t, ME, form({ listId: 'lp' }), id, 't1')).toEqual({ ops: [], taskId: 't1' });
@@ -122,8 +130,7 @@ describe('pełny formularz zadania (D90)', () => {
       { kind: 'patch', entity: 'tasks', id: 't1', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '18:00' } },
       { kind: 'patch', entity: 'tasks', id: 't1', set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } },
     ]);
-    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf2', title: 'Śmieci', date: '', time: '', assigneeId: null, repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
-      { kind: 'cmd', cmd: 'move_task', args: { id: 't2', parent_id: null, list_id: 'lf2' } },
+    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf', title: 'Śmieci', date: '', time: '', assigneeId: null, repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
       { kind: 'patch', entity: 'tasks', id: 't2', set: { assignee_member_id: null } },
     ]);
     expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf', title: 'Śmieci', date: '2026-10-12', time: '', assigneeId: 'ala', repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
@@ -136,7 +143,7 @@ describe('pełny formularz zadania (D90)', () => {
     const r = formOps(t, ME, form({ groupId: 'gf', assigneeId: 'ala' }), () => 'copy', 't1');
     expect(r.taskId).toBe('copy');
     expect(r.ops).toEqual([
-      { kind: 'create', entity: 'tasks', id: 'copy', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
+      { kind: 'create', entity: 'tasks', id: 'copy', group_id: 'gf', set: { list_id: 'lf2', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
       { kind: 'patch', entity: 'tasks', id: 'copy', set: { note: 'czepek' } },
       { kind: 'delete', entity: 'tasks', id: 't1' },
     ]);

@@ -1,16 +1,16 @@
 /**
  * Pełny formularz zadania (D90, ADR 0019): „Więcej” przy polu dodawania i „Zmień” po szybkim dodaniu. Wypełniony tym,
  * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, listy, osoby i powtarzania.
- *  - Nowe zadanie: lista zadań w wybranej grupie; gdy grupa nie ma listy zadań, powstaje lista `newListName`.
- *  - Zmiana listy w tej samej grupie: przeniesienie (move_task). Zmiana grupy: serwer trzyma zadanie w jego grupie,
- *    więc powstaje kopia (z notatką) w nowym miejscu, a stare idzie do kosza (można je przywrócić).
+ *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
+ *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
+ *    (z notatką) na ogólnej liście nowej grupy, a stare idzie do kosza (można je przywrócić).
  *  - We wspólnej grupie zadanie potrzebuje osoby albo terminu (D68).
  */
 import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
-import { createList, createTask, moveTask, patchTask, remove, setDue } from './commands';
+import { createList, createTask, patchTask, remove, setDue } from './commands';
 import { groupsView, listsView } from './index';
 import { extractMention, type MentionTarget, mentionTargets } from './mention';
 import { asTask, type Tables } from './model';
@@ -19,7 +19,7 @@ import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 export type TaskForm = {
   title: string;
   groupId: string;
-  /** null = pierwsza lista zadań grupy (albo nowa, gdy grupa jej nie ma). */
+  /** Lista zadania przy „Zmień” (zostaje, dopóki grupa ta sama); null = ogólna lista grupy (D97). */
   listId: string | null;
   date: string;
   time: string;
@@ -32,7 +32,22 @@ export type FormError = 'title' | 'date' | 'time' | 'addressee' | 'repeatNeedsDa
 /** Grupy, do których mogę dodawać (nie jako dziecko), osobista pierwsza. */
 export const formGroups = (t: Tables, userId: string) => groupsView(t, userId).filter((g) => g.me.role !== 'child');
 
-export const formLists = (t: Tables, userId: string, groupId: string) => listsView(t, userId, groupId).filter((l) => l.kind === 'tasks');
+/** Nazwy ogólnych list zadań (D97): w grupie osobistej „Moje zadania”, we wspólnej „Zadania”. */
+export const PERSONAL_LIST_NAME = 'Moje zadania';
+export const NEW_LIST_NAME = 'Zadania';
+
+/**
+ * Ogólna lista zadań grupy (D97): tu trafia zadanie bez wybranej listy. Osobista — pierwsza lista zadań (jak dotąd),
+ * wspólna — lista „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Balet – Róża”) wybiera się na liście.
+ */
+export function generalList(t: Tables, userId: string, groupId: string, newId: () => string): { listId: string; ops: NewOp[] } {
+  const lists = listsView(t, userId, groupId).filter((l) => l.kind === 'tasks');
+  const personal = groupsView(t, userId).find((g) => g.id === groupId)?.kind === 'personal';
+  const found = personal ? lists[0] : lists.find((l) => l.name === NEW_LIST_NAME);
+  if (found) return { listId: found.id, ops: [] };
+  const listId = newId();
+  return { listId, ops: [createList({ id: listId, groupId, kind: 'tasks', name: personal ? PERSONAL_LIST_NAME : NEW_LIST_NAME })] };
+}
 
 /** Osoby, którym mogę przypisać zadanie w grupie (także dzieci — D34; bez usuniętych). */
 export function formMembers(t: Tables, groupId: string): { member_id: string; display_name: string }[] {
@@ -109,17 +124,17 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
   const date = f.date.trim();
   const due = date ? { date, time: f.time.trim() || null } : null;
   const original = originalId ? t.tasks?.[originalId] : undefined;
-  const lists = formLists(t, userId, f.groupId);
-  let listId = f.listId && lists.some((l) => l.id === f.listId) ? f.listId : (lists[0]?.id ?? null);
-  if (listId === null) {
-    listId = newId();
-    ops.push(createList({ id: listId, groupId: f.groupId, kind: 'tasks', name: NEW_LIST_NAME }));
+  const sameGroup = !!original && original.group_id === f.groupId;
+  let listId: string;
+  if (sameGroup) listId = String(original!.list_id);
+  else {
+    const g = generalList(t, userId, f.groupId, newId);
+    listId = g.listId;
+    ops.push(...g.ops);
   }
   const title = f.title.trim();
-  if (original && original.group_id === f.groupId) {
-    const x = asTask(original);
-    // Ta sama grupa, inna lista: przeniesienie (historia zostaje).
-    if (x.list_id !== listId) ops.push(moveTask(x.id, null, listId));
+  if (sameGroup) {
+    const x = asTask(original!);
     if (title !== x.title) ops.push(patchTask(x.id, { title }));
     if (f.assigneeId !== x.assignee_member_id) ops.push(patchTask(x.id, { assignee_member_id: f.assigneeId }));
     const sameDue = due ? x.deadline_mode === 'own' && x.due_date === due.date && (x.due_time?.slice(0, 5) ?? null) === due.time : x.deadline_mode === 'none';
@@ -138,6 +153,3 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
   }
   return { ops, taskId: id };
 }
-
-/** Nazwa listy zakładanej, gdy grupa nie ma jeszcze listy zadań. */
-export const NEW_LIST_NAME = 'Zadania';

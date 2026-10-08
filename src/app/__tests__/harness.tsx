@@ -113,13 +113,14 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     notifyAssignment: jest.fn(async () => {}),
     getPushMutes: jest.fn(async () => []),
     setPushMute: jest.fn(async () => {}),
+    setMyName: jest.fn(async () => {}),
     reportError: jest.fn(async () => {}),
     sendFeedback: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs'] } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
   const store = memoryStore(state, opts.indicator);
@@ -135,6 +136,7 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     local: memoryLocal(),
     userId: ME,
     displayName: 'Łukasz',
+    ...opts.session,
     newId: () => `new-${++id}`,
     now: () => NOW,
     nowIso: () => '2026-10-07T08:00:00.000Z',

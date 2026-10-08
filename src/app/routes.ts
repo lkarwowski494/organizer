@@ -13,7 +13,7 @@ export type RootStackParams = {
   /** `date` — data wystąpienia według reguły (klucz wystąpienia, także gdy przeniesione). */
   Event: { eventId: string; date: string };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */
-  EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope };
+  EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string };
   /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
   Invite: { token?: string; g?: string; c?: string };
   Settings: undefined;
@@ -21,8 +21,10 @@ export type RootStackParams = {
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;
+  /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
+  Name: { from?: 'settings' } | undefined;
   /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */
-  AddTask: { text?: string; taskId?: string };
+  AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string };
 };
 
 export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };

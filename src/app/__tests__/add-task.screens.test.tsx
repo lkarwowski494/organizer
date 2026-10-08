@@ -35,16 +35,20 @@ describe('szybkie dodanie i „Zmień”', () => {
     expect(screen.getByText(/powstanie tam kopia/)).toBeTruthy();
     await press(radio('Dla kogo', 'Ala'));
     await press(screen.getByTestId('form-save'));
-    const tail = store.dispatched.slice(-2);
-    expect(tail[0]).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lf', title: 'Basen', due_date: '2026-10-08', due_time: '19:00', assignee_member_id: 'ala' } });
-    expect(tail[1]).toEqual({ kind: 'delete', entity: 'tasks', id: (created as { id: string }).id });
+    // D97: nie lista tematyczna („Dom”), tylko ogólna „Zadania” grupy — powstaje, bo jej nie było.
+    const tail = store.dispatched.slice(-3);
+    expect(tail[0]).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania' } });
+    expect(tail[1]).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: (tail[0] as { id: string }).id, title: 'Basen', due_date: '2026-10-08', due_time: '19:00', assignee_member_id: 'ala' } });
+    expect(tail[2]).toEqual({ kind: 'delete', entity: 'tasks', id: (created as { id: string }).id });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
   });
 });
 
 describe('„Więcej” — pełny formularz', () => {
-  it('wypełniony tym, co wpisałem; jutro, lista, osoba, powtarzanie co tydzień; zapis nowego zadania', async () => {
-    const { store } = await open();
+  it('wypełniony tym, co wpisałem; jutro, osoba, powtarzanie co tydzień; bez wyboru listy; zapis nowego zadania', async () => {
+    const base = sampleBase();
+    put(base, 'lists', 'lk2', { ...base.lists!.lk!, id: 'lk2', name: 'Zadania' });
+    const { store } = await open(base);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Trening w piątek o 17');
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
@@ -52,13 +56,14 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByTestId('form-title').props.value).toBe('Trening');
     expect(screen.getByTestId('form-date').props.value).toBe('2026-10-09');
     expect(radio('Termin', '2026-10-09').props.accessibilityState.selected).toBe(true);
+    expect(screen.queryByLabelText('Lista')).toBeNull();
     await press(radio('Grupa', 'Klasa 2b'));
     await press(radio('Termin', 'Jutro'));
     await press(radio('Powtarzaj', 'Co tydzień'));
     await press(radio('Dla kogo', 'Pani Ewa'));
     await press(screen.getByTestId('form-save'));
     const tail = store.dispatched.slice(-2);
-    expect(tail[0]).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gk', set: { list_id: 'lk', title: 'Trening', due_date: '2026-10-08', due_time: '17:00', assignee_member_id: 'kx' } });
+    expect(tail[0]).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gk', set: { list_id: 'lk2', title: 'Trening', due_date: '2026-10-08', due_time: '17:00', assignee_member_id: 'kx' } });
     expect(tail[1]).toMatchObject({ kind: 'patch', set: { repeat: 'FREQ=WEEKLY;BYDAY=TH' } });
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
@@ -88,7 +93,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
   });
 
-  it('grupa bez listy zadań: „Nowa lista „Zadania”” i zapis tworzy listę', async () => {
+  it('grupa bez ogólnej listy: zapis tworzy listę „Zadania”', async () => {
     const base = sampleBase();
     put(base, 'lists', 'lk', { ...base.lists!.lk!, deleted_at: '2026-10-01T00:00:00Z' });
     const { store } = await open(base);
@@ -96,7 +101,6 @@ describe('„Więcej” — pełny formularz', () => {
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
     await press(radio('Grupa', 'Klasa 2b'));
-    expect(radio('Lista', 'Nowa lista „Zadania”')).toBeTruthy();
     await press(screen.getByTestId('form-save'));
     expect(store.dispatched.slice(-2).map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['create', 'lists'], ['create', 'tasks']]);
   });
@@ -106,7 +110,9 @@ describe('@imię', () => {
   it('jedno dopasowanie: grupa i osoba z tekstu, pasek z nazwą grupy', async () => {
     const { store } = await open();
     await type('Basen jutro 19.00 @ala');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lf', title: 'Basen', due_time: '19:00', assignee_member_id: 'ala' } });
+    const [list, task] = store.dispatched.slice(-2);
+    expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Zadania' } });
+    expect(task).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: (list as { id: string }).id, title: 'Basen', due_time: '19:00', assignee_member_id: 'ala' } });
     expect(screen.getByText('Dodano: Basen · Rodzina')).toBeTruthy();
   });
 
@@ -129,5 +135,80 @@ describe('@imię', () => {
     await type('x @al');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'x');
     expect(screen.queryByTestId('mention-choices')).toBeNull();
+  });
+});
+
+describe('zadanie albo wydarzenie (D98, D99)', () => {
+  it('przełącznik w formularzu zadania: wpisane przechodzi do wydarzenia i z powrotem', async () => {
+    await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen jutro 19.00 @ala');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    await press(radio('Rodzaj', 'Wydarzenie'));
+    await screen.findByTestId('screen-event-edit');
+    expect(screen.getByTestId('event-title').props.value).toBe('Basen');
+    expect(screen.getByTestId('event-date').props.value).toBe('2026-10-08');
+    expect(screen.getByTestId('event-start-0').props.value).toBe('19:00');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+    expect(radio('Osoba odpowiedzialna', 'Ala').props.accessibilityState.selected).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('event-start-0'), '18:00');
+    await press(radio('Rodzaj', 'Zadanie'));
+    await screen.findByTestId('screen-add-task');
+    expect(screen.getByTestId('form-title').props.value).toBe('Basen');
+    expect(screen.getByTestId('form-time').props.value).toBe('18:00');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+    // Bez daty w zadaniu — wydarzenie na dziś; dziecko nie zostaje osobą odpowiedzialną.
+    await press(radio('Termin', 'Bez terminu'));
+    await press(radio('Dla kogo', 'Kuba'));
+    await press(radio('Rodzaj', 'Wydarzenie'));
+    await screen.findByTestId('screen-event-edit');
+    expect(screen.getByTestId('event-date').props.value).toBe('2026-10-07');
+    expect(radio('Osoba odpowiedzialna', 'Nikt konkretny').props.accessibilityState.selected).toBe(true);
+    // Całodniowe — do zadania bez godziny; zła data — bez daty.
+    await press(radio('Pora', 'Cały dzień'));
+    await fireEvent.changeText(screen.getByTestId('event-date'), 'jutro');
+    await press(radio('Rodzaj', 'Zadanie'));
+    await screen.findByTestId('screen-add-task');
+    expect(screen.getByTestId('form-time').props.value).toBe('');
+    expect(screen.getByTestId('form-date').props.value).toBe('');
+    // Przycisk „Zadanie” w formularzu zadania niczego nie zmienia.
+    await press(radio('Rodzaj', 'Zadanie'));
+    expect(screen.getByTestId('screen-add-task')).toBeTruthy();
+  });
+
+  it('szybkie dodanie z zakresem godzin tworzy wydarzenie; „Zmień” otwiera wydarzenie; odklikany zakres — zadanie', async () => {
+    const { store } = await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen jutro 17–18');
+    expect(screen.getByLabelText(/17–18/)).toBeTruthy();
+    await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'events', group_id: 'u-me', set: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00' } });
+    const bar = screen.getByTestId('undo-bar');
+    expect(within(bar).getByText('Dodano wydarzenie: Basen · Osobiste')).toBeTruthy();
+    await press(within(bar).getByLabelText('Zmień'));
+    expect(await screen.findByTestId('screen-event')).toBeTruthy();
+  });
+
+  it('odklikany zakres — zwykłe zadanie; @imię z zakresem — wydarzenie w grupie z osobą odpowiedzialną', async () => {
+    const { store } = await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen 17-18');
+    await press(screen.getByLabelText(/17-18/));
+    await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', set: { title: 'Basen 17-18' } });
+    await type('Zebranie jutro od 17 do 18 @ala');
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'events', group_id: 'gf', set: { title: 'Zebranie', responsible_member_id: 'ala' } });
+    expect(screen.getByText('Dodano wydarzenie: Zebranie · Rodzina')).toBeTruthy();
+  });
+
+  it('„Więcej” z zakresem godzin otwiera formularz wydarzenia', async () => {
+    await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen jutro 17–18:30 @ala');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-event-edit');
+    expect(screen.getByTestId('event-title').props.value).toBe('Basen');
+    expect(screen.getByTestId('event-start-0').props.value).toBe('17:00');
+    expect(screen.getByTestId('event-end-0').props.value).toBe('18:30');
+    expect(radio('Osoba odpowiedzialna', 'Ala').props.accessibilityState.selected).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('event-title'), 'Basen z Kubą');
+    expect(screen.getByTestId('event-title').props.value).toBe('Basen z Kubą');
   });
 });

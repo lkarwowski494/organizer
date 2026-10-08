@@ -24,6 +24,12 @@ export const config = {
   shopping: { SUGGESTIONS: 5, STAPLES_MAX: 50, STAPLE_MAX_LENGTH: 200 },
 
   /**
+   * Imię (D100): najdłuższe imię w profilu i w grupach — z ograniczeń kolumn display_name w SQL (profiles,
+   * group_members; test kontraktowy). Wartość z pierwszej migracji, wybór projektowy bez źródła.
+   */
+  profile: { NAME_MAX_LENGTH: 100 },
+
+  /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
    * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych. Wybory projektowe, bez źródła.
    */

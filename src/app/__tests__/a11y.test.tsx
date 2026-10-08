@@ -97,6 +97,12 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Wyślij uwagę', async (p) => (await p('Ustawienia'), await p('Wyślij uwagę'))],
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
+  ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Twoje imię, Łukasz'))],
+  ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
+  ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {
+    fireEvent.changeText(await screen.findByTestId('quick-add'), 'basen jutro 17–18');
+    await p('Dodaj');
+  }],
   ['Odrzucone', async (p) => (await p('Ustawienia'), await p('Odrzucone zmiany, 0 zmian'))],
 ];
 

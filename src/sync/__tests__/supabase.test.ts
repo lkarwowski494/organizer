@@ -14,9 +14,14 @@ function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, 
     signInWithOtp: jest.fn(async () => ({ error: null as { message: string } | null })),
     signOut: jest.fn(async () => ({ error: null as { message: string } | null })),
     updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
-    getSession: jest.fn(async () => ({ data: { session: null as { user: { app_metadata?: { provider?: string } } } | null } })),
+    getSession: jest.fn(async () => ({ data: { session: null as { user: { id?: string; app_metadata?: { provider?: string } } } | null } })),
   };
   const functions = { invoke: jest.fn(async () => ({ error: null as { message: string } | null })) };
+  const profileUpdate = { error: null as { message: string } | null };
+  const profiles: { table: string; values: object; col: string; id: string }[] = [];
+  const from = (table: 'profiles') => ({
+    update: (values: { display_name: string }) => ({ eq: async (col: 'user_id', id: string) => (profiles.push({ table, values, col, id }), profileUpdate) }),
+  });
   const client: SupabaseLike = {
     rpc: async <T,>(fn: string, args: object) => {
       const c = { fn, args: args as Record<string, unknown> };
@@ -24,9 +29,10 @@ function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, 
       return reply(c) as RpcResult<T>;
     },
     auth,
+    from,
     functions,
   };
-  return { client, calls, auth, functions };
+  return { client, calls, auth, functions, profiles, profileUpdate };
 }
 
 /** Nazwy parametrów publicznych funkcji z migracji SQL (ostatnia definicja wygrywa). */
@@ -133,6 +139,21 @@ describe('Supabase: konto', () => {
     expect(auth.updateUser).toHaveBeenLastCalledWith({ data: { display_name: 'Ala', full_name: 'Ala' } });
     await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: null } })).signInWithApple();
     expect(auth.updateUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('moje imię (D100): metadane konta i profil; bez sesji tylko metadane; błąd zgłaszany', async () => {
+    const { client, auth, profiles, profileUpdate } = fakeClient();
+    const a = supabaseAccount(client, async () => ({ identityToken: null }));
+    await a.setMyName('Łukasz');
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { display_name: 'Łukasz' } });
+    expect(profiles).toEqual([]);
+    auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    await a.setMyName('Łukasz');
+    expect(profiles).toEqual([{ table: 'profiles', values: { display_name: 'Łukasz' }, col: 'user_id', id: 'u1' }]);
+    profileUpdate.error = { message: 'denied' };
+    await expect(a.setMyName('X')).rejects.toThrow('denied');
+    auth.updateUser.mockResolvedValueOnce({ error: { message: 'offline' } });
+    await expect(a.setMyName('X')).rejects.toThrow('offline');
   });
 
   it('magic link z adresem powrotu w schemacie aplikacji, wylogowanie, usunięcie konta', async () => {
