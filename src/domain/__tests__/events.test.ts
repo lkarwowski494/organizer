@@ -11,6 +11,7 @@ import {
   cancelEvent,
   createEvent,
   describeRule,
+  type RuleLabels,
   editEvent,
   eventDetail,
   type EventDetail,
@@ -506,36 +507,34 @@ describe('szczegóły i formularz', () => {
   });
 });
 
-describe('opis reguły po polsku', () => {
+/** Słowa opisu są w strings.pl.ts (M-158; polskie przypadki: src/app/__tests__/texts.test.ts) — tu tylko kształt. */
+const RL: RuleLabels = {
+  every: (f, n) => `${f}/${n}`,
+  weekdays: (b, d) => `${b}:${d.join(',')}`,
+  nth: (b, n, w) => `${b}#${n}@${w}`,
+  monthDay: (b, d) => `${b}@${d}`,
+  until: (u) => ` do ${u.y}-${u.m}-${u.d}`,
+  count: (n) => ` x${n}`,
+};
+
+describe('opis reguły (kształt)', () => {
   const at = D('2026-10-05');
   const cases: [string, string][] = [
-    ['FREQ=DAILY', 'Codziennie'],
-    ['FREQ=DAILY;INTERVAL=3', 'Co 3 dni'],
-    ['FREQ=WEEKLY', 'Co tydzień'],
-    ['FREQ=WEEKLY;BYDAY=SA,MO,MO', 'Co tydzień: pon., sob.'],
-    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=TU', 'Co 2 tygodnie: wt.'],
-    ['FREQ=WEEKLY;INTERVAL=5', 'Co 5 tygodni'],
-    ['FREQ=MONTHLY', 'Co miesiąc, 5. dnia'],
-    ['FREQ=MONTHLY;INTERVAL=2', 'Co 2 miesiące, 5. dnia'],
-    ['FREQ=MONTHLY;INTERVAL=6', 'Co 6 miesięcy, 5. dnia'],
-    ['FREQ=MONTHLY;BYMONTHDAY=15', 'Co miesiąc, 15. dnia'],
-    ['FREQ=MONTHLY;BYMONTHDAY=-1', 'Co miesiąc, ostatniego dnia'],
-    ['FREQ=MONTHLY;BYDAY=-1FR', 'Co miesiąc, w ostatni piątek'],
-    ['FREQ=MONTHLY;BYDAY=-1SA', 'Co miesiąc, w ostatnią sobotę'],
-    ['FREQ=MONTHLY;BYDAY=-1WE', 'Co miesiąc, w ostatnią środę'],
-    ['FREQ=MONTHLY;BYDAY=-1SU', 'Co miesiąc, w ostatnią niedzielę'],
-    ['FREQ=MONTHLY;BYDAY=2MO', 'Co miesiąc, w 2. poniedziałek'],
-    ['FREQ=MONTHLY;BYDAY=MO,TH', 'Co miesiąc: pon., czw.'],
-    ['FREQ=YEARLY', 'Co roku'],
-    ['FREQ=YEARLY;INTERVAL=2', 'Co 2 lata'],
-    ['FREQ=YEARLY;INTERVAL=5', 'Co 5 lat'],
-    ['FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231', 'Co tydzień: pon., do 31.12.2026'],
-    ['FREQ=WEEKLY;UNTIL=20270105', 'Co tydzień, do 5.01.2027'],
-    ['FREQ=DAILY;COUNT=1', 'Codziennie, 1 raz'],
-    ['FREQ=DAILY;COUNT=3', 'Codziennie, 3 razy'],
-    ['FREQ=DAILY;COUNT=12', 'Codziennie, 12 razy'],
+    ['FREQ=DAILY', 'DAILY/1'],
+    ['FREQ=DAILY;INTERVAL=3', 'DAILY/3'],
+    ['FREQ=WEEKLY', 'WEEKLY/1'],
+    ['FREQ=WEEKLY;BYDAY=SA,MO,MO', 'WEEKLY/1:0,5'],
+    ['FREQ=MONTHLY', 'MONTHLY/1@5'],
+    ['FREQ=MONTHLY;BYMONTHDAY=15', 'MONTHLY/1@15'],
+    ['FREQ=MONTHLY;BYMONTHDAY=-1', 'MONTHLY/1@-1'],
+    ['FREQ=MONTHLY;BYDAY=-1FR', 'MONTHLY/1#-1@4'],
+    ['FREQ=MONTHLY;BYDAY=2MO', 'MONTHLY/1#2@0'],
+    ['FREQ=MONTHLY;BYDAY=MO,TH', 'MONTHLY/1:0,3'],
+    ['FREQ=YEARLY;INTERVAL=2', 'YEARLY/2'],
+    ['FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231', 'WEEKLY/1:0 do 2026-12-31'],
+    ['FREQ=DAILY;COUNT=3', 'DAILY/1 x3'],
   ];
-  it.each(cases)('%s → %s', (r, text) => expect(describeRule(parseRule(r), at)).toBe(text));
+  it.each(cases)('%s → %s', (r, text) => expect(describeRule(parseRule(r), at, RL)).toBe(text));
 });
 
 describe('godziny i lista wydarzeń grupy', () => {
@@ -562,14 +561,14 @@ describe('godziny i lista wydarzeń grupy', () => {
     const gone = createEvent('gf', fields({ title: 'Usunięte' }), newId);
     const other = createEvent('gk', fields({ title: 'Klasa' }), newId);
     run(t, [...mo.ops, ...sa.ops, ...old.ops, ...old2.ops, ...old3.ops, ...gone.ops, ...other.ops, { kind: 'delete', entity: 'events', id: gone.id }]);
-    expect(groupSeries(t, ME, 'gf', TODAY)).toEqual([
-      { id: sa.id, title: 'Tańce Kuby', summary: 'Co tydzień: sob.', time: '12:00–13:00', start: '2026-10-10', next: '2026-10-10', nextOccurrence: '2026-10-10' },
-      { id: mo.id, title: 'Tańce Kuby', summary: 'Co tydzień: pon.', time: '18:00–19:00', start: '2026-10-05', next: '2026-10-12', nextOccurrence: '2026-10-12' },
+    expect(groupSeries(t, ME, 'gf', TODAY, RL)).toEqual([
+      { id: sa.id, title: 'Tańce Kuby', summary: 'WEEKLY/1:5', time: '12:00–13:00', start: '2026-10-10', next: '2026-10-10', nextOccurrence: '2026-10-10' },
+      { id: mo.id, title: 'Tańce Kuby', summary: 'WEEKLY/1:0', time: '18:00–19:00', start: '2026-10-05', next: '2026-10-12', nextOccurrence: '2026-10-12' },
       { id: old2.id, title: 'Archiwum', summary: 'Środa, 2 września', time: '18:00–19:00', start: '2026-09-02', next: null, nextOccurrence: null },
       { id: old3.id, title: 'Archiwum', summary: 'Środa, 2 września', time: '18:00–19:00', start: '2026-09-02', next: null, nextOccurrence: null },
       { id: old.id, title: 'Stare', summary: 'Wtorek, 1 września', time: null, start: '2026-09-01', next: null, nextOccurrence: null },
     ]);
-    expect(groupSeries(t, ME, 'gx', TODAY)).toEqual([]);
+    expect(groupSeries(t, ME, 'gx', TODAY, RL)).toEqual([]);
   });
 
   it('groupSeries u dziecka z kontem (PW-14 B): tylko wydarzenia, które go dotyczą', () => {
@@ -582,10 +581,10 @@ describe('godziny i lista wydarzeń grupy', () => {
     const ja = createEvent('gf', fields({ title: 'Sprzątanie', audience: 'group', responsibleId: 'mf' }), newId);
     const dawna = createEvent('gf', fields({ title: 'Po Zosi', audience: 'group', responsibleId: 'zosia' }), newId);
     run(t, [...kuby.ops, ...moje.ops, ...wszyscy.ops, ...ali.ops, ...ja.ops, ...dawna.ops]);
-    expect(groupSeries(t, ME, 'gf', TODAY).map((x) => x.title).sort()).toEqual(['Moje tańce', 'Obiad', 'Po Zosi', 'Sprzątanie']);
+    expect(groupSeries(t, ME, 'gf', TODAY, RL).map((x) => x.title).sort()).toEqual(['Moje tańce', 'Obiad', 'Po Zosi', 'Sprzątanie']);
     // Dorosły w tej grupie widzi wszystkie.
     t.group_members!.mf = { ...t.group_members!.mf!, role: 'admin' };
-    expect(groupSeries(t, ME, 'gf', TODAY)).toHaveLength(6);
+    expect(groupSeries(t, ME, 'gf', TODAY, RL)).toHaveLength(6);
   });
 });
 
@@ -740,7 +739,7 @@ describe('audyt 2: zmiany pojedynczych terminów i serii', () => {
     const t = chor();
     run(t, editEvent(detail(t, 'chor'), '2026-10-12', 'this', form(t, '2026-10-12', { date: '2026-10-14' })));
     put(t, 'events', 'wt', { id: 'wt', group_id: 'gf', title: 'Wtorek', start_date: '2026-10-13', start_time: null, end_time: null, rrule: null, audience: 'group', deleted_at: null });
-    expect(groupSeries(t, ME, 'gf', D('2026-10-08')).map((x) => [x.id, x.next, x.nextOccurrence])).toEqual([
+    expect(groupSeries(t, ME, 'gf', D('2026-10-08'), RL).map((x) => [x.id, x.next, x.nextOccurrence])).toEqual([
       ['wt', '2026-10-13', '2026-10-13'],
       ['chor', '2026-10-14', '2026-10-12'],
     ]);
@@ -750,11 +749,11 @@ describe('audyt 2: zmiany pojedynczych terminów i serii', () => {
     const t = chor();
     run(t, editEvent(detail(t, 'chor'), '2026-10-19', 'following', { ...fieldsOf(detail(t, 'chor'), '2026-10-19', 'following'), startTime: '18:00' }));
     const sid = splitId('chor', '2026-10-19');
-    expect(groupSeries(t, ME, 'gf', D('2026-10-08')).map((x) => [x.id, x.next])).toEqual([
+    expect(groupSeries(t, ME, 'gf', D('2026-10-08'), RL).map((x) => [x.id, x.next])).toEqual([
       ['chor', '2026-10-12'],
       [sid, '2026-10-19'],
     ]);
-    expect(groupSeries(t, ME, 'gf', D('2026-10-20')).map((x) => [x.id, x.next])).toEqual([[sid, '2026-10-26']]);
+    expect(groupSeries(t, ME, 'gf', D('2026-10-20'), RL).map((x) => [x.id, x.next])).toEqual([[sid, '2026-10-26']]);
   });
 
   it('łańcuch serii i właściciel terminu (stary link po „to i następne”)', () => {

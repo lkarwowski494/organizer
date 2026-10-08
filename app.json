@@ -22,7 +22,7 @@
         "CFBundleLocalizations": [
           "pl"
         ],
-        "NSCalendarsWriteOnlyAccessUsageDescription": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje kalendarza."
+        "NSCalendarsWriteOnlyAccessUsageDescription": "Organizer dodaje to wydarzenie do Twojego kalendarza. Ta zgoda nie daje dostępu do Twoich wpisów."
       }
     },
     "web": {
@@ -42,7 +42,7 @@
         "expo-calendar",
         {
           "writeOnlyAccess": false,
-          "calendarPermission": "Organizer pokazuje Twoje wydarzenia z kalendarza obok spraw grup i dodaje wydarzenia grup do osobnych kalendarzy „Organizer”. Twoje wydarzenia nie opuszczają telefonu.",
+          "calendarPermission": "Organizer pokazuje Twoje wydarzenia z kalendarza obok spraw grup i dodaje wydarzenia grup do osobnych kalendarzy „Organizer”. Twoje wydarzenia nie trafiają na serwer Organizera; wydarzenia grup zapisujemy w Twoim kalendarzu (zwykle iCloud).",
           "remindersPermission": "Organizer nie korzysta z Przypomnień."
         }
       ],
@@ -52,7 +52,7 @@
           "locationWhenInUsePermission": "Organizer liczy czas dojazdu do Twoich dzisiejszych wydarzeń z miejscem (Mapy Apple). Położenie nie trafia na serwer Organizera.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
-          "motionUsagePermission": "Organizer nie korzysta z czujników ruchu. Ten opis wymaga Apple, bo biblioteka lokalizacji (czas dojazdu) zawiera taką funkcję."
+          "motionUsagePermission": "Organizer nie korzysta z czujników ruchu. Tego opisu wymaga Apple, bo biblioteka lokalizacji (czas dojazdu) zawiera taką funkcję."
         }
       ],
       [

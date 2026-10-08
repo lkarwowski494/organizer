@@ -32,22 +32,29 @@ export function itemKey(title: string): string {
   return parseQuantity(title).name.toLocaleLowerCase('pl').replace(/\s+/g, ' ').trim();
 }
 
-type Entry = { cat: ShoppingCategory; text: string; prefix: boolean };
+type Word = { text: string; prefix: boolean };
+type Entry = Word & { cat: ShoppingCategory; parts: Word[] };
+const wordOf = (w: string): Word => ({ text: w.replace(/\*$/, ''), prefix: w.endsWith('*') });
+const fits = (token: string, w: Word) => (w.prefix ? token.startsWith(w.text) : token === w.text);
 const ENTRIES: Entry[] = Object.entries(SHOPPING_KEYWORDS).flatMap(([cat, words]) =>
-  words.map((w) => ({ cat: cat as ShoppingCategory, text: w.replace(/\*$/, ''), prefix: w.endsWith('*') })),
+  words.map((w) => ({ cat: cat as ShoppingCategory, ...wordOf(w), parts: w.split(' ').map(wordOf) })),
 );
-const PHRASES = ENTRIES.filter((e) => e.text.includes(' ')).sort((a, b) => b.text.length - a.text.length);
-const WORDS = ENTRIES.filter((e) => !e.text.includes(' '));
+const PHRASES = ENTRIES.filter((e) => e.parts.length > 1).sort((a, b) => b.text.length - a.text.length);
+const WORDS = ENTRIES.filter((e) => e.parts.length === 1);
+
+/** Czy fraza (słowo po słowie, „*” na końcu słowa = jego początek) stoi gdzieś w nazwie. */
+const phraseIn = (tokens: string[], p: Entry) => tokens.some((_, i) => p.parts.every((w, j) => tokens[i + j] !== undefined && fits(tokens[i + j]!, w)));
 
 /** Dział ze słownika (heurystyka); nierozpoznane → „other”. */
 export function guessCategory(title: string): ShoppingCategory {
-  const name = ` ${itemKey(title)} `;
-  const phrase = PHRASES.find((p) => name.includes(` ${p.text} `) || (p.prefix && name.includes(` ${p.text}`)));
+  const tokens = itemKey(title).split(' ');
+  // Audyt 2 (P17): „*” działa w każdym słowie frazy — dotąd „przysmak* dla” szukało dosłownej gwiazdki i nie pasowało nigdy.
+  const phrase = PHRASES.find((p) => phraseIn(tokens, p));
   if (phrase) return phrase.cat;
-  for (const word of name.trim().split(' ')) {
+  for (const word of tokens) {
     let best: Entry | undefined;
     for (const e of WORDS) {
-      if ((e.prefix ? word.startsWith(e.text) : word === e.text) && (!best || e.text.length > best.text.length)) best = e;
+      if (fits(word, e) && (!best || e.text.length > best.text.length)) best = e;
     }
     if (best) return best.cat;
   }

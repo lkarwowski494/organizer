@@ -28,7 +28,7 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks') as { id: string };
     expect(created).toMatchObject({ group_id: 'u-me', set: { title: 'Basen', due_date: '2026-10-08', due_time: '19:00' } });
     const bar = screen.getByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano: Basen · Osobiste')).toBeTruthy();
+    expect(within(bar).getByText('Dodano zadanie: Basen · Osobiste')).toBeTruthy();
     // W tej chwili ktoś dodaje podzadania (np. drugi ekran) — przeniesienie bierze je ze sobą (audyt 2: T-33).
     await act(async () => store.dispatch([0, 1].map((i) => createTask({ id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`czepek ${i}`, NOW) }))));
     await press(within(bar).getByLabelText('Zmień'));
@@ -106,7 +106,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await setTime('form-time', '25:00');
     await press(screen.getByTestId('form-save'));
-    expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
+    expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await press(radio('Kiedy', 'Bez terminu'));
     expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('');
     expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('');
@@ -138,7 +138,7 @@ describe('@imię', () => {
     const [list, task] = store.dispatched.slice(-2);
     expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Zadania' } });
     expect(task).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: (list as { id: string }).id, title: 'Basen', due_time: '19:00', assignee_member_id: 'ala' } });
-    expect(screen.getByText('Dodano: Basen · Rodzina')).toBeTruthy();
+    expect(screen.getByText('Dodano zadanie: Basen · Rodzina')).toBeTruthy();
   });
 
   it('kilka dopasowań: pytanie, wybór osoby i grupy; anuluj nic nie dodaje; brak dopasowania — pytanie, czy bez osoby', async () => {
