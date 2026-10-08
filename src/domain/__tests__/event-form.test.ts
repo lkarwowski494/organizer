@@ -69,6 +69,17 @@ describe('formularz wydarzenia', () => {
     expect(ok(form({ repeat: 'daily', ends: 'until', until: '2026-10-05' }))[0]!.until).toBe('2026-10-05');
   });
 
+  it('audyt 2 (E-16): koniec przed pierwszym terminem serii (start wyrównany do reguły) — błąd, seria bez terminów nie powstaje', () => {
+    // „Co tydzień w pt.”, data czw. 8.10, koniec 8.10: pierwszy termin to pt. 9.10.
+    const fri = (until: string, slots = [{ days: [4], start: '10:00', end: '' }]) => form({ date: '2026-10-08', repeat: 'weekly', slots, ends: 'until', until });
+    expect(validateForm(fri('2026-10-08'))).toEqual({ error: 'until' });
+    expect(ok(fri('2026-10-09'))[0]!.until).toBe('2026-10-09');
+    // Kilka terminów: wystarczy jeden bez terminu przed końcem.
+    expect(validateForm(fri('2026-10-09', [{ days: [4], start: '10:00', end: '' }, { days: [5], start: '12:00', end: '' }]))).toEqual({ error: 'until' });
+    // Bez powtarzania koniec się nie liczy.
+    expect(ok(form({ date: '2026-10-08', ends: 'until', until: '2026-10-01' }))[0]!.until).toBeNull();
+  });
+
   it('pozycja dnia tygodnia w miesiącu', () => {
     expect(weekdayPosition('2026-10-05')).toEqual({ n: 1, last: false, wd: 0 });
     expect(weekdayPosition('2026-10-26')).toEqual({ n: 4, last: true, wd: 0 });

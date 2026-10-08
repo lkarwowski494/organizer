@@ -108,7 +108,9 @@ select pg_temp.as_user('00000000-0000-7000-8000-0000000000d2');
 select is((select x -> 'row' ->> 'all_day' from jsonb_array_elements(pg_temp.rows_since((select member_c from cur))) x where x ->> 'e' = 'event_overrides'), 'true', '21: all_day dociera do innych telefonów');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d1');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"patch","entity":"event_overrides","id":"b0d20000-0000-7000-8000-0000000003a1","set":{"all_day":false}}'), 'ok', '22: zdjęcie znacznika');
-select is((select all_day::text || ' ' || start_time::text from public.event_overrides where id = 'b0d20000-0000-7000-8000-0000000003a1'), 'false 17:00:00', '23: godziny wracają');
+-- PW-33 (wariant A, migracja 20261008320000): godziny równe godzinom serii zapisują się jako „jak w serii” (null).
+select is((select o.all_day::text || ' ' || coalesce(o.start_time, e.start_time)::text from public.event_overrides o join public.events e on e.id = o.event_id
+            where o.id = 'b0d20000-0000-7000-8000-0000000003a1'), 'false 17:00:00', '23: godziny wracają (własne albo serii)');
 
 -- ───────── events.kind ─────────
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"create","entity":"events","id":"b0d20000-0000-7000-8000-0000000004e1","group_id":"b0d20000-0000-7000-8000-000000000001","set":{"title":"Matematyka","start_date":"2026-10-05","start_time":"08:00","end_time":"08:45","rrule":"FREQ=WEEKLY;BYDAY=MO","kind":"lesson"}}'), 'ok', '24: lekcja planu');

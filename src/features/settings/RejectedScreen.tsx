@@ -26,7 +26,12 @@ export function rejectionReason(code: string): string {
 
 export function describeOp(op: Op): string {
   const verb = strings[`rejected.op.${op.kind}`];
-  if (op.kind === 'cmd') return op.cmd === 'move_task' ? strings['rejected.cmd.move_task'] : verb;
+  if (op.kind === 'cmd') {
+    if (op.cmd === 'move_task') return strings['rejected.cmd.move_task'];
+    // Audyt 2 (M-3): „to i następne” jest jednym poleceniem — odrzucone w całości, nazwa wydarzenia z polecenia.
+    if (op.cmd === 'split_event') return strings['rejected.cmd.split_event'](String((op.args.set as { title?: unknown } | undefined)?.title ?? ''));
+    return verb;
+  }
   const set = op.kind === 'create' || op.kind === 'patch' ? op.set : {};
   const label = (set.title ?? set.name ?? set.display_name) as string | undefined;
   // Audyt 2 (U-42): bez tytułu — czego dotyczy zmiana („Dodanie: obecność”).

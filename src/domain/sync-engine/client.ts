@@ -12,6 +12,7 @@
  * Protokół serwera: supabase/migrations/20261006120200_sync.sql.
  */
 import { config } from '../../config';
+import { applySplit } from '../event-split';
 
 export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity' | 'events' | 'event_participants' | 'event_overrides' | 'event_task_series' | 'handoffs' | 'event_rsvps';
 export type Row = { readonly [k: string]: unknown };
@@ -74,9 +75,18 @@ export function mutate(state: ClientState, op: NewOp, newId: () => string): Clie
   return { ...state, nextSeq: state.nextSeq + 1, pending: [...state.pending, full] };
 }
 
+/**
+ * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1).
+ * Pozostałe (grupy, zakresy list) mają skutek dopiero po stronie serwera.
+ */
+const LOCAL_CMDS = new Map<string, (tables: { [e: string]: { [id: string]: Row } }, args: Row) => void>([
+  // Audyt 2 (M-3): „to i następne” jednym poleceniem (migracja 20261008320000_event_split).
+  ['split_event', applySplit],
+]);
+
 /** Lokalny skutek operacji — ten sam kierunek co serwer (pola serwerowe, np. depth, ustala dopiero serwer). */
 export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op): void {
-  if (op.kind === 'cmd') return; // komendy (grupy, zakresy) mają skutek dopiero po stronie serwera
+  if (op.kind === 'cmd') return LOCAL_CMDS.get(op.cmd)?.(tables, op.args);
   const table = (tables[op.entity] ??= {});
   const current = table[op.id];
   switch (op.kind) {

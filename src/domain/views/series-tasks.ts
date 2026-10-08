@@ -9,7 +9,7 @@ import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { uuidv5 } from '../ids';
 import type { NewOp } from '../sync-engine/client';
 import { expandEvents } from './events';
-import { asSeries, type SeriesDef } from './event-rows';
+import { asSeries, type SeriesDef, seriesChain } from './event-rows';
 import { createEventTask } from './event-tasks';
 import { groupsView } from './index';
 import { asList, asTask, rows, type Tables } from './model';
@@ -26,7 +26,8 @@ export function createSeries(a: { id: string; groupId: string; eventId: string; 
 
 /**
  * Brakujące kopie od dziś na SERIES_TASK_WEEKS tygodni. Pomija: grupy, w których jestem dzieckiem (serwer odrzuci),
- * usunięte listy, odwołane wystąpienia (expandEvents) i kopie, które już istnieją (także usunięte).
+ * usunięte listy, odwołane wystąpienia (expandEvents) i kopie, które już istnieją (także usunięte). Definicja działa na
+ * cały łańcuch serii po „to i następne” — także na terminy starej części przed dniem podziału (audyt 2, E-11).
  */
 export function fillOps(t: Tables, userId: string, today: CivilDate): NewOp[] {
   const defs = rows(t, 'event_task_series', asSeries).filter((s) => s.deleted_at === null);
@@ -37,11 +38,12 @@ export function fillOps(t: Tables, userId: string, today: CivilDate): NewOp[] {
   const ops: NewOp[] = [];
   for (const s of defs) {
     if (!adult.has(s.group_id) || !lists.has(s.list_id)) continue;
+    const chain = seriesChain(t, s.event_id);
     for (const o of occ) {
-      if (o.eventId !== s.event_id) continue;
+      if (!chain.has(o.eventId)) continue;
       const id = copyId(s.id, o.occurrenceDate);
       if (t.tasks?.[id]) continue;
-      ops.push(createEventTask({ id, groupId: s.group_id, listId: s.list_id, eventId: s.event_id, occurrenceDate: o.occurrenceDate, title: s.title, seriesId: s.id }));
+      ops.push(createEventTask({ id, groupId: s.group_id, listId: s.list_id, eventId: o.eventId, occurrenceDate: o.occurrenceDate, title: s.title, seriesId: s.id }));
     }
   }
   return ops;

@@ -101,12 +101,16 @@ export function moveTask(id: string, parentId: string | null, listId?: string): 
  */
 export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
   if (ops.some((o) => o.kind === 'cmd')) return null;
-  return [...ops].reverse().map((o): NewOp => {
-    if (o.kind === 'create') return { kind: 'delete', entity: o.entity, id: o.id };
-    if (o.kind === 'delete') return { kind: 'restore', entity: o.entity, id: o.id };
-    if (o.kind === 'restore') return { kind: 'delete', entity: o.entity, id: o.id };
+  // Zmiana wiersza utworzonego w tej samej paczce (np. wyjątek terminu: utworzenie i zmiana, audyt 2 S-8) nie ma
+  // odwrotności — usunięcie wiersza wystarczy (inaczej „Cofnij” wpisywałby null w kolumny NOT NULL).
+  const created = new Set(ops.flatMap((o) => (o.kind === 'create' && !t[o.entity]?.[o.id] ? [`${o.entity}|${o.id}`] : [])));
+  return [...ops].reverse().flatMap((o): NewOp[] => {
+    if (o.kind === 'create') return [{ kind: 'delete', entity: o.entity, id: o.id }];
+    if (o.kind === 'delete') return [{ kind: 'restore', entity: o.entity, id: o.id }];
+    if (o.kind === 'restore') return [{ kind: 'delete', entity: o.entity, id: o.id }];
     const p = o as Extract<NewOp, { kind: 'patch' }>;
+    if (created.has(`${p.entity}|${p.id}`)) return [];
     const before = t[p.entity]?.[p.id] ?? {};
-    return { kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, before[k] ?? null])) };
+    return [{ kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, before[k] ?? null])) }];
   });
 }

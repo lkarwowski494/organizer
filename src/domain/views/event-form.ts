@@ -4,9 +4,9 @@
  * Błędy jako kody; teksty dla nich są w src/i18n/strings.pl.ts.
  */
 import { config } from '../../config';
-import { daysInMonth, isoWeekday, isValidDate } from '../civil-date';
+import { daysInMonth, formatIsoDate, isoWeekday, isValidDate } from '../civil-date';
 import { parseIsoDate } from '../format';
-import type { Rule } from '../rrule';
+import { alignStart, type Rule } from '../rrule';
 import type { EventFields } from './events';
 
 export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -122,18 +122,20 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
   if (s.audience === 'members' && s.participantIds.length === 0) return { error: 'participants' };
   const location = s.location.trim();
   if (location.length > config.events.LOCATION_MAX_LENGTH) return { error: 'location' };
-  return {
-    fields: slots.map((slot) => ({
-      title,
-      date,
-      startTime: s.allDay ? null : slot.start.trim(),
-      endTime: s.allDay || slot.end.trim() === '' ? null : slot.end.trim(),
-      rule: ruleFor({ ...s, date, interval: s.interval.trim() }, slot),
-      until,
-      audience: s.audience,
-      participantIds: s.audience === 'members' ? s.participantIds : [],
-      responsibleId: s.responsibleId,
-      location: location || null,
-    })),
-  };
+  const fields = slots.map((slot) => ({
+    title,
+    date,
+    startTime: s.allDay ? null : slot.start.trim(),
+    endTime: s.allDay || slot.end.trim() === '' ? null : slot.end.trim(),
+    rule: ruleFor({ ...s, date, interval: s.interval.trim() }, slot),
+    until,
+    audience: s.audience,
+    participantIds: s.audience === 'members' ? s.participantIds : [],
+    responsibleId: s.responsibleId,
+    location: location || null,
+  }));
+  // Audyt 2 (E-16): koniec przed pierwszym terminem (np. „co tydzień w pt.” od czwartku do tego czwartku) = seria bez
+  // ani jednego terminu — pierwszy termin to start wyrównany do reguły (RFC 5545: DTSTART), nie dzień z formularza.
+  if (until !== null && fields.some((f) => f.rule !== null && formatIsoDate(alignStart(parseIsoDate(date), f.rule)) > until)) return { error: 'until' };
+  return { fields };
 }
