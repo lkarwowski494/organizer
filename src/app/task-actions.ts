@@ -9,7 +9,7 @@ import { remove, restore, toggleDone } from '../domain/views/commands';
 import { finishTripOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
-import type { Task } from '../domain/views';
+import { groupsView, type Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
 import { useAppData, useServices } from './context';
@@ -24,7 +24,9 @@ export function useTaskActions() {
     toggle(t: Item, shopping = false) {
       // Zadanie z powtarzaniem (D76): odhaczenie dokłada następne, cofnięcie zdejmuje nietknięte — w jednej transakcji.
       const raw = tables.tasks?.[t.id];
-      const done = () => store.dispatch([toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today) : [])]);
+      // Dziecko (D34) nie tworzy zadań — następne dołoży telefon dorosłego (audyt 2, T-12).
+      const canCreate = raw !== undefined && groupsView(tables, userId).some((g) => g.id === raw.group_id && g.me.role !== 'child');
+      const done = () => store.dispatch([toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])]);
       if (t.completed_at !== null) return done();
       Alert.alert(shopping ? strings['confirm.cartTitle'] : strings['confirm.doneTitle'], t.title, [
         { text: strings['common.cancel'], style: 'cancel' },

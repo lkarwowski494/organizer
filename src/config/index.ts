@@ -47,7 +47,15 @@ export const config = {
    * Powtarzanie zadań (D76, ADR 0016): jak daleko naprzód szukamy następnego terminu reguły kalendarzowej.
    * Wybór projektowy, bez źródła (rok z zapasem obejmuje każdą regułę z formularza, także „co rok”).
    */
-  repeat: { NEXT_SEARCH_DAYS: 400 },
+  repeat: {
+    NEXT_SEARCH_DAYS: 400,
+    /**
+     * Audyt 2 (T-12): ile dni wstecz telefon dorosłego dokłada brakujące następne zadanie po odhaczeniu przez dziecko.
+     * Wybór projektowy, bez źródła; musi być mniejszy niż sync.TOMBSTONE_DAYS (pilnuje test), żeby kopia usunięta
+     * celowo i wyczyszczona z kosza nie wróciła.
+     */
+    MISSING_COPY_DAYS: 7,
+  },
 
   /**
    * Seria „N z rzędu” (D114, ADR 0028): okno wstecz w dniach i od ilu z rzędu licznik się pokazuje.
