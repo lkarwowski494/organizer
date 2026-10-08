@@ -305,6 +305,29 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
     expect(occurrenceResolver(t)(nid, '2026-10-15')).toMatchObject({ date: '2026-10-15' });
   });
 
+  it('skutki do podglądu ze wszystkich zmienionych serii; wybór „Odepnij” trafia do polecenia (jak „to i następne”)', () => {
+    const t = base();
+    les(t, 'mat', { title: 'Matematyka', start_date: '2026-10-01', rrule: 'FREQ=WEEKLY;BYDAY=TH' });
+    les(t, 'nowa', { title: 'Chemia', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' });
+    cancelled(t, 'wolne', 'mat', '2026-11-12');
+    cancelled(t, 'chem-wolne', 'nowa', '2026-10-19');
+    task(t, 'cyrkiel', { event_id: 'mat', occurrence_date: '2026-10-15' });
+    task(t, 'zostaje', { event_id: 'nowa', occurrence_date: '2026-10-12' });
+    const r = save(t, (l) => (l.title === 'Matematyka' ? { ...l, day: 4 } : { ...l, start: '09:00', end: '09:45' }), { lost: 'unlink' });
+    expect(r.effects.lost.map((x) => [x.task.id, x.nearest])).toEqual([['cyrkiel', '2026-10-16']]);
+    expect(r.effects.kept.map((x) => x.id)).toEqual(['zostaje']);
+    expect(r.effects.overridesLost).toBe(1);
+    expect(r.effects.preview).toEqual(['2026-10-09', '2026-10-12', '2026-10-16']);
+    expect(r.ops).toContainEqual(expect.objectContaining({ args: expect.objectContaining({ tasks: [{ id: 'cyrkiel', action: 'unlink' }] }) }));
+    run2(t, r.ops);
+    expect(t.tasks!.cyrkiel).toMatchObject({ event_id: null, occurrence_date: null, deadline_mode: 'none' });
+    run2(t, r.undo(t));
+    expect(t.tasks!.cyrkiel).toMatchObject({ event_id: splitId('mat', '2026-10-09'), occurrence_date: '2026-10-15', deadline_mode: 'event' });
+    // Bez zmienionych serii — bez skutków (ekran zapisuje bez podglądu).
+    const none = save(t, (l) => l);
+    expect(none.effects).toEqual({ preview: [], kept: [], lost: [], overridesLost: 0 });
+  });
+
   it('seria, która jeszcze się nie zaczęła: zmiana w miejscu (zadania i wyjątki jak przy „wszystkie”); cofnięcie', () => {
     const t = base();
     les(t, 'nowa', { title: 'Chemia', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' });

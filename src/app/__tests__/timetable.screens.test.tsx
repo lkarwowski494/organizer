@@ -81,6 +81,39 @@ describe('plan lekcji (D112)', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'events', set: { title: 'Matematyka', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } });
   });
 
+  it('M-14: zapis, który zmienia zadania i odwołania — ten sam podgląd co „to i następne”, z wyborem dla zadań', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(base, 'event_overrides', 'wolne', { id: 'wolne', group_id: 'gf', event_id: 'mat', occurrence_date: '2026-11-02', cancelled: true, start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, deleted_at: null, version: 1 });
+    put(base, 'tasks', 'zeszyt', { ...base.tasks!['t-paczka']!, id: 'zeszyt', title: 'Kupić zeszyt', deadline_mode: 'event', due_date: null, due_time: null, assignee_member_id: null, event_id: 'mat', occurrence_date: '2026-10-12' });
+    const { store } = await openTimetable(base);
+    // Lekcja z poniedziałku na wtorek.
+    await press(screen.getByLabelText('Usuń lekcję 1, poniedziałek'));
+    await press(screen.getByTestId('lesson-add-1'));
+    await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka');
+    await setTime('lesson-end-0', '08:45');
+    await press(screen.getByTestId('timetable-save'));
+    await screen.findByTestId('screen-timetable-preview');
+    expect(store.dispatched).toEqual([]);
+    expect(screen.getByText('Podgląd zmian')).toBeTruthy();
+    expect(screen.getByText(/^Najbliższe terminy po zmianie: /)).toBeTruthy();
+    expect(screen.getByText('1 zadanie traci wydarzenie (ten termin znika).')).toBeTruthy();
+    expect(screen.getByText('Kupić zeszyt')).toBeTruthy();
+    expect(screen.getByText('Zmienione pojedynczo terminy, których po zmianie nie będzie: 1. Ich zmiany przepadną.')).toBeTruthy();
+    // „Wróć do edycji” — formularz z wpisanym planem.
+    await press(screen.getByText('Wróć do edycji'));
+    expect(screen.getByLabelText('Lekcja 1, wtorek').props.value).toBe('Matematyka');
+    await press(screen.getByTestId('timetable-save'));
+    await press(radio('Co z nimi?', 'Odepnij'));
+    await press(screen.getByTestId('timetable-preview-save'));
+    expect(store.dispatched).toEqual([
+      expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ event_id: 'mat', drop_overrides: ['wolne'], tasks: [{ id: 'zeszyt', action: 'unlink' }] }) }),
+    ]);
+    expect(await screen.findByTestId('undo-bar')).toBeTruthy();
+    expect(await screen.findByTestId('screen-member')).toBeTruthy();
+  });
+
   it('zapis bez zmian: nic nie wysyła i nie pokazuje paska (audyt 2, E-5)', async () => {
     const base = sampleBase();
     put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
