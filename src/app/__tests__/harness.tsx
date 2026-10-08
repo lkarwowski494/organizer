@@ -102,8 +102,8 @@ export function memoryLocal() {
 export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<AccountApi> {
   return {
     signInWithApple: jest.fn(async () => {}),
-    sendMagicLink: jest.fn(async () => {}),
     signOut: jest.fn(async () => {}),
+    finishSignOut: jest.fn(async () => {}),
     deleteAccount: jest.fn(async () => {}),
     createGroup: jest.fn(async () => {}),
     createInvite: jest.fn(async (groupId: string) => ({ inviteId: 'inv-1', token: 'ab'.repeat(32), url: `io.github.lkarwowski494.organizer://invite/${'ab'.repeat(32)}?g=${groupId}`, expiresAt: '2026-10-14T10:00:00Z', maxUses: 10 })),
@@ -128,7 +128,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName'>> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const base = opts.base ?? sampleBase();
   // Dane jak po pobraniu: każda grupa ma kursor (bez tego lustro kalendarza czeka, mirrorReady).
@@ -185,11 +185,7 @@ export function fakePush(over: Partial<DevicePush> = {}): jest.Mocked<DevicePush
     onToken: jest.fn(() => () => {}),
     onOpen: jest.fn(() => () => {}),
     env: jest.fn(async () => 'production' as const),
-    dismissed: jest.fn(async () => false),
-    dismiss: jest.fn(async () => {}),
     replaceReminders: jest.fn(async () => {}),
-    reminderSettings: jest.fn(async () => null),
-    saveReminderSettings: jest.fn(async () => {}),
     ...over,
   } as jest.Mocked<DevicePush>;
 }
