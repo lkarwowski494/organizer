@@ -6,7 +6,8 @@
  */
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
-import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
+import { config } from '../../config';
+import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { formatLength, formatLongDate, parseIsoDate } from '../format';
 import { plural } from '../plural';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
@@ -14,6 +15,7 @@ import type { NewOp } from '../sync-engine/client';
 import { groupsView, myMemberships } from './index';
 import { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
+import { rsvpId } from './rsvp';
 
 export { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
 
@@ -38,8 +40,12 @@ export type Occurrence = {
   location: string | null;
 };
 
-/** O ile dni wolno przenieść wystąpienie — tyle zapasu bierzemy przy rozwijaniu, żeby przeniesione nie zniknęło. */
-const MOVE_WINDOW_DAYS = 62;
+const MOVE_WINDOW_DAYS = config.events.MOVE_WINDOW_DAYS;
+
+/** Czy przeniesienie jednego wystąpienia mieści się w oknie (dalej — zniknęłoby z widoków; audyt 8.10.2026). */
+export function moveTooFar(occurrenceDate: string, newDate: string): boolean {
+  return Math.abs(toDayNumber(parseIsoDate(newDate)) - toDayNumber(parseIsoDate(occurrenceDate))) > MOVE_WINDOW_DAYS;
+}
 
 const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at === null;
 
@@ -144,6 +150,8 @@ export type EventDetail = {
   members: Member[];
   participants: Participant[];
   overrides: Override[];
+  /** Żywe odpowiedzi o obecności (D124) — przy „to i następne” przechodzą do nowej serii. */
+  rsvps: { id: string; occurrence_date: string; member_id: string; answer: string }[];
   canEdit: boolean;
 };
 
@@ -161,6 +169,9 @@ export function eventDetail(t: Tables, userId: string, eventId: string): EventDe
     members: rows(t, 'group_members', asMember).filter((m) => alive(m) && m.group_id === g.id),
     participants: rows(t, 'event_participants', asParticipant).filter((p) => p.event_id === eventId),
     overrides: rows(t, 'event_overrides', asOverride).filter((o) => alive(o) && o.event_id === eventId),
+    rsvps: Object.values(t.event_rsvps ?? {})
+      .filter((r) => r.event_id === eventId && r.deleted_at == null)
+      .map((r) => ({ id: String(r.id), occurrence_date: String(r.occurrence_date), member_id: String(r.member_id), answer: String(r.answer) })),
     canEdit: event.deleted_at === null && myMemberships(t, userId).get(g.id)?.role !== 'child',
   };
 }
@@ -268,6 +279,11 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       group_id: e.group_id,
       set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: o.responsible_member_id },
     });
+  }
+  // Odpowiedzi o obecności (D124) od tego dnia też przechodzą do nowej serii (audyt 8.10.2026).
+  for (const r of d.rsvps.filter((x) => x.occurrence_date >= occurrenceDate)) {
+    ops.push({ kind: 'delete', entity: 'event_rsvps', id: r.id });
+    ops.push({ kind: 'create', entity: 'event_rsvps', id: rsvpId(created.id, r.occurrence_date, r.member_id), group_id: e.group_id, set: { event_id: created.id, occurrence_date: r.occurrence_date, member_id: r.member_id, answer: r.answer } });
   }
   return ops;
 }

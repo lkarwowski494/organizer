@@ -167,6 +167,17 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByLabelText('Tańce, 16:00–17:00, 1 h, Rodzina, powtarza się')).toBeTruthy();
   });
 
+  it('„tylko to”: dalej niż 62 dni — błąd, nic nie zapisane (audyt 8.10.2026)', async () => {
+    const { store } = await openDances();
+    await press(screen.getByTestId('event-edit'));
+    await press(screen.getByTestId('scope-this'));
+    await screen.findByTestId('screen-event-edit');
+    await pickDate('event-date', '2026-12-31');
+    await press(screen.getByTestId('event-save'));
+    expect(screen.getByText(/najwyżej o 62 dni/)).toBeTruthy();
+    expect(store.dispatched).toEqual([]);
+  });
+
   it('„tylko to”: przeniesienie na jutro — w szczegółach widać skąd przeniesione', async () => {
     await openDances();
     await press(screen.getByTestId('event-edit'));

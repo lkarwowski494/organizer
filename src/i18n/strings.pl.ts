@@ -287,6 +287,7 @@ export const strings = {
   'event.scopeThisInfo': 'Zmieniasz tylko to jedno wystąpienie.',
   'event.scopeFollowingInfo': (date: string) => `Zmieniasz to wystąpienie i wszystkie następne. Pierwsze zmienione: ${date}.`,
   'event.scopeAllInfo': 'Zmieniasz wszystkie wystąpienia w serii.',
+  'event.moveTooFar': (n: number) => `Jeden termin można przenieść najwyżej o ${n} ${plural(n, { one: 'dzień', few: 'dni', many: 'dni' })}. Dalej — zmień całą serię albo dodaj osobne wydarzenie.`,
   'event.error.title': 'Wpisz nazwę wydarzenia.',
   'event.error.date': 'Wybierz dzień w kalendarzu.',
   'event.error.time': 'Sprawdź godzinę (GG:MM).',
