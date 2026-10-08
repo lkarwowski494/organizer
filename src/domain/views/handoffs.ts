@@ -7,6 +7,7 @@ import type { NewOp, Row } from '../sync-engine/client';
 import { asEvent } from './event-rows';
 import { groupsView } from './index';
 import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
+import { memberCanSeeList } from './visibility';
 
 export type Handoff = {
   id: string;
@@ -68,11 +69,14 @@ export function outgoingPending(t: Tables, userId: string): Map<string, HandoffI
   return new Map(list.map((h) => [handoffKey(h.entity, h.entity_id, h.occurrence_date), h]));
 }
 
-/** Komu mogę przekazać: dorośli z kontem w tej grupie, bez mnie (serwer sprawdzi jeszcze widoczność listy). */
-export function handoffTargets(t: Tables, userId: string, groupId: string): Member[] {
+/**
+ * Komu mogę przekazać: dorośli z kontem w tej grupie, bez mnie. Zadanie albo zakupy z listy (`listId`) — tylko osoby,
+ * które ją widzą (audyt 2, R-4, T-10: serwer odrzuca innych).
+ */
+export function handoffTargets(t: Tables, userId: string, groupId: string, listId?: string): Member[] {
   const me = groupsView(t, userId).find((g) => g.id === groupId)?.me.member_id;
   return rows(t, 'group_members', asMember)
-    .filter((m) => m.group_id === groupId && m.deleted_at === null && m.role !== 'child' && m.user_id !== null && m.member_id !== me)
+    .filter((m) => m.group_id === groupId && m.deleted_at === null && m.role !== 'child' && m.user_id !== null && m.member_id !== me && (listId === undefined || memberCanSeeList(t, m.member_id, listId)))
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
 

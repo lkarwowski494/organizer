@@ -19,6 +19,24 @@ const planned = (extra: Record<string, unknown> = {}) => {
 };
 
 describe('nowa lista zakupów', () => {
+  it('audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt; wybrana wcześniej inna osoba spada', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByLabelText('Nowa lista'));
+    await screen.findByTestId('screen-new-list');
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Prezent dla Ali');
+    await press(screen.getByLabelText('Zakupy'));
+    await press(screen.getByLabelText('Rodzina'));
+    await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ala'));
+    await press(screen.getByLabelText('Tylko ja'));
+    const who = screen.getByLabelText('Kto robi zakupy');
+    expect(within(who).queryByLabelText('Ala')).toBeNull();
+    await press(within(who).getByLabelText('Łukasz'));
+    await press(screen.getByTestId('create-list'));
+    expect(store.dispatched.find((o) => (o as { entity: string }).entity === 'lists')).toMatchObject({ set: { visibility: 'private', responsible_member_id: 'mf' } });
+  });
+
+
   it('we wspólnej grupie bez dnia i osoby nie da się utworzyć; z osobą — tak', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));

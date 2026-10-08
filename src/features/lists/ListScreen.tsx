@@ -14,6 +14,7 @@ import { formatDue } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { parseQuantity } from '../../domain/quantity';
 import { addresseeRequired, lacksAddressee } from '../../domain/views/addressee';
+import { memberCanSeeList } from '../../domain/views/visibility';
 import { useTaskActions } from '../../app/task-actions';
 import { remove, restore } from '../../domain/views/commands';
 import { groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
@@ -150,7 +151,7 @@ export function ListScreen({ route, navigation }: Props) {
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
-              <TripEditor value={planning} onChange={setPlanning} adults={adults} today={today} required={groupKind === 'shared'} />
+              <TripEditor value={planning} onChange={setPlanning} adults={adults.filter((m) => memberCanSeeList(tables, m.member_id, list.id))} today={today} required={groupKind === 'shared'} />
               {planError ? <Body>{planError}</Body> : null}
               <Button
                 label={strings['trip.save']}
@@ -176,7 +177,7 @@ export function ListScreen({ route, navigation }: Props) {
                   </>
                 ) : handing ? (
                   <HandoffPicker
-                    targets={handoffTargets(tables, userId, list.group_id)}
+                    targets={handoffTargets(tables, userId, list.group_id, list.id)}
                     onPick={(m) => {
                       store.dispatch(createHandoff({ id: newId(), groupId: list.group_id, entity: 'lists', entityId: list.id, toMember: m.member_id }));
                       setHanding(false);

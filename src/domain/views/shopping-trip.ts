@@ -99,9 +99,13 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone 
   return out;
 }
 
-/** Kto może robić zakupy: aktywni dorośli grupy (z kontem albo bez — jak osoba odpowiedzialna za wydarzenie, D66). */
-export function tripAdults(t: Tables, groupId: string): Member[] {
+/**
+ * Kto może robić zakupy: aktywni dorośli grupy (z kontem albo bez — jak osoba odpowiedzialna za wydarzenie, D66).
+ * `canSee` — audyt 2 (R-3): tylko osoby, które widzą listę (lista „Tylko ja” — tylko ja); serwer odrzuca innych
+ * (`list_responsible_visible`).
+ */
+export function tripAdults(t: Tables, groupId: string, canSee: (memberId: string) => boolean = () => true): Member[] {
   return rows(t, 'group_members', asMember)
-    .filter((m) => m.group_id === groupId && m.deleted_at === null && m.role !== 'child')
+    .filter((m) => m.group_id === groupId && m.deleted_at === null && m.role !== 'child' && canSee(m.member_id))
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
