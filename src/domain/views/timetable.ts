@@ -16,8 +16,9 @@
  *  - zmieniona (para ze starą serią: ta sama nazwa albo te same dni i godziny) przechodzi tym samym poleceniem co
  *    „to i następne” (split_event, src/domain/event-split.ts): stara kończy się dziś, nowa zaczyna od jutra i dostaje
  *    od tego dnia odwołania, zmiany terminów, obecność, przekazania, zadania i stałe zadania; zadania z terminów, których
- *    nowa seria nie ma, idą na najbliższy nowy termin (domyślny wybór w podglądzie zmiany serii), kopie stałych zadań
- *    do kosza. Seria, która jeszcze się nie zaczęła, zmienia się w miejscu (te same skutki dla zadań i wyjątków);
+ *    nowa seria nie ma, idą na najbliższy nowy termin albo zostają odpięte (`lost` — wybór z tego samego podglądu co przy
+ *    „to i następne”; ekran pokazuje go, gdy zapis zmienia zadania albo zmienione pojedynczo terminy), kopie stałych
+ *    zadań do kosza. Seria, która jeszcze się nie zaczęła, zmienia się w miejscu (te same skutki dla zadań i wyjątków);
  *  - usunięta kończy się dziś (nierozpoczęta idzie do kosza);
  *  - lekcja wspólna z rodzeństwem (inni uczestnicy, audyt 2 E-26): zmiana albo usunięcie dotyczy tylko tej osoby — seria
  *    trwa dalej bez niej (split_event z tymi samymi polami i pozostałymi uczestnikami; nierozpoczęta — bez jej udziału),
@@ -34,7 +35,7 @@ import { endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { emptyForm, type FormError, validateForm } from './event-form';
 import { asEvent, asParticipant, ruleOf } from './event-rows';
-import { seriesEditEffects, seriesEditOps } from './event-tasks';
+import { type SeriesEffects, seriesEditEffects, seriesEditOps } from './event-tasks';
 import { createEvent, eventDetail, type EventFields, participantId } from './events';
 import { asMember, asTask, rows, type Tables } from './model';
 
@@ -94,7 +95,9 @@ export function memberTimetable(t: Tables, groupId: string, memberId: string, to
 }
 
 /** Cofnięcie jednej zmiany, liczone na tabelach z chwili cofnięcia (kopie stałych zadań dołożone w międzyczasie). */
-type Step = { ops: NewOp[]; undo: (t: Tables) => NewOp[] };
+type Step = { ops: NewOp[]; undo: (t: Tables) => NewOp[]; effects?: SeriesEffects };
+/** Wybór z podglądu dla zadań z terminów, których nowa seria nie ma (jak przy „to i następne”). */
+export type LostChoice = 'nearest' | 'unlink';
 
 /**
  * Plan do zapisu (opis zmian w nagłówku). `edit` — edycja obecnego planu (D128): tabele, ja i serie z
@@ -113,7 +116,8 @@ export function timetableOps(a: {
   edit?: { tables: Tables; userId: string; series: readonly PlanSeries[] };
   keepUntil?: boolean;
   weekA?: string | null;
-}): { ops: NewOp[]; undo: (t: Tables) => NewOp[]; series: number } | { error: FormError | 'empty'; index: number } {
+  lost?: LostChoice;
+}): { ops: NewOp[]; undo: (t: Tables) => NewOp[]; series: number; effects: SeriesEffects } | { error: FormError | 'empty'; index: number } {
   const existing = a.edit?.series ?? [];
   const lessons = a.lessons.map((l, index) => ({ ...l, index, title: l.title.trim(), start: l.start.trim(), end: l.end.trim() })).filter((l) => l.title || l.start || l.end);
   // Pusty plan przy edycji = zakończenie planu; przy nowym — błąd.
@@ -167,7 +171,7 @@ export function timetableOps(a: {
     const pair = existing.filter((x) => !used.has(x.id) && x.others.length === 0 && score(x.spec, w.spec) >= 3).sort((x, y) => score(y.spec, w.spec) - score(x.spec, w.spec))[0];
     if (pair) {
       used.add(pair.id);
-      other.push(changeSeries(a.edit!.tables, a.edit!.userId, pair, w.f, a.memberId, tomorrow));
+      other.push(changeSeries(a.edit!.tables, a.edit!.userId, pair, w.f, a.memberId, tomorrow, a.lost ?? 'nearest'));
       continue;
     }
     const c = createEvent(a.groupId, w.f, a.newId);
@@ -183,8 +187,17 @@ export function timetableOps(a: {
     anchor.push({ ops: [{ kind: 'patch', entity: 'group_members', id: a.memberId, set: { week_a: formatIsoDate(target) } }], undo: () => [{ kind: 'patch', entity: 'group_members', id: a.memberId, set: { week_a: stored } }] });
   }
 
+  // Skutki dla zadań i zmienionych pojedynczo terminów ze wszystkich zmienionych serii — do podglądu (jak „to i następne”).
+  const all = other.flatMap((s) => (s.effects ? [s.effects] : []));
+  const effects: SeriesEffects = {
+    preview: [...new Set(all.flatMap((x) => x.preview))].sort().slice(0, 3),
+    kept: all.flatMap((x) => x.kept),
+    lost: all.flatMap((x) => x.lost),
+    overridesLost: all.reduce((n, x) => n + x.overridesLost, 0),
+  };
   // Cofnięcie: najpierw nowe serie do kosza, potem stare wracają.
   return {
+    effects,
     ops: [...other, ...created, ...anchor].flatMap((s) => s.ops),
     undo: (now) => [...created, ...other, ...anchor].flatMap((s) => s.undo(now)),
     series: wanted.length,
@@ -220,7 +233,7 @@ const decisionsOf = (ops: readonly NewOp[]): SplitTask[] =>
   ops.flatMap((o): SplitTask[] => (o.kind === 'delete' && o.entity === 'tasks' ? [{ id: o.id, action: 'delete' }] : o.kind === 'patch' && o.entity === 'tasks' ? [o.set.event_id === null ? { id: o.id, action: 'unlink' } : { id: o.id, action: 'relink', date: String(o.set.occurrence_date) }] : []));
 
 /** Zmieniona seria tej osoby (bez rodzeństwa): split_event od jutra albo — nierozpoczęta — zmiana w miejscu. */
-function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, memberId: string, tomorrow: CivilDate): Step {
+function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, memberId: string, tomorrow: CivilDate, choice: LostChoice): Step {
   const d = eventDetail(t, userId, x.id)!;
   const e = d.event;
   const isoTomorrow = formatIsoDate(tomorrow);
@@ -234,10 +247,12 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
     // Nierozpoczęta: zmiana w miejscu; wyjątki z dni, których nowa reguła nie ma, do kosza (jak „wszystkie”).
     const lost = d.overrides.filter((o) => !kept(o.occurrence_date));
     const base: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: fields }, ...lost.map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id }))];
-    const ops = seriesEditOps(d, base, seriesEditEffects(t, d, e.start_date, 'all', base), 'nearest');
+    const effects = seriesEditEffects(t, d, e.start_date, 'all', base);
+    const ops = seriesEditOps(d, base, effects, choice);
     const tasks = taskUndo(t, decisionsOf(ops), e.id);
     return {
       ops,
+      effects,
       undo: (now) => [
         { kind: 'patch', entity: 'events', id: e.id, set: { ...back, start_date: e.start_date, rrule: x.rrule } },
         ...lost.map((o): NewOp => ({ kind: 'restore', entity: 'event_overrides', id: o.id })),
@@ -257,11 +272,13 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
     tasks: [],
   };
   const cmd: NewOp[] = [{ kind: 'cmd', cmd: 'split_event', args }];
-  const ops = seriesEditOps(d, cmd, seriesEditEffects(t, d, isoTomorrow, 'following', cmd), 'nearest');
+  const effects = seriesEditEffects(t, d, isoTomorrow, 'following', cmd);
+  const ops = seriesEditOps(d, cmd, effects, choice);
   const tasks = taskUndo(t, (ops[0] as unknown as { args: SplitArgs }).args.tasks, id);
   const [first] = occurrences(oldStart, oldRule, tomorrow, addDays(tomorrow, LOOKAHEAD));
   return {
     ops,
+    effects,
     // Nowa seria wraca do starych pól od pierwszego starego terminu od jutra; stara kończy się dziś — terminy jak przed zapisem.
     undo: (now) =>
       first

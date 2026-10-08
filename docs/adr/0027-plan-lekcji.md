@@ -25,8 +25,10 @@ Z porównania z Domownikiem (plan zajęć domownika z tygodniami A/B). Właścic
   co tydzień), ukrycie przełącznika przy edycji (niezgodne z nazwami szkoły).
 - **Edycja planu od jutra (M-14, zmienia D128):** seria bez zmian zostaje nietknięta; zmieniona (para ze starą: ta sama
   nazwa albo te same dni i godziny) przechodzi poleceniem `split_event` jak „to i następne” — od jutra z odwołaniami,
-  zmianami terminów, obecnością, przekazaniami, zadaniami i stałymi zadaniami; zadania z terminów, których nowa seria nie
-  ma, idą na najbliższy nowy termin (domyślny wybór podglądu zmiany serii), kopie stałych zadań do kosza. Nierozpoczęta
+  zmianami terminów, obecnością, przekazaniami, zadaniami i stałymi zadaniami; kopie stałych zadań z terminów, których
+  nowa seria nie ma, do kosza. Gdy zapis zabiera zadaniom termin albo kasuje zmienione pojedynczo terminy, najpierw ten
+  sam podgląd co przy „to i następne” (`SeriesPreview`, wybór: najbliższy termin albo odpięcie); bez takich skutków —
+  zapis od razu (decyzja koordynatora 8.10.2026). Nierozpoczęta
   seria zmienia się w miejscu; usunięta lekcja kończy się dziś (nierozpoczęta do kosza). Dzisiejsza lekcja zostaje, jak
   była. Odrzucone: nowa seria od dziś z utratą wyjątków i zadań (stan sprzed audytu), osobne operacje przenoszenia
   (nieatomowe, audyt 2 M-3).

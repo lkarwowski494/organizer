@@ -15,7 +15,9 @@ import { addDays, isoWeekday } from '../../domain/civil-date';
 import { formatRange } from '../../domain/format';
 import { materialize } from '../../domain/sync-engine/client';
 import { groupDetail } from '../../domain/views';
-import { type Lesson, memberTimetable, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import type { SeriesEffects } from '../../domain/views/event-tasks';
+import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
@@ -41,6 +43,8 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [thisWeek, setThisWeek] = useState<'A' | 'B'>(plan.thisWeek);
   const [until, setUntil] = useState(plan.until);
   const [error, setError] = useState<{ text: string; index: number } | null>(null);
+  const [preview, setPreview] = useState<SeriesEffects | null>(null);
+  const [lostChoice, setLostChoice] = useState<LostChoice>('nearest');
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
@@ -58,17 +62,24 @@ export function TimetableScreen({ route, navigation }: Props) {
     const prev = [...lessons].reverse().find((l) => l.day === day);
     setLessons([...lessons, { day, title: '', start: prev?.end ?? '08:00', end: '', week: 'both' }]);
   };
-  const save = () => {
+  // `choice` — po podglądzie (audyt 2, M-14): co z zadaniami z terminów, których po zmianie nie będzie.
+  const save = (choice?: LostChoice) => {
     const edit = plan.series.length ? { tables, userId, series: plan.series } : undefined;
-    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === plan.until, weekA: plan.weekA });
+    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === plan.until, weekA: plan.weekA, lost: choice });
     if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.index });
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
     if (r.ops.length === 0) return navigation.goBack();
+    // Zapis zmienia zadania albo zmienione pojedynczo terminy — najpierw ten sam podgląd co przy „to i następne”.
+    if (!choice && (r.effects.lost.length || r.effects.overridesLost)) return setPreview(r.effects);
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
     undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))));
     navigation.goBack();
   };
+
+  if (preview) {
+    return <SeriesPreview testID="screen-timetable-preview" saveTestID="timetable-preview-save" effects={preview} today={today} choice={lostChoice} onChoice={setLostChoice} onSave={() => save(lostChoice)} onBack={() => setPreview(null)} />;
+  }
 
   return (
     <Screen testID="screen-timetable">
@@ -134,7 +145,7 @@ export function TimetableScreen({ route, navigation }: Props) {
           {error.text}
         </Text>
       ) : null}
-      <Button label={strings['timetable.save']} onPress={save} testID="timetable-save" />
+      <Button label={strings['timetable.save']} onPress={() => save()} testID="timetable-save" />
     </Screen>
   );
 }
