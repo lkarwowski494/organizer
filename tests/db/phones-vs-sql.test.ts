@@ -171,7 +171,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     if (res.groups.some((g) => g.resync)) seen.resync += 1;
     const out = onPullResponse(s, res, req);
     let state = out.state;
-    for (const sc of out.fetchScopes) state = onFetchScope(state, await fetchScope(user, sc));
+    for (const sc of out.fetchScopes) state = onFetchScope(state, await fetchScope(user, sc), sc);
     return { state, more: out.needMore };
   }
 

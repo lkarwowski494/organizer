@@ -24,6 +24,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { rejectedCreateIds } from '../../domain/sync-engine/client';
 import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -79,7 +80,7 @@ export function TodayScreen() {
   // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
   // Audyt 2: tylko w żywej grupie, w której nie jestem dzieckiem (T-2); odhaczone przez dziecko dostają następne
   // tutaj (T-12); kopia odrzucona przez serwer nie wraca w każdym cyklu synchronizacji.
-  const rejectedIds = useMemo(() => new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []))), [state.rejected]);
+  const rejectedIds = useMemo(() => rejectedCreateIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canCreate = (g: string) => groups.some((x) => x.id === g && x.me.role !== 'child');
     const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));

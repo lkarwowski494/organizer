@@ -28,7 +28,7 @@ const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appe
 
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
-  const { account, nowMs, displayName, resetLocal, userId } = useServices();
+  const { account, nowMs, displayName, resetLocal, signInAgain, userId } = useServices();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
@@ -63,6 +63,9 @@ export function SettingsScreen({ navigation, route }: Props) {
       { text: strings['settings.signOut'], style: 'destructive', onPress: () => void account.signOut() },
     ]);
   const open = (s: SettingsSection) => navigation.push('Settings', { section: s });
+  // Bez połączenia z serwerem (offline z NetInfo, wygasła sesja albo ostatnie żądanie nie doszło — captive portal, M-10)
+  // wyczyszczony telefon zostałby pusty do powrotu sieci.
+  const noServer = indicator.state === 'offline' || indicator.state === 'auth_expired' || (indicator.state === 'error' && indicator.error === 'network');
 
   if (!section) {
     return (
@@ -70,6 +73,13 @@ export function SettingsScreen({ navigation, route }: Props) {
         <BackButton onPress={() => navigation.goBack()} />
         <Title>{strings['settings.title']}</Title>
         <SyncChip indicator={indicator} nowMs={nowMs()} />
+        {/* Audyt 2, M-9: wskaźnik tylko informuje (PW-28) — tu jest droga do ponownego logowania, gdy sesja nie dała się odświeżyć. */}
+        {indicator.state === 'auth_expired' && signInAgain ? (
+          <View testID="auth-expired" style={{ gap: 8 }}>
+            <Body>{strings['auth.expiredInfo']}</Body>
+            <Button label={strings['sync.authExpired']} testID="sign-in-again" onPress={signInAgain} />
+          </View>
+        ) : null}
         {SECTIONS.filter((s) => s !== 'adding' || defaultGroup.available).map((s) => (
           <NavRow key={s} title={strings[`settings.section.${s}`]} onPress={() => open(s)} testID={`settings-${s}`} />
         ))}
@@ -196,9 +206,9 @@ export function SettingsScreen({ navigation, route }: Props) {
                 <>
                   {state.pending.length ? <Body>{strings['reset.pending'](state.pending.length)}</Body> : null}
                   {/* Bez połączenia telefon zostałby pusty do powrotu sieci (audyt 8.10.2026), a po upgrade_required — na stałe (audyt 2, M-57). */}
-                  {indicator.state === 'offline' || indicator.state === 'auth_expired' ? <Body>{strings['reset.offline']}</Body> : null}
+                  {noServer ? <Body>{strings['reset.offline']}</Body> : null}
                   {indicator.state === 'upgrade_required' ? <Body>{strings['reset.upgrade']}</Body> : null}
-                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" disabled={indicator.state === 'offline' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
+                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" disabled={noServer || indicator.state === 'upgrade_required'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
                   <Button kind="secondary" label={strings['common.cancel']} onPress={() => setResetting(false)} />
                 </>
               ) : (

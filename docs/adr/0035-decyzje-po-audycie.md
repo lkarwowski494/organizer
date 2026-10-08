@@ -76,3 +76,38 @@ Wykonanie (Claude; właściciel może zawetować):
 - **PWD-14 A.** Zwinięte są minione, nieodhaczone kopie jednego łańcucha powtarzania (identyfikatory nextId), od dwóch
   w górę; odhaczone kopie zostają osobno. Kalendarz bez zmian (D135: co było zaplanowane).
 - **PW-18, PW-15** — szczegóły w ADR 0012 (D68) i 0007 (D59).
+
+## Audyt 2 — odporność synchronizacji na telefonie (paczka P2, 8.10.2026)
+Decyzje techniczne (Claude; właściciel może zawetować):
+- **Telefon odtworzony z kopii iCloud (M-8).** Identyfikator instalacji także w pęku kluczy „tylko to urządzenie”
+  (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY` — nie przechodzi do kopii ani na nowy telefon). Inny niż w bazie → nowy
+  identyfikator; niewysłane operacje z kopii idą jeszcze pod starym (`ClientState.legacy`), więc serwer rozpozna te,
+  które stary telefon zdążył wysłać („duplicate”), a potwierdzenie starej instalacji sięga najwyżej końca zakresu
+  z kopii. Bez zmian na serwerze. Odrzucone: wyłączenie bazy z kopii (gubi niewysłane zmiany); dziennik `op_id` na
+  serwerze z kodem `client_reused` (tabela i sprzątanie po stronie serwera; zakres z kopii daje to samo bez nich);
+  przenumerowanie kolejki pod nowym identyfikatorem (stara zmiana wysłana drugi raz nadpisałaby nowsze zmiany innych).
+  Pierwsze uruchomienie buildu z tym mechanizmem nadaje każdemu telefonowi nowy identyfikator — bez szkody.
+  Do sprawdzenia na urządzeniu: że plik bazy (Documents/SQLite) wraca z kopii, a wpis pęku kluczy nie.
+- **Grupa pobierana w całości (resync, pobranie od zera).** Porcje czekają w `staged_rows` (lokalna migracja v6),
+  ekran widzi dotychczasowe wiersze grupy do ostatniej porcji, potem podmiana w jednym przejściu stanu; przerwane
+  pobranie wznawia się od kursora. Lustro kalendarza (M-5) widzi do końca stare wiersze. Potwierdzone operacje schodzą
+  z kolejki dopiero po ostatniej porcji (zmiana nie „miga”). Odrzucone: czyszczenie grupy przed pierwszą porcją (duża
+  grupa znikała ze wszystkich ekranów na czas pobierania). Nowa grupa (bez starych wierszy) też pojawia się w komplecie.
+- **Nieudane pobranie udostępnionej listy (M-53).** `scopesToFetch`: lista zostaje „do pobrania” do udanego
+  sync_fetch_scope, także po restarcie. Odrzucone: dopisywanie do `scopes` po pobraniu (utrata dostępu przed pobraniem
+  nie czyściłaby wtedy wierszy tej listy, które przyszły zwykłym pobraniem).
+- **Sieć (M-10).** `@react-native-community/netinfo` (wersja z Expo SDK 57, moduł natywny — wymaga nowego buildu):
+  zdarzenie `network`; stan nieznany = sieć. Błąd sieci wstrzymuje wysyłkę i pobranie naraz. Czyszczenie danych
+  zablokowane także po nieudanym żądaniu (captive portal). Odrzucone: wariant bez zależności (brak wyzwalacza
+  „sieć wróciła”, zostaje czekanie do 60 s).
+- **Wygasła sesja (M-9).** Po 401 jedna prośba o odświeżenie tokenu (`refreshSession`); nowy token tego samego konta
+  (onAuthStateChange) wznawia pętlę; powrót do aplikacji próbuje raz. Wskaźnik tylko informuje (PW-28) — gdy sesji nie
+  da się odświeżyć, Ustawienia pokazują „Zaloguj się ponownie” (wylogowanie tylko na tym telefonie, baza konta
+  z kolejką zostaje).
+- **Pozostałe.** „Wyczyść dane” w trakcie żądania: wynik po `stop()` przepada (M-55). „Cofnij” pola, którego wiersz
+  utworzony na telefonie jeszcze nie ma, wpisuje wartość domyślną kolumny z `config.sync.PATCH_DEFAULTS` (test
+  kontraktowy z bazą, M-59). Lokalne usunięcie i przywrócenie kaskadują jak `tasks_cascade`/`lists_cascade`, znacznik
+  `pending:<numer operacji>` (M-60). Zapis stanu porównuje referencje zamiast serializacji (M-61). Baza z nowszej wersji
+  aplikacji: ekran z wyjaśnieniem i „Wyczyść i pobierz od nowa” (zostają dane `local:*`, M-177). Odświeżenie po
+  operacji serwerowej omija przerwę po błędzie (M-178). Cofnięcie zegara przesuwa terminy pętli o ten sam odcinek
+  (M-179). Generator kopii stałych zadań serii nie ponawia utworzenia odrzuconego przez serwer.
