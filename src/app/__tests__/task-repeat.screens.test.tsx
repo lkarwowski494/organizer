@@ -146,5 +146,7 @@ describe('historia zadania', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
     expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();
+    // Audyt 2 (M-62): ekran mówi, jak daleko sięga historia.
+    expect(within(screen.getByTestId('task-history')).getByText('Zmiany z ostatnich 90 dni.')).toBeTruthy();
   });
 });

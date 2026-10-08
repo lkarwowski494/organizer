@@ -238,6 +238,31 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(second.rt.getSnapshot().state.pending).toHaveLength(0);
   });
 
+  // Audyt 2 (M-62): historia starsza niż config.retention.ACTIVITY_DAYS znika z telefonu przy pobraniu, także z bazy.
+  it('pobranie usuwa z telefonu historię po terminie retencji', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const first = harness(tr);
+    first.rt.start();
+    await first.flush();
+    const day = 86_400_000;
+    const at = (daysAgo: number) => new Date(1_000_000 - daysAgo * day).toISOString();
+    const synced = first.rt.getSnapshot().state;
+    const initial = {
+      ...synced,
+      base: { ...synced.base, activity: { old: { id: 'old', group_id: G, version: 1, created_at: at(config.retention.ACTIVITY_DAYS + 1) }, fresh: { id: 'fresh', group_id: G, version: 1, created_at: at(1) } } },
+    };
+    const db = memoryDb();
+    migrate(db);
+    writeState(db, initialState('c-1'), initial, 0);
+    const second = harness(tr, { initial, persist: (p, nx, now) => writeState(db, p, nx, now) });
+    second.rt.start();
+    await second.flush();
+    expect(Object.keys(second.rt.getSnapshot().state.base.activity ?? {})).toEqual(['fresh']);
+    expect(Object.keys(readState(db, 'c-1').base.activity ?? {})).toEqual(['fresh']);
+  });
+
   it('rodzaj błędu: TransportError zachowuje rodzaj, reszta to sieć', () => {
     expect(errorKind(new TransportError('server', 'x'))).toBe('server');
     expect(errorKind(new Error('x'))).toBe('network');
@@ -329,8 +354,21 @@ describe('pętla synchronizacji w działaniu', () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);
     let st = initialState('c-1');
-    expect(await pullStep(() => st, (n) => (st = n), serverTransport(server, 'ala'))).toBe(false);
+    expect(await pullStep(() => st, (n) => (st = n), serverTransport(server, 'ala'), () => 0)).toBe(false);
     expect(Object.keys(st.cursors)).toEqual([G]);
+  });
+
+  it('pullStep po stop() w trakcie dociągania ukrytej listy: wynik listy przepada (M-55)', async () => {
+    let alive = true;
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: async () => ({ groups: [{ group_id: G, cursor: 1, has_more: false, resync: false, rows: [] }], scopes: ['ukryta'] }),
+      fetchScope: async () => ((alive = false), []),
+    };
+    let st = initialState('c-1');
+    const sets: unknown[] = [];
+    await pullStep(() => st, (n) => (sets.push(n), (st = n)), tr, () => 0, () => alive);
+    expect(sets).toHaveLength(1);
   });
 
   it('M-55: odpowiedź, która przyszła po stop() („Wyczyść dane”), nie trafia do bazy ani do stanu', async () => {

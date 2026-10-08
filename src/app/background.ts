@@ -85,7 +85,7 @@ export async function refreshInBackground(deps: BackgroundDeps, timer: Timer = d
     }
     // Porcje do końca albo do limitu; błąd sieci — plan z tym, co już jest (przypomnienia i tak trzeba odświeżyć).
     try {
-      for (let i = 0; i < config.wake.PULL_PAGES_MAX && now() - started < config.wake.TASK_BUDGET_MS && (await pullStep(() => state, set, deps.transport)); i++);
+      for (let i = 0; i < config.wake.PULL_PAGES_MAX && now() - started < config.wake.TASK_BUDGET_MS && (await pullStep(() => state, set, deps.transport, now)); i++);
     } catch {
       // jak wyżej
     }

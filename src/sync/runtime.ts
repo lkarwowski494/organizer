@@ -17,6 +17,7 @@ import {
   type PushResponse,
   pushRequest,
 } from '../domain/sync-engine/client';
+import { pruneExpired } from '../domain/sync-engine/retention';
 import { decide, type Indicator, indicator, initialScheduler, onEvent, pendingTimer, type SchedulerEvent, type SchedulerState } from '../domain/sync-engine/scheduler';
 import { errorKind, type SyncTransport } from './transport';
 
@@ -42,12 +43,13 @@ export type RuntimeDeps = {
  * w trakcie zapytania), `set` — zapis kroku. Zwraca, czy któraś grupa ma jeszcze wiersze (has_more). Wspólne dla pętli
  * synchronizacji i odświeżenia w tle (D159, src/app/background.ts). `live` — fałsz po stop() silnika: odpowiedź przepada (M-55).
  */
-export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport, live: () => boolean = () => true): Promise<boolean> {
+export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport, now: () => number, live: () => boolean = () => true): Promise<boolean> {
   const req = pullRequest(get());
   const res = await transport.pull(req, config.sync.PULL_LIMIT_MAX);
   if (!live()) return false;
   const out = onPullResponse(get(), res, req);
-  set(out.state);
+  // Historia i rozstrzygnięte przekazania po terminie znikają też z telefonu (audyt 2, M-62) — w tym samym zapisie.
+  set(pruneExpired(out.state, now()));
   // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości. Lista trafia do
   // pobranych dopiero po udanym pobraniu — błąd przerywa pętlę, a następne pobranie spróbuje jeszcze raz (M-53).
   for (const listId of out.fetchScopes) {
@@ -227,6 +229,7 @@ export class SyncRuntime {
       () => this.state,
       (next) => this.setState(next),
       this.deps.transport,
+      this.deps.now,
       () => gen === this.generation,
     );
     return { t: 'pull_ok', needMore, pending: pendingCount(this.state) };

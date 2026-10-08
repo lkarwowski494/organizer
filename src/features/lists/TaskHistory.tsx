@@ -2,6 +2,7 @@
 import { Text, View } from 'react-native';
 
 import { localNow } from '../../app/clock';
+import { config } from '../../config';
 import type { CivilDate } from '../../domain/civil-date';
 import { formatLongDate } from '../../domain/format';
 import type { HistoryEntry } from '../../domain/views/history';
@@ -23,6 +24,7 @@ export function TaskHistory({ entries, today }: { entries: HistoryEntry[]; today
     <View testID="task-history" style={{ gap: 6 }}>
       <SectionTitle>{strings['history.title']}</SectionTitle>
       {entries.length === 0 ? <Body muted>{strings['history.empty']}</Body> : null}
+      <Body muted>{strings['history.retention'](config.retention.ACTIVITY_DAYS)}</Body>
       {entries.map((e) => {
         const l = localNow(Date.parse(e.at));
         const when = `${formatLongDate(l, today)}, ${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;

@@ -59,9 +59,11 @@ select pg_temp.as_user('');
 update public.events set deleted_at = now() - interval '31 days' where id = '55550000-0000-7000-8000-0000000001e1';
 update public.event_task_series set deleted_at = now() - interval '31 days' where id = '55550000-0000-7000-8000-0000000005a3';
 select lives_ok($$ select private.purge_tombstones() $$, '12: czyszczenie przechodzi mimo zadania wskazującego usuniętą serię');
-select ok(exists (select 1 from public.events where id = '55550000-0000-7000-8000-0000000001e1')
-          and not exists (select 1 from public.event_task_series where id = '55550000-0000-7000-8000-0000000005a3'),
-  '13: seria zostaje (wskazuje ją zadanie), definicja bez kopii usunięta');
+-- D182 (audyt 2, M-67): seria po 30 dniach w koszu znika także z przypiętym zadaniem — zadanie zostaje, odpięte.
+select ok(not exists (select 1 from public.events where id = '55550000-0000-7000-8000-0000000001e1')
+          and not exists (select 1 from public.event_task_series where id = '55550000-0000-7000-8000-0000000005a3')
+          and not exists (select 1 from public.tasks where event_id = '55550000-0000-7000-8000-0000000001e1'),
+  '13: seria i definicja usunięte, przypięte zadania odpięte (D182)');
 
 select * from finish();
 rollback;
