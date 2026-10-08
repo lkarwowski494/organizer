@@ -11,6 +11,8 @@ import { Text, View } from 'react-native';
 import { strings } from '../i18n/strings.pl';
 import type { ClientError } from '../sync/account';
 
+/** Numer buildu TestFlight (NaN, gdy nieznany). */
+export const buildNumber = () => Number(Application.nativeBuildVersion ?? Number.NaN);
 export const appVersion = () => `${Application.nativeApplicationVersion ?? '?'} (${Application.nativeBuildVersion ?? '?'})`;
 
 const clip = (s: string | undefined | null, n: number) => (s == null ? null : s.slice(0, n));

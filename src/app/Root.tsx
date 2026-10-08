@@ -20,6 +20,7 @@ import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
 import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
+import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
@@ -61,10 +62,10 @@ function Loading() {
 
 function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
   const nowMs = deps.nowMs ?? Date.now;
-  const runtime = useMemo(() => {
+  const { runtime, db } = useMemo(() => {
     const db = deps.openDb(session.userId);
     migrate(db);
-    return new SyncRuntime({
+    const runtime = new SyncRuntime({
       initial: readState(db, deps.newId()),
       transport: deps.transport,
       now: nowMs,
@@ -77,7 +78,11 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
         }),
       persist: (prev, next, now) => writeState(db, prev, next, now),
     });
+    return { runtime, db };
   }, [deps, session.userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
+  useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
 
   useEffect(() => {
     runtime.start();
