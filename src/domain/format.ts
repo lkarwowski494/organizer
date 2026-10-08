@@ -54,3 +54,17 @@ export function formatDue(due: { date: string; time: string | null }, today: Civ
   const day = rel[due.date] ?? `${WEEKDAYS_ABBREVIATED[isoWeekday(d)]} ${d.d} ${MONTHS_ABBREVIATED[d.m - 1]}${d.y === today.y ? '' : ` ${d.y}`}`;
   return due.time === null ? day : `${day} · ${formatTime(due.time)}`;
 }
+
+/**
+ * Długość wydarzenia (D120): „45 min”, „1 h”, „1 h 30 min”. Koniec zawsze po początku tego samego dnia
+ * (ograniczenie events_end_after_start w bazie). Symbole „h” i „min” ze spacją po liczbie — BIPM, Broszura SI, wyd. 9
+ * (https://doi.org/10.59161/AUEZ1291), tabela 8: „hour h 1 h = 60 min = 3600 s”; 5.4.3: „The numerical value always
+ * precedes the unit and a space is always used to separate the unit from the number”.
+ */
+export function formatLength(start: string, end: string): string {
+  const min = (x: string) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5));
+  const all = min(end) - min(start);
+  const h = Math.floor(all / 60);
+  const m = all % 60;
+  return [h ? `${h} h` : '', m || !h ? `${m} min` : ''].filter(Boolean).join(' ');
+}

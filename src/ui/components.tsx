@@ -354,14 +354,14 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 
 /**
  * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
- * tytuł i grupa. Całość otwiera wydarzenie.
+ * tytuł i grupa; po godzinach długość (D120). Całość otwiera wydarzenie.
  */
-export function EventRow({ title, time, line, group, recurring, onPress, testID, faded, extra }: { title: string; time: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string }) {
+export function EventRow({ title, time, length, line, group, recurring, onPress, testID, faded, extra }: { title: string; time: string | null; length?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
@@ -369,6 +369,7 @@ export function EventRow({ title, time, line, group, recurring, onPress, testID,
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
+          {length ? `  ·  ${length}` : ''}
           {'  ·  '}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
           {recurring ? `  ·  ${strings['event.repeats']}` : ''}

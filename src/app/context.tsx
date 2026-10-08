@@ -39,6 +39,8 @@ export type AppServices = {
   prefs?: Prefs;
   /** Dane tylko tego telefonu w lokalnej bazie (stan lustra kalendarza, D95); brak = funkcja wyłączona. */
   local?: LocalStore;
+  /** D121: wyczyść kopię danych na telefonie i pobierz od nowa (grupy i członkowie wracają z serwera). */
+  resetLocal?: () => void;
   userId: string;
   displayName: string;
   /** D100: konto bez imienia (logowanie e-mailem) — zapytamy przy starcie. */

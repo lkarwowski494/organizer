@@ -21,7 +21,8 @@ import { MuteSettings } from './MuteSettings';
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 
 export function SettingsScreen({ navigation }: Props) {
-  const { account, nowMs, displayName } = useServices();
+  const { account, nowMs, displayName, resetLocal } = useServices();
+  const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
@@ -111,6 +112,21 @@ export function SettingsScreen({ navigation }: Props) {
       <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />
       <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
       <Button kind="secondary" label={strings['settings.signOut']} onPress={() => void account.signOut()} testID="sign-out" />
+      {resetLocal ? (
+        <View testID="reset-local" style={{ gap: 8 }}>
+          <SectionTitle>{strings['reset.title']}</SectionTitle>
+          <Body muted>{strings['reset.info']}</Body>
+          {resetting ? (
+            <>
+              {state.pending.length ? <Body>{strings['reset.pending'](state.pending.length)}</Body> : null}
+              <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" onPress={() => (setResetting(false), resetLocal(), navigation.goBack())} />
+              <Button kind="secondary" label={strings['common.cancel']} onPress={() => setResetting(false)} />
+            </>
+          ) : (
+            <Button kind="secondary" label={strings['reset.start']} testID="reset-start" onPress={() => setResetting(true)} />
+          )}
+        </View>
+      ) : null}
       <SectionTitle>{strings['settings.delete']}</SectionTitle>
       <Body muted>{strings['settings.deleteInfo'](config.sync.TOMBSTONE_DAYS)}</Body>
       {deleting ? (

@@ -23,7 +23,8 @@ import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
-import { timeLabel } from '../../domain/views/events';
+import { lengthLabel, timeLabel } from '../../domain/views/events';
+import { personOf } from '../../domain/views/who';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
@@ -147,6 +148,15 @@ export function TodayScreen() {
   };
   const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0);
 
+  // D119: kto w każdym wierszu („Ty”, gdy to ja).
+  const whoTask = (memberId: string | null) => {
+    const p = personOf(tables, userId, memberId);
+    return p ? [strings['who.task'](p)] : [];
+  };
+  const whoEvent = (memberId: string | null) => {
+    const p = personOf(tables, userId, memberId);
+    return p ? [strings['who.event'](p)] : [];
+  };
   const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
     // Zakupy z listy zakupów (D73): odhaczenie z potwierdzeniem i pytaniem o niekupione, dotknięcie otwiera listę.
     <StationRow
@@ -155,7 +165,7 @@ export function TodayScreen() {
       title={strings['trip.title'](task.title)}
       line={task.line}
       group={groupLabel(task.group_id, task.groupName)}
-      meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : [])]}
+      meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...whoTask(task.assignee_member_id)]}
       alert={alert}
       checked={false}
       onToggle={() => actions.finishTrip(task.id, task.title)}
@@ -182,7 +192,7 @@ export function TodayScreen() {
         title={task.title}
         line={task.line}
         group={groupLabel(task.group_id, task.groupName)}
-        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : []), ...streakOf(taskStreak(tables, task.id, (iso) => formatIsoDate(localNow(Date.parse(iso)))))]}
+        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...whoTask(task.assignee_member_id), ...streakOf(taskStreak(tables, task.id, (iso) => formatIsoDate(localNow(Date.parse(iso)))))]}
         depth={n?.depth}
         alert={alert}
         checked={task.completed_at !== null}
@@ -198,10 +208,11 @@ export function TodayScreen() {
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
         title={x.event.title}
         time={timeLabel(x.event.startTime, x.event.endTime)}
+        length={lengthLabel(x.event.startTime, x.event.endTime)}
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
-        extra={[...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
+        extra={[...whoEvent(x.event.responsibleId), ...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />

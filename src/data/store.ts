@@ -86,3 +86,16 @@ export function saveLocal(db: DbAdapter, key: string, value: string | null): voi
   if (value === null) db.run('delete from sync_state where key = ?', [`local:${key}`]);
   else db.run('insert into sync_state (key, value) values (?, ?) on conflict (key) do update set value = excluded.value', [`local:${key}`, value]);
 }
+
+/**
+ * „Wyczyść dane na telefonie” (D121): kopia danych z serwera, kolejka i odrzucone zmiany do usunięcia — po ponownym
+ * starcie silnik pobiera wszystko od zera. Zostają własne dane telefonu (`local:*`, np. stan lustra kalendarza).
+ */
+export function wipeSynced(db: DbAdapter): void {
+  db.transaction(() => {
+    for (const t of ENTITY_TABLES) db.run(`delete from ${t}`);
+    db.run('delete from pending_ops');
+    db.run('delete from rejected_ops');
+    db.run("delete from sync_state where key not like 'local:%'");
+  });
+}

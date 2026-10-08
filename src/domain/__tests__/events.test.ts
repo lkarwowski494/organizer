@@ -18,6 +18,7 @@ import {
   fieldsOf,
   groupSeries,
   timeLabel,
+  lengthLabel,
   ruleOf,
   todayEvents,
 } from '../views/events';
@@ -434,6 +435,12 @@ describe('godziny i lista wydarzeń grupy', () => {
     expect(timeLabel(null, null)).toBeNull();
     expect(timeLabel('18:00:00', null)).toBe('18:00');
     expect(timeLabel('18:00:00', '19:30:00')).toBe('18:00–19:30');
+  });
+
+  it('lengthLabel (D120)', () => {
+    expect(lengthLabel(null, null)).toBeNull();
+    expect(lengthLabel('18:00:00', null)).toBeNull();
+    expect(lengthLabel('18:00:00', '19:30:00')).toBe('1 h 30 min');
   });
 
   it('groupSeries: najbliższy termin od dziś, opis; zakończone na końcu; inne grupy i usunięte pominięte', () => {

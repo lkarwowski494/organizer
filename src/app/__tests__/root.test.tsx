@@ -140,6 +140,22 @@ describe('korzeń aplikacji', () => {
     await waitFor(() => expect(t.pulls()).toBe(before + 2));
   });
 
+  it('„Wyczyść dane na telefonie” (D121): pusta baza, pobranie od zera, dane z serwera wracają', async () => {
+    const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {}, setFromLink: async () => {} } });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByText('Osobiste');
+    const db = t.dbs.get(ME)!;
+    db.run("insert into tasks (key, group_id, data) values ('stary', ?, ?)", [ME, JSON.stringify({ id: 'stary', title: 'Stary wpis' })]);
+    const before = t.pulls();
+    await fireEvent.press(screen.getByLabelText('Ustawienia'));
+    await fireEvent.press(await screen.findByTestId('reset-start'));
+    await fireEvent.press(screen.getByTestId('reset-confirm'));
+    await waitFor(() => expect(t.pulls()).toBeGreaterThan(before));
+    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    expect(db.all<{ key: string }>('select key from tasks')).toEqual([]);
+    expect(db.all<{ key: string }>('select key from groups').map((r) => r.key)).toEqual([ME]);
+  });
+
   it('powrót na pierwszy plan pobiera; wylogowanie wraca do ekranu logowania i zatrzymuje pętlę', async () => {
     const t = makeDeps();
     await render(<Root deps={t.deps} fontsLoaded />);
