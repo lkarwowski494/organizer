@@ -103,6 +103,12 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   );
   const signature = targets.map((t) => `${t.key}:${t.location}:${t.mode}:${t.startMs}`).join('|');
 
+  const report = (e: unknown) => {
+    if (reported.current) return;
+    reported.current = true;
+    account.reportError(toClientError(e, 'error', 'travel', appVersion())).catch(() => {});
+  };
+
   useEffect(() => {
     if (!available || !enabled || status !== 'granted' || targets.length === 0) return;
     let live = true;
@@ -111,22 +117,23 @@ export function TravelProvider({ children }: { children: ReactNode }) {
       if (!here || !live) return;
       const geo = parse(local!.load(GEO_KEY), isRecord) ?? {};
       const next: Record<string, { seconds: number; mode: TravelMode }> = {};
+      // Błąd jednego wydarzenia (np. brak komunikacji w MapKit) nie kasuje pozostałych (ADR 0029; audyt 8.10.2026).
       for (const t of targets) {
-        let to = geo[t.location] as Coords | null | undefined;
-        if (to === undefined) {
-          to = await travel!.geocode(t.location);
-          geo[t.location] = to;
+        try {
+          let to = geo[t.location] as Coords | null | undefined;
+          if (to === undefined) {
+            to = await travel!.geocode(t.location);
+            geo[t.location] = to;
+          }
+          if (!to) continue;
+          next[t.key] = { seconds: await travel!.eta(here, to, t.mode, nowMs()), mode: t.mode };
+        } catch (e: unknown) {
+          report(e);
         }
-        if (!to) continue;
-        next[t.key] = { seconds: await travel!.eta(here, to, t.mode, nowMs()), mode: t.mode };
       }
       local!.save(GEO_KEY, JSON.stringify(geo));
       if (live) setResults(next);
-    })().catch((e: unknown) => {
-      if (reported.current) return;
-      reported.current = true;
-      account.reportError(toClientError(e, 'error', 'travel', appVersion())).catch(() => {});
-    });
+    })().catch(report);
     return () => {
       live = false;
     };

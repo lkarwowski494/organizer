@@ -38,6 +38,18 @@ async function open(travel = fakeTravel(), prefs = memoryPrefs({ welcomeSeen: '1
 }
 
 describe('dojazd (D115–D117)', () => {
+  it('audyt 8.10.2026: błąd jednego wydarzenia nie kasuje „Wyjdź o” pozostałych; zgłoszony raz', async () => {
+    const b = base();
+    put(b, 'events', 'kino', { ...b.events!.basen!, id: 'kino', title: 'Kino', start_time: '19:00:00', end_time: '21:00:00', location: 'Kino Pod Baranami' });
+    const travel = fakeTravel({ geocode: jest.fn(async (q: string) => (q.startsWith('Kino') ? Promise.reject(new Error('MKError')) : { lat: 50.07, lng: 19.9 })) });
+    const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
+    await s.renderApp(<RootStack />);
+    await flush();
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(within(screen.getByTestId('today-event-kino-2026-10-07')).queryByText(/Wyjdź o/)).toBeNull();
+    expect(s.account.reportError).toHaveBeenCalledTimes(1);
+  });
+
   it('„Moje sprawy”: „Wyjdź o 16:30 · 25 min autem”; ekran wydarzenia: adres, nawigacja, zmiana środka tylko u mnie', async () => {
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const { travel, prefs } = await open();

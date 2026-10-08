@@ -14,7 +14,8 @@ import { useTaskActions } from '../../app/task-actions';
 import { formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
-import { createList } from '../../domain/views/commands';
+import { createList, inverseOps } from '../../domain/views/commands';
+import { useUndo } from '../../ui/undo';
 import { listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, type Scope, timeLabel } from '../../domain/views/events';
@@ -38,6 +39,7 @@ export function EventScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font, line } = useTheme();
   const actions = useTaskActions();
+  const undo = useUndo();
   const { eventId, date } = route.params;
   const d = useMemo(() => eventDetail(tables, userId, eventId), [tables, userId, eventId]);
   const [ask, setAsk] = useState<'edit' | 'cancel' | 'delete' | null>(null);
@@ -78,7 +80,11 @@ export function EventScreen({ route, navigation }: Props) {
   const edit = (scope: Scope) => navigation.navigate('EventEdit', { eventId, date, scope });
   const finish = (scope: Scope, to: Relink | null) => {
     const affected = to ? affectedByCancel(tables, d, date, scope) : [];
-    store.dispatch([...cancelEvent(d, date, scope, newId), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)]);
+    const ops = [...cancelEvent(d, date, scope, newId), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)];
+    const back = inverseOps(tables, ops);
+    store.dispatch(ops);
+    // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
+    if (back) undo.show(strings['undo.eventCancelled'](occ.title), () => store.dispatch(back));
     navigation.goBack();
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
