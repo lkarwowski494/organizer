@@ -169,4 +169,14 @@ describe('lustro czeka na pobranie (audyt 8.10.2026)', () => {
     expect(mirrorReady(t, 'u1', { g1: 4 })).toBe(false);
     expect(mirrorReady(t, 'u1', { g1: 4, g2: 0 })).toBe(true);
   });
+
+  it('audyt 2 (M-5): duża grupa w trakcie pobierania porcjami albo resync (kursor jest, wiersza grupy jeszcze nie) — nie', () => {
+    // Po pierwszej porcji: osobista kompletna, „Rodzina” ma kursor i część wierszy, ale wiersz grupy przyjdzie na końcu.
+    const partial = { ...t, groups: { g2: t.groups.g2 } };
+    expect(mirrorReady(partial, 'u1', { g1: 4, g2: 0 })).toBe(false);
+    // Także gdy mojego członkostwa w tej grupie jeszcze nie ma (wtedy grupy nie widać nawet w liście grup).
+    const noMember = { groups: partial.groups, group_members: { m2: t.group_members.m2 } };
+    expect(mirrorReady(noMember, 'u1', { g1: 4, g2: 0 })).toBe(false);
+    expect(mirrorReady(t, 'u1', { g1: 9, g2: 0 })).toBe(true);
+  });
 });
