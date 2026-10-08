@@ -123,7 +123,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     // Pętla wysyła po config.sync.PUSH_DEBOUNCE_MS (prawdziwy timer), serwer oddaje wiersz przy pobraniu.
     await waitFor(
       async () => {
-        const res = await t.deps.transport.pull({}, 100);
+        const res = await t.deps.transport.pull({ cursors: {}, schema_version: 2, entities: [] }, 100);
         expect(res.groups.flatMap((g) => g.rows).some((r) => r.row.title === 'Zadzwonić do babci')).toBe(true);
       },
       { timeout: 5000 },

@@ -52,7 +52,7 @@ function serverTransport(server: FakeServer, user: string): SyncTransport & { ca
   return {
     calls,
     push: async (req) => (calls.push('push'), server.push(user, req)),
-    pull: async (c, l) => (calls.push('pull'), server.pull(user, c, l)),
+    pull: async (r, l) => (calls.push('pull'), server.pull(user, r, l)),
     fetchScope: async (id) => (calls.push(`scope:${id}`), server.fetchScope(user, id)),
   };
 }
@@ -144,6 +144,34 @@ describe('pętla synchronizacji w działaniu', () => {
     await flush();
     await advance(config.sync.PUSH_DEBOUNCE_MS);
     expect(rt.getSnapshot().state.pending).toHaveLength(0);
+  });
+
+  it('upgrade_required (audyt 2, M-57): „Zaktualizuj aplikację”, bez ponowień w kółko; powrót do aplikacji próbuje raz', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let old = true;
+    const calls: string[] = [];
+    const fatal = () => Promise.reject(new TransportError('fatal', 'upgrade_required'));
+    const tr: SyncTransport = {
+      push: (r) => (calls.push('push'), old ? fatal() : real.push(r)),
+      pull: (q, l) => (calls.push('pull'), old ? fatal() : real.pull(q, l)),
+      fetchScope: real.fetchScope,
+    };
+    const { rt, flush, advance, activeTimers } = harness(tr);
+    rt.start();
+    await flush();
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    await advance(config.sync.BACKOFF_MAX_MS * 5);
+    expect(calls).toEqual(['pull']);
+    expect(activeTimers()).toBe(0);
+    expect(rt.getSnapshot().indicator).toEqual({ state: 'upgrade_required', pending: 1 });
+    old = false;
+    rt.event({ t: 'foreground' });
+    await flush();
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    expect(rt.getSnapshot().state.pending).toHaveLength(0);
+    expect(server.lists.get('l1')).toBeDefined();
   });
 
   it('offline z kolejką: timer kolejki zostaje ustawiony; stop() go kasuje, start() wznawia', async () => {

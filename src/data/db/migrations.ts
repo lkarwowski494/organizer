@@ -55,7 +55,9 @@ create table sync_state (
   { version: 3, sql: V3_TABLES.map(mirror).join('\n') },
   { version: 4, sql: V4_TABLES.map(mirror).join('\n') },
   // Starsza wersja dostawała już odpowiedzi z serwera, ale nie miała ich gdzie zapisać, a kursor poszedł dalej —
-  // zerujemy kursory, żeby pobrać wszystko jeszcze raz (kolejka i identyfikator telefonu zostają).
+  // zerujemy kursory, żeby pobrać wszystko jeszcze raz (kolejka i identyfikator telefonu zostają). Wiersze sprzed
+  // migracji czyści pobranie od zera (onPullResponse, audyt 2, M-176). Nowa encja nie potrzebuje już takiego kroku:
+  // telefon sam pobiera wszystko od zera, gdy kursory jej nie obejmują (ClientState.entities, M-58).
   { version: 5, sql: `${V5_TABLES.map(mirror).join('\n')}\ndelete from sync_state where key = 'cursors';` },
 ];
 

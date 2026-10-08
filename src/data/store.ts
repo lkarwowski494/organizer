@@ -29,6 +29,9 @@ export function readState(db: DbAdapter, clientId: string): ClientState {
     base,
     pending: db.all<{ op: string }>('select op from pending_ops order by seq').map((r) => JSON.parse(r.op) as Op),
     cursors: kv.cursors ? (JSON.parse(kv.cursors) as Record<string, number>) : {},
+    // Baza sprzed protokołu 2 (build 21) nie ma epok ani listy encji: epoka 0, encje nieznane → pobranie od zera.
+    purged: kv.purged ? (JSON.parse(kv.purged) as Record<string, number>) : {},
+    entities: kv.entities ? (JSON.parse(kv.entities) as string[]) : [],
     scopes: kv.scopes ? (JSON.parse(kv.scopes) as string[]) : [],
     rejected: db.all<{ op: string; code: string }>('select op, code from rejected_ops order by seq').map((r) => ({ op: JSON.parse(r.op) as Op, code: r.code })),
   };
@@ -71,6 +74,8 @@ export function writeState(db: DbAdapter, prev: ClientState, next: ClientState, 
       ['next_seq', String(next.nextSeq)],
       ['acked_seq', String(next.ackedSeq)],
       ['cursors', JSON.stringify(next.cursors)],
+      ['purged', JSON.stringify(next.purged)],
+      ['entities', JSON.stringify(next.entities)],
       ['scopes', JSON.stringify(next.scopes)],
     ];
     for (const [k, v] of kv) db.run('insert into sync_state (key, value) values (?, ?) on conflict (key) do update set value = excluded.value', [k, v]);
