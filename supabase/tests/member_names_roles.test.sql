@@ -2,7 +2,7 @@
 -- kto zmienia imię i kolor (PW-54 A), profil bez konta tylko jako dziecko (B-19), przywrócenie usuniętej osoby (D165),
 -- powtórzone utworzenie grupy (R-27).
 begin;
-select plan(36);
+select plan(39);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000e1', 'o@x.test'),
@@ -130,6 +130,39 @@ select pg_temp.as_user('00000000-0000-7000-8000-0000000000e4');
 set local role authenticated;
 select throws_ok($$ select public.create_group('e0e00000-0000-7000-8000-000000000002', 'Cudza', gen_random_uuid(), 'X') $$, '23505', null, '36: cudza grupa o tym id — błąd jak dotąd');
 reset role;
+
+-- ───────── Kto przywraca usuniętą osobę (D165): owner i admin jak przy usunięciu, nikt inny ─────────
+-- E5 admin (f5), E6 członek (f6), E7 admin usunięty przez ownera (f7).
+select pg_temp.as_user('');
+insert into auth.users (id, email) values
+  ('00000000-0000-7000-8000-0000000000e5', 'b@x.test'),
+  ('00000000-0000-7000-8000-0000000000e6', 'c@x.test'),
+  ('00000000-0000-7000-8000-0000000000e7', 'd@x.test');
+insert into public.group_members (member_id, group_id, user_id, display_name, role) values
+  ('e0e00000-0000-7000-8000-0000000000f5', 'e0e00000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000e5', 'Basia', 'admin'),
+  ('e0e00000-0000-7000-8000-0000000000f6', 'e0e00000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000e6', 'Celina', 'member'),
+  ('e0e00000-0000-7000-8000-0000000000f7', 'e0e00000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000e7', 'Darek', 'admin');
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');
+set local role authenticated;
+update public.group_members set deleted_at = now() where member_id = 'e0e00000-0000-7000-8000-0000000000f7';
+reset role;
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000e5');
+set local role authenticated;
+select throws_ok($$ update public.group_members set deleted_at = null where member_id = 'e0e00000-0000-7000-8000-0000000000f7' $$,
+  'P0001', 'forbidden:role', '37: admin nie przywraca admina (usunąć go też nie może)');
+reset role;
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000e6');
+set local role authenticated;
+select throws_ok($$ update public.group_members set deleted_at = null where member_id = 'e0e00000-0000-7000-8000-0000000000f7' $$,
+  'P0001', 'forbidden:role', '38: członek nie przywraca nikogo');
+reset role;
+-- Osoba usunięta nie widzi już grupy (RLS), więc jej próba nic nie zmienia — wraca przez owner/admin albo zaproszenie.
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000e7');
+set local role authenticated;
+update public.group_members set deleted_at = null where member_id = 'e0e00000-0000-7000-8000-0000000000f7';
+reset role;
+select pg_temp.as_user('');
+select ok((select deleted_at is not null from public.group_members where member_id = 'e0e00000-0000-7000-8000-0000000000f7'), '39: osoba usunięta sama się nie przywraca');
 
 select * from finish();
 rollback;
