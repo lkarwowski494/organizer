@@ -90,3 +90,15 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
 3. **Wyjście albo usunięcie z grupy:** listy „Tylko ja” do kosza na 30 dni i z powrotem przy powrocie; osoba usunięta
    do przywrócenia przez 30 dni; jej zaproszenia przestają działać: `20261008361000_member_departure.sql`,
    `20261008360000_member_names_roles.sql` (`removed_at`).
+
+## Zmiany z audytu 2 — kalendarz iPhone'a i dojazd (8.10.2026), do akceptu
+1. **Wylogowanie, usunięcie konta i inne konto usuwają kalendarze „Organizer”** utworzone na tym telefonie (D172):
+   `src/app/calendar-mirror.ts` (`removeMirrorCalendars`, wołane w `src/app/Root.tsx`). Ich identyfikatory są w pęku kluczy
+   telefonu (`pref.calendarMirrorOwned`), żeby usunąć je także po zmianie konta i ponownej instalacji.
+2. **Lustro tylko ze sprawami, które mnie dotyczą,** z wybranych grup, z miejscem wydarzenia; lekcje dziecka jednym wpisem
+   z listą lekcji w notatce (D174): `src/domain/views/calendar-sync.ts` (`mirrorItems`).
+3. **Dopisek „Dodane przez aplikację Organizer” w notatce** wpisów lustra i „Dodaj do kalendarza” (D173): `withMark`
+   w `src/app/device-calendar.ts`.
+4. **Błędy kalendarza i dojazdu bez komunikatu** (punkt 3 wyżej rozwiązany w kodzie dla tych źródeł, M-159): `toClientError`
+   z `{ private: true }` w `src/app/diagnostics.tsx`.
+5. **Pamięć adresów:** najwyżej 200, nieznaleziony adres sprawdzany znowu po dobie (`config.travel.GEO_MAX`, `GEO_RETRY_H`).

@@ -52,6 +52,8 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 ### Zgłoszenia błędów i samosprawdzenie
 - **Błędy:** gdy aplikacja napotka błąd, wysyła jego opis techniczny: komunikat błędu, miejsce w kodzie, nazwę ekranu albo
   funkcji (np. „travel”, „render”) i wersję aplikacji. Aplikacja nie dołącza treści Twoich list, zadań, wydarzeń ani imion.
+  Przy błędach kalendarza iPhone'a i czasu dojazdu wysyłamy tylko rodzaj i kod błędu oraz miejsce w kodzie — bez
+  komunikatu, bo mógłby zawierać nazwę kalendarza, wydarzenia albo adres.
 - **Samosprawdzenie:** raz na każdą nową wersję aplikacji telefon sprawdza, czy działa poprawnie (strefa czasowa,
   polskie litery, baza danych na telefonie) i wysyła wynik tą samą drogą co błędy: wersję bazy danych, wyniki testów
   i wersję aplikacji. Bez treści z list.
@@ -71,21 +73,27 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Odczyt:** aplikacja odczytuje Twoje wydarzenia (od 31 dni wstecz do 62 dni naprzód), żeby pokazać je obok
   spraw grup. Twoje wydarzenia nie są wysyłane na serwer ani pokazywane innym osobom. Aplikacja trzyma je tylko na
   ekranie, nie zapisuje ich. Na telefonie zapamiętuje tylko, których kalendarzy nie chcesz czytać.
-- **Zapis (lustro):** aplikacja zapisuje wydarzenia Twoich grup (od 7 dni wstecz do 90 dni naprzód) w osobnych
-  kalendarzach „Organizer – nazwa grupy”: nazwę wydarzenia, osobę odpowiedzialną, dzień, godziny i nazwę grupy.
+- **Zapis (lustro):** aplikacja zapisuje wydarzenia Twoich grup, które Cię dotyczą (od 7 dni wstecz do 90 dni
+  naprzód; grupy wybierasz w Ustawieniach), w osobnych kalendarzach „Organizer – nazwa grupy”: nazwę wydarzenia, osobę
+  odpowiedzialną, dzień, godziny, miejsce i nazwę grupy; lekcje dziecka jednym wpisem na dzień z listą lekcji w notatce.
   Te kalendarze powstają na tym samym koncie co Twój domyślny kalendarz (zwykle iCloud), więc synchronizują się jak
   Twoje pozostałe kalendarze na tym koncie.
 - Połączenie wyłączysz w Ustawieniach aplikacji (kalendarze „Organizer” zostaną wtedy usunięte z iPhone'a) albo
-  w Ustawieniach iPhone'a.
+  w Ustawieniach iPhone'a. Wylogowanie, usunięcie konta i zalogowanie innego konta też usuwają z iPhone'a kalendarze
+  „Organizer” utworzone na tym telefonie (po ponownym zalogowaniu lustro odtworzy je samo). Na telefonie (w pęku kluczy)
+  zapamiętujemy identyfikatory tych kalendarzy, żeby je usunąć także po zmianie konta albo ponownej instalacji.
+- Wpisy, które dodaje Organizer (lustro i „Dodaj do kalendarza”), mają w notatce dopisek „Dodane przez aplikację
+  Organizer” — po nim aplikacja rozpoznaje je w Twoim kalendarzu i nie pokazuje drugi raz.
 - Bez połączenia: tylko zapis jednego wydarzenia, gdy dotkniesz „Dodaj do kalendarza” (zapisuje dopiero systemowy
   formularz, a aplikacja nie dostaje wtedy dostępu do odczytu).
 
 ### Lokalizacja (tylko gdy włączysz „Czas dojazdu”, zgoda iOS „podczas używania aplikacji”)
-- Telefon ustala Twoje położenie, żeby policzyć czas dojazdu do dzisiejszych wydarzeń z miejscem. Adres wydarzenia
+- Telefon ustala Twoje położenie, żeby policzyć czas dojazdu do najbliższych wydarzeń z miejscem (do 12 godzin naprzód). Adres wydarzenia
   zamienia na współrzędne i liczy czas dojazdu przez usługi Apple (geokoder i Mapy Apple, MapKit). Położenie i adres
   celu trafiają więc do Apple.
 - **Położenie nigdy nie trafia na serwer Organizera** ani do innych osób. Aplikacja nie śledzi położenia w tle.
-- Na telefonie zapamiętujemy współrzędne adresów wydarzeń i wybrany środek transportu, żeby nie liczyć ich od nowa.
+- Na telefonie zapamiętujemy współrzędne adresów wydarzeń (najwyżej 200 adresów; adres, którego Mapy nie znalazły,
+  sprawdzamy znowu po dobie) i wybrany środek transportu, żeby nie liczyć ich od nowa.
 - „Nawiguj” otwiera wybraną aplikację map (Mapy Apple albo Mapy Google) z adresem wydarzenia. Od tej chwili adres
   przetwarza ta aplikacja według swoich zasad.
 - Adres wydarzenia (pole „Miejsce”) jest częścią wydarzenia i widzi go cała grupa.
