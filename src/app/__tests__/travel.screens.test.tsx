@@ -78,20 +78,20 @@ describe('dojazd (D115–D117)', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('travel-settings');
-    await press(within(within(box).getByLabelText('Czas dojazdu do dzisiejszych wydarzeń')).getByLabelText('Włączony'));
+    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Włączony'));
     await flush();
     expect(travel.request).toHaveBeenCalled();
     expect(screen.getByText(/Brak dostępu do lokalizacji/)).toBeTruthy();
     expect(prefs.m.get('travelEnabled')).toBeUndefined();
     travel.request.mockResolvedValueOnce(true);
-    await press(within(within(box).getByLabelText('Czas dojazdu do dzisiejszych wydarzeń')).getByLabelText('Włączony'));
+    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Włączony'));
     await flush();
     expect(prefs.m.get('travelEnabled')).toBe('1');
     await press(within(within(box).getByLabelText('Zwykle jadę')).getByLabelText('Komunikacją'));
     expect(prefs.m.get('travelMode')).toBe('transit');
     await press(within(within(box).getByLabelText('Nawiguj w')).getByLabelText('Google Maps'));
     expect(prefs.m.get('navApp')).toBe('google');
-    await press(within(within(box).getByLabelText('Czas dojazdu do dzisiejszych wydarzeń')).getByLabelText('Wyłączony'));
+    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Wyłączony'));
     expect(prefs.m.get('travelEnabled')).toBe('0');
   });
 
@@ -150,5 +150,76 @@ describe('dojazd (D115–D117)', () => {
     await fireEvent.changeText(screen.getByTestId('event-location'), ' Przychodnia, ul. Zdrowa 2 ');
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Dentysta', location: 'Przychodnia, ul. Zdrowa 2' } });
+  });
+
+  it('audyt 2 (M-106): odjazd o porze wyjścia, nie „teraz”; nieznany adres — komunikat, zapamiętany z datą', async () => {
+    const travel = fakeTravel();
+    const { services } = await open(travel);
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    // Pierwsze pytanie — teraz (10:00), drugie — o porze wyjścia z pierwszego wyniku (17:00 − 25 min − zapas = 16:30).
+    expect(travel.eta.mock.calls.map((c) => c[3])).toEqual([Date.UTC(2026, 9, 7, 8, 0), Date.UTC(2026, 9, 7, 14, 30)]);
+    const geo = JSON.parse(services.local!.load('travelGeo')!);
+    expect(geo['Basen Delfin, ul. Wodna 1']).toEqual({ c: { lat: 50.07, lng: 19.9 }, at: Date.UTC(2026, 9, 7, 8, 0) });
+
+    const lost = fakeTravel({ geocode: jest.fn(async () => null) });
+    const s = await open(lost);
+    await flush();
+    await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
+    expect(within(await screen.findByTestId('travel-box')).getByText(/Nie znaleźliśmy tego adresu w Mapach/)).toBeTruthy();
+    expect(JSON.parse(s.services.local!.load('travelGeo')!)['Basen Delfin, ul. Wodna 1']).toEqual({ c: null, at: Date.UTC(2026, 9, 7, 8, 0) });
+  });
+
+  it('audyt 2 (M-211): wieczorem wydarzenie po północy też ma „Wyjdź o”', async () => {
+    const b = base();
+    put(b, 'events', 'noc', { ...b.events!.basen!, id: 'noc', title: 'Lotnisko', start_date: '2026-10-08', start_time: '00:30:00', end_time: null, location: 'Balice' });
+    const travel = fakeTravel();
+    const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
+    // 23:00 w Warszawie: Lotnisko jutro o 0:30 mieści się w oknie AHEAD_HOURS.
+    s.services.nowMs = () => Date.UTC(2026, 9, 7, 21, 0);
+    s.services.now = () => ({ y: 2026, m: 10, d: 7, hh: 23, mm: 0 });
+    await s.renderApp(<RootStack />);
+    await flush();
+    await waitFor(() => expect(travel.geocode).toHaveBeenCalledWith('Balice'));
+    expect(travel.geocode).not.toHaveBeenCalledWith('Basen Delfin, ul. Wodna 1'); // dzisiejszy basen już minął
+  });
+
+  it('PWD-3 (M-175): wyłączony dojazd — „Pokaż, kiedy wyjść →” włącza go i pyta o zgodę; M-218: wygasła zgoda — „Zezwól”', async () => {
+    const travel = fakeTravel({ status: jest.fn(async () => 'undetermined' as const) });
+    const { prefs } = await open(travel, memoryPrefs({ welcomeSeen: '1' }));
+    await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
+    const box = await screen.findByTestId('travel-box');
+    await press(within(box).getByTestId('travel-suggest'));
+    await flush();
+    expect(travel.request).toHaveBeenCalledTimes(1);
+    expect(prefs.m.get('travelEnabled')).toBe('1');
+    expect(within(box).queryByTestId('travel-suggest')).toBeNull();
+    await waitFor(() => expect(within(box).getByText(/Wyjdź o 16:30/)).toBeTruthy());
+
+    // „Pozwól raz” wygasło: przy następnym uruchomieniu dojazd jest włączony, a zgody nie ma.
+    const once = fakeTravel({ status: jest.fn(async () => 'undetermined' as const), request: jest.fn(async () => false) });
+    await open(once, memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }));
+    await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
+    const box2 = await screen.findByTestId('travel-box');
+    expect(within(box2).getByText('Czas dojazdu jest włączony, ale potrzebuje zgody na lokalizację.')).toBeTruthy();
+    once.status.mockResolvedValue('denied');
+    await press(within(box2).getByTestId('travel-allow'));
+    await flush();
+    expect(once.request).toHaveBeenCalled();
+    expect(within(box2).getByText(/Brak dostępu do lokalizacji/)).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
+    expect(screen.queryByTestId('travel-permission')).toBeNull(); // odmowa — tylko wskazówka do Ustawień iPhone'a
+  });
+
+  it('M-218 w Ustawieniach: włączony dojazd bez zgody — „Zezwól na lokalizację”; wydarzenie minione — bez podpowiedzi', async () => {
+    const travel = fakeTravel({ status: jest.fn(async () => 'undetermined' as const) });
+    await open(travel, memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }));
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
+    await press(await screen.findByTestId('settings-travel-allow'));
+    await flush();
+    expect(screen.queryByTestId('travel-permission')).toBeNull();
+    expect(travel.request).toHaveBeenCalledTimes(1);
   });
 });

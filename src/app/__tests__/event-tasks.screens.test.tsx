@@ -225,7 +225,7 @@ describe('dodaj do kalendarza iPhone’a (D7)', () => {
     await openEvent();
     await press(screen.getByTestId('event-calendar'));
     expect(await screen.findByText('Dodano do kalendarza.')).toBeTruthy();
-    expect(add).toHaveBeenCalledWith({ title: 'Tańce', start: new Date(Date.UTC(2026, 9, 7, 15, 0)), end: new Date(Date.UTC(2026, 9, 7, 16, 0)), allDay: false, notes: 'Rodzina' });
+    expect(add).toHaveBeenCalledWith({ title: 'Tańce', start: new Date(Date.UTC(2026, 9, 7, 15, 0)), end: new Date(Date.UTC(2026, 9, 7, 16, 0)), allDay: false, notes: 'Rodzina\n\nDodane przez aplikację Organizer' });
     add.mockResolvedValueOnce('denied' as never);
     await press(screen.getByTestId('event-calendar'));
     expect(await screen.findByText(/Brak zgody na dodawanie do kalendarza/)).toBeTruthy();

@@ -1,7 +1,9 @@
 import type { Row } from '../sync-engine/client';
-import { type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, withoutDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorHash, mirrorItems, mirrorReady, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
+import { calendarLook, type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, isMirrorCalendar, normalizeTitle, splitDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorCalendarOf, mirrorHash, mirrorItems, mirrorReady, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
 
 const ME = 'u-me';
+const NO_SKIP = new Set<string>();
+const LESSONS = (name: string, n: number) => `${name}: ${n} ${n === 1 ? 'lekcja' : n < 5 ? 'lekcje' : 'lekcji'}`;
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
 
@@ -15,22 +17,25 @@ const at = (iso: string, hh: number, mm = 0) => Date.UTC(Number(iso.slice(0, 4))
 describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
   const cal = { calendarId: 'c1', calendarTitle: 'Praca' };
   const events: DeviceEvent[] = [
-    { id: 'a', ...cal, title: 'Dentysta', allDay: false, startMs: at('2026-10-09', 16), endMs: at('2026-10-09', 17, 30) },
+    { id: 'a', ...cal, title: 'Dentysta', organizer: true, location: ' Wodna 1 ', allDay: false, startMs: at('2026-10-09', 16), endMs: at('2026-10-09', 17, 30) },
     { id: 'b', ...cal, title: 'Urlop', allDay: true, startDate: '2026-10-08', endDate: '2026-10-11' },
     { id: 'c', ...cal, title: 'Konferencja', allDay: false, startMs: at('2026-10-09', 20), endMs: at('2026-10-10', 12) },
     { id: 'd', ...cal, title: 'Do północy', allDay: false, startMs: at('2026-10-09', 22), endMs: at('2026-10-10', 0) },
     { id: 'm', calendarId: 'mirror', calendarTitle: 'Organizer – Rodzina', title: 'Basen', allDay: false, startMs: at('2026-10-09', 17), endMs: at('2026-10-09', 18) },
     { id: 'x', ...cal, title: 'Poza zakresem', allDay: true, startDate: '2026-11-20', endDate: '2026-11-21' },
+    // Audyt 2 (M-27): kalendarz „Organizer – …” spoza stanu (drugie konto, iPad, stara instalacja) też nie jest „mój”.
+    { id: 'f', calendarId: 'foreign', calendarTitle: 'Organizer – Dom', title: 'Obce', allDay: false, startMs: at('2026-10-09', 9), endMs: at('2026-10-09', 10) },
   ];
   const days = deviceDays(events, { y: 2026, m: 10, d: 8 }, { y: 2026, m: 10, d: 10 }, toLocal, new Set(['mirror']));
 
+  const x = { date: '2026-10-09', calendarId: 'c1', calendarTitle: 'Praca', organizer: false, location: null };
   it('godziny w czasie lokalnym; całodniowe na każdy dzień; kilkudniowe z godziną tylko pierwszego dnia', () => {
     expect([...days.keys()].sort()).toEqual(['2026-10-08', '2026-10-09', '2026-10-10']);
     expect(days.get('2026-10-09')).toEqual([
-      { key: 'd|b', title: 'Urlop', calendarId: 'c1', calendarTitle: 'Praca', time: null, endTime: null, continued: true },
-      { key: 'd|a', title: 'Dentysta', calendarId: 'c1', calendarTitle: 'Praca', time: '16:00', endTime: '17:30', continued: false },
-      { key: 'd|c', title: 'Konferencja', calendarId: 'c1', calendarTitle: 'Praca', time: '20:00', endTime: '24:00', continued: false },
-      { key: 'd|d', title: 'Do północy', calendarId: 'c1', calendarTitle: 'Praca', time: '22:00', endTime: '24:00', continued: false },
+      { ...x, key: 'd|b', title: 'Urlop', time: null, endTime: null, continued: true },
+      { ...x, key: 'd|a', title: 'Dentysta', time: '16:00', endTime: '17:30', continued: false, organizer: true, location: 'Wodna 1' },
+      { ...x, key: 'd|c', title: 'Konferencja', time: '20:00', endTime: '24:00', continued: false },
+      { ...x, key: 'd|d', title: 'Do północy', time: '22:00', endTime: '24:00', continued: false },
     ]);
     expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.endTime, e.continued])).toEqual([
       ['d|b', null, null, true],
@@ -40,7 +45,8 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
   });
 
   it('kalendarze lustra pomijane (bez dubli); poza zakresem nic', () => {
-    expect([...days.values()].flat().some((e) => e.key === 'd|m' || e.key === 'd|x')).toBe(false);
+    expect([...days.values()].flat().some((e) => e.key === 'd|m' || e.key === 'd|x' || e.key === 'd|f')).toBe(false);
+    expect([isMirrorCalendar('Organizer – Rodzina'), isMirrorCalendar('Organizer'), isMirrorCalendar('Praca')]).toEqual([true, false, false]);
     expect(deviceDays([], { y: 2026, m: 10, d: 8 }, { y: 2026, m: 10, d: 8 }, toLocal, new Set()).size).toBe(0);
   });
 
@@ -52,22 +58,27 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
     expect(deviceCalendars([{ ...events[0]!, calendarId: 'b' }, { ...events[0]!, calendarId: 'a' }], new Set())).toEqual([{ id: 'a', title: 'Praca' }, { id: 'b', title: 'Praca' }]);
   });
 
-  it('dubel z wpisem aplikacji (D107): godzina ±30 min i wspólne słowo; bez godziny z bez godziny; „cd.” nigdy', () => {
-    const e = (title: string, time: string | null, continued = false): DeviceEntry => ({ key: `d|${title}`, title, calendarId: 'c1', calendarTitle: 'Ł', time, endTime: null, continued });
-    const app = [{ title: 'Kuba i Róża - Basen - 19.30', time: '19:00:00' }, { title: 'Urodziny Ali', time: null }];
-    expect(isDuplicate(e('Dzieci - basen', '19:00'), app)).toBe(true);
-    expect(isDuplicate(e('Dzieci - BASEN', '19:30'), app)).toBe(true);
-    expect(isDuplicate(e('Dzieci - basen', '19:31'), app)).toBe(false);
-    expect(isDuplicate(e('Dzieci - basen', '18:30'), app)).toBe(true);
-    expect(isDuplicate(e('Dentysta', '19:00'), app)).toBe(false);
-    expect(isDuplicate(e('Róża 19.30 i', '19:00'), app)).toBe(true); // „róża” = „roza” (4 litery)
-    expect(isDuplicate(e('Kuba 1930', '19:00'), app)).toBe(true);
-    expect(isDuplicate(e('Ala 19', '19:00'), [{ title: 'Ala 19', time: '19:00' }])).toBe(false); // krótkie słowa i liczby się nie liczą
-    expect(isDuplicate(e('Urodziny', null), app)).toBe(true);
-    expect(isDuplicate(e('Urodziny', '10:00'), app)).toBe(false);
-    expect(isDuplicate(e('Basen', null), app)).toBe(false);
-    expect(isDuplicate(e('Urodziny', null, true), app)).toBe(false);
-    expect(withoutDuplicates([e('Dzieci - basen', '19:00'), e('Dentysta', '9:00')], app).map((x) => x.title)).toEqual(['Dentysta']);
+  it('dubel (D173): ta sama nazwa po ujednoliceniu i godzina ±30 min (albo obie bez godziny) albo znacznik Organizera; „cd.” nigdy', () => {
+    const e = (title: string, time: string | null, more: Partial<DeviceEntry> = {}): DeviceEntry => ({ key: `d|${title}`, date: '2026-10-09', title, calendarId: 'c1', calendarTitle: 'Ł', time, endTime: null, continued: false, organizer: false, location: null, ...more });
+    const app = [{ title: 'Basen Kuby', time: '19:00:00' }, { title: 'Urodziny babci', time: '17:00' }, { title: 'Bal', time: '18:00' }, { title: 'WF', time: null }];
+    expect(normalizeTitle('  Żółć – BASEN!! kuby ')).toBe('zolc basen kuby');
+    expect(isDuplicate(e('basen  KUBY', '19:30'), app)).toBe(true);
+    expect(isDuplicate(e('Basen Kuby', '19:31'), app)).toBe(false);
+    expect(isDuplicate(e('Basen Kuby', '18:30'), app)).toBe(true);
+    expect(isDuplicate(e('Basen Kuby', null), app)).toBe(false);
+    // Audyt 2 (M-105, N-23): wspólne słowo już nie wystarcza — „Urodziny Ani” przy „Urodziny babci” zostaje.
+    expect(isDuplicate(e('Urodziny Ani', '17:00'), app)).toBe(false);
+    expect(isDuplicate(e('Dzieci - basen', '19:00'), app)).toBe(false);
+    // …a krótkie nazwy z obu źródeł („Bal”, „WF”) są dublami.
+    expect(isDuplicate(e('Bal', '18:00'), app)).toBe(true);
+    expect(isDuplicate(e('wf', null), app)).toBe(true);
+    expect(isDuplicate(e('WF', '08:00'), app)).toBe(false);
+    expect(isDuplicate(e('!!!', null), [{ title: '?', time: null }])).toBe(false);
+    // Kopia z „Dodaj do kalendarza” (znacznik w notatce): aplikacja ma aktualną wersję, nawet po zmianie nazwy albo terminu.
+    expect(isDuplicate(e('Basen (stara nazwa)', '10:00', { organizer: true }), [])).toBe(true);
+    expect(isDuplicate(e('Bal', null, { continued: true, organizer: true }), app)).toBe(false);
+    const r = splitDuplicates([e('Bal', '18:00'), e('Dentysta', '09:00')], app);
+    expect([r.shown.map((x) => x.title), r.hidden.map((x) => x.title)]).toEqual([['Dentysta'], ['Bal']]);
   });
 
   it('sortowanie w dniu: najpierw bez godziny, potem po godzinie, przy remisie po nazwie', () => {
@@ -92,7 +103,9 @@ function base(): T {
   put(t, 'group_members', ME, { member_id: ME, group_id: ME, user_id: ME, display_name: 'Łukasz', role: 'owner', deleted_at: null });
   put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
   put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', display_name: 'Ala', role: 'owner', deleted_at: null });
-  put(t, 'events', 'e1', { id: 'e1', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: 'ala', deleted_at: null });
+  put(t, 'events', 'e1', { id: 'e1', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: 'ala', location: ' Wodna 1', deleted_at: null });
+  // Zawozi Ala, ale jadę też ja (uczestnik) — sprawa mnie dotyczy (D66), więc jest w lustrze (D174).
+  put(t, 'event_participants', 'p1', { id: 'p1', event_id: 'e1', group_id: 'gf', member_id: 'mf', deleted_at: null });
   put(t, 'events', 'e2', { id: 'e2', group_id: ME, title: 'Przegląd auta', start_date: '2026-10-09', start_time: null, end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
   put(t, 'event_overrides', 'o1', { id: 'o1', event_id: 'e1', group_id: 'gf', occurrence_date: '2026-10-12', cancelled: true, deleted_at: null });
   return t;
@@ -100,21 +113,53 @@ function base(): T {
 
 describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
   const today = { y: 2026, m: 10, d: 8 };
-  const items = mirrorItems(base(), ME, today, 7, 14);
+  const items = mirrorItems(base(), ME, today, 7, 14, NO_SKIP, LESSONS);
 
-  it('wystąpienia wszystkich moich grup w oknie, bez odwołanych, z osobą odpowiedzialną w nazwie', () => {
+  it('wystąpienia moich grup w oknie, bez odwołanych, z osobą odpowiedzialną w nazwie i miejscem', () => {
     expect(items).toEqual([
-      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', notes: 'Rodzina' },
-      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, notes: 'Osobiste' },
-      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', notes: 'Rodzina' },
+      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', location: 'Wodna 1', notes: 'Rodzina' },
+      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, location: null, notes: 'Osobiste' },
+      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', location: 'Wodna 1', notes: 'Rodzina' },
     ]);
-    expect(mirrorGroups(base(), ME)).toEqual([{ id: ME, name: PERSONAL_NAME }, { id: 'gf', name: 'Rodzina' }]);
+    expect(mirrorGroups(base(), ME).map((g) => [g.id, g.name])).toEqual([[ME, PERSONAL_NAME], ['gf', 'Rodzina']]);
+    expect(mirrorGroups(base(), ME)[0]!.color).toMatch(/^#[0-9A-F]{6}$/);
     expect(mirrorCalendarTitle('Rodzina')).toBe('Organizer – Rodzina');
+  });
+
+  it('D174: tylko sprawy, które mnie dotyczą; wybrane grupy; lekcje dziecka jednym wpisem na dzień', () => {
+    const t = base();
+    put(t, 'events', 'e4', { id: 'e4', group_id: 'gf', title: 'Wywiadówka Ali', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'members', responsible_member_id: null, deleted_at: null });
+    put(t, 'event_participants', 'p4', { id: 'p4', event_id: 'e4', group_id: 'gf', member_id: 'ala', deleted_at: null });
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'roza', { member_id: 'roza', group_id: 'gf', user_id: null, display_name: 'Róża', role: 'child', deleted_at: null });
+    const lesson = (id: string, title: string, start: string | null, end: string | null, kids: string[]) => {
+      put(t, 'events', id, { id, group_id: 'gf', title, start_date: '2026-10-12', start_time: start, end_time: end, rrule: null, audience: 'members', kind: 'lesson', responsible_member_id: null, deleted_at: null });
+      for (const k of kids) put(t, 'event_participants', `${id}-${k}`, { id: `${id}-${k}`, event_id: id, group_id: 'gf', member_id: k, deleted_at: null });
+    };
+    lesson('l2', 'Polski', '08:55:00', '09:40:00', ['kuba']);
+    lesson('l1', 'Matematyka', '08:00:00', '08:45:00', ['kuba', 'roza']);
+    lesson('l3', 'Basen', '13:00:00', null, ['kuba']);
+    lesson('l4', 'Wycieczka', null, null, ['roza']);
+    lesson('l5', 'Angielski', '08:00:00', '08:45:00', ['roza']);
+    put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: null, display_name: 'Ola', role: 'child', deleted_at: null });
+    lesson('l6', 'Dzień sportu', null, null, ['ola']);
+    const all = mirrorItems(t, ME, today, 0, 7, NO_SKIP, LESSONS);
+    expect(all.some((i) => i.key.startsWith('e4|'))).toBe(false);
+    expect(all.filter((i) => i.key.startsWith('lessons|')).sort((a, b) => a.key.localeCompare(b.key))).toEqual([
+      { key: 'lessons|kuba|2026-10-12', groupId: 'gf', title: 'Kuba: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '13:00', location: null, notes: 'Rodzina\n08:00 Matematyka\n08:55 Polski\n13:00 Basen' },
+      { key: 'lessons|ola|2026-10-12', groupId: 'gf', title: 'Ola: 1 lekcja', date: '2026-10-12', startTime: null, endTime: null, location: null, notes: 'Rodzina\nDzień sportu' },
+      { key: 'lessons|roza|2026-10-12', groupId: 'gf', title: 'Róża: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '08:45', location: null, notes: 'Rodzina\n08:00 Angielski\n08:00 Matematyka\nWycieczka' },
+    ]);
+    expect(all.some((i) => i.key.startsWith('l1|'))).toBe(false);
+    const onlyMine = mirrorItems(t, ME, today, 0, 7, new Set(['gf']), LESSONS);
+    expect(onlyMine.every((i) => i.groupId === ME)).toBe(true);
+    expect(mirrorGroups(t, ME, new Set(['gf'])).map((g) => g.id)).toEqual([ME]);
   });
 
   it('pierwsze uruchomienie: kalendarze dla grup z wydarzeniami i wszystkie wydarzenia do utworzenia', () => {
     const p = planMirror(items, emptyMirror(), mirrorGroups(base(), ME), '2026-10-08', 100);
-    expect(p.createCalendars).toEqual([{ groupId: ME, title: 'Organizer – Osobiste' }, { groupId: 'gf', title: 'Organizer – Rodzina' }]);
+    expect(p.createCalendars.map((c) => [c.groupId, c.title])).toEqual([[ME, 'Organizer – Osobiste'], ['gf', 'Organizer – Rodzina']]);
+    expect(p.updateCalendars).toEqual([]);
     expect(p.create.map((i) => i.key)).toEqual(['e1|2026-10-05', 'e1|2026-10-19', 'e2|2026-10-09']);
     expect([p.update, p.remove, p.removeCalendars]).toEqual([[], [], []]);
   });
@@ -133,6 +178,8 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     };
     const p = planMirror(items, state, mirrorGroups(base(), ME), '2026-10-08', 100);
     expect(p.createCalendars).toEqual([]);
+    // Stan sprzed audytu 2 (bez nazw i kolorów) — jedno odświeżenie kalendarzy obu grup.
+    expect(p.updateCalendars.map((c) => [c.groupId, c.calendarId, c.title])).toEqual([[ME, 'cal-p', 'Organizer – Osobiste'], ['gf', 'cal-f', 'Organizer – Rodzina']]);
     expect(p.removeCalendars).toEqual([{ groupId: 'old', calendarId: 'cal-old' }]);
     expect(p.update).toEqual([{ deviceId: 'd19', item: e19 }]);
     expect(p.remove).toEqual([{ key: e9.key, deviceId: 'd9' }, { key: 'e1|2026-10-12', deviceId: 'd12' }]);
@@ -146,13 +193,37 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     // Remis odległości: po kluczu.
     const tie = [{ ...items[0]!, key: 'b', date: '2026-10-07' }, { ...items[0]!, key: 'a', date: '2026-10-09' }];
     expect(planMirror(tie, emptyMirror(), mirrorGroups(base(), ME), '2026-10-08', 1).create.map((i) => i.key)).toEqual(['a']);
-    expect(planMirror(items, emptyMirror(), [], '2026-10-08', 10)).toEqual({ createCalendars: [], removeCalendars: [], create: [], update: [], remove: [] });
+    expect(planMirror(items, emptyMirror(), [], '2026-10-08', 10)).toEqual({ createCalendars: [], updateCalendars: [], removeCalendars: [], create: [], update: [], remove: [] });
+  });
+
+  it('audyt 2 (M-27, P-27): nazwa i kolor kalendarza nadążają za grupą', () => {
+    const groups = mirrorGroups(base(), ME);
+    const gf = groups.find((g) => g.id === 'gf')!;
+    const state = { calendars: { gf: 'cal-f' }, events: {}, looks: { gf: calendarLook('Organizer – Rodzina', gf.color) } };
+    expect(planMirror(items, state, groups, '2026-10-08', 100).updateCalendars).toEqual([]);
+    const renamed = groups.map((g) => (g.id === 'gf' ? { ...g, name: 'Dom' } : g));
+    expect(planMirror(items, state, renamed, '2026-10-08', 100).updateCalendars).toEqual([{ groupId: 'gf', calendarId: 'cal-f', title: 'Organizer – Dom', color: gf.color }]);
+    const recolored = groups.map((g) => (g.id === 'gf' ? { ...g, color: '#000000' } : g));
+    expect(planMirror(items, state, recolored, '2026-10-08', 100).updateCalendars).toHaveLength(1);
+  });
+
+  it('PWD-2: w którym kalendarzu lustra jest wystąpienie (mnie dotyczy, grupa włączona, w oknie)', () => {
+    const t = base();
+    const none = new Set<string>();
+    expect(mirrorCalendarOf(t, ME, 'e1', '2026-10-12', '2026-10-12', today, none)).toBeNull(); // odwołane
+    expect(mirrorCalendarOf(t, ME, 'e1', '2026-10-19', '2026-10-19', today, none)).toBe('Organizer – Rodzina');
+    expect(mirrorCalendarOf(t, ME, 'e2', '2026-10-09', '2026-10-09', today, none)).toBe('Organizer – Osobiste');
+    expect(mirrorCalendarOf(t, ME, 'e1', '2026-10-19', '2026-10-19', today, new Set(['gf']))).toBeNull();
+    expect(mirrorCalendarOf(t, ME, 'e1', '2027-03-01', '2027-03-01', today, none)).toBeNull(); // poza oknem (+90 dni)
+    expect(mirrorCalendarOf(t, ME, 'e1', '2026-09-28', '2026-09-28', today, none)).toBeNull(); // poza oknem (−7 dni)
+    put(t, 'event_participants', 'p1', { ...t.event_participants!.p1!, deleted_at: '2026-10-01T00:00:00Z' });
+    expect(mirrorCalendarOf(t, ME, 'e1', '2026-10-19', '2026-10-19', today, none)).toBeNull(); // zawozi Ala, mnie nie dotyczy
   });
 
   it('wystąpienie bez godziny końca i bez osoby odpowiedzialnej', () => {
     const t = base();
     put(t, 'events', 'e3', { id: 'e3', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
-    expect(mirrorItems(t, ME, today, 0, 3).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, notes: 'Rodzina' });
+    expect(mirrorItems(t, ME, today, 0, 3, NO_SKIP, LESSONS).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, location: null, notes: 'Rodzina' });
   });
 });
 

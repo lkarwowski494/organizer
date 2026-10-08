@@ -6,20 +6,43 @@
  *     wystąpienie to osobne wydarzenie (bez reguł powtarzania — iPhone nie musi rozumieć naszych wyjątków), w oknie
  *     [dziś − MIRROR_DAYS_BACK, dziś + MIRROR_DAYS_AHEAD]. Plan to różnica między tym, co powinno być, a zapisanym
  *     stanem (identyfikatory wydarzeń iPhone'a i skrót treści): utwórz / zmień / usuń.
- *  Kalendarze lustra nie są czytane jako „moje wydarzenia” (inaczej sprawy grup pokazałyby się dwa razy).
+ *     D174 (decyzja właściciela 8.10.2026, audyt 2 M-97): tylko sprawy, które mnie dotyczą (ta sama reguła co Moje
+ *     sprawy), lekcje dziecka jednym wpisem na dzień (jak D127), wybrane grupy (Ustawienia → Kalendarz i dojazd).
+ *  Kalendarze lustra nie są czytane jako „moje wydarzenia” (inaczej sprawy grup pokazałyby się dwa razy) — także
+ *  kalendarze „Organizer – …” spoza stanu tego konta (drugie konto, iPad z tym samym iCloud, stara instalacja).
  */
 import { config } from '../../config';
+import { groupLines } from '../../config/theme';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { expandEvents } from './events';
 import { groupsView } from './index';
 import type { Tables } from './model';
 
-/** Wydarzenie z kalendarza iPhone'a. Całodniowe — daty (koniec wyłącznie); z godziną — chwile (ms). */
-export type DeviceEvent =
-  | { id: string; calendarId: string; calendarTitle: string; title: string; allDay: true; startDate: string; endDate: string }
-  | { id: string; calendarId: string; calendarTitle: string; title: string; allDay: false; startMs: number; endMs: number };
+/**
+ * Wydarzenie z kalendarza iPhone'a. Całodniowe — daty (koniec wyłącznie); z godziną — chwile (ms).
+ * `organizer` — w notatce jest znacznik Organizera (wpis z „Dodaj do kalendarza” albo z lustra, D173); `location` — miejsce.
+ */
+type DeviceEventBase = { id: string; calendarId: string; calendarTitle: string; title: string; organizer?: boolean; location?: string | null };
+export type DeviceEvent = (DeviceEventBase & { allDay: true; startDate: string; endDate: string }) | (DeviceEventBase & { allDay: false; startMs: number; endMs: number });
 
-export type DeviceEntry = { key: string; title: string; calendarId: string; calendarTitle: string; time: string | null; endTime: string | null; continued: boolean };
+/** Wpis dnia `date` (ISO) z wydarzenia iPhone'a. */
+export type DeviceEntry = {
+  key: string;
+  date: string;
+  title: string;
+  calendarId: string;
+  calendarTitle: string;
+  time: string | null;
+  endTime: string | null;
+  continued: boolean;
+  organizer: boolean;
+  location: string | null;
+};
+
+/** Początek nazwy kalendarza lustra (mirrorCalendarTitle). */
+export const MIRROR_PREFIX = 'Organizer – ';
+/** Kalendarz lustra po nazwie — także cudzy (drugie konto, iPad z tym samym iCloud, poprzednia instalacja). */
+export const isMirrorCalendar = (title: string) => title.startsWith(MIRROR_PREFIX);
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -42,11 +65,11 @@ export function deviceDays(
     out.set(iso, [...(out.get(iso) ?? []), e]);
   };
   for (const e of events) {
-    if (exclude.has(e.calendarId)) continue;
-    const base = { key: `d|${e.id}`, title: e.title, calendarId: e.calendarId, calendarTitle: e.calendarTitle };
+    if (exclude.has(e.calendarId) || isMirrorCalendar(e.calendarTitle)) continue;
+    const base = { key: `d|${e.id}`, title: e.title, calendarId: e.calendarId, calendarTitle: e.calendarTitle, organizer: e.organizer === true, location: e.location?.trim() || null };
     if (e.allDay) {
       for (let d = e.startDate, i = 0; d < e.endDate && i < 366; i++) {
-        push(d, { ...base, time: null, endTime: null, continued: d !== e.startDate });
+        push(d, { ...base, date: d, time: null, endTime: null, continued: d !== e.startDate });
         d = formatIsoDate(addDays(isoDate(d), 1));
       }
       continue;
@@ -63,6 +86,7 @@ export function deviceDays(
     for (let d = first, i = 0; d <= last && i < 366; i++) {
       push(d, {
         ...base,
+        date: d,
         time: d === first ? `${pad(s.hh)}:${pad(s.mm)}` : '00:00',
         endTime: d === last ? lastEnd : '24:00',
         continued: d !== first,
@@ -77,73 +101,132 @@ export function deviceDays(
 /** Kalendarze iPhone'a z pobranych wydarzeń (do wyboru w Ustawieniach, D106), bez kalendarzy lustra, po nazwie. */
 export function deviceCalendars(events: readonly DeviceEvent[], exclude: ReadonlySet<string>): { id: string; title: string }[] {
   const m = new Map<string, string>();
-  for (const e of events) if (!exclude.has(e.calendarId)) m.set(e.calendarId, e.calendarTitle);
+  for (const e of events) if (!exclude.has(e.calendarId) && !isMirrorCalendar(e.calendarTitle)) m.set(e.calendarId, e.calendarTitle);
   return [...m].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }
 
 const FOLD: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' };
-const words = (s: string) =>
-  new Set(
-    s
-      .toLowerCase()
-      .replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!)
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length >= config.calendar.DUPLICATE_MIN_WORD && !/^\d+$/.test(w)),
-  );
+/** Nazwa do porównania: małe litery, bez polskich znaków, znaki inne niż litery i cyfry jako jedna spacja. */
+export const normalizeTitle = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 /**
- * Dubel (D107): wydarzenie z iPhone'a, które opisuje to samo co wpis w aplikacji tego dnia — oba z godziną
- * (różnica najwyżej config.calendar.DUPLICATE_WINDOW_MIN minut) albo oba bez godziny, i wspólne słowo nazwy
- * (co najmniej DUPLICATE_MIN_WORD liter, bez liczb, bez polskich znaków). Kolejne dni wielodniowego („cd.”) nie są dublami.
+ * Dubel (D173, decyzja właściciela 8.10.2026, audyt 2 M-105; zastępuje regułę wspólnego słowa z D107): wpis
+ * z iPhone'a ze znacznikiem Organizera w notatce (kopia z „Dodaj do kalendarza” — aplikacja ma aktualną wersję) albo
+ * o tej samej nazwie po ujednoliceniu co wpis aplikacji tego dnia, oba z godziną (różnica najwyżej
+ * config.calendar.DUPLICATE_WINDOW_MIN minut) albo oba bez godziny. Kolejne dni wielodniowego („cd.”) nie są dublami.
  */
 export function isDuplicate(e: DeviceEntry, app: readonly { title: string; time: string | null }[]): boolean {
   if (e.continued) return false;
-  const mine = words(e.title);
-  return app.some((a) => {
-    const t = a.time?.slice(0, 5) ?? null;
-    const timeOk = e.time === null || t === null ? e.time === t : Math.abs(minutes(e.time) - minutes(t)) <= config.calendar.DUPLICATE_WINDOW_MIN;
-    return timeOk && [...words(a.title)].some((w) => mine.has(w));
-  });
+  if (e.organizer) return true;
+  const mine = normalizeTitle(e.title);
+  return (
+    mine !== '' &&
+    app.some((a) => {
+      const t = a.time?.slice(0, 5) ?? null;
+      const timeOk = e.time === null || t === null ? e.time === t : Math.abs(minutes(e.time) - minutes(t)) <= config.calendar.DUPLICATE_WINDOW_MIN;
+      return timeOk && normalizeTitle(a.title) === mine;
+    })
+  );
 }
 
-export const withoutDuplicates = (entries: readonly DeviceEntry[], app: readonly { title: string; time: string | null }[]) => entries.filter((e) => !isDuplicate(e, app));
+/** Wpisy dnia bez dubli i ukryte duble — do licznika „Ukryto N” z podglądem (D173: nic nie znika bez śladu). */
+export function splitDuplicates(entries: readonly DeviceEntry[], app: readonly { title: string; time: string | null }[]): { shown: DeviceEntry[]; hidden: DeviceEntry[] } {
+  const shown: DeviceEntry[] = [];
+  const hidden: DeviceEntry[] = [];
+  for (const e of entries) (isDuplicate(e, app) ? hidden : shown).push(e);
+  return { shown, hidden };
+}
 
 const isoDate = (s: string): CivilDate => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)), d: Number(s.slice(8, 10)) });
 
-/** Jedno wystąpienie wydarzenia grupy w lustrze. */
-export type MirrorItem = { key: string; groupId: string; title: string; date: string; startTime: string | null; endTime: string | null; notes: string };
+/** Jedno wystąpienie wydarzenia grupy w lustrze (albo dzień lekcji dziecka, D174). */
+export type MirrorItem = { key: string; groupId: string; title: string; date: string; startTime: string | null; endTime: string | null; location: string | null; notes: string };
 
 export type MirrorState = {
   /** grupa → identyfikator kalendarza iPhone'a */
   calendars: { [groupId: string]: string };
   /** klucz wystąpienia → wydarzenie iPhone'a i skrót treści */
   events: { [key: string]: { id: string; calendarId: string; hash: string } };
+  /** grupa → nazwa i kolor zapisane w iPhonie (calendarLook); brak w stanie sprzed audytu 2 — wtedy jedno odświeżenie. */
+  looks?: { [groupId: string]: string };
 };
 
 export const emptyMirror = (): MirrorState => ({ calendars: {}, events: {} });
 
-/** Co powinno być w lustrze: wystąpienia wszystkich moich grup w oknie, z osobą odpowiedzialną w nazwie. */
-export function mirrorItems(t: Tables, userId: string, today: CivilDate, back: number, ahead: number): MirrorItem[] {
-  return expandEvents(t, userId, addDays(today, -back), addDays(today, ahead)).map((o) => ({
-    key: `${o.eventId}|${o.occurrenceDate}`,
-    groupId: o.groupId,
-    title: o.responsibleName ? `${o.title} (${o.responsibleName})` : o.title,
-    date: o.date,
-    startTime: o.startTime?.slice(0, 5) ?? null,
-    endTime: o.endTime?.slice(0, 5) ?? null,
-    notes: o.groupName,
-  }));
+/**
+ * Co powinno być w lustrze (D174): wystąpienia, które mnie dotyczą (Occurrence.concernsMe — jak Moje sprawy), z grup
+ * spoza `skip`, z osobą odpowiedzialną w nazwie i miejscem. Lekcje dziecka, w których sam nie jestem (D127), jednym
+ * wpisem na dziecko i dzień: nazwa jak wiersz w Moich sprawach (`lessonTitle` = strings['lessons.title'], „Kuba:
+ * 6 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce.
+ */
+export function mirrorItems(
+  t: Tables,
+  userId: string,
+  today: CivilDate,
+  back: number,
+  ahead: number,
+  skip: ReadonlySet<string>,
+  lessonTitle: (name: string, count: number) => string,
+): MirrorItem[] {
+  const out: MirrorItem[] = [];
+  const blocks = new Map<string, { item: MirrorItem; lessons: { time: string | null; end: string | null; title: string }[] }>();
+  for (const o of expandEvents(t, userId, addDays(today, -back), addDays(today, ahead))) {
+    if (!o.concernsMe || skip.has(o.groupId)) continue;
+    const startTime = o.startTime?.slice(0, 5) ?? null;
+    const endTime = o.endTime?.slice(0, 5) ?? null;
+    if (o.lessonFor) {
+      // Wspólna lekcja rodzeństwa — w bloku każdego z dzieci (jak Moje sprawy, audyt 2 E-15).
+      for (const child of o.lessonFor) {
+        const key = `lessons|${child.memberId}|${o.date}`;
+        const b = blocks.get(key) ?? { item: { key, groupId: o.groupId, title: '', date: o.date, startTime: null, endTime: null, location: null, notes: o.groupName }, lessons: [] };
+        blocks.set(key, b);
+        b.lessons.push({ time: startTime, end: endTime, title: o.title });
+        b.item.title = lessonTitle(child.name, b.lessons.length);
+      }
+      continue;
+    }
+    out.push({
+      key: `${o.eventId}|${o.occurrenceDate}`,
+      groupId: o.groupId,
+      title: o.responsibleName ? `${o.title} (${o.responsibleName})` : o.title,
+      date: o.date,
+      startTime,
+      endTime,
+      location: o.location?.trim() || null,
+      notes: o.groupName,
+    });
+  }
+  for (const { item, lessons } of blocks.values()) {
+    // Godziny bloku jak w Moich sprawach (my-days.ts): od najwcześniejszego początku do najpóźniejszego końca.
+    const timed = lessons.filter((l) => l.time !== null).sort((a, b) => a.time!.localeCompare(b.time!) || a.title.localeCompare(b.title, 'pl'));
+    item.startTime = timed[0]?.time ?? null;
+    item.endTime = timed.length ? timed.map((l) => l.end ?? l.time!).sort().at(-1)! : null;
+    const list = [...timed, ...lessons.filter((l) => l.time === null)].map((l) => (l.time ? `${l.time} ${l.title}` : l.title));
+    item.notes = [item.notes, ...list].join('\n');
+    out.push(item);
+  }
+  return out;
 }
 
-export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes]);
+export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes, i.location]);
+
+/** Nazwa i kolor kalendarza grupy w iPhonie — zmiana nazwy albo koloru grupy zmienia kalendarz (audyt 2, M-27). */
+export const calendarLook = (title: string, color: string) => JSON.stringify([title, color]);
 
 /** Nazwa kalendarza lustra. */
-export const mirrorCalendarTitle = (groupName: string) => `Organizer – ${groupName}`;
+export const mirrorCalendarTitle = (groupName: string) => `${MIRROR_PREFIX}${groupName}`;
 
 export type MirrorPlan = {
   /** Grupy, które potrzebują nowego kalendarza (nazwa jak w aplikacji). */
-  createCalendars: { groupId: string; title: string }[];
+  createCalendars: { groupId: string; title: string; color: string }[];
+  /** Kalendarze, których nazwa albo kolor nie nadąża za grupą. */
+  updateCalendars: { groupId: string; calendarId: string; title: string; color: string }[];
   /** Kalendarze grup, których już nie mam (usunięte, wyszedłem) — usunąć razem z wydarzeniami. */
   removeCalendars: { groupId: string; calendarId: string }[];
   create: MirrorItem[];
@@ -155,7 +238,7 @@ export type MirrorPlan = {
  * Różnica: stan zapisany → stan docelowy. Najwyżej `max` wystąpień (najbliższe dacie `todayIso`), żeby nie zalać
  * kalendarza przy wielu seriach. Wydarzenia w kalendarzach usuwanych grup znikają razem z kalendarzem.
  */
-export function planMirror(items: readonly MirrorItem[], state: MirrorState, groups: readonly { id: string; name: string }[], todayIso: string, max: number): MirrorPlan {
+export function planMirror(items: readonly MirrorItem[], state: MirrorState, groups: readonly { id: string; name: string; color: string }[], todayIso: string, max: number): MirrorPlan {
   const live = new Set(groups.map((g) => g.id));
   const removeCalendars = Object.entries(state.calendars)
     .filter(([g]) => !live.has(g))
@@ -167,7 +250,10 @@ export function planMirror(items: readonly MirrorItem[], state: MirrorState, gro
     .slice(0, max);
   const byKey = new Map(wanted.map((i) => [i.key, i]));
   const needCalendars = new Set(wanted.map((i) => i.groupId));
-  const createCalendars = groups.filter((g) => needCalendars.has(g.id) && !state.calendars[g.id]).map((g) => ({ groupId: g.id, title: mirrorCalendarTitle(g.name) }));
+  const createCalendars = groups.filter((g) => needCalendars.has(g.id) && !state.calendars[g.id]).map((g) => ({ groupId: g.id, title: mirrorCalendarTitle(g.name), color: g.color }));
+  const updateCalendars = groups
+    .filter((g) => state.calendars[g.id] && state.looks?.[g.id] !== calendarLook(mirrorCalendarTitle(g.name), g.color))
+    .map((g) => ({ groupId: g.id, calendarId: state.calendars[g.id]!, title: mirrorCalendarTitle(g.name), color: g.color }));
   const create: MirrorItem[] = [];
   const update: MirrorPlan['update'] = [];
   const remove: MirrorPlan['remove'] = [];
@@ -180,7 +266,7 @@ export function planMirror(items: readonly MirrorItem[], state: MirrorState, gro
   }
   const kept = new Set(Object.entries(state.events).filter(([key, ev]) => byKey.has(key) && state.calendars[byKey.get(key)!.groupId] === ev.calendarId).map(([key]) => key));
   for (const i of wanted) if (!kept.has(i.key)) create.push(i);
-  return { createCalendars, removeCalendars, create: create.sort((a, b) => a.key.localeCompare(b.key)), update, remove };
+  return { createCalendars, updateCalendars, removeCalendars, create: create.sort((a, b) => a.key.localeCompare(b.key)), update, remove };
 }
 
 const dayNo = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000;
@@ -198,8 +284,31 @@ export function mirrorReady(t: Tables, userId: string, cursors: Readonly<Record<
   return groups.length > 0 && groups.every((g) => cursors[g.id] !== undefined) && Object.keys(cursors).every((g) => t.groups?.[g] !== undefined);
 }
 
-/** Grupy do lustra: wszystkie moje (osobista też — jej wydarzenia też są „grupowe” w aplikacji). */
-export const mirrorGroups = (t: Tables, userId: string) => groupsView(t, userId).map((g) => ({ id: g.id, name: g.kind === 'personal' ? PERSONAL_NAME : g.name }));
+/**
+ * Moje grupy z nazwą w kalendarzu iPhone'a (osobista jako „Osobiste”) i kolorem linii (jasny wariant — iPhone ma
+ * jeden kolor kalendarza dla obu wyglądów). Do lustra trafiają te spoza
+ * `skip` (D174: wybór w Ustawieniach; domyślnie wszystkie, osobista też).
+ */
+export const mirrorGroups = (t: Tables, userId: string, skip: ReadonlySet<string> = new Set()) =>
+  groupsView(t, userId)
+    .filter((g) => !skip.has(g.id))
+    .map((g) => ({ id: g.id, name: g.kind === 'personal' ? PERSONAL_NAME : g.name, color: groupLines[g.line]!.light.line }));
 
 /** Nazwa grupy osobistej w kalendarzu iPhone'a (jak w aplikacji: strings['groups.personal']). */
 export const PERSONAL_NAME = 'Osobiste';
+
+/**
+ * PWD-2 (decyzja właściciela 8.10.2026, audyt 2 M-174): nazwa kalendarza lustra, w którym jest to wystąpienie (dzień
+ * `date`, klucz `occurrenceDate`), albo null — wtedy ekran wydarzenia proponuje „Dodaj do kalendarza iPhone'a”.
+ * W lustrze jest, gdy mnie dotyczy, grupa nie jest wyłączona (D174) i dzień mieści się w oknie lustra; lekcje dziecka
+ * są tam w bloku dnia. Limit MIRROR_MAX pomijamy (najdalsze terminy przy setkach wydarzeń — przybliżenie).
+ */
+export function mirrorCalendarOf(t: Tables, userId: string, eventId: string, occurrenceDate: string, date: string, today: CivilDate, skip: ReadonlySet<string>): string | null {
+  const day = isoDate(date);
+  const back = formatIsoDate(addDays(today, -config.calendar.MIRROR_DAYS_BACK));
+  const ahead = formatIsoDate(addDays(today, config.calendar.MIRROR_DAYS_AHEAD));
+  if (date < back || date > ahead) return null;
+  const o = expandEvents(t, userId, day, day).find((x) => x.eventId === eventId && x.occurrenceDate === occurrenceDate);
+  if (!o?.concernsMe || skip.has(o.groupId)) return null;
+  return mirrorCalendarTitle(mirrorGroups(t, userId).find((g) => g.id === o.groupId)!.name);
+}
