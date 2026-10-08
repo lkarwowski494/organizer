@@ -110,8 +110,9 @@ export function realDeps(): RootDeps {
       current: async () => toSession((await client.auth.getSession()).data.session?.user),
       onChange: (fn) => client.auth.onAuthStateChange((_e, s) => fn(toSession(s?.user))).data.subscription.unsubscribe,
     },
+    // Jedno połączenie na plik: odświeżenie w tle (background.ts) i ekrany w tym samym procesie piszą przez nie po kolei.
     openDb: (userId) => {
-      const db = openDatabaseSync(dbName(userId));
+      const db = openDbs.get(userId) ?? openDatabaseSync(dbName(userId));
       openDbs.set(userId, db);
       return expoAdapter(db);
     },

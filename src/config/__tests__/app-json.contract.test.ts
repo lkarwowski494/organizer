@@ -48,6 +48,8 @@ describe('Info.plist po wtyczkach', () => {
     // Audyt 2 (N-18): aplikacja nie używa Face ID (SecureStore bez requireAuthentication), więc bez angielskiego
     // opisu domyślnego wtyczki expo-secure-store — faceIDPermission: false usuwa klucz (@expo/config-plugins).
     expect(plist.NSFaceIDUsageDescription).toBeUndefined();
+    // D159: ciche powiadomienia budzą aplikację w tle (Apple: Background Modes → Remote notification).
+    expect(plist.UIBackgroundModes).toEqual(['remote-notification']);
   }, 60000);
 });
 
@@ -57,7 +59,13 @@ describe('funkcja notify-handoff zgodna z src/config', () => {
     expect(src).toContain(`export const PUSH_MAX_AGE_H = ${config.PUSH_MAX_AGE_H};`);
   });
 
+  it('WAKE_MAX_GROUPS (D159)', () => {
+    const src = jest.requireActual<typeof import('node:fs')>('node:fs').readFileSync(`${__dirname}/../../../supabase/functions/notify-handoff/handler.ts`, 'utf8');
+    expect(src).toContain(`export const WAKE_MAX_GROUPS = ${config.wake.MAX_GROUPS};`);
+  });
+
   it('wtyczka powiadomień: produkcyjne APNs (TestFlight, App Store)', () => {
-    expect(appJson.expo.plugins).toContainEqual(['expo-notifications', { mode: 'production' }]);
+    // D159: tryb tła „Remote notification” (UIBackgroundModes: remote-notification) dla cichych powiadomień.
+    expect(appJson.expo.plugins).toContainEqual(['expo-notifications', { mode: 'production', enableBackgroundRemoteNotifications: true }]);
   });
 });

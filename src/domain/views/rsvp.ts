@@ -10,7 +10,7 @@
  */
 import { uuidv5 } from '../ids';
 import type { NewOp } from '../sync-engine/client';
-import { asEvent, asParticipant } from './event-rows';
+import { asEvent, asOverride, asParticipant, occurrenceResponsible } from './event-rows';
 import { myMemberships } from './index';
 import { asMember, rows, type Tables } from './model';
 
@@ -65,14 +65,49 @@ export function answerOps(t: Tables, a: { groupId: string; eventId: string; date
 
 /**
  * Terminy, na które sam odpowiedziałem „nie będę” (klucz `<id wydarzenia>|<data wystąpienia>`). PW-23 (decyzja
- * właściciela 8.10.2026): bez przypomnienia, „Czas wyjść” i liczenia dojazdu; wiersz zostaje (D129). Liczy się tylko
- * moja odpowiedź — „nie będzie” za dziecko nie wycisza przypomnień dorosłego (otwarte pytanie do właściciela).
+ * właściciela 8.10.2026): bez przypomnienia, „Czas wyjść” i liczenia dojazdu; wiersz zostaje (D129). Dzieci — niżej
+ * (`silencedForMe`).
  */
 export function declinedByMe(t: Tables, userId: string): Set<string> {
   const mine = myMemberships(t, userId);
   const out = new Set<string>();
   for (const r of Object.values(t.event_rsvps ?? {})) {
     if (r.deleted_at == null && r.answer === 'no' && mine.get(String(r.group_id))?.member_id === r.member_id) out.add(`${String(r.event_id)}|${String(r.occurrence_date)}`);
+  }
+  return out;
+}
+
+/**
+ * Terminy bez moich przypomnień, „Czas wyjść” i dojazdu: moje „nie będę” (PW-23) oraz — decyzja koordynatora
+ * 8.10.2026 (D160) — termin, który dotyczy mnie tylko przez dzieci (wydarzenie dla wybranych osób, nie jestem
+ * uczestnikiem ani nikt nie odpowiada za termin, uczestniczy dziecko — reguła D58 z expandEvents), gdy każde dziecko
+ * uczestniczące ma „nie będzie”. Gdy odpowiadam za termin (D66), dotyczy mnie wprost — bez wyciszenia.
+ */
+export function silencedForMe(t: Tables, userId: string): Set<string> {
+  const out = declinedByMe(t, userId);
+  const mine = myMemberships(t, userId);
+  const members = new Map(rows(t, 'group_members', asMember).map((m) => [m.member_id, m]));
+  const no = new Map<string, Set<string>>();
+  for (const r of Object.values(t.event_rsvps ?? {})) {
+    if (r.deleted_at != null || r.answer !== 'no') continue;
+    const key = `${String(r.event_id)}|${String(r.occurrence_date)}`;
+    no.set(key, (no.get(key) ?? new Set()).add(String(r.member_id)));
+  }
+  for (const [key, who] of no) {
+    const [eventId, date] = key.split('|') as [string, string];
+    const raw = t.events?.[eventId];
+    if (out.has(key) || !raw) continue;
+    const e = asEvent(raw);
+    const me = mine.get(e.group_id);
+    if (!me || me.role === 'child' || e.audience !== 'members') continue;
+    const o = Object.values(t.event_overrides ?? {}).map(asOverride).find((x) => x.event_id === eventId && x.occurrence_date === date && x.deleted_at === null);
+    const responsible = occurrenceResponsible(o, e);
+    // D132: osoba usunięta z grupy już nie odpowiada.
+    if (responsible !== null && members.get(responsible)?.deleted_at === null) continue;
+    const parts = rows(t, 'event_participants', asParticipant).filter((p) => p.event_id === eventId && p.deleted_at === null).map((p) => members.get(p.member_id));
+    if (parts.some((m) => m?.member_id === me.member_id)) continue;
+    const kids = parts.filter((m) => m?.role === 'child' && m.deleted_at === null);
+    if (kids.length > 0 && kids.every((k) => who.has(k!.member_id))) out.add(key);
   }
   return out;
 }

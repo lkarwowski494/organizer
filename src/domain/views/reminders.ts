@@ -18,7 +18,7 @@ import type { Target } from '../notification-target';
 import { type MyEntry, myDays } from './my-days';
 import { nestEntries } from './nesting';
 import type { Tables } from './model';
-import { declinedByMe } from './rsvp';
+import { silencedForMe } from './rsvp';
 import { type Person, personOf } from './who';
 
 /** `leave` — „Czas wyjść” (PWD-17, decyzja właściciela 8.10.2026: osobno od `leadMin`); brak = włączone, jak dotąd. */
@@ -44,7 +44,8 @@ export function planReminders(
   const out: Reminder[] = [];
   // PW-23 (decyzja właściciela 8.10.2026): termin, na który odpowiedziałem „nie będę” — bez przypomnienia, „Czas
   // wyjść” i miejsca w porannym podsumowaniu (wiersz w „Moich sprawach” zostaje, D129). Jego zadania przypominają same.
-  const declined = declinedByMe(t, userId);
+  // D160: tak samo termin, który dotyczy mnie tylko przez dzieci, a żadne z nich nie będzie (silencedForMe).
+  const declined = silencedForMe(t, userId);
   for (let k = 0; k < opts.days; k++) {
     const day = addDays(today, k);
     const iso = formatIsoDate(day);

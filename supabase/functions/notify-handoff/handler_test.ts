@@ -1,5 +1,5 @@
-import { providerToken, sendAlert } from '../_shared/apns.ts';
-import { handle, PUSH_MAX_AGE_H } from './handler.ts';
+import { providerToken, sendAlert, sendBackground } from '../_shared/apns.ts';
+import { handle, PUSH_MAX_AGE_H, WAKE_MAX_GROUPS } from './handler.ts';
 
 const USER = '0199a3b4-0000-7000-8000-000000000001';
 const HANDOFF = '0199a3b4-0000-7000-8000-0000000000a1';
@@ -56,8 +56,8 @@ async function world(claim: object | null, apns: number[] = [], claimStatus = 20
   const f = ((url: string, init?: RequestInit) => {
     calls.push({ url, init });
     if (url.endsWith('/auth/v1/user')) return Promise.resolve(new Response(JSON.stringify(user), { status: userStatus }));
-    if (url.endsWith('/rpc/handoff_push_claim') || url.endsWith('/rpc/assignment_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
-    if (url.endsWith('/rpc/drop_push_token') || url.endsWith('/rpc/push_claim_release')) return Promise.resolve(new Response(null, { status: 204 }));
+    if (url.endsWith('/rpc/handoff_push_claim') || url.endsWith('/rpc/assignment_push_claim') || url.endsWith('/rpc/wake_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
+    if (url.endsWith('/rpc/drop_push_token') || url.endsWith('/rpc/push_claim_release') || url.endsWith('/rpc/wake_push_release')) return Promise.resolve(new Response(null, { status: 204 }));
     return Promise.resolve(new Response('{"reason":"Unregistered"}', { status: apns[n++] ?? 200 }));
   }) as typeof fetch;
   return { env, f, calls };
@@ -151,4 +151,56 @@ Deno.test('audyt 2 (N-15): APNs nie przyjął nigdzie — zwolnienie zaznaczenia
   const legacy = await world({ ...claim, key: undefined }, [503, 503]);
   assertEq((await handle(post({ activityId: HANDOFF }), legacy.env, legacy.f, 1_800_000_000)).status, 502);
   assertEq(legacy.calls.some((c) => c.url.endsWith('/rpc/push_claim_release')), false);
+});
+
+const GROUP = '0199a3b4-0000-7000-8000-0000000000b1';
+
+Deno.test('D159: ciche powiadomienie — background, priorytet 5, tylko content-available', async () => {
+  const at = (status: number, body = '{}') => (() => Promise.resolve(new Response(body, { status }))) as typeof fetch;
+  const a = { env: 'sandbox' as const, token: 'ab'.repeat(32), jwt: 'j', topic: 'io.x' };
+  const seen: RequestInit[] = [];
+  const f = ((_u: string, init?: RequestInit) => (seen.push(init!), Promise.resolve(new Response('', { status: 200 })))) as typeof fetch;
+  assertEq(await sendBackground(a, f), 'sent');
+  const h = seen[0]!.headers as Record<string, string>;
+  assertEq([h['apns-push-type'], h['apns-priority'], h['apns-topic']], ['background', '5', 'io.x']);
+  assertEq(JSON.parse(String(seen[0]!.body)), { aps: { 'content-available': 1 } });
+  assertEq(await sendBackground(a, at(410)), 'drop');
+  assertEq(await sendBackground(a, at(503)), 'error');
+  assertEq(await sendBackground(a, (() => Promise.reject(new Error('sieć'))) as typeof fetch), 'error');
+});
+
+Deno.test('D159: groups → wake_push_claim; wysyłka, nieaktualny token usunięty, retryInSec z bazy', async () => {
+  const claim = { tokens: [{ token: 'aa'.repeat(32), env: 'production' }, { token: 'bb'.repeat(32), env: 'sandbox' }], retryInSec: 600 };
+  const w = await world(claim, [200, 410]);
+  const r = await handle(post({ groups: [GROUP], except: 'cc'.repeat(32) }), w.env, w.f, 1_800_000_000);
+  assertEq(await r.json(), { sent: 1, retryInSec: 600 });
+  assertEq(w.calls.map((c) => c.url.split('/').at(-1)), ['user', 'wake_push_claim', 'aa'.repeat(32), 'bb'.repeat(32), 'drop_push_token']);
+  assertEq(JSON.parse(String(w.calls[1]!.init!.body)), { p_user: USER, p_groups: [GROUP], p_except: 'cc'.repeat(32), p_retry: false });
+  assertEq((w.calls[2]!.init!.headers as Record<string, string>)['apns-push-type'], 'background');
+  // Ponowienie bez wskazania urządzenia; nikogo do obudzenia — bez APNs.
+  const none = await world({ tokens: [], retryInSec: null });
+  assertEq(await (await handle(post({ groups: [GROUP], retry: true }), none.env, none.f)).json(), { sent: 0, retryInSec: null });
+  assertEq(JSON.parse(String(none.calls[1]!.init!.body)), { p_user: USER, p_groups: [GROUP], p_except: null, p_retry: true });
+  assertEq(none.calls.length, 2);
+});
+
+Deno.test('D159: błąd APNs — urządzenia wracają do zaległych; nic nie doszło — 502, część — ponowienie zaraz', async () => {
+  const claim = { tokens: [{ token: 'aa'.repeat(32), env: 'production' }, { token: 'bb'.repeat(32), env: 'production' }], retryInSec: null };
+  const down = await world(claim, [503, 429]);
+  assertEq((await handle(post({ groups: [GROUP] }), down.env, down.f)).status, 502);
+  assertEq(JSON.parse(String(down.calls.at(-1)!.init!.body)), { p_tokens: ['aa'.repeat(32), 'bb'.repeat(32)] });
+  const half = await world(claim, [200, 503]);
+  assertEq(await (await handle(post({ groups: [GROUP] }), half.env, half.f)).json(), { sent: 1, retryInSec: 0 });
+  assertEq(half.calls.at(-1)!.url, 'https://x.supabase.co/rest/v1/rpc/wake_push_release');
+  const claimDown = await world(claim, [], 500);
+  assertEq((await handle(post({ groups: [GROUP] }), claimDown.env, claimDown.f)).status, 502);
+});
+
+Deno.test('D159: złe wejście — 400', async () => {
+  const w = await world(null);
+  const many = Array.from({ length: WAKE_MAX_GROUPS + 1 }, () => GROUP);
+  for (const body of [{ groups: [] }, { groups: many }, { groups: ['x'] }, { groups: 'x' }, { groups: [GROUP], except: 'zz' }, { groups: [GROUP], retry: 'tak' }, { groups: [GROUP], handoffId: HANDOFF }, { groups: ['x'], handoffId: HANDOFF }]) {
+    assertEq((await handle(post(body), w.env, w.f)).status, 400);
+  }
+  assertEq((await handle(post({ groups: Array.from({ length: WAKE_MAX_GROUPS }, () => GROUP) }), (await world({ tokens: [], retryInSec: null })).env, (await world({ tokens: [], retryInSec: null })).f)).status, 200);
 });

@@ -50,6 +50,8 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
+    ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
+    ['wake_max_groups', config.wake.MAX_GROUPS],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });

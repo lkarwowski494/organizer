@@ -38,7 +38,25 @@ export interface DevicePush {
 }
 
 // „Nie teraz” i ustawienia przypomnień należą do konta (D175) — src/app/account-prefs.ts. Tu tylko plan na tym telefonie.
-const SCHEDULE = 'reminderSchedule';
+// D159: plan zmienia się też w tle przy zablokowanym telefonie, więc pamięć planu w pęku kluczy z dostępem po pierwszym
+// odblokowaniu (SecureStore SDK 57: keychainAccessible). Dostępności istniejącego wpisu zapis nie zmienia (expo-secure-store
+// 57, ios/SecureStoreModule.swift: przy errSecDuplicateItem tylko SecItemUpdate wartości), dlatego nowy klucz, a dawny
+// („reminderSchedule”, WHEN_UNLOCKED) usuwany przy pierwszym zapisie.
+const SCHEDULE = 'reminderSchedule.v2';
+const OLD_SCHEDULE = 'reminderSchedule';
+const SCHEDULE_ACCESS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
+/** Pamięć planu w pęku kluczy (wyżej); `store` — expo-secure-store albo atrapa w teście. */
+export function scheduleMemory(store: Pick<typeof SecureStore, 'getItemAsync' | 'setItemAsync' | 'deleteItemAsync'> = SecureStore): SchedulerMemory {
+  let old = true;
+  return {
+    load: () => store.getItemAsync(SCHEDULE, SCHEDULE_ACCESS),
+    save: async (v) => {
+      await store.setItemAsync(SCHEDULE, v, SCHEDULE_ACCESS);
+      if (old) await store.deleteItemAsync(OLD_SCHEDULE).catch(() => {});
+      old = false;
+    },
+  };
+}
 const asStatus = (s: string): PushStatus => (s === 'granted' || s === 'denied' ? s : 'undetermined');
 
 /**
@@ -141,7 +159,7 @@ export const expoDevicePush: DevicePush = {
   },
   env: () => apnsEnv(),
   onOpen: (fn) => openedPaths(Notifications, fn),
-  replaceReminders: reminderScheduler(Notifications, Date.now, { load: () => SecureStore.getItemAsync(SCHEDULE), save: (v) => SecureStore.setItemAsync(SCHEDULE, v) }),
+  replaceReminders: reminderScheduler(Notifications, Date.now, scheduleMemory()),
 };
 
 type Responses = Pick<typeof Notifications, 'getLastNotificationResponse' | 'clearLastNotificationResponse' | 'addNotificationResponseReceivedListener'>;

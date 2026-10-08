@@ -119,6 +119,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     registerPushToken: jest.fn(async () => {}),
     notifyHandoff: jest.fn(async () => {}),
     notifyAssignment: jest.fn(async () => {}),
+    notifyGroups: jest.fn(async () => ({ retryInSec: null as number | null })),
     getPushMutes: jest.fn(async () => []),
     setPushMute: jest.fn(async () => {}),
     setMyName: jest.fn(async () => {}),

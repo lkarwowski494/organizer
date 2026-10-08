@@ -49,6 +49,10 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Dziennik wysyłki:** żeby nie wysłać tego samego powiadomienia dwa razy, serwer zapisuje, że powiadomienie o danej
   zmianie już poszło (identyfikator zmiany i czas, bez treści). Te wpisy kasujemy po 7 dniach.
 - **Przypomnienia** o Twoich sprawach planuje sam telefon. Ich treść nie przechodzi przez nasz serwer.
+- **Ciche powiadomienia:** gdy ktoś zmieni coś w Twojej grupie, serwer wysyła na Twój iPhone powiadomienie bez treści
+  (niewidoczne), żeby telefon pobrał zmiany i poprawił przypomnienia także wtedy, gdy nie otwierasz aplikacji. Przy tokenie
+  zapisujemy tylko, kiedy poszło ostatnie takie powiadomienie i czy czeka następne (najwyżej jedno na 20 minut). Znika
+  razem z tokenem.
 
 ### Zgłoszenia błędów i samosprawdzenie
 - **Błędy:** gdy aplikacja napotka błąd, wysyła jego opis techniczny: komunikat błędu, miejsce w kodzie, nazwę ekranu albo

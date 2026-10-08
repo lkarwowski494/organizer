@@ -30,7 +30,7 @@ export type SupabaseLike = {
   };
   /** Tylko aktualizacja własnego profilu (D100; RLS i GRANT update (display_name) — migracja core). */
   from(table: 'profiles'): { update(v: { display_name: string }): { eq(col: 'user_id', v: string): PromiseLike<{ error: { message: string } | null }> } };
-  functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ error: { message: string } | null }> };
+  functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ data?: unknown; error: { message: string } | null }> };
 };
 
 /**
@@ -297,6 +297,14 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
     },
     async notifyHandoff(handoffId) {
       check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { handoffId } }));
+    },
+    async notifyGroups(r) {
+      // To urządzenie ma już zmiany — serwer go nie budzi (token z tego uruchomienia albo zapamiętany).
+      const except = pushToken ?? (await memory.load().catch(() => null));
+      const res = await client.functions.invoke('notify-handoff', { method: 'POST', body: { groups: r.groups, retry: r.retry, ...(except ? { except } : {}) } });
+      check(res);
+      const retry = (res.data as { retryInSec?: unknown } | null | undefined)?.retryInSec;
+      return { retryInSec: typeof retry === 'number' ? retry : null };
     },
   };
 }

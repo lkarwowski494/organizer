@@ -2,15 +2,29 @@ import * as Application from 'expo-application';
 import * as Notifications from 'expo-notifications';
 
 import type { Reminder } from '../../domain/views/reminders';
-import { apnsEnv, expoDevicePush, openedPaths, registerIfAllowed, reminderScheduler, showWhileOpen } from '../push';
+import { apnsEnv, expoDevicePush, openedPaths, registerIfAllowed, reminderScheduler, scheduleMemory, showWhileOpen } from '../push';
 import { fakePush } from './harness';
 import { parseReminderSettings } from '../reminders';
 
 jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), SchedulableTriggerInputTypes: { DATE: 'date' } }));
-jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}) }));
+jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}), AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'afterFirstUnlockThisDeviceOnly' }));
 jest.mock('expo-application', () => ({ getIosPushNotificationServiceEnvironmentAsync: jest.fn(async () => null) }));
 const m = Notifications as jest.Mocked<typeof Notifications>;
 const app = Application as jest.Mocked<typeof Application>;
+
+describe('pamięć planu przypomnień dostępna przy zablokowanym telefonie (D159)', () => {
+  it('nowy klucz z dostępem po pierwszym odblokowaniu; dawny (WHEN_UNLOCKED) usuwany przy pierwszym zapisie', async () => {
+    const store = { getItemAsync: jest.fn(async () => '{}'), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => Promise.reject(new Error('brak'))) };
+    const mem = scheduleMemory(store as never);
+    const access = { keychainAccessible: 'afterFirstUnlockThisDeviceOnly' };
+    expect(await mem.load()).toBe('{}');
+    expect(store.getItemAsync).toHaveBeenCalledWith('reminderSchedule.v2', access);
+    await mem.save('a');
+    await mem.save('b');
+    expect(store.setItemAsync.mock.calls).toEqual([['reminderSchedule.v2', 'a', access], ['reminderSchedule.v2', 'b', access]]);
+    expect(store.deleteItemAsync.mock.calls).toEqual([['reminderSchedule']]);
+  });
+});
 
 describe('powiadomienia na iPhonie (D70)', () => {
   it('przy otwartej aplikacji powiadomienie się pokazuje (audyt 2, N-1)', async () => {
