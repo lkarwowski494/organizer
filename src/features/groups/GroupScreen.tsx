@@ -4,7 +4,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Share, Text, type TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
@@ -12,9 +12,6 @@ import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
 import { formatDue } from '../../domain/format';
-import { formatIsoDate } from '../../domain/civil-date';
-import { groupDigits } from '../../domain/invite-link';
-import { localNow } from '../../app/clock';
 import { groupDetail, type GroupDetail, listOpenCount, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
@@ -23,7 +20,7 @@ import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
 import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
-import { absoluteDay } from './dates';
+import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
@@ -92,14 +89,6 @@ export function GroupScreen({ route, navigation }: Props) {
     );
   }
   const personal = d.group.kind === 'personal';
-  // Koniec ważności kodu w czasie Europe/Warsaw: na ekranie „jutro, 18:40”, w wiadomości „piątek, 9 października,
-  // 18:40” (audyt 2, U-41: adresat czyta ją później, „jutro” znaczy wtedy co innego).
-  const hhmm = (l: ReturnType<typeof localNow>) => `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;
-  const until = (iso: string) => {
-    const l = localNow(Date.parse(iso));
-    return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today).replace(' · ', ', ');
-  };
-  const untilAbs = (iso: string) => `${absoluteDay(Date.parse(iso), today)}, ${hhmm(localNow(Date.parse(iso)))}`;
   // Decyzja właściciela z 8.10.2026 (PW-41 A): „Zaproś” pokazuje bieżący ważny kod tej roli (serwer tworzy nowy, gdy
   // ważnego nie ma), „Nowy kod” tworzy kolejny i unieważnia poprzedni.
   const makeInvite = async (role: 'member' | 'admin', renew = false) => {
@@ -171,36 +160,25 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {invite ? (
-        <View testID="invite-ready" style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-          <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
-          <Body muted>{strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}</Body>
-          <Body>{`${strings['groups.joinId']}: ${groupDigits(invite.joinId)}`}</Body>
-          <Text testID="join-code" style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${groupDigits(invite.code)}`}</Text>
-          <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}</Body>
-          <Button
-            label={strings['groups.share']}
-            onPress={() =>
-              void Share.share({
-                message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), untilAbs(invite.expiresAt), config.invites.TESTFLIGHT_LINK),
-              })
+        <JoinCodeCard
+          code={invite}
+          today={today}
+          title={strings['groups.inviteReady']}
+          note={strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}
+          info={(u) => strings['groups.joinInfo'](u, config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}
+          message={(id, code, u) => strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, id, code, u, config.invites.TESTFLIGHT_LINK)}
+          onRenew={() => void makeInvite(invite.role, true)}
+          onRevoke={async () => {
+            setError(null);
+            try {
+              await account.revokeInvite(invite.inviteId);
+              setInvite(null);
+            } catch (e) {
+              setError(groupErrorText(e));
             }
-          />
-          <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID="invite-new-code" onPress={() => void makeInvite(invite.role, true)} />
-          {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia. */}
-          <Button
-            kind="danger"
-            label={strings['groups.revoke']}
-            onPress={async () => {
-              setError(null);
-              try {
-                await account.revokeInvite(invite.inviteId);
-                setInvite(null);
-              } catch (e) {
-                setError(groupErrorText(e));
-              }
-            }}
-          />
-        </View>
+          }}
+          testIDs={{ card: 'invite-ready', code: 'join-code', renew: 'invite-new-code' }}
+        />
       ) : null}
       {d.group.me.role === 'owner' && !personal ? (
         <Button
@@ -308,7 +286,7 @@ export function GroupScreen({ route, navigation }: Props) {
           <Button kind="danger" label={strings['groups.leave']} onPress={() => setConfirmLeave(true)} testID="leave" />
         )
       ) : !personal ? (
-        <Body muted>{strings['groups.ownerCannotLeave']}</Body>
+        <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
       ) : null}
       {d.canDelete ? (
         confirmDelete ? (

@@ -9,7 +9,8 @@ const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el)
 function childBase() {
   const b = sampleBase();
   put(b, 'group_members', 'mk', { ...b.group_members!.mk!, role: 'child' });
-  put(b, 'tasks', 't-korki', { ...b.tasks!['t-korki']!, note: 'czarne' });
+  // PW-14 B: dziecko z kontem widzi w Moich sprawach tylko swoje sprawy — zadanie przypisane do niego.
+  put(b, 'tasks', 't-korki', { ...b.tasks!['t-korki']!, note: 'czarne', assignee_member_id: 'mk' });
   return b;
 }
 

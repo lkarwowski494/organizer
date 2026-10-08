@@ -245,7 +245,8 @@ export function TodayScreen() {
       meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...whoTask(task.assignee_member_id)]}
       alert={alert}
       checked={false}
-      onToggle={() => actions.finishTrip(task.id, task.title)}
+      // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
+      onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
       onOpen={() => nav.navigate('List', { listId: task.id })}
     />
   );
@@ -285,7 +286,8 @@ export function TodayScreen() {
       <Fragment key={x.key}>
         <EventRow
           testID={`today-${x.key}`}
-          title={strings['lessons.title'](b.name, b.lessons.length)}
+          // Moje lekcje (dziecko z kontem, D127 — audyt 2, N-38) bez imienia.
+          title={groups.find((g) => g.id === b.groupId)?.me.member_id === b.memberId ? strings['lessons.mine'](b.lessons.length) : strings['lessons.title'](b.name, b.lessons.length)}
           time={timeLabel(b.start, b.end)}
           line={b.line}
           group={groupLabel(b.groupId, b.groupName)}
