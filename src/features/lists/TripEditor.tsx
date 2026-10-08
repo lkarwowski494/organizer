@@ -5,6 +5,7 @@ import { addDays, type CivilDate, formatIsoDate } from '../../domain/civil-date'
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Field, Segmented } from '../../ui/components';
+import { DateField } from '../../ui/DateField';
 import { parseDueFields } from './TaskScreen';
 
 export type TripDraft = { date: string; time: string; responsibleId: string | null };
@@ -32,7 +33,7 @@ export function TripEditor({ value, onChange, adults, today, required }: { value
           { value: 'none', label: strings['trip.noDate'] },
         ]}
       />
-      <Field label={strings['trip.date']} value={value.date} onChangeText={(date) => onChange({ ...value, date })} placeholder="2026-10-09" testID="trip-date" />
+      <DateField label={strings['trip.date']} value={value.date} onChange={(date) => onChange({ ...value, date })} today={today} testID="trip-date" />
       {value.date === '' ? null : <Field label={strings['trip.time']} value={value.time} onChangeText={(time) => onChange({ ...value, time })} placeholder="17:30" testID="trip-time" />}
       <Segmented
         label={strings['trip.who']}

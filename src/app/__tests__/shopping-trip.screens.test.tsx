@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
+import { answerAlert, lastAlert, put, sampleBase, setup , pickDate } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -41,17 +41,17 @@ describe('nowa lista zakupów', () => {
     });
   });
 
-  it('zła data blokuje; „Bez terminu” czyści dzień; grupa osobista bez wymogu', async () => {
+  it('dzień z kalendarza; „Bez terminu” czyści dzień; grupa osobista bez wymogu', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
     await fireEvent.changeText(await screen.findByTestId('list-name'), 'Apteka');
     await press(screen.getByLabelText('Zakupy'));
     await press(screen.getByLabelText('Rodzina'));
-    await fireEvent.changeText(screen.getByTestId('trip-date'), '2026-13-40');
     expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
-    await press(screen.getByLabelText('Dziś'));
-    expect(screen.getByTestId('trip-date').props.value).toBe('2026-10-07');
+    await pickDate('trip-date', '2026-10-12');
+    expect(screen.getByTestId('trip-date').props.accessibilityValue.text).toBe('2026-10-12');
+    expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByLabelText('Bez terminu'));
     expect(screen.queryByTestId('trip-time')).toBeNull();
     await press(screen.getByLabelText('Osobiste'));
@@ -120,8 +120,6 @@ describe('zakupy na liście', () => {
     expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(true);
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('trip-plan'));
-    await fireEvent.changeText(screen.getByTestId('trip-date'), 'zła');
-    expect(screen.getByText('Wpisz datę jako RRRR-MM-DD, np. 2026-10-09')).toBeTruthy();
     await press(screen.getByLabelText('Dziś'));
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
     await press(screen.getByTestId('trip-save'));

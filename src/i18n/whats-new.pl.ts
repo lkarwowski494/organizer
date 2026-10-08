@@ -13,6 +13,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
       'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz to w Kalendarzu, wyłączysz w Ustawieniach.',
       'Formularz „Więcej”: na górze wybierasz zadanie albo wydarzenie, nie trzeba wybierać listy. Zakres godzin w szybkim dodaniu („basen jutro 17–18”) tworzy wydarzenie.',
       'W grupach widać Twoje imię zamiast początku adresu e-mail — zmienisz je w Ustawieniach → „Twoje imię”.',
+      'Dzień wybierasz w małym kalendarzu, bez wpisywania. Klawiatura chowa się po przewinięciu i po dodaniu, a „Dziś” nie przesuwa już strzałek.',
     ],
   },
   {

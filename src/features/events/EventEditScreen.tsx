@@ -20,6 +20,7 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'EventEdit'>;
@@ -146,7 +147,7 @@ export function EventEditScreen({ route, navigation }: Props) {
       ) : null}
       <Field label={strings['event.title']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
       {scope === 'all' && detail?.rule ? null : (
-        <Field label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChangeText={(date) => set({ date })} placeholder="2026-10-12" testID="event-date" />
+        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set({ date })} today={today} testID="event-date" />
       )}
       {only ? null : (
         <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
@@ -202,7 +203,7 @@ export function EventEditScreen({ route, navigation }: Props) {
             />
           ) : null}
           <Segmented label={strings['event.ends']} value={form.ends} onChange={(ends) => set({ ends })} options={[{ value: 'never', label: strings['event.ends.never'] }, { value: 'until', label: strings['event.ends.until'] }]} />
-          {form.ends === 'until' ? <Field label={strings['event.until']} value={form.until} onChangeText={(until) => set({ until })} placeholder="2027-06-30" testID="event-until" /> : null}
+          {form.ends === 'until' ? <DateField label={strings['event.until']} value={form.until} onChange={(until) => set({ until })} today={today} testID="event-until" /> : null}
         </>
       ) : null}
 
