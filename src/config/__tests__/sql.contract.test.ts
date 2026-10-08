@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
+import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
@@ -97,9 +97,11 @@ describe('src/config zgodny z SQL', () => {
     expect(body).toContain(`at time zone '${config.TIME_ZONE}'`);
   });
 
-  it('przestrzeń nazw kopii zadań powtarzanych w SQL = REPEAT_NAMESPACE (task-repeat.ts, nextId)', () => {
-    const found = [...sql.matchAll(/function private\.repeat_namespace\(\)[^$]*\$\$\s*select\s+'([0-9a-f-]+)'::uuid\s*\$\$/gi)].map((m) => m[1]);
+  it('id następnego terminu zadania w SQL = nextId() na telefonie (przyjęcie przekazania łańcucha, PW-31)', () => {
+    const found = [...sql.matchAll(/function private\.next_task_id\(id uuid\)[^$]*\$\$\s*select private\.uuid_v5\('([0-9a-f-]{36})'::uuid, id::text \|\| '\|next'\)/gi)].map((m) => m[1]);
     expect(found.at(-1)).toBe(REPEAT_NAMESPACE);
+    // Ten sam wektor co pgTAP handoff_obligation (4), policzony niezależnie: Python uuid.uuid5.
+    expect(nextId('77770000-0000-7000-8000-0000000004e1')).toBe('d81b13c9-e6b0-5fc0-82a2-97229c6595bc');
   });
 
   it('brak definicji zgłaszany wprost', () => {

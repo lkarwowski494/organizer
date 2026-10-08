@@ -7,7 +7,8 @@
  *  - event:   termin wystąpienia wydarzenia, do którego zadanie jest podpięte (D13; idzie za spotkaniem po
  *             przeniesieniu). Wystąpienie odwołane albo nieistniejące = brak terminu (zadanie nie ginie, D14),
  *  - none:    bez terminu — przypięte na górze listy bez końca, bez przypomnień (D16).
- *  start_date („przypnij za X dni”) ukrywa zadanie do tego dnia; to nie jest termin.
+ *  start_date („przypnij za X dni”) ukrywa zadanie do tego dnia; to nie jest termin. Funkcja bez UI — żaden ekran go nie
+ *  ustawia; widoki liczą widoczność względem dnia, w którym zadanie stoi (visibleOnItsDay w views/index.ts; audyt 2, T-23).
  */
 import { addDays, type CivilDate, compareDates, formatIsoDate } from './civil-date';
 

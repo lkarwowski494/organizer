@@ -19,6 +19,7 @@ import { type MyEntry, myDays } from './my-days';
 import { nestEntries } from './nesting';
 import type { Tables } from './model';
 import { declinedByMe } from './rsvp';
+import { type Person, personOf } from './who';
 
 /** `leave` — „Czas wyjść” (PWD-17, decyzja właściciela 8.10.2026: osobno od `leadMin`); brak = włączone, jak dotąd. */
 export type ReminderSettings = { leadMin: number; morning: string | 'off'; leave?: boolean };
@@ -36,7 +37,7 @@ export function planReminders(
   today: CivilDate,
   nowMs: number,
   s: ReminderSettings,
-  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; late?: (minutes: number) => string; subtasks?: (titles: string[]) => string; parent?: (title: string, isEvent: boolean) => string };
+  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; late?: (minutes: number) => string; subtasks?: (titles: string[]) => string; parent?: (title: string, isEvent: boolean) => string; who?: (p: Person) => string };
     leaveFor?: (eventId: string, occurrenceDate: string) => { at: number; body: string } | null;
   },
 ): Reminder[] {
@@ -92,6 +93,12 @@ export function planReminders(
       const parent = p && p.kind !== 'lessons' && opts.label.parent ? ` · ${opts.label.parent(p.kind === 'event' ? p.event.title : p.task.title, p.kind === 'event')}` : '';
       return `${parent}${list && opts.label.subtasks ? ` · ${opts.label.subtasks(list)}` : ''}`;
     };
+    // Zadanie dziecka bez konta przypomina dorosłym (decyzja właściciela z 8.10.2026) — z imieniem, jak „dla: …” w wierszu (D119).
+    const whom = (e: MyEntry) => {
+      const who = opts.label.who;
+      const p = who && e.kind === 'task' ? personOf(t, userId, e.task.assignee_member_id) : null;
+      return who && p && !p.me ? ` · ${who(p)}` : '';
+    };
     // Bez terminu (przypięte) nie przypominamy — codziennie to samo byłoby szumem.
     const untimed: string[] = [];
     const timed: string[] = [];
@@ -124,7 +131,7 @@ export function planReminders(
       if (f.at <= nowMs) continue;
       const group = e.kind === 'event' ? e.event.groupName : e.task.groupName;
       const key = e.kind === 'event' ? `e|${e.event.eventId}|${e.event.occurrenceDate}` : `t|${e.task.id}`;
-      out.push({ id: `${key}|${iso}`, at: f.at, title, body: `${time.slice(0, 5)} · ${group}${extra(e)}`, target });
+      out.push({ id: `${key}|${iso}`, at: f.at, title, body: `${time.slice(0, 5)} · ${group}${whom(e)}${extra(e)}`, target });
     }
     const all = [...untimed, ...timed];
     if (s.morning !== 'off' && all.length) {

@@ -49,11 +49,15 @@ describe('kopia zadania powtarzanego to nie przypisanie (audyt 2: N-6, T-24)', (
     task(copy, { due_date: '2026-10-14' });
     task(copy2, { due_date: '2026-10-21' });
     task('t-nowe', { repeat: null });
+    // Kopia podzadania pod następnym terminem (P5, copyOps: id = nextId(podzadania), bez powtarzania).
+    task('cccc0000-0000-7000-8000-0000000004e1', { title: 'worki', parent_id: smieci, repeat: null, deadline_mode: 'inherit', due_date: null });
+    task('e6e44ef0-d33f-5243-afc5-1c49f69ce0de', { title: 'worki', parent_id: copy, repeat: null, deadline_mode: 'inherit', due_date: null });
     const a = (id: string, entityId: string, extra: Row = {}) =>
       put(t, 'activity', id, { id, group_id: 'gf', entity: 'tasks', entity_id: entityId, verb: 'create', actor_member_id: 'mf', changes: { assignee_member_id: [null, 'ala'] }, created_at: '2026-10-07T11:00:00Z', ...extra });
     a('a-copy', copy);
     a('b-copy2', copy2);
     a('c-new', 't-nowe');
+    a('f-subtask-copy', 'e6e44ef0-d33f-5243-afc5-1c49f69ce0de');
     a('d-reassign', copy, { verb: 'update', changes: { assignee_member_id: ['mf', 'ala'] } });
     // Kopia, której nie ma na telefonie (np. już w koszu i wyczyszczona) — decyduje serwer.
     a('e-unknown', 'cccc0000-0000-7000-8000-0000000004ff');

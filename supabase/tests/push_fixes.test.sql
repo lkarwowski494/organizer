@@ -1,8 +1,8 @@
 -- Powiadomienia push po audycie 2 (migracja 20261008350000_push_fixes): kopie zadań powtarzanych i podział „to i następne”
 -- bez fałszywego „przypisuje Ci” (M-28), zwolnienie zaznaczenia po błędzie APNs (M-75), treści i daty (M-138).
--- Wzorce SHA-1 / UUIDv5 i identyfikatory kopii policzone niezależnie w Pythonie (hashlib, uuid.uuid5).
+-- Identyfikatory kopii policzone niezależnie w Pythonie (uuid.uuid5).
 begin;
-select plan(46);
+select plan(41);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000a1', 'l@x.test'),
@@ -18,18 +18,9 @@ create function pg_temp.act(entity_id text, verb text default 'create') returns 
 $$;
 grant execute on function pg_temp.as_user(text), pg_temp.push(text, int, jsonb) to authenticated;
 
--- 1–11: SHA-1 (FIPS 180-4) i UUIDv5 (RFC 9562) — te same wzorce co src/domain/__tests__/ids.test.ts.
-select is(encode(private.sha1(''::bytea), 'hex'), 'da39a3ee5e6b4b0d3255bfef95601890afd80709', '1: sha1 pustego');
-select is(encode(private.sha1(convert_to('abc', 'UTF8')), 'hex'), 'a9993e364706816aba3e25717850c26c9cd0d89d', '2: sha1 „abc”');
-select is(encode(private.sha1(convert_to(repeat('a', 55), 'UTF8')), 'hex'), 'c1c8bbdc22796e28c0e15163d20899b65621d65a', '3: sha1 55 bajtów (jeden blok)');
-select is(encode(private.sha1(convert_to(repeat('a', 56), 'UTF8')), 'hex'), 'c2db330f6083854c99d4b5bfb6e8f29f201be699', '4: sha1 56 bajtów (dwa bloki)');
-select is(encode(private.sha1(convert_to(repeat('a', 64), 'UTF8')), 'hex'), '0098ba824b5c16427bd7a1122a5a442a25ec644d', '5: sha1 64 bajty');
-select is(encode(private.sha1(convert_to(repeat('a', 1000), 'UTF8')), 'hex'), '291e9a6c66994949b57ba5e650361e98fc36b1ba', '6: sha1 1000 bajtów');
-select is(private.uuidv5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'www.example.com'), '2ed6657d-e927-568b-95e1-2665a8aea6a2'::uuid, '7: uuidv5 — przykład z RFC 9562');
-select is(private.uuidv5('0192f3a0-1c2b-7d4e-8f00-0123456789ab', '2026-10-12'), '9554071f-332c-539c-8856-596eac35b231'::uuid, '8: uuidv5 — data wystąpienia');
-select is(private.uuidv5('0192f3a0-1c2b-7d4e-8f00-0123456789ab', 'zażółć'), '41f5085e-00e7-5cea-b752-2fa644039767'::uuid, '9: uuidv5 — polskie znaki (UTF-8)');
-select is(private.uuidv5(private.repeat_namespace(), 'cccc0000-0000-7000-8000-0000000004d1|next'), '3131726b-47cd-530b-8635-592f07fad345'::uuid, '10: id kopii jak nextId na telefonie');
-select is(private.event_split_source(gen_random_uuid()), null, '11: nieznane wydarzenie nie jest kopią serii');
+-- 1–2: id kopii jak nextId na telefonie (private.next_task_id z 20261008330000; SHA-1 i UUIDv5 sprawdza handoff_obligation).
+select is(private.next_task_id('cccc0000-0000-7000-8000-0000000004d1'), '3131726b-47cd-530b-8635-592f07fad345'::uuid, '1: id kopii jak nextId na telefonie');
+select is(private.event_split_source(gen_random_uuid()), null, '2: nieznane wydarzenie nie jest kopią serii');
 
 -- Grupa: Łukasz (admin), Magdalena i Ola (członkinie z tokenami).
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a1');
@@ -53,6 +44,9 @@ select is(pg_temp.push('cccc0000-0000-7000-8000-00000000c0a1', 2, '{"kind":"crea
 select pg_temp.push('cccc0000-0000-7000-8000-00000000c0a1', 3, '{"kind":"patch","entity":"tasks","id":"cccc0000-0000-7000-8000-0000000004d1","set":{"completed_at":"2026-10-07T10:00:00Z"}}') is not null;
 select is(pg_temp.push('cccc0000-0000-7000-8000-00000000c0a1', 4, '{"kind":"create","entity":"tasks","id":"3131726b-47cd-530b-8635-592f07fad345","group_id":"cccc0000-0000-7000-8000-000000000001","set":{"list_id":"cccc0000-0000-7000-8000-0000000000c1","title":"Wynieś śmieci","assignee_member_id":"cccc0000-0000-7000-8000-0000000000b2","deadline_mode":"own","due_date":"2026-10-14","repeat":"FREQ=WEEKLY;BYDAY=WE"}}'), 'ok', '13: następny termin');
 select is(pg_temp.push('cccc0000-0000-7000-8000-00000000c0a1', 5, '{"kind":"create","entity":"tasks","id":"cccc0000-0000-7000-8000-0000000004d2","group_id":"cccc0000-0000-7000-8000-000000000001","set":{"list_id":"cccc0000-0000-7000-8000-0000000000c1","title":"Wynieś śmieci","assignee_member_id":"cccc0000-0000-7000-8000-0000000000b2"}}'), 'ok', '14: nowe zadanie o tym samym tytule');
+-- Podzadanie Magdaleny i jego kopia pod następnym terminem (P5, copyOps: id = nextId(podzadania), bez powtarzania).
+select is(pg_temp.push('cccc0000-0000-7000-8000-00000000c0b1', 1, '{"kind":"create","entity":"tasks","id":"cccc0000-0000-7000-8000-0000000004e1","group_id":"cccc0000-0000-7000-8000-000000000001","set":{"list_id":"cccc0000-0000-7000-8000-0000000000c1","parent_id":"cccc0000-0000-7000-8000-0000000004d1","title":"worki","assignee_member_id":"cccc0000-0000-7000-8000-0000000000b2","deadline_mode":"inherit"}}'), 'ok', '14a: podzadanie Magdaleny');
+select is(pg_temp.push('cccc0000-0000-7000-8000-00000000c0b1', 2, '{"kind":"create","entity":"tasks","id":"e6e44ef0-d33f-5243-afc5-1c49f69ce0de","group_id":"cccc0000-0000-7000-8000-000000000001","set":{"list_id":"cccc0000-0000-7000-8000-0000000000c1","parent_id":"3131726b-47cd-530b-8635-592f07fad345","title":"worki","assignee_member_id":"cccc0000-0000-7000-8000-0000000000b2","deadline_mode":"inherit"}}'), 'ok', '14b: kopia podzadania pod następnym terminem');
 reset role;
 -- D133: kopię następnej kopii robi telefon Oli (termin minął niezrobiony).
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a3');
@@ -64,6 +58,8 @@ select pg_temp.as_user('');
 select is(private.task_repeat_source('ddd3b400-0594-5a0a-8416-e7df937cb9e6'), '3131726b-47cd-530b-8635-592f07fad345'::uuid, '16: źródło kopii kopii');
 select is(public.assignment_push_claim(pg_temp.act('3131726b-47cd-530b-8635-592f07fad345'), '00000000-0000-7000-8000-0000000000a1', 24), null, '17: następny termin po odhaczeniu — bez „przypisuje Ci”');
 select is(public.assignment_push_claim(pg_temp.act('ddd3b400-0594-5a0a-8416-e7df937cb9e6'), '00000000-0000-7000-8000-0000000000a3', 24), null, '18: kopia D133 z cudzego telefonu — bez „przypisuje Ci”');
+select isnt(public.assignment_push_claim(pg_temp.act('cccc0000-0000-7000-8000-0000000004e1'), '00000000-0000-7000-8000-0000000000a1', 24), null, '18a: podzadanie przypisane przy tworzeniu — powiadomienie');
+select is(public.assignment_push_claim(pg_temp.act('e6e44ef0-d33f-5243-afc5-1c49f69ce0de'), '00000000-0000-7000-8000-0000000000a1', 24), null, '18b: kopia podzadania pod następnym terminem — bez „przypisuje Ci”');
 select is(public.assignment_push_claim(pg_temp.act('cccc0000-0000-7000-8000-0000000004d1'), '00000000-0000-7000-8000-0000000000a1', 24),
   jsonb_build_object('title', 'Łukasz przypisuje Ci zadanie', 'body', 'Wynieś śmieci',
                      'tokens', jsonb_build_array(jsonb_build_object('token', repeat('cd', 32), 'env', 'production')),

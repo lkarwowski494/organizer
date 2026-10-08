@@ -3,7 +3,8 @@
  * co rozpoznał parser (nazwa, dzień, godzina, „co tydzień”, „@imię”), z wyborem grupy, osoby i powtarzania (bez wyboru listy, D97).
  *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
  *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
- *    (z notatką) na ogólnej liście nowej grupy, a stare idzie do kosza (można je przywrócić).
+ *    (z notatką, bez podzadań) na ogólnej liście nowej grupy, a stare idzie do kosza razem z podzadaniami (można je
+ *    przywrócić); ekran mówi, ile podzadań to dotyczy (`movedSubtasks`, audyt 2: T-33).
  *  - We wspólnej grupie zadanie potrzebuje osoby albo terminu (D68).
  */
 import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
@@ -14,6 +15,7 @@ import { createList, createTask, patchTask, remove, setDue } from './commands';
 import { groupsView, listsView } from './index';
 import { extractMention, type MentionTarget, mentionTargets } from './mention';
 import { asTask, type Tables } from './model';
+import { subtasksOf } from './nesting';
 import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
@@ -109,9 +111,14 @@ export function validateForm(t: Tables, userId: string, f: TaskForm): FormError 
   if (d !== '' && (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3])))) return 'date';
   if (f.time.trim() !== '' && (d === '' || !TIME.test(f.time.trim()))) return d === '' ? 'date' : 'time';
   if (f.repeat && d === '') return 'repeatNeedsDate';
-  if (group.kind === 'shared' && f.assigneeId === null && d === '') return 'addressee';
+  // D132: osoba usunięta z grupy (albo nieznana) to „nikt konkretny” — wtedy potrzebny termin (audyt 2, T-15).
+  const person = f.assigneeId === null ? undefined : t.group_members?.[f.assigneeId];
+  if (group.kind === 'shared' && (!person || person.deleted_at != null) && d === '') return 'addressee';
   return null;
 }
+
+/** Ile żywych podzadań pójdzie do kosza razem z zadaniem przy zmianie grupy — kopia ich nie ma (audyt 2, T-33). */
+export const movedSubtasks = (t: Tables, taskId: string) => subtasksOf(t, taskId).length;
 
 /** Dzień tygodnia daty z formularza (do edytora powtarzania); bez daty — dziś. */
 export function formWeekday(f: TaskForm, today: CivilDate): number {
