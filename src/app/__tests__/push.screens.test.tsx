@@ -85,7 +85,8 @@ describe('przypomnienia (D75)', () => {
       // Odebrać paczkę dziś 18:00 → 17:30; Przynieść korki 17:30 → 17:00 (czas warszawski).
       expect(first.map((r) => [r.title, r.body])).toEqual(expect.arrayContaining([['Odebrać paczkę', '18:00 · Rodzina'], ['Przynieść korki na trening', '17:30 · Klasa 2b']]));
       await press(screen.getByLabelText('Ustawienia'));
-      await screen.findByTestId('screen-settings');
+      await press(await screen.findByTestId('settings-notifications'));
+      await screen.findByTestId('screen-settings-notifications');
       await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
       expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '08:00' });
       await act(async () => {
@@ -111,13 +112,16 @@ describe('przypomnienia (D75)', () => {
       await flush();
       expect(push.replaceReminders).not.toHaveBeenCalled();
       await press(screen.getByLabelText('Ustawienia'));
-      await screen.findByTestId('screen-settings');
+      await press(await screen.findByTestId('settings-notifications'));
+      await screen.findByTestId('screen-settings-notifications');
       expect(screen.getByLabelText('1 h').props.accessibilityState.selected).toBe(true);
     } finally {
       jest.useRealTimers();
     }
     await open();
     await press(screen.getAllByLabelText('Ustawienia').at(-1)!);
+    await press(await screen.findByTestId('settings-notifications'));
+    expect(await screen.findByText('Powiadomienia nie są dostępne na tym urządzeniu.')).toBeTruthy();
     expect(screen.queryByText('Przed sprawą z godziną')).toBeNull();
   });
 });
@@ -138,7 +142,8 @@ describe('przypisania (D81)', () => {
     const account = fakeAccount({ getPushMutes: jest.fn(async () => ['gk']) });
     await open({ account, push: fakePush() });
     await press(screen.getByLabelText('Ustawienia'));
-    await screen.findByTestId('screen-settings');
+    await press(await screen.findByTestId('settings-notifications'));
+    await screen.findByTestId('screen-settings-notifications');
     await flush();
     const box = screen.getByTestId('mute-settings');
     expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
@@ -154,13 +159,16 @@ describe('przypisania (D81)', () => {
   it('bez internetu przy odczycie — komunikat; bez grup wspólnych — brak sekcji', async () => {
     await open({ account: fakeAccount({ getPushMutes: jest.fn(async () => Promise.reject(new Error('offline'))) }), push: fakePush() });
     await press(screen.getByLabelText('Ustawienia'));
-    await screen.findByTestId('screen-settings');
+    await press(await screen.findByTestId('settings-notifications'));
+    await screen.findByTestId('screen-settings-notifications');
     await flush();
     expect(screen.getByText('Nie udało się zmienić ustawień — sprawdź internet.')).toBeTruthy();
     const base = sampleBase();
     for (const g of ['gf', 'gk']) put(base, 'groups', g, { ...base.groups![g]!, deleted_at: 'x' });
     await open({ base, push: fakePush() });
     await press(screen.getAllByLabelText('Ustawienia').at(-1)!);
+    await press(await screen.findByTestId('settings-notifications'));
+    await screen.findByTestId('screen-settings-notifications');
     await flush();
     expect(screen.queryByTestId('mute-settings')).toBeNull();
   });

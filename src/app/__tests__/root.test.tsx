@@ -148,6 +148,7 @@ describe('korzeń aplikacji', () => {
     db.run("insert into tasks (key, group_id, data) values ('stary', ?, ?)", [ME, JSON.stringify({ id: 'stary', title: 'Stary wpis' })]);
     const before = t.pulls();
     await fireEvent.press(screen.getByLabelText('Ustawienia'));
+    await fireEvent.press(await screen.findByTestId('settings-account'));
     await fireEvent.press(await screen.findByTestId('reset-start'));
     await fireEvent.press(screen.getByTestId('reset-confirm'));
     await waitFor(() => expect(t.pulls()).toBeGreaterThan(before));

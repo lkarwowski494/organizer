@@ -156,6 +156,25 @@ describe('Supabase: konto', () => {
     await expect(a.setMyName('X')).rejects.toThrow('offline');
   });
 
+  it('wylogowanie zdejmuje token powiadomień tego telefonu; brak sieci nie blokuje wylogowania (audyt 8.10.2026)', async () => {
+    let fail = false;
+    const { client, calls, auth } = fakeClient((c) => (fail && c.fn === 'unregister_push_token' ? { data: null, error: { message: 'offline' }, status: 0 } : { data: {}, error: null, status: 200 }));
+    const a = supabaseAccount(client, async () => ({ identityToken: null }));
+    await a.signOut();
+    expect(calls.map((c) => c.fn)).toEqual([]);
+    await a.registerPushToken('ab', 'production');
+    await a.signOut();
+    expect(calls.at(-1)).toEqual({ fn: 'unregister_push_token', args: { p_token: 'ab' } });
+    expect(auth.signOut).toHaveBeenCalledTimes(2);
+    // Raz zdjęty — przy kolejnym wylogowaniu już nie wołamy.
+    await a.signOut();
+    expect(calls.filter((c) => c.fn === 'unregister_push_token')).toHaveLength(1);
+    await a.registerPushToken('cd', 'production');
+    fail = true;
+    await a.signOut();
+    expect(auth.signOut).toHaveBeenCalledTimes(4);
+  });
+
   it('magic link z adresem powrotu w schemacie aplikacji, wylogowanie, usunięcie konta', async () => {
     const { client, auth, functions } = fakeClient();
     const a = supabaseAccount(client, async () => ({ identityToken: null }));

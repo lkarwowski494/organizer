@@ -99,6 +99,7 @@ describe('kalendarz iPhone’a', () => {
     services.local?.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
     expect(await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-settings');
     await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Wyłączone'));
     expect(prefs.m.get('calendarRead')).toBe('0');
@@ -121,6 +122,7 @@ describe('kalendarz iPhone’a', () => {
     expect(await screen.findByLabelText(/^Szkoła, 08:00–09:00/)).toBeTruthy();
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-calendars');
     expect(within(box).getByLabelText('Praca')).toBeTruthy();
     await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
@@ -130,6 +132,9 @@ describe('kalendarz iPhone’a', () => {
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual([]);
     await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
     await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-settings');
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-today');
     expect(screen.queryByLabelText(/^Szkoła, 08:00–09:00/)).toBeNull();
   });
 

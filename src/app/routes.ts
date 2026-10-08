@@ -16,7 +16,8 @@ export type RootStackParams = {
   EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string };
   /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
   Invite: { token?: string; g?: string; c?: string };
-  Settings: undefined;
+  /** Bez `section` — strona główna ustawień; z nią — podstrona (D131). */
+  Settings: { section?: SettingsSection } | undefined;
   Rejected: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
@@ -30,5 +31,7 @@ export type RootStackParams = {
   /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */
   AddTask: { text?: string; taskId?: string; title?: string; date?: string; time?: string; groupId?: string };
 };
+
+export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'account';
 
 export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };

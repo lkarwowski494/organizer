@@ -104,7 +104,13 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(screen.getAllByLabelText('Ustawienia')).toHaveLength(1);
     await press(screen.getByLabelText('Ustawienia'));
     expect(await screen.findByTestId('screen-settings')).toBeTruthy();
+    // .maestro/06: „Konto i dane” (D131), przewinięcie do „Wyloguj”, powrót na stronę główną do zrzutu.
+    expect(screen.getAllByLabelText('Konto i dane')).toHaveLength(1);
+    await press(screen.getByLabelText('Konto i dane'));
+    expect(await screen.findByTestId('screen-settings-account')).toBeTruthy();
     expect(screen.getByTestId('sign-out')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    expect(await screen.findByTestId('screen-settings')).toBeTruthy();
     expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
   });
 
@@ -129,7 +135,10 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await t.render();
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('sign-out'));
+    expect(lastAlert().title).toBe('Wylogować się?');
+    await answerAlert('Wyloguj');
     expect(await screen.findByTestId('screen-sign-in')).toBeTruthy();
     await act(() => t.deps.account.signInWithApple());
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
