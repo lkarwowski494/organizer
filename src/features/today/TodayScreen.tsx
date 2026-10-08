@@ -37,7 +37,8 @@ import { startGroup } from '../../domain/views/default-group';
 import { needsAddressee, type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, withoutShortcuts } from '../../domain/views/quick-target';
 import { formMembers } from '../../domain/views/task-form';
 import { useDefaultGroup } from '../../app/default-group';
-import { QuickGroupChip } from './QuickGroupChip';
+import { QuickGroupChip, ShoppingChip } from './QuickGroupChip';
+import { recentShoppingList, shoppingItem } from '../../domain/views/quick-shopping';
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
@@ -119,6 +120,12 @@ export function TodayScreen() {
   const resolved = text ? resolve({}) : null;
   const target = resolved?.kind === 'ok' ? resolved.target : null;
   const shownGroup = groups.find((g) => g.id === (target?.groupId ?? chipGroup));
+  const fromText = !!target && target.from !== 'chip';
+  // PW-3 wariant D: cały wpis (bez terminu, „#…”, bez osoby) to produkt — podpowiedź listy zakupów grupy wpisu, której
+  // ostatnio używano. Najpierw dosłownie („mąka 1.5 kg” z ilością), potem bez rozpoznanego terminu („mleko jutro”).
+  const plain = target && target.memberId === null && !preview.event ? target : null;
+  const product = plain ? (shoppingItem(plain.body) ?? shoppingItem(quickPreview(plain.body, now(), ignore).title)) : null;
+  const shopList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
@@ -142,6 +149,15 @@ export function TodayScreen() {
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
     undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+    done(t);
+  };
+  // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.
+  const toShopping = (t: QuickTarget, item: string, list: { id: string; name: string }) => {
+    const ops = quickAddOps({ tables, userId, text: item, now: now(), ignore: [], newId, listId: list.id });
+    const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    if (!created || created.kind !== 'create') return fail(strings['common.error']);
+    store.dispatch(ops);
+    undo.show(strings['form.added'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['form.change']);
     done(t);
   };
   // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
@@ -330,16 +346,20 @@ export function TodayScreen() {
         ))}
       </View>
       <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
-        {addGroups.length > 1 && shownGroup ? (
-          <QuickGroupChip
-            name={addGroups.find((g) => g.id === shownGroup.id)!.name}
-            line={shownGroup.line}
-            fromText={!!target && target.from !== 'chip'}
-            open={picking}
-            groups={addGroups}
-            value={chipGroup!}
-            onToggle={() => setPicking(!picking)}
-            onPick={(g) => {
+        {(addGroups.length > 1 && shownGroup) || shopList ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {addGroups.length > 1 && shownGroup ? (
+              <QuickGroupChip name={addGroups.find((g) => g.id === shownGroup.id)!.name} line={shownGroup.line} fromText={fromText} open={picking} onToggle={() => setPicking(!picking)} />
+            ) : null}
+            {plain && product && shopList ? <ShoppingChip item={product} list={shopList.name} onPress={() => toShopping(plain, product, shopList)} /> : null}
+          </View>
+        ) : null}
+        {picking && !fromText && chipGroup ? (
+          <Segmented
+            label={strings['quick.groupPick']}
+            value={chipGroup}
+            options={addGroups.map((g) => ({ value: g.id, label: g.name }))}
+            onChange={(g) => {
               // Zmiana chipem zostaje ostatnio użytą grupą (przy konkretnej grupie domyślnej — tylko dla tego wpisu).
               setChip(g);
               defaultGroup.remember(g);
@@ -347,6 +367,7 @@ export function TodayScreen() {
             }}
           />
         ) : null}
+        {plain && product && !shopList ? <Body muted>{strings['quick.noShoppingList'](product, addGroups.find((g) => g.id === plain.groupId)!.name)}</Body> : null}
         <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button

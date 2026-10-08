@@ -34,8 +34,9 @@ Zgłoszenie właściciela:
 
 ## Grupa wpisu: chip, „#Grupa”, „@ja”, grupa domyślna (decyzja właściciela 8.10.2026, PW-3 / audyt 2 M-24)
 Problem: każdy wpis z Moich spraw trafiał do Osobistych (chyba że przez „@kogoś-innego”), a zmiana grupy była możliwa
-tylko przez „Zmień” w ciągu 6 s. Właściciel wybrał wszystkie trzy warianty naraz (odrzucone: tylko jeden z nich;
-rozpoznawanie produktów z pytaniem o listę zakupów — do zaległości). Częściowo zastępuje to „ostatnio użytą grupę”
+tylko przez „Zmień” w ciągu 6 s, a produktu nie dało się dopisać do listy zakupów. Właściciel wybrał chip, skróty
+i grupę domyślną; podpowiedź listy zakupów (wariant D) dołączył koordynator z upoważnienia właściciela (rekomendowana,
+odłożona tylko z powodu pracy). Odrzucone: tylko jeden z wariantów. Częściowo zastępuje to „ostatnio użytą grupę”
 odrzuconą przy D91.
 - **Chip** „Do: <grupa> ▾” pod polem pokazuje, dokąd trafi wpis; dotknięcie rozwija wybór grupy. Gdy grupę wskazuje
   tekst („#Klasa” albo „@Ala” z innej grupy), chip pokazuje ją i jest nieaktywny — zmienia się ją w tekście.
@@ -53,6 +54,14 @@ odrzuconą przy D91.
   („@jan” nadal znajduje Jana). **„@imię”**: najpierw osoba z grupy wpisu (z „#” albo z chipa), dopiero bez niej
   wszystkie grupy (D91); po „#” — tylko osoby z tej grupy.
 - Wspólna grupa z chipa albo „#” bez osoby i terminu — pytanie „Dla kogo albo na kiedy?” (D68), jak na liście.
+- **Podpowiedź „Na listę: <lista>”** (`domain/views/quick-shopping.ts`) obok chipa grupy, gdy cały wpis (po zdjęciu
+  rozpoznanego terminu, „#…”, bez osoby i bez zakresu godzin) to jeden produkt ze słownika działów, z ilością albo bez
+  („mleko”, „chleb 2 szt.”, „mąka 1.5 kg”, „papier toaletowy”). Nigdy nie przenosi sama: „+” dodaje zadanie, dotknięcie
+  podpowiedzi — pozycję na tej liście zakupów grupy wpisu, której ostatnio używano (najwyższa wersja listy albo
+  pozycji), z tytułem dosłownym (ilość zostaje, termin nie — termin ma lista, D73). Grupa bez listy zakupów — napis,
+  że zostanie zadanie. Bez podpowiedzi dla zdań („kupić mleko dla babci”, „karmić kota”), czasowników i rzeczowników
+  odczasownikowych („mopować”, „karmienie” — słownik ma rdzenie z „*”) i dwóch słów, z których tylko jedno jest
+  w słowniku („ser żółty”: bezpieczniej przeoczyć produkt, niż zabrać zadanie).
 - „Więcej” otwiera formularz w grupie z chipa (albo z tekstu); te same skróty działają w formularzu.
 
 Decyzje wykonawcze (Claude; właściciel może zawetować):

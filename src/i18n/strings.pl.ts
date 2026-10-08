@@ -60,6 +60,11 @@ export const strings = {
   'quick.groupHint': 'Dotknij, żeby wybrać inną grupę',
   'quick.groupFromText': 'Grupę wskazuje tekst — zmienisz ją w tekście',
   'quick.groupPick': 'Dodaj do grupy',
+  // PW-3 wariant D: cały wpis to produkt — podpowiedź listy zakupów (bez dotknięcia zostaje zadanie).
+  'quick.toShopping': (list: string) => `Na listę: ${list}`,
+  'quick.toShoppingA11y': (item: string, list: string) => `Dodaj „${item}” do listy zakupów „${list}”`,
+  'quick.toShoppingHint': 'Bez dotknięcia dodasz zadanie',
+  'quick.noShoppingList': (item: string, group: string) => `„${item}” to produkt? W grupie „${group}” nie ma listy zakupów, więc dodasz zadanie.`,
   'tag.ask': (name: string) => `Którą grupę masz na myśli: #${name}?`,
   'tag.unknown': (name: string) => `Nie ma grupy #${name}`,
   'tag.unknownInfo': (name: string, group: string) => `Popraw nazwę albo dodaj do grupy „${group}” („#${name}” zostanie w nazwie).`,
