@@ -7,12 +7,12 @@
  * (PN-EN ISO 8601, jak kalendarz).
  */
 import { addDays, type CivilDate, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
-import { effectiveDue, isVisible } from '../deadlines';
+import { effectiveDue } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { agenda, type LessonBlock, type AgendaEntry } from './agenda';
 import { occurrenceResolver } from './event-rows';
 import { expandEvents, type Occurrence } from './events';
-import { concernsMeTask, groupsView, isExpired, liveMemberIds, type TodayItem } from './index';
+import { assigneeName, concernsMeTask, groupsView, isExpired, liveMembers, type TodayItem, visibleOnItsDay } from './index';
 import { asList, asTask, rows, type Tables } from './model';
 import { tripEntries } from './shopping-trip';
 
@@ -53,7 +53,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   const lists = new Map(rows(t, 'lists', asList).filter((l) => l.deleted_at === null).map((l) => [l.id, l]));
   const all = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
   const byId = new Map(all.map((x) => [x.id, x]));
-  const live = liveMemberIds(t);
+  const live = liveMembers(t);
   const occ = occurrenceResolver(t);
   const pinned: TodayItem[] = [];
   const overdue: MyTask[] = [];
@@ -65,15 +65,14 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
     if (!g || !l || l.kind === 'shopping') continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(x, g, due, live)) continue;
-    const mine = x.assignee_member_id === g.me.member_id;
-    const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: mine ? g.me.display_name : null };
+    if (!concernsMeTask(t, x, g, due, live)) continue;
+    const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (x.completed_at !== null) {
       const d = localDate(x.completed_at);
       if (d < isoToday) push(d, item); // odhaczone dziś znikają z widoku (jak dotąd); historia dla minionych dni
       continue;
     }
-    if (!isVisible(x, today) || isExpired(x, due, isoToday, byId)) continue;
+    if (!visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
     if (due === null) pinned.push(item);
     else if (due.date < isoToday) overdue.push({ ...item, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(due.date)) });
     else push(due.date, item);

@@ -1,6 +1,6 @@
 -- Audyt 2 (8.10.2026), powiadomienia push:
---  - M-28 (N-6, T-24, E-13): kopia zadania powtarzanego (D76, D133) i nowa seria albo wyjątek z „to i następne” nie są
---    przypisaniem — osoba przechodzi z poprzedniego stanu sprawy, więc bez „X przypisuje Ci…”;
+--  - M-28 (N-6, T-24, E-13): kopia zadania powtarzanego (D76, D133) i kopie jego podzadań oraz nowa seria albo wyjątek
+--    z „to i następne” nie są przypisaniem — osoba przechodzi z poprzedniego stanu sprawy, więc bez „X przypisuje Ci…”;
 --  - M-75 (N-15): zaznaczenie „wysłane” zwalnia funkcja notify-handoff, gdy APNs nic nie przyjął (ponowienie z telefonu);
 --  - M-138 (U-43, N-28, U-53): treści w jednym miejscu (private.push_texts, zgodne ze strings.pl.ts — test kontraktowy),
 --    data jak na karcie „Do potwierdzenia” („Środa, 14 października”), przekazanie terminu serii z jego nazwą i dniem;
@@ -8,67 +8,12 @@
 --    src/domain/notification-target.ts): task/<id>, list/<id>, event/<id>[/<data>], today (skrzynka przekazań).
 -- Telefony z buildem 21 wołają te same funkcje z tymi samymi argumentami; dochodzą tylko pola „key” i „path”.
 
--- ───────────────────────── UUIDv5 w SQL (identyfikator kopii zadania powtarzanego) ─────────────────────────
--- SHA-1 wg FIPS 180-4 (https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf, 5.1.1 dopełnienie, 6.1.2 obliczenie),
--- jak src/domain/ids.ts — tylko do UUIDv5 (RFC 9562, 5.5), nie do zabezpieczeń. Bez rozszerzeń (pgcrypto, uuid-ossp
--- leżą w Supabase w schemacie extensions, lokalnie w public — funkcja ma działać tak samo wszędzie).
-create function private.sha1(msg bytea) returns bytea
-language plpgsql immutable strict parallel safe set search_path = '' as $$
-declare
-  m constant bigint := 4294967295; -- 2^32 − 1: słowa 32-bitowe na bigint
-  h0 bigint := 1732584193;         -- 67452301
-  h1 bigint := 4023233417;         -- efcdab89
-  h2 bigint := 2562383102;         -- 98badcfe
-  h3 bigint := 271733878;          -- 10325476
-  h4 bigint := 3285377520;         -- c3d2e1f0
-  data bytea := msg || '\x80'::bytea;
-  w bigint[];
-  a bigint; b bigint; c bigint; d bigint; e bigint; f bigint; k bigint; t bigint;
-  off int; i int; j int;
-begin
-  -- Bajt 0x80, zera do 56 mod 64, długość w bitach (64 bity, big-endian).
-  data := data || decode(repeat('00', (120 - length(data) % 64) % 64), 'hex') || int8send(length(msg)::bigint * 8);
-  for off in 0 .. length(data) - 1 by 64 loop
-    w := array_fill(0::bigint, array[80], array[0]);
-    for i in 0 .. 15 loop
-      j := off + i * 4;
-      w[i] := (get_byte(data, j)::bigint << 24) | (get_byte(data, j + 1) << 16) | (get_byte(data, j + 2) << 8) | get_byte(data, j + 3);
-    end loop;
-    for i in 16 .. 79 loop
-      t := w[i - 3] # w[i - 8] # w[i - 14] # w[i - 16];
-      w[i] := ((t << 1) | (t >> 31)) & m;
-    end loop;
-    a := h0; b := h1; c := h2; d := h3; e := h4;
-    for i in 0 .. 79 loop
-      if i < 20 then f := (b & c) | ((b # m) & d); k := 1518500249;      -- 5a827999
-      elsif i < 40 then f := b # c # d; k := 1859775393;                 -- 6ed9eba1
-      elsif i < 60 then f := (b & c) | (b & d) | (c & d); k := 2400959708; -- 8f1bbcdc
-      else f := b # c # d; k := 3395469782;                               -- ca62c1d6
-      end if;
-      t := ((((a << 5) | (a >> 27)) & m) + f + e + k + w[i]) & m;
-      e := d; d := c; c := ((b << 30) | (b >> 2)) & m; b := a; a := t;
-    end loop;
-    h0 := (h0 + a) & m; h1 := (h1 + b) & m; h2 := (h2 + c) & m; h3 := (h3 + d) & m; h4 := (h4 + e) & m;
-  end loop;
-  return substring(int8send(h0) from 5) || substring(int8send(h1) from 5) || substring(int8send(h2) from 5)
-      || substring(int8send(h3) from 5) || substring(int8send(h4) from 5);
-end $$;
-
--- UUIDv5 (RFC 9562, 5.5): SHA-1 z przestrzeni nazw i nazwy (UTF-8), wersja 5, wariant RFC — jak uuidv5 w src/domain/ids.ts.
-create function private.uuidv5(ns uuid, name text) returns uuid
-language sql immutable strict parallel safe set search_path = '' as $$
-  select encode(set_byte(set_byte(h, 6, (get_byte(h, 6) & 15) | 80), 8, (get_byte(h, 8) & 63) | 128), 'hex')::uuid
-  from (select substring(private.sha1(uuid_send(ns) || convert_to(name, 'UTF8')) from 1 for 16) as h) x
-$$;
-
--- REPEAT_NAMESPACE z src/domain/views/task-repeat.ts (test kontraktowy sql.contract.test.ts).
-create function private.repeat_namespace() returns uuid
-language sql immutable set search_path = '' as $$ select 'e21c312a-9090-47c5-9490-c54305c7ddd1'::uuid $$;
-
+-- ───────────────────────── Kopie zadań powtarzanych ─────────────────────────
 /**
- * Zadanie, którego kopią jest p_task (D76: id następnego = uuidv5(REPEAT_NAMESPACE, '<id>|next'), task-repeat.ts nextId),
- * albo null. Kandydaci z tej samej grupy i listy — najpierw z tym samym tytułem, potem ostatnio zmienione (źródło
- * kopii zwykle przed chwilą odhaczono); jeden kandydat to jedno SHA-1, ułamek milisekundy.
+ * Zadanie, którego kopią jest p_task, albo null: id następnego terminu i kopii podzadań = private.next_task_id(źródła)
+ * (20261008330000_handoff_obligation; telefon: nextId w task-repeat.ts). Kandydaci z tej samej grupy i listy — najpierw
+ * z tym samym tytułem, potem ostatnio zmienione (źródło kopii zwykle przed chwilą odhaczono); jeden kandydat to jedno
+ * SHA-1 w plpgsql, ułamek milisekundy.
  */
 create function private.task_repeat_source(p_task uuid) returns uuid
 language plpgsql stable security definer set search_path = '' as $$
@@ -81,7 +26,7 @@ begin
   for s in select t.id from public.tasks t
             where t.group_id = c.group_id and t.list_id = c.list_id and t.id <> c.id
             order by (t.title = c.title) desc, t.version desc limit 200 loop
-    if private.uuidv5(private.repeat_namespace(), s::text || '|next') = p_task then return s; end if;
+    if private.next_task_id(s) = p_task then return s; end if;
   end loop;
   return null;
 end $$;
