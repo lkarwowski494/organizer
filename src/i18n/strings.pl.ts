@@ -457,6 +457,8 @@ export const strings = {
   'rejected.code.cycle': 'Przeniesienie utworzyłoby pętlę zadań',
   'rejected.code.depth': 'Za głębokie zagnieżdżenie podzadań',
   'rejected.code.other': 'Zmiana niezgodna z danymi na serwerze',
+  'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
+  'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.op.create': 'Dodanie',
   'rejected.op.patch': 'Zmiana',
   'rejected.op.delete': 'Usunięcie',

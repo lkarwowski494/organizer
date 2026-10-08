@@ -14,6 +14,9 @@ type Props = NativeStackScreenProps<RootStackParams, 'Rejected'>;
 /** Kod błędu serwera → opis. Kody z migracji SQL (np. „forbidden:role”, „deleted:list”, „cycle”). */
 export function rejectionReason(code: string): string {
   const head = code.split(':')[0];
+  // Kody z migracji 20261008280000_audit_fixes (audyt 8.10.2026).
+  if (code === 'deleted:parent') return strings['rejected.code.parent'];
+  if (head === 'stale') return strings['rejected.code.stale'];
   if (head === 'forbidden') return strings['rejected.code.forbidden'];
   if (head === 'deleted' || head === 'not_found') return strings['rejected.code.deleted'];
   if (head === 'cycle') return strings['rejected.code.cycle'];
