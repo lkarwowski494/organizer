@@ -367,10 +367,11 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
   );
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+/** `a11yLabel` — etykieta VoiceOver grupy z kontekstem, gdy kilka grup na ekranie ma ten sam napis (audyt 2, M-145). */
+export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ gap: 6 }}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {options.map((o) => {
