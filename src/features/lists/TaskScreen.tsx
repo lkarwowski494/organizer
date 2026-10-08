@@ -125,8 +125,18 @@ export function TaskScreen({ route, navigation }: Props) {
         <Text style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>{`${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`}</Text>
       </View>
       {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
-      <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
-      <Field label={strings['task.note']} value={note} onChangeText={setNote} multiline testID="task-note" />
+      {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
+      {canEdit ? (
+        <>
+          <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
+          <Field label={strings['task.note']} value={note} onChangeText={setNote} multiline testID="task-note" />
+        </>
+      ) : (
+        <>
+          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
+          {task.note ? <Body>{task.note}</Body> : null}
+        </>
+      )}
       <SectionTitle>{strings['task.due']}</SectionTitle>
       <Body muted>
         {task.deadline_mode === 'none'
@@ -137,9 +147,9 @@ export function TaskScreen({ route, navigation }: Props) {
               ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
-      <DateField label={strings['task.dueDate']} value={date} onChange={setDate} today={today} testID="task-date" />
-      <Field label={strings['task.dueTime']} value={time} onChangeText={setTime} placeholder="17:30" testID="task-time" />
-      {task.deadline_mode !== 'none' ? (
+      {canEdit ? <DateField label={strings['task.dueDate']} value={date} onChange={setDate} today={today} testID="task-date" /> : null}
+      {canEdit ? <Field label={strings['task.dueTime']} value={time} onChangeText={setTime} placeholder="17:30" testID="task-time" /> : null}
+      {canEdit && task.deadline_mode !== 'none' ? (
         <Button
           kind="secondary"
           label={strings['task.clearDue']}
@@ -152,7 +162,7 @@ export function TaskScreen({ route, navigation }: Props) {
         />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
-      {task.deadline_mode !== 'none' && !linked ? (
+      {canEdit && task.deadline_mode !== 'none' && !linked ? (
         <Segmented
           label={strings['task.rollover']}
           value={task.rollover ? 'roll' : 'day'}
@@ -218,6 +228,7 @@ export function TaskScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
         )
       ) : null}
+      {canEdit ? (
       <Segmented
         label={strings['task.assignee']}
         value={task.assignee_member_id ?? ''}
@@ -228,18 +239,19 @@ export function TaskScreen({ route, navigation }: Props) {
         }}
         options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
+      ) : null}
       {depth < config.MAX_TASK_DEPTH ? (
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {(node?.children ?? []).map((ch) => (
             <StationRow key={ch.id} testID={`sub-${ch.id}`} title={ch.title} line={detail.list.line} checked={ch.completed_at !== null} onToggle={() => actions.toggle(ch)} onOpen={() => navigation.push('Task', { taskId: ch.id })} />
           ))}
-          <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" />
-          <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} />
+          {canEdit ? <Field label={strings['task.addSubtask']} value={sub} onChangeText={setSub} onSubmitEditing={addSub} testID="task-sub" /> : null}
+          {canEdit ? <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} /> : null}
         </View>
       ) : null}
-      <Button label={strings['task.save']} onPress={save} testID="task-save" />
-      <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} />
+      {canEdit ? <Button label={strings['task.save']} onPress={save} testID="task-save" /> : null}
+      {canEdit ? <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} /> : null}
       <TaskHistory entries={taskHistory(tables, task.id, config.HISTORY_LIMIT)} today={today} />
     </Screen>
   );

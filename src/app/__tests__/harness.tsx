@@ -124,7 +124,9 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
 
 export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  const state: ClientState = { ...initialState('c-test'), base: opts.base ?? sampleBase() };
+  const base = opts.base ?? sampleBase();
+  // Dane jak po pobraniu: każda grupa ma kursor (bez tego lustro kalendarza czeka, mirrorReady).
+  const state: ClientState = { ...initialState('c-test'), base, cursors: Object.fromEntries(Object.keys(base.groups ?? {}).map((g) => [g, 1])) };
   const store = memoryStore(state, opts.indicator);
   const account = opts.account ?? fakeAccount();
   const calendar = opts.calendar ?? { add: jest.fn(async () => 'saved' as const) };

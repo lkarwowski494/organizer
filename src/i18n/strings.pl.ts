@@ -101,6 +101,7 @@ export const strings = {
   'reset.start': 'Wyczyść dane na telefonie',
   'reset.pending': (n: number) => `Uwaga: ${n} ${plural(n, { one: 'zmiana nie została jeszcze wysłana na serwer i przepadnie', few: 'zmiany nie zostały jeszcze wysłane na serwer i przepadną', many: 'zmian nie zostało jeszcze wysłanych na serwer i przepadnie' })}.`,
   'reset.confirm': 'Wyczyść i pobierz od nowa',
+  'reset.offline': 'Najpierw połącz się z internetem — bez niego telefon zostałby pusty, dopóki sieć nie wróci.',
   'travel.mode.driving': 'autem',
   'travel.mode.transit': 'komunikacją',
   'travel.mode.walking': 'pieszo',
