@@ -25,7 +25,7 @@ describe('plan lekcji (D112)', () => {
     await press(screen.getByTestId('lesson-add-4'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Basen');
     await setTime('lesson-end-0', '09:00');
-    await press(within(screen.getByLabelText('Kiedy')).getByLabelText('Tydzień B'));
+    await press(radio('Kiedy, lekcja 1, piątek', 'Tydzień B'));
     await press(screen.getByTestId('timetable-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Basen', start_date: '2026-10-09' } });
   });
@@ -45,7 +45,7 @@ describe('plan lekcji (D112)', () => {
     await press(screen.getByTestId('timetable-save'));
     expect(screen.getByText(/Koniec musi być/)).toBeTruthy();
     await setTime('lesson-end-1', '09:30');
-    await press(within(screen.getAllByLabelText('Kiedy')[1]!).getByLabelText('Tydzień B'));
+    await press(radio('Kiedy, lekcja 2, poniedziałek', 'Tydzień B'));
     await press(screen.getByTestId('lesson-add-2'));
     await press(screen.getAllByText('Usuń lekcję')[2]!);
     await press(screen.getByTestId('timetable-save'));
@@ -59,10 +59,11 @@ describe('plan lekcji (D112)', () => {
     const bar = await screen.findByTestId('undo-bar');
     expect(within(bar).getByText('Dodano plan: 2 serie wydarzeń')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.slice(-2).map((o) => o.kind)).toEqual(['delete', 'delete']);
+    // Serie do kosza; kotwica tygodnia A (zapisana przy lekcji z tygodnia B, D171) wraca do pustej.
+    expect(store.dispatched.slice(-3)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: null } }]);
   });
 
-  it('D128: ekran z obecnym planem; zapis kończy stary od dziś i dodaje nowy; cofnięcie przywraca', async () => {
+  it('D128, M-14: ekran z obecnym planem; zmieniona lekcja od jutra tym samym poleceniem co „to i następne”; cofnięcie', async () => {
     const base = sampleBase();
     put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
     put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
@@ -71,12 +72,13 @@ describe('plan lekcji (D112)', () => {
     expect(screen.getByTestId('lesson-end-0').props.accessibilityValue.text).toBe('08:45');
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka rozszerzona');
     await press(screen.getByTestId('timetable-save'));
-    expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'mat', set: { rrule: 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261006' } });
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', kind: 'lesson' } });
+    expect(store.dispatched).toEqual([
+      expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ event_id: 'mat', date: '2026-10-08', set: expect.objectContaining({ title: 'Matematyka rozszerzona', start_date: '2026-10-12' }) }) }),
+    ]);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od dziś)')).toBeTruthy();
+    expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od jutra)')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.slice(-2)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'events', id: 'mat', set: { rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'events', set: { title: 'Matematyka', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } });
   });
 
   it('zapis bez zmian: nic nie wysyła i nie pokazuje paska (audyt 2, E-5)', async () => {
@@ -88,6 +90,44 @@ describe('plan lekcji (D112)', () => {
     expect(await screen.findByTestId('screen-member')).toBeTruthy();
     expect(store.dispatched).toEqual([]);
     expect(screen.queryByTestId('undo-bar')).toBeNull();
+  });
+
+  it('D171 (M-15): litery A/B z kotwicy przy dziecku; przełącznik zamienia litery, nie przesuwa lekcji', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '16:00:00', end_time: '17:00:00', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-basen', { id: 'p-basen', event_id: 'basen', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(base, 'group_members', 'kuba', { ...base.group_members!.kuba!, week_a: '2026-09-28' });
+    const { store } = await openTimetable(base);
+    const week = (group: string, option: string) => radio(group, option).props.accessibilityState.selected;
+    // 28.09 to tydzień A, więc ten tydzień (5.10) to B, a basen z 5.10 — tydzień B.
+    expect(week('Ten tydzień (5–11 października) to', 'Tydzień B')).toBe(true);
+    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień B')).toBe(true);
+    expect(screen.getByText('Zmiana tygodnia nie przesuwa lekcji — zamienia tylko litery A i B.')).toBeTruthy();
+    await press(radio('Ten tydzień (5–11 października) to', 'Tydzień A'));
+    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień A')).toBe(true);
+    await press(screen.getByTestId('timetable-save'));
+    // Tylko nowa kotwica — lekcje bez zmian.
+    expect(store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-10-05' } }]);
+  });
+
+  it('M-145, E-26: etykiety z numerem w obrębie dnia i dniem; sobota widoczna, gdy ma lekcję', async () => {
+    const base = sampleBase();
+    put(base, 'events', 'sob', { id: 'sob', group_id: 'gf', title: 'Robotyka', start_date: '2026-10-10', start_time: '09:00:00', end_time: '10:00:00', rrule: 'FREQ=WEEKLY;BYDAY=SA', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-sob', { id: 'p-sob', event_id: 'sob', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    await openTimetable(base);
+    expect(screen.getByTestId('timetable-day-5')).toBeTruthy();
+    expect(screen.queryByTestId('timetable-day-6')).toBeNull();
+    expect(screen.getByLabelText('Lekcja 1, sobota').props.value).toBe('Robotyka');
+    await press(screen.getByTestId('lesson-add-0'));
+    await press(screen.getByTestId('lesson-add-1'));
+    await press(screen.getByTestId('lesson-add-1'));
+    expect(screen.getByLabelText('Lekcja 2, wtorek')).toBeTruthy();
+    expect(screen.getByLabelText(/^Początek, lekcja 2, wtorek: /)).toBeTruthy();
+    expect(screen.getByLabelText(/^Koniec, lekcja 2, wtorek: /)).toBeTruthy();
+    expect(screen.getByLabelText('Usuń lekcję 2, wtorek')).toBeTruthy();
+    expect(screen.getByLabelText('Usuń lekcję 1, poniedziałek')).toBeTruthy();
+    await press(screen.getByLabelText('Usuń lekcję 1, sobota'));
+    expect(screen.queryByTestId('timetable-day-5')).toBeNull();
   });
 
   it('D128: przycisk planu tylko przy dziecku', async () => {
