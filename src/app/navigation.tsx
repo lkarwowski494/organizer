@@ -27,6 +27,7 @@ import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
 import { NameScreen } from '../features/profile/NameScreen';
 import { TimetableScreen } from '../features/groups/TimetableScreen';
+import { RoutineScreen } from '../features/events/RoutineScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { TodayScreen } from '../features/today/TodayScreen';
 import { WelcomeScreen } from '../features/welcome/WelcomeScreen';
@@ -125,6 +126,7 @@ export function RootStack() {
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       <Stack.Screen name="Name" component={NameScreen} />
       <Stack.Screen name="Timetable" component={TimetableScreen} />
+      <Stack.Screen name="Routine" component={RoutineScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack.Navigator>
       </CalendarSyncProvider>

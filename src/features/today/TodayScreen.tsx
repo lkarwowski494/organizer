@@ -12,6 +12,7 @@ import { findTimeRange, withoutRange } from '../../domain/time-range';
 import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
+import { routineStreak, taskStreak } from '../../domain/views/routines';
 import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
@@ -161,6 +162,8 @@ export function TodayScreen() {
     />
   );
   // D104: podzadanie pod rodzicem (wcięcie), licznik u rodzica, dopisek rodzica, gdy go nie ma w tym dniu.
+  // D114: seria (od 2 z rzędu) przy rutynie i zadaniu powtarzanym.
+  const streakOf = (k: number) => (k >= 2 ? [strings['streak'](k)] : []);
   const nestMeta = (n?: Nesting) => [
     ...(n?.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []),
     ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []),
@@ -172,7 +175,7 @@ export function TodayScreen() {
         title={task.title}
         line={task.line}
         group={groupLabel(task.group_id, task.groupName)}
-        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : [])]}
+        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...(task.assignee ? [strings['task.assignedTo'](task.assignee)] : []), ...streakOf(taskStreak(tables, task.id, (iso) => formatIsoDate(localNow(Date.parse(iso)))))]}
         depth={n?.depth}
         alert={alert}
         checked={task.completed_at !== null}
@@ -191,7 +194,7 @@ export function TodayScreen() {
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
-        extra={n?.progress ? strings['nest.progress'](n.progress.done, n.progress.total) : undefined}
+        extra={[...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
