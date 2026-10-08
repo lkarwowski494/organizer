@@ -56,7 +56,7 @@ ma w komentarzu adres źródła.
 
 ## Architektura (skrót — szczegóły w dokumencie „Architektura i plan MVP”)
 
-- Ekrany czytają wyłącznie z lokalnej bazy SQLite (expo-sqlite + Drizzle, D25). Każda zmiana zapisuje się
+- Ekrany czytają wyłącznie z lokalnej bazy SQLite (expo-sqlite, zwykły SQL w `src/data/db`; Drizzle z D25 nie został użyty). Każda zmiana zapisuje się
   lokalnie w jednej transakcji z wpisem w kolejce `pending_ops` (D2, R1).
 - Serwer: Supabase Free, Frankfurt (D1). Push zmian: RPC `sync_push` (SECURITY INVOKER, RLS jako jedyna
   kontrola dostępu). Pull: kursor = wersja per grupa (D32). Realtime Broadcast wyłącznie jako pusty sygnał.
