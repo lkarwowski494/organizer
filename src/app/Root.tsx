@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { readState, writeState } from '../data/store';
+import { loadLocal, readState, saveLocal, writeState } from '../data/store';
 import type { DbAdapter } from '../data/db/adapter';
 import { migrate } from '../data/db/migrations';
 import { strings } from '../i18n/strings.pl';
@@ -119,6 +119,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       calendar: deps.calendar,
       push: deps.push,
       prefs: deps.prefs,
+      local: { load: (k) => loadLocal(db, k), save: (k, v) => saveLocal(db, k, v) },
       userId: session.userId,
       displayName: session.displayName,
       newId: deps.newId,
@@ -126,7 +127,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       nowIso: () => new Date(nowMs()).toISOString(),
       nowMs,
     }),
-    [runtime, deps, session, nowMs],
+    [runtime, db, deps, session, nowMs],
   );
 
   // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).

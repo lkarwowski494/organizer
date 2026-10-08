@@ -21,7 +21,8 @@
         "CFBundleDevelopmentRegion": "pl",
         "CFBundleLocalizations": [
           "pl"
-        ]
+        ],
+        "NSCalendarsWriteOnlyAccessUsageDescription": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje kalendarza."
       }
     },
     "web": {
@@ -34,9 +35,8 @@
       [
         "expo-calendar",
         {
-          "writeOnlyAccess": true,
-          "writeOnlyCalendarPermission": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje kalendarza.",
-          "calendarPermission": "Organizer dodaje wybrane wydarzenia do Twojego kalendarza. Nie odczytuje ani nie zmienia Twoich wydarzeń.",
+          "writeOnlyAccess": false,
+          "calendarPermission": "Organizer pokazuje Twoje wydarzenia z kalendarza obok spraw grup i dodaje wydarzenia grup do osobnych kalendarzy „Organizer”. Twoje wydarzenia nie opuszczają telefonu.",
           "remindersPermission": "Organizer nie korzysta z Przypomnień."
         }
       ],

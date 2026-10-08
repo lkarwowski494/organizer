@@ -11,7 +11,7 @@
 - **Token powiadomień** urządzenia (jeśli włączysz powiadomienia) — żeby wysłać powiadomienie o przekazaniu.
 - **Zgłoszenia błędów:** gdy aplikacja napotka błąd, wysyła jego opis techniczny (komunikat, miejsce w kodzie, nazwę ekranu, wersję aplikacji) — bez treści Twoich list, zadań i imion. Najwyżej 50 dziennie, przechowywane 90 dni.
 - **Uwagi:** tekst, który sam wyślesz z Ustawień („Wyślij uwagę”), z wersją aplikacji. Przechowywane 90 dni.
-- **Kalendarz iPhone'a:** tylko zapis wybranego wydarzenia, gdy dotkniesz „Dodaj do kalendarza”. Nie odczytujemy kalendarza.
+- **Kalendarz iPhone'a** (tylko gdy połączysz go w aplikacji): aplikacja odczytuje Twoje wydarzenia, żeby pokazać je obok spraw grup, i zapisuje wydarzenia Twoich grup w osobnych kalendarzach „Organizer – nazwa grupy”. Twoje wydarzenia nie są wysyłane na serwer ani pokazywane innym osobom — zostają na telefonie. Połączenie wyłączysz w Ustawieniach aplikacji (kalendarze „Organizer” zostaną wtedy usunięte z iPhone'a) albo w Ustawieniach iPhone'a. Bez połączenia: tylko zapis wybranego wydarzenia, gdy dotkniesz „Dodaj do kalendarza”.
 
 Nie ma reklam, analityki ani śledzenia. Nie sprzedajemy i nie udostępniamy danych nikomu poza osobami z Twoich grup.
 

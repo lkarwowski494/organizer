@@ -24,6 +24,8 @@ import { WhatsNew } from './WhatsNew';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 import { extractMention, type MentionTarget, mentionTargets } from '../../domain/views/mention';
 import { useUndo } from '../../ui/undo';
+import { useDeviceCalendar } from '../../app/calendar-sync';
+import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
@@ -92,7 +94,9 @@ export function TodayScreen() {
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
-  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0);
+  // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie) — w każdym dniu zakresu, po sprawach grup.
+  const device = useDeviceCalendar().days;
+  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && !device.has(d.date));
 
   const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
     // Zakupy z listy zakupów (D73): odhaczenie z potwierdzeniem i pytaniem o niekupione, dotknięcie otwiera listę.
@@ -217,11 +221,14 @@ export function TodayScreen() {
         </View>
       ) : null}
       {view.days.map((d) =>
-        d.entries.length === 0 ? null : (
+        d.entries.length === 0 && !device.has(d.date) ? null : (
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
             {d.entries.map((x) => entryRow(x, d.past))}
+            {(device.get(d.date) ?? []).map((e) => (
+              <DeviceEventRow key={e.key} e={e} />
+            ))}
           </View>
         ),
       )}

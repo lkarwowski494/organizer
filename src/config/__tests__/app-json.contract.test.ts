@@ -34,9 +34,11 @@ describe('Info.plist po wtyczkach', () => {
     const { exp } = await getPrebuildConfigAsync(root, { platforms: ['ios'] });
     const out = await compileModsAsync(exp, { projectRoot: root, introspect: true, platforms: ['ios'], assertMissingModProviders: false });
     const plist = out.ios?.infoPlist ?? {};
-    for (const key of ['NSCalendarsUsageDescription', 'NSCalendarsWriteOnlyAccessUsageDescription', 'NSRemindersUsageDescription', 'NSRemindersFullAccessUsageDescription']) {
+    for (const key of ['NSCalendarsUsageDescription', 'NSCalendarsFullAccessUsageDescription', 'NSCalendarsWriteOnlyAccessUsageDescription', 'NSRemindersUsageDescription', 'NSRemindersFullAccessUsageDescription']) {
       expect(String(plist[key])).toMatch(/^Organizer /);
     }
+    // D96: pełny dostęp do kalendarza, ale prywatne wydarzenia zostają na telefonie — tak mówi opis.
+    expect(String(plist.NSCalendarsFullAccessUsageDescription)).toContain('nie opuszczają telefonu');
   }, 60000);
 });
 

@@ -33,6 +33,7 @@ import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
+import { CalendarSyncProvider } from './calendar-sync';
 import { RemindersProvider } from './reminders';
 import { SeriesFiller } from './SeriesFiller';
 import type { RootStackParams, TabParams } from './routes';
@@ -104,6 +105,7 @@ export function RootStack() {
       <SeriesFiller />
       <HandoffNotifier />
       <RemindersProvider>
+      <CalendarSyncProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
@@ -121,6 +123,7 @@ export function RootStack() {
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack.Navigator>
+      </CalendarSyncProvider>
       </RemindersProvider>
     </>
   );

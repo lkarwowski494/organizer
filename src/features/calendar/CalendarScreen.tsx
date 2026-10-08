@@ -20,6 +20,9 @@ import { eventsByDate, timeLabel } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
+import { useDeviceCalendar } from '../../app/calendar-sync';
+import { DeviceCalendarCard } from './DeviceCalendarCard';
+import { DeviceEventRow } from './DeviceEventRow';
 
 export function CalendarScreen() {
   const { userId } = useServices();
@@ -40,10 +43,14 @@ export function CalendarScreen() {
   const roles = myMemberships(tables, userId);
   const memberName = (id: string) => String(tables.group_members?.[id]?.display_name ?? '');
   const isoToday = formatIsoDate(today);
+  // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
+  const device = useDeviceCalendar().days;
+  const dayDevice = day ? (device.get(day.date) ?? []) : [];
 
   return (
     <Screen testID="screen-calendar">
       <Title>{strings['calendar.title']}</Title>
+      <DeviceCalendarCard />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.prev']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 26, color: c.ink }}>‹</Text>
@@ -79,6 +86,7 @@ export function CalendarScreen() {
                 {[...new Set([...evs.map((e) => e.line), ...d.items.map((i) => i.line)])].slice(0, 4).map((l) => (
                   <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: line(l).line }} />
                 ))}
+                {device.has(d.date) ? <View testID={`device-dot-${d.date}`} style={{ width: 6, height: 6, borderRadius: 2, borderWidth: 1, borderColor: c.inkMuted }} /> : null}
               </View>
             </Pressable>
           );
@@ -90,7 +98,7 @@ export function CalendarScreen() {
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
-          {day.items.length === 0 && dayEvents.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
           {agenda(day.items, dayEvents).map((x) =>
             x.kind === 'event' ? (
               <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
@@ -112,6 +120,9 @@ export function CalendarScreen() {
               </SwipeRow>
             ),
           )}
+          {dayDevice.map((e) => (
+            <DeviceEventRow key={e.key} e={e} />
+          ))}
         </View>
       ) : null}
       <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
