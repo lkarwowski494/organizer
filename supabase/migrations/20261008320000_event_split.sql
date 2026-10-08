@@ -201,6 +201,16 @@ begin
   return g;
 end $$;
 
+-- ───────────────────────── Powiadomienia (M-28) ─────────────────────────
+-- Seria, którą wydarzenie kontynuuje po „to i następne” (events.split_from, ustawiane w tym samym poleceniu, które tworzy
+-- nową serię), albo null. Woła ją private.assignment_carried_over (20261008350000_push_fixes): nowa seria z podziału z tą
+-- samą osobą odpowiedzialną to nie przypisanie. Tamta migracja tworzy wersję „zawsze null” tylko, gdy tej jeszcze nie ma
+-- (create or replace — działa w obu kolejnościach). Wyjątki przechodzą do nowej serii z tym samym id (bez „create”).
+create or replace function private.event_split_source(p_event uuid) returns uuid
+language sql stable set search_path = '' as $$
+  select e.split_from from public.events e where e.id = p_event
+$$;
+
 -- ───────────────────────── M-95 (PW-33, wariant A): godziny wyjątku ─────────────────────────
 -- Godziny wyjątku równe godzinom serii w chwili zapisu znaczą „jak w serii” (null): przy wstawieniu i przy zmianie
 -- godzin. Telefony z nową wersją wysyłają wtedy null same; ten wyzwalacz obsługuje build 21, który zapisuje w wyjątku
