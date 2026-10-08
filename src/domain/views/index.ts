@@ -34,37 +34,54 @@ export type GroupItem = Group & { line: number; me: Member; memberCount: number 
 /**
  * Grupy, do których należę: osobista pierwsza, potem w kolejności dołączenia do projektu (created_at).
  * `line` — numer koloru linii (src/config/theme.ts, groupLines); przydział po kolejności jest stały, dopóki
- * nie zmienia się zbiór grup, i dwie grupy nie dostają tego samego koloru, póki jest ich ≤ liczba kolorów.
+ * nie zmienia się zbiór grup ani wybrane kolory, i dwie grupy nie dostają tego samego koloru, póki jest ich ≤ liczba
+ * kolorów (chyba że właściciele dwóch grup wybrali ten sam).
  */
 export function groupsView(t: Tables, userId: string): GroupItem[] {
   const mine = myMemberships(t, userId);
   const members = rows(t, 'group_members', asMember).filter(alive);
-  return rows(t, 'groups', asGroup)
+  const groups = rows(t, 'groups', asGroup)
     .filter((g) => alive(g) && mine.has(g.id))
     .sort(
       (a, b) =>
         personalFirst(a) - personalFirst(b) ||
         (a.created_at ?? '￿').localeCompare(b.created_at ?? '￿') ||
         a.id.localeCompare(b.id),
-    )
-    .map((g, i) => ({ ...g, line: lineOf(g, i), me: mine.get(g.id)!, memberCount: members.filter((m) => m.group_id === g.id).length }));
+    );
+  const lines = linesOf(groups);
+  return groups.map((g, i) => ({ ...g, line: lines[i]!, me: mine.get(g.id)!, memberCount: members.filter((m) => m.group_id === g.id).length }));
 }
 
-/** Kolor wybrany przez właściciela (D56, wspólny dla wszystkich) albo przydział po kolejności. */
-function lineOf(g: Group, i: number): number {
-  const chosen = groupLines.findIndex((l) => l.key === g.color);
-  return chosen >= 0 ? chosen : i % groupLines.length;
+/**
+ * Kolor wybrany przez właściciela (D56, wspólny dla wszystkich) albo przydział po kolejności spośród kolorów, których
+ * nie wybrał właściciel żadnej z moich grup (audyt 2, R-23: wybrany kolor nie dubluje się z automatycznym). Gdy wolnych
+ * zabraknie, automatyczne powtarzają wolne po kolei, a gdy wybrane są wszystkie — całą paletę.
+ */
+function linesOf(groups: readonly Group[]): number[] {
+  const chosen = groups.map((g) => groupLines.findIndex((l) => l.key === g.color));
+  const all = groupLines.map((_, i) => i);
+  const free = all.filter((i) => !chosen.includes(i));
+  const pool = free.length > 0 ? free : all;
+  let next = 0;
+  return chosen.map((c) => (c >= 0 ? c : pool[next++ % pool.length]!));
 }
 
-export type TrashedGroup = Group & { daysLeft: number };
+/** `restoreUntilMs` — do kiedy właściciel może przywrócić grupę; `canRestore` — to ja (właściciel). */
+export type TrashedGroup = Group & { daysLeft: number; restoreUntilMs: number; canRestore: boolean };
 
-/** Grupy w koszu, które mogę przywrócić (jestem właścicielem), z liczbą dni do trwałego usunięcia (D54). */
+/**
+ * Moje grupy w koszu z liczbą dni do trwałego usunięcia (D54). Przywraca tylko właściciel; pozostali członkowie widzą
+ * wpis z datą, zamiast żeby grupa po prostu znikała (decyzja właściciela z 8.10.2026, PWD-21 A).
+ */
 export function trashedGroups(t: Tables, userId: string, nowMs: number): TrashedGroup[] {
   const mine = myMemberships(t, userId);
   const day = 86_400_000;
   return rows(t, 'groups', asGroup)
-    .filter((g) => g.deleted_at !== null && mine.get(g.id)?.role === 'owner')
-    .map((g) => ({ ...g, daysLeft: Math.max(0, Math.ceil((Date.parse(g.deleted_at!) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day)) }))
+    .filter((g) => g.deleted_at !== null && mine.has(g.id))
+    .map((g) => {
+      const restoreUntilMs = Date.parse(g.deleted_at!) + config.sync.TOMBSTONE_DAYS * day;
+      return { ...g, restoreUntilMs, daysLeft: Math.max(0, Math.ceil((restoreUntilMs - nowMs) / day)), canRestore: mine.get(g.id)!.role === 'owner' };
+    })
     .filter((g) => g.daysLeft > 0)
     .sort(byName);
 }
@@ -88,8 +105,9 @@ export type GroupDetail = {
 export type MemberActions = { rename: boolean; setRole: boolean; remove: boolean; makeOwner: boolean };
 
 /**
- * Co mogę zrobić z członkiem — jak strażnik członkostw (migracje invites, groups_edit): imię zmienia owner/admin
- * albo sam członek; role i przekazanie tylko owner; usuwa owner (każdego poza sobą) albo admin (tylko member/child).
+ * Co mogę zrobić z członkiem — jak strażnik członkostw (migracje invites, groups_edit, 20261008360000): imię osoby z kontem
+ * zmienia ona sama albo owner, a profilu bez konta — owner albo admin (decyzja właściciela z 8.10.2026, PW-54 A); role
+ * i przekazanie tylko owner; usuwa owner (każdego poza sobą) albo admin (tylko member/child).
  * Nowy właściciel to dorosły z kontem (D49, D55).
  */
 export function memberActions(d: GroupDetail, m: Member): MemberActions {
@@ -99,11 +117,30 @@ export function memberActions(d: GroupDetail, m: Member): MemberActions {
   const owner = me.role === 'owner';
   const admin = me.role === 'admin';
   return {
-    rename: self || owner || admin,
+    rename: self || owner || (admin && m.user_id === null),
     setRole: shared && owner && !self && m.role !== 'child' && m.user_id !== null,
     remove: shared && !self && (owner || (admin && (m.role === 'member' || m.role === 'child'))),
     makeOwner: shared && owner && !self && m.user_id !== null && (m.role === 'admin' || m.role === 'member'),
   };
+}
+
+export type RemovedMember = Member & { daysLeft: number };
+
+/**
+ * Osoby usunięte z grupy, które mogę przywrócić (D165, decyzja z 8.10.2026): przez config.sync.TOMBSTONE_DAYS dni od
+ * usunięcia, z prawami jak przy usuwaniu (owner — każdego, admin — członka i dziecko). Konto, które samo wyszło (bez
+ * `removed_at`, który wpisuje serwer), wraca tylko przez zaproszenie. Pod kosz osób (D151); dziś przywraca pasek „Cofnij”.
+ */
+export function removedMembers(t: Tables, userId: string, groupId: string, nowMs: number): RemovedMember[] {
+  const me = myMemberships(t, userId).get(groupId);
+  if (!me || (me.role !== 'owner' && me.role !== 'admin')) return [];
+  const day = 86_400_000;
+  return Object.values(t.group_members ?? {})
+    .map((r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
+    .filter(({ m, removedAt }) => m.group_id === groupId && m.deleted_at !== null && typeof removedAt === 'string' && (me.role === 'owner' || m.role === 'member' || m.role === 'child'))
+    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((Date.parse(removedAt as string) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
+    .filter((m) => m.daysLeft > 0)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
 
 export function groupDetail(t: Tables, userId: string, groupId: string): GroupDetail | null {

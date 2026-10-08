@@ -49,10 +49,14 @@ function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boo
     // Nowe przekazanie przed wysłaniem nie ma nadawcy (ustawia go serwer) — to moje.
     const h = row.from_member === '' ? { ...row, from_member: g.me.member_id } : row;
     if (!pick(h, g.me.member_id)) continue;
+    // Audyt 2 (R-34): osoba usunięta z grupy (albo która wyszła) nie przyjmie ani nie przekaże — serwer anuluje
+    // jej oczekujące przekazania; do czasu pobrania nie pokazujemy ich wcale.
+    const o = members.get(other(h));
+    if (o?.deleted_at) continue;
     const raw = t[h.entity]?.[h.entity_id];
     // Zakupy (D73): tytuł to nazwa listy; ekran dopisuje „Zakupy:”.
     const title = !raw ? '' : h.entity === 'tasks' ? asTask(raw).title : h.entity === 'events' ? asEvent(raw).title : asList(raw).name;
-    out.push({ ...h, title, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line });
+    out.push({ ...h, title, otherName: o?.display_name ?? '', groupName: g.name, line: g.line });
   }
   return out.sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }

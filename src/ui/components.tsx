@@ -3,7 +3,7 @@
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, type Ref, useRef, useState } from 'react';
 import { Dimensions, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -240,12 +240,14 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
   );
 }
 
-export function Field({ label, ...input }: TextInputProps & { label: string }) {
+/** `ref` — pole tekstowe (React 19: ref jak zwykły props), np. żeby przejść do pola z karty „Następne kroki”. */
+export function Field({ label, ref, ...input }: TextInputProps & { label: string; ref?: Ref<TextInput> }) {
   const { c, font, size } = useTheme();
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <TextInput
+        ref={ref}
         accessibilityLabel={label}
         placeholderTextColor={c.inkMuted}
         style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 12, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
@@ -306,8 +308,11 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
   );
 }
 
-/** Wiersz nawigacyjny (lista, grupa, ustawienie) z kropką linii. */
-export function NavRow({ title, subtitle, line, onPress, testID }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string }) {
+/**
+ * Wiersz nawigacyjny (lista, grupa, ustawienie) z kropką linii. `chevron={false}` — wiersz wyboru, który nie przechodzi
+ * na inny ekran (strzałka „›” obiecuje przejście, audyt 2: G-14, U-14).
+ */
+export function NavRow({ title, subtitle, line, onPress, testID, chevron = true }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string; chevron?: boolean }) {
   const { c, font, size, line: lineOf } = useTheme();
   return (
     <Pressable
@@ -322,7 +327,7 @@ export function NavRow({ title, subtitle, line, onPress, testID }: { title: stri
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{title}</Text>
         {subtitle ? <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{subtitle}</Text> : null}
       </View>
-      <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text>
+      {chevron ? <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text> : null}
     </Pressable>
   );
 }

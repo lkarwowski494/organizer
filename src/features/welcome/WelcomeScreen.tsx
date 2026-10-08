@@ -53,7 +53,7 @@ export function WelcomeScreen({ navigation }: Props) {
       {dots}
       <Title>{strings['welcome.start.title']}</Title>
       <Body muted>{strings['welcome.start.body']}</Body>
-      <Button label={strings['welcome.start.family']} testID="welcome-family" onPress={() => finish(() => navigation.navigate('NewGroup', { name: strings['welcome.start.familyName'] }))} />
+      <Button label={strings['welcome.start.family']} testID="welcome-family" onPress={() => finish(() => navigation.navigate('NewGroup', { name: strings['welcome.start.familyName'], starter: true }))} />
       <Button kind="secondary" label={strings['welcome.start.code']} testID="welcome-code" onPress={() => finish(() => navigation.navigate('Invite', {}))} />
       <Button kind="secondary" label={strings['welcome.start.alone']} testID="welcome-alone" onPress={() => finish()} />
     </Screen>

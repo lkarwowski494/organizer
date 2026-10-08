@@ -1,4 +1,4 @@
-/** Wybór spotkania (wystąpienia) — do przepinania i podpinania zadań (D13, D14). */
+/** Wybór spotkania (wystąpienia) — do przepinania i podpinania zadań (D13, D14). Wiersz wybiera od razu, więc bez „›”. */
 import { Text, View } from 'react-native';
 
 import type { CivilDate } from '../../domain/civil-date';
@@ -24,6 +24,7 @@ export function OccurrencePicker({ items, today, onPick, onCancel }: { items: Oc
           subtitle={[formatDue({ date: o.date, time: null }, today), timeLabel(o.startTime, o.endTime)].filter(Boolean).join(' · ')}
           line={o.line}
           onPress={() => onPick(o)}
+          chevron={false}
         />
       ))}
       <Button kind="secondary" label={strings['common.cancel']} onPress={onCancel} />
