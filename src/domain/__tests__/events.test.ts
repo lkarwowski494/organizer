@@ -76,6 +76,32 @@ const brief = (xs: ReturnType<typeof expandEvents>) => xs.map((x) => `${x.date} 
 const range = (t: T, from: string, to: string) => expandEvents(t, ME, D(from), D(to));
 const detail = (t: T, id: string): EventDetail => eventDetail(t, ME, id)!;
 
+describe('miejsce wydarzenia (D115)', () => {
+  const base = { title: 'Basen', date: '2026-10-05', startTime: '17:00', endTime: null, rule: null, until: null, audience: 'group' as const, participantIds: [], responsibleId: null };
+  it('nowe z miejscem i bez; zmiana całości tylko gdy inne; „to i następne” przenosi miejsce do nowej serii', () => {
+    let n = 0;
+    const id = () => `n${++n}`;
+    expect(createEvent('gf', { ...base, location: 'ul. Wodna 1' }, id).ops[0]).toMatchObject({ set: { location: 'ul. Wodna 1' } });
+    expect((createEvent('gf', base, id).ops[0] as { set: object }).set).not.toHaveProperty('location');
+    const t = {} as Parameters<typeof put>[0];
+    put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
+    put(t, 'events', 'e', { id: 'e', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '17:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', location: 'ul. Wodna 1', deleted_at: null });
+    const d = eventDetail(t, ME, 'e')!;
+    const rule = d.rule;
+    const all = (f: object) => (editEvent(d, '2026-10-05', 'all', { ...base, rule, ...f }, id)[0] as { set: object }).set;
+    expect(all({})).not.toHaveProperty('location');
+    expect(all({ location: 'ul. Wodna 1' })).not.toHaveProperty('location');
+    expect(all({ location: '' })).toMatchObject({ location: null });
+    expect(all({ location: 'Hala, ul. Długa 5' })).toMatchObject({ location: 'Hala, ul. Długa 5' });
+    const following = editEvent(d, '2026-10-12', 'following', { ...base, rule }, id);
+    expect(following[1]).toMatchObject({ kind: 'create', entity: 'events', set: { location: 'ul. Wodna 1' } });
+    expect(editEvent(d, '2026-10-12', 'following', { ...base, rule, location: 'Hala' }, id)[1]).toMatchObject({ set: { location: 'Hala' } });
+    expect(fieldsOf(d, '2026-10-05', 'all').location).toBe('ul. Wodna 1');
+    expect(expandEvents(t, ME, { y: 2026, m: 10, d: 5 }, { y: 2026, m: 10, d: 5 })[0]!.location).toBe('ul. Wodna 1');
+  });
+});
+
 describe('wiersze lokalne: wartości domyślne', () => {
   it('as*', () => {
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05' })).toEqual({
@@ -89,9 +115,10 @@ describe('wiersze lokalne: wartości domyślne', () => {
       rrule: null,
       audience: 'group',
       responsible_member_id: null,
+      location: null,
       deleted_at: null,
     });
-    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', audience: 'members', note: 'x', title: 'T' })).toMatchObject({ audience: 'members', note: 'x', title: 'T' });
+    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', audience: 'members', note: 'x', title: 'T', location: 'Basen, ul. Wodna 1' })).toMatchObject({ audience: 'members', note: 'x', title: 'T', location: 'Basen, ul. Wodna 1' });
     expect(asParticipant({ id: 'p', event_id: 'e', member_id: 'm' })).toEqual({ id: 'p', event_id: 'e', member_id: 'm', deleted_at: null });
     expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05' })).toEqual({
       id: 'o',
@@ -357,7 +384,7 @@ describe('szczegóły i formularz', () => {
     run(t, editEvent(detail(t, e.id), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00', endTime: '18:00', title: 'Inne' }), newId));
     run(t, editEvent(detail(t, e.id), '2026-10-05', 'all', fields({ audience: 'members', participantIds: ['kuba'] }), newId));
     const d = detail(t, e.id);
-    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null });
+    expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null });
     expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ title: 'Tańce Kuby', date: '2026-10-12', startTime: '18:00', endTime: '19:00' });
     expect(fieldsOf(d, '2026-10-19', 'this')).toMatchObject({ date: '2026-10-19', startTime: '18:00' });
     expect(fieldsOf(d, '2026-10-19', 'all').date).toBe('2026-10-05');

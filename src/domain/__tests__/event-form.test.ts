@@ -1,3 +1,4 @@
+import { config } from '../../config';
 import * as fc from 'fast-check';
 
 import { formatRule, parseRule } from '../rrule';
@@ -22,8 +23,8 @@ describe('formularz wydarzenia', () => {
   it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
     const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
     expect(fields).toEqual([
-      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null },
-      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null },
     ]);
   });
 
@@ -109,10 +110,21 @@ describe('formularz wydarzenia', () => {
           audience: 'group',
           participantIds: [],
           responsibleId: null,
+          location: null,
         };
         const back = ok(formOf(f))[0]!;
         expect({ ...back, rule: back.rule && formatRule(back.rule) }).toEqual({ ...f, rule: rule && formatRule(rule) });
       }),
     );
+  });
+});
+
+describe('miejsce w formularzu (D115)', () => {
+  it('przycięte, puste = brak, za długie — błąd', () => {
+    const f = { ...emptyForm('2026-10-05'), title: 'Basen', slots: [{ days: [0], start: '17:00', end: '' }] };
+    expect(ok({ ...f, location: '  ul. Wodna 1 ' })[0]!.location).toBe('ul. Wodna 1');
+    expect(ok({ ...f, location: '   ' })[0]!.location).toBeNull();
+    expect(validateForm({ ...f, location: 'x'.repeat(config.events.LOCATION_MAX_LENGTH + 1) })).toEqual({ error: 'location' });
+    expect(formOf({ ...ok(f)[0]!, location: undefined }).location).toBe('');
   });
 });

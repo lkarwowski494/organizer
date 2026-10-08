@@ -3,6 +3,7 @@
  * tytule i uczestnikach — reguła RRULE ma jedną godzinę startu (RFC 5545: DTSTART), więc różne godziny to różne serie.
  * Błędy jako kody; teksty dla nich są w src/i18n/strings.pl.ts.
  */
+import { config } from '../../config';
 import { daysInMonth, isoWeekday, isValidDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import type { Rule } from '../rrule';
@@ -26,8 +27,10 @@ export type EventForm = {
   participantIds: string[];
   /** Osoba odpowiedzialna (D66); `null` = nikt konkretny. */
   responsibleId: string | null;
+  /** Miejsce (D115): adres albo nazwa; pusto = brak. */
+  location: string;
 };
-export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'days' | 'interval' | 'until' | 'participants' | 'monthly';
+export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -60,6 +63,7 @@ export function emptyForm(date: string, participantIds: string[] = []): EventFor
     audience: participantIds.length ? 'members' : 'group',
     participantIds,
     responsibleId: null,
+    location: '',
   };
 }
 
@@ -81,6 +85,7 @@ export function formOf(f: EventFields): EventForm {
     audience: f.audience,
     participantIds: f.participantIds,
     responsibleId: f.responsibleId,
+    location: f.location ?? '',
   };
 }
 
@@ -115,6 +120,8 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
   const until = s.repeat !== 'none' && s.ends === 'until' ? s.until.trim() : null;
   if (until !== null && (!validDate(until) || until < date)) return { error: 'until' };
   if (s.audience === 'members' && s.participantIds.length === 0) return { error: 'participants' };
+  const location = s.location.trim();
+  if (location.length > config.events.LOCATION_MAX_LENGTH) return { error: 'location' };
   return {
     fields: slots.map((slot) => ({
       title,
@@ -126,6 +133,7 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
       audience: s.audience,
       participantIds: s.audience === 'members' ? s.participantIds : [],
       responsibleId: s.responsibleId,
+      location: location || null,
     })),
   };
 }

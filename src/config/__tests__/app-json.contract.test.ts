@@ -39,6 +39,9 @@ describe('Info.plist po wtyczkach', () => {
     }
     // D96: pełny dostęp do kalendarza, ale prywatne wydarzenia zostają na telefonie — tak mówi opis.
     expect(String(plist.NSCalendarsFullAccessUsageDescription)).toContain('nie opuszczają telefonu');
+    // D116: lokalizacja tylko „podczas używania” (czas dojazdu); bez „zawsze” i bez ruchu.
+    expect(String(plist.NSLocationWhenInUseUsageDescription)).toMatch(/^Organizer .*nie trafia na serwer/);
+    for (const key of ['NSLocationAlwaysAndWhenInUseUsageDescription', 'NSLocationAlwaysUsageDescription', 'NSMotionUsageDescription']) expect(plist[key]).toBeUndefined();
   }, 60000);
 });
 

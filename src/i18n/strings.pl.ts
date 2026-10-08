@@ -2,6 +2,7 @@
  * Wszystkie teksty interfejsu w jednym miejscu (D30).
  * Klucze w notacji kropkowej, żeby ewentualne przejście na i18next było mechaniczne.
  */
+import { config } from '../config';
 import { plural } from '../domain/plural';
 
 export const strings = {
@@ -76,6 +77,29 @@ export const strings = {
   'form.added': (title: string, group: string) => `Dodano: ${title} · ${group}`,
   'form.change': 'Zmień',
   'date.pick': 'Wybierz dzień',
+  'travel.mode.driving': 'autem',
+  'travel.mode.transit': 'komunikacją',
+  'travel.mode.walking': 'pieszo',
+  'travel.option.driving': 'Autem',
+  'travel.option.transit': 'Komunikacją',
+  'travel.option.walking': 'Pieszo',
+  'travel.leave': (time: string, min: number, mode: string) => `Wyjdź o ${time} · ${min} min ${mode}`,
+  'travel.leaveTitle': (title: string) => `Czas wyjść: ${title}`,
+  'travel.leaveBody': (min: number, mode: string) => `${min} min ${mode} — wyjdź teraz`,
+  'travel.section': 'Dojazd',
+  'travel.enabled': 'Czas dojazdu do dzisiejszych wydarzeń',
+  'travel.on': 'Włączony',
+  'travel.off': 'Wyłączony',
+  'travel.defaultMode': 'Zwykle jadę',
+  'travel.navApp': 'Nawiguj w',
+  'travel.apple': 'Mapy Apple',
+  'travel.google': 'Google Maps',
+  'travel.info': `Dla dzisiejszych wydarzeń z miejscem telefon liczy czas dojazdu w Mapach Apple (z korkami) i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
+  'travel.denied': 'Brak dostępu do lokalizacji. Włączysz go w Ustawieniach iPhone’a → Organizer → Lokalizacja.',
+  'event.location': 'Miejsce (adres, opcjonalnie)',
+  'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
+  'event.navigate': 'Nawiguj',
+  'event.myMode': 'Jak tam dotrę (tylko u mnie)',
   'routine.add': 'Dodaj rutynę',
   'routine.title': 'Nowa rutyna',
   'routine.info': 'Rutyna to stałe kroki o stałej porze, np. „Poranek Kuby”: zęby, ubranie, plecak. Kroki pojawiają się w wybrane dni pod rutyną; niezrobione po dniu znikają, a licznik serii pokazuje, ile dni z rzędu wszystko zrobione.',
@@ -245,6 +269,7 @@ export const strings = {
   'event.error.days': 'Wybierz co najmniej jeden dzień tygodnia.',
   'event.error.interval': 'Odstęp to liczba od 1 do 99.',
   'event.error.monthly': 'Ten wariant nie pasuje do wybranego dnia.',
+  'event.error.location': `Miejsce może mieć najwyżej ${config.events.LOCATION_MAX_LENGTH} znaków.`,
   'event.error.until': 'Ostatni dzień musi być poprawną datą, nie wcześniejszą niż początek.',
   'event.error.participants': 'Wybierz co najmniej jedną osobę.',
   'event.allDayLabel': 'cały dzień',
