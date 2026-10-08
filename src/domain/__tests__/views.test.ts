@@ -134,6 +134,9 @@ describe('grupy', () => {
     expect(groupDetail(t, ME, 'gx')).toBeNull();
     put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'owner' });
     expect(groupDetail(t, ME, 'gf')).toMatchObject({ canInvite: true, canInviteAdmin: true, canLeave: false });
+    // PW-14 B: dziecko z kontem nie wychodzi samo (strażnik: forbidden:child).
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'child' });
+    expect(groupDetail(t, ME, 'gf')).toMatchObject({ canInvite: false, canManageMembers: false, canLeave: false });
   });
 
   it('członkowie tej samej roli po imieniu (polska kolejność)', () => {
@@ -555,28 +558,33 @@ describe('edycja grup (D54–D56)', () => {
     const asAdmin = groupDetail(t, ME, 'gf')!; // ja = admin
     const m = (id: string) => asAdmin.members.find((x) => x.member_id === id)!;
     // PW-54 A (decyzja właściciela z 8.10.2026): admin zmienia imię tylko profilom bez konta i sobie.
-    expect(memberActions(asAdmin, m('ala'))).toEqual({ rename: false, setRole: false, remove: false, makeOwner: false });
-    expect(memberActions(asAdmin, m('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
-    expect(memberActions(asAdmin, m('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(memberActions(asAdmin, m('ala'))).toEqual({ rename: false, setRole: false, remove: false, makeOwner: false, link: false });
+    expect(memberActions(asAdmin, m('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false, link: true });
+    expect(memberActions(asAdmin, m('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false, link: false });
     expect(asAdmin).toMatchObject({ canSetColor: false, canDelete: false });
     put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'owner' });
     put(t, 'group_members', 'ala', { ...t.group_members!.ala, role: 'member' });
     put(t, 'group_members', 'kid', { member_id: 'kid', group_id: 'gf', user_id: 'u-kid', display_name: 'Zuzia', role: 'child', deleted_at: null });
     const asOwner = groupDetail(t, ME, 'gf')!;
     const o = (id: string) => asOwner.members.find((x) => x.member_id === id)!;
-    expect(memberActions(asOwner, o('ala'))).toEqual({ rename: true, setRole: true, remove: true, makeOwner: true });
-    expect(memberActions(asOwner, o('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
-    expect(memberActions(asOwner, o('kid'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
-    expect(memberActions(asOwner, o('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(memberActions(asOwner, o('ala'))).toEqual({ rename: true, setRole: true, remove: true, makeOwner: true, link: false });
+    expect(memberActions(asOwner, o('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false, link: true });
+    // PW-14 B: rolę dziecka z kontem zmienia owner (dorośleje); połączyć można tylko profil bez konta.
+    expect(memberActions(asOwner, o('kid'))).toEqual({ rename: true, setRole: true, remove: true, makeOwner: false, link: false });
+    expect(memberActions(asOwner, o('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false, link: false });
     expect(asOwner).toMatchObject({ canSetColor: true, canDelete: true });
     const personal = groupDetail(t, ME, 'gp')!;
     expect(personal).toMatchObject({ canSetColor: true, canDelete: false });
-    expect(memberActions(personal, personal.members[0]!)).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    expect(memberActions(personal, personal.members[0]!)).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false, link: false });
     // Admin usuwa też zwykłego członka, ale nie zmienia imienia osobie z kontem (także dziecku z kontem).
     put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'admin' });
     const again = groupDetail(t, ME, 'gf')!;
     expect(memberActions(again, again.members.find((x) => x.member_id === 'ala')!)).toMatchObject({ remove: true, rename: false });
     expect(memberActions(again, again.members.find((x) => x.member_id === 'kid')!).rename).toBe(false);
+    // Profil dziecka łączy z kontem owner albo admin (PW-14 B) — nie członek ani dziecko.
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'member' });
+    const asMember_ = groupDetail(t, ME, 'gf')!;
+    expect(memberActions(asMember_, asMember_.members.find((x) => x.member_id === 'kuba')!)).toMatchObject({ link: false, remove: false });
   });
 
   it('usunięte osoby do przywrócenia (D165): przez 30 dni, prawa jak przy usuwaniu; kto sam wyszedł — nie', () => {
@@ -601,6 +609,7 @@ describe('edycja grup (D54–D56)', () => {
   });
 
   it('operacje koloru i roli', () => {
+    expect(cmd.setRole('m', 'child')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { role: 'child' } });
     expect(cmd.setGroupColor('g', 'teal')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: 'teal' } });
     expect(cmd.setGroupColor('g', null)).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: null } });
     expect(cmd.setRole('m', 'admin')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { role: 'admin' } });

@@ -40,17 +40,19 @@ export type RuntimeDeps = {
 /**
  * Jedna porcja pobrania z dociągnięciem nowych ukrytych list (sync_fetch_scope). `get` — bieżący stan (mógł się zmienić
  * w trakcie zapytania), `set` — zapis kroku. Zwraca, czy któraś grupa ma jeszcze wiersze (has_more). Wspólne dla pętli
- * synchronizacji i odświeżenia w tle (D159, src/app/background.ts).
+ * synchronizacji i odświeżenia w tle (D159, src/app/background.ts). `live` — fałsz po stop() silnika: odpowiedź przepada (M-55).
  */
-export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport): Promise<boolean> {
+export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport, live: () => boolean = () => true): Promise<boolean> {
   const req = pullRequest(get());
   const res = await transport.pull(req, config.sync.PULL_LIMIT_MAX);
+  if (!live()) return false;
   const out = onPullResponse(get(), res, req);
   set(out.state);
-  // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości.
+  // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości. Lista trafia do
+  // pobranych dopiero po udanym pobraniu — błąd przerywa pętlę, a następne pobranie spróbuje jeszcze raz (M-53).
   for (const listId of out.fetchScopes) {
     const rows = await transport.fetchScope(listId);
-    set(onFetchScope(get(), rows));
+    if (live()) set(onFetchScope(get(), rows, listId));
   }
   return out.needMore;
 }
@@ -72,6 +74,11 @@ export class SyncRuntime {
   /** Ostatni stan aplikacji z zewnątrz (pierwszy plan / tło) i liczba trwających odświeżeń z tła. */
   private appForeground = true;
   private woken = 0;
+  /**
+   * Numer „życia” silnika: stop() go podbija, a wynik żądania sprzed stop() przepada (audyt 2, M-55). Inaczej odpowiedź,
+   * która przyszła po „Wyczyść dane”, wpisywała stary identyfikator, kursory i różnicę do wyczyszczonej bazy.
+   */
+  private generation = 0;
 
   constructor(private readonly deps: RuntimeDeps) {
     this.state = deps.initial;
@@ -111,6 +118,7 @@ export class SyncRuntime {
 
   stop(): void {
     this.stopped = true;
+    this.generation++;
     this.cancelTimer?.();
     this.cancelTimer = null;
     this.release();
@@ -160,6 +168,7 @@ export class SyncRuntime {
     this.cancelTimer?.();
     this.cancelTimer = null;
     const now = this.deps.now();
+    this.sched = onEvent(this.sched, { t: 'clock' }, now);
     const d = decide(this.sched, now);
     if (d.do === 'push') void this.run('push');
     else if (d.do === 'pull') void this.run('pull');
@@ -173,13 +182,15 @@ export class SyncRuntime {
     const run = what === 'pull' ? ++this.pullRuns : 0;
     this.sched = onEvent(this.sched, { t: 'started', what }, this.deps.now());
     this.emit();
+    const gen = this.generation;
     let done: SchedulerEvent;
     try {
-      done = what === 'push' ? await this.push() : await this.pull();
+      done = what === 'push' ? await this.push(gen) : await this.pull(gen);
     } catch (e) {
       const error = errorKind(e);
       done = error === 'fatal' ? { t: 'failed', what, error, code: (e as Error).message } : { t: 'failed', what, error };
     }
+    if (gen !== this.generation) return;
     this.sched = onEvent(this.sched, done, this.deps.now());
     if (what === 'pull' && this.repoke) {
       this.repoke = false;
@@ -191,24 +202,32 @@ export class SyncRuntime {
     this.tick();
   }
 
-  private async push(): Promise<SchedulerEvent> {
+  /** Zapis po odpowiedzi tylko w tym samym „życiu” silnika (M-55). */
+  private settle(gen: number, next: (s: ClientState) => ClientState): void {
+    if (gen === this.generation) this.setState(next(this.state));
+  }
+
+  private async push(gen: number): Promise<SchedulerEvent> {
     const req = pushRequest(this.state);
     const res = await this.deps.transport.push(req);
     const before = this.state;
-    this.setState(onPushResponse(this.state, res));
+    this.settle(gen, (s) => onPushResponse(s, res, req));
     try {
+      // Zmiany są już na serwerze (także po stop()) — inni i tak powinni je dostać (D159).
       this.deps.onPushed?.(req.ops, res, before);
     } catch {
-      // Zmiany są już na serwerze; powiadomienie innych to dodatek (D159).
+      // Powiadomienie innych to dodatek; błąd nie psuje synchronizacji.
     }
     return { t: 'push_ok', pending: pendingCount(this.state) };
   }
 
-  private async pull(): Promise<SchedulerEvent> {
+  private async pull(gen: number): Promise<SchedulerEvent> {
+    // Odpowiedź po stop() (np. „Wyczyść dane”) przepada; wynik i tak nie trafi do harmonogramu (run).
     const needMore = await pullStep(
       () => this.state,
       (next) => this.setState(next),
       this.deps.transport,
+      () => gen === this.generation,
     );
     return { t: 'pull_ok', needMore, pending: pendingCount(this.state) };
   }

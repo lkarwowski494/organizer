@@ -1,4 +1,4 @@
--- Ciche powiadomienia „odśwież przypomnienia” (D159, migracja 20261008450000_reminder_wake): komu, przerwa między
+-- Ciche powiadomienia „odśwież przypomnienia” (D159, migracja 20261008490000_reminder_wake): komu, przerwa między
 -- powiadomieniami do urządzenia, zaległe i ponowienie, zwolnienie po błędzie APNs, uprawnienia.
 -- W transakcji now() stoi w miejscu, więc upływ przerwy symulujemy cofnięciem sent_at.
 begin;

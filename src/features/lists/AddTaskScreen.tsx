@@ -1,35 +1,23 @@
 /**
- * Pełny formularz zadania (D90, ADR 0019): „Więcej” przy polu dodawania (wypełniony tym, co wpisałeś) i „Zmień” po
- * szybkim dodaniu (to samo zadanie). Rodzaj (zadanie albo wydarzenie, D98), grupa, dzień i godzina, osoba, powtarzanie;
- * bez wyboru listy (D97). Logika: domain/views/task-form.
+ * Formularz nowego zadania (D90, ADR 0019): „Więcej” przy polu dodawania, wypełniony tym, co wpisałeś. Rodzaj (zadanie
+ * albo wydarzenie, D98), grupa, termin (jak wszędzie: Dziś / Jutro / Inny dzień / Bez terminu, M-245), osoba,
+ * powtarzanie; bez wyboru listy (D97). Logika: domain/views/task-form.
+ * Zmiana istniejącego zadania to ekran zadania (D178). Bez „Anuluj” (PWD-6) — gest i „Wróć” wystarczą, a wpisane pola
+ * zostają w szkicu na telefonie (D179, app/form-draft).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
-import { addDays, formatIsoDate, isValidDate } from '../../domain/civil-date';
-import {
-  type FormError,
-  formFromTask,
-  formFromText,
-  formGroups,
-  formMembers,
-  formOps,
-  formUnseen,
-  formWeekday,
-  movedSubtasks,
-  pickCandidate,
-  type TaskForm,
-  validateForm,
-} from '../../domain/views/task-form';
-import { formatDue } from '../../domain/format';
+import { formatIsoDate, isValidDate } from '../../domain/civil-date';
+import { type FormError, formDate, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { AskPanel } from '../../ui/AskPanel';
-import { BackButton, Body, Button, Field, Screen, Segmented, Title } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
-import { DateField } from '../../ui/DateField';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
+import { DueFields } from '../../ui/DueFields';
 import { useTheme } from '../../ui/theme';
 import { RepeatEditor } from './RepeatEditor';
 
@@ -52,54 +40,63 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
-  const editing = route.params.taskId;
+  const p = route.params;
   // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
-  const [initial] = useState(() => formFromText(tables, userId, route.params.text ?? '', now(), { chipGroupId: route.params.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
-  const [form, setForm] = useState<TaskForm>(() => {
-    const base = (editing ? formFromTask(tables, editing) : null) ?? initial.form;
-    // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
-    const p = route.params;
-    return { ...base, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.date ? { date: p.date } : {}), ...(p.time ? { time: p.time } : {}), ...(p.groupId ? { groupId: p.groupId } : {}) };
-  });
+  const [initial] = useState(() => formFromText(tables, userId, p.text ?? '', now(), { chipGroupId: p.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
+  // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
+  const [form, setForm] = useState<TaskForm>(() => ({ ...initial.form, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.date ? { date: p.date } : {}), ...(p.time ? { time: p.time } : {}), ...(p.groupId ? { groupId: p.groupId } : {}) }));
   const [error, setError] = useState<FormError | null>(null);
   // „@imię” pasujące do kilku osób (D91): pytanie jak w Moich sprawach, zamiast cicho zgubić wzmiankę (audyt 2, M-170).
-  const [choices, setChoices] = useState(editing ? [] : initial.candidates);
+  const [choices, setChoices] = useState(initial.candidates);
   const set = (patch: Partial<TaskForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
+  // D179: szkic na telefonie. Formularz z wpisanym tekstem startuje z tego tekstu (szkicu nie przywraca).
+  const prefilled = (p.text ?? '').trim() !== '' || p.title !== undefined || p.kindSwitch === true;
+  const draft = useFormDraft('task:new', form, Object.fromEntries(Object.keys(form).map((k) => [k, (v: unknown) => set({ [k]: v })])) as { [K in keyof TaskForm]: (v: TaskForm[K]) => void }, { restore: !prefilled });
+  // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
+  useAnnounce(p.kindSwitch ? strings['form.newTitle'] : null);
   const groups = formGroups(tables, userId);
   const members = formMembers(tables, form.groupId);
-  const originalGroup = editing ? tables.tasks?.[editing]?.group_id : undefined;
-  const subtasks = editing ? movedSubtasks(tables, editing) : 0;
-  const day = (k: number) => formatIsoDate(addDays(today, k));
-  const dateChoice = form.date === '' ? 'none' : form.date === day(0) ? 'today' : form.date === day(1) ? 'tomorrow' : 'other';
 
   const save = () => {
     const e = validateForm(tables, userId, form);
     if (e) return setError(e);
-    store.dispatch(formOps(tables, userId, form, newId, editing).ops);
+    draft.saved();
+    store.dispatch(formOps(tables, userId, form, newId).ops);
     navigation.goBack();
   };
 
   return (
     <Screen testID="screen-add-task">
       <BackButton onPress={() => navigation.goBack()} />
-      <Title>{editing ? strings['form.editTitle'] : strings['form.newTitle']}</Title>
-      {editing ? null : (
-        // D98: zadanie albo wydarzenie — wydarzenie ma czas od–do, osobę odpowiedzialną i uczestników (osobny formularz).
-        <Segmented
-          label={strings['form.kind']}
-          value="task"
-          onChange={(k) => {
-            if (k !== 'event') return;
-            // Osoba zadania staje się odpowiedzialną za wydarzenie (formularz wydarzenia przyjmie tylko dorosłego, D66).
-            const date = validDate(form.date) ? form.date : formatIsoDate(today);
-            navigation.replace('EventEdit', { groupId: form.groupId, date, title: form.title, start: form.time || undefined, responsibleId: form.assigneeId ?? undefined });
-          }}
-          options={[
-            { value: 'task', label: strings['form.kind.task'] },
-            { value: 'event', label: strings['form.kind.event'] },
-          ]}
-        />
-      )}
+      <Title>{strings['form.newTitle']}</Title>
+      <DraftNote draft={draft} />
+      {/* D98: zadanie, wydarzenie albo rutyna (PWD-26) — wpisane nazwa, dzień, godzina, grupa i osoba przechodzą. */}
+      <Segmented
+        label={strings['form.kind']}
+        value="task"
+        onChange={(k) => {
+          if (k === 'task') return;
+          // Wpisane pola przechodzą do innego formularza — szkic zadania nie jest już potrzebny.
+          draft.saved();
+          if (k === 'routine') return navigation.replace('Routine', { groupId: form.groupId, title: form.title, kindSwitch: true });
+          // Dorosły z „Dla kogo” staje się odpowiedzialnym (D66), dziecko — uczestnikiem, jak w szybkim dodaniu (M-255).
+          const date = validDate(form.date) ? form.date : formatIsoDate(today);
+          const child = form.assigneeId !== null && tables.group_members?.[form.assigneeId]?.role === 'child';
+          navigation.replace('EventEdit', {
+            groupId: form.groupId,
+            date,
+            title: form.title,
+            start: form.time || undefined,
+            ...(child ? { participantIds: [form.assigneeId!] } : { responsibleId: form.assigneeId ?? undefined }),
+            kindSwitch: true,
+          });
+        }}
+        options={[
+          { value: 'task', label: strings['form.kind.task'] },
+          { value: 'event', label: strings['form.kind.event'], hint: strings['form.kind.eventHint'] },
+          { value: 'routine', label: strings['form.kind.routine'], hint: strings['form.kind.routineHint'] },
+        ]}
+      />
       <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} testID="form-title" />
       {choices.length && initial.mention ? (
         <AskPanel
@@ -115,37 +112,18 @@ export function AddTaskScreen({ route, navigation }: Props) {
         onChange={(g) => set({ groupId: g, assigneeId: null })}
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
-      {originalGroup && originalGroup !== form.groupId ? <Body muted>{subtasks ? strings['form.movedWithSubtasks'](subtasks) : strings['form.moved']}</Body> : null}
-      <Segmented
-        label={strings['task.due']}
-        value={dateChoice}
-        onChange={(v) => set(v === 'none' ? { date: '', time: '', repeat: null } : v === 'today' ? { date: day(0) } : v === 'tomorrow' ? { date: day(1) } : {})}
-        options={[
-          { value: 'none', label: strings['form.noDate'] },
-          { value: 'today', label: strings['form.today'] },
-          { value: 'tomorrow', label: strings['form.tomorrow'] },
-          // Audyt 2 (U-24): dzień słownie, nie „2026-10-09”.
-          ...(dateChoice === 'other' ? [{ value: 'other', label: formatDue({ date: form.date, time: null }, today) }] : []),
-        ]}
-      />
-      <DateField label={strings['task.dueDate']} value={form.date} onChange={(v) => set({ date: v })} today={today} testID="form-date" />
-      <TimeField label={strings['task.dueTime']} value={form.time} onChange={(v) => set({ time: v })} testID="form-time" optional />
+      <DueFields date={form.date} time={form.time} onDate={(v) => set(v === '' ? { date: '', time: '', repeat: null } : { date: v })} onTime={(v) => set({ time: v })} today={today} testID="form" />
       <Segmented
         label={strings['task.assignee']}
         value={form.assigneeId ?? ''}
         onChange={(v) => set({ assigneeId: v === '' ? null : v })}
         options={[{ value: '', label: strings['task.assigneeNone'] }, ...members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
-      {form.date ? <RepeatEditor value={form.repeat} weekday={formWeekday(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['repeat.needsDue']}</Body>}
+      {form.date ? <RepeatEditor value={form.repeat} date={formDate(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['repeat.needsDue']}</Body>}
       {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
       {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
-      {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
-          {ERRORS[error]}
-        </Text>
-      ) : null}
+      {error ? <ErrorText>{ERRORS[error]}</ErrorText> : null}
       <Button label={strings['form.save']} onPress={save} testID="form-save" />
-      <Button kind="secondary" label={strings['common.cancel']} onPress={() => navigation.goBack()} />
     </Screen>
   );
 }

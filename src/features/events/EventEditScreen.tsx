@@ -8,11 +8,12 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, parseIsoDate , formatDue } from '../../domain/format';
+import { formatLongDate, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
@@ -24,6 +25,7 @@ import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } fr
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
+import { SeriesPreview } from './SeriesPreview';
 
 type Props = NativeStackScreenProps<RootStackParams, 'EventEdit'>;
 
@@ -44,8 +46,9 @@ export function EventEditScreen({ route, navigation }: Props) {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
     // PWD-33 (D200): kopia wydarzenia z iPhone'a — nazwa, dzień, godziny i miejsce do poprawienia przed zapisem.
-    const { title, start, end, responsibleId, location, allDay } = route.params;
-    const f = emptyForm(occurrence);
+    // Audyt 2 (M-255): dziecko z „@Kuba” przechodzi jako uczestnik, jak w szybkim dodaniu (quickEvent).
+    const { title, start, end, responsibleId, location, allDay, participantIds } = route.params;
+    const f = emptyForm(occurrence, participantIds ?? []);
     const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');
     return { ...f, title: title ?? '', allDay: allDay ?? false, location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
   });
@@ -57,6 +60,17 @@ export function EventEditScreen({ route, navigation }: Props) {
   const personal = groups.find((g) => g.id === groupId)?.kind === 'personal';
   // D66: osobą odpowiedzialną jest tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
   const adults = members.filter((m) => m.role !== 'child' && !personal);
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
+  const set = (patch: Partial<EventForm>) => setForm((f) => ({ ...f, ...patch }));
+  const prefilled = route.params.title !== undefined || route.params.start !== undefined;
+  // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest (fokus zostaje na „Wróć”).
+  useAnnounce(route.params.kindSwitch ? strings['event.new'] : null);
+  const draft = useFormDraft(
+    detail ? `event:${eventId}:${occurrence}:${scope}` : 'event:new',
+    { ...form, groupId },
+    { ...(Object.fromEntries(Object.keys(form).map((k) => [k, (v: unknown) => set({ [k]: v })])) as { [K in keyof EventForm]: (v: EventForm[K]) => void }), groupId: setGroupId },
+    { restore: !prefilled },
+  );
 
   if (eventId && (!detail || !detail.canEdit)) {
     return (
@@ -75,7 +89,6 @@ export function EventEditScreen({ route, navigation }: Props) {
     );
   }
 
-  const set = (patch: Partial<EventForm>) => setForm((f) => ({ ...f, ...patch }));
   const setSlot = (i: number, patch: Partial<Slot>) => setForm((f) => ({ ...f, slots: f.slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
   const only = detail !== null && scope === 'this';
   const series = !only && form.repeat !== 'none';
@@ -90,6 +103,7 @@ export function EventEditScreen({ route, navigation }: Props) {
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
     if (!detail) {
+      draft.saved();
       store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
       navigation.goBack();
     } else {
@@ -99,29 +113,25 @@ export function EventEditScreen({ route, navigation }: Props) {
     }
   };
   const commit = (ops: NewOp[]) => {
+    // Szkic znika dopiero przy zapisie — „Wróć” z podglądu zmian serii go nie gubi (D179).
+    draft.saved();
     store.dispatch(ops);
     // Ekran wystąpienia za nami może już nie istnieć (np. seria skończyła się dzień wcześniej) — wracamy dalej.
     navigation.pop(2);
   };
 
   if (preview && detail) {
-    const { effects } = preview;
     return (
-      <Screen testID="screen-event-preview">
-        <Title>{strings['event.previewTitle']}</Title>
-        <Body>{effects.preview.length ? strings['event.previewDates'](effects.preview.map((x) => formatDue({ date: x, time: null }, today)).join(', ')) : strings['event.previewNone']}</Body>
-        {effects.kept.length ? <Body muted>{strings['event.previewKept'](effects.kept.length)}</Body> : null}
-        {effects.overridesLost ? <Body>{strings['event.previewOverridesLost'](effects.overridesLost)}</Body> : null}
-        {effects.lost.length ? (
-          <View style={{ gap: 8 }}>
-            <Body>{strings['event.previewLost'](effects.lost.length)}</Body>
-            <Body muted>{effects.lost.map((x) => x.task.title).join(', ')}</Body>
-            <Segmented label={strings['event.previewLostChoice']} value={lostChoice} onChange={setLostChoice} options={[{ value: 'nearest', label: strings['event.previewNearest'] }, { value: 'unlink', label: strings['event.previewUnlink'] }]} />
-          </View>
-        ) : null}
-        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit(seriesEditOps(detail, preview.ops, effects, lostChoice))} />
-        <Button kind="secondary" label={strings['event.previewBack']} onPress={() => setPreview(null)} />
-      </Screen>
+      <SeriesPreview
+        testID="screen-event-preview"
+        saveTestID="event-preview-save"
+        effects={preview.effects}
+        today={today}
+        choice={lostChoice}
+        onChoice={setLostChoice}
+        onSave={() => commit(seriesEditOps(detail, preview.ops, preview.effects, lostChoice))}
+        onBack={() => setPreview(null)}
+      />
     );
   }
 
@@ -129,18 +139,24 @@ export function EventEditScreen({ route, navigation }: Props) {
     <Screen testID="screen-event-edit">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{detail ? strings['event.edit'] : strings['event.new']}</Title>
+      <DraftNote draft={draft} />
       {detail ? null : (
-        // D98: zadanie albo wydarzenie — wpisane nazwa, dzień, godzina i grupa przechodzą do formularza zadania.
+        // D98, PWD-26: zadanie, wydarzenie albo rutyna — wpisane pola przechodzą do wybranego formularza.
         <Segmented
           label={strings['form.kind']}
           value="event"
           onChange={(k) => {
-            if (k !== 'task') return;
-            navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId });
+            if (k === 'event') return;
+            // Wpisane pola przechodzą do innego formularza — szkic wydarzenia nie jest już potrzebny.
+            draft.saved();
+            // Audyt 2 (PWD-26): rutyna też stąd — nazwa i grupa przechodzą do jej formularza.
+            if (k === 'routine') return navigation.replace('Routine', { groupId, title: form.title, kindSwitch: true });
+            navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId, kindSwitch: true });
           }}
           options={[
-            { value: 'task', label: strings['form.kind.task'] },
+            { value: 'task', label: strings['form.kind.task'], hint: strings['form.kind.taskHint'] },
             { value: 'event', label: strings['form.kind.event'] },
+            { value: 'routine', label: strings['form.kind.routine'], hint: strings['form.kind.routineHint'] },
           ]}
         />
       )}
@@ -218,9 +234,12 @@ export function EventEditScreen({ route, navigation }: Props) {
                 { value: 'day' as const, label: strings['event.monthly.day'](parseIsoDate(form.date).d) },
                 ...(pos.n <= 4 ? [{ value: 'nth' as const, label: strings['event.monthly.nth'](pos.n, WEEKDAYS_NOMINATIVE[pos.wd]!) }] : []),
                 ...(pos.last ? [{ value: 'last' as const, label: strings['event.monthly.last'](WEEKDAYS_NOMINATIVE[pos.wd]!, FEMININE.has(pos.wd)) }] : []),
+                // PWD-37: ostatni dzień miesiąca (BYMONTHDAY=-1), gdy dzień startu nim jest.
+                ...(pos.lastDay || form.monthly === 'lastDay' ? [{ value: 'lastDay' as const, label: strings['event.monthly.lastDay'] }] : []),
               ]}
             />
           ) : null}
+          {form.repeat === 'monthly' && pos && form.monthly === 'day' && parseIsoDate(form.date).d >= 29 ? <Body muted>{strings['repeat.monthSkip'](parseIsoDate(form.date).d)}</Body> : null}
           <Segmented label={strings['event.ends']} value={form.ends} onChange={(ends) => set({ ends })} options={[{ value: 'never', label: strings['event.ends.never'] }, { value: 'until', label: strings['event.ends.until'] }]} />
           {form.ends === 'until' ? <DateField label={strings['event.until']} value={form.until} onChange={(until) => set({ until })} today={today} testID="event-until" /> : null}
         </>

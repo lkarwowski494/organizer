@@ -23,7 +23,7 @@ import * as TaskManager from 'expo-task-manager';
 import { config } from '../config';
 import { migrate } from '../data/db/migrations';
 import { loadLocal, readState, saveLocal, writeState } from '../data/store';
-import { materialize } from '../domain/sync-engine/client';
+import { adoptDevice, type ClientState, materialize } from '../domain/sync-engine/client';
 import { pullStep, type Timer } from '../sync/runtime';
 import { accountPrefs, adoptLegacyPrefs } from './account-prefs';
 import { storedReminderPlan } from './reminders';
@@ -43,7 +43,7 @@ export function setLiveSession(s: LiveSession): () => void {
   };
 }
 
-export type BackgroundDeps = Pick<RootDeps, 'session' | 'transport' | 'openDb' | 'newId' | 'push' | 'legacyPrefs' | 'nowMs'>;
+export type BackgroundDeps = Pick<RootDeps, 'session' | 'transport' | 'openDb' | 'newId' | 'push' | 'legacyPrefs' | 'nowMs' | 'deviceClientId'>;
 export type RefreshResult = 'new' | 'none' | 'failed';
 
 const defaultTimer: Timer = (fn, ms) => {
@@ -69,12 +69,20 @@ export async function refreshInBackground(deps: BackgroundDeps, timer: Timer = d
     const now = deps.nowMs ?? Date.now;
     const started = now();
     const db = deps.openDb(s.userId);
+    // Baza z nowszej wersji aplikacji (M-177) — migrate rzuca, a tej bazy nie ruszamy („failed”).
     migrate(db);
-    let state = readState(db, deps.newId());
-    const set = (next: typeof state) => {
+    const set = (next: ClientState) => {
       writeState(db, state, next, now());
       state = next;
     };
+    // Jak przy starcie aplikacji (Root, M-8): identyfikator instalacji z pęku kluczy tego urządzenia.
+    const stored = readState(db, deps.newId());
+    let state = stored;
+    if (deps.deviceClientId) {
+      const adopted = adoptDevice(stored, deps.deviceClientId.load(s.userId), deps.newId);
+      if (adopted !== stored) set(adopted);
+      deps.deviceClientId.save(s.userId, adopted.clientId);
+    }
     // Porcje do końca albo do limitu; błąd sieci — plan z tym, co już jest (przypomnienia i tak trzeba odświeżyć).
     try {
       for (let i = 0; i < config.wake.PULL_PAGES_MAX && now() - started < config.wake.TASK_BUDGET_MS && (await pullStep(() => state, set, deps.transport)); i++);

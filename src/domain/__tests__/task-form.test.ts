@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formFromTask, formFromText, formGroups, formMembers, formOps, formUnseen, formWeekday, generalList, movedSubtasks, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
+import { formDate, formFromText, formGroups, formMembers, formOps, formUnseen, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -33,7 +33,7 @@ function base(): T {
   return t;
 }
 
-const form = (over: Partial<TaskForm> = {}): TaskForm => ({ title: 'Basen', groupId: ME, listId: null, date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null, ...over });
+const form = (over: Partial<TaskForm> = {}): TaskForm => ({ title: 'Basen', groupId: ME, date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null, ...over });
 
 describe('pełny formularz zadania (D90)', () => {
   it('grupy (bez tych, gdzie jestem dzieckiem), osoby bez usuniętych', () => {
@@ -79,17 +79,6 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formFromText(t, ME, 'zebranie #rodz @al', NOW)).toMatchObject({ form: { title: 'zebranie #rodz @al', groupId: ME }, mention: 'al', candidates: [{ memberId: 'ala' }, { memberId: 'alicja' }] });
   });
 
-  it('z zadania; nieznane zadanie; termin nie „własny” → pusty', () => {
-    const t = base();
-    expect(formFromTask(t, 't1')).toEqual({ title: 'Basen', groupId: ME, listId: 'lp', date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null });
-    expect(formFromTask(t, 't2')).toEqual({ title: 'Śmieci', groupId: 'gf', listId: 'lf', date: '', time: '', assigneeId: 'ala', repeat: { kind: 'weekly', days: [0] } });
-    put(t, 'tasks', 't3', { ...t.tasks!.t1!, id: 't3', due_time: null });
-    expect(formFromTask(t, 't3')!.time).toBe('');
-    // Termin bez godziny bez zmian — brak operacji.
-    expect(formOps(t, ME, form({ listId: 'lp', time: '' }), () => 'x', 't3').ops).toEqual([]);
-    expect(formFromTask(t, 'brak')).toBeNull();
-  });
-
   it('walidacja: nazwa, grupa, data, godzina, powtarzanie bez daty, adresat we wspólnej grupie', () => {
     const t = base();
     const v = (o: Partial<TaskForm>) => validateForm(t, ME, form(o));
@@ -112,7 +101,7 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBe(false);
   });
 
-  it('PW-18 b: dopisek „nikt tego nie widzi” tylko we wspólnej grupie, bez żywej osoby i bez terminu; lista „Tylko ja” poza regułą', () => {
+  it('PW-18 b: dopisek „nikt tego nie widzi” tylko we wspólnej grupie, bez żywej osoby i bez terminu', () => {
     const t = base();
     const u = (o: Partial<TaskForm>) => formUnseen(t, ME, form(o));
     expect(u({ groupId: 'gf', date: '', time: '' })).toBe(true);
@@ -124,20 +113,13 @@ describe('pełny formularz zadania (D90)', () => {
     put(t, 'group_members', 'byla', { member_id: 'byla', group_id: 'gf', user_id: null, display_name: 'Była', role: 'member', deleted_at: '2026-10-01T00:00:00Z' });
     expect(u({ groupId: 'gf', date: '', assigneeId: 'byla' })).toBe(true);
     expect(u({ groupId: 'gf', date: '', assigneeId: 'nieznana' })).toBe(true);
-    // Zadanie zostaje na mojej liście „Tylko ja” w tej samej grupie — poza regułą; po zmianie grupy już nie.
-    put(t, 'lists', 'lprv', { id: 'lprv', group_id: 'gf', kind: 'tasks', name: 'Prezenty', visibility: 'private', deleted_at: null });
-    expect(u({ groupId: 'gf', date: '', listId: 'lprv' })).toBe(false);
-    expect(u({ groupId: 'gf', date: '', listId: 'nie-ma' })).toBe(true);
-    put(t, 'lists', 'lprv2', { id: 'lprv2', group_id: 'gp', kind: 'tasks', name: 'Moje tajne', visibility: 'private', deleted_at: null });
-    expect(u({ groupId: 'gf', date: '', listId: 'lprv2' })).toBe(true);
-    put(t, 'lists', 'lgrp', { id: 'lgrp', group_id: 'gf', kind: 'tasks', name: 'Dom', visibility: 'group', deleted_at: null });
-    expect(u({ groupId: 'gf', date: '', listId: 'lgrp' })).toBe(true);
   });
 
-  it('dzień tygodnia do edytora powtarzania: z daty albo dzisiejszy', () => {
-    expect(formWeekday(form(), { y: 2026, m: 10, d: 8 })).toBe(4);
-    expect(formWeekday(form({ date: '' }), { y: 2026, m: 10, d: 8 })).toBe(3);
-    expect(formWeekday(form({ date: '2026-13-01' }), { y: 2026, m: 10, d: 8 })).toBe(3);
+  it('data do edytora powtarzania: z formularza albo dzisiejsza', () => {
+    const today = { y: 2026, m: 10, d: 8 };
+    expect(formDate(form(), today)).toEqual({ y: 2026, m: 10, d: 9 });
+    expect(formDate(form({ date: '' }), today)).toEqual(today);
+    expect(formDate(form({ date: '2026-13-01' }), today)).toEqual(today);
   });
 
   it('ogólna lista grupy (D97): osobista — pierwsza lista zadań; wspólna — „Zadania” (nie tematyczna, nie zakupy); brak — nowa', () => {
@@ -164,47 +146,5 @@ describe('pełny formularz zadania (D90)', () => {
     const g = formOps(t, ME, form({ groupId: 'gk', date: '' }), id);
     expect(g.ops[0]).toEqual({ kind: 'create', entity: 'lists', id: 'n3', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } });
     expect(g.ops[1]).toMatchObject({ kind: 'create', id: 'n4', set: { list_id: 'n3', deadline_mode: 'none', due_date: null } });
-  });
-
-  it('„Zmień” w tej samej grupie: tylko zmienione pola, zadanie zostaje na swojej liście', () => {
-    const t = base();
-    const id = () => 'x';
-    expect(formOps(t, ME, form({ listId: 'lp' }), id, 't1')).toEqual({ ops: [], taskId: 't1' });
-    expect(formOps(t, ME, form({ listId: 'lp', title: 'Basen z Kubą', time: '18:00', repeat: { kind: 'weekly', days: [4] } }), id, 't1').ops).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'Basen z Kubą' } },
-      { kind: 'patch', entity: 'tasks', id: 't1', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '18:00' } },
-      { kind: 'patch', entity: 'tasks', id: 't1', set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } },
-    ]);
-    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf', title: 'Śmieci', date: '', time: '', assigneeId: null, repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 't2', set: { assignee_member_id: null } },
-    ]);
-    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf', title: 'Śmieci', date: '2026-10-12', time: '', assigneeId: 'ala', repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 't2', set: { deadline_mode: 'own', due_date: '2026-10-12', due_time: null } },
-    ]);
-  });
-
-  it('„Zmień” na inną grupę: kopia z notatką w nowej grupie, oryginał do kosza', () => {
-    const t = base();
-    const r = formOps(t, ME, form({ groupId: 'gf', assigneeId: 'ala' }), () => 'copy', 't1');
-    expect(r.taskId).toBe('copy');
-    expect(r.ops).toEqual([
-      { kind: 'create', entity: 'tasks', id: 'copy', group_id: 'gf', set: { list_id: 'lf2', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
-      { kind: 'patch', entity: 'tasks', id: 'copy', set: { note: 'czepek' } },
-      { kind: 'delete', entity: 'tasks', id: 't1' },
-    ]);
-    expect(formOps(t, ME, form({ groupId: ME, title: 'Śmieci', date: '', time: '' }), () => 'c2', 't2').ops.map((o) => o.kind)).toEqual(['create', 'delete']);
-  });
-
-  it('audyt 2 (T-33): ile podzadań pójdzie do kosza z oryginałem przy zmianie grupy (wszystkie żywe poziomy)', () => {
-    const t = base();
-    const sub = (id: string, parent: string, deleted: string | null = null) => put(t, 'tasks', id, { ...t.tasks!.t1!, id, parent_id: parent, title: id, deadline_mode: 'inherit', due_date: null, due_time: null, deleted_at: deleted });
-    expect(movedSubtasks(t, 't1')).toBe(0);
-    sub('s1', 't1');
-    sub('s2', 't1');
-    sub('s3', 't1', 'x'); // już w koszu — nie liczy się (i jego podzadania też nie)
-    sub('s11', 's1');
-    sub('s31', 's3');
-    expect(movedSubtasks(t, 't1')).toBe(3);
-    expect(movedSubtasks(t, 'nie-ma')).toBe(0);
   });
 });

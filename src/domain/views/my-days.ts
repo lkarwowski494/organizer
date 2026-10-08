@@ -13,6 +13,7 @@ import { agenda, type LessonBlock, type AgendaEntry } from './agenda';
 import { occurrenceResolver } from './event-rows';
 import { expandEvents, type Occurrence } from './events';
 import { assigneeName, concernsMeTask, groupsView, isExpired, liveMembers, type TodayItem, visibleOnItsDay } from './index';
+import { childOwner } from './child';
 import { asList, asTask, rows, type Tables } from './model';
 import { tripEntries } from './shopping-trip';
 
@@ -54,6 +55,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   const all = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
   const byId = new Map(all.map((x) => [x.id, x]));
   const live = liveMembers(t);
+  const owns = childOwner(t, live);
   const occ = occurrenceResolver(t);
   const pinned: TodayItem[] = [];
   const overdue: MyTask[] = [];
@@ -65,7 +67,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
     if (!g || !l || l.kind === 'shopping') continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(t, x, g, due, live, l)) continue;
+    if (!concernsMeTask(t, x, g, due, live, l, owns)) continue;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (x.completed_at !== null) {
       const d = localDate(x.completed_at);

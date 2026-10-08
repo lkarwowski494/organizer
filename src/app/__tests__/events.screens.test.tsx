@@ -293,11 +293,11 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
   it('audyt 2 (E-18): termin odwołany na innym telefonie — informacja i „Przywróć termin”; bez zadań i kalendarza', async () => {
     const s = await openDances();
     expect(screen.getByTestId('event-calendar')).toBeTruthy();
-    expect(screen.getByTestId('event-task-add')).toBeTruthy();
+    expect(screen.getByTestId('quick-add')).toBeTruthy();
     await act(async () => s.store.pull((b) => ({ ...b, event_overrides: { ...b.event_overrides, ov1: { id: 'ov1', event_id: 'ev-tance', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 2 } } })));
     expect(screen.getByText('Ten termin jest odwołany.')).toBeTruthy();
     expect(screen.queryByTestId('event-calendar')).toBeNull();
-    expect(screen.queryByTestId('event-task-add')).toBeNull();
+    expect(screen.queryByTestId('quick-add')).toBeNull();
     await press(screen.getByRole('button', { name: 'Przywróć termin' }));
     expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'event_overrides', id: 'ov1', set: { cancelled: false } }]);
     expect(screen.queryByText('Ten termin jest odwołany.')).toBeNull();
@@ -311,7 +311,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.queryByTestId('event-edit')).toBeNull();
     expect(screen.queryByTestId('event-cancel')).toBeNull();
     expect(screen.queryByTestId('event-calendar')).toBeNull();
-    expect(screen.queryByTestId('event-task-add')).toBeNull();
+    expect(screen.queryByTestId('quick-add')).toBeNull();
   });
 
   it('audyt 2 (E-7): „wszystkie” na „nie powtarza się” — dzień otwartego terminu, nie pierwszy dzień serii; wyjątki przepadają', async () => {
