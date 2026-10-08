@@ -9,9 +9,9 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 
 import { stapleCmdResult } from '../../src/domain/sync-engine/client';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 const DB = process.env.PGDATABASE ?? 'organizer_test';
 
 async function connect(user?: string) {
