@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
@@ -37,10 +38,13 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
+  const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps });
 
   const save = () => {
     const r = routineOps({ tables, userId, groupId, title, days, start, end, participantIds: who, steps, today, newId });
     if ('error' in r) return setError(r.error === 'steps' ? strings['routine.error.steps'] : r.error === 'title' ? strings['routine.error.title'] : strings[`event.error.${r.error}`]);
+    draft.saved();
     store.dispatch(r.ops);
     // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
     undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
@@ -51,6 +55,7 @@ export function RoutineScreen({ route, navigation }: Props) {
     <Screen testID="screen-routine">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['routine.title']}</Title>
+      <DraftNote draft={draft} />
       <Body muted>{strings['routine.info']}</Body>
       {groups.length > 1 ? (
         <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />

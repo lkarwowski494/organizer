@@ -102,7 +102,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wyślij uwagę', async (p) => (await p('Ustawienia'), await p('Wyślij uwagę'))],
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
-  ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await p('Dzień: Wybierz dzień'), await p('Następny miesiąc'))],
+  ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await p('Inny dzień: Wybierz dzień'), await p('Następny miesiąc'))],
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
   ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
   ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek: /))],
