@@ -3,11 +3,14 @@
  * (sync_push / sync_pull w Postgresie), przy zawodnej sieci: zgubione żądanie, zgubiona odpowiedź, ta sama paczka
  * wysłana dwa razy, zgubione pobranie, małe porcje pobierania. Operacje obejmują nowsze rzeczy, których symulacja
  * na modelu (sync-sim) nie zna: wydarzenia z wyjątkami i uczestnikami, zakupy z dniem i osobą, powtarzanie zadań,
- * przypisania. Obie osoby edytują te same pola (konflikty). Po „wyzdrowieniu” sieci:
+ * przypisania. Obie osoby edytują te same pola (konflikty). W trakcie: nocne czyszczenie kosza (resync porcjami —
+ * audyt 2, M-1) i zmiana roli Bartka na dziecko i z powrotem (operacje w kolejce odrzucane). Po „wyzdrowieniu” sieci:
  *  - kolejka każdego telefonu jest pusta,
- *  - stan telefonu zbudowany z kolejnych porcji = pełny, świeży odczyt serwera (nic nie zgubione po drodze),
+ *  - stan telefonu zbudowany z kolejnych porcji = pełny, świeży odczyt serwera (nic nie zgubione po drodze; wolno
+ *    zostać tylko nagrobkom wierszy, które serwer już wyczyścił),
  *  - oba telefony widzą to samo,
- *  - powtórzona paczka nigdy nie daje nowego odrzucenia (idempotencja po stronie serwera).
+ *  - powtórzona paczka nigdy nie daje nowego odrzucenia, a odrzucenie wraca z tym samym kodem (M-56),
+ *  - pętle „do ciszy” mają górną granicę obrotów (M-49).
  * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany.
  */
 import * as fc from 'fast-check';
@@ -86,17 +89,24 @@ const opArb: fc.Arbitrary<NewOp> = fc.oneof(
 type Cmd =
   | { t: 'mutate'; who: User; op: NewOp }
   | { t: 'push'; who: User; fate: 'ok' | 'lostRequest' | 'lostResponse' | 'twice' }
-  | { t: 'pull'; who: User; lim: number; fate: 'ok' | 'lost' };
+  | { t: 'pull'; who: User; lim: number; fate: 'ok' | 'lost' }
+  // Nocne czyszczenie: wszystko z kosza „sprzed 40 dni”, potem private.purge_tombstones() (M-1, M-4).
+  | { t: 'purge' }
+  | { t: 'role'; role: 'member' | 'child' };
 const who = fc.constantFrom<User>('ala', 'bartek');
 const cmdArb: fc.Arbitrary<Cmd> = fc.oneof(
   { weight: 5, arbitrary: fc.record({ t: fc.constant('mutate' as const), who, op: opArb }) },
   { weight: 3, arbitrary: fc.record({ t: fc.constant('push' as const), who, fate: fc.constantFrom('ok' as const, 'lostRequest' as const, 'lostResponse' as const, 'twice' as const) }) },
   { weight: 3, arbitrary: fc.record({ t: fc.constant('pull' as const), who, lim: fc.integer({ min: 1, max: 5 }), fate: fc.constantFrom('ok' as const, 'lost' as const) }) },
+  { weight: 1, arbitrary: fc.constant({ t: 'purge' as const }) },
+  { weight: 1, arbitrary: fc.record({ t: fc.constant('role' as const), role: fc.constantFrom('member' as const, 'child' as const) }) },
 );
 
 /** Wiersze w porządku niezależnym od kolejności pobrania. */
 const sorted = (t: { [e: string]: { [k: string]: unknown } }) =>
   Object.fromEntries(Object.entries(t).filter(([, rows]) => Object.keys(rows).length > 0).sort(([a], [b]) => a.localeCompare(b))) as { [e: string]: { [k: string]: { [c: string]: unknown } } };
+
+const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0, purged: 0, resync: 0, child: 0, recalled: 0 };
 
 d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
   const db = new Client({ database: process.env.PGDATABASE ?? 'organizer_test' });
@@ -111,9 +121,10 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     await as(user);
     return (await db.query(`select public.sync_push($1, $2, $3::jsonb) r`, [req.client_id, req.schema_version, JSON.stringify(req.ops)])).rows[0].r;
   };
-  const pull = async (user: User, cursors: object, lim: number): Promise<PullResponse> => {
+  // Protokół 2 jak w aplikacji (src/sync/supabase.ts): kursory z epoką, wersja protokołu, encje znane telefonowi.
+  const pull = async (user: User, req: ReturnType<typeof pullRequest>, lim: number): Promise<PullResponse> => {
     await as(user);
-    return (await db.query(`select public.sync_pull($1::jsonb, $2) r`, [JSON.stringify(cursors), lim])).rows[0].r;
+    return (await db.query(`select public.sync_pull($1::jsonb, $2, $3, $4::jsonb) r`, [JSON.stringify(req.cursors), lim, req.schema_version, JSON.stringify(req.entities)])).rows[0].r;
   };
   const fetchScope = async (user: User, scope: string): Promise<PulledRow[]> => {
     await as(user);
@@ -122,26 +133,36 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
 
   async function applyPull(user: User, s: ClientState, lim: number): Promise<{ state: ClientState; more: boolean }> {
     const req = pullRequest(s);
-    const out = onPullResponse(s, await pull(user, req.cursors, lim), req.ackedAtStart);
+    const res = await pull(user, req, lim);
+    if (res.groups.some((g) => g.resync)) seen.resync += 1;
+    const out = onPullResponse(s, res, req);
     let state = out.state;
     for (const sc of out.fetchScopes) state = onFetchScope(state, await fetchScope(user, sc));
     return { state, more: out.needMore };
   }
 
+  /** Pobieranie aż do końca z górną granicą obrotów — inaczej nieskończone pobieranie (M-1) przeszłoby po cichu. */
+  async function pullAll(user: User, s: ClientState, lim: number, bound: number): Promise<ClientState> {
+    for (let i = 0; ; i++) {
+      if (i >= bound) throw new Error(`pobieranie się nie kończy (${user}, ${bound} porcji)`);
+      const r = await applyPull(user, s, lim);
+      s = r.state;
+      if (!r.more) return s;
+    }
+  }
+
   /** Pełny, świeży odczyt: nowy telefon bez kursorów, duże porcje. */
   async function fresh(user: User) {
-    let s = initialState('fresh');
-    for (let i = 0; i < 50; i++) {
-      const r = await applyPull(user, s, 1000);
-      s = r.state;
-      if (!r.more) break;
-    }
-    return sorted(s.base);
+    return sorted((await pullAll(user, initialState('fresh'), 1000, 5)).base);
   }
+
+  /** Nagrobki, które serwer już wyczyścił, mogą zostać na telefonie, który widział usunięcie — poza nimi stan = serwer. */
+  const withoutPurged = (view: ReturnType<typeof sorted>, server: ReturnType<typeof sorted>) =>
+    sorted(Object.fromEntries(Object.entries(view).map(([e, rows]) => [e, Object.fromEntries(Object.entries(rows).filter(([k, r]) => k in (server[e] ?? {}) || r.deleted_at == null))])));
 
   it('zbieżność z serwerem, pusta kolejka, oba telefony widzą to samo, powtórki bez nowych odrzuceń', async () => {
     // Statystyka przebiegów: test ma sens tylko wtedy, gdy losowe operacje naprawdę przechodzą (nie same odrzucenia).
-    const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0 };
+    Object.assign(seen, { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0, purged: 0, resync: 0, child: 0, recalled: 0 });
     await fc.assert(
       fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }), async (cmds) => {
         await db.query('begin');
@@ -161,41 +182,64 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
           let n = 0;
           const newId = () => id('003', ++n);
           const phones: Record<User, ClientState> = { ala: initialState(id('004', 1)), bartek: initialState(id('004', 2)) };
+          const sent: Record<User, number> = { ala: 0, bartek: 0 };
           for (const c of cmds) {
-            const s = phones[c.who];
+            const s = phones['who' in c ? c.who : 'ala'];
             if (c.t === 'mutate') {
               phones[c.who] = mutate(s, c.op, newId);
             } else if (c.t === 'push') {
               const req = pushRequest(s);
               if (req.ops.length === 0 || c.fate === 'lostRequest') continue;
               const first = await push(c.who, req);
+              // Statystyka tylko pierwszych wyników (powtórka odrzucenia to znowu „rejected” — M-56).
+              for (const r of first.results) {
+                if (r.seq <= sent[c.who]) continue;
+                seen[r.status === 'rejected' ? 'rejected' : 'ok'] += 1;
+                if (r.code === 'forbidden:child') seen.child += 1;
+              }
+              sent[c.who] = Math.max(sent[c.who], first.last_seq);
               if (c.fate === 'lostResponse') continue; // serwer zapisał, telefon ponowi te same operacje
               let res = first;
               if (c.fate === 'twice') {
                 res = await push(c.who, req);
-                // Powtórzona paczka: to, co za pierwszym razem przeszło, nie zmienia się w odrzucenie.
                 for (const r of first.results) {
-                  if (r.status === 'ok') expect(res.results.find((x) => x.seq === r.seq)?.status).not.toBe('rejected');
+                  const again = res.results.find((x) => x.seq === r.seq);
+                  // Powtórzona paczka: to, co za pierwszym razem przeszło, nie zmienia się w odrzucenie…
+                  if (r.status === 'ok') expect(again?.status).not.toBe('rejected');
+                  // …a odrzucenie wraca z tym samym kodem zamiast „duplicate” (M-56).
+                  if (r.status === 'rejected') {
+                    expect(again).toEqual(r);
+                    seen.recalled += 1;
+                  }
                 }
               }
-              for (const r of res.results) seen[r.status === 'rejected' ? 'rejected' : 'ok'] += 1;
               phones[c.who] = onPushResponse(s, res);
-            } else if (c.fate === 'ok') {
-              phones[c.who] = (await applyPull(c.who, s, c.lim)).state;
+            } else if (c.t === 'pull') {
+              if (c.fate === 'ok') phones[c.who] = (await applyPull(c.who, s, c.lim)).state;
+            } else if (c.t === 'purge') {
+              await as(null);
+              await db.query(`update public.tasks set deleted_at = now() - interval '40 days' where group_id = $1 and deleted_at is not null`, [G]);
+              await db.query(`update public.events set deleted_at = now() - interval '40 days' where group_id = $1 and deleted_at is not null`, [G]);
+              seen.purged += (await db.query('select private.purge_tombstones() n')).rows[0].n;
+            } else {
+              // Zmiana roli Bartka przez serwer (jak owner w aplikacji): operacje dziecka w kolejce są odrzucane.
+              await as(null);
+              await db.query(`update public.group_members set role = $1 where member_id = $2`, [c.role, M.bartek]);
             }
           }
 
-          // Sieć zdrowieje: wysyłki do skutku, potem pobieranie małymi porcjami (sprawdza kursory) aż do końca.
+          // Sieć zdrowieje: wysyłki do skutku, potem pobieranie małymi porcjami (sprawdza kursory i epoki) aż do końca —
+          // z górną granicą obrotów (porcje po 3 wiersze + resync + zapas).
           for (let round = 0; round < 2; round++) {
             for (const u of USERS) {
-              for (let i = 0; i < 20 && pushRequest(phones[u]).ops.length > 0; i++) phones[u] = onPushResponse(phones[u], await push(u, pushRequest(phones[u])));
+              for (let i = 0; pushRequest(phones[u]).ops.length > 0; i++) {
+                if (i >= 20) throw new Error(`wysyłka się nie kończy (${u})`);
+                phones[u] = onPushResponse(phones[u], await push(u, pushRequest(phones[u])));
+              }
             }
             for (const u of USERS) {
-              for (let i = 0; i < 500; i++) {
-                const r = await applyPull(u, phones[u], 3);
-                phones[u] = r.state;
-                if (!r.more) break;
-              }
+              const rows = Object.values(await fresh(u)).reduce((n, t) => n + Object.keys(t).length, 0);
+              phones[u] = await pullAll(u, phones[u], 3, Math.ceil(rows / 3) + 3);
             }
           }
 
@@ -205,8 +249,9 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
           const views: Record<string, unknown> = {};
           for (const u of USERS) {
             expect(phones[u].pending).toHaveLength(0);
-            const view = sorted(materialize(phones[u]));
-            expect(view).toEqual(await fresh(u));
+            const server = await fresh(u);
+            const view = withoutPurged(sorted(materialize(phones[u])), server);
+            expect(view).toEqual(server);
             views[u] = shared(view as never);
             for (const [e, rows] of Object.entries(views[u] as object)) if (Object.keys(rows).length > 0) seen.entities.add(e);
             seen.shopItems += ITEMS.filter((i) => (views[u] as { tasks?: object }).tasks && i in (views[u] as { tasks: object }).tasks).length;
@@ -220,7 +265,14 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
       }),
       { numRuns: 150 },
     );
-    expect(seen.ok).toBeGreaterThan(seen.rejected);
+    // Liczone tylko pierwsze wyniki (powtórki nie zawyżają sukcesów). Dużo odrzuceń jest zamierzonych: dziecko,
+    // zmiany po czyszczeniu kosza, wyjątki do nieistniejących serii — ale spora część operacji przechodzi.
+    expect(seen.ok).toBeGreaterThan(seen.rejected / 4);
+    // Sytuacje z audytu 2 naprawdę się zdarzają: czyszczenie z resync, odrzucenia dziecka, odrzucenie po powtórce.
+    expect(seen.purged).toBeGreaterThan(0);
+    expect(seen.resync).toBeGreaterThan(0);
+    expect(seen.child).toBeGreaterThan(0);
+    expect(seen.recalled).toBeGreaterThan(0);
     // Regresja D87: pozycje zakupów naprawdę zapisują się na serwerze (wcześniej odrzucane po cichu).
     expect(seen.shopItems).toBeGreaterThan(0);
     // Polecenia stałych zakupów naprawdę zmieniają tablicę na serwerze (M-111).

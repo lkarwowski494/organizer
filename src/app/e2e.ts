@@ -11,7 +11,7 @@
  * pomysłu z src/domain/__tests__/support/fake-server.ts (bez RLS: osoba demo widzi wszystkie grupy).
  */
 import type { DbAdapter } from '../data/db/adapter';
-import { applyOp, type Entity, type Op, type PulledRow, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
+import { applyOp, type Entity, type Op, type PulledRow, type PullRequest, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
 import { WHATS_NEW_SEEN } from '../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
 import type { AccountApi } from '../sync/account';
@@ -163,9 +163,10 @@ export class E2eServer {
     return { last_seq: last, results };
   }
 
-  pull(cursors: { readonly [groupId: string]: number }, limit: number): PullResponse {
+  /** Bez czyszczenia kosza i bez uprawnień: epoka zawsze 0, bez resync, list widocznych i „gone” (protokół 2, pola opcjonalne). */
+  pull(req: Pick<PullRequest, 'cursors'>, limit: number): PullResponse {
     const groups = [...this.versions.keys()].sort().map((group_id) => {
-      const since = cursors[group_id] ?? 0;
+      const since = req.cursors[group_id]?.v ?? 0;
       const fresh = [...this.rows.values()].filter((r) => groupOf(r.e, r.row) === group_id && r.v > since).sort((a, b) => a.v - b.v);
       const rows = fresh.slice(0, limit);
       const has_more = fresh.length > rows.length;
@@ -185,7 +186,7 @@ export class E2eServer {
 export function e2eTransport(server: E2eServer): SyncTransport {
   return {
     push: async (req) => server.push(req),
-    pull: async (cursors, limit) => server.pull(cursors, limit),
+    pull: async (req, limit) => server.pull(req, limit),
     fetchScope: async () => [],
   };
 }

@@ -63,6 +63,21 @@ describe('wyczyść dane na telefonie (D121)', () => {
     expect(resetLocal).not.toHaveBeenCalled();
   });
 
+  it('aplikacja do aktualizacji (upgrade_required, audyt 2 M-57): wskaźnik „Zaktualizuj aplikację”, czyszczenie zablokowane', async () => {
+    const resetLocal = jest.fn();
+    const s = setup({ resetLocal, indicator: { state: 'upgrade_required', pending: 1 } });
+    await s.renderApp(<RootStack />);
+    expect(await screen.findByLabelText('Stan synchronizacji: Zaktualizuj aplikację')).toBeTruthy();
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
+    await press(await screen.findByTestId('reset-start'));
+    expect(screen.getByText(/Najpierw zaktualizuj aplikację/)).toBeTruthy();
+    expect(screen.queryByText(/Najpierw połącz się z internetem/)).toBeNull();
+    expect(screen.getByTestId('reset-confirm').props.accessibilityState).toMatchObject({ disabled: true });
+    await press(screen.getByTestId('reset-confirm'));
+    expect(resetLocal).not.toHaveBeenCalled();
+  });
+
   it('potwierdzenie z ostrzeżeniem o niewysłanych zmianach; anuluj; wyczyść', async () => {
     const resetLocal = jest.fn();
     const s = setup({ resetLocal });

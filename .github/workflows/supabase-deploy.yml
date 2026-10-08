@@ -3,6 +3,10 @@
 # na czas rozwoju — wcześniej z zatwierdzeniem właściciela). Uruchamia Claude po zielonych testach bazy. Tryb „dry-run” pokazuje, które
 # migracje weszłyby, niczego nie zmieniając; „apply” wgrywa migracje i funkcje delete-account oraz notify-handoff.
 # Koszt: darmowy runner Linux (repozytorium publiczne).
+# Bramka (audyt 2, M-155): zadanie gate, bez sekretów i bez środowiska, wymaga zielonych ci.yml (także testy funkcji
+# Edge) i db.yml dla tego samego commitu na main (.github/scripts/require-green-runs.sh; trwający przebieg poczeka).
+# Sekrety tylko w krokach, które ich używają; CLI pobierany w kroku bez sekretów; hasło bazy przez zmienną
+# SUPABASE_DB_PASSWORD, nie w wierszu poleceń.
 name: supabase-deploy
 
 on:
@@ -22,14 +26,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: zielone ci.yml i db.yml dla tego commitu
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/require-green-runs.sh "$GITHUB_SHA" ci.yml db.yml
+
   deploy:
+    needs: gate
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: supabase-prod
     env:
       PROJECT_REF: rkokujgrziaaxabtxnlo
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       CLI: npx --yes supabase@2.119.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,21 +56,42 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+      # Pobranie CLI (paczka npm i plik binarny) przed krokami z sekretami; kolejne kroki biorą go z pamięci npx.
+      - name: CLI Supabase
+        run: $CLI --version
       - name: sekrety ustawione
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo "Brak sekretu SUPABASE_ACCESS_TOKEN w środowisku supabase-prod"; exit 1; }
           test -n "$SUPABASE_DB_PASSWORD" || { echo "Brak sekretu SUPABASE_DB_PASSWORD w środowisku supabase-prod"; exit 1; }
+      # CLI 2.119.0 (https://github.com/supabase/cli/tree/v2.119.0/apps/cli/src/commands): link używa tylko
+      # SUPABASE_ACCESS_TOKEN („SUPABASE_DB_PASSWORD … accepted but a no-op for link”, link/SIDE_EFFECTS.md),
+      # db push bierze hasło z SUPABASE_DB_PASSWORD („password for the linked/remote connection”, db/push/SIDE_EFFECTS.md).
       - name: połączenie z projektem
-        run: $CLI link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: $CLI link --project-ref "$PROJECT_REF"
       - name: migracje do wgrania (podgląd)
-        run: $CLI db push --dry-run --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: $CLI db push --dry-run
       - name: wgranie migracji
         if: inputs.mode == 'apply'
-        run: $CLI db push --password "$SUPABASE_DB_PASSWORD"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: $CLI db push
       - name: wgranie funkcji delete-account
         if: inputs.mode == 'apply'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: $CLI functions deploy delete-account --project-ref "$PROJECT_REF" --use-api
       # Push o przekazaniach (D70, ADR 0015). Sekrety APNS_* są już w projekcie Supabase (spike S1, ADR 0002).
       - name: wgranie funkcji notify-handoff
         if: inputs.mode == 'apply'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: $CLI functions deploy notify-handoff --project-ref "$PROJECT_REF" --use-api

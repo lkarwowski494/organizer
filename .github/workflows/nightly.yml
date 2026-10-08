@@ -1,6 +1,7 @@
 # Nocny pełny zestaw testów (decyzja właściciela 6.10.2026, docs/testing.md): testy mutacyjne,
 # pełny skan sekretów w historii, audyt zależności. Tylko runner Linux — w repo publicznym bez opłat.
-# E2E na symulatorze iOS i zrzuty ekranu: osobny workflow e2e.yml (D143); wydajność — planowana (docs/testing.md).
+# E2E na symulatorze iOS i zrzuty ekranu: osobny workflow e2e.yml (D143); testy bazy co noc: db.yml;
+# wydajność — planowana (docs/testing.md).
 name: nightly
 
 on:
@@ -17,8 +18,16 @@ concurrency:
 
 jobs:
   mutation:
+    # Audyt 2 (M-47): 8537 mutantów w 64 plikach to kilka godzin pracy jednego runnera (plan Strykera z 8.10.2026:
+    # 1512 mutantów statycznych, każdy uruchamia wszystkie powiązane testy), a limit zadania GitHub to 6 h. Pliki
+    # dzielone na równoległe części (.github/scripts/mutation-shards.mjs, wzorce mutate ze stryker.config.json);
+    # próg liczy zadanie mutation-score na wyniku całości.
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,8 +37,43 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Próg: co najmniej 90% wykrytych celowych usterek w logice (stryker.config.json → thresholds.break).
-      - run: npm run test:mutation
+      - name: testy mutacyjne, część ${{ matrix.part }}
+        # Po timeout-minutes GitHub oznacza zadanie jako „cancelled” (8.10.2026 przerwany pomiar wyglądał na anulowany,
+        # nie na błąd); `timeout` kończy wcześniej z kodem 124, więc przekroczenie czasu oblewa przebieg.
+        run: |
+          files="$(node .github/scripts/mutation-shards.mjs "${{ strategy.job-index }}" "${{ strategy.job-total }}")"
+          mkdir -p reports/mutation
+          printf '%s\n' "$files" > reports/mutation/files.txt
+          timeout --kill-after=2m 110m npx stryker run stryker.shard.config.mjs --mutate "$files"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-part-${{ matrix.part }}
+          path: |
+            reports/mutation/mutation.json
+            reports/mutation/files.txt
+          retention-days: 3
+          if-no-files-found: error
+
+  mutation-score:
+    # Próg: co najmniej 90% wykrytych celowych usterek w logice (stryker.config.json → thresholds.break), liczony jak
+    # w Strykerze na scalonych raportach wszystkich części; sprawdza też, że części objęły każdy plik z `mutate`.
+    needs: mutation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mutation-part-*
+          path: reports/parts
+      - run: node .github/scripts/mutation-merge.mjs reports/parts/*
 
   secrets-full-history:
     runs-on: ubuntu-24.04

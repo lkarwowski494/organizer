@@ -6,6 +6,7 @@
  * poke z Realtime, wysyłka ok. 1 s po lokalnej zmianie, timer, gdy kolejka nie jest pusta.
  * Błąd przejściowy → ponowienie z rosnącym opóźnieniem. Wygasła sesja → nic nie wysyłamy, dopóki
  * token nie zostanie odświeżony; operacji z kolejki NIGDY nie wyrzucamy (zasada „nic nie ginie”).
+ * Błąd trwały protokołu (np. upgrade_required) → bez ponowień do powrotu na pierwszy plan (audyt 2, M-57).
  */
 import { config } from '../../config';
 
@@ -24,6 +25,8 @@ export type SchedulerState = {
   readonly failures: number;
   readonly lastSuccessAt: number | null;
   readonly lastError: string | null;
+  /** Kod błędu trwałego (np. upgrade_required) — pętla stoi; zdejmuje go dopiero powrót na pierwszy plan. */
+  readonly fatal: string | null;
 };
 
 export type SchedulerEvent =
@@ -37,6 +40,7 @@ export type SchedulerEvent =
   | { t: 'push_ok'; pending: number }
   | { t: 'pull_ok'; needMore: boolean; pending: number }
   | { t: 'failed'; what: 'push' | 'pull'; error: 'network' | 'auth' | 'server' }
+  | { t: 'failed'; what: 'push' | 'pull'; error: 'fatal'; code: string }
   | { t: 'auth_refreshed' };
 
 export type Decision = { do: 'push' | 'pull' } | { do: 'wait'; until: number } | { do: 'idle' };
@@ -45,7 +49,7 @@ export function initialScheduler(now: number): SchedulerState {
   return {
     online: true, foreground: true, authExpired: false, inflight: null, pending: 0,
     // Start aplikacji: od razu pobranie (nowe dane innych osób) i wysyłka zaległości.
-    needPull: true, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null,
+    needPull: true, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null, fatal: null,
   };
 }
 
@@ -59,8 +63,8 @@ export function onEvent(s: SchedulerState, e: SchedulerEvent, now: number): Sche
     case 'local_change':
       return { ...s, pending: e.pending, pushNotBefore: Math.max(s.pushNotBefore, now + config.sync.PUSH_DEBOUNCE_MS) };
     case 'foreground':
-      // Powrót na pierwszy plan: pobierz od razu; ponowienia po błędzie zaczynają od nowa.
-      return { ...s, foreground: true, needPull: true, failures: 0, pushNotBefore: now, pullNotBefore: now };
+      // Powrót na pierwszy plan: pobierz od razu; ponowienia po błędzie zaczynają od nowa (także jedna próba po błędzie trwałym).
+      return { ...s, foreground: true, needPull: true, failures: 0, fatal: null, pushNotBefore: now, pullNotBefore: now };
     case 'background':
       return { ...s, foreground: false };
     case 'network':
@@ -81,6 +85,7 @@ export function onEvent(s: SchedulerState, e: SchedulerEvent, now: number): Sche
       };
     case 'failed': {
       if (e.error === 'auth') return { ...s, inflight: null, authExpired: true, lastError: 'auth' };
+      if (e.error === 'fatal') return { ...s, inflight: null, fatal: e.code, lastError: e.code };
       const failures = s.failures + 1;
       const at = now + backoffMs(failures);
       return {
@@ -95,7 +100,7 @@ export function onEvent(s: SchedulerState, e: SchedulerEvent, now: number): Sche
 }
 
 export function decide(s: SchedulerState, now: number): Decision {
-  if (s.inflight || !s.online || s.authExpired) return { do: 'idle' };
+  if (s.inflight || !s.online || s.authExpired || s.fatal) return { do: 'idle' };
   // Kolejność: najpierw wysyłka (żeby inni szybciej zobaczyli zmiany), potem pobranie.
   if (s.pending > 0 && now >= s.pushNotBefore) return { do: 'push' };
   if (s.needPull && now >= s.pullNotBefore && s.foreground) return { do: 'pull' };
@@ -109,12 +114,15 @@ export function decide(s: SchedulerState, now: number): Decision {
 
 /** Kiedy obudzić pętlę timerem, gdy nic nie jest zaplanowane, a kolejka nie jest pusta. */
 export function pendingTimer(s: SchedulerState, now: number): number | null {
-  return s.pending > 0 && s.foreground ? now + config.sync.PENDING_TIMER_MS : null;
+  // Po błędzie trwałym timer nic by nie zmienił (pętla czeka na pierwszy plan).
+  return s.pending > 0 && s.foreground && !s.fatal ? now + config.sync.PENDING_TIMER_MS : null;
 }
 
 export type Indicator =
   | { state: 'offline'; pending: number }
   | { state: 'auth_expired'; pending: number }
+  /** Serwer nie obsługuje już tej wersji aplikacji (upgrade_required). */
+  | { state: 'upgrade_required'; pending: number }
   | { state: 'syncing'; pending: number }
   | { state: 'error'; pending: number; error: string }
   | { state: 'pending'; pending: number }
@@ -122,6 +130,7 @@ export type Indicator =
 
 /** Wskaźnik stanu (architektura: offline / synchronizuję / zsynchronizowano X min temu / N zmian czeka / błąd + wygasła sesja). */
 export function indicator(s: SchedulerState): Indicator {
+  if (s.fatal === 'upgrade_required') return { state: 'upgrade_required', pending: s.pending };
   if (s.authExpired) return { state: 'auth_expired', pending: s.pending };
   if (!s.online) return { state: 'offline', pending: s.pending };
   if (s.inflight) return { state: 'syncing', pending: s.pending };
