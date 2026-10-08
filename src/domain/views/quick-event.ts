@@ -76,12 +76,12 @@ export type QuickPreview = {
  * dodać, audyt 2 M-168), rozpoznane fragmenty (chipy do odklikania, D18, D99), czy powstanie wydarzenie (zakres godzin,
  * M-256) i nierozpoznany dzień (M-23).
  */
-export function quickPreview(text: string, now: LocalDateTime, ignore: readonly { start: number; end: number }[] = []): QuickPreview {
+export function quickPreview(text: string, now: LocalDateTime, ignore: readonly { start: number; end: number }[]): QuickPreview {
   const range = findTimeRange(text, ignore);
   const parsed = parseQuickAdd(range ? withoutRange(text, range) : text, now, { ignore });
   const event = !!range && !parsed.unrecognizedDay;
   // Zakres bez wydarzenia (nierozpoznany dzień) zostaje w nazwie zadania, jak w quickAddOps.
   const task = range && !event ? parseQuickAdd(text, now, { ignore }) : parsed;
-  const tokens = [...(event ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parsed.tokens.map(({ start, end, text: t }) => ({ start, end, text: t }))];
+  const tokens = [...(event ? [{ start: range.start, end: range.end, text: range.text }] : []), ...parsed.tokens.map(({ start, end, text: t }) => ({ start, end, text: t }))];
   return { title: task.title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay, dated: event || task.due !== null };
 }

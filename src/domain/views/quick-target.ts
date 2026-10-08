@@ -71,7 +71,7 @@ export function withoutShortcuts(text: string): string {
 /** Grupy pasujące do „#nazwa” (spośród `groups` z nazwami, jakie widzi osoba). */
 export function tagTargets(groups: readonly GroupChoice[], name: string): GroupChoice[] {
   const q = foldName(name);
-  const key = (g: GroupChoice) => foldName(g.name).replace(/\s+/g, '');
+  const key = (g: GroupChoice) => foldName(g.name).replace(/\s/g, '');
   const starts = groups.filter((g) => key(g).startsWith(q));
   const exact = starts.filter((g) => key(g) === q);
   return exact.length === 1 ? exact : starts;

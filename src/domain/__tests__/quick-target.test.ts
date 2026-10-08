@@ -119,5 +119,6 @@ describe('adresat przed dodaniem', () => {
     expect(needsAddressee(t, ME, { groupId: 'gf', memberId: null }, true)).toBe(false);
     expect(needsAddressee(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBe(false);
     expect(needsAddressee(t, ME, { groupId: ME, memberId: null }, false)).toBe(false);
+    expect(needsAddressee(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBe(false);
   });
 });

@@ -13,4 +13,8 @@ describe('grupa domyślna nowego wpisu (decyzja właściciela 8.10.2026, M-24, P
     expect(startGroup(groups, null, null)).toBe('u-me');
     expect(startGroup([], null, null)).toBeNull();
   });
+
+  it('„Ostatnio użyta” zapisana na telefonie jako „last” — zmiana wartości zgubiłaby ustawienie', () => {
+    expect(LAST_USED).toBe('last');
+  });
 });
