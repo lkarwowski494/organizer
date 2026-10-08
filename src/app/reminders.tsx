@@ -48,7 +48,7 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
             max: config.reminders.MAX_SCHEDULED,
             toMs: localToMs,
             localDate: (iso) => formatIsoDate(localNow(Date.parse(iso))),
-            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'], summary: strings['reminders.summary'], leave: strings['travel.leaveTitle'], subtasks: strings['reminders.subtasks'] },
+            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'], summary: strings['reminders.summary'], leave: strings['travel.leaveTitle'], subtasks: strings['reminders.subtasks'], parent: strings['nest.parent'] },
             // D117: wydarzenie z policzonym dojazdem — „Czas wyjść” o godzinie wyjścia.
             leaveFor: (id, occ) => {
               const i = travel.info(id, occ);
