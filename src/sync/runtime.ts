@@ -71,8 +71,6 @@ export class SyncRuntime {
   /** Czekający na pobranie (refreshNow) i liczba pobrań rozpoczętych przed ich prośbą. */
   private waiters: { after: number; resolve: () => void }[] = [];
   private pullRuns = 0;
-  /** Prośba przyszła w trakcie pobierania: po nim pobrać jeszcze raz (scheduler gubi poke z czasu pobierania). */
-  private repoke = false;
   /** Ostatni stan aplikacji z zewnątrz (pierwszy plan / tło) i liczba trwających odświeżeń z tła. */
   private appForeground = true;
   private woken = 0;
@@ -132,7 +130,6 @@ export class SyncRuntime {
    */
   refreshNow(): Promise<void> {
     if (this.stopped) return Promise.resolve();
-    if (this.sched.inflight === 'pull') this.repoke = true;
     const done = new Promise<void>((resolve) => this.waiters.push({ after: this.pullRuns, resolve }));
     // W tle pętla nie pobiera (scheduler: tylko na pierwszym planie) — na czas odświeżenia jak na pierwszym planie
     // (wysyła też czekające zmiany); potem z powrotem tło, chyba że w międzyczasie aplikacja wróciła na pierwszy plan.
@@ -194,12 +191,9 @@ export class SyncRuntime {
     }
     if (gen !== this.generation) return;
     this.sched = onEvent(this.sched, done, this.deps.now());
-    if (what === 'pull' && this.repoke) {
-      this.repoke = false;
-      this.sched = onEvent(this.sched, { t: 'poke', fresh: true }, this.deps.now());
-    }
     this.emit();
-    // Pobranie w toku, gdy przyszła prośba, mogło nie objąć nowej zmiany — czekamy na następne (`after`).
+    // Pobranie w toku, gdy przyszła prośba, mogło nie objąć nowej zmiany — czekamy na następne (`after`); to następne
+    // zleca scheduler (repull).
     if (what === 'pull' && (done.t === 'failed' || (done.t === 'pull_ok' && !done.needMore))) this.release(run);
     this.tick();
   }
