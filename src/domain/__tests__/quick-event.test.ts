@@ -39,7 +39,8 @@ describe('wydarzenie z szybkiego dodania (D98, D99)', () => {
 
   it('@imię: grupa i dorosła osoba odpowiedzialna; dziecko i grupa osobista — bez osoby; grupa jako dziecko — osobista', () => {
     expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'ala' })).toMatchObject({ groupId: 'gf', form: { responsibleId: 'ala' } });
-    expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'kuba' })!.form.responsibleId).toBeNull();
+    expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'kuba' })!.form).toMatchObject({ responsibleId: null, audience: 'members', participantIds: ['kuba'] });
+    expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'ala' })!.form).toMatchObject({ audience: 'group', participantIds: [] });
     expect(q('zebranie 17-18', { groupId: ME, memberId: ME })!.form.responsibleId).toBeNull();
     expect(q('zebranie 17-18', { groupId: 'gc' })!.groupId).toBe(ME);
     expect(quickEvent({ tables: {}, userId: ME, text: 'x 17-18', now: NOW })).toBeNull();

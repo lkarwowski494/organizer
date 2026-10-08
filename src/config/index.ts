@@ -29,8 +29,12 @@ export const config = {
    */
   profile: { NAME_MAX_LENGTH: 100 },
 
-  /** Miejsce wydarzenia (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length() (test kontraktowy). Wybór projektowy. */
-  events: { LOCATION_MAX_LENGTH: 300 },
+  /**
+   * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
+   * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
+   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). Wybory projektowe, bez źródła.
+   */
+  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62 },
 
   /**
    * Czas dojazdu (D116, D117): zapas doliczany do „wyjdź o”, co ile minut odświeżać, na ile godzin naprzód liczyć

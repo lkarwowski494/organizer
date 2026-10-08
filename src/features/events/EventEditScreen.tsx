@@ -15,7 +15,8 @@ import { formatIsoDate } from '../../domain/civil-date';
 import { formatLongDate, parseIsoDate , formatDue } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { type SeriesEffects, seriesEditEffects, seriesTaskOps } from '../../domain/views/event-tasks';
-import { createEvent, editEvent, eventDetail, fieldsOf } from '../../domain/views/events';
+import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
+import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
@@ -82,6 +83,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   const save = () => {
     const r = validateForm(only ? { ...form, repeat: 'none' } : form);
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
+    if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
     if (!detail) {
       store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));

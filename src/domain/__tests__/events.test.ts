@@ -18,6 +18,7 @@ import {
   fieldsOf,
   groupSeries,
   timeLabel,
+  moveTooFar,
   lengthLabel,
   ruleOf,
   todayEvents,
@@ -192,6 +193,10 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     run(t, editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-11-20' }), newId));
     expect(brief(range(t, '2026-11-20', '2026-11-20'))).toEqual(['2026-11-20 18:00 Tańce Kuby']);
     expect(range(t, '2026-10-12', '2026-10-12')).toEqual([]);
+    // Audyt 8.10.2026: dalej niż okno rozwijania formularz nie pozwala (zniknęłoby z widoków).
+    expect(moveTooFar('2026-10-12', '2026-12-13')).toBe(false);
+    expect(moveTooFar('2026-10-12', '2026-12-14')).toBe(true);
+    expect(moveTooFar('2026-10-12', '2026-08-10')).toBe(true);
   });
 
   it('„tylko to”: odwołanie jednych zajęć; ponowne odwołanie zmienionego wystąpienia patchuje wyjątek', () => {

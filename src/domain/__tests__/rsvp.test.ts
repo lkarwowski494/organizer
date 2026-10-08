@@ -1,4 +1,5 @@
 import { applyOp, type NewOp, type Row } from '../sync-engine/client';
+import { editEvent, eventDetail, fieldsOf } from '../views/events';
 import { answerOps, RSVP_NAMESPACE, rsvpId, rsvpView } from '../views/rsvp';
 
 type T = { [e: string]: { [id: string]: Row } };
@@ -68,6 +69,23 @@ describe('obecność (D124)', () => {
     const t = world();
     put(t, 'group_members', 'ala0', { member_id: 'ala0', group_id: 'gf', user_id: 'u5', display_name: 'Ala', role: 'member', deleted_at: null });
     expect(rsvpView(t, 'u1', 'e1', '2026-10-07')!.people.map((p) => p.memberId)).toEqual(['me', 'kuba', 'ala', 'ala0', 'roza']);
+  });
+
+  it('audyt 8.10.2026: „to i następne” przenosi odpowiedzi od tego dnia do nowej serii', () => {
+    const t = world();
+    put(t, 'events', 'ew', { group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'group', deleted_at: null, id: 'ew' });
+    expect(eventDetail(t, 'u1', 'ew')!.rsvps).toEqual([]);
+    apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-07', memberId: 'me', answer: 'yes' }));
+    apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-14', memberId: 'kuba', answer: 'no' }));
+    put(t, 'event_rsvps', 'stara', { id: 'stara', event_id: 'ew', occurrence_date: '2026-10-21', member_id: 'ala', answer: 'yes', deleted_at: 'x' });
+    const d = eventDetail(t, 'u1', 'ew')!;
+    let n = 0;
+    const ops = editEvent(d, '2026-10-14', 'following', fieldsOf(d, '2026-10-14', 'following'), () => `n${++n}`);
+    const created = (ops.find((o) => o.kind === 'create' && o.entity === 'events') as { id: string }).id;
+    expect(ops.filter((o) => 'entity' in o && o.entity === 'event_rsvps')).toEqual([
+      { kind: 'delete', entity: 'event_rsvps', id: rsvpId('ew', '2026-10-14', 'kuba') },
+      { kind: 'create', entity: 'event_rsvps', id: rsvpId(created, '2026-10-14', 'kuba'), group_id: 'gf', set: { event_id: created, occurrence_date: '2026-10-14', member_id: 'kuba', answer: 'no' } },
+    ]);
   });
 
   it('bez obecności: grupa osobista, wydarzenie usunięte albo nieznane, nie jestem w grupie', () => {

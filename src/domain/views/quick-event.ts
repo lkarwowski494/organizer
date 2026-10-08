@@ -35,8 +35,11 @@ export function quickEvent(a: {
   if (!group) return null;
   const nowHm = `${String(a.now.hh).padStart(2, '0')}:${String(a.now.mm).padStart(2, '0')}`;
   const date = parsed.due?.date ?? formatIsoDate(addDays(a.now, range.from > nowHm ? 0 : 1));
-  const adult = group.kind === 'shared' && groupDetail(a.tables, a.userId, group.id)!.members.some((m) => m.member_id === a.memberId && m.role !== 'child');
-  const f = emptyForm(date);
+  const members = group.kind === 'shared' ? groupDetail(a.tables, a.userId, group.id)!.members : [];
+  const adult = members.some((m) => m.member_id === a.memberId && m.role !== 'child');
+  // @dziecko: dziecko uczestnikiem (D58 — wtedy dotyczy też rodziców), jak przy zadaniu (audyt 8.10.2026).
+  const child = members.some((m) => m.member_id === a.memberId && m.role === 'child');
+  const f = emptyForm(date, child ? [a.memberId!] : []);
   return {
     groupId: group.id,
     form: {
