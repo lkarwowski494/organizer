@@ -5,6 +5,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { OVERRIDE_NAMESPACE } from '../../domain/views/events';
+import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
+import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
 import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
@@ -50,6 +53,20 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
+    // Audyt 2, P16: retencja (M-62, M-68) i limity na konto (M-70, D183).
+    ['activity_days', config.retention.ACTIVITY_DAYS],
+    ['handoff_days', config.retention.HANDOFF_DAYS],
+    ['invite_days', config.retention.INVITE_DAYS],
+    ['access_event_days', config.retention.ACCESS_EVENT_DAYS],
+    ['sync_client_days', config.retention.SYNC_CLIENT_DAYS],
+    ['join_attempt_days', config.retention.JOIN_ATTEMPT_DAYS],
+    ['maintenance_run_days', config.retention.MAINTENANCE_RUN_DAYS],
+    ['max_shared_groups', config.quotas.SHARED_GROUPS],
+    ['max_active_invites', config.quotas.ACTIVE_INVITES],
+    ['max_push_tokens', config.quotas.PUSH_TOKENS],
+    ['max_sync_clients', config.quotas.SYNC_CLIENTS],
+    ['sync_push_per_minute', config.quotas.SYNC_PUSH_PER_MINUTE],
+    ['notify_per_hour', config.quotas.NOTIFY_PER_HOUR],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });
@@ -120,6 +137,21 @@ describe('src/config zgodny z SQL', () => {
     expect(found.at(-1)).toBe(REPEAT_NAMESPACE);
     // Ten sam wektor co pgTAP handoff_obligation (4), policzony niezależnie: Python uuid.uuid5.
     expect(nextId('77770000-0000-7000-8000-0000000004e1')).toBe('d81b13c9-e6b0-5fc0-82a2-97229c6595bc');
+  });
+
+  // Audyt 2 (M-72): serwer sprawdza identyfikatory wyliczane na telefonie — te same przestrzenie nazw.
+  it('przestrzenie nazw UUIDv5 w strażnikach SQL = stałe telefonu', () => {
+    const body = (name: string) => [...sql.matchAll(new RegExp(`create (?:or replace )?function private\\.${name}\\(\\)[^$]*\\$\\$([\\s\\S]*?)\\$\\$`, 'gi'))].at(-1)![1]!;
+    expect(body('event_rsvps_id_guard')).toContain(`'${RSVP_NAMESPACE}'::uuid`);
+    expect(body('event_overrides_id_guard')).toContain(`'${OVERRIDE_NAMESPACE}'::uuid`);
+    expect(body('tasks_id_guard')).toContain(`'${COPY_NAMESPACE}'::uuid`);
+    // Przyjęcie przekazania terminu zakłada wyjątek z tym samym id co telefon (overrideId).
+    expect(body('handoffs_guard')).toContain(`private.uuid_v5('${OVERRIDE_NAMESPACE}'::uuid`);
+  });
+
+  it('historia trzymana dłużej niż okno powiadomień o przypisaniu i kosz (M-62)', () => {
+    expect(config.retention.ACTIVITY_DAYS * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
+    expect(config.retention.ACTIVITY_DAYS).toBeGreaterThanOrEqual(config.sync.TOMBSTONE_DAYS);
   });
 
   it('brak definicji zgłaszany wprost', () => {
