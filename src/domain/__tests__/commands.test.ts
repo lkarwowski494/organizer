@@ -1,4 +1,4 @@
-import { inverseOps } from '../views/commands';
+import { inheritDue, inverseOps } from '../views/commands';
 
 describe('operacje odwrotne do „Cofnij” (audyt 8.10.2026)', () => {
   const t = { events: { e1: { id: 'e1', rrule: 'FREQ=WEEKLY', title: 'Basen' } }, event_overrides: { o1: { id: 'o1', cancelled: false } } };
@@ -48,5 +48,11 @@ describe('operacje odwrotne do „Cofnij” (audyt 8.10.2026)', () => {
   });
   it('polecenie serwera — bez cofnięcia', () => {
     expect(inverseOps(t, [{ kind: 'cmd', cmd: 'move_task', args: {} }])).toBeNull();
+  });
+});
+
+describe('„Jak zadanie nadrzędne” (D15; audyt 2, M-204)', () => {
+  it('podzadanie wraca do terminu nadrzędnego: bez własnego terminu i powtarzania', () => {
+    expect(inheritDue('s')).toEqual({ kind: 'patch', entity: 'tasks', id: 's', set: { deadline_mode: 'inherit', due_date: null, due_time: null, repeat: null } });
   });
 });

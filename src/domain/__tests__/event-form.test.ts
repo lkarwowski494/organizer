@@ -60,10 +60,20 @@ describe('formularz wydarzenia', () => {
     [{ repeat: 'daily', interval: 'x' }, 'interval'],
     [{ date: '2026-10-29', repeat: 'monthly', monthly: 'nth' }, 'monthly'], // 29.10 to 5. czwartek
     [{ date: '2026-10-05', repeat: 'monthly', monthly: 'last' }, 'monthly'],
+    // PWD-37: ostatni dzień miesiąca — start musi nim być (RFC: DTSTART to pierwsze wystąpienie).
+    [{ date: '2026-10-30', repeat: 'monthly', monthly: 'lastDay' }, 'monthly'],
     [{ repeat: 'daily', ends: 'until', until: '2026-10-04' }, 'until'],
     [{ repeat: 'daily', ends: 'until', until: '' }, 'until'],
     [{ audience: 'members', participantIds: [] }, 'participants'],
   ])('błąd %j → %s', (over, error) => expect(validateForm(form(over))).toEqual({ error }));
+
+  it('ostatni dzień miesiąca (PWD-37) → BYMONTHDAY=-1; z powrotem w formularzu', () => {
+    const f = form({ date: '2026-10-31', repeat: 'monthly', monthly: 'lastDay' });
+    const [fields] = ok(f);
+    expect(formatRule(fields!.rule!)).toBe('FREQ=MONTHLY;BYMONTHDAY=-1');
+    expect(formOf(fields!).monthly).toBe('lastDay');
+    expect(formatRule(ok(form({ date: '2026-11-30', repeat: 'monthly', monthly: 'lastDay' }))[0]!.rule!)).toBe('FREQ=MONTHLY;BYMONTHDAY=-1');
+  });
 
   it('koniec w dniu startu jest poprawny', () => {
     expect(ok(form({ repeat: 'daily', ends: 'until', until: '2026-10-05' }))[0]!.until).toBe('2026-10-05');
@@ -81,10 +91,11 @@ describe('formularz wydarzenia', () => {
   });
 
   it('pozycja dnia tygodnia w miesiącu', () => {
-    expect(weekdayPosition('2026-10-05')).toEqual({ n: 1, last: false, wd: 0 });
-    expect(weekdayPosition('2026-10-26')).toEqual({ n: 4, last: true, wd: 0 });
-    expect(weekdayPosition('2026-10-31')).toEqual({ n: 5, last: true, wd: 5 });
-    expect(weekdayPosition('2026-02-22')).toEqual({ n: 4, last: true, wd: 6 });
+    expect(weekdayPosition('2026-10-05')).toEqual({ n: 1, last: false, wd: 0, lastDay: false });
+    expect(weekdayPosition('2026-10-26')).toEqual({ n: 4, last: true, wd: 0, lastDay: false });
+    expect(weekdayPosition('2026-10-31')).toEqual({ n: 5, last: true, wd: 5, lastDay: true });
+    expect(weekdayPosition('2026-02-22')).toEqual({ n: 4, last: true, wd: 6, lastDay: false });
+    expect(weekdayPosition('2028-02-29')).toMatchObject({ lastDay: true });
   });
 
   it('formOf: zapisane wydarzenie → formularz (godziny bez sekund, dni z reguły, miesięczne warianty)', () => {
@@ -95,6 +106,8 @@ describe('formularz wydarzenia', () => {
     expect(formOf({ ...base, rule: parseRule('FREQ=WEEKLY') }).slots[0]!.days).toEqual([0]);
     expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYDAY=1MO') }).monthly).toBe('nth');
     expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYDAY=-1MO') }).monthly).toBe('last');
+    expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYMONTHDAY=-1') }).monthly).toBe('lastDay');
+    expect(formOf({ ...base, rule: parseRule('FREQ=MONTHLY;BYMONTHDAY=15') }).monthly).toBe('day');
     expect(formOf({ ...base, rule: parseRule('FREQ=DAILY') }).repeat).toBe('daily');
     expect(formOf({ ...base, rule: parseRule('FREQ=YEARLY') }).repeat).toBe('yearly');
   });

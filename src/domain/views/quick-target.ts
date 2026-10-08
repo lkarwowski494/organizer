@@ -14,6 +14,7 @@
 import { groupsView } from './index';
 import { extractMention, foldName, type Mention, type MentionTarget, mentionTargets } from './mention';
 import type { Tables } from './model';
+import { memberCanSeeList } from './visibility';
 
 /** „@ja” po złożeniu liter. */
 const SELF = 'ja';
@@ -136,4 +137,25 @@ export function resolveQuick(t: Tables, userId: string, text: string, o: { chipG
  */
 export function unseenInMyDays(t: Tables, userId: string, target: Pick<QuickTarget, 'groupId' | 'memberId'>, dated: boolean): boolean {
   return !dated && target.memberId === null && groupsView(t, userId).find((g) => g.id === target.groupId)?.kind === 'shared';
+}
+
+export type ListResolution = { kind: 'ok'; memberId: string | null; body: string } | { kind: 'many'; name: string; targets: MentionTarget[] } | { kind: 'unknown'; name: string };
+
+/**
+ * Pole dodawania na liście zadań (spójnie z Moimi sprawami, audyt 2): „@imię” przypisuje osobę z grupy listy, która widzi
+ * tę listę (lista „Tylko ja” albo wybrane osoby — tylko one), „@ja” — mnie (we wspólnej grupie); kilka pasujących osób —
+ * pytanie, żadna — pytanie, czy dodać bez osoby („@…” zostaje wtedy w nazwie). Grupę wyznacza lista, więc „#…” nic nie
+ * zmienia i zostaje w nazwie (ekran listy mówi to pod polem).
+ */
+export function resolveListQuick(t: Tables, userId: string, listId: string, text: string, answers: Pick<QuickAnswers, 'person' | 'skipMention'> = {}): ListResolution {
+  const list = t.lists?.[listId];
+  const group = quickGroups(t, userId).find((g) => g.id === list?.group_id);
+  const mention = answers.skipMention || !group ? null : extractMention(text).mention;
+  if (!mention) return { kind: 'ok', memberId: null, body: text };
+  const body = blank(text, mention);
+  if (foldName(mention.name) === SELF) return { kind: 'ok', memberId: group!.shared ? group!.meId : null, body };
+  const found = answers.person ? [answers.person] : mentionTargets(t, userId, mention.name).filter((x) => x.groupId === group!.id && memberCanSeeList(t, x.memberId, listId));
+  if (found.length === 0) return { kind: 'unknown', name: mention.name };
+  if (found.length > 1) return { kind: 'many', name: mention.name, targets: found };
+  return { kind: 'ok', memberId: found[0]!.memberId, body };
 }

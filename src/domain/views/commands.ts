@@ -51,6 +51,11 @@ export function setDue(id: string, due: { date: string; time: string | null } | 
   };
 }
 
+/** Podzadanie wraca do terminu zadania nadrzędnego (D15; audyt 2, M-204) — bez własnego terminu i powtarzania. */
+export function inheritDue(id: string): NewOp {
+  return { kind: 'patch', entity: 'tasks', id, set: { deadline_mode: 'inherit', due_date: null, due_time: null, repeat: null } };
+}
+
 export function remove(entity: 'tasks' | 'lists' | 'group_members', id: string): NewOp {
   return { kind: 'delete', entity, id };
 }

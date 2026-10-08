@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
@@ -37,10 +38,15 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
+  const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps }, { restore: route.params?.title === undefined });
+  // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
+  useAnnounce(route.params?.kindSwitch ? strings['routine.title'] : null);
 
   const save = () => {
     const r = routineOps({ tables, userId, groupId, title, days, start, end, participantIds: who, steps, today, newId });
     if ('error' in r) return setError(r.error === 'steps' ? strings['routine.error.steps'] : r.error === 'title' ? strings['routine.error.title'] : strings[`event.error.${r.error}`]);
+    draft.saved();
     store.dispatch(r.ops);
     // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
     undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
@@ -51,17 +57,21 @@ export function RoutineScreen({ route, navigation }: Props) {
     <Screen testID="screen-routine">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['routine.title']}</Title>
+      <DraftNote draft={draft} />
       {/* Audyt 2 (PWD-26): ten sam wybór rodzaju co w formularzu zadania i wydarzenia (D98) — nazwa i grupa przechodzą. */}
       <Segmented
         label={strings['form.kind']}
         value="routine"
         onChange={(k) => {
-          if (k === 'task') navigation.replace('AddTask', { title, groupId: groupId || undefined });
-          else if (k === 'event') navigation.replace('EventEdit', { groupId: groupId || undefined, title });
+          if (k === 'routine') return;
+          // Wpisane pola przechodzą do innego formularza — szkic rutyny nie jest już potrzebny.
+          draft.saved();
+          if (k === 'task') navigation.replace('AddTask', { title, groupId: groupId || undefined, kindSwitch: true });
+          else navigation.replace('EventEdit', { groupId: groupId || undefined, title, kindSwitch: true });
         }}
         options={[
-          { value: 'task', label: strings['form.kind.task'] },
-          { value: 'event', label: strings['form.kind.event'] },
+          { value: 'task', label: strings['form.kind.task'], hint: strings['form.kind.taskHint'] },
+          { value: 'event', label: strings['form.kind.event'], hint: strings['form.kind.eventHint'] },
           { value: 'routine', label: strings['form.kind.routine'] },
         ]}
       />

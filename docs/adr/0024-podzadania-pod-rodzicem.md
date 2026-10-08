@@ -39,3 +39,4 @@ samodzielne z podzadaniem wydarzenia albo innego zadania.
 - Zmiana grupy w formularzu „Zmień”: kopia w nowej grupie jest bez podzadań; komunikat mówi, ile podzadań pójdzie do
   kosza z oryginałem (audyt 2, T-33). Odrzucone: kopiowanie podzadań do innej grupy (osoby i spotkania są z innej
   grupy), bo formularz z istniejącym zadaniem otwiera się tylko przez kilka sekund po szybkim dodaniu.
+  Zastąpione 8.10.2026 (D178, ADR 0036): „Przenieś do grupy” na ekranie zadania kopiuje też podzadania.
