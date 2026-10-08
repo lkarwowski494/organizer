@@ -24,6 +24,8 @@ export function createTask(a: { id: string; groupId: string; listId: string; par
       due_date: due?.date ?? null,
       due_time: due?.time ?? null,
       ...(a.assigneeId ? { assignee_member_id: a.assigneeId } : {}),
+      // Audyt 2 (P-3): „co tydzień” rozpoznane w tekście (chip) zapisuje powtarzanie (D76); podzadanie — bez.
+      ...(a.parsed.rrule && due && !a.parentId ? { repeat: a.parsed.rrule } : {}),
     },
   };
 }

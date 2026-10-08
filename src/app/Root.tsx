@@ -3,7 +3,7 @@
  * Wszystkie zależności zewnętrzne przychodzą w `deps`, więc test podaje atrapy (src/app/__tests__/root.test.tsx),
  * a App.tsx — prawdziwe moduły (src/app/wiring.ts).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -173,6 +173,16 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
       off();
     };
   }, [deps]);
+
+  // Audyt 2 (N-4): bez sesji albo po zmianie konta zaplanowane przypomnienia poprzedniego konta (tytuły spraw
+  // na ekranie blokady) znikają. Nowe planuje dostawca przypomnień zalogowanego konta.
+  const shownFor = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (session === undefined) return;
+    const who = session?.userId ?? null;
+    if (who === null || (shownFor.current != null && shownFor.current !== who)) void deps.push?.replaceReminders([]).catch(() => {});
+    shownFor.current = who;
+  }, [session, deps]);
 
   // Link z e-maila (magic link): tokeny → sesja. Linki zaproszeń obsługuje nawigacja (linking).
   useEffect(() => {

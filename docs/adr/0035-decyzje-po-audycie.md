@@ -47,5 +47,6 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
 - **D135.** `calendarMonth` bierze też zrobione zadania (odhaczone w wierszu) w dniu ich terminu.
 - **D136.** `event_overrides.all_day`; telefon wysyła pole tylko, gdy coś zmienia (nowy całodniowy termin w serii
   z godziną albo zdjęcie znacznika). Wymaga wdrożenia migracji 20261008300000 przed wydaniem buildu, który je wysyła.
+  To samo dotyczy `events.kind` (D126): lekcje z planu i rutyny wysyłają `kind` przy tworzeniu (audyt 2, D-2).
   Odrzucone: pusta godzina w wyjątku jako „cały dzień” (dotąd znaczyła „jak w serii” — zmiana znaczenia starych danych).
 - **D141.** `config.invites.LINK_LIVE = false`: wiadomość z zaproszeniem bez linku, z ID grupy i kodem.
