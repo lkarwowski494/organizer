@@ -8,32 +8,49 @@ import { Pressable, Text, View } from 'react-native';
 import { config } from '../../config';
 import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shopping.pl';
 import type { NewOp, Row } from '../../domain/sync-engine/client';
-import { addStaple, itemKey, removeStaple, staplesOf } from '../../domain/views/shopping';
+import { addStaple, itemKey, removeStaple, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Field, SectionTitle } from '../../ui/components';
+import { Body, Button, Field, SectionTitle, Segmented } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
-function Chip({ label, selected, onPress, testID, a11yLabel }: { label: string; selected?: boolean; onPress: () => void; testID?: string; a11yLabel?: string }) {
+/** Przycisk-pigułka podpowiedzi i „✕” (wybór działu to Segmented). */
+function Chip({ label, onPress, testID, a11yLabel }: { label: string; onPress: () => void; testID?: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
-      accessibilityState={{ selected: !!selected }}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: selected ? c.inverseBg : c.control, backgroundColor: selected ? c.inverseBg : c.surface }}
+      style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface }}
     >
-      <Text style={{ fontFamily: font.text700, fontSize: 15, color: selected ? c.inverseInk : c.ink }}>{label}</Text>
+      <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{label}</Text>
     </Pressable>
   );
 }
 
-/** Panel pod pozycją: dział (zaznaczony bieżący) i przełącznik „stała pozycja”. */
-export function CategoryPicker({ item, current, isStaple, onPick, onToggleStaple, onClose }: {
+/** Komunikat błędu stałej pozycji — ten sam w karcie stałych i w panelu pozycji (audyt 2, M-224). */
+export function stapleError(error: Extract<StaplesEdit, { ok: false }>['error']): string {
+  const messages = {
+    empty: strings['shop.stapleError.empty'],
+    duplicate: strings['shop.stapleError.duplicate'],
+    full: strings['shop.stapleError.full'](config.shopping.STAPLES_MAX),
+    tooLong: strings['shop.stapleError.tooLong'](config.shopping.STAPLE_MAX_LENGTH),
+  };
+  return messages[error];
+}
+
+const CATEGORY_OPTIONS = SHOPPING_CATEGORIES.map((cat) => ({ value: cat.key, label: cat.name }));
+
+/**
+ * Panel pod pozycją: dział (zaznaczony bieżący) i przełącznik „stała pozycja”. Dział to wybór jednej opcji, więc
+ * Segmented z rolą radio, jak inne takie wybory (audyt 2, M-238, A-32).
+ */
+export function CategoryPicker({ item, current, isStaple, error, onPick, onToggleStaple, onClose }: {
   item: string;
   current: ShoppingCategory;
   isStaple: boolean;
+  error?: string | null;
   onPick: (c: ShoppingCategory) => void;
   onToggleStaple: () => void;
   onClose: () => void;
@@ -42,12 +59,9 @@ export function CategoryPicker({ item, current, isStaple, onPick, onToggleStaple
   return (
     <View testID="category-picker" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
       <Body muted>{strings['shop.categoryHint']}</Body>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {SHOPPING_CATEGORIES.map((cat) => (
-          <Chip key={cat.key} label={cat.name} selected={cat.key === current} onPress={() => onPick(cat.key)} testID={`category-${cat.key}`} />
-        ))}
-      </View>
+      <Segmented label={strings['shop.category']} value={current} onChange={onPick} options={CATEGORY_OPTIONS} />
       <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={item} />
+      {error ? <Body>{error}</Body> : null}
       <Button kind="secondary" label={strings['common.cancel']} onPress={onClose} />
     </View>
   );
@@ -74,15 +88,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row
   const staples = staplesOf(list);
   const save = () => {
     const r = addStaple(list, text);
-    if (!r.ok) {
-      const messages = {
-        empty: strings['shop.stapleError.empty'],
-        duplicate: strings['shop.stapleError.duplicate'],
-        full: strings['shop.stapleError.full'](config.shopping.STAPLES_MAX),
-        tooLong: strings['shop.stapleError.tooLong'](config.shopping.STAPLE_MAX_LENGTH),
-      };
-      return setError(messages[r.error]);
-    }
+    if (!r.ok) return setError(stapleError(r.error));
     onEdit(r.op);
     setText('');
     setError(null);
@@ -104,7 +110,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row
               <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemKey(s)}`} onPress={() => onEdit(removeStaple(list, s))} />
             </View>
           ))}
-          <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} testID="staple-name" />
+          <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
           {error ? <Body>{error}</Body> : null}
           <Button label={strings['shop.stapleSave']} testID="staple-save" onPress={save} />
           <Button kind="secondary" label={strings['shop.staplesDone']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />

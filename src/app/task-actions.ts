@@ -6,7 +6,7 @@
 import { Alert } from 'react-native';
 
 import { remove, restore, toggleDone } from '../domain/views/commands';
-import { finishTripOps, tripItems } from '../domain/views/shopping-trip';
+import { finishTripOps, finishTripUndoOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
 import { groupsView, type Task } from '../domain/views';
@@ -33,10 +33,18 @@ export function useTaskActions() {
         { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: done },
       ]);
     },
-    /** „Zakupy” zrobione (D73): z potwierdzeniem; niekupione — zostają na następne zakupy albo też są kupione. */
+    /**
+     * „Zakupy” zrobione (D73): z potwierdzeniem; niekupione — zostają na następne zakupy albo też są kupione.
+     * Potem pasek „Cofnij” jak przy usuwaniu (D60; audyt 2, M-225) — kupione pozycje idą do kosza.
+     */
     finishTrip(listId: string, name: string) {
       const left = tripItems(tables, listId).open.length;
-      const done = (all: boolean) => store.dispatch(finishTripOps(tables, userId, listId, all, nowIso()));
+      const done = (all: boolean) => {
+        const ops = finishTripOps(tables, userId, listId, all, nowIso());
+        const back = finishTripUndoOps(tables, ops);
+        store.dispatch(ops);
+        undo.show(strings['undo.tripDone'](name), () => store.dispatch(back));
+      };
       Alert.alert(
         strings['trip.confirmTitle'],
         left ? strings['trip.confirmLeft'](left) : strings['trip.title'](name),

@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
+import { config } from '../../config';
 import { createList } from '../../domain/views/commands';
 import { groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
@@ -42,8 +43,8 @@ export function NewListScreen({ route, navigation }: Props) {
     <Screen testID="screen-new-list">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{kind === 'shopping' ? strings['lists.newShopping'] : strings['lists.new']}</Title>
-      <Field label={strings['lists.name']} value={name} onChangeText={setName} autoFocus testID="list-name" />
-      <Segmented label={strings['lists.kind.tasks'] + ' / ' + strings['lists.kind.shopping']} value={kind} onChange={setKind} options={[{ value: 'tasks', label: strings['lists.kind.tasks'] }, { value: 'shopping', label: strings['lists.kind.shopping'] }]} />
+      <Field label={strings['lists.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.LIST_NAME} testID="list-name" />
+      <Segmented label={strings['lists.kindLabel']} value={kind} onChange={setKind} options={[{ value: 'tasks', label: strings['lists.kind.tasks'] }, { value: 'shopping', label: strings['lists.kind.shopping'] }]} />
       <Segmented label={strings['lists.group']} value={groupId} onChange={(g) => (setGroupId(g), setDraft({ ...draft, responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       {personal ? null : (
         <Segmented label={strings['lists.visibility']} value={visibility} onChange={(v) => (setVisibility(v), v === 'private' && draft.responsibleId !== group?.me.member_id && setDraft({ ...draft, responsibleId: null }))} options={[{ value: 'group', label: strings['lists.visibility.group'] }, { value: 'private', label: strings['lists.visibility.private'] }]} />

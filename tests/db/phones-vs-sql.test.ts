@@ -64,6 +64,9 @@ const opArb: fc.Arbitrary<NewOp> = fc.oneof(
     fc.record({ due_date: fc.constantFrom('2026-10-10', null) }),
     fc.record({ responsible_member_id: member }),
   ) }),
+  // Stałe zakupy jako polecenia (audyt 2, M-111): obie osoby dopisują i usuwają naraz.
+  fc.record({ kind: fc.constant('cmd' as const), cmd: fc.constant('staple_add'), args: fc.record({ list_id: fc.constant(SHOP), name: fc.constantFrom('Mleko', 'Chleb', 'Jajka') }) }),
+  fc.record({ kind: fc.constant('cmd' as const), cmd: fc.constant('staple_remove'), args: fc.record({ list_id: fc.constant(SHOP), names: fc.subarray(['Mleko', 'Chleb', 'Jajka']) }) }),
   fc.record({ kind: fc.constant('create' as const), entity: fc.constant('events' as const), id: fc.constantFrom(...EVENTS), group_id: fc.constant(G),
     set: fc.record({ title: fc.constantFrom('Basen', 'Angielski'), start_date: fc.constant('2026-10-12'), start_time: fc.constant('17:00'), rrule: fc.constantFrom('FREQ=WEEKLY;BYDAY=MO', null) }) }),
   fc.record({ kind: fc.constant('patch' as const), entity: fc.constant('events' as const), id: fc.constantFrom(...EVENTS), set: fc.oneof(
@@ -138,7 +141,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
 
   it('zbieżność z serwerem, pusta kolejka, oba telefony widzą to samo, powtórki bez nowych odrzuceń', async () => {
     // Statystyka przebiegów: test ma sens tylko wtedy, gdy losowe operacje naprawdę przechodzą (nie same odrzucenia).
-    const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0 };
+    const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0 };
     await fc.assert(
       fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }), async (cmds) => {
         await db.query('begin');
@@ -207,6 +210,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
             views[u] = shared(view as never);
             for (const [e, rows] of Object.entries(views[u] as object)) if (Object.keys(rows).length > 0) seen.entities.add(e);
             seen.shopItems += ITEMS.filter((i) => (views[u] as { tasks?: object }).tasks && i in (views[u] as { tasks: object }).tasks).length;
+            seen.staples += ((views[u] as { lists: { [k: string]: { staples?: unknown[] } } }).lists[SHOP]?.staples ?? []).length;
           }
           // Obie osoby są dorosłymi w tej samej grupie bez ukrytych list — widzą dokładnie to samo.
           expect(views.ala).toEqual(views.bartek);
@@ -219,6 +223,8 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     expect(seen.ok).toBeGreaterThan(seen.rejected);
     // Regresja D87: pozycje zakupów naprawdę zapisują się na serwerze (wcześniej odrzucane po cichu).
     expect(seen.shopItems).toBeGreaterThan(0);
+    // Polecenia stałych zakupów naprawdę zmieniają tablicę na serwerze (M-111).
+    expect(seen.staples).toBeGreaterThan(0);
     expect([...seen.entities].sort()).toEqual(expect.arrayContaining(['event_overrides', 'event_participants', 'events', 'lists', 'tasks']));
   }, 240_000);
 });

@@ -8,6 +8,7 @@ import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
+import { config } from '../../config';
 import { remove, renameMember, setRole } from '../../domain/views/commands';
 import { groupDetail, memberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
@@ -47,7 +48,7 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {can.rename ? (
         <View style={{ gap: 8 }}>
-          <Field label={strings['member.name']} value={name} onChangeText={setName} testID="member-name" />
+          <Field label={strings['member.name']} value={name} onChangeText={setName} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
           <Button kind="secondary" label={strings['member.saveName']} disabled={name.trim() === '' || name.trim() === m.display_name} onPress={() => store.dispatch(renameMember(m.member_id, name.trim()))} />
         </View>
       ) : null}

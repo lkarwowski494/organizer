@@ -27,7 +27,8 @@ import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPendi
 import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { addStaple, addStaplesOps, categoryMemory, categoryOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
-import { CategoryPicker, StaplesCard, Suggestions } from './ShoppingExtras';
+import { openLabel } from './ListsScreen';
+import { CategoryPicker, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
@@ -43,6 +44,7 @@ export function ListScreen({ route, navigation }: Props) {
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
 
@@ -68,6 +70,10 @@ export function ListScreen({ route, navigation }: Props) {
   const trip = asTrip(tables.lists?.[list.id] ?? {});
   const adults = tripAdults(tables, list.group_id);
   const who = adults.find((m) => m.member_id === trip.responsibleId)?.display_name ?? null;
+  // Audyt 2 (R-3): do wyboru tylko ci, którzy widzą listę. M-22: osoba usunięta z grupy (albo bez dostępu) to „Nikt
+  // konkretny” (D132) — edytor nie dostaje wartości spoza swoich opcji.
+  const pickable = adults.filter((m) => memberCanSeeList(tables, m.member_id, list.id));
+  const tripPerson = pickable.some((m) => m.member_id === trip.responsibleId) ? trip.responsibleId : null;
   const tripMine = trip.responsibleId !== null && trip.responsibleId === me?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('lists', list.id, null));
   const planned = planning ? readTrip(planning) : null;
@@ -93,47 +99,61 @@ export function ListScreen({ route, navigation }: Props) {
   const staples = staplesOf(listRow);
   const memory = shopping ? categoryMemory(tables, list.group_id) : new Map();
   const editable = shopping && canDelete;
-  const rows = (nodes: TaskNode[], done: boolean): React.ReactNode[] =>
-    nodes.flatMap((t) => [
-      <SwipeRow key={t.id} title={t.title} enabled={canDelete} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
-        <StationRow
-          testID={`task-${t.id}`}
-          title={shopping ? parseQuantity(t.title).name : t.title}
-          line={list.line}
-          depth={t.depth}
-          meta={[...(shopping && parseQuantity(t.title).qty ? [parseQuantity(t.title).qty!] : []), ...(t.due ? [formatDue(t.due, today)] : []), ...(t.expired ? [strings['lists.expired']] : []), ...whoOf(t.assignee_member_id)]}
-          checked={done || t.completed_at !== null}
-          pending={pendingIds.has(t.id)}
-          alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
-          shopping={shopping}
-          onToggle={() => actions.toggle(t, shopping)}
-          onOpen={shopping ? (editable && !done ? () => setPicking(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
-          openLabel={shopping ? strings['shop.pickCategory'](parseQuantity(t.title).name) : undefined}
-        />
-      </SwipeRow>,
-      ...(picking === t.id
-        ? [
-            <CategoryPicker
-              key={`pick-${t.id}`}
-              item={t.title}
-              current={categoryOf(tables.tasks?.[t.id] ?? {}, memory)}
-              isStaple={staples.some((s) => itemKey(s) === itemKey(t.title))}
-              onPick={(cat) => (store.dispatch(setCategory(t.id, cat)), setPicking(null))}
-              onToggleStaple={() => {
-                const has = staples.find((s) => itemKey(s) === itemKey(t.title));
-                if (has) store.dispatch(removeStaple(listRow, has));
-                else {
-                  const r = addStaple(listRow, t.title);
-                  if (r.ok) store.dispatch(r.op);
-                }
-                setPicking(null);
-              }}
-              onClose={() => setPicking(null)}
-            />,
-          ]
-        : []),
-      ...rows(t.children, done),
-    ]);
+  const pick = (id: string | null) => (setPicking(id), setPickError(null));
+  // Audyt 2 (M-82, T-7): pole zaznaczone tylko przy odhaczonym — minione ma dopisek „minęło” bez ptaszka. W zamkniętych
+  // nie powtarzam otwartych podzadań: stoją w otwartych z dopiskiem rodzica (listDetail). Wcięcie według miejsca na ekranie.
+  const rows = (nodes: TaskNode[], done: boolean, level = 0): React.ReactNode[] =>
+    nodes
+      .filter((t) => !done || t.closed)
+      .flatMap((t) => [
+        <SwipeRow key={t.id} title={t.title} enabled={canDelete} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
+          <StationRow
+            testID={`task-${t.id}`}
+            title={shopping ? parseQuantity(t.title).name : t.title}
+            line={list.line}
+            depth={level}
+            meta={[
+              ...(t.parentTitle ? [strings['nest.parent'](t.parentTitle, false)] : []),
+              ...(shopping && parseQuantity(t.title).qty ? [parseQuantity(t.title).qty!] : []),
+              ...(t.due ? [formatDue(t.due, today)] : []),
+              ...(t.expired ? [strings['lists.expired']] : []),
+              ...whoOf(t.assignee_member_id),
+            ]}
+            checked={t.completed_at !== null}
+            pending={pendingIds.has(t.id)}
+            alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
+            shopping={shopping}
+            onToggle={() => actions.toggle(t, shopping)}
+            onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
+            openLabel={shopping ? strings['shop.pickCategory'](parseQuantity(t.title).name) : undefined}
+          />
+        </SwipeRow>,
+        ...(picking === t.id
+          ? [
+              <CategoryPicker
+                key={`pick-${t.id}`}
+                item={t.title}
+                current={categoryOf(tables.tasks?.[t.id] ?? {}, memory)}
+                isStaple={staples.some((s) => itemKey(s) === itemKey(t.title))}
+                error={pickError}
+                onPick={(cat) => (store.dispatch(setCategory(t.id, cat)), pick(null))}
+                onToggleStaple={() => {
+                  const has = staples.find((s) => itemKey(s) === itemKey(t.title));
+                  if (has) store.dispatch(removeStaple(listRow, has));
+                  else {
+                    const r = addStaple(listRow, t.title);
+                    // Audyt 2 (M-224, R-21): błąd (pełna lista, za długa nazwa) jak w karcie stałych — panel zostaje otwarty.
+                    if (!r.ok) return setPickError(stapleError(r.error));
+                    store.dispatch(r.op);
+                  }
+                  pick(null);
+                }}
+                onClose={() => pick(null)}
+              />,
+            ]
+          : []),
+        ...rows(t.children, done, level + 1),
+      ]);
 
   return (
     <Screen testID="screen-list">
@@ -144,14 +164,14 @@ export function ListScreen({ route, navigation }: Props) {
       <Title>{list.name}</Title>
       <Text style={{ fontFamily: font.text400, fontSize: 14, color: c.inkMuted }}>
         <Text style={{ fontFamily: font.text700 }}>{list.groupName}</Text>
-        {`  ·  ${strings['lists.open'](detail.open.length)}`}
+        {`  ·  ${openLabel(list.kind, detail.open.length)}`}
       </Text>
       {shopping && canDelete ? (
         <View testID="trip" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
-              <TripEditor value={planning} onChange={setPlanning} adults={adults.filter((m) => memberCanSeeList(tables, m.member_id, list.id))} today={today} required={groupKind === 'shared'} />
+              <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={groupKind === 'shared'} />
               {planError ? <Body>{planError}</Body> : null}
               <Button
                 label={strings['trip.save']}
@@ -168,7 +188,7 @@ export function ListScreen({ route, navigation }: Props) {
             <>
               <Body>{strings['trip.summary'](trip.date ? formatDue({ date: trip.date, time: trip.time }, today) : null, who)}</Body>
               <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} />
-              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: trip.responsibleId })} />
+              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: tripPerson })} />
               {tripMine ? (
                 waiting ? (
                   <>

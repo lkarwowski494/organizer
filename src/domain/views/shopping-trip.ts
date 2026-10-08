@@ -1,15 +1,18 @@
 /**
  * Zakupy na liście zakupów (D73, decyzja właściciela z 7.10.2026, ADR 0014; migracja 20261008160000_shopping_trip):
  * lista zakupów sama ma termin i osobę odpowiedzialną i trafia do „Moje sprawy” jak zadanie „Zakupy: <nazwa>”.
- * Moje sprawy na tych samych zasadach co zadanie (concernsMeTask): moja osoba, albo bez osoby z terminem (każdy może
- * zrobić), albo bez osoby w grupie osobistej. We wspólnej grupie osoba albo termin są obowiązkowe (jak D68).
+ * Moje sprawy na tych samych zasadach co zadanie (concerns.ts): moja osoba, albo bez osoby z terminem (każdy może
+ * zrobić), albo bez osoby w grupie osobistej; osoba usunięta z grupy to „nikt konkretny” (D132). We wspólnej grupie
+ * osoba albo termin są obowiązkowe (jak D68).
  * Odhaczenie „Zakupy” (ręcznie, z potwierdzeniem): kupione pozycje schodzą do kosza, termin i osoba się czyszczą;
  * niekupione zostają na następne zakupy albo — na życzenie — też są oznaczane jako kupione.
  */
 import type { NewOp } from '../sync-engine/client';
-import { toggleDone } from './commands';
+import { inverseOps, toggleDone } from './commands';
+import { concernsMe, liveMemberIds } from './concerns';
 import { cancelHandoff, handoffKey, outgoingPending } from './handoffs';
 import type { GroupItem, TodayItem } from './index';
+import { shoppingSplit } from './list-tree';
 import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
 
 export type Trip = { date: string | null; time: string | null; responsibleId: string | null };
@@ -54,12 +57,27 @@ export function finishTripOps(t: Tables, userId: string, listId: string, all: bo
   return ops;
 }
 
+/**
+ * „Cofnij” po „Zakupy zrobione” (audyt 2, M-225; D60): pozycje wracają z kosza (i znów są niekupione, jeśli oznaczyłem
+ * wszystko), dzień i osoba też. Anulowane przekazanie zostaje anulowane — serwer nie pozwala mu wrócić do „czeka”
+ * (handoffs_guard: invalid_value:status). `t` — stan sprzed `ops`.
+ */
+export function finishTripUndoOps(t: Tables, ops: readonly NewOp[]): NewOp[] {
+  // finishTripOps nie zawiera poleceń serwera (cmd), więc odwrotność zawsze istnieje.
+  return inverseOps(t, ops.filter((o) => o.kind !== 'patch' || o.entity !== 'handoffs'))!;
+}
+
 /** Zakupy jako wpis „Moje sprawy” (kształt zadania, `trip` = id listy). Tytuł to nazwa listy; ekran dopisuje „Zakupy:”. */
 export type TripItem = TodayItem & { trip: { listId: string; open: number } };
 
-/** `everyone` — wszystkie zaplanowane zakupy grup (Kalendarz, D73 + O-053); inaczej tylko dotyczące mnie. */
+/**
+ * `everyone` — wszystkie zaplanowane zakupy grup (Kalendarz, D73 + O-053); inaczej tylko dotyczące mnie (concernsMe:
+ * osoba usunięta z grupy to „nikt konkretny”, D132 — audyt 2, M-22). `open` — „N do kupienia”, ta sama liczba co
+ * w nagłówku listy (list-tree.ts, M-83).
+ */
 export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone = false): TripItem[] {
   const out: TripItem[] = [];
+  const live = liveMemberIds(t);
   for (const [id, raw] of Object.entries(t.lists ?? {})) {
     const l = asList(raw);
     if (l.deleted_at !== null || l.kind !== 'shopping') continue;
@@ -68,7 +86,7 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone 
     if (!g || !hasTrip(trip)) continue;
     const due = trip.date === null ? null : { date: trip.date, time: trip.time };
     const mine = trip.responsibleId === g.me.member_id;
-    if (!everyone && !(mine || (trip.responsibleId === null && (g.kind === 'personal' || due !== null)))) continue;
+    if (!everyone && !concernsMe(trip.responsibleId, g, due, live)) continue;
     out.push({
       id,
       group_id: l.group_id,
@@ -93,7 +111,7 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone 
       groupName: g.name,
       listName: l.name,
       assignee: mine ? g.me.display_name : null,
-      trip: { listId: id, open: tripItems(t, id).open.length },
+      trip: { listId: id, open: shoppingSplit(t, id).open.length },
     });
   }
   return out;
