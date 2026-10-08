@@ -93,6 +93,13 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     const res = await push(user, ops);
     expect(res.results.filter((r) => r.status === 'rejected')).toEqual([]);
   };
+  /** Jedno pobranie (protokół v2: kursory, wersja schematu i encje telefonu). */
+  const pullOnce = async (st: ClientState, user: User) => {
+    const req = pullRequest(st);
+    await as(user);
+    const res: PullResponse = (await db.query(`select public.sync_pull($1::jsonb, $2, $3, $4::jsonb) r`, [JSON.stringify(req.cursors), 1000, req.schema_version, JSON.stringify(req.entities)])).rows[0].r;
+    return onPullResponse(st, res, req);
+  };
   /** Grupa G: A (właściciel), B, Kuba (profil dziecka), R. */
   async function family() {
     await as(null);
@@ -108,10 +115,7 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     let s = initialState(client);
     s = { ...s, ackedSeq: seqs[client] ?? 0, nextSeq: (seqs[client] ?? 0) + 1 };
     for (let i = 0; i < 50; i++) {
-      const req = pullRequest(s);
-      await as(user);
-      const res: PullResponse = (await db.query(`select public.sync_pull($1::jsonb, 1000) r`, [JSON.stringify(req.cursors)])).rows[0].r;
-      const out = onPullResponse(s, res, req.ackedAtStart);
+      const out = await pullOnce(s, user);
       s = out.state;
       if (!out.needMore) break;
     }
@@ -192,9 +196,7 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
           const server = project(materialize(await (async () => {
             let st = back;
             for (let i = 0; i < 50; i++) {
-              const req = pullRequest(st);
-              await as('b');
-              const out = onPullResponse(st, (await db.query(`select public.sync_pull($1::jsonb, 1000) r`, [JSON.stringify(req.cursors)])).rows[0].r, req.ackedAtStart);
+              const out = await pullOnce(st, 'b');
               st = out.state;
               if (!out.needMore) break;
             }

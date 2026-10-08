@@ -32,7 +32,7 @@ describe('src/config zgodny z SQL', () => {
     ['push_batch_max', config.sync.PUSH_BATCH_MAX],
     ['pull_limit_max', config.sync.PULL_LIMIT_MAX],
     ['tombstone_days', config.sync.TOMBSTONE_DAYS],
-    ['schema_version', config.sync.SCHEMA_VERSION],
+    ['schema_version', config.sync.MIN_SCHEMA_VERSION],
     ['invite_default_ttl_hours', config.invites.DEFAULT_TTL_HOURS],
     ['invite_max_ttl_hours', config.invites.MAX_TTL_HOURS],
     ['invite_default_max_uses', config.invites.DEFAULT_MAX_USES],

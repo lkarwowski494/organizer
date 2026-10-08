@@ -7,13 +7,13 @@ import { E2E_IDS, E2E_START_MS, E2eServer, e2eAccount, e2eClock, e2eDeps, e2ePre
 
 const NOW = '2026-10-07T08:00:00.000Z';
 const req = (ops: Op[], client_id = 'c1') => ({ client_id, schema_version: config.sync.SCHEMA_VERSION, ops });
-const rowsOf = (s: E2eServer, cursors = {}) => s.pull(cursors, 1000).groups.flatMap((g) => g.rows);
+const rowsOf = (s: E2eServer, cursors = {}) => s.pull({ cursors }, 1000).groups.flatMap((g) => g.rows);
 const find = (s: E2eServer, id: string) => rowsOf(s).find((r) => r.row.id === id || r.row.member_id === id)?.row;
 
 describe('E2eServer', () => {
   it('dane demo: dwie grupy, troje członków „Rodziny” (Kuba bez konta), lista zakupów i wydarzenie cykliczne', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
-    const res = s.pull({}, 1000);
+    const res = s.pull({ cursors: {} }, 1000);
     expect(res.groups.map((g) => g.group_id).sort()).toEqual([E2E_IDS.me, E2E_IDS.family].sort());
     const fam = res.groups.find((g) => g.group_id === E2E_IDS.family)!;
     const members = fam.rows.filter((r) => r.e === 'group_members').map((r) => [r.row.display_name, r.row.role, r.row.user_id]);
@@ -27,16 +27,16 @@ describe('E2eServer', () => {
     // Kursor = wersja grupy; każdy wiersz ma własną wersję.
     expect(fam.cursor).toBe(Math.max(...fam.rows.map((r) => r.v)));
     expect(fam.rows.every((r) => r.row.version === r.v)).toBe(true);
-    expect(s.pull({ [E2E_IDS.family]: fam.cursor, [E2E_IDS.me]: 999 }, 1000).groups.every((g) => g.rows.length === 0)).toBe(true);
+    expect(s.pull({ cursors: { [E2E_IDS.family]: { v: fam.cursor, p: 0 }, [E2E_IDS.me]: { v: 999, p: 0 } } }, 1000).groups.every((g) => g.rows.length === 0)).toBe(true);
   });
 
   it('pobieranie porcjami: has_more i kursor ostatniego wiersza', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
-    const first = s.pull({}, 2).groups.find((g) => g.group_id === E2E_IDS.family)!;
+    const first = s.pull({ cursors: {} }, 2).groups.find((g) => g.group_id === E2E_IDS.family)!;
     expect(first.rows).toHaveLength(2);
     expect(first.has_more).toBe(true);
     expect(first.cursor).toBe(first.rows[1]!.v);
-    const rest = s.pull({ [E2E_IDS.family]: first.cursor }, 1000).groups.find((g) => g.group_id === E2E_IDS.family)!;
+    const rest = s.pull({ cursors: { [E2E_IDS.family]: { v: first.cursor, p: 0 } } }, 1000).groups.find((g) => g.group_id === E2E_IDS.family)!;
     expect(rest.has_more).toBe(false);
     expect(rest.rows[0]!.v).toBe(first.cursor + 1);
   });
@@ -44,7 +44,7 @@ describe('E2eServer', () => {
   it('push: tworzenie, edycja, usunięcie, przywrócenie; duplikaty i komendy', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
     const g = E2E_IDS.family;
-    const before = s.pull({}, 1000).groups.find((x) => x.group_id === g)!.cursor;
+    const before = s.pull({ cursors: {} }, 1000).groups.find((x) => x.group_id === g)!.cursor;
     const ops: Op[] = [
       { seq: 1, op_id: 'o1', kind: 'create', entity: 'tasks', id: 't1', group_id: g, set: { title: 'A', list_id: E2E_IDS.homeList } },
       { seq: 2, op_id: 'o2', kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'B' } },
@@ -66,13 +66,13 @@ describe('E2eServer', () => {
     expect(find(s, 't1')).toMatchObject({ title: 'B', deleted_at: NOW });
     s.push(req([{ seq: 4, op_id: 'p4', kind: 'restore', entity: 'tasks', id: 't1' }, { seq: 5, op_id: 'p5', kind: 'restore', entity: 'tasks', id: 't1' }], 'c2'));
     expect(find(s, 't1')!.deleted_at).toBeNull();
-    const fresh = s.pull({ [g]: before }, 1000).groups.find((x) => x.group_id === g)!;
+    const fresh = s.pull({ cursors: { [g]: { v: before, p: 0 } } }, 1000).groups.find((x) => x.group_id === g)!;
     expect(fresh.rows.map((r) => r.row.id ?? r.row.member_id)).toEqual(['m9', 't1']);
   });
 
   it('audyt 2 (M-111): stałe zakupy jako polecenia — jak na serwerze; inne polecenia bez zmian danych', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
-    const list = () => s.pull({}, 1000).groups.flatMap((x) => x.rows).find((r) => r.e === 'lists' && r.row.id === E2E_IDS.shoppingList)!.row;
+    const list = () => s.pull({ cursors: {} }, 1000).groups.flatMap((x) => x.rows).find((r) => r.e === 'lists' && r.row.id === E2E_IDS.shoppingList)!.row;
     const before = list().version;
     s.push(req([
       { seq: 1, op_id: 'o1', kind: 'cmd', cmd: 'staple_add', args: { list_id: E2E_IDS.shoppingList, name: 'Mleko' } },
@@ -90,7 +90,7 @@ describe('E2eServer', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
     s.createGroup({ groupId: 'g2', name: 'Działka', ownerMemberId: 'm2', displayName: 'Łukasz' }, E2E_IDS.me);
     const t = e2eTransport(s);
-    const g2 = (await t.pull({}, 1000)).groups.find((g) => g.group_id === 'g2')!;
+    const g2 = (await t.pull({ cursors: {}, schema_version: 2, entities: [] }, 1000)).groups.find((g) => g.group_id === 'g2')!;
     expect(g2.rows.map((r) => r.e)).toEqual(['groups', 'group_members']);
     expect(g2.rows[1]!.row).toMatchObject({ role: 'owner', user_id: E2E_IDS.me });
     expect(await t.fetchScope('x')).toEqual([]);

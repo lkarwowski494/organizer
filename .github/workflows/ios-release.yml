@@ -3,6 +3,10 @@
 # i tagi v* (bez zatwierdzania — decyzja właściciela D53, 7.10.2026, jak w Treningu); BEZ artefaktów (w repo publicznym może je
 # pobrać każdy zalogowany). Wersja Xcode przypięta (obraz macos-26: 26.6 domyślny, sprawdzone 7.10.2026
 # w actions/runner-images, images/macos/macos-26-arm64-Readme.md; SDK 57 wymaga Xcode ≥ 26.4).
+# Bramka (audyt 2, M-155 i M-193; decyzja właściciela 8.10.2026, PWD-40 A): zadanie gate na Linuksie, bez sekretów
+# i bez środowiska — commit musi być na main (tag v* na commicie spoza main jest odrzucany) i mieć zielony db.yml;
+# potem testflight z `npm run check` jak dotąd. E2E (e2e.yml) na razie informacyjnie: po tygodniu zielonych przebiegów
+# ma też blokować wydanie (docs/testing.md).
 name: ios-release
 
 on:
@@ -18,7 +22,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: commit z gałęzi main
+        run: |
+          commit="$(git rev-parse "$GITHUB_SHA^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Commit $commit ($GITHUB_REF) nie jest na main; wydanie tylko z commitu z main."
+            exit 1
+          fi
+          echo "RELEASE_COMMIT=$commit" >> "$GITHUB_ENV"
+      - name: zielony db.yml dla tego commitu
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/require-green-runs.sh "$RELEASE_COMMIT" db.yml
+
   testflight:
+    needs: gate
     runs-on: macos-26
     timeout-minutes: 60
     environment: ios-release

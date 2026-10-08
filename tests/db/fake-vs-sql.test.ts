@@ -7,6 +7,7 @@
 import * as fc from 'fast-check';
 import { Client } from 'pg';
 
+import { config } from '../../src/config';
 import type { NewOp, Op } from '../../src/domain/sync-engine/client';
 import { FakeServer } from '../../src/domain/__tests__/support/fake-server';
 
@@ -30,13 +31,24 @@ const opArb: fc.Arbitrary<NewOp> = fc.oneof(
   fc.record({ kind: fc.constant('patch' as const), entity: fc.constant('lists' as const), id: fc.constantFrom(...LISTS), set: fc.record({ name: fc.constantFrom('A', 'B') }) }),
   fc.record({ kind: fc.constantFrom('delete' as const, 'restore' as const), entity: fc.constantFrom('lists' as const, 'tasks' as const), id: fc.constantFrom(...LISTS, ...TASKS) }),
   fc.record({ kind: fc.constant('cmd' as const), cmd: fc.constantFrom('grant_scope', 'revoke_scope'), args: fc.record({ list_id: fc.constantFrom(...LISTS), user: fc.constantFrom<User>('ala', 'bartek') }) }),
+  // Audyt 2: widoczność (także „Tylko ja”), przeniesienie zadania, odhaczenie (jedyna zmiana dziecka).
+  fc.record({ kind: fc.constant('patch' as const), entity: fc.constant('lists' as const), id: fc.constantFrom(...LISTS), set: fc.record({ visibility: fc.constantFrom('group', 'restricted', 'private') }) }),
+  fc.record({ kind: fc.constant('cmd' as const), cmd: fc.constant('move_task'), args: fc.record({ id: fc.constantFrom(...TASKS), list_id: fc.constantFrom(...LISTS) }) }),
+  fc.record({ kind: fc.constant('patch' as const), entity: fc.constant('tasks' as const), id: fc.constantFrom(...TASKS), set: fc.record({ completed_at: fc.constantFrom('2026-10-08T10:00:00.000Z', null) }) }),
 ) as fc.Arbitrary<NewOp>;
 
-const stepArb = fc.record({ who: fc.constantFrom<User>('ala', 'bartek'), ops: fc.array(opArb, { minLength: 1, maxLength: 4 }) });
+// Krok: paczka operacji jednej osoby; `retry` — ta sama paczka jeszcze raz (zgubiona odpowiedź, M-56); `role` — przed
+// paczką właściciel zmienia rolę Bartka (dziecko tylko odhacza).
+const stepArb = fc.record({
+  who: fc.constantFrom<User>('ala', 'bartek'),
+  ops: fc.array(opArb, { minLength: 1, maxLength: 4 }),
+  retry: fc.boolean(),
+  role: fc.constantFrom(null, 'member' as const, 'child' as const),
+});
 
-/** Komenda zakresu: model trzyma użytkownika, SQL — identyfikator członka grupy. */
+/** Komenda zakresu: model trzyma użytkownika, SQL — identyfikator członka grupy (move_task bez zmian). */
 const toSql = (op: Op): Op =>
-  op.kind === 'cmd' ? { ...op, args: { list_id: op.args.list_id, member_id: MEMBER[op.args.user as User] } } : op;
+  op.kind === 'cmd' && op.cmd !== 'move_task' ? { ...op, args: { list_id: op.args.list_id, member_id: MEMBER[op.args.user as User] } } : op;
 
 function view(rows: { lists: Record<string, unknown>[]; tasks: Record<string, unknown>[] }) {
   const pick = (r: Record<string, unknown>, keys: string[]) =>
@@ -59,7 +71,7 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
 
   async function sqlVisible(user: User) {
     await as(user);
-    const res = (await db.query(`select public.sync_pull('{}'::jsonb, 1000) r`)).rows[0].r;
+    const res = (await db.query(`select public.sync_pull('{}'::jsonb, 1000, $1) r`, [config.sync.SCHEMA_VERSION])).rows[0].r;
     const rows = res.groups.filter((g: { group_id: string }) => g.group_id === G).flatMap((g: { rows: { e: string; row: Record<string, unknown> }[] }) => g.rows);
     // Ukryte listy dostępne przez zakres: ich wiersze mogą mieć starsze wersje, więc dobieramy je fetch_scope.
     for (const s of res.scopes as string[]) {
@@ -86,14 +98,27 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
           const seq: Record<User, number> = { ala: 0, bartek: 0 };
           let n = 0;
           for (const step of steps) {
+            if (step.role) {
+              fake.setRole(G, 'bartek', step.role);
+              await as(null);
+              await db.query(`update public.group_members set role = $1 where member_id = $2`, [step.role, MEMBER.bartek]);
+            }
             const ops = step.ops.map((o) => ({ ...o, seq: ++seq[step.who], op_id: id('003', ++n) }) as Op);
-            const f = fake.push(step.who, { client_id: `c-${step.who}`, ops });
-            await as(step.who);
-            const s = (await db.query(`select public.sync_push($1, 1, $2::jsonb) r`, [id('004', step.who === 'ala' ? 1 : 2), JSON.stringify(ops.map(toSql))])).rows[0].r;
-            expect(s.results.map((r: { status: string }) => r.status)).toEqual(f.results.map((r) => r.status));
+            for (let k = 0; k < (step.retry ? 2 : 1); k++) {
+              const f = fake.push(step.who, { client_id: `c-${step.who}`, ops });
+              await as(step.who);
+              const s = (await db.query(`select public.sync_push($1, $2, $3::jsonb) r`, [id('004', step.who === 'ala' ? 1 : 2), config.sync.SCHEMA_VERSION, JSON.stringify(ops.map(toSql))])).rows[0].r;
+              expect(s.results.map((r: { status: string }) => r.status)).toEqual(f.results.map((r) => r.status));
+            }
           }
           for (const user of ['ala', 'bartek'] as const) {
             expect(await sqlVisible(user)).toEqual(view(fake.visibleRows(user) as never));
+            // Protokół 2: zbiór list, które osoba widzi (M-54), i ukryte zakresy — te same w modelu i w SQL.
+            await as(user);
+            const res = (await db.query(`select public.sync_pull('{}'::jsonb, 1000, $1) r`, [config.sync.SCHEMA_VERSION])).rows[0].r;
+            const f = fake.pull(user, { cursors: {} }, 1000);
+            expect(res.groups.find((g: { group_id: string }) => g.group_id === G).lists).toEqual(f.groups.find((g) => g.group_id === G)!.lists);
+            expect(res.scopes).toEqual(f.scopes);
           }
         } finally {
           await db.query('rollback');
