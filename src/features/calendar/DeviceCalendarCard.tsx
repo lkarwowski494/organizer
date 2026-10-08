@@ -1,6 +1,7 @@
 /**
- * Zaproszenie do połączenia z kalendarzem iPhone'a (D95) w Kalendarzu: raz, do „Nie teraz” albo połączenia.
- * Odmowa w iOS — wskazówka, gdzie włączyć dostęp.
+ * Zaproszenie do połączenia z kalendarzem iPhone'a (D95) w Kalendarzu: raz, do „Nie teraz” albo połączenia (potem
+ * Ustawienia → Kalendarz i dojazd, audyt 2 M-33). Zgoda tylko na dodawanie (po „Dodaj do kalendarza”) — dalej
+ * „Połącz” (M-217). Odmowa w iOS — wskazówka i „Otwórz Ustawienia iPhone’a”.
  */
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -38,8 +39,12 @@ export function DeviceCalendarCard() {
       <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
         {strings['device.title']}
       </Text>
-      <Body muted>{cal.status === 'denied' ? strings['device.denied'] : strings['device.body']}</Body>
-      {cal.status === 'denied' ? null : <Button label={strings['device.connect']} testID="device-connect" onPress={() => void cal.connect().then((ok) => ok && done())} />}
+      <Body muted>{cal.status === 'denied' ? strings['device.denied'] : cal.status === 'writeOnly' ? strings['device.writeOnly'] : strings['device.body']}</Body>
+      {cal.status === 'denied' ? (
+        <Button label={strings['push.openSettings']} testID="device-open-settings" onPress={cal.openSettings} />
+      ) : (
+        <Button label={strings['device.connect']} testID="device-connect" onPress={() => void cal.connect().then((ok) => ok && done())} />
+      )}
       <Button kind="secondary" label={strings['device.later']} testID="device-later" onPress={done} />
     </View>
   );
