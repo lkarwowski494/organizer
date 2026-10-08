@@ -124,6 +124,8 @@ export function StationRow(props: {
   checked: boolean;
   onToggle: () => void;
   onOpen?: () => void;
+  /** Etykieta VoiceOver dla dotknięcia wiersza (domyślnie „Otwórz: …”). */
+  openLabel?: string;
   pending?: boolean;
   shopping?: boolean;
   /** Ostrzeżenie na czerwono, np. „zaległe od 2 dni” (D61). */
@@ -146,7 +148,7 @@ export function StationRow(props: {
       </View>
       <Pressable
         accessibilityRole={props.onOpen ? 'button' : undefined}
-        accessibilityLabel={props.onOpen ? strings['task.open'](props.title) : undefined}
+        accessibilityLabel={props.onOpen ? (props.openLabel ?? strings['task.open'](props.title)) : undefined}
         disabled={!props.onOpen}
         onPress={props.onOpen}
         style={{ flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' }}

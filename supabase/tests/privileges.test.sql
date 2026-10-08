@@ -15,7 +15,7 @@ select is((select count(*)::int from information_schema.role_table_grants
   'nikt z aplikacji nie usuwa twardo');
 select is((select array_agg(column_name::text order by column_name) from information_schema.column_privileges
            where grantee = 'authenticated' and table_schema = 'public' and table_name = 'tasks' and privilege_type = 'UPDATE'),
-  array['assignee_member_id', 'completed_at', 'deadline_mode', 'deleted_at', 'due_date', 'due_time', 'event_id', 'note', 'occurrence_date', 'repeat', 'rollover', 'sort_key', 'start_date', 'title'],
+  array['assignee_member_id', 'category', 'completed_at', 'deadline_mode', 'deleted_at', 'due_date', 'due_time', 'event_id', 'note', 'occurrence_date', 'repeat', 'rollover', 'sort_key', 'start_date', 'title'],
   'tasks: UPDATE tylko na kolumnach z białej listy');
 select is((select count(*)::int from information_schema.column_privileges
            where grantee = 'authenticated' and table_schema = 'public' and column_name in ('version', 'group_id', 'depth', 'created_by', 'completed_by', 'owner_member_id', 'user_id')
