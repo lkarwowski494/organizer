@@ -33,7 +33,7 @@ import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { AskPanel } from '../../ui/AskPanel';
-import { BackButton, Body, Button, Checkbox, ErrorText, Field, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Checkbox, ErrorText, Field, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
@@ -340,7 +340,7 @@ export function TaskScreen({ route, navigation }: Props) {
                 store.dispatch(r.ops);
                 // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
                 navigation.goBack();
-                undo.show(strings['task.moved'](task.title, groupName(g)), () => store.dispatch(r.undo));
+                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.ops });
               },
             }))}
             onCancel={() => setMoving(false)}
@@ -354,17 +354,19 @@ export function TaskScreen({ route, navigation }: Props) {
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
           {/* M-251: ta sama linia opisu co na liście — termin, osoba, „czeka na wysłanie”. */}
           {(node?.children ?? []).map((ch) => (
-            <StationRow
-              key={ch.id}
-              testID={`sub-${ch.id}`}
-              title={ch.title}
-              line={detail.list.line}
-              meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
-              pending={pendingIds.has(ch.id)}
-              checked={ch.completed_at !== null}
-              onToggle={canCheck(ch) ? () => actions.toggle(ch) : undefined}
-              onOpen={() => navigation.push('Task', { taskId: ch.id })}
-            />
+            // Audyt 2 (M-124): podzadanie przesuwa się do usunięcia jak na liście (dorośli, D34).
+            <SwipeRow key={ch.id} title={ch.title} enabled={canEdit} onDelete={() => actions.remove(ch)} testID={`swipe-${ch.id}`}>
+              <StationRow
+                testID={`sub-${ch.id}`}
+                title={ch.title}
+                line={detail.list.line}
+                meta={[...(ch.due ? [formatDue(ch.due, today)] : []), ...(ch.expired ? [strings['lists.expired']] : []), ...whoOf(ch.assignee_member_id)]}
+                pending={pendingIds.has(ch.id)}
+                checked={ch.completed_at !== null}
+                onToggle={canCheck(ch) ? () => actions.toggle(ch) : undefined}
+                onOpen={() => navigation.push('Task', { taskId: ch.id })}
+              />
+            </SwipeRow>
           ))}
           {canEdit ? (
             <QuickAddField value={sub} onChangeText={(v) => (setSub(v), setSubIgnore([]), setSubError(null))} onSubmit={addSub} placeholder={strings['task.addSubtask']}>
@@ -377,6 +379,7 @@ export function TaskScreen({ route, navigation }: Props) {
         <Button
           kind="danger"
           label={strings['task.delete']}
+          testID="task-delete"
           onPress={() => {
             // M-254: jak przesunięcie na liście — kosz, powrót i pasek „Cofnij”.
             title.drop();

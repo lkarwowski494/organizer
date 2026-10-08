@@ -79,7 +79,7 @@ export function TimetableScreen({ route, navigation }: Props) {
     draft.saved();
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
-    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))));
+    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan' });
     navigation.goBack();
   };
 
@@ -139,7 +139,7 @@ export function TimetableScreen({ route, navigation }: Props) {
                     { value: 'B', label: strings['timetable.weekB'] },
                   ]}
                 />
-                <Button kind="secondary" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
+                <Button kind="danger" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
               </View>
             );
           })}

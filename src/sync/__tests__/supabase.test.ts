@@ -15,7 +15,7 @@ function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, 
     updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
     getSession: jest.fn(async () => ({ data: { session: null as { refresh_token?: string; user: { id?: string; app_metadata?: { provider?: string; providers?: string[] } } } | null } })),
   };
-  const functions = { invoke: jest.fn(async () => ({ error: null as { message: string } | null })) };
+  const functions = { invoke: jest.fn(async (_name: string, _opts: object): Promise<{ data?: unknown; error: { message: string } | null }> => ({ error: null })) };
   const profileUpdate = { error: null as { message: string } | null };
   const profiles: { table: string; values: object; col: string; id: string }[] = [];
   const from = (table: 'profiles') => ({
@@ -289,6 +289,29 @@ describe('Supabase: konto', () => {
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
     await a.notifyAssignment('a1');
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { activityId: 'a1' } });
+  });
+
+  it('D159: ciche powiadomienia dla grup — bez tego urządzenia (token z uruchomienia albo zapamiętany), retryInSec z odpowiedzi', async () => {
+    const { client, functions } = fakeClient();
+    let saved: string | null = null;
+    const memory = { load: jest.fn(async () => saved), save: jest.fn(async (t: string | null) => void (saved = t)) };
+    const a = supabaseAccount(client, async () => ({ identityToken: 'jwt' }), { pushToken: memory });
+    functions.invoke.mockResolvedValueOnce({ data: { sent: 1, retryInSec: 600 }, error: null });
+    expect(await a.notifyGroups({ groups: ['g1'], retry: false })).toEqual({ retryInSec: 600 });
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { groups: ['g1'], retry: false } });
+    saved = 'ab';
+    functions.invoke.mockResolvedValueOnce({ data: { sent: 0, retryInSec: null }, error: null });
+    expect(await a.notifyGroups({ groups: ['g1'], retry: true })).toEqual({ retryInSec: null });
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { groups: ['g1'], retry: true, except: 'ab' } });
+    await a.registerPushToken('cd', 'production');
+    functions.invoke.mockResolvedValueOnce({ error: null });
+    expect(await a.notifyGroups({ groups: ['g1'], retry: false })).toEqual({ retryInSec: null });
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { groups: ['g1'], retry: false, except: 'cd' } });
+    memory.load.mockRejectedValueOnce(new Error('pęk kluczy'));
+    const b = supabaseAccount(client, async () => ({ identityToken: 'jwt' }), { pushToken: memory });
+    functions.invoke.mockResolvedValueOnce({ data: null, error: { message: 'apns_failed' } });
+    await expect(b.notifyGroups({ groups: ['g1'], retry: false })).rejects.toThrow('apns_failed');
+    expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { groups: ['g1'], retry: false } });
   });
 });
 

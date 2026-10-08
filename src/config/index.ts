@@ -12,6 +12,13 @@ export const config = {
   UNDO_MS: 6000,
 
   /**
+   * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
+   * sekcji kosza (D151) widać przed „Pokaż wszystkie”. Wybory projektowe, bez źródła zewnętrznego.
+   */
+  RECENT_MAX: 30,
+  TRASH_PREVIEW: 5,
+
+  /**
    * Zgłaszanie błędów i opinii (D80). Serwer egzekwuje te same liczby (private.client_errors_per_day,
    * feedback_per_day, feedback_retention_days; test kontraktowy). Wybory projektowe, bez źródła.
    */
@@ -127,13 +134,20 @@ export const config = {
     MORNING_OPTIONS: ['off', '07:00', '08:00', '09:00'] as const,
     /** „Czas wyjść” (D117) — osobny przełącznik, domyślnie włączony jak dotąd (PWD-17, decyzja właściciela 8.10.2026). */
     LEAVE: true,
-    /** Ile dni naprzód planuje telefon (plan odświeża się przy każdej zmianie danych i uruchomieniu). */
-    DAYS_AHEAD: 3,
     /**
-     * Najwyżej tyle zaplanowanych powiadomień naraz. Wybór projektowy z zapasem: iOS ogranicza liczbę oczekujących
-     * powiadomień lokalnych, ale dokładnej liczby nie znaleźliśmy w przeczytanej dokumentacji Apple — otwarte pytanie.
+     * Ile dni naprzód planuje telefon. Plan odświeża się przy każdej zmianie danych, uruchomieniu i cichym powiadomieniu
+     * z serwera (D159, `wake` niżej); ciche powiadomienia nie mają gwarancji dostarczenia, więc okno jest długie — zapas
+     * na dni bez otwierania aplikacji. Najbliższe MAX_SCHEDULED pozycji i tak wygrywa. Wybór projektowy, bez źródła.
      */
-    MAX_SCHEDULED: 40,
+    DAYS_AHEAD: 14,
+    /**
+     * Najwyżej tyle zaplanowanych powiadomień naraz = limit iOS: „An app can have only a limited number of scheduled
+     * notifications; the system keeps the soonest-firing 64 notifications (with automatically rescheduled notifications
+     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification — dokumentacja archiwalna:
+     * https://developer.apple.com/library/archive/documentation/iPhone/Reference/UILocalNotification_Class/index.html).
+     * Plan bierze najbliższe, więc nadmiar i tak by przepadł.
+     */
+    MAX_SCHEDULED: 64,
     /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
     MORNING_LIST_MAX: 4,
     /**
@@ -142,6 +156,34 @@ export const config = {
      * 5 s — zapas na czas między policzeniem planu a zaplanowaniem; wybór projektowy.
      */
     SCHEDULE_MARGIN_MS: 5_000,
+  },
+
+  /**
+   * Ciche powiadomienia „odśwież przypomnienia” (D159, ADR 0016): po zmianie, która może zmienić czyjeś przypomnienia,
+   * telefon prosi serwer (funkcja notify-handoff, `groups`), a serwer budzi telefony członków grupy; budzony telefon
+   * pobiera zmiany i planuje przypomnienia od nowa. Apple: „The system treats background notifications as low priority
+   * … the system doesn't guarantee their delivery … don't try to send more than two or three per hour”
+   * (https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app).
+   */
+  wake: {
+    /**
+     * Najmniejszy odstęp między cichymi powiadomieniami do jednego urządzenia (minuty): 20 min = najwyżej 3 w każdej
+     * godzinie, górna granica zalecenia Apple. Ta sama wartość w private.wake_push_claim (test kontraktowy).
+     */
+    MIN_GAP_MIN: 20,
+    /** Telefon zbiera zmiany przez tyle ms po ostatniej, zanim poprosi serwer (seria edycji = jedno powiadomienie); wyjście z aplikacji wysyła od razu. Wybór projektowy. */
+    DEBOUNCE_MS: 30_000,
+    /** Najwyżej tyle grup w jednej prośbie (funkcja i baza odrzucają więcej — test kontraktowy). Wybór projektowy. */
+    MAX_GROUPS: 20,
+    /** Ponowienie po błędzie sieci albo APNs: nie wcześniej niż po tylu ms. Wybór projektowy. */
+    RETRY_MS: 60_000,
+    /**
+     * Odświeżenie w tle (src/app/background.ts) kończy się najpóźniej po tylu ms — Apple: „Your app has 30 seconds to
+     * perform any tasks and call the provided completion handler” (strona wyżej); 5 s zapasu na zapis planu.
+     */
+    TASK_BUDGET_MS: 25_000,
+    /** Najwięcej porcji pobrania w jednym odświeżeniu w tle (resztę pobierze otwarta aplikacja). Wybór projektowy. */
+    PULL_PAGES_MAX: 10,
   },
 
   /**

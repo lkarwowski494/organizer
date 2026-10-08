@@ -29,6 +29,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./scripts/expo/without-background-fetch.js",
       "expo-font",
       "expo-sqlite",
       [
@@ -57,9 +58,11 @@
       [
         "expo-notifications",
         {
-          "mode": "production"
+          "mode": "production",
+          "enableBackgroundRemoteNotifications": true
         }
-      ]
+      ],
+      "expo-task-manager"
     ]
   }
 }

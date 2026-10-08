@@ -9,6 +9,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Text } from 'react-native';
 
+import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
@@ -37,10 +38,11 @@ const ERRORS: Record<FormError, string> = {
 };
 
 export function AddTaskScreen({ route, navigation }: Props) {
-  const { userId, store, now, newId } = useServices();
+  const { userId, now, newId } = useServices();
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const p = route.params;
+  const added = useAdded();
   // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
   const [initial] = useState(() => formFromText(tables, userId, p.text ?? '', now(), { chipGroupId: p.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
   // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
@@ -61,7 +63,9 @@ export function AddTaskScreen({ route, navigation }: Props) {
     const e = validateForm(tables, userId, form);
     if (e) return setError(e);
     draft.saved();
-    store.dispatch(formOps(tables, userId, form, newId).ops);
+    // D189: nowe zadanie z formularza — „Dodano … · Cofnij”.
+    const g = groups.find((x) => x.id === form.groupId);
+    added(strings['form.added'](form.title.trim(), g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), formOps(tables, userId, form, newId).ops);
     navigation.goBack();
   };
 

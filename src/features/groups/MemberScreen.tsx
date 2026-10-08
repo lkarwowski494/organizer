@@ -160,7 +160,7 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {/* Decyzje z 8.10.2026 (PW-35 A, PW-16 A, D165): bez pytania — pasek „Cofnij” przywraca osobę (ten sam member_id,
           więc wracają plan lekcji, obecność i zadania); owner/admin może ją przywrócić przez config.sync.TOMBSTONE_DAYS dni
-          (kosz osób — później, D151). */}
+          (kosz osób na ekranie Grupy, D151). */}
       {can.remove ? (
         <Button
           kind="danger"
@@ -169,9 +169,10 @@ export function MemberScreen({ route, navigation }: Props) {
           onPress={() => {
             // Niezapisane imię osoby usuniętej przepada (serwer i tak nie zmienia usuniętych).
             name.drop();
-            store.dispatch(remove('group_members', m.member_id));
+            const op = remove('group_members', m.member_id);
+            store.dispatch(op);
             navigation.goBack();
-            undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)));
+            undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
           }}
         />
       ) : null}

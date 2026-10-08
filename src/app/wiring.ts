@@ -134,8 +134,9 @@ export function realDeps(): RootDeps {
     // Audyt 2, M-10: NetInfo (https://docs.expo.dev/versions/v57.0.0/sdk/netinfo/, addEventListener → state.isConnected).
     // Stan nieznany (null) traktujemy jak sieć — o braku połączenia i tak powie nieudane żądanie (captive portal).
     network: { subscribe: (fn) => NetInfo.addEventListener((state) => fn(state.isConnected !== false)) },
+    // Jedno połączenie na plik: odświeżenie w tle (background.ts) i ekrany w tym samym procesie piszą przez nie po kolei.
     openDb: (userId) => {
-      const db = openDatabaseSync(dbName(userId));
+      const db = openDbs.get(userId) ?? openDatabaseSync(dbName(userId));
       openDbs.set(userId, db);
       return expoAdapter(db);
     },
