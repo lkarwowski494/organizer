@@ -127,7 +127,7 @@ export const strings = {
   'travel.leaveTitle': (title: string) => `Czas wyjść: ${title}`,
   'travel.leaveBody': (min: number, mode: string) => `${min} min ${mode} — wyjdź teraz`,
   // PW-24 (decyzja właściciela 8.10.2026): wyjście już minęło, wydarzenie jeszcze nie — od razu.
-  'travel.lateBody': (min: number) => `Jesteś spóźniony o ${formatMinutes(min)} — wyjdź teraz`,
+  'travel.lateBody': (min: number) => `Masz ${formatMinutes(min)} spóźnienia — wyjdź teraz`,
   'travel.section': 'Dojazd',
   'travel.enabled': 'Czas dojazdu do dzisiejszych wydarzeń',
   'travel.on': 'Włączony',
