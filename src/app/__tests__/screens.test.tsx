@@ -439,13 +439,15 @@ describe('Ustawienia', () => {
       { op: { seq: 5, op_id: 'o5', kind: 'delete' as const, entity: 'lists' as const, id: 'l' }, code: 'not_found' },
       { op: { seq: 6, op_id: 'o6', kind: 'create' as const, entity: 'tasks' as const, id: 'x', group_id: 'g', set: { title: 'Głęboko' } }, code: 'depth_exceeded' },
       { op: { seq: 7, op_id: 'o7', kind: 'restore' as const, entity: 'tasks' as const, id: 'y' }, code: 'coś_innego' },
+      { op: { seq: 8, op_id: 'o8', kind: 'restore' as const, entity: 'tasks' as const, id: 'z' }, code: 'deleted:parent' },
+      { op: { seq: 9, op_id: 'o9', kind: 'patch' as const, entity: 'handoffs' as const, id: 'h', set: { status: 'accepted' } }, code: 'stale' },
     ];
     await act(async () => {
       s.store.getSnapshot().state = { ...s.store.getSnapshot().state, rejected } as never;
     });
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
-    expect(await screen.findByText('5 zmian')).toBeTruthy();
+    expect(await screen.findByText('7 zmian')).toBeTruthy();
     await press(screen.getByTestId('open-rejected'));
     expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
     expect(screen.getByText('Brak uprawnień')).toBeTruthy();
@@ -453,8 +455,10 @@ describe('Ustawienia', () => {
     expect(screen.getByText('Przeniesienie utworzyłoby pętlę zadań')).toBeTruthy();
     expect(screen.getByText('Element został w międzyczasie usunięty')).toBeTruthy();
     expect(screen.getByText('Za głębokie zagnieżdżenie podzadań')).toBeTruthy();
-    expect(screen.getByText('Przywrócenie')).toBeTruthy();
+    expect(screen.getAllByText('Przywrócenie').length).toBe(2);
     expect(screen.getByText('Zmiana niezgodna z danymi na serwerze')).toBeTruthy();
+    expect(screen.getByText(/Najpierw przywróć zadanie nadrzędne/)).toBeTruthy();
+    expect(screen.getByText(/Przekazanie jest nieaktualne/)).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));
