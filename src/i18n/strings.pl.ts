@@ -19,6 +19,8 @@ export const strings = {
     minutes === null ? 'Zsynchronizowano' : minutes < 1 ? 'Przed chwilą' : `${formatMinutes(minutes)} temu`,
   'sync.error': 'Błąd synchronizacji · ponowię',
   'sync.authExpired': 'Zaloguj się ponownie',
+  // Audyt 2 (M-57): serwer nie obsługuje już tej wersji aplikacji (upgrade_required) — kolejka czeka na aktualizację.
+  'sync.upgrade': 'Zaktualizuj aplikację',
   'sync.a11y': (label: string) => `Stan synchronizacji: ${label}`,
 
   'tabs.today': 'Dziś',
@@ -111,6 +113,8 @@ export const strings = {
   'reset.pending': (n: number) => `Uwaga: ${n} ${plural(n, { one: 'zmiana nie została jeszcze wysłana na serwer i przepadnie', few: 'zmiany nie zostały jeszcze wysłane na serwer i przepadną', many: 'zmian nie zostało jeszcze wysłanych na serwer i przepadnie' })}.`,
   'reset.confirm': 'Wyczyść i pobierz od nowa',
   'reset.offline': 'Najpierw połącz się z internetem — bez niego telefon zostałby pusty, dopóki sieć nie wróci.',
+  // Audyt 2 (M-57): ta wersja nie pobierze już danych z serwera — po wyczyszczeniu telefon zostałby pusty.
+  'reset.upgrade': 'Najpierw zaktualizuj aplikację — ta wersja nie pobierze już danych z serwera, więc telefon zostałby pusty.',
   'travel.mode.driving': 'autem',
   'travel.mode.transit': 'komunikacją',
   'travel.mode.walking': 'pieszo',

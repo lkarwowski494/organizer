@@ -52,8 +52,10 @@ d('współbieżne zapisy i pobieranie po kursorze', () => {
     let cursor = 0;
     let writing = true;
 
+    // Górna granica obrotów (audyt 2, M-49): pobieranie, które się nie kończy, ma być błędem, a nie wiszącym testem.
     const pull = async () => {
-      for (;;) {
+      for (let i = 0; ; i++) {
+        if (i >= 10_000) throw new Error('pobieranie się nie kończy');
         const res = (await puller.query(`select public.sync_pull($1::jsonb, 7) r`, [JSON.stringify({ [group]: cursor })])).rows[0].r;
         const g = res.groups.find((x: { group_id: string }) => x.group_id === group);
         for (const r of g.rows as Row[]) if (r.e === 'tasks') seen.set(r.row.id!, r.row);

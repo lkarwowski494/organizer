@@ -86,6 +86,22 @@ describe('pętla synchronizacji — scenariusze', () => {
     expect(decide(s, T0 + 200_000)).toEqual({ do: 'push' });
   });
 
+  it('błąd trwały (audyt 2, M-57): bez ponowień i bez timera; upgrade_required → „Zaktualizuj aplikację”; powrót do aplikacji próbuje raz', () => {
+    let s = run([[{ t: 'local_change', pending: 2 }, T0], [{ t: 'started', what: 'push' }, T0 + 1000], [{ t: 'failed', what: 'push', error: 'fatal', code: 'upgrade_required' }, T0 + 1000]]);
+    expect(decide(s, T0 + 3_600_000)).toEqual({ do: 'idle' });
+    expect(pendingTimer(s, T0 + 1000)).toBeNull();
+    expect(indicator(s)).toEqual({ state: 'upgrade_required', pending: 2 });
+    // Sieć i odświeżona sesja tego nie zdejmują; pierwszy plan — jedna nowa próba.
+    s = onEvent(onEvent(s, { t: 'network', online: true }, T0 + 2000), { t: 'auth_refreshed' }, T0 + 2000);
+    expect(decide(s, T0 + 2000)).toEqual({ do: 'idle' });
+    s = onEvent(s, { t: 'foreground' }, T0 + 5000);
+    expect(decide(s, T0 + 5000)).toEqual({ do: 'push' });
+    // Inny błąd trwały (np. client_mismatch): wskaźnik błędu z kodem, też bez ponowień.
+    s = onEvent(onEvent(s, { t: 'started', what: 'pull' }, T0 + 6000), { t: 'failed', what: 'pull', error: 'fatal', code: 'client_mismatch' }, T0 + 6000);
+    expect(decide(s, T0 + 999_999)).toEqual({ do: 'idle' });
+    expect(indicator(s)).toEqual({ state: 'error', pending: 2, error: 'client_mismatch' });
+  });
+
   it('poke: pobiera tylko przy nowszej wersji; w tle nie pobiera, ale wysyła', () => {
     let s = run([[{ t: 'pull_ok', needMore: false, pending: 0 }, T0]]);
     expect(decide(onEvent(s, { t: 'poke', fresh: false }, T0), T0)).toEqual({ do: 'idle' });
@@ -146,6 +162,7 @@ describe('pętla synchronizacji — własności', () => {
     fc.record({ t: fc.constant('network' as const), online: fc.boolean() }),
     fc.record({ t: fc.constant('poke' as const), fresh: fc.boolean() }),
     fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constantFrom('network' as const, 'auth' as const, 'server' as const) }),
+    fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constant('fatal' as const), code: fc.constantFrom('upgrade_required', 'client_mismatch') }),
     fc.constant({ t: 'auth_refreshed' as const }),
   );
 
@@ -161,7 +178,7 @@ describe('pętla synchronizacji — własności', () => {
           if (e.t !== 'local_change') expect(s.pending).toBe(before);
           const d = decide(s, now);
           if (d.do === 'push' || d.do === 'pull') {
-            expect(s.online && !s.authExpired && s.inflight === null).toBe(true);
+            expect(s.online && !s.authExpired && !s.fatal && s.inflight === null).toBe(true);
             if (d.do === 'push') expect(s.pending).toBeGreaterThan(0);
             // Symulacja wywołania i natychmiastowego sukcesu.
             s = onEvent(onEvent(s, { t: 'started', what: d.do }, now), d.do === 'push' ? { t: 'push_ok', pending: s.pending } : { t: 'pull_ok', needMore: false, pending: s.pending }, now);
