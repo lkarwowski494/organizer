@@ -130,6 +130,8 @@ export const strings = {
   'lists.rename': 'Zmień nazwę',
   'lists.expired': 'minęło',
   'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”',
+  'today.moveOverdue': (n: number) => `Przenieś zaległe na dziś (${n})`,
+  'today.movedOverdue': (n: number) => `Przeniesiono na dziś: ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}`,
   'today.overdueDays': (n: number) => (n === 1 ? 'zaległe od wczoraj' : `zaległe od ${n} dni`),
   'lists.pendingItem': 'czeka na wysłanie',
   'shop.categoryOf': (name: string) => `Dział: ${name}`,
@@ -513,6 +515,8 @@ export const strings = {
   'push.why': 'Przypomnimy o sprawach z godziną (domyślnie 30 min wcześniej) i rano o tym, co na dziś. Dostaniesz też powiadomienie, gdy ktoś przekaże Ci zadanie, wydarzenie albo zakupy. Ustawisz to w Ustawieniach.',
   'reminders.morningTitle': 'Dziś w Organizerze',
   'reminders.more': (n: number) => `i ${n} więcej`,
+  'reminders.summary': (n: number, overdue: number) =>
+    `${n} ${plural(n, { one: 'sprawa', few: 'sprawy', many: 'spraw' })}${overdue ? `, w tym ${overdue} ${plural(overdue, { one: 'zaległa', few: 'zaległe', many: 'zaległych' })}` : ''}`,
   'reminders.section': 'Przypomnienia',
   'reminders.lead': 'Przed sprawą z godziną',
   'reminders.lead.0': 'Wyłączone',

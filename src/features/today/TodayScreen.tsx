@@ -11,6 +11,7 @@ import { quickAddOps } from '../../app/quickadd';
 import { findTimeRange, withoutRange } from '../../domain/time-range';
 import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
+import { moveOverdueOps } from '../../domain/views/overdue';
 import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
@@ -125,6 +126,23 @@ export function TodayScreen() {
   const allDevice = useDeviceCalendar().days;
   const deviceOf = (d: (typeof view.days)[number]) =>
     withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.map((x) => (x.kind === 'event' ? { title: x.event.title, time: x.event.startTime } : { title: x.task.title, time: x.task.due?.time ?? null })));
+  // D111: zaległe z własnym terminem jednym dotknięciem na dziś (z cofnięciem).
+  const moveOverdueButton = (d: (typeof view.days)[number]) => {
+    const overdue = d.entries.flatMap((x) => (x.kind === 'overdue' ? [x.task] : []));
+    const { ops, undo: back } = moveOverdueOps(overdue, d.date);
+    if (!ops.length) return null;
+    return (
+      <Button
+        kind="secondary"
+        testID="move-overdue"
+        label={strings['today.moveOverdue'](ops.length)}
+        onPress={() => {
+          store.dispatch(ops);
+          undo.show(strings['today.movedOverdue'](ops.length), () => store.dispatch(back));
+        }}
+      />
+    );
+  };
   const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0);
 
   const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
@@ -272,6 +290,7 @@ export function TodayScreen() {
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
+            {d.isToday ? moveOverdueButton(d) : null}
             {nestEntries(d.entries, tables).map((n) => entryRow(n.entry, d.past, n))}
             {deviceOf(d).map((e) => (
               <DeviceEventRow key={e.key} e={e} />
