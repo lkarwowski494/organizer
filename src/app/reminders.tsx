@@ -14,11 +14,12 @@ import type { Tables } from '../domain/views/model';
 import { planReminders, type Reminder, type ReminderSettings } from '../domain/views/reminders';
 import { strings } from '../i18n/strings.pl';
 import { localNow, localToMs } from './clock';
-import { useAppData, useServices } from './context';
+import type { LocalStore } from './calendar-mirror';
+import { type Prefs, useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';
 import { REMINDER_SETTINGS } from './account-prefs';
 import { type PushStatus, registerIfAllowed } from './push';
-import { type TravelInfo, useTravel } from './travel';
+import { savedTravel, type TravelInfo, useTravel } from './travel';
 
 const DEFAULTS: ReminderSettings = { leadMin: config.reminders.LEAD_MIN, morning: config.reminders.MORNING, leave: config.reminders.LEAVE };
 const DEBOUNCE_MS = 1500;
@@ -36,8 +37,8 @@ export function parseReminderSettings(raw: string | null): ReminderSettings | nu
 }
 
 /**
- * Plan przypomnień z danych telefonu — jedno wejście bez Reacta (dostawca niżej; także przyszłe planowanie w tle,
- * PW-22). `travel` — policzony dojazd do wystąpienia albo null.
+ * Plan przypomnień z danych telefonu — jedno wejście bez Reacta (dostawca niżej i planowanie w tle, D159).
+ * `travel` — policzony dojazd do wystąpienia albo null.
  */
 export function reminderPlan(tables: Tables, userId: string, today: CivilDate, nowMs: number, settings: ReminderSettings, travel: (eventId: string, occurrenceDate: string) => TravelInfo | null): Reminder[] {
   return planReminders(tables, userId, today, nowMs, settings, {
@@ -52,6 +53,18 @@ export function reminderPlan(tables: Tables, userId: string, today: CivilDate, n
       return i ? { at: i.leaveMs, body: strings['travel.leaveBody'](i.minutes, strings[`travel.mode.${i.mode}`]) } : null;
     },
   });
+}
+
+/**
+ * Plan z tego, co konto zapisało na telefonie — planowanie w tle po cichym powiadomieniu (D159): ustawienia przypomnień
+ * i dojazdu z bazy konta (D175), dojazd z ostatnich wyników (bez pytania o położenie). Ten sam wynik co dostawca niżej
+ * przy tych samych danych.
+ */
+export async function storedReminderPlan(tables: Tables, userId: string, nowMs: number, prefs: Prefs, local: LocalStore): Promise<Reminder[]> {
+  const settings = { ...DEFAULTS, ...parseReminderSettings(await prefs.get(REMINDER_SETTINGS).catch(() => null)) };
+  const { y, m, d } = localNow(nowMs);
+  const today = { y, m, d };
+  return reminderPlan(tables, userId, today, nowMs, settings, await savedTravel(prefs, local, tables, userId, today, nowMs));
 }
 
 type Api = {

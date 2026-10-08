@@ -9,7 +9,7 @@ Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
 | Transfer Supabase | 5 GB/mies. | 3,5 GB | https://supabase.com/pricing |
 | Wiadomości Realtime | 2 mln/mies. | 1,4 mln | https://supabase.com/pricing |
 | Połączenia Realtime | 200 | 140 | https://supabase.com/pricing |
-| Wywołania Edge Functions | 500 tys./mies. | 350 tys. | https://supabase.com/pricing |
+| Wywołania Edge Functions | 500 tys./mies. | 350 tys. | https://supabase.com/pricing; https://supabase.com/docs/guides/functions/pricing. Szacunek D159: prośba o ciche powiadomienia to jedno wywołanie na serię zmian (30 s ciszy albo wyjście z aplikacji) i ewentualne ponowienie; rodzina 4 osób po ~20 serii dziennie ≈ 80–160/dzień ≈ 2,5–5 tys./mies. (≤ 1% limitu), 50 rodzin ≈ 250 tys. |
 | Pauza projektu | po 1 tygodniu bezczynności | 5 dni bez ruchu | https://supabase.com/pricing |
 | E-maile logowania | 2/h (wbudowany SMTP) | nie dotyczy w becie: logowanie e-mailem wyłączone (D177), dostawca Email do wyłączenia w Supabase (O-110) | https://supabase.com/docs/guides/auth/rate-limits |
 | GitHub Actions — repo prywatne | 2000 min/mies., macOS ×10 | każdy job macOS w repo prywatnym | https://docs.github.com/en/billing/concepts/product-billing/github-actions |

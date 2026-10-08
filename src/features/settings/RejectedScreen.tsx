@@ -2,11 +2,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { View } from 'react-native';
 
-import { useAppData } from '../../app/context';
+import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import type { Op } from '../../domain/sync-engine/client';
+import type { Tables } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Screen, Title } from '../../ui/components';
+import { BackButton, Body, Button, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Rejected'>;
@@ -26,7 +27,8 @@ export function rejectionReason(code: string): string {
   return strings['rejected.code.other'];
 }
 
-export function describeOp(op: Op): string {
+/** `t` — dane na telefonie: nazwa rzeczy przy zmianie, usunięciu i przywróceniu (audyt 2, M-137: „Usunięcie: „Mleko””). */
+export function describeOp(op: Op, t: Tables = {}): string {
   const verb = strings[`rejected.op.${op.kind}`];
   if (op.kind === 'cmd') {
     if (op.cmd === 'move_task') return strings['rejected.cmd.move_task'];
@@ -38,13 +40,15 @@ export function describeOp(op: Op): string {
     return verb;
   }
   const set = op.kind === 'create' || op.kind === 'patch' ? op.set : {};
-  const label = (set.title ?? set.name ?? set.display_name) as string | undefined;
+  const row = t[op.entity]?.[op.id] ?? {};
+  const label = (set.title ?? set.name ?? set.display_name ?? row.title ?? row.name ?? row.display_name) as string | undefined;
   // Audyt 2 (U-42): bez tytułu — czego dotyczy zmiana („Dodanie: obecność”).
   return label ? `${verb}: „${label}”` : `${verb}: ${strings['rejected.entity'](op.entity)}`;
 }
 
 export function RejectedScreen({ navigation }: Props) {
-  const { state } = useAppData();
+  const { state, tables } = useAppData();
+  const { store } = useServices();
   const { c } = useTheme();
   return (
     <Screen testID="screen-rejected">
@@ -53,10 +57,12 @@ export function RejectedScreen({ navigation }: Props) {
       {state.rejected.length === 0 ? <Body muted>{strings['rejected.empty']}</Body> : <Body muted>{strings['rejected.info']}</Body>}
       {[...state.rejected].reverse().map((r) => (
         <View key={r.op.seq} style={{ padding: 14, gap: 4, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-          <Body>{describeOp(r.op)}</Body>
+          <Body>{describeOp(r.op, tables)}</Body>
           <Body muted>{rejectionReason(r.code)}</Body>
         </View>
       ))}
+      {/* D190: lista nie rośnie bez końca — przeczytane można wyczyścić (z telefonu też znikają). */}
+      {state.rejected.length ? <Button kind="secondary" label={strings['rejected.clear']} testID="rejected-clear" onPress={() => store.clearRejected()} /> : null}
     </Screen>
   );
 }

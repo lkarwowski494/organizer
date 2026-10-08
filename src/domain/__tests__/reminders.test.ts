@@ -290,7 +290,7 @@ describe('„Nie będę” wycisza przypomnienia tego terminu (PW-23, decyzja w�
     expect(r.find((x) => x.id === 't|kielbasa|2026-10-08')).toMatchObject({ at: Date.UTC(2026, 9, 8, 12, 30), body: '15:00 · Rodzina' });
   });
 
-  it('zmiana zdania przywraca przypomnienia; „może”, „będę”, odpowiedź usunięta, cudza i za dziecko — bez zmian', () => {
+  it('zmiana zdania przywraca przypomnienia; „może”, „będę”, odpowiedź usunięta, cudza — bez zmian', () => {
     for (const [a, extra] of [['yes', {}], ['maybe', {}], ['no', { deleted_at: '2026-10-07T09:00:00Z' }]] as const) {
       const t = world4();
       answer(t, 'r1', 'grill', 'mf', a, extra);
@@ -298,12 +298,97 @@ describe('„Nie będę” wycisza przypomnienia tego terminu (PW-23, decyzja w�
     }
     const t = world4();
     answer(t, 'r2', 'grill', 'ala', 'no'); // cudza odpowiedź
-    answer(t, 'r3', 'basen', 'kuba', 'no'); // dorosły za dziecko bez konta — reguła tylko dla mojej odpowiedzi (pytanie do właściciela)
+    answer(t, 'r3', 'basen', 'kuba', 'maybe'); // dziecko „może” — przypomnienie zostaje
     answer(t, 'r4', 'grill', 'mf', 'no', { occurrence_date: '2026-10-15' }); // inny termin
     answer(t, 'r5', 'grill', 'mf', 'no', { group_id: 'obca' }); // spoza moich grup
     const r = run(t);
     expect(r.some((x) => x.id === 'l|grill|2026-10-08|2026-10-08')).toBe(true);
     expect(r.some((x) => x.id === 'e|basen|2026-10-08|2026-10-08')).toBe(true);
+  });
+});
+
+describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D160, decyzja koordynatora 8.10.2026)', () => {
+  function world6(): T {
+    const t = world();
+    const kid = (id: string, user: string | null, deleted: string | null = null) =>
+      put(t, 'group_members', id, { member_id: id, group_id: 'gf', user_id: user, display_name: id, role: 'child', deleted_at: deleted });
+    kid('kuba', null);
+    kid('ola', 'u-ola'); // dziecko z kontem odpowiada samo — liczy się tak samo
+    kid('stary', null, '2026-01-01');
+    put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', display_name: 'Ala', role: 'member', deleted_at: null });
+    put(t, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-08', start_time: '16:00:00', end_time: null, rrule: 'FREQ=WEEKLY', audience: 'members', responsible_member_id: null, deleted_at: null });
+    for (const m of ['kuba', 'ola', 'stary', 'ala']) put(t, 'event_participants', `p-${m}`, { id: `p-${m}`, event_id: 'basen', member_id: m, deleted_at: null });
+    return t;
+  }
+  const no = (t: T, member: string, date = '2026-10-08', extra: Row = {}) =>
+    put(t, 'event_rsvps', `r-${member}-${date}`, { id: `r-${member}-${date}`, group_id: 'gf', event_id: 'basen', occurrence_date: date, member_id: member, answer: 'no', deleted_at: null, ...extra });
+  const leaveFor = (id: string, occ: string) => (id === 'basen' ? { at: toMs({ ...TODAY, d: Number(occ.slice(8)), hh: 15, mm: 20 }), body: 'Wyjdź teraz' } : null);
+  const run = (t: T) => planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts({ days: 2, leaveFor, label: { ...opts().label, leave: (x: string) => `Czas wyjść: ${x}` } }));
+  const basen = (t: T) => run(t).filter((x) => x.id.includes('basen')).map((x) => x.id);
+
+  it('każde dziecko „nie będzie”: bez „Czas wyjść” i bez „N min przed”; dorosły uczestnik obok nie zmienia', () => {
+    expect(basen(world6())).toEqual(['l|basen|2026-10-08|2026-10-08']);
+    const t = world6();
+    no(t, 'kuba');
+    expect(basen(t)).toEqual(['l|basen|2026-10-08|2026-10-08']); // Ola jeszcze nie odpowiedziała
+    no(t, 'ola');
+    expect(basen(t)).toEqual([]);
+  });
+
+  it('bez wyciszenia: jestem uczestnikiem, odpowiadam za termin, „nie” usunięte albo na inny dzień, dorosły (ja) jako dziecko', () => {
+    const both = (t: T) => (no(t, 'kuba'), no(t, 'ola'), t);
+    const me = both(world6());
+    put(me, 'event_participants', 'p-me', { id: 'p-me', event_id: 'basen', member_id: 'mf', deleted_at: null });
+    expect(basen(me)).toHaveLength(1);
+    const resp = both(world6());
+    put(resp, 'event_overrides', 'o', { id: 'o', event_id: 'basen', occurrence_date: '2026-10-08', cancelled: false, responsible_member_id: 'mf', deleted_at: null });
+    expect(basen(resp)).toHaveLength(1);
+    const gone = world6();
+    no(gone, 'kuba');
+    no(gone, 'ola', '2026-10-08', { deleted_at: '2026-10-07T09:00:00Z' });
+    expect(basen(gone)).toHaveLength(1);
+    const other = world6();
+    no(other, 'kuba', '2026-10-15');
+    no(other, 'ola', '2026-10-15');
+    expect(basen(other)).toHaveLength(1);
+  });
+
+  it('osoba odpowiedzialna usunięta z grupy (D132) nie blokuje wyciszenia; wydarzenie całej grupy i nieznane — bez zmian', () => {
+    const t = world6();
+    t.events!.basen = { ...t.events!.basen!, responsible_member_id: 'stary' };
+    no(t, 'kuba');
+    no(t, 'ola');
+    expect(basen(t)).toEqual([]);
+    const all = world6();
+    all.events!.basen = { ...all.events!.basen!, audience: 'group' };
+    no(all, 'kuba');
+    no(all, 'ola');
+    expect(basen(all)).toHaveLength(1);
+    const unknown = world6();
+    put(unknown, 'event_rsvps', 'x', { id: 'x', group_id: 'gf', event_id: 'nieznane', occurrence_date: '2026-10-08', member_id: 'kuba', answer: 'no', deleted_at: null });
+    expect(basen(unknown)).toHaveLength(1);
+  });
+
+  it('bez dziecka wśród uczestników i w obcej grupie — bez wyciszenia', () => {
+    const t = world6();
+    for (const m of ['kuba', 'ola']) t.event_participants![`p-${m}`] = { ...t.event_participants![`p-${m}`]!, deleted_at: '2026-10-01' };
+    // Bez dzieci wydarzenie mnie nie dotyczy (D58) — tu tylko pilnujemy, że „nie” Ali nic nie wycisza.
+    no(t, 'ala');
+    expect(run(t).some((x) => x.id.includes('basen'))).toBe(false);
+    const foreign = world6();
+    foreign.events!.basen = { ...foreign.events!.basen!, group_id: 'obca' };
+    no(foreign, 'kuba');
+    no(foreign, 'ola');
+    expect(basen(foreign)).toEqual([]);
+  });
+
+  it('dziecko na moim koncie (rola child) — reguła dla dorosłych', () => {
+    const t = world6();
+    t.group_members!.mf = { ...t.group_members!.mf!, role: 'child' };
+    put(t, 'event_participants', 'p-me', { id: 'p-me', event_id: 'basen', member_id: 'mf', deleted_at: null });
+    no(t, 'kuba');
+    no(t, 'ola');
+    expect(basen(t)).toHaveLength(1);
   });
 });
 

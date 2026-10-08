@@ -62,6 +62,11 @@ export interface AccountApi {
   registerPushToken(token: string, env: 'sandbox' | 'production'): Promise<void>;
   /** Poproś serwer o powiadomienie drugiej strony przekazania (funkcja notify-handoff; serwer decyduje, czy wysłać). */
   notifyHandoff(handoffId: string): Promise<void>;
+  /**
+   * D159: poproś o ciche powiadomienia dla członków grup po moich zmianach (odświeżenie ich przypomnień); `retry` — tylko
+   * zaległe. Wynik: za ile sekund ponowić (przerwa u odbiorców), null — nic nie czeka.
+   */
+  notifyGroups(r: { groups: string[]; retry: boolean }): Promise<{ retryInSec: number | null }>;
   /** Poproś o powiadomienie osoby, której przypisałem zadanie albo zakupy (D81) — po id wpisu aktywności. */
   notifyAssignment(activityId: string): Promise<void>;
   /** Grupy wyciszone przeze mnie (D81: bez powiadomień o przypisaniach). */

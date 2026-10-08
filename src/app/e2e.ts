@@ -223,6 +223,7 @@ export function e2eAccount(server: E2eServer, auth: { signIn(): Promise<void>; s
     registerPushToken: ok,
     notifyHandoff: ok,
     notifyAssignment: ok,
+    notifyGroups: async () => ({ retryInSec: null }),
     getPushMutes: async () => [],
     setPushMute: ok,
     reportError: ok,

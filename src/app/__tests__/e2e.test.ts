@@ -147,6 +147,7 @@ describe('atrapy E2E', () => {
     await a.deleteAccount();
     await a.finishSignOut();
     expect(await a.getPushMutes()).toEqual([]);
+    expect(await a.notifyGroups({ groups: ['g'], retry: false })).toEqual({ retryInSec: null });
     await expect(Promise.all([a.setMyName('x'), a.revokeInvite('i'), a.registerPushToken('t', 'sandbox'), a.notifyHandoff('h'), a.notifyAssignment('a'), a.setPushMute('g', true), a.reportError({ kind: 'error', message: 'm', stack: null, screen: null, appVersion: '1' }), a.sendFeedback({ message: 'm', screen: null, appVersion: '1' })])).resolves.toBeDefined();
   });
 
