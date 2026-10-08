@@ -2,10 +2,15 @@
  * Odhaczanie i usuwanie zadań oraz pozycji zakupów — wspólne dla wszystkich ekranów.
  * Odhaczenie pyta o potwierdzenie (decyzja właściciela z 7.10.2026, D59: łatwo o przypadkowe dotknięcie,
  * a zrobione znika z widoku); cofnięcie odhaczenia nie pyta. Usunięcie trafia do kosza i pokazuje „Cofnij” (D60).
+ * Zadanie z niezrobionymi podzadaniami (decyzja właściciela z 8.10.2026): to samo pytanie z wyborem — „Zostaw
+ * podzadania” albo „Oznacz wszystko jako zrobione” (jak zakupy z niekupionymi pozycjami); hurtowe odhaczenie ma „Cofnij”,
+ * które przywraca wszystko naraz.
  */
 import { Alert } from 'react-native';
 
+import { materialize } from '../domain/sync-engine/client';
 import { remove, restore, toggleDone } from '../domain/views/commands';
+import { subtasksOf } from '../domain/views/nesting';
 import { finishTripOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
@@ -26,11 +31,35 @@ export function useTaskActions() {
       const raw = tables.tasks?.[t.id];
       // Dziecko (D34) nie tworzy zadań — następne dołoży telefon dorosłego (audyt 2, T-12).
       const canCreate = raw !== undefined && groupsView(tables, userId).some((g) => g.id === raw.group_id && g.me.role !== 'child');
-      const done = () => store.dispatch([toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])]);
+      const done = (subs: readonly Task[] = []) =>
+        store.dispatch([toggleDone(t, nowIso()), ...subs.map((s) => toggleDone(s, nowIso())), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])]);
       if (t.completed_at !== null) return done();
-      Alert.alert(shopping ? strings['confirm.cartTitle'] : strings['confirm.doneTitle'], t.title, [
+      const open = shopping ? [] : subtasksOf(tables, t.id).filter((s) => s.completed_at === null);
+      if (open.length === 0)
+        return Alert.alert(shopping ? strings['confirm.cartTitle'] : strings['confirm.doneTitle'], t.title, [
+          { text: strings['common.cancel'], style: 'cancel' },
+          { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: () => done() },
+        ]);
+      // „Cofnij” po hurtowym odhaczeniu: ze stanu w chwili cofnięcia — jak odznaczenie zadania (następne znika, jeśli
+      // nietknięte) i podzadania odhaczone razem z nim.
+      const back = () => {
+        const now = materialize(store.getSnapshot().state);
+        const parent = now.tasks?.[t.id];
+        if (!parent || parent.completed_at == null) return;
+        const p = asTask(parent);
+        const subs = open.flatMap((s) => (now.tasks?.[s.id]?.completed_at != null ? [asTask(now.tasks[s.id]!)] : []));
+        store.dispatch([toggleDone(p, nowIso()), ...subs.map((s) => toggleDone(s, nowIso())), ...repeatOps(now, p, today, canCreate)]);
+      };
+      Alert.alert(strings['confirm.doneTitle'], strings['confirm.subtasksLeft'](t.title, open.length), [
         { text: strings['common.cancel'], style: 'cancel' },
-        { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: done },
+        { text: strings['confirm.keepSubtasks'], onPress: () => done() },
+        {
+          text: strings['confirm.allDone'],
+          onPress: () => {
+            done(open);
+            undo.show(strings['undo.doneWithSubtasks'](t.title, open.length), back);
+          },
+        },
       ]);
     },
     /** „Zakupy” zrobione (D73): z potwierdzeniem; niekupione — zostają na następne zakupy albo też są kupione. */
