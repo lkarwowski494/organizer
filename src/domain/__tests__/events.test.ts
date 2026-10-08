@@ -100,6 +100,11 @@ describe('miejsce wydarzenia (D115)', () => {
     expect(following[1]).toMatchObject({ kind: 'create', entity: 'events', set: { location: 'ul. Wodna 1' } });
     expect(editEvent(d, '2026-10-12', 'following', { ...base, rule, location: 'Hala' }, id)[1]).toMatchObject({ set: { location: 'Hala' } });
     expect(fieldsOf(d, '2026-10-05', 'all').location).toBe('ul. Wodna 1');
+    // D126: rodzaj wpisu — zwykłe wydarzenie bez pola, lekcja z polem; „to i następne” zachowuje rodzaj.
+    expect((createEvent('gf', { ...base, kind: 'event' }, id).ops[0] as { set: object }).set).not.toHaveProperty('kind');
+    expect(createEvent('gf', { ...base, kind: 'lesson' }, id).ops[0]).toMatchObject({ set: { kind: 'lesson' } });
+    put(t, 'events', 'e', { ...t.events!.e!, kind: 'lesson' });
+    expect(editEvent(eventDetail(t, ME, 'e')!, '2026-10-12', 'following', { ...base, rule }, id)[1]).toMatchObject({ kind: 'create', set: { kind: 'lesson' } });
     expect(expandEvents(t, ME, { y: 2026, m: 10, d: 5 }, { y: 2026, m: 10, d: 5 })[0]!.location).toBe('ul. Wodna 1');
   });
 });
@@ -118,8 +123,12 @@ describe('wiersze lokalne: wartości domyślne', () => {
       audience: 'group',
       responsible_member_id: null,
       location: null,
+      kind: 'event',
       deleted_at: null,
     });
+    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', kind: 'lesson' }).kind).toBe('lesson');
+    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', kind: 'routine' }).kind).toBe('routine');
+    expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', kind: 'cos' }).kind).toBe('event');
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05', audience: 'members', note: 'x', title: 'T', location: 'Basen, ul. Wodna 1' })).toMatchObject({ audience: 'members', note: 'x', title: 'T', location: 'Basen, ul. Wodna 1' });
     expect(asParticipant({ id: 'p', event_id: 'e', member_id: 'm' })).toEqual({ id: 'p', event_id: 'e', member_id: 'm', deleted_at: null });
     expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05' })).toEqual({
@@ -493,8 +502,11 @@ describe('osoba odpowiedzialna (D66)', () => {
     const d8 = range(t, '2026-10-08', '2026-10-08');
     expect(d8.find((x) => x.eventId === both.id)!.concernsMe).toBe(true);
     expect(d8.find((x) => x.eventId === all.id)!.concernsMe).toBe(false);
-    // Nieznana osoba (np. usunięta z telefonu): imię puste, ale reguła działa.
+    // D132: nieznana albo usunięta z grupy osoba = nikt konkretny — wydarzenie wraca do reguły grupy (nie znika wszystkim).
     t.events![all.id] = { ...t.events![all.id]!, responsible_member_id: 'nie-ma' };
-    expect(range(t, '2026-10-08', '2026-10-08').find((x) => x.eventId === all.id)).toMatchObject({ responsibleName: null, concernsMe: false });
+    expect(range(t, '2026-10-08', '2026-10-08').find((x) => x.eventId === all.id)).toMatchObject({ responsibleId: null, responsibleName: null, concernsMe: true });
+    t.events![all.id] = { ...t.events![all.id]!, responsible_member_id: 'ala' };
+    t.group_members!.ala = { ...t.group_members!.ala!, deleted_at: '2026-10-07T10:00:00Z' };
+    expect(range(t, '2026-10-08', '2026-10-08').find((x) => x.eventId === all.id)).toMatchObject({ responsibleId: null, concernsMe: true });
   });
 });

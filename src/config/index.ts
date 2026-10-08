@@ -154,6 +154,8 @@ export const config = {
     JOIN_FAILS_PER_GROUP: 20,
     /** Strona z linkiem zaproszenia (GitHub Pages, D94). Universal Links dla /j/ dopiero po krokach z docs/join-links.md (bez associatedDomains w app.json). */
     JOIN_LINK: 'https://lkarwowski494.github.io/j/',
+    /** D141: link w wiadomości zaproszenia dopiero, gdy strona działa (docs/join-links.md, krok właściciela). */
+    LINK_LIVE: false,
     DEFAULT_TTL_HOURS: 168,
     MAX_TTL_HOURS: 720,
     DEFAULT_MAX_USES: 10,

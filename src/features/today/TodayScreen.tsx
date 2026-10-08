@@ -26,6 +26,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { expiredRepeatOps } from '../../domain/views/task-repeat';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
@@ -62,6 +63,11 @@ export function TodayScreen() {
   const at = anchor ?? today;
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
+  useEffect(() => {
+    const ops = expiredRepeatOps(tables, today, (g) => groups.find((x) => x.id === g)?.me.role !== 'child');
+    if (ops.length) store.dispatch(ops);
+  }, [tables, today, groups, store]);
   // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie. Stan z chwili otwarcia
   // (useState): po nadaniu imienia sesja się zmienia, a ekran imienia sam przechodzi do wprowadzenia.
   const [askName] = useState(needsName);
@@ -135,7 +141,7 @@ export function TodayScreen() {
   // D111: zaległe z własnym terminem jednym dotknięciem na dziś (z cofnięciem).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
     const overdue = d.entries.flatMap((x) => (x.kind === 'overdue' ? [x.task] : []));
-    const { ops, undo: back } = moveOverdueOps(overdue, d.date);
+    const { ops, undo: back } = moveOverdueOps(overdue, d.date, tables);
     if (!ops.length) return null;
     return (
       <Button
@@ -159,7 +165,8 @@ export function TodayScreen() {
   // D124: ile osób potwierdziło obecność.
   const rsvpOf = (eventId: string, date: string) => {
     const v = rsvpView(tables, userId, eventId, date);
-    return v && v.counts.yes + v.counts.maybe + v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
+    // D129: w wierszu tylko, gdy ktoś nie będzie (reszta w szczegółach).
+    return v && v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
   };
   const whoEvent = (memberId: string | null) => {
     const p = personOf(tables, userId, memberId);
@@ -220,7 +227,8 @@ export function TodayScreen() {
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
-        extra={[...whoEvent(x.event.responsibleId), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...leaveOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
+        alert={leaveOf(x.event.eventId, x.event.occurrenceDate)[0]}
+        extra={[...whoEvent(x.event.responsibleId), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />

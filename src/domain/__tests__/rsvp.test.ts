@@ -94,6 +94,12 @@ describe('obecność (D124)', () => {
     expect(rsvpView(t, 'u1', 'ex', '2026-10-07')).toBeNull();
     expect(rsvpView(t, 'u1', 'nope', '2026-10-07')).toBeNull();
     expect(rsvpView(t, 'obcy', 'e1', '2026-10-07')).toBeNull();
+    // D126: lekcje z planu i rutyny bez obecności.
+    for (const kind of ['lesson', 'routine']) {
+      const w = world();
+      put(w, 'events', 'e1', { ...w.events!.e1!, kind });
+      expect(rsvpView(w, 'u1', 'e1', '2026-10-07')).toBeNull();
+    }
     delete t.groups!.gf;
     expect(rsvpView(t, 'u1', 'e1', '2026-10-07')).toBeNull();
   });

@@ -17,6 +17,16 @@ async function openTask(base = sampleBase(), title = 'Odebrać paczkę') {
 }
 
 describe('powtarzanie zadania', () => {
+  it('D133: minione „tylko tego dnia” dostaje następne od dziś po otwarciu Moich spraw', async () => {
+    const b = sampleBase();
+    put(b, 'tasks', 'leki', { ...b.tasks!['t-paczka']!, id: 'leki', title: 'Leki', due_date: '2026-10-05', due_time: '08:00:00', rollover: false, repeat: 'FREQ=DAILY' });
+    const s = setup({ base: b });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    expect(s.store.dispatched).toEqual([expect.objectContaining({ kind: 'create', id: nextId('leki'), set: expect.objectContaining({ due_date: '2026-10-07', title: 'Leki' }) })]);
+    expect(await screen.findByLabelText(/^Otwórz: Leki/)).toBeTruthy();
+  });
+
   it('ustawienie: co tydzień (dzień z terminu, wybór dni), co miesiąc, od wykonania co N, wyłączenie', async () => {
     const { store } = await openTask();
     const ed = screen.getByTestId('repeat-editor');
@@ -31,7 +41,7 @@ describe('powtarzanie zadania', () => {
     // Ostatniego dnia nie da się odznaczyć.
     expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
     await press(within(ed).getByLabelText('Co miesiąc'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=MONTHLY' } });
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=7' } }); // D137: dzień miesiąca z terminu
     await press(within(ed).getByLabelText('Codziennie'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=DAILY' } });
     await press(within(ed).getByLabelText('Od wykonania'));

@@ -48,7 +48,7 @@ export function timetableOps(a: {
       until: a.until ?? '',
     });
     if ('error' in r) return { error: r.error, index: l.index };
-    ops.push(...createEvent(a.groupId, r.fields[0]!, a.newId).ops);
+    ops.push(...createEvent(a.groupId, { ...r.fields[0]!, kind: 'lesson' }, a.newId).ops);
   }
   return { ops, series: groups.size };
 }

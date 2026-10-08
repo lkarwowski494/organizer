@@ -357,12 +357,12 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
  * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
  * tytuł i grupa; po godzinach długość (D120). Całość otwiera wydarzenie.
  */
-export function EventRow({ title, time, length, line, group, recurring, onPress, testID, faded, extra }: { title: string; time: string | null; length?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string }) {
+export function EventRow({ title, time, length, line, group, recurring, onPress, testID, faded, extra, alert }: { title: string; time: string | null; length?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
@@ -373,9 +373,10 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
           {length ? `  ·  ${length}` : ''}
           {'  ·  '}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
-          {recurring ? `  ·  ${strings['event.repeats']}` : ''}
           {extra ? `  ·  ${extra}` : ''}
         </Text>
+        {/* D129: „Wyjdź o …” — jedyna pilna informacja — w osobnej, wyróżnionej linii; „powtarza się” tylko w szczegółach. */}
+        {alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.accentInk }}>{alert}</Text> : null}
       </View>
       <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text>
     </Pressable>

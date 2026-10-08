@@ -56,7 +56,8 @@ export function CalendarScreen() {
   // D124: ile osób potwierdziło obecność.
   const rsvpOf = (eventId: string, date: string) => {
     const v = rsvpView(tables, userId, eventId, date);
-    return v && v.counts.yes + v.counts.maybe + v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
+    // D129: w wierszu tylko, gdy ktoś nie będzie (reszta w szczegółach).
+    return v && v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
   };
   const calRow = ({ entry: x, ...n }: Nested<AgendaEntry>) =>
             x.kind === 'event' ? (

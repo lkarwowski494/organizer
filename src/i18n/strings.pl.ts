@@ -388,11 +388,12 @@ export const strings = {
   'groups.inviteReady': 'Zaproszenie gotowe',
   'groups.joinId': 'ID grupy',
   'groups.joinCode': 'Kod',
-  'groups.joinInfo': (until: string, people: number) =>
-    `Ważny do: ${until}. Działa dla najwyżej ${people} ${plural(people, { one: 'osoby', few: 'osób', many: 'osób' })}. Wystarczy link albo ID grupy z kodem.`,
+  'groups.joinInfo': (until: string, people: number, link: boolean) =>
+    `Ważny do: ${until}. Działa dla najwyżej ${people} ${plural(people, { one: 'osoby', few: 'osób', many: 'osób' })}. Wystarczy ${link ? 'link albo ' : ''}ID grupy z kodem.`,
   'groups.share': 'Wyślij zaproszenie',
-  'groups.joinMessage': (group: string, url: string, id: string, code: string, until: string) =>
-    `Zapraszam Cię do grupy „${group}” w Organizerze.\n\nDotknij linku: ${url}\n\nAlbo w aplikacji: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until})`,
+  // D141: bez linku, dopóki strona zaproszeń nie działa (config.invites.LINK_LIVE).
+  'groups.joinMessage': (group: string, url: string | null, id: string, code: string, until: string) =>
+    `Zapraszam Cię do grupy „${group}” w Organizerze.\n\n${url ? `Dotknij linku: ${url}\n\nAlbo w aplikacji` : 'W aplikacji'}: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until})`,
   'groups.rotate': 'Zmień ID grupy',
   'groups.rotateConfirm': 'Zmienić ID grupy? Wszystkie wysłane kody przestaną działać. Członkowie grupy zostają.',
   'groups.revoke': 'Unieważnij kod',

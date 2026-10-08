@@ -140,12 +140,12 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
     const sameDue = due ? x.deadline_mode === 'own' && x.due_date === due.date && (x.due_time?.slice(0, 5) ?? null) === due.time : x.deadline_mode === 'none';
     if (!sameDue) ops.push(setDue(x.id, due));
     const before = parseRepeat(original.repeat as string | undefined);
-    if (JSON.stringify(before) !== JSON.stringify(f.repeat)) ops.push(setRepeat(x.id, f.repeat));
+    if (JSON.stringify(before) !== JSON.stringify(f.repeat)) ops.push(setRepeat(x.id, f.repeat, due?.date));
     return { ops, taskId: x.id };
   }
   const id = newId();
   ops.push(createTask({ id, groupId: f.groupId, listId, parsed: { title, due, rrule: null, tokens: [] }, assigneeId: f.assigneeId }));
-  if (f.repeat) ops.push(setRepeat(id, f.repeat));
+  if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
   if (original) {
     // Inna grupa: kopia z notatką, oryginał do kosza.
     if (original.note) ops.push(patchTask(id, { note: String(original.note) }));

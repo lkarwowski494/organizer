@@ -1,0 +1,12 @@
+appId: io.github.lkarwowski494.organizer
+name: 06 Ustawienia się otwierają
+---
+- runFlow: common/launch.yaml
+- tapOn: "Ustawienia"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 10000
+- assertVisible:
+    id: "sign-out"
+- takeScreenshot: 06-settings
