@@ -20,3 +20,15 @@ id = "supabase-secret-key"
 description = "Nowy klucz sekretny Supabase (sb_secret_...)"
 regex = '''sb_secret_[A-Za-z0-9_-]{20,}'''
 keywords = ["sb_secret_"]
+
+# Token dostępu Supabase (SUPABASE_ACCESS_TOKEN w supabase-deploy.yml). Domyślne reguły gitleaks 8.24.3 (wersja
+# z gitleaks-action) łapią go tylko przypisanego do nazwy w rodzaju „…_TOKEN=”; sam token, `--token sbp_…`
+# i warianty oauth/v0 przechodziły (audyt 2, M-195). Format z kodu Supabase CLI, który token sprawdza:
+# AccessTokenPattern = `^sbp_(oauth_|v0_)?[a-f0-9]{40}$`
+# https://github.com/supabase/cli/blob/08c7e7d7f061b39ae9c513d603ac1bfffe79cc9f/apps/cli-go/internal/utils/access_token.go#L16
+# Test reguł: .github/scripts/test-gitleaks-rules.sh (fałszywe sekrety powstają dopiero w czasie testu).
+[[rules]]
+id = "supabase-access-token"
+description = "Token dostępu Supabase (sbp_..., CLI i Management API)"
+regex = '''\bsbp_(?:oauth_|v0_)?[a-f0-9]{40}\b'''
+keywords = ["sbp_"]
