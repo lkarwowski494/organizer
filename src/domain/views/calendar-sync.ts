@@ -188,11 +188,14 @@ const dayNo = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slic
 /**
  * Czy dane są już pobrane na tyle, żeby układać lustro (audyt 8.10.2026). Po „Wyczyść dane na telefonie” (D121) albo
  * przed pierwszym pobraniem nie ma żadnej grupy, a planMirror usunąłby wtedy kalendarze wszystkich grup z iPhone'a
- * (iOS nie odtworzy ich kolorów i ustawień). Czekamy, aż każda moja grupa ma kursor pobierania.
+ * (iOS nie odtworzy ich kolorów i ustawień). Czekamy, aż każda moja grupa ma kursor pobierania — i wiersz grupy
+ * (audyt 2, M-5): wiersz grupy ma najwyższą wersję, więc przychodzi w ostatniej porcji, a resync i pobranie od zera
+ * zaczynają od jego usunięcia. Grupa z kursorem, ale bez wiersza = pobieranie porcjami w toku, a lustro skasowałoby
+ * jej kalendarz z iPhone'a.
  */
 export function mirrorReady(t: Tables, userId: string, cursors: Readonly<Record<string, number>>): boolean {
   const groups = groupsView(t, userId);
-  return groups.length > 0 && groups.every((g) => cursors[g.id] !== undefined);
+  return groups.length > 0 && groups.every((g) => cursors[g.id] !== undefined) && Object.keys(cursors).every((g) => t.groups?.[g] !== undefined);
 }
 
 /** Grupy do lustra: wszystkie moje (osobista też — jej wydarzenia też są „grupowe” w aplikacji). */

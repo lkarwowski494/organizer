@@ -9,11 +9,18 @@
  * Odrzucone operacje trafiają do `rejected` (ekran „ta zmiana została odrzucona”), a ich efekt znika
  * przy tym samym pobraniu, bo serwer ma ostatnie słowo.
  *
- * Protokół serwera: supabase/migrations/20261006120200_sync.sql.
+ * Protokół serwera: supabase/migrations/20261006120200_sync.sql, wersja 2 (kursor z epoką, listy widoczne, zadania
+ * przeniesione poza wzrok, filtr encji): 20261008310000_sync_protocol_v2.sql.
  */
 import { config } from '../../config';
 
-export type Entity = 'groups' | 'group_members' | 'lists' | 'object_members' | 'tasks' | 'activity' | 'events' | 'event_participants' | 'event_overrides' | 'event_task_series' | 'handoffs' | 'event_rsvps';
+/**
+ * Encje, które ta wersja aplikacji zna i zapisuje (= tabele lustrzane w src/data/db/migrations.ts — pilnuje test).
+ * Telefon wysyła je w sync_pull, a serwer pomija resztę (audyt 2, M-58): kursor nie przechodzi nad wierszami, których
+ * telefon nie umie zapisać. Nowa encja w kolejnej wersji = pobranie wszystkiego od zera (`entities` w stanie).
+ */
+export const ENTITIES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity', 'events', 'event_participants', 'event_overrides', 'event_task_series', 'handoffs', 'event_rsvps'] as const;
+export type Entity = (typeof ENTITIES)[number];
 export type Row = { readonly [k: string]: unknown };
 
 export type Op =
@@ -32,9 +39,26 @@ export type PushResponse = {
 
 export type PulledRow = { e: Entity; v: number; row: Row };
 export type PullResponse = {
-  groups: { group_id: string; cursor: number; has_more: boolean; resync: boolean; rows: PulledRow[] }[];
+  groups: {
+    group_id: string;
+    cursor: number;
+    has_more: boolean;
+    resync: boolean;
+    rows: PulledRow[];
+    /** Protokół 2: epoka grupy (purged_version) — wraca do serwera w kursorze (audyt 2, M-1). */
+    purged?: number;
+    /** Protokół 2: wszystkie listy grupy, które widzę; lokalne spoza zbioru znikają z zawartością (M-54). */
+    lists?: string[];
+    /** Protokół 2: zadania przeniesione do listy, której nie widzę (M-54). */
+    gone?: string[];
+  }[];
   scopes: string[];
 };
+
+/** Kursor grupy w protokole 2: wersja i epoka czyszczenia kosza, przy której ją pobrano. */
+export type Cursor = { v: number; p: number };
+/** Zapytanie sync_pull (transport dokłada limit porcji). */
+export type PullRequest = { cursors: { [groupId: string]: Cursor }; schema_version: number; entities: readonly string[] };
 
 export type ClientState = {
   readonly clientId: string;
@@ -44,6 +68,13 @@ export type ClientState = {
   readonly base: { readonly [e: string]: { readonly [id: string]: Row } };
   readonly pending: readonly Op[];
   readonly cursors: { readonly [groupId: string]: number };
+  /**
+   * Epoka kursora (purged_version grupy z ostatniej odpowiedzi). Serwer każe pobrać grupę od nowa (resync) tylko wtedy,
+   * gdy od tej epoki coś wyczyszczono, więc kolejne porcje jednego pobrania nie cofają się do zera (audyt 2, M-1).
+   */
+  readonly purged: { readonly [groupId: string]: number };
+  /** Encje, które obejmują kursory (M-58). Gdy aplikacja zna więcej (nowa wersja), pobiera wszystko od zera. */
+  readonly entities: readonly string[];
   readonly scopes: readonly string[];
   readonly rejected: readonly { op: Op; code: string }[];
 };
@@ -65,7 +96,7 @@ function rowScope(e: Entity, row: Row): string | undefined {
 const groupOf = (e: Entity, row: Row) => String(e === 'groups' ? row.id : row.group_id);
 
 export function initialState(clientId: string): ClientState {
-  return { clientId, nextSeq: 1, ackedSeq: 0, base: {}, pending: [], cursors: {}, scopes: [], rejected: [] };
+  return { clientId, nextSeq: 1, ackedSeq: 0, base: {}, pending: [], cursors: {}, purged: {}, entities: [], scopes: [], rejected: [] };
 }
 
 /** Nowa lokalna operacja: numer kolejny w obrębie instalacji, identyfikator z wstrzykniętego generatora. */
@@ -123,9 +154,16 @@ export function onPushResponse(state: ClientState, res: PushResponse): ClientSta
   return { ...state, ackedSeq: Math.max(state.ackedSeq, res.last_seq), rejected: [...state.rejected, ...rejectedNow] };
 }
 
-/** Zapytanie o zmiany. `ackedAtStart` trzeba przekazać do `onPullResponse` tej samej odpowiedzi. */
-export function pullRequest(state: ClientState) {
-  return { cursors: { ...state.cursors }, ackedAtStart: state.ackedSeq };
+/**
+ * Zapytanie o zmiany. Całe zapytanie (`ackedAtStart`, wysłane kursory) trzeba przekazać do `onPullResponse` tej samej
+ * odpowiedzi. Gdy kursory nie obejmują wszystkich znanych encji (aktualizacja aplikacji z nową tabelą, M-58), pobieramy
+ * wszystko od zera.
+ */
+export function pullRequest(state: ClientState): PullRequest & { ackedAtStart: number } {
+  const covered = ENTITIES.every((e) => state.entities.includes(e));
+  const cursors: { [g: string]: Cursor } = {};
+  if (covered) for (const [g, v] of Object.entries(state.cursors)) cursors[g] = { v, p: state.purged[g] ?? 0 };
+  return { cursors, ackedAtStart: state.ackedSeq, schema_version: config.sync.SCHEMA_VERSION, entities: ENTITIES };
 }
 
 export type PullOutcome = {
@@ -136,33 +174,40 @@ export type PullOutcome = {
   fetchScopes: string[];
 };
 
-export function onPullResponse(state: ClientState, res: PullResponse, ackedAtStart: number): PullOutcome {
+export function onPullResponse(state: ClientState, res: PullResponse, req: PullRequest & { ackedAtStart: number }): PullOutcome {
   const base = cloneTables(state.base);
   const visibleGroups = new Set(res.groups.map((g) => g.group_id));
   const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s)));
+  // Grupa przychodzi w całości przy resync i przy pobraniu od zera (bez kursora w zapytaniu) — najpierw czyścimy jej
+  // wiersze. Bez tego po wyzerowaniu kursorów zostawały wiersze, których na serwerze już nie ma (audyt 2, M-176).
+  const fromScratch = new Set(res.groups.filter((g) => g.resync || !(g.group_id in req.cursors)).map((g) => g.group_id));
+  // Listy grupy, które widzę (protokół 2): lista spoza zbioru (zawężona widoczność, M-54) znika razem z zawartością.
+  const listsOf = new Map(res.groups.flatMap((g) => (g.lists ? [[g.group_id, new Set(g.lists)] as const] : [])));
 
   // Utrata dostępu: usuwamy lokalnie wszystko z grup i list, których serwer już nam nie pokazuje.
-  // Resync: grupa pobierana od zera, więc najpierw czyścimy jej wiersze.
-  const resyncGroups = new Set(res.groups.filter((g) => g.resync).map((g) => g.group_id));
   for (const [e, rows] of Object.entries(base)) {
     for (const [id, row] of Object.entries(rows)) {
       const g = groupOf(e as Entity, row);
       const scope = rowScope(e as Entity, row);
-      if (!visibleGroups.has(g) || resyncGroups.has(g) || lostScopes.has(scope!)) {
-        delete rows[id];
-      }
+      const hidden = scope !== undefined && (lostScopes.has(scope) || listsOf.get(g)?.has(scope) === false);
+      if (!visibleGroups.has(g) || fromScratch.has(g) || hidden) delete rows[id];
     }
   }
 
   const cursors: { [g: string]: number } = {};
+  const purged: { [g: string]: number } = {};
   for (const g of res.groups) {
+    // Zadania przeniesione do listy, której nie widzę: przed wierszami tej odpowiedzi (wiersz z nowszą wersją wraca).
+    for (const id of g.gone ?? []) delete base.tasks?.[id];
     for (const r of g.rows) (base[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
     cursors[g.group_id] = g.cursor;
+    const p = g.purged ?? state.purged[g.group_id];
+    if (p !== undefined) purged[g.group_id] = p;
   }
 
-  const pending = state.pending.filter((op) => op.seq > ackedAtStart);
+  const pending = state.pending.filter((op) => op.seq > req.ackedAtStart);
   return {
-    state: { ...state, base, cursors, scopes: [...res.scopes], pending },
+    state: { ...state, base, cursors, purged, entities: [...req.entities], scopes: [...res.scopes], pending },
     needMore: res.groups.some((g) => g.has_more),
     fetchScopes: res.scopes.filter((s) => !state.scopes.includes(s)),
   };

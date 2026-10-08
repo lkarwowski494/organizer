@@ -46,9 +46,9 @@ function makeDeps(over: Partial<RootDeps> = {}) {
       }
       return { last_seq: req.ops.at(-1)!.seq, results: req.ops.map((o) => ({ seq: o.seq, status: 'ok' as const })) } satisfies PushResponse;
     },
-    pull: async (cursors) => {
+    pull: async (req) => {
       pulls++;
-      const since = cursors[ME] ?? 0;
+      const since = req.cursors[ME]?.v ?? 0;
       const rows = [personal, member, ...server].filter((r) => r.v > since);
       return { groups: [{ group_id: ME, cursor: Math.max(since, ...rows.map((r) => r.v)), has_more: false, resync: false, rows }], scopes: [] } satisfies PullResponse;
     },
