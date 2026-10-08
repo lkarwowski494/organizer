@@ -85,7 +85,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 
-  it('błędy: pusta nazwa, wspólna grupa bez osoby i terminu, zła godzina; „Bez terminu” czyści dzień; anuluj', async () => {
+  it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; anuluj', async () => {
     const { store } = await open();
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
@@ -95,9 +95,9 @@ describe('„Więcej” — pełny formularz', () => {
     await fireEvent.changeText(screen.getByTestId('form-title'), 'Zebranie');
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await press(radio('Grupa', 'Rodzina'));
-    await press(screen.getByTestId('form-save'));
-    expect(screen.getByText(/zadanie musi mieć osobę albo termin/)).toBeTruthy();
+    expect(screen.getByTestId('form-no-addressee')).toBeTruthy();
     await press(radio('Termin', 'Dziś'));
+    expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await setTime('form-time', '25:00');
     await press(screen.getByTestId('form-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();

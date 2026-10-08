@@ -83,6 +83,8 @@ export function MemberScreen({ route, navigation }: Props) {
     if (invalid) return setNameError(invalid);
     const op = renameOp(d, m, nameEdit);
     if (op) store.dispatch(op);
+    // Zapisane — zamknięcie ekranu przed odświeżeniem nie wyśle tej zmiany drugi raz.
+    latest.current = { ...latest.current, nameEdit: null };
     setNameEdit(null);
   };
 
@@ -97,7 +99,7 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {can.rename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['member.name']} value={nameEdit ?? m.display_name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} testID="member-name" />
+          <Field label={strings['member.name']} value={nameEdit ?? m.display_name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
           {nameError ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{NAME_ERRORS[nameError]}</Text> : null}
         </View>
       ) : null}

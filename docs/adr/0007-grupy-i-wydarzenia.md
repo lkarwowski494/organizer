@@ -41,7 +41,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
 ## Dopisek: odhaczanie, usuwanie, kolejność dnia (7.10.2026, po teście na telefonie)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D59 | Ochrona przed przypadkowym odhaczeniem | Systemowe okno „Zrobione?” (zakupy: „Do koszyka?”) przy odhaczaniu zadań i pozycji zakupów. Cofnięcie odhaczenia działa bez pytania. | Dwa dotknięcia; bez pytania z paskiem „Cofnij”; zakupy bez potwierdzenia |
+| D59 | Ochrona przed przypadkowym odhaczeniem | Systemowe okno „Zrobione?” przy odhaczaniu zadań. Pozycja zakupów trafia do koszyka bez pytania, z paskiem „Cofnij” — nie znika, tylko przechodzi do „W koszyku” (zmiana: decyzja właściciela z 8.10.2026, audyt 2, PW-15 A; wcześniej okno „Do koszyka?”). Cofnięcie odhaczenia działa bez pytania. | Dwa dotknięcia; bez pytania z paskiem „Cofnij” także przy zadaniach; przy zakupach okno „Do koszyka?” (do 8.10.2026) albo przełącznik w Ustawieniach |
 | D60 | Usuwanie z listy | Przesunięcie wiersza w lewo odsłania „Usuń”, a usuwa dopiero dotknięcie tego przycisku. Potem widać pasek „Cofnij” (także po usunięciu listy), a pozycja trafia do kosza. Dziecko nie dostaje usuwania (D34). | Długie przytrzymanie z menu; usuwanie tylko z ekranu zadania |
 
 Kolejność dnia (poprawka): w „Dziś”, „Jutro” i w dniu kalendarza wydarzenia i zadania tworzą jedną listę.

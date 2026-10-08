@@ -472,7 +472,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     );
     const card = await screen.findByTestId('next-steps');
     expect(within(card).getByText('Następne kroki')).toBeTruthy();
-    expect(screen.getByLabelText('Zakupy, 0 otwartych')).toBeTruthy();
+    expect(screen.getByLabelText('Zakupy, lista pusta')).toBeTruthy();
     expect(screen.getByLabelText('Zadania, 0 otwartych')).toBeTruthy();
     // „Dodaj dziecko” przenosi do pola z imieniem dziecka (atrapa TextInput z jest-preset: focus to jest.fn).
     const focus = (TextInput as unknown as { prototype: { focus: jest.Mock } }).prototype.focus;

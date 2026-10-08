@@ -15,12 +15,13 @@ import { formatDue } from '../../domain/format';
 import { formatIsoDate } from '../../domain/civil-date';
 import { groupDigits } from '../../domain/invite-link';
 import { localNow } from '../../app/clock';
-import { groupDetail, type GroupDetail, listsView } from '../../domain/views';
+import { groupDetail, type GroupDetail, listOpenCount, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
+import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 import { absoluteDay } from './dates';
 import { groupErrorText } from './server-errors';
@@ -73,7 +74,8 @@ export function GroupScreen({ route, navigation }: Props) {
       live = false;
     };
   }, [prefs, route.params.groupId]);
-  // Wyjście z grupy albo kosz: niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
+  // Koniec edycji: po zapisie (zamknięcie ekranu nie wyśle jej drugi raz), przy wyjściu z grupy i przy koszu (wtedy
+  // niezapisana nazwa przepada — serwer odrzuciłby zmianę w grupie, której już nie ma).
   const dropNameEdit = () => {
     latest.current = { ...latest.current, nameEdit: null };
     setNameEdit(null);
@@ -122,7 +124,7 @@ export function GroupScreen({ route, navigation }: Props) {
     if (nameEdit.trim() === '') return setNameError(strings['groups.error.nameEmpty']);
     const op = renameOp(d, nameEdit);
     if (op) store.dispatch(op);
-    setNameEdit(null);
+    dropNameEdit();
   };
 
   return (
@@ -226,7 +228,7 @@ export function GroupScreen({ route, navigation }: Props) {
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
-          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} testID="child-name" />
+          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
           <Button
             kind="secondary"
             label={strings['groups.addChild']}
@@ -240,7 +242,7 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       {d.canRename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['groups.name']} value={nameEdit ?? d.group.name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} testID="group-rename" />
+          <Field label={strings['groups.name']} value={nameEdit ?? d.group.name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} maxLength={config.lengths.GROUP_NAME} testID="group-rename" />
           {nameError ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{nameError}</Text> : null}
         </View>
       ) : null}
@@ -269,7 +271,7 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.map((l) => (
-        <NavRow key={l.id} title={l.name} subtitle={strings['lists.open'](l.open)} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        <NavRow key={l.id} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>

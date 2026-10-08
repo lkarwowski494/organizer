@@ -75,7 +75,7 @@ logowania. Artefakty `e2e.yml` to zrzuty, raport JUnit i logi Maestro oraz log x
 **Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
 `01-today` (dane demo na „Moich sprawach”), `02-quick-add` („Kupić mleko jutro” widać jutro), `03-event-rsvp` („Będę”
 na wydarzeniu cyklicznym), `04-event-form` (nowe wydarzenie, kafelki `event-start-0-h-18` / `-m-30` z `TimeField`),
-`05-shopping` (produkt do listy i do koszyka z potwierdzeniem), `06-settings`. Selektory: `id` = `testID`, tekst =
+`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`. Selektory: `id` = `testID`, tekst =
 etykieta VoiceOver (wyrażenie regularne w całości; na iOS wiersz to jeden element). Te same kroki na RNTL przechodzi
 `src/app/__tests__/e2e.screens.test.tsx` w zwykłym CI — błąd w danych demo, tekstach albo `testID` wychodzi od razu,
 bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teście, `npm run e2e:check`.
