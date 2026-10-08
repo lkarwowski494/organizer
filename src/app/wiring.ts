@@ -10,7 +10,7 @@ import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
-import { openDatabaseSync } from 'expo-sqlite';
+import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
 import { config } from '../config';
@@ -18,19 +18,21 @@ import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
-import { type PushTokenMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
 import { expoTravel } from './travel-service';
 import type { RootDeps, Session } from './Root';
 
-type User = { id: string; email?: string; user_metadata?: { full_name?: string; display_name?: string } };
+type User = { id: string; email?: string; user_metadata?: { full_name?: string; display_name?: string }; app_metadata?: { provider?: string; providers?: string[] } };
 // D100: bez imienia w koncie (logowanie e-mailem) pytamy o nie; do tego czasu — początek adresu jak dotąd.
 const toSession = (u: User | null | undefined): Session | null => {
   if (!u) return null;
   const named = u.user_metadata?.display_name || u.user_metadata?.full_name;
-  return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email) };
+  // D177: konto bez Apple (założone dawniej linkiem z e-maila) — po wylogowaniu w tej wersji już do niego nie wrócisz.
+  const apple = (u.app_metadata?.providers ?? [u.app_metadata?.provider]).includes('apple');
+  return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email), ...(apple ? {} : { emailOnly: true }) };
 };
 
 const apple = async (scopes?: 'none') =>
@@ -47,6 +49,21 @@ const pushTokenMemory: PushTokenMemory = {
   load: () => SecureStore.getItemAsync(PUSH_TOKEN),
   save: (t) => (t === null ? SecureStore.deleteItemAsync(PUSH_TOKEN) : SecureStore.setItemAsync(PUSH_TOKEN, t)),
 };
+
+/**
+ * Zaległe wyrejestrowanie tokenu po wylogowaniu bez sieci: token odświeżania starej sesji — w pęku kluczy tylko na tym
+ * urządzeniu, jak sama sesja (SecureStore SDK 57: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY).
+ */
+const SIGNOUT_JOBS = 'signOutJobs';
+const KEYCHAIN = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
+const signOutJobs: SignOutJobMemory = {
+  load: () => SecureStore.getItemAsync(SIGNOUT_JOBS, KEYCHAIN),
+  save: (v) => (v === null ? SecureStore.deleteItemAsync(SIGNOUT_JOBS, KEYCHAIN) : SecureStore.setItemAsync(SIGNOUT_JOBS, v, KEYCHAIN)),
+};
+
+/** Pliki baz kont (D3: osobny plik na konto); otwarta baza musi być zamknięta przed usunięciem (expo-sqlite rzuca DeleteDatabaseException). */
+const dbName = (userId: string) => `organizer-${userId}.db`;
+const openDbs = new Map<string, SQLiteDatabase>();
 
 /**
  * Zależności tego buildu. Build E2E (D143, EXPO_PUBLIC_E2E=1 tylko w .github/workflows/e2e.yml) dostaje atrapy w pamięci
@@ -79,21 +96,23 @@ export function realDeps(): RootDeps {
   // Odświeżanie tokenu tylko na pierwszym planie (zalecenie Supabase dla React Native).
   AppState.addEventListener('change', (s) => (s === 'active' ? client.auth.startAutoRefresh() : client.auth.stopAutoRefresh()));
   const sb = client as unknown as SupabaseLike;
+  // Stara sesja po wylogowaniu bez sieci: osobny klient bez zapisu sesji i bez odświeżania w tle (nie rusza bieżącego konta).
+  const detached = () =>
+    createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'organizer-signout' },
+    }) as unknown as DetachedClient;
   return {
-    account: supabaseAccount(sb, apple, pushTokenMemory),
+    account: supabaseAccount(sb, apple, { pushToken: pushTokenMemory, signOutJobs, detached }),
     calendar: expoDeviceCalendar,
     travel: expoTravel,
     push: expoDevicePush,
     prefs: { get: (k) => SecureStore.getItemAsync(`pref.${k}`), set: (k, v) => SecureStore.setItemAsync(`pref.${k}`, v) },
+    legacyPrefs: { get: (k) => SecureStore.getItemAsync(k), remove: (k) => SecureStore.deleteItemAsync(k) },
     appearance: { load: () => SecureStore.getItemAsync('appearance'), save: (a) => SecureStore.setItemAsync('appearance', a) },
     transport: supabaseTransport(sb),
     session: {
       current: async () => toSession((await client.auth.getSession()).data.session?.user),
       onChange: (fn) => client.auth.onAuthStateChange((_e, s) => fn(toSession(s?.user))).data.subscription.unsubscribe,
-      setFromLink: async (t) => {
-        const { error } = await client.auth.setSession(t);
-        if (error) throw error;
-      },
       // Audyt 2, M-9: po 401 z serwera. Nowy token przychodzi przez onAuthStateChange (TOKEN_REFRESHED); nieważny
       // refresh token kończy sesję w auth-js (SIGNED_OUT → ekran logowania, dane konta zostają w jego bazie).
       refresh: async () => {
@@ -115,7 +134,22 @@ export function realDeps(): RootDeps {
     // Audyt 2, M-10: NetInfo (https://docs.expo.dev/versions/v57.0.0/sdk/netinfo/, addEventListener → state.isConnected).
     // Stan nieznany (null) traktujemy jak sieć — o braku połączenia i tak powie nieudane żądanie (captive portal).
     network: { subscribe: (fn) => NetInfo.addEventListener((state) => fn(state.isConnected !== false)) },
-    openDb: (userId) => expoAdapter(openDatabaseSync(`organizer-${userId}.db`)),
+    openDb: (userId) => {
+      const db = openDatabaseSync(dbName(userId));
+      openDbs.set(userId, db);
+      return expoAdapter(db);
+    },
+    // expo-sqlite SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/): closeSync — „Close the database.”,
+    // deleteDatabaseSync(databaseName) — „Delete a database file.”
+    removeDb: (userId) => {
+      try {
+        openDbs.get(userId)?.closeSync();
+        openDbs.delete(userId);
+        deleteDatabaseSync(dbName(userId));
+      } catch {
+        // Plik zostaje — dane i tak nie są już dostępne bez konta; następne usunięcie aplikacji go zabierze.
+      }
+    },
     newId,
     subscribe: (topics, onPoke) => {
       void client.realtime.setAuth();
@@ -128,7 +162,6 @@ export function realDeps(): RootDeps {
       return () => channels.forEach((ch) => void client.removeChannel(ch));
     },
     links: {
-      initial: () => Linking.getInitialURL(),
       onUrl: (fn) => Linking.addEventListener('url', (e) => fn(e.url)).remove,
     },
   };

@@ -3,7 +3,8 @@ import { config } from '../../config';
 import type { Op } from '../../domain/sync-engine/client';
 import { WHATS_NEW_SEEN } from '../../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../../features/welcome/WelcomeScreen';
-import { E2E_IDS, E2E_START_MS, E2eServer, e2eAccount, e2eClock, e2eDeps, e2ePrefs, e2ePush, e2eSeed, e2eTransport } from '../e2e';
+import { accountPrefs, adoptLegacyPrefs, LEGACY_KEYS } from '../account-prefs';
+import { E2E_IDS, E2E_START_MS, E2eServer, e2eAccount, e2eClock, e2eDeps, e2eLegacyPrefs, e2ePrefs, e2ePush, e2eSeed, e2eTransport } from '../e2e';
 
 const NOW = '2026-10-07T08:00:00.000Z';
 const req = (ops: Op[], client_id = 'c1') => ({ client_id, schema_version: config.sync.SCHEMA_VERSION, ops });
@@ -108,13 +109,19 @@ describe('atrapy E2E', () => {
     expect(new Date(e2eClock()()).toISOString().slice(0, 10)).toBe('2026-10-07');
   });
 
-  it('wprowadzenie i „Co nowego” obejrzane; zapis działa', async () => {
+  it('ustawienia telefonu w pamięci; konto dostaje „wprowadzenie i Co nowego obejrzane” (D175) przy każdym zalogowaniu', async () => {
     const p = e2ePrefs();
-    expect(await p.get(WELCOME_SEEN)).toBe('1');
-    expect(Number(await p.get(WHATS_NEW_SEEN))).toBe(Number.MAX_SAFE_INTEGER);
     expect(await p.get('inne')).toBeNull();
     await p.set('inne', 'x');
     expect(await p.get('inne')).toBe('x');
+    const legacy = e2eLegacyPrefs();
+    const local = new Map<string, string>();
+    const store = { load: (k: string) => local.get(k) ?? null, save: (k: string, v: string | null) => void (v === null ? local.delete(k) : local.set(k, v)) };
+    await adoptLegacyPrefs(legacy, store);
+    const prefs = accountPrefs(store, Promise.resolve());
+    expect(await prefs.get(WELCOME_SEEN)).toBe('1');
+    expect(Number(await prefs.get(WHATS_NEW_SEEN))).toBe(Number.MAX_SAFE_INTEGER);
+    expect(await legacy.get(LEGACY_KEYS[WELCOME_SEEN]!)).toBe('1');
   });
 
   it('powiadomienia wyłączone, bez okna zgody', async () => {
@@ -124,9 +131,7 @@ describe('atrapy E2E', () => {
     expect(await e2ePush.env()).toBe('sandbox');
     expect(() => e2ePush.onToken(() => {})()).not.toThrow();
     expect(() => e2ePush.onOpen(() => {})()).not.toThrow();
-    expect(await e2ePush.dismissed()).toBe(true);
-    expect(await e2ePush.reminderSettings()).toBeNull();
-    await expect(Promise.all([e2ePush.dismiss(), e2ePush.replaceReminders([]), e2ePush.saveReminderSettings({} as never)])).resolves.toBeDefined();
+    await expect(e2ePush.replaceReminders([])).resolves.toBeUndefined();
   });
 
   it('konto: operacje bez serwera nie udają sukcesu', async () => {
@@ -135,18 +140,20 @@ describe('atrapy E2E', () => {
     for (const f of [() => a.createInvite('g', 'member'), () => a.acceptInvite('t', 'x'), () => a.createJoinCode('g', 'member'), () => a.joinGroup('1', '2', 'x'), () => a.rotateJoinId('g'), () => a.deleteGroup('g'), () => a.restoreGroup('g'), () => a.transferOwnership('g', 'm')]) {
       await expect(f()).rejects.toThrow('e2e_offline');
     }
-    await a.deleteAccount();
+    const before = jest.fn(async () => {});
+    await a.deleteAccount(before);
+    expect(before).toHaveBeenCalled();
     expect(auth.signOut).toHaveBeenCalled();
+    await a.deleteAccount();
+    await a.finishSignOut();
     expect(await a.getPushMutes()).toEqual([]);
-    await expect(Promise.all([a.sendMagicLink('a@b.c'), a.setMyName('x'), a.revokeInvite('i'), a.registerPushToken('t', 'sandbox'), a.notifyHandoff('h'), a.notifyAssignment('a'), a.setPushMute('g', true), a.reportError({ kind: 'error', message: 'm', stack: null, screen: null, appVersion: '1' }), a.sendFeedback({ message: 'm', screen: null, appVersion: '1' })])).resolves.toBeDefined();
+    await expect(Promise.all([a.setMyName('x'), a.revokeInvite('i'), a.registerPushToken('t', 'sandbox'), a.notifyHandoff('h'), a.notifyAssignment('a'), a.setPushMute('g', true), a.reportError({ kind: 'error', message: 'm', stack: null, screen: null, appVersion: '1' }), a.sendFeedback({ message: 'm', screen: null, appVersion: '1' })])).resolves.toBeDefined();
   });
 
   it('zależności: sesja demo na symulatorze; błąd sprawdzenia = brak sesji; wygląd zapamiętany w pamięci', async () => {
     const native = { openDb: jest.fn(), newId: () => 'id' };
     const ok = e2eDeps({ ...native, isSimulator: async () => true });
     expect(await ok.session.current()).toEqual({ userId: E2E_IDS.me, displayName: 'Łukasz' });
-    await ok.session.setFromLink({ access_token: 'a', refresh_token: 'r' });
-    expect(await ok.links.initial()).toBeNull();
     ok.links.onUrl(() => {})();
     ok.subscribe(['x'], () => {})();
     expect(await ok.calendar.add({ title: 't', start: new Date(), end: new Date(), allDay: false })).toBe('canceled');

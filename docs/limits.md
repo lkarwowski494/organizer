@@ -11,7 +11,7 @@ Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
 | Połączenia Realtime | 200 | 140 | https://supabase.com/pricing |
 | Wywołania Edge Functions | 500 tys./mies. | 350 tys. | https://supabase.com/pricing |
 | Pauza projektu | po 1 tygodniu bezczynności | 5 dni bez ruchu | https://supabase.com/pricing |
-| E-maile logowania | 2/h (wbudowany SMTP) | każde zaproszenie > 2 osób/h | https://supabase.com/docs/guides/auth/rate-limits |
+| E-maile logowania | 2/h (wbudowany SMTP) | nie dotyczy w becie: logowanie e-mailem wyłączone (D177), dostawca Email do wyłączenia w Supabase (O-110) | https://supabase.com/docs/guides/auth/rate-limits |
 | GitHub Actions — repo prywatne | 2000 min/mies., macOS ×10 | każdy job macOS w repo prywatnym | https://docs.github.com/en/billing/concepts/product-billing/github-actions |
 | GitHub Actions — repo publiczne | standardowe runnery bez opłat | — | jw. |
 | Cache Actions | 10 GB/repo | 8 GB | https://docs.github.com/en/actions/reference/limits |

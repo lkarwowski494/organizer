@@ -18,9 +18,11 @@ EN (dla recenzji Apple):
 
 ## 2. Beta App Review Information
 - Contact: imię, nazwisko, telefon, e-mail — Twoje dane (tylko w App Store Connect).
-- Sign-in required: **tak**. Nie trzeba konta demo: recenzent loguje się przez **Sign in with Apple** albo linkiem e-mail.
+- Sign-in required: **tak**. Nie trzeba konta demo: recenzent loguje się przez **Sign in with Apple** (w becie jedyny
+  sposób logowania — decyzja D177 z 8.10.2026; logowanie linkiem e-mail jest wyłączone w aplikacji, a dostawcę Email
+  w Supabase Auth wyłączasz po wydaniu tego buildu — O-110).
 - Notes:
-  > Sign in with Apple. To test: create a group (Grupy → Nowa grupa), add a list and a task such as "dentysta jutro o 17" (dentist, tomorrow 5 pm) in the quick-add field, then open "Dziś". Handoffs need a second account in the same group (invite code from Grupy → group → Zaproś).
+  > Sign-in is with Sign in with Apple only (use any Apple ID). To test: create a group (Grupy → Nowa grupa), add a list and a task such as "dentysta jutro o 17" (dentist, tomorrow 5 pm) in the quick-add field, then open "Dziś". Handoffs need a second account in the same group (invite code from Grupy → group → Zaproś).
 
 ## 3. Grupa zewnętrzna i link
 1. External Testing → „+” → nazwa np. „Testy publiczne”.
@@ -37,5 +39,11 @@ EN (dla recenzji Apple):
 - [ ] Kroje: nagłówki Bricolage Grotesque, tekst Atkinson Hyperlegible (nie systemowe).
 - [ ] Godziny w czasie polskim (Intl w Hermesie, spike S3): wydarzenie 17:00 pokazuje 17:00.
 - [ ] Baza na telefonie (expo-sqlite, S4): po zamknięciu i otwarciu dane są, offline też.
-- [ ] Logowanie: Apple i link e-mail; imię z Apple w grupach.
+- [ ] Logowanie: tylko Apple (D177); imię z Apple w profilu i w grupach (M-186).
+- [ ] Wylogowanie (D176): drugi iPhone/iPad tego konta zostaje zalogowany.
+- [ ] Wylogowanie bez internetu (tryb samolotowy), potem sieć: powiadomienia starego konta przestają przychodzić.
+- [ ] Usunięcie konta: okno Apple (świeży kod), po usunięciu plik bazy konta znika (M-64, M-303).
+- [ ] Pęk kluczy po usunięciu aplikacji (M-165, W): zainstaluj ponownie — sesja i wygląd mogą zostać (Expo: „will persist
+      across app uninstallations … not guaranteed”), ustawienia konta (wprowadzenie, przypomnienia) zaczynają od zera,
+      bo są w bazie konta. Zapisz wynik.
 - [ ] Powiadomienia: karta zgody, przypomnienie 30 min przed, poranne o 8:00, push o przekazaniu.

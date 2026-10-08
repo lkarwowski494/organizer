@@ -1,5 +1,5 @@
 /**
- * Przypomnienia na telefonie (D75, ADR 0016): ustawienia (zapamiętane na telefonie), zgoda iOS na powiadomienia
+ * Przypomnienia na telefonie (D75, ADR 0016): ustawienia (osobno dla konta, D175), zgoda iOS na powiadomienia
  * i planowanie powiadomień lokalnych z bieżących danych. Plan odświeża się po każdej zmianie danych, ustawień albo
  * zgody (z krótkim opóźnieniem, żeby seria zmian z synchronizacji dała jedno przeplanowanie). Bez zgody — nic.
  * Audyt 2: zgoda udzielona w aplikacji od razu planuje (N-10), a zmiana w Ustawieniach iPhone'a jest widoczna po
@@ -16,11 +16,24 @@ import { strings } from '../i18n/strings.pl';
 import { localNow, localToMs } from './clock';
 import { useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';
+import { REMINDER_SETTINGS } from './account-prefs';
 import { type PushStatus, registerIfAllowed } from './push';
 import { type TravelInfo, useTravel } from './travel';
 
 const DEFAULTS: ReminderSettings = { leadMin: config.reminders.LEAD_MIN, morning: config.reminders.MORNING, leave: config.reminders.LEAVE };
 const DEBOUNCE_MS = 1500;
+
+/** Zapisane ustawienia przypomnień; uszkodzone albo niepełne — null (domyślne). */
+export function parseReminderSettings(raw: string | null): ReminderSettings | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as Partial<ReminderSettings>;
+    // `leave` od PWD-17 — zapis sprzed niego go nie ma (= włączone).
+    return typeof v.leadMin === 'number' && typeof v.morning === 'string' ? { leadMin: v.leadMin, morning: v.morning, ...(typeof v.leave === 'boolean' ? { leave: v.leave } : {}) } : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Plan przypomnień z danych telefonu — jedno wejście bez Reacta (dostawca niżej; także przyszłe planowanie w tle,
@@ -56,7 +69,7 @@ const Ctx = createContext<Api>({ settings: DEFAULTS, setSettings: () => {}, avai
 export const useReminderSettings = () => useContext(Ctx);
 
 export function RemindersProvider({ children }: { children: ReactNode }) {
-  const { push, account, userId, nowMs } = useServices();
+  const { push, prefs, account, userId, nowMs } = useServices();
   const { tables, today } = useAppData();
   const travel = useTravel();
   const [settings, setState] = useState<ReminderSettings>(DEFAULTS);
@@ -64,14 +77,17 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<PushStatus | null>(null);
   useEffect(() => {
     let live = true;
-    push
-      ?.reminderSettings()
-      .then((s) => live && s && setState({ ...DEFAULTS, ...s }))
+    prefs
+      ?.get(REMINDER_SETTINGS)
+      .then((raw) => {
+        const s = parseReminderSettings(raw);
+        if (live && s) setState({ ...DEFAULTS, ...s });
+      })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [push]);
+  }, [prefs]);
   // Zgoda: przy starcie i po każdym powrocie do aplikacji (mogła się zmienić w Ustawieniach iPhone'a).
   useEffect(() => {
     if (!push) return;
@@ -120,10 +136,10 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
       setSettings: (s) => {
         setState(s);
         setVersion((v) => v + 1);
-        push?.saveReminderSettings(s).catch(() => {});
+        prefs?.set(REMINDER_SETTINGS, JSON.stringify(s)).catch(() => {});
       },
     }),
-    [settings, push, status, enable],
+    [settings, push, prefs, status, enable],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

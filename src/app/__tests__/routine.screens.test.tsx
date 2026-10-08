@@ -7,6 +7,50 @@ import { put, sampleBase, setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
+const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
+
+describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
+  it('„Więcej” → Rodzaj: Rutyna (nazwa i grupa przechodzą); z rutyny do zadania i do wydarzenia', async () => {
+    const s = setup();
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Poranek');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    await press(radio('Grupa', 'Rodzina'));
+    await press(radio('Rodzaj', 'Rutyna'));
+    await screen.findByTestId('screen-routine');
+    expect(screen.getByTestId('routine-title').props.value).toBe('Poranek');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+    expect(radio('Rodzaj', 'Rutyna').props.accessibilityState.selected).toBe(true);
+    await press(radio('Rodzaj', 'Rutyna'));
+    expect(screen.getByTestId('screen-routine')).toBeTruthy();
+    await press(radio('Rodzaj', 'Wydarzenie'));
+    await screen.findByTestId('screen-event-edit');
+    expect(screen.getByTestId('event-title').props.value).toBe('Poranek');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+    await press(radio('Rodzaj', 'Rutyna'));
+    await screen.findByTestId('screen-routine');
+    await press(radio('Rodzaj', 'Zadanie'));
+    await screen.findByTestId('screen-add-task');
+    expect(screen.getByTestId('form-title').props.value).toBe('Poranek');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('ekran grupy: „Dodaj rutynę” z tą grupą i plan lekcji każdego dziecka', async () => {
+    const s = setup();
+    await s.renderApp(<RootStack />);
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+    await press(await screen.findByTestId('group-timetable-kuba'));
+    expect(await screen.findByText('Plan lekcji – Kuba')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('group-add-routine'));
+    await screen.findByTestId('screen-routine');
+    expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
+  });
+});
+
 describe('rutyny (D113)', () => {
   it('z Kalendarza: nazwa, dni, godzina, osoba, kroki; zapis jako wydarzenie + stałe zadania; cofnięcie', async () => {
     const s = setup();
