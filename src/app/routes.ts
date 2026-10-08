@@ -35,8 +35,8 @@ export type RootStackParams = {
   Feedback: undefined;
   /** Plan lekcji osoby z tygodniami A/B (D112). */
   Timetable: { groupId: string; memberId: string };
-  /** Nowa rutyna z krokami (D113); `groupId` — podpowiedź grupy. */
-  Routine: { groupId?: string } | undefined;
+  /** Nowa rutyna z krokami (D113); `groupId` — podpowiedź grupy, `title` — nazwa z pełnego formularza (PWD-26). */
+  Routine: { groupId?: string; title?: string } | undefined;
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
   /**

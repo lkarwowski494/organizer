@@ -89,6 +89,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
           label={strings['form.kind']}
           value="task"
           onChange={(k) => {
+            // Audyt 2 (PWD-26): rutyna też stąd — nazwa i grupa przechodzą do jej formularza.
+            if (k === 'routine') return navigation.replace('Routine', { groupId: form.groupId, title: form.title });
             if (k !== 'event') return;
             // Osoba zadania staje się odpowiedzialną za wydarzenie (formularz wydarzenia przyjmie tylko dorosłego, D66).
             const date = validDate(form.date) ? form.date : formatIsoDate(today);
@@ -97,6 +99,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
           options={[
             { value: 'task', label: strings['form.kind.task'] },
             { value: 'event', label: strings['form.kind.event'] },
+            { value: 'routine', label: strings['form.kind.routine'] },
           ]}
         />
       )}
