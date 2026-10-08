@@ -17,7 +17,7 @@ import { lacksAddressee } from '../../domain/views/addressee';
 import { memberCanSeeList } from '../../domain/views/visibility';
 import { useTaskActions } from '../../app/task-actions';
 import { patchTask, remove, renameList, restore } from '../../domain/views/commands';
-import { type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
@@ -98,6 +98,8 @@ export function ListScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const canDelete = me?.role !== 'child';
+  // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own) — reszta bez pola odhaczenia.
+  const canCheck = checkOff(tables, userId);
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
   const trip = asTrip(tables.lists?.[list.id] ?? {});
   const adults = tripAdults(tables, list.group_id);
@@ -168,7 +170,7 @@ export function ListScreen({ route, navigation }: Props) {
             pending={pendingIds.has(t.id)}
             alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
             shopping={shopping}
-            onToggle={() => actions.toggle(t, shopping)}
+            onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
             openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
           />

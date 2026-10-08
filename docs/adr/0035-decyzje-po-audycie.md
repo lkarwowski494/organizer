@@ -14,7 +14,7 @@
 | D135 | I. Rola Kalendarza | Kalendarz = co było zaplanowane (także odhaczone i minione); Moje sprawy = do zrobienia | Te same reguły wszędzie |
 | D136 | J. Całodniowy pojedynczy termin serii | Dodać (znacznik w wyjątku od serii) | Zostaje |
 | D137 | K. „Przenieś zaległe” a miesięczne powtarzanie | Reguła pamięta dzień miesiąca; przeniesienie zmienia tylko ten raz | Nie przenosić powtarzanych |
-| D138 | L. Dziecko wraca przez zaproszenie | Rola dziecka zostaje (zmienia ją tylko admin) | Powrót do zatwierdzenia |
+| D138 | L. Dziecko wraca przez zaproszenie | Rola dziecka zostaje (zmienia ją tylko admin) — **od audytu 2 (PW-14 B, D155) rolę zmienia tylko owner** | Powrót do zatwierdzenia |
 | D139 | M. Lista poszerzona do „cała grupa” pusta u innych | Naprawić (sygnał nowego dostępu, telefon pobiera zawartość) | Zostaje |
 | D140 | N. Blokowanie dołączania złymi kodami | Zostaje jak jest — **odwrócona 8.10.2026 (audyt 2): poprawny kod przechodzi, limit na konto i na kod, ADR 0020** | Poprawny kod zawsze przechodzi |
 | D141 | O. Martwy link w zaproszeniu | Ukryć link w wiadomości, dopóki strona nie będzie gotowa | Kroki właściciela teraz |
@@ -59,6 +59,23 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   To samo dotyczy `events.kind` (D126): lekcje z planu i rutyny wysyłają `kind` przy tworzeniu (audyt 2, D-2).
   Odrzucone: pusta godzina w wyjątku jako „cały dzień” (dotąd znaczyła „jak w serii” — zmiana znaczenia starych danych).
 - **D141.** `config.invites.LINK_LIVE = false`: wiadomość z zaproszeniem bez linku, z ID grupy i kodem.
+- **D155 (audyt 2, PW-14 B — dziecko z własnym kontem).** Konto dziecka powstaje przez połączenie istniejącego profilu:
+  owner albo admin przy profilu dziecka dotyka „Połącz z kontem dziecka” i dostaje jednorazowy kod do ID grupy
+  (`create_child_code` / `renew_child_code`, 24 h, jeden aktywny na profil); dziecko loguje się przez Apple (D177)
+  i dołącza tym kodem jak zwykłym — staje się tym samym `member_id` z rolą dziecko (plan lekcji, zadania, obecność
+  zostają). Konto, które jest albo było w grupie, nie łączy się z profilem (`invite_child_account`). Zasady dziecka
+  z kontem: tylko odhacza (D34), obecność za siebie, nie wychodzi samo z grupy (`forbidden:child`), rolę osób z kontem
+  (admin / członek / dziecko) zmienia tylko owner (admin: `forbidden:role`); w Moich sprawach, przypomnieniach,
+  Kalendarzu i na liście wydarzeń grupy — tylko swoje sprawy (przypisane do niego, ich podzadania, zadania przy
+  wydarzeniach, które go dotyczą) i wydarzenia, w których uczestniczy (albo całej grupy); zakupy grupy widzi bez pola
+  odhaczenia; swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
+  (i cofa odhaczenie) tylko swoje sprawy i pozycje przypisane do niego albo z zakupów, za które odpowiada — serwer
+  `forbidden:not_own` (`private.child_owns_task`, migracja `20261008441000_child_check_off.sql`), ekrany bez pola
+  odhaczenia przy cudzych (decyzja koordynatora z 8.10.2026, zasada właściciela; odrzucone: odhacza wszystko, D34). Migracja
+  `20261008440000_child_account.sql`, testy `supabase/tests/child_account.test.sql`, `src/domain/views/child.ts`.
+  Odrzucone: osobne zaproszenie dziecka (nowy wiersz obok profilu — A), na razie bez kont dzieci (C); ukrywanie cudzych
+  spraw przed dzieckiem w RLS (zmiana widoczności przy każdej zmianie roli — wymagałaby sygnału nowego zakresu jak D139;
+  dziś to reguła widoków).
 
 ## Decyzje właściciela po audycie 2 (8.10.2026) — listy i zakupy
 | Pytanie | Decyzja | Odrzucone |

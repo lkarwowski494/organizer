@@ -59,6 +59,8 @@ describe('Supabase: transport synchronizacji', () => {
     await a.revokeInvite('i');
     await a.createJoinCode('g', 'member');
     await a.renewJoinCode('g', 'member');
+    await a.createChildCode('m');
+    await a.renewChildCode('m');
     await a.rotateJoinId('g');
     await a.deleteGroup('g');
     await a.restoreGroup('g');
@@ -73,7 +75,7 @@ describe('Supabase: transport synchronizacji', () => {
       expect(params.has(c.fn)).toBe(true);
       for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
     }
-    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'create_join_code', 'renew_join_code', 'rotate_join_id', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
+    expect(calls.map((c) => c.fn)).toEqual(['sync_push', 'sync_pull', 'sync_fetch_scope', 'create_group', 'create_invite', 'accept_invite', 'revoke_invite', 'create_join_code', 'renew_join_code', 'create_child_code', 'renew_child_code', 'rotate_join_id', 'delete_group', 'restore_group', 'transfer_ownership', 'register_push_token', 'report_client_error', 'send_feedback', 'my_push_mutes', 'set_push_mute']);
     // Protokół 2 (audyt 2, M-1, M-58): kursor z epoką, wersja protokołu i encje znane telefonowi.
     expect(calls[1]!.args).toEqual({ cursors: { g: { v: 3, p: 1 } }, lim: 1000, schema_version: 2, entities: ['tasks'] });
   });
@@ -133,6 +135,18 @@ describe('Supabase: konto', () => {
     await expect(a.joinGroup('1', '2', 'x')).rejects.toMatchObject({ message: 'invite_invalid' });
     const params = sqlParams();
     for (const c of calls) for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
+  });
+
+  it('kod profilu dziecka (PW-14 B): bieżący albo nowy, z linkiem jak kod grupy', async () => {
+    const replies: RpcResult<unknown>[] = [
+      { data: { invite_id: 'c1', join_id: '482913507', code: '615290', expires_at: 'x', max_uses: 1, member_id: 'kuba' }, error: null, status: 200 },
+      { data: { invite_id: 'c2', join_id: '482913507', code: '903417', expires_at: 'y', max_uses: 1, member_id: 'kuba' }, error: null, status: 200 },
+    ];
+    const { client, calls } = fakeClient(() => replies.shift()!);
+    const a = supabaseAccount(client, async () => ({ identityToken: null }));
+    expect(await a.createChildCode('kuba')).toEqual({ inviteId: 'c1', joinId: '482913507', code: '615290', url: `${config.invites.JOIN_LINK}?g=482913507&c=615290`, expiresAt: 'x' });
+    expect(await a.renewChildCode('kuba')).toEqual({ inviteId: 'c2', joinId: '482913507', code: '903417', url: `${config.invites.JOIN_LINK}?g=482913507&c=903417`, expiresAt: 'y' });
+    expect(calls).toEqual([{ fn: 'create_child_code', args: { member_id: 'kuba' } }, { fn: 'renew_child_code', args: { member_id: 'kuba' } }]);
   });
 
   it('wyciszenia: brak danych z serwera = pusta lista', async () => {
