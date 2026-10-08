@@ -14,6 +14,7 @@ import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
+import { useEventActions } from '../../app/event-actions';
 import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
@@ -38,6 +39,7 @@ export function CalendarScreen() {
   const meta = useRowMeta();
   const refresh = usePullRefresh();
   const actions = useTaskActions();
+  const eventActions = useEventActions();
   const { tables, today } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size, line } = useTheme();
@@ -70,7 +72,10 @@ export function CalendarScreen() {
     if (x.kind === 'event') {
       const m = meta.event(x.event, n);
       return (
-        <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={groupLabel(x.event.groupId, x.event.groupName)} recurring={x.event.recurring} extra={m.extra} alert={m.alert} faded={date < isoToday} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+        // Audyt 2 (M-239): termin przesuwa się jak w Moich sprawach — jednorazowe „Usuń”, termin serii „Odwołaj”.
+        <SwipeRow key={x.key} title={x.event.title} enabled={roles.get(x.event.groupId)?.role !== 'child'} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => eventActions.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-cal-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
+          <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={groupLabel(x.event.groupId, x.event.groupName)} recurring={x.event.recurring} extra={m.extra} alert={m.alert} faded={date < isoToday} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+        </SwipeRow>
       );
     }
     const task = x.task as CalendarItem;
@@ -92,12 +97,13 @@ export function CalendarScreen() {
           // PWD-11 A: zrobione zakupy — przekreślone, bez odhaczania (cofnięcie jest na pasku „Cofnij”).
           readOnly={task.completed_at !== null}
           checked={task.completed_at !== null}
-          onToggle={() => actions.finishTrip(task.id, task.title)}
+          // PW-14 B (audyt 2, R-11): dziecko z kontem — zakupy bez pola odhaczenia.
+          onToggle={roles.get(task.group_id)?.role !== 'child' ? () => actions.finishTrip(task.id, task.title) : undefined}
           onOpen={() => nav.navigate('List', { listId: task.id })}
         />
       );
     return (
-      <SwipeRow key={x.key} title={task.title} enabled={roles.get(task.group_id)?.role !== 'child' && task.completed_at === null} onDelete={() => actions.remove(task)}>
+      <SwipeRow key={x.key} title={task.title} enabled={roles.get(task.group_id)?.role !== 'child'} onDelete={() => actions.remove(task)} testID={`swipe-cal-${task.id}`}>
         <StationRow testID={`cal-${task.id}`} title={task.title} line={task.line} group={groupLabel(task.group_id, task.groupName)} depth={n.depth} when={m.when} meta={m.meta} alert={m.alert} checked={task.completed_at !== null} onToggle={() => actions.toggle(task)} onOpen={() => nav.navigate('Task', { taskId: task.id })} />
       </SwipeRow>
     );

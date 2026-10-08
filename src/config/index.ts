@@ -12,6 +12,13 @@ export const config = {
   UNDO_MS: 6000,
 
   /**
+   * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
+   * sekcji kosza (D151) widać przed „Pokaż wszystkie”. Wybory projektowe, bez źródła zewnętrznego.
+   */
+  RECENT_MAX: 30,
+  TRASH_PREVIEW: 5,
+
+  /**
    * Zgłaszanie błędów i opinii (D80). Serwer egzekwuje te same liczby (private.client_errors_per_day,
    * feedback_per_day, feedback_retention_days; test kontraktowy). Wybory projektowe, bez źródła.
    */
@@ -134,13 +141,20 @@ export const config = {
     MORNING_OPTIONS: ['off', '07:00', '08:00', '09:00'] as const,
     /** „Czas wyjść” (D117) — osobny przełącznik, domyślnie włączony jak dotąd (PWD-17, decyzja właściciela 8.10.2026). */
     LEAVE: true,
-    /** Ile dni naprzód planuje telefon (plan odświeża się przy każdej zmianie danych i uruchomieniu). */
-    DAYS_AHEAD: 3,
     /**
-     * Najwyżej tyle zaplanowanych powiadomień naraz. Wybór projektowy z zapasem: iOS ogranicza liczbę oczekujących
-     * powiadomień lokalnych, ale dokładnej liczby nie znaleźliśmy w przeczytanej dokumentacji Apple — otwarte pytanie.
+     * Ile dni naprzód planuje telefon. Plan odświeża się przy każdej zmianie danych, uruchomieniu i cichym powiadomieniu
+     * z serwera (D159, `wake` niżej); ciche powiadomienia nie mają gwarancji dostarczenia, więc okno jest długie — zapas
+     * na dni bez otwierania aplikacji. Najbliższe MAX_SCHEDULED pozycji i tak wygrywa. Wybór projektowy, bez źródła.
      */
-    MAX_SCHEDULED: 40,
+    DAYS_AHEAD: 14,
+    /**
+     * Najwyżej tyle zaplanowanych powiadomień naraz = limit iOS: „An app can have only a limited number of scheduled
+     * notifications; the system keeps the soonest-firing 64 notifications (with automatically rescheduled notifications
+     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification — dokumentacja archiwalna:
+     * https://developer.apple.com/library/archive/documentation/iPhone/Reference/UILocalNotification_Class/index.html).
+     * Plan bierze najbliższe, więc nadmiar i tak by przepadł.
+     */
+    MAX_SCHEDULED: 64,
     /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
     MORNING_LIST_MAX: 4,
     /**
@@ -149,6 +163,34 @@ export const config = {
      * 5 s — zapas na czas między policzeniem planu a zaplanowaniem; wybór projektowy.
      */
     SCHEDULE_MARGIN_MS: 5_000,
+  },
+
+  /**
+   * Ciche powiadomienia „odśwież przypomnienia” (D159, ADR 0016): po zmianie, która może zmienić czyjeś przypomnienia,
+   * telefon prosi serwer (funkcja notify-handoff, `groups`), a serwer budzi telefony członków grupy; budzony telefon
+   * pobiera zmiany i planuje przypomnienia od nowa. Apple: „The system treats background notifications as low priority
+   * … the system doesn't guarantee their delivery … don't try to send more than two or three per hour”
+   * (https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app).
+   */
+  wake: {
+    /**
+     * Najmniejszy odstęp między cichymi powiadomieniami do jednego urządzenia (minuty): 20 min = najwyżej 3 w każdej
+     * godzinie, górna granica zalecenia Apple. Ta sama wartość w private.wake_push_claim (test kontraktowy).
+     */
+    MIN_GAP_MIN: 20,
+    /** Telefon zbiera zmiany przez tyle ms po ostatniej, zanim poprosi serwer (seria edycji = jedno powiadomienie); wyjście z aplikacji wysyła od razu. Wybór projektowy. */
+    DEBOUNCE_MS: 30_000,
+    /** Najwyżej tyle grup w jednej prośbie (funkcja i baza odrzucają więcej — test kontraktowy). Wybór projektowy. */
+    MAX_GROUPS: 20,
+    /** Ponowienie po błędzie sieci albo APNs: nie wcześniej niż po tylu ms. Wybór projektowy. */
+    RETRY_MS: 60_000,
+    /**
+     * Odświeżenie w tle (src/app/background.ts) kończy się najpóźniej po tylu ms — Apple: „Your app has 30 seconds to
+     * perform any tasks and call the provided completion handler” (strona wyżej); 5 s zapasu na zapis planu.
+     */
+    TASK_BUDGET_MS: 25_000,
+    /** Najwięcej porcji pobrania w jednym odświeżeniu w tle (resztę pobierze otwarta aplikacja). Wybór projektowy. */
+    PULL_PAGES_MAX: 10,
   },
 
   /**
@@ -192,6 +234,20 @@ export const config = {
     BACKOFF_MAX_MS: 60_000,
     BACKOFF_FACTOR: 2,
     /**
+     * Wartości domyślne kolumn z wartością domyślną, które telefon może zmieniać (patch_cols w private.sync_entities).
+     * Wiersz utworzony na telefonie nie ma tych pól, dopóki nie wróci z serwera, więc „Cofnij” zmiany takiego pola
+     * wpisuje tę wartość — nie null, który kolumna NOT NULL odrzuca (audyt 2, M-59). Zgodność z bazą: tests/db
+     * (patch-defaults.test.ts czyta information_schema).
+     */
+    PATCH_DEFAULTS: {
+      event_overrides: { all_day: false, cancelled: false, responsible_cleared: false },
+      events: { audience: 'group' },
+      group_members: { role: 'member' },
+      handoffs: { closed: false, status: 'pending' },
+      lists: { sort_key: 'a0', staples: [], visibility: 'group' },
+      tasks: { deadline_mode: 'none', rollover: true, sort_key: 'a0' },
+    } as { readonly [entity: string]: { readonly [column: string]: unknown } },
+    /**
      * „Przeciągnij, by odświeżyć” (PWD-10 A): najkrótszy czas kółka, żeby szybkie pobranie też dało znak. Wybór
      * projektowy, bez źródła.
      */
@@ -232,6 +288,43 @@ export const config = {
     DEFAULT_MAX_USES: 10,
     MAX_USES_LIMIT: 50,
   },
+
+  /**
+   * Jak długo serwer (codzienne sprzątanie, private.run_daily_maintenance) i telefon trzymają dane, które same nie
+   * znikają (audyt 2, M-62, M-68). Serwer egzekwuje te same liczby (private.*_days(); test kontraktowy). Wybory
+   * projektowe, bez źródła zewnętrznego:
+   *  - ACTIVITY_DAYS — historia zmian na serwerze i w telefonie (decyzja właściciela z 8.10.2026, D184, PW-47 A): ekran
+   *    zadania pokazuje ostatnie zmiany, a powiadomienia o przypisaniu patrzą najwyżej PUSH_MAX_AGE_H wstecz;
+   *  - HANDOFF_DAYS — rozstrzygnięte przekazania (przyjęte, odrzucone, anulowane) od decyzji; oczekujące zostają;
+   *  - INVITE_DAYS — zaproszenia po wygaśnięciu, unieważnieniu albo wyczerpaniu (nikt ich już nie użyje);
+   *  - ACCESS_EVENT_DAYS — dziennik zmian dostępu (private.access_events; nieczytany, sygnał idzie przez Realtime);
+   *  - SYNC_CLIENT_DAYS — licznik nieużywanej instalacji (private.sync_clients) razem z jej zapamiętanymi odrzuceniami;
+   *    instalacja, która wróci później, zaczyna licznik od nowa, a jej niepotwierdzone zmiany serwer przyjmuje jak zmiany
+   *    po powrocie z trybu offline;
+   *  - JOIN_ATTEMPT_DAYS — nieudane próby dołączenia (limity liczą godzinę i czas życia kodu, 24 h);
+   *  - MAINTENANCE_RUN_DAYS — dziennik przebiegów sprzątania (private.maintenance_runs, M-194).
+   */
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90 },
+
+  /**
+   * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy
+   * planu Free (500 MB — projekt przechodzi wtedy w tryb tylko do odczytu dla wszystkich) ani nie wyczerpie limitów
+   * Realtime i Edge Functions. Serwer egzekwuje te liczby (private.max_*(); test kontraktowy). Wybory projektowe, bez
+   * źródła zewnętrznego — każda z dużym zapasem nad zwykłym użyciem:
+   *  - SHARED_GROUPS — grupy wspólne, w których jestem (także te w koszu): rodzina, dalsza rodzina, znajomi, klasy dzieci
+   *    to zwykle kilka; ponad limit tworzenie i dołączanie kończy się komunikatem;
+   *  - ACTIVE_INVITES — aktywne zaproszenia grupy: aplikacja wystawia najwyżej jeden kod na rolę (PW-41 A), reszta to
+   *    dawne linki; limit zatrzymuje tylko nadużycie;
+   *  - PUSH_TOKENS — urządzenia z powiadomieniami na konto (telefon, iPad, ponowne instalacje); nadmiarowy najdawniej
+   *    odświeżony token wypada (nikt nie dostaje błędu);
+   *  - SYNC_CLIENTS — instalacje aplikacji na konto; nadmiarowa najdawniej używana wypada (jak wyżej);
+   *  - SYNC_PUSH_PER_MINUTE — wywołania sync_push na konto na minutę: telefon wysyła najwyżej raz na sekundę
+   *    (sync.PUSH_DEBOUNCE_MS), więc dwa urządzenia używane naraz mieszczą się w limicie; ponad limit telefon ponawia
+   *    z opóźnieniem (sync.BACKOFF_*), nic nie ginie;
+   *  - NOTIFY_PER_HOUR — prośby o powiadomienie (funkcja notify-handoff) na konto na godzinę; ponad limit powiadomienie
+   *    nie idzie, a zmiana i tak jest w aplikacji.
+   */
+  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120 },
 
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',

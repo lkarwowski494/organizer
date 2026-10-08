@@ -15,8 +15,7 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
-import { materialize } from '../../domain/sync-engine/client';
-import { routineOps, routineUndoOps } from '../../domain/views/routines';
+import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
@@ -54,8 +53,9 @@ export function RoutineScreen({ route, navigation }: Props) {
     draft.saved();
     store.dispatch(r.ops);
     defaultGroup.remember(groupId);
-    // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
-    undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
+    // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie (przepis „routine”
+    // w AppProvider, także po ponownym uruchomieniu — D194 b).
+    undo.show(strings['routine.saved'](title.trim()), { ops: r.ops, recipe: 'routine' });
     navigation.goBack();
   };
 
@@ -105,7 +105,7 @@ export function RoutineScreen({ route, navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Field ref={(r) => void (stepRefs.current[i] = r)} label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} returnKeyType={i < steps.length - 1 ? 'next' : 'done'} submitBehavior={i < steps.length - 1 ? 'submit' : undefined} onSubmitEditing={() => stepRefs.current[i + 1]?.focus()} testID={`routine-step-${i}`} />
           </View>
-          {steps.length > 1 ? <Button kind="secondary" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
+          {steps.length > 1 ? <Button kind="danger" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />

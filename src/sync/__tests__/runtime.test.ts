@@ -3,8 +3,8 @@ import { migrate } from '../../data/db/migrations';
 import { readState, writeState } from '../../data/store';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { initialState } from '../../domain/sync-engine/client';
-import { SyncRuntime } from '../runtime';
+import { initialState, type PullResponse } from '../../domain/sync-engine/client';
+import { pullStep, SyncRuntime } from '../runtime';
 import { TransportError, errorKind, type SyncTransport } from '../transport';
 
 const G = 'g1';
@@ -223,6 +223,20 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(readState(db, 'c-1')).toEqual(rt.getSnapshot().state);
   });
 
+  it('„Wyczyść listę” odrzuconych (D190): pusta lista w stanie i w bazie, ekran dostaje powiadomienie', () => {
+    const db = memoryDb();
+    migrate(db);
+    const initial = { ...initialState('c-1'), rejected: [{ op: { seq: 1, op_id: 'o1', kind: 'delete' as const, entity: 'tasks' as const, id: 't' }, code: 'forbidden' }] };
+    writeState(db, initialState('c-1'), initial, 1);
+    const { rt } = harness({ push: jest.fn(), pull: jest.fn(), fetchScope: jest.fn() }, { initial, persist: (p, nx, now) => writeState(db, p, nx, now) });
+    const seen = jest.fn();
+    rt.subscribe(seen);
+    rt.clearRejected();
+    expect(rt.getSnapshot().state.rejected).toEqual([]);
+    expect(readState(db, 'c-1').rejected).toEqual([]);
+    expect(seen).toHaveBeenCalled();
+  });
+
   it('kolejka z poprzedniego uruchomienia: od razu do wysłania', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);
@@ -238,9 +252,200 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(second.rt.getSnapshot().state.pending).toHaveLength(0);
   });
 
+  // Audyt 2 (M-62): historia starsza niż config.retention.ACTIVITY_DAYS znika z telefonu przy pobraniu, także z bazy.
+  it('pobranie usuwa z telefonu historię po terminie retencji', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const first = harness(tr);
+    first.rt.start();
+    await first.flush();
+    const day = 86_400_000;
+    const at = (daysAgo: number) => new Date(1_000_000 - daysAgo * day).toISOString();
+    const synced = first.rt.getSnapshot().state;
+    const initial = {
+      ...synced,
+      base: { ...synced.base, activity: { old: { id: 'old', group_id: G, version: 1, created_at: at(config.retention.ACTIVITY_DAYS + 1) }, fresh: { id: 'fresh', group_id: G, version: 1, created_at: at(1) } } },
+    };
+    const db = memoryDb();
+    migrate(db);
+    writeState(db, initialState('c-1'), initial, 0);
+    const second = harness(tr, { initial, persist: (p, nx, now) => writeState(db, p, nx, now) });
+    second.rt.start();
+    await second.flush();
+    expect(Object.keys(second.rt.getSnapshot().state.base.activity ?? {})).toEqual(['fresh']);
+    expect(Object.keys(readState(db, 'c-1').base.activity ?? {})).toEqual(['fresh']);
+  });
+
   it('rodzaj błędu: TransportError zachowuje rodzaj, reszta to sieć', () => {
     expect(errorKind(new TransportError('server', 'x'))).toBe('server');
     expect(errorKind(new Error('x'))).toBe('network');
     expect(new TransportError('auth', 'm')).toMatchObject({ name: 'TransportError', message: 'm', kind: 'auth' });
+  });
+
+  it('D159: po wysłaniu — operacje, odpowiedź i stan sprzed niej dla cichych powiadomień; błąd tam nie psuje wysyłki', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const seen: unknown[] = [];
+    const { rt, flush, advance } = harness(tr, {
+      onPushed: (ops, res, st) => {
+        seen.push([ops.map((o) => o.seq), res.results.map((r) => r.status), st.ackedSeq]);
+        throw new Error('awaria');
+      },
+    });
+    rt.start();
+    await flush();
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    expect(seen).toEqual([[[1], ['ok'], 0]]);
+    expect(tr.calls).toEqual(['pull', 'push', 'pull']);
+    expect(rt.getSnapshot().indicator.state).toBe('synced');
+  });
+
+  it('D159: refreshNow czeka na pobranie, które zaczęło się po prośbie (wszystkie porcje); błąd i zatrzymanie też kończą', async () => {
+    const page = (more: boolean): PullResponse => ({ groups: [{ group_id: G, cursor: 1, has_more: more, resync: false, rows: [] }], scopes: [] });
+    const pages: ((v: PullResponse) => void)[] = [];
+    let fail = false;
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: () => (fail ? Promise.reject(new Error('sieć')) : new Promise<PullResponse>((r) => pages.push(r))),
+      fetchScope: async () => [],
+    };
+    const { rt, flush } = harness(tr);
+    rt.start();
+    await flush();
+    expect(pages).toHaveLength(1); // pierwsze pobranie w toku
+    let done = false;
+    void rt.refreshNow().then(() => (done = true));
+    pages[0]!(page(false));
+    await flush();
+    expect(done).toBe(false); // to pobranie zaczęło się przed prośbą
+    expect(pages).toHaveLength(2);
+    pages[1]!(page(true));
+    await flush();
+    expect(done).toBe(false); // jeszcze porcja
+    pages[2]!(page(false));
+    await flush();
+    expect(done).toBe(true);
+    fail = true;
+    await expect(rt.refreshNow()).resolves.toBeUndefined();
+    fail = false;
+    const waiting = rt.refreshNow();
+    rt.stop();
+    await expect(waiting).resolves.toBeUndefined();
+    await expect(rt.refreshNow()).resolves.toBeUndefined();
+  });
+
+  it('D159: refreshNow w tle pobiera mimo tła i wraca do tła; dwa naraz; powrót na pierwszy plan w trakcie zostaje', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const { rt, flush } = harness(tr);
+    rt.start();
+    await flush();
+    rt.event({ t: 'background' });
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls).toEqual(['pull']); // w tle pętla nie pobiera
+    // Druga prośba przyszła w trakcie pierwszego pobrania — jeszcze jedno.
+    await Promise.all([rt.refreshNow(), rt.refreshNow()]);
+    expect(tr.calls).toEqual(['pull', 'pull', 'pull']);
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls).toHaveLength(3); // znów tło
+    const p = rt.refreshNow();
+    rt.event({ t: 'foreground' });
+    await p;
+    await flush();
+    const n = tr.calls.length;
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls.length).toBe(n + 1); // pierwszy plan — pobiera jak zwykle
+  });
+
+  it('pullStep: porcja i nowe ukryte listy; zwraca has_more', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    let st = initialState('c-1');
+    expect(await pullStep(() => st, (n) => (st = n), serverTransport(server, 'ala'), () => 0)).toBe(false);
+    expect(Object.keys(st.cursors)).toEqual([G]);
+  });
+
+  it('pullStep po stop() w trakcie dociągania ukrytej listy: wynik listy przepada (M-55)', async () => {
+    let alive = true;
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: async () => ({ groups: [{ group_id: G, cursor: 1, has_more: false, resync: false, rows: [] }], scopes: ['ukryta'] }),
+      fetchScope: async () => ((alive = false), []),
+    };
+    let st = initialState('c-1');
+    const sets: unknown[] = [];
+    await pullStep(() => st, (n) => (sets.push(n), (st = n)), tr, () => 0, () => alive);
+    expect(sets).toHaveLength(1);
+  });
+
+  it('M-55: odpowiedź, która przyszła po stop() („Wyczyść dane”), nie trafia do bazy ani do stanu', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const tr: SyncTransport = { ...real, pull: async (c, l) => (await gate, real.pull(c, l)), push: async (r) => (await gate, real.push(r)) };
+    const writes: unknown[] = [];
+    const { rt, flush } = harness(tr, { persist: (_p, nx) => writes.push(nx) });
+    rt.start();
+    await flush();
+    expect(rt.getSnapshot().indicator.state).toBe('syncing');
+    rt.stop();
+    release();
+    await flush();
+    expect(writes).toEqual([]);
+    expect(rt.getSnapshot().state.cursors).toEqual({});
+    // Wysyłka w locie przy stop(): to samo.
+    const b = harness({ ...real, push: async (r) => (await new Promise((res) => setImmediate(res)), real.push(r)) }, { persist: (_p, nx) => writes.push(nx) });
+    b.rt.event({ t: 'network', online: false });
+    b.rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    writes.length = 0;
+    b.rt.event({ t: 'network', online: true });
+    b.rt.stop();
+    await b.flush();
+    expect(writes).toEqual([]);
+    expect(b.rt.getSnapshot().state.ackedSeq).toBe(0);
+  });
+
+  it('M-53: nieudane pobranie udostępnionej listy ponawia się przy następnym pobraniu', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let fail = true;
+    const tr: SyncTransport = { ...real, fetchScope: (id) => (fail ? Promise.reject(new TypeError('Network request failed')) : real.fetchScope(id)) };
+    const { rt, flush, advance } = harness(tr);
+    rt.start();
+    await flush();
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'ukryta', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } });
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    expect(rt.getSnapshot().state.scopesToFetch).toEqual(['ukryta']);
+    expect(rt.getSnapshot().indicator).toMatchObject({ state: 'error', error: 'network' });
+    fail = false;
+    await advance(config.sync.BACKOFF_MAX_MS);
+    expect(rt.getSnapshot().state.scopesToFetch).toEqual([]);
+    expect(rt.getSnapshot().state.scopes).toEqual(['ukryta']);
+  });
+
+  it('M-178: odświeżenie po operacji serwerowej pobiera od razu, mimo przerwy po błędzie sieci', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let down = true;
+    const tr: SyncTransport = { ...real, pull: (c, l) => (down ? Promise.reject(new TypeError('Network request failed')) : real.pull(c, l)) };
+    const { rt, flush, advance } = harness(tr);
+    rt.start();
+    await flush();
+    await advance(1000); // druga nieudana próba → przerwa 2 s
+    down = false;
+    rt.event({ t: 'refresh' });
+    await flush();
+    expect(rt.getSnapshot().indicator.state).toBe('synced');
   });
 });

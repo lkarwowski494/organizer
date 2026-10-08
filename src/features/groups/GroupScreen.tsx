@@ -4,29 +4,29 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Share, Text, type TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
-import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
+import { addChild, remove, renameGroup, restore, setGroupColor } from '../../domain/views/commands';
 import { formatDue } from '../../domain/format';
-import { formatIsoDate } from '../../domain/civil-date';
-import { groupDigits } from '../../domain/invite-link';
-import { localNow } from '../../app/clock';
-import { groupDetail, listOpenCount, listsView } from '../../domain/views';
+import { groupDetail, listOpenCount, listsView, type Member, memberActions } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
+import { useUndo } from '../../ui/undo';
+import { useEventActions } from '../../app/event-actions';
+import { useTaskActions } from '../../app/task-actions';
 import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 import { useLiveText } from '../../ui/live-text';
-import { absoluteDay } from './dates';
+import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
@@ -36,6 +36,9 @@ export function GroupScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
+  const undo = useUndo();
+  const actions = useTaskActions();
+  const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
   const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
@@ -75,14 +78,6 @@ export function GroupScreen({ route, navigation }: Props) {
     );
   }
   const personal = d.group.kind === 'personal';
-  // Koniec ważności kodu w czasie Europe/Warsaw: na ekranie „jutro, 18:40”, w wiadomości „piątek, 9 października,
-  // 18:40” (audyt 2, U-41: adresat czyta ją później, „jutro” znaczy wtedy co innego).
-  const hhmm = (l: ReturnType<typeof localNow>) => `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;
-  const until = (iso: string) => {
-    const l = localNow(Date.parse(iso));
-    return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today);
-  };
-  const untilAbs = (iso: string) => `${absoluteDay(Date.parse(iso), today)}, ${hhmm(localNow(Date.parse(iso)))}`;
   // Decyzja właściciela z 8.10.2026 (PW-41 A): „Zaproś” pokazuje bieżący ważny kod tej roli (serwer tworzy nowy, gdy
   // ważnego nie ma), „Nowy kod” tworzy kolejny i unieważnia poprzedni.
   const makeInvite = async (role: 'member' | 'admin', renew = false) => {
@@ -106,6 +101,13 @@ export function GroupScreen({ route, navigation }: Props) {
     <Button key="member" kind={adminFirst ? 'secondary' : 'primary'} label={strings['groups.invite']} onPress={() => void makeInvite('member')} testID="invite" />,
     ...(d.canInviteAdmin ? [<Button key="admin" kind={adminFirst ? 'primary' : 'secondary'} label={strings['groups.inviteAdmin']} onPress={() => void makeInvite('admin')} testID="invite-admin" />] : []),
   ];
+  // Jak na ekranie osoby (PW-35 A, D165): bez pytania, z „Cofnij”; owner/admin przywraca też z kosza.
+  const removeMember = (m: Member) => {
+    const op = remove('group_members', m.member_id);
+    store.dispatch(op);
+    undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
+  };
+
   return (
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
@@ -153,14 +155,16 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       )}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
+      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
       {d.members.map((m) => (
-        <NavRow
-          key={m.member_id}
-          testID={`member-${m.member_id}`}
-          title={m.display_name}
-          subtitle={strings[`groups.role.${m.role}`]}
-          onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
-        />
+        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
+          <NavRow
+            testID={`member-${m.member_id}`}
+            title={m.display_name}
+            subtitle={strings[`groups.role.${m.role}`]}
+            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
+          />
+        </SwipeRow>
       ))}
       {d.canInvite ? (
         <View style={{ gap: 8 }}>
@@ -169,40 +173,30 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {invite ? (
-        <View testID="invite-ready" style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-          <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
-          <Body muted>{strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}</Body>
-          <Body>{`${strings['groups.joinId']}: ${groupDigits(invite.joinId)}`}</Body>
-          <Text testID="join-code" style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${groupDigits(invite.code)}`}</Text>
-          <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}</Body>
-          <Button
-            label={strings['groups.share']}
-            onPress={() =>
-              void Share.share({
-                message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), untilAbs(invite.expiresAt), config.invites.TESTFLIGHT_LINK),
-              })
+        <JoinCodeCard
+          code={invite}
+          today={today}
+          title={strings['groups.inviteReady']}
+          note={strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}
+          info={(u) => strings['groups.joinInfo'](u, config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}
+          message={(id, code, u) => strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, id, code, u, config.invites.TESTFLIGHT_LINK)}
+          onRenew={() => void makeInvite(invite.role, true)}
+          onRevoke={async () => {
+            setError(null);
+            try {
+              await account.revokeInvite(invite.inviteId);
+              setInvite(null);
+            } catch (e) {
+              setError(groupErrorText(e));
             }
-          />
-          <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID="invite-new-code" onPress={() => void makeInvite(invite.role, true)} />
-          {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia. */}
-          <Button
-            kind="danger"
-            label={strings['groups.revoke']}
-            onPress={async () => {
-              setError(null);
-              try {
-                await account.revokeInvite(invite.inviteId);
-                setInvite(null);
-              } catch (e) {
-                setError(groupErrorText(e));
-              }
-            }}
-          />
-        </View>
+          }}
+          testIDs={{ card: 'invite-ready', code: 'join-code', renew: 'invite-new-code' }}
+        />
       ) : null}
       {d.group.me.role === 'owner' && !personal ? (
+        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
         <Button
-          kind="secondary"
+          kind="danger"
           label={strings['groups.rotate']}
           testID="rotate-join-id"
           onPress={() =>
@@ -264,21 +258,24 @@ export function GroupScreen({ route, navigation }: Props) {
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.length === 0 ? <Body muted>{strings['groups.noLists']}</Body> : null}
       {lists.map((l) => (
-        <NavRow key={l.id} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
+          <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        </SwipeRow>
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
       {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
       {series.map((e) => (
-        <NavRow
-          key={e.id}
-          testID={`series-${e.id}`}
-          title={e.title}
-          subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
-          line={d.group.line}
-          // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
-          onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
-        />
+        <SwipeRow key={e.id} title={e.title} enabled={d.group.me.role !== 'child'} onDelete={() => events.cancel(e.id, e.nextOccurrence ?? e.start, true)} testID={`swipe-${e.id}`}>
+          <NavRow
+            testID={`series-${e.id}`}
+            title={e.title}
+            subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
+            line={d.group.line}
+            // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
+            onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
+          />
+        </SwipeRow>
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
       {/* Audyt 2 (PWD-26): rutyna i plan lekcji dziecka (D128) także z ekranu grupy, nie tylko z Kalendarza i ekranu osoby. */}
@@ -310,33 +307,31 @@ export function GroupScreen({ route, navigation }: Props) {
           }
         />
       ) : !personal ? (
-        <Body muted>{strings['groups.ownerCannotLeave']}</Body>
+        <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
       ) : null}
+      {/* D187 (audyt 2: PW-16 A, M-121): do kosza bez pytania — pasek „Cofnij” i kosz (właściciel, 30 dni). */}
       {d.canDelete ? (
         <Button
           kind="danger"
           label={strings['groups.delete']}
           testID="delete-group"
-          onPress={() =>
-            Alert.alert(strings['groups.delete'], strings['groups.deleteConfirm'](config.sync.TOMBSTONE_DAYS), [
-              { text: strings['common.cancel'], style: 'cancel' },
-              {
-                text: strings['groups.deleteYes'],
-                style: 'destructive',
-                onPress: async () => {
-                  setError(null);
-                  try {
-                    await account.deleteGroup(d.group.id);
-                    dropNameEdit();
-                    store.refresh();
-                    navigation.goBack();
-                  } catch (e) {
-                    setError(groupErrorText(e));
-                  }
-                },
-              },
-            ])
-          }
+          onPress={async () => {
+            setError(null);
+            try {
+              await account.deleteGroup(d.group.id);
+            } catch (e) {
+              return setError(groupErrorText(e));
+            }
+            dropNameEdit();
+            store.refresh();
+            navigation.goBack();
+            undo.show(strings['undo.groupDeleted'](d.group.name), () => {
+              account.restoreGroup(d.group.id).then(
+                () => store.refresh(),
+                (e: unknown) => undo.show(groupErrorText(e)),
+              );
+            });
+          }}
         />
       ) : null}
     </Screen>

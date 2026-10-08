@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import type { NewOp } from '../../domain/sync-engine/client';
 import { quickAddOps } from '../../app/quickadd';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
@@ -17,8 +18,8 @@ import { lacksAddressee } from '../../domain/views/addressee';
 import { memberCanSeeList } from '../../domain/views/visibility';
 import { usePullRefresh } from '../../app/TabHeader';
 import { useTaskActions } from '../../app/task-actions';
-import { patchTask, remove, renameList, restore } from '../../domain/views/commands';
-import { type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { patchTask, renameList } from '../../domain/views/commands';
+import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
@@ -98,6 +99,8 @@ export function ListScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const canDelete = me?.role !== 'child';
+  // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own) — reszta bez pola odhaczenia.
+  const canCheck = checkOff(tables, userId);
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
   const trip = asTrip(tables.lists?.[list.id] ?? {});
   const adults = tripAdults(tables, list.group_id);
@@ -114,7 +117,12 @@ export function ListScreen({ route, navigation }: Props) {
   const tripNeeds = tripRequired(groupKind, list.visibility);
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(tripNeeds, planned.trip);
   const add = (value = text, assigneeId: string | null = null, ign = value === text ? ignore : []) => {
-    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: ign, newId, listId: list.id, assigneeId }));
+    const ops = quickAddOps({ tables, userId, text: value, now: now(), ignore: ign, newId, listId: list.id, assigneeId });
+    store.dispatch(ops);
+    // D189 (audyt 2: PW-29 A, M-126): po szybkim dodaniu zadania „Dodano … · Zmień” — jak w Moich sprawach. Pozycje
+    // zakupów dodaje się seriami, a dotknięcie pozycji już ją edytuje — bez paska.
+    const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    if (!shopping && created?.kind === 'create') undo.show(strings['form.added'](String(created.set.title), list.name), () => navigation.navigate('Task', { taskId: created.id }), strings['form.change']);
     setText('');
     setIgnore([]);
     setError(null);
@@ -145,6 +153,13 @@ export function ListScreen({ route, navigation }: Props) {
   const memory = shopping ? categoryMemory(tables, list.group_id) : new Map();
   const editable = shopping && canDelete;
   const pick = (id: string | null) => (setPicking(id), setPickError(null));
+  // D187: usunięcie stałej pozycji z „Cofnij” — wraca przez to samo polecenie co dodanie (na koniec listy stałych).
+  const dropStaple = (name: string) => {
+    const op = removeStaple(listRow, name);
+    store.dispatch(op);
+    const names = op.kind === 'cmd' ? (op.args.names as string[]) : [];
+    undo.show(strings['undo.stapleRemoved'](name), { ops: names.map((n): NewOp => ({ kind: 'cmd', cmd: 'staple_add', args: { list_id: list.id, name: n } })) }, { changed: [op] });
+  };
   // Audyt 2 (M-82, T-7): pole zaznaczone tylko przy odhaczonym — minione ma dopisek „minęło” bez ptaszka. W zamkniętych
   // nie powtarzam otwartych podzadań: stoją w otwartych z dopiskiem rodzica (listDetail). Wcięcie według miejsca na ekranie.
   const rows = (nodes: TaskNode[], done: boolean, level = 0): React.ReactNode[] =>
@@ -168,7 +183,7 @@ export function ListScreen({ route, navigation }: Props) {
             pending={pendingIds.has(t.id)}
             alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
             shopping={shopping}
-            onToggle={() => actions.toggle(t, shopping)}
+            onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
             openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
           />
@@ -185,7 +200,7 @@ export function ListScreen({ route, navigation }: Props) {
                 onPick={(cat) => (store.dispatch(setCategory(t.id, cat)), pick(null))}
                 onToggleStaple={() => {
                   const has = staples.find((s) => itemKey(s) === itemKey(t.title));
-                  if (has) store.dispatch(removeStaple(listRow, has));
+                  if (has) dropStaple(has);
                   else {
                     const r = addStaple(listRow, t.title);
                     // Audyt 2 (M-224, R-21): błąd (pełna lista, za długa nazwa) jak w karcie stałych — panel zostaje otwarty.
@@ -271,7 +286,7 @@ export function ListScreen({ route, navigation }: Props) {
           )}
         </View>
       ) : null}
-      {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
+      {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} onRemove={dropStaple} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
         <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
@@ -319,15 +334,8 @@ export function ListScreen({ route, navigation }: Props) {
       {canDelete ? <Field label={strings['lists.name']} {...rename.field} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
       {rename.error ? <ErrorText>{rename.error}</ErrorText> : null}
       {canDelete ? (
-        <Button
-          kind="danger"
-          label={strings['lists.delete']}
-          onPress={() => {
-            store.dispatch(remove('lists', list.id));
-            undo.show(strings['undo.listDeleted'](list.name), () => store.dispatch(restore('lists', list.id)));
-            navigation.goBack();
-          }}
-        />
+        // D187: lista z zadaniami pyta z ich liczbą, pusta — od razu; potem „Cofnij” i kosz.
+        <Button kind="danger" label={strings['lists.delete']} testID="list-delete" onPress={() => actions.removeList(list, () => navigation.goBack())} />
       ) : null}
     </Screen>
   );

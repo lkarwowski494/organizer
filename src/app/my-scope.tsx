@@ -11,9 +11,13 @@
 import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 
 import { type MyScope, parseScopes, type ScopeOf, scopeAll, scopeLookup } from '../domain/views/my-scope';
+import type { LocalStore } from './calendar-mirror';
 import { useServices } from './context';
 
 export const MY_SCOPE_KEY = 'myDaysScope';
+
+/** Zakres z lokalnej bazy konta bez Reacta — planowanie w tle (przypomnienia, dojazd; D159). */
+export const storedScopes = (local: LocalStore): ScopeOf => scopeLookup(parseScopes(local.load(MY_SCOPE_KEY)));
 
 type Api = { scopeOf: ScopeOf; set(groupId: string, scope: MyScope): void };
 

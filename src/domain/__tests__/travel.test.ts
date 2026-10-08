@@ -1,5 +1,5 @@
 import { config } from '../../config';
-import { departureMs, geoLookup, geoStore, isTravelMode, leaveAt, navigationUrl, readGeoCache, travelMinutes, travelTargets } from '../travel';
+import { departureMs, geoLookup, geoStore, isTravelMode, leaveAt, navigationUrl, readGeoCache, readTravelResults, travelInfoFor, travelMinutes, travelTargets } from '../travel';
 
 describe('nawigacja i „wyjdź o” (D115–D117)', () => {
   it('Mapy Apple: nowe linki od iOS 18.4, starsze dawne; Google — link uniwersalny', () => {
@@ -84,5 +84,27 @@ describe('pamięć adresów i pora odjazdu (audyt 2, M-106)', () => {
     expect(departureMs(start, null, now)).toBe(now);
     expect(departureMs(start, 1800, now)).toBe(leaveAt(start, 1800));
     expect(departureMs(start, 12 * 3600, now)).toBe(now);
+  });
+});
+
+describe('zapamiętany dojazd do planowania w tle (D159)', () => {
+  const target = { key: 'e|2026-10-07', eventId: 'e', title: 'Basen', location: 'Pływalnia', startMs: Date.UTC(2026, 9, 7, 15), mode: 'driving' as const };
+
+  it('odczyt: tylko pełne pozycje; nie-obiekt — pusto', () => {
+    expect(readTravelResults(null)).toEqual({});
+    expect(readTravelResults([1])).toEqual({});
+    expect(readTravelResults('x')).toEqual({});
+    const ok = { seconds: 600, mode: 'walking', location: 'Szkoła' };
+    expect(readTravelResults({ a: ok, b: { seconds: '600', mode: 'walking', location: 'x' }, c: { seconds: 1, mode: 'rower', location: 'x' }, d: { seconds: 1, mode: 'driving' }, e: null })).toEqual({ a: ok });
+  });
+
+  it('ten sam środek i miejsce — „wyjdź o” od bieżącej godziny terminu; inaczej brak', () => {
+    const r = { [target.key]: { seconds: 1200, mode: 'driving' as const, location: 'Pływalnia' } };
+    expect(travelInfoFor([target], r, target.key)).toEqual({ minutes: 20, leaveMs: leaveAt(target.startMs, 1200), mode: 'driving' });
+    expect(travelInfoFor([{ ...target, startMs: target.startMs + 3_600_000 }], r, target.key)!.leaveMs).toBe(leaveAt(target.startMs + 3_600_000, 1200));
+    expect(travelInfoFor([{ ...target, mode: 'transit' }], r, target.key)).toBeNull();
+    expect(travelInfoFor([{ ...target, location: 'Inna' }], r, target.key)).toBeNull();
+    expect(travelInfoFor([], r, target.key)).toBeNull();
+    expect(travelInfoFor([target], {}, target.key)).toBeNull();
   });
 });

@@ -17,7 +17,7 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
-import { listsView } from '../../domain/views';
+import { checkOff, listsView } from '../../domain/views';
 import { affectedByCancel, createEventTask, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
@@ -25,7 +25,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Collapsible, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title, MissingScreen, GroupLine } from '../../ui/components';
+import { BackButton, Body, Button, Collapsible, GroupLine, MissingScreen, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { useRowMeta } from '../../app/row-meta';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
@@ -47,8 +47,9 @@ export function EventScreen({ route, navigation }: Props) {
   // Audyt 2: termin po „to i następne” należy do nowej serii — stary link (przypomnienie, inny ekran) prowadzi do niej.
   const eventId = useMemo(() => (linkedDate === undefined ? linked : occurrenceOwner(tables, linked, linkedDate)), [tables, linked, linkedDate]);
   const d = useMemo(() => eventDetail(tables, userId, eventId), [tables, userId, eventId]);
-  const [ask, setAsk] = useState<'edit' | 'cancel' | 'delete' | null>(null);
-  const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(null);
+  const [ask, setAsk] = useState<'edit' | 'cancel' | null>(null);
+  // M-239: z przesunięcia wiersza z podpiętymi zadaniami — od razu pytanie D14.
+  const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(route.params.cancel ? { scope: route.params.cancel, picking: false } : null);
   const [taskTitle, setTaskTitle] = useState('');
   const [listId, setListId] = useState<string | null>(null);
   const [every, setEvery] = useState<'one' | 'all'>('one');
@@ -83,20 +84,24 @@ export function EventScreen({ route, navigation }: Props) {
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   // M-130: zadania tego terminu z własnym terminem i osobą (jak w Moich sprawach); zrobione — zwinięte (PWD-7 A).
   const { open: tasks, done: doneTasks } = occurrenceTasks(tables, eventId, date);
+  // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
+  const canCheck = checkOff(tables, userId);
   const taskRow = (t: (typeof tasks)[number]) => {
     const m = meta.task({ ...t, line: d.line, groupName: d.groupName, listName: '', assignee: null }, occ.date);
     return (
-      <StationRow
-        key={t.id}
-        testID={`event-task-${t.id}`}
-        title={t.title}
-        line={d.line}
-        when={m.when}
-        meta={m.meta}
-        checked={t.completed_at !== null}
-        onToggle={() => actions.toggle(t)}
-        onOpen={() => navigation.navigate('Task', { taskId: t.id })}
-      />
+      // Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34).
+      <SwipeRow key={t.id} title={t.title} enabled={d.canEdit} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
+        <StationRow
+          testID={`event-task-${t.id}`}
+          title={t.title}
+          line={d.line}
+          when={m.when}
+          meta={m.meta}
+          checked={t.completed_at !== null}
+          onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
+          onOpen={() => navigation.navigate('Task', { taskId: t.id })}
+        />
+      </SwipeRow>
     );
   };
   const rsvp = rsvpView(tables, userId, eventId, date);
@@ -112,7 +117,7 @@ export function EventScreen({ route, navigation }: Props) {
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
-    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), () => store.dispatch(back));
+    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
     navigation.goBack();
   };
   const stopSeries = (s: SeriesDef) => {
@@ -120,7 +125,7 @@ export function EventScreen({ route, navigation }: Props) {
     // Same usunięcia (definicja i kopie), więc odwrotność zawsze istnieje.
     const back = inverseOps(tables, ops)!;
     store.dispatch(ops);
-    undo.show(strings['undo.seriesStopped'](s.title), () => store.dispatch(back));
+    undo.show(strings['undo.seriesStopped'](s.title), { ops: back }, { changed: ops });
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
   const cancel = (scope: Scope) => (affectedByCancel(tables, d, date, scope).length ? (setAsk(null), setRelink({ scope, picking: false })) : finish(scope, null));
@@ -281,16 +286,11 @@ export function EventScreen({ route, navigation }: Props) {
           ))}
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
         </View>
-      ) : ask === 'delete' ? (
-        <View style={{ gap: 8 }}>
-          <Body>{strings['event.deleteConfirm']}</Body>
-          <Button kind="danger" label={strings['event.delete']} testID="event-delete-confirm" onPress={() => cancel('all')} />
-          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
-        </View>
       ) : (
         <View style={{ gap: 8 }}>
           <Button label={strings['event.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
-          <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => setAsk(recurring ? 'cancel' : 'delete')} />
+          {/* D187 (audyt 2: PW-16 A, M-121): jednorazowe usuwa się bez pytania — pasek „Cofnij” i kosz; seria pyta o zakres (D57). */}
+          <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} />
         </View>
       )}
     </Screen>

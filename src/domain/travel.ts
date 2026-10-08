@@ -43,8 +43,8 @@ export type TravelTarget = { key: string; eventId: string; title: string; locati
  * Wydarzenia, dla których liczymy dojazd (D116): te, które mnie dotyczą, z miejscem i godziną, zaczynające się od teraz
  * do config.travel.AHEAD_HOURS naprzód — także jutro po północy (audyt 2, M-211: wieczorem „Czas wyjść” na 0:30);
  * najbliższe config.travel.MAX_EVENTS (MapKit dławi zbyt wiele zapytań).
- * `skip` — terminy z moją odpowiedzią „nie będę” (`<id wydarzenia>|<data wystąpienia>`, PW-23); `scopeOf` — zakres Moich
- * spraw w grupach (PW-2): dojazd tylko do tego, co stoi w Moich sprawach.
+ * `skip` — terminy wyciszone (`<id wydarzenia>|<data wystąpienia>`): moje „nie będę” (PW-23) i dzieci, które nie będą (D160);
+ * `scopeOf` — zakres Moich spraw w grupach (PW-2): dojazd tylko do tego, co stoi w Moich sprawach.
  */
 export function travelTargets(
   occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string }[],
@@ -111,4 +111,30 @@ export function geoStore(cache: GeoCache, address: string, c: GeoPoint | null, n
  */
 export function departureMs(startMs: number, previousSeconds: number | null, nowMs: number): number {
   return previousSeconds === null ? nowMs : Math.max(nowMs, leaveAt(startMs, previousSeconds));
+}
+
+/**
+ * Policzony dojazd zapamiętany na telefonie (D159): planowanie przypomnień w tle nie pyta o położenie (zgoda tylko
+ * „podczas używania”, D116), więc korzysta z ostatniego wyniku z otwartej aplikacji — tylko dla tego samego miejsca
+ * i środka transportu.
+ */
+export type TravelResult = { seconds: number; mode: TravelMode; location: string };
+
+/** Odczyt zapisanych wyników; uszkodzone pozycje pomijane. */
+export function readTravelResults(x: unknown): Record<string, TravelResult> {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return {};
+  return Object.fromEntries(
+    Object.entries(x as Record<string, unknown>).filter((e): e is [string, TravelResult] => {
+      const r = e[1] as Partial<TravelResult> | null;
+      return typeof r === 'object' && r !== null && typeof r.seconds === 'number' && isTravelMode(r.mode) && typeof r.location === 'string';
+    }),
+  );
+}
+
+/** „Wyjdź o” dla terminu `key` z celów i wyników; inny środek albo miejsce niż przy liczeniu — brak (null). */
+export function travelInfoFor(targets: readonly TravelTarget[], results: Readonly<Record<string, TravelResult>>, key: string): { minutes: number; leaveMs: number; mode: TravelMode } | null {
+  const t = targets.find((x) => x.key === key);
+  const r = results[key];
+  if (!t || !r || r.mode !== t.mode || r.location !== t.location) return null;
+  return { minutes: travelMinutes(r.seconds), leaveMs: leaveAt(t.startMs, r.seconds), mode: r.mode };
 }

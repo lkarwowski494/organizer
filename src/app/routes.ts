@@ -18,7 +18,12 @@ export type RootStackParams = {
    * `date` — data wystąpienia według reguły (klucz wystąpienia, także gdy przeniesione). Bez niej (link do całej serii,
    * PWD-16) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
    */
-  Event: { eventId: string; date?: string };
+  Event: {
+    eventId: string;
+    date?: string;
+    /** Przesunięcie wiersza terminu z podpiętymi zadaniami (M-239): od razu pytanie, co z nimi (D14), w tym zakresie. */
+    cancel?: Scope;
+  };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */
   EventEdit: {
     groupId?: string; date?: string; eventId?: string; scope?: Scope; title?: string; start?: string; end?: string; responsibleId?: string;
@@ -32,6 +37,8 @@ export type RootStackParams = {
   /** Bez `section` — strona główna ustawień; z nią — podstrona (D131). */
   Settings: { section?: SettingsSection } | undefined;
   Rejected: undefined;
+  /** Ostatnie zmiany z „Cofnij” bez limitu czasu (D194). */
+  Recent: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;
