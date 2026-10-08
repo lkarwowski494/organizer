@@ -2,12 +2,16 @@
  * Ekran listy i zakupy (audyt 2, paczka „Listy i zakupy”): podzadania zrobionego rodzica i minione (M-82), jeden licznik
  * listy (M-83), zakupy osoby usuniętej z grupy (M-22), błąd „Dodaj do stałych” z panelu pozycji (M-224), „Cofnij” po
  * „Zakupy zrobione” i po „Zakończ: …” (M-225), nazwa pola rodzaju listy (M-237), limity długości pól (M-228),
- * odrzucone polecenia stałych zakupów (M-111).
+ * odrzucone polecenia stałych zakupów (M-111); decyzje właściciela z 8.10.2026: do koszyka bez pytania (M-109, PW-15 A),
+ * nazwa listy, edycja pozycji zakupów i „Tylko ja” (M-107, PW-17 B), wyjątki od D68 (M-108, PW-18 A + b), zwinięte
+ * minione kopie zadania powtarzanego (M-283, PWD-14 A).
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { palettes } from '../../config/theme';
 import type { Row } from '../../domain/sync-engine/client';
+import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
 import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
 
@@ -78,7 +82,27 @@ describe('licznik listy (M-83)', () => {
   });
 });
 
-describe('zakupy (M-22, M-224, M-225)', () => {
+describe('zakupy (M-22, M-109, M-224, M-225)', () => {
+  it('M-109: do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59); odhaczenie zadania dalej pyta', async () => {
+    const { store } = await open();
+    await openList('lz');
+    const alerts = () => (Alert.alert as unknown as jest.Mock).mock.calls.length;
+    const n = alerts();
+    await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
+    expect(alerts()).toBe(n);
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    const bar = screen.getByTestId('undo-bar');
+    expect(within(bar).getByText('W koszyku: Chleb żytni')).toBeTruthy();
+    await press(within(bar).getByLabelText('Cofnij'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } });
+    expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
+    // Zadanie na liście zadań — dalej z pytaniem „Zrobione?” (D59).
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
+    expect(lastAlert().title).toBe('Zrobione?');
+  });
+
   it('M-22: zakupy osoby usuniętej z grupy są w Moich sprawach jak bez osoby; w edytorze „Nikt konkretny”', async () => {
     const b = sampleBase();
     put(b, 'lists', 'lz', { ...b.lists!.lz!, due_date: '2026-10-07', responsible_member_id: 'ala' });
@@ -97,14 +121,14 @@ describe('zakupy (M-22, M-224, M-225)', () => {
     put(b, 'lists', 'lz', { ...b.lists!.lz!, staples: Array.from({ length: 50 }, (_, i) => `p${i}`) });
     const { store } = await open(b);
     await openList('lz');
-    await press(screen.getByLabelText(/^Zmień dział: Chleb żytni(,|$)/));
+    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
     const n = store.dispatched.length;
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched).toHaveLength(n);
-    expect(within(screen.getByTestId('category-picker')).getByText('Lista stałych jest pełna (50 pozycji).')).toBeTruthy();
+    expect(within(screen.getByTestId('item-panel')).getByText('Lista stałych jest pełna (50 pozycji).')).toBeTruthy();
     // Zamknięcie panelu czyści komunikat.
-    await press(within(screen.getByTestId('category-picker')).getByText('Anuluj'));
-    await press(screen.getByLabelText(/^Zmień dział: Chleb żytni(,|$)/));
+    await press(within(screen.getByTestId('item-panel')).getByText('Gotowe'));
+    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
     expect(screen.queryByText(/Lista stałych jest pełna/)).toBeNull();
   });
 
@@ -113,7 +137,7 @@ describe('zakupy (M-22, M-224, M-225)', () => {
     put(b, 'tasks', 's-dluga', { ...b.tasks!['s-chleb']!, id: 's-dluga', title: 'x'.repeat(250) });
     const { store } = await open(b);
     await openList('lz');
-    await press(screen.getByLabelText(new RegExp(`^Zmień dział: ${'x'.repeat(250)}(,|$)`)));
+    await press(screen.getByLabelText(new RegExp(`^Zmień pozycję: ${'x'.repeat(250)}(,|$)`)));
     const n = store.dispatched.length;
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched).toHaveLength(n);
@@ -238,3 +262,169 @@ describe('odrzucone polecenia stałych zakupów (M-111)', () => {
     expect(screen.getByText('Polecenie')).toBeTruthy();
   });
 });
+
+const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
+
+describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
+  it('nazwa listy zapisuje się po wyjściu z pola i przy wyjściu z ekranu (D130); pusta zostawia starą', async () => {
+    const { store } = await open();
+    await openList('lf');
+    const field = screen.getByTestId('list-rename');
+    expect(field.props.value).toBe('Dom');
+    expect(field.props.maxLength).toBe(200);
+    await fireEvent.changeText(field, '   ');
+    await fireEvent(field, 'blur');
+    expect(store.dispatched).toHaveLength(0);
+    expect(screen.getByTestId('list-rename').props.value).toBe('Dom');
+    await fireEvent.changeText(screen.getByTestId('list-rename'), ' Dom i ogród ');
+    await fireEvent(screen.getByTestId('list-rename'), 'blur');
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom i ogród' } });
+    expect(screen.getAllByText('Dom i ogród').length).toBeGreaterThan(0);
+    // Bez wyjścia z pola: zapis przy opuszczeniu ekranu.
+    await fireEvent.changeText(screen.getByTestId('list-rename'), 'Dom 2');
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-lists');
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom 2' } });
+    expect(screen.getByLabelText('Dom 2, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
+  });
+
+  it('dziecko nie zmienia nazwy listy', async () => {
+    const b = sampleBase();
+    put(b, 'group_members', 'mf', { ...b.group_members!.mf!, role: 'child' });
+    await open(b);
+    await openList('lf');
+    expect(screen.queryByTestId('list-rename')).toBeNull();
+  });
+
+  it('pozycja zakupów: nazwa i ilość w panelu pozycji, zapis od razu; zamknięcie panelu też zapisuje', async () => {
+    const { store } = await open();
+    await openList('lz');
+    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
+    const panel = screen.getByTestId('item-panel');
+    const name = within(panel).getByTestId('item-name');
+    expect(name.props.value).toBe('Chleb żytni');
+    expect(name.props.maxLength).toBe(500);
+    await fireEvent.changeText(name, 'Chleb żytni 2');
+    await fireEvent(name, 'submitEditing');
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb żytni 2' } });
+    expect(within(screen.getByTestId('task-s-chleb')).getByText(/^2 · czeka na wysłanie$/)).toBeTruthy();
+    // Zmiana bez zatwierdzenia, potem „Gotowe” — panel się zamyka i zapisuje.
+    await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Chleb razowy 1 szt.');
+    await press(within(screen.getByTestId('item-panel')).getByLabelText('Gotowe'));
+    expect(screen.queryByTestId('item-panel')).toBeNull();
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb razowy 1 szt.' } });
+    expect(screen.getByLabelText(/^Zmień pozycję: Chleb razowy(,|$)/)).toBeTruthy();
+    // Zmiana nazwy, potem wybór działu (panel się zamyka) — oba zapisane.
+    await press(screen.getByLabelText(/^Zmień pozycję: Chleb razowy(,|$)/));
+    await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Bułki');
+    await press(within(screen.getByTestId('item-panel')).getByRole('radio', { name: 'Pieczywo' }));
+    expect(store.dispatched.slice(-2)).toEqual([
+      { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { category: 'bakery' } },
+      { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Bułki' } },
+    ]);
+  });
+
+  it('„Tylko ja” przy liście prywatnej: na Listach, w grupie i w nagłówku listy', async () => {
+    const b = sampleBase();
+    put(b, 'lists', 'lprv', { ...b.lists!.lf!, id: 'lprv', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf' });
+    await open(b);
+    await press(screen.getByLabelText('Listy'));
+    expect(await screen.findByLabelText('Prezenty, Rodzina · Zadania · Tylko ja · 0 otwartych')).toBeTruthy();
+    expect(screen.getByLabelText('Dom, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
+    await press(screen.getByTestId('list-lprv'));
+    await screen.findByTestId('screen-list');
+    // Domyślne porównanie tekstu w RNTL zwija spacje („  ·  ” → „ · ”).
+    expect(screen.getByText('Rodzina · Tylko ja · 0 otwartych')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    expect(await screen.findByLabelText('Prezenty, Tylko ja · 0 otwartych')).toBeTruthy();
+  });
+});
+
+describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
+  it('b: w zadaniu można zdjąć termin i osobę — zostaje dopisek, że nikt tego nie widzi', async () => {
+    const { store } = await open();
+    await openList('lf');
+    await press(screen.getByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByTestId('task-no-addressee')).toBeNull();
+    await press(screen.getByLabelText('Usuń termin'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null } });
+    expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
+    expect(screen.queryByText(/Najpierw ustaw/)).toBeNull();
+    // Osoba, a potem znowu „Nikt konkretny” — też bez blokady.
+    await press(radio('Dla kogo', 'Ala'));
+    expect(screen.queryByTestId('task-no-addressee')).toBeNull();
+    await press(radio('Dla kogo', 'Nikt konkretny'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } });
+    expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
+  });
+
+  it('b: pełny formularz we wspólnej grupie bez osoby i terminu zapisuje z dopiskiem', async () => {
+    const { store } = await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'nowy odkurzacz');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    expect(screen.queryByTestId('form-no-addressee')).toBeNull();
+    await press(radio('Grupa', 'Rodzina'));
+    expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w „Moich sprawach”. Wybierz osobę („Dla kogo”) albo ustaw termin.');
+    await press(screen.getByTestId('form-save'));
+    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'nowy odkurzacz', deadline_mode: 'none' } });
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+  });
+
+  it('A: lista „Tylko ja” — bez dopisku, a zadanie bez osoby jest w moich Moich sprawach', async () => {
+    const b = sampleBase();
+    put(b, 'lists', 'lprv', { ...b.lists!.lf!, id: 'lprv', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf' });
+    put(b, 'tasks', 'p-szalik', { ...b.tasks!['t-kwiaty']!, id: 'p-szalik', list_id: 'lprv', title: 'Szalik dla Ali', deadline_mode: 'none', due_date: null });
+    const { store } = await open(b);
+    expect(screen.getByLabelText(/^Otwórz: Szalik dla Ali(,|$)/)).toBeTruthy();
+    await openList('lprv');
+    expect(within(screen.getByTestId('task-p-szalik')).queryByText(/nikt tego nie widzi/)).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'książka');
+    await press(screen.getByLabelText('Dodaj'));
+    const created = store.dispatched.at(-1) as { id: string };
+    expect(created).toMatchObject({ kind: 'create', set: { list_id: 'lprv', title: 'książka' } });
+    expect(within(await screen.findByTestId(`task-${created.id}`)).queryByText(/nikt tego nie widzi/)).toBeNull();
+  });
+
+  it('A: zakupy na liście „Tylko ja” bez dnia i osoby — jak w grupie osobistej (zapis bez blokady)', async () => {
+    const b = sampleBase();
+    put(b, 'lists', 'lzp', { ...b.lists!.lz!, id: 'lzp', name: 'Prezenty do kupienia', visibility: 'private', owner_member_id: 'mf' });
+    const { store } = await open(b);
+    await openList('lzp');
+    await press(screen.getByTestId('trip-plan'));
+    expect(screen.queryByText(/We wspólnej grupie wybierz osobę albo dzień/)).toBeNull();
+    expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(false);
+    await press(screen.getByTestId('trip-save'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lzp', set: { due_date: null, due_time: null, responsible_member_id: null } });
+  });
+});
+
+describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
+  it('w „Zrobione” jeden wiersz „N razy minęło”; dotknięcie rozwija i zwija', async () => {
+    const b = sampleBase();
+    let id = 'leki';
+    const ids: string[] = [];
+    for (const d of ['03', '04', '05', '06', '07']) {
+      task(b, id, { title: 'Leki', deadline_mode: 'own', due_date: `2026-10-${d}`, rollover: false, repeat: 'FREQ=DAILY' });
+      ids.push(id);
+      id = nextId(id);
+    }
+    await open(b);
+    await openList('lp');
+    // Dzisiejsza kopia (7.10) jest w otwartych; cztery minione — zwinięte.
+    expect(screen.getByTestId(`task-${ids[4]}`)).toBeTruthy();
+    for (const x of ids.slice(0, 4)) expect(screen.queryByTestId(`task-${x}`)).toBeNull();
+    const run = screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zobaczyć');
+    expect(run.props.accessibilityState.expanded).toBe(false);
+    await press(run);
+    expect(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć').props.accessibilityState.expanded).toBe(true);
+    for (const x of ids.slice(0, 4)) expect(within(screen.getByTestId(`task-${x}`)).getByText(/minęło/)).toBeTruthy();
+    expect(screen.getByTestId(`task-${ids[0]}`).props.style.marginLeft).toBe(22);
+    await press(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć'));
+    expect(screen.queryByTestId(`task-${ids[0]}`)).toBeNull();
+  });
+});
+

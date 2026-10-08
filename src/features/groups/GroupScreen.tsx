@@ -20,7 +20,7 @@ import { groupSeries } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
-import { openLabel } from '../lists/ListsScreen';
+import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
@@ -178,7 +178,7 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.map((l) => (
-        <NavRow key={l.id} title={l.name} subtitle={openLabel(l.kind, listOpenCount(tables, l, today))} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        <NavRow key={l.id} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>

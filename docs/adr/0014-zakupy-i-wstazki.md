@@ -3,7 +3,7 @@
 Zgłoszenie właściciela:
 - Stworzenie listy zakupów ma tworzyć zadanie „Zakupy” z terminem i osobą odpowiedzialną wybranymi przez tworzącego.
 - Lista zakupów ma być wpięta w to zadanie.
-- Odhaczanie zakupów z potwierdzeniem (jest od D59).
+- Odhaczanie zakupów z potwierdzeniem (jest od D59; od 8.10.2026 pozycja trafia do koszyka bez pytania, z „Cofnij” — zmiana D59).
 - Motyw i ikona: „Wstążki” (makieta C).
 
 ## Decyzje produktowe (właściciel, 7.10.2026)

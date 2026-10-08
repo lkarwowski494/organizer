@@ -127,12 +127,14 @@ describe('podpowiedzi i stałe zakupy (D86)', () => {
     expect(suggestions(t, 'g', 'lz', 'ba')).toEqual(['Ba6', 'Ba1', 'Ba2', 'Ba3', 'Ba4']);
   });
 
-  it('brakujące stałe i operacje ich dodania; lista bez stałych albo nieznana', () => {
-    const t = tables([{ title: '2 mleko' }, { title: 'Chleb', completed_at: 'x' }]);
+  it('brakujące stałe i operacje ich dodania; w koszyku = już na liście (PWD-19 A); lista bez stałych albo nieznana', () => {
+    const t = tables([{ title: '2 mleko' }, { title: 'Chleb', deleted_at: 'x' }, { title: 'Masło', list_id: 'lz2' }]);
     expect(staplesOf(t.lists.lz)).toEqual(['Mleko', 'Chleb']);
     expect(staplesOf({ staples: ['a', 3] })).toEqual(['a']);
     expect(staplesOf(undefined)).toEqual([]);
     expect(missingStaples(t, 'lz')).toEqual(['Chleb']);
+    // R-20: „Mleko 2” w koszyku, stała „Mleko” — nie dubluje.
+    expect(missingStaples(tables([{ title: 'Mleko 2', completed_at: 'x' }, { title: 'chleb' }]), 'lz')).toEqual([]);
     let n = 0;
     expect(addStaplesOps(t, 'lz', () => `n${++n}`)).toEqual([
       { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'g', set: { list_id: 'lz', parent_id: null, title: 'Chleb', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } },
@@ -143,7 +145,9 @@ describe('podpowiedzi i stałe zakupy (D86)', () => {
 
   it('edycja stałych: dodanie, duplikat, puste, za długie, limit, usunięcie (polecenia serwera, M-111)', () => {
     const list = { id: 'lz', staples: ['Mleko'] };
-    expect(addStaple(list, '  Jajka  x10 ')).toEqual({ ok: true, op: { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Jajka x10' } } });
+    // Stała bez ilości (PWD-19 A).
+    expect(addStaple(list, '  Jajka  x10 ')).toEqual({ ok: true, op: { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Jajka' } } });
+    expect(addStaple(list, '2 kg  jabłek')).toEqual({ ok: true, op: { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'jabłek' } } });
     expect(addStaple(list, '2 mleko')).toEqual({ ok: false, error: 'duplicate' });
     expect(addStaple(list, '   ')).toEqual({ ok: false, error: 'empty' });
     expect(addStaple(list, 'a'.repeat(201))).toEqual({ ok: false, error: 'tooLong' });

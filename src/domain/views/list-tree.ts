@@ -7,6 +7,7 @@
  */
 import { config } from '../../config';
 import { asTask, rows, type Tables, type Task } from './model';
+import { nextId } from './task-repeat';
 
 type Item = { id: string; parent_id: string | null };
 
@@ -41,3 +42,27 @@ export function shoppingSplit(t: Tables, listId: string): Split<Task> {
   const items = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null && x.list_id === listId);
   return splitList(items, (x) => x.completed_at !== null);
 }
+
+/**
+ * Łańcuchy powtarzania na liście (D76, D133): kopia ma identyfikator nextId(poprzedniej), więc od każdego zadania da się
+ * dojść do pierwszego w łańcuchu. Zwraca funkcję: zadanie → pierwsze zadanie jego łańcucha (bez poprzednika — ono samo).
+ * Łączą też usunięte (telefon trzyma je do wyczyszczenia kosza), żeby jedna usunięta kopia nie dzieliła łańcucha.
+ * Pętli nie ma: nextId to UUIDv5 (skrót SHA-1), cykl wymagałby kolizji skrótu.
+ */
+export function repeatHeads(t: Tables, listId: string): (id: string) => string {
+  const prev = new Map<string, string>();
+  for (const x of Object.values(t.tasks ?? {})) if (x.list_id === listId && x.repeat != null) prev.set(nextId(String(x.id)), String(x.id));
+  const memo = new Map<string, string>();
+  return (id) => {
+    const path: string[] = [];
+    let h = id;
+    while (prev.has(h) && !memo.has(h)) {
+      path.push(h);
+      h = prev.get(h)!;
+    }
+    const head = memo.get(h) ?? h;
+    for (const p of path) memo.set(p, head);
+    return head;
+  };
+}
+

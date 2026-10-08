@@ -11,7 +11,7 @@ import { config } from '../../config';
 import { createList } from '../../domain/views/commands';
 import { groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
+import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
@@ -31,7 +31,9 @@ export function NewListScreen({ route, navigation }: Props) {
   const trip = readTrip(draft);
   const shopping = kind === 'shopping';
   const tripError = shopping && 'error' in trip ? trip.error : null;
-  const tripMissing = shopping && 'trip' in trip && !!group && tripLacksAddressee(group.kind, trip.trip);
+  // D73: we wspólnej grupie osoba albo dzień; lista „Tylko ja” jak grupa osobista (PW-18 A).
+  const tripNeeds = !!group && tripRequired(group.kind, personal ? 'group' : visibility);
+  const tripMissing = shopping && 'trip' in trip && tripLacksAddressee(tripNeeds, trip.trip);
 
   const create = () => {
     const id = newId();
@@ -53,7 +55,7 @@ export function NewListScreen({ route, navigation }: Props) {
         <>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {/* Audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt konkretny (inną osobę serwer odrzuci). */}
-          <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={group.kind === 'shared'} />
+          <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={tripNeeds} />
           {tripError ? <Body>{tripError}</Body> : null}
         </>
       ) : null}

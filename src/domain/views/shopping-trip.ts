@@ -9,11 +9,11 @@
  */
 import type { NewOp } from '../sync-engine/client';
 import { inverseOps, toggleDone } from './commands';
-import { concernsMe, liveMemberIds } from './concerns';
+import { concernsMe, liveMemberIds, ownPrivateList } from './concerns';
 import { cancelHandoff, handoffKey, outgoingPending } from './handoffs';
 import type { GroupItem, TodayItem } from './index';
 import { shoppingSplit } from './list-tree';
-import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
+import { asList, asMember, asTask, type List, type Member, rows, type Tables } from './model';
 
 export type Trip = { date: string | null; time: string | null; responsibleId: string | null };
 
@@ -25,8 +25,14 @@ export function asTrip(r: Record<string, unknown>): Trip {
 /** Czy lista ma zaplanowane zakupy (termin albo osobę). */
 export const hasTrip = (x: Trip) => x.date !== null || x.responsibleId !== null;
 
-/** Czy we wspólnej grupie brakuje osoby i terminu (D73 = D68 dla zakupów). */
-export const tripLacksAddressee = (groupKind: GroupItem['kind'], x: Pick<Trip, 'date' | 'responsibleId'>) => groupKind === 'shared' && x.date === null && x.responsibleId === null;
+/**
+ * Czy zakupy potrzebują osoby albo dnia (D73 = D68 dla zakupów): we wspólnej grupie, poza listą „Tylko ja” — ta działa
+ * jak grupa osobista (decyzja właściciela z 8.10.2026, audyt 2: PW-18 A).
+ */
+export const tripRequired = (groupKind: GroupItem['kind'], visibility: List['visibility']) => groupKind === 'shared' && visibility !== 'private';
+
+/** Czy brakuje osoby i terminu, choć są potrzebne (`required` — tripRequired). */
+export const tripLacksAddressee = (required: boolean, x: Pick<Trip, 'date' | 'responsibleId'>) => required && x.date === null && x.responsibleId === null;
 
 /** Pola zakupów przy tworzeniu listy i przy planowaniu. */
 export function tripSet(x: Trip) {
@@ -86,7 +92,7 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone 
     if (!g || !hasTrip(trip)) continue;
     const due = trip.date === null ? null : { date: trip.date, time: trip.time };
     const mine = trip.responsibleId === g.me.member_id;
-    if (!everyone && !concernsMe(trip.responsibleId, g, due, live)) continue;
+    if (!everyone && !concernsMe(trip.responsibleId, g, due, live, ownPrivateList(l, g))) continue;
     out.push({
       id,
       group_id: l.group_id,

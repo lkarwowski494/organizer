@@ -7,6 +7,7 @@ import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
 import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
 import { tripEntries } from '../views/shopping-trip';
+import { nextId } from '../views/task-repeat';
 import { config } from '../../config';
 
 const ME = 'u-me';
@@ -291,6 +292,31 @@ describe('listy', () => {
         expect(tripEntries(t, groups).find((x) => x.id === 'lz')!.trip.open).toBe(listOpenCount(t, asList(t.lists!.lz!), TODAY));
       }),
     );
+  });
+
+  it('PWD-14 A (M-283): minione kopie zadania powtarzanego „Tylko tego dnia” zwinięte w jeden wiersz; pojedyncze — bez zmian', () => {
+    const t = world();
+    // Leki codziennie od 1.10, nikt nie odhacza: kopie D133 do dziś (7.10, otwarta).
+    let id = 'leki';
+    const ids: string[] = [];
+    for (let d = 1; d <= 7; d++) {
+      task(t, { id, title: 'Leki', ...own(`2026-10-0${d}`), rollover: false, repeat: 'FREQ=DAILY' });
+      ids.push(id);
+      id = nextId(id);
+    }
+    // Usunięta kopia (3.10) nie dzieli łańcucha; odhaczona (2.10) zostaje osobno w zrobionych.
+    put(t, 'tasks', ids[2]!, { ...t.tasks![ids[2]!]!, deleted_at: '2026-10-03T12:00:00Z' });
+    put(t, 'tasks', ids[1]!, { ...t.tasks![ids[1]!]!, completed_at: '2026-10-02T08:00:00Z' });
+    // Inny łańcuch z jedną minioną kopią i zwykłe minione zadanie — pojedyncze wiersze.
+    task(t, { id: 'kwiaty', title: 'Podlać kwiaty', ...own('2026-10-05'), rollover: false, repeat: 'FREQ=WEEKLY;BYDAY=MO' });
+    task(t, { id: nextId('kwiaty'), title: 'Podlać kwiaty', ...own('2026-10-12'), rollover: false, repeat: 'FREQ=WEEKLY;BYDAY=MO' });
+    task(t, { id: 'kartka', title: 'Kartka', ...own('2026-10-04'), rollover: false });
+    const d = listDetail(t, ME, 'lf', TODAY)!;
+    expect(d.open.map((x) => x.id)).toEqual([ids[6], nextId('kwiaty')]);
+    const rows = d.doneRows.map((r) => (r.kind === 'run' ? `run:${r.key}:${r.title}:${r.nodes.map((n) => n.due!.date.slice(8)).join(',')}` : `task:${r.node.id}`));
+    expect(rows).toEqual([`run:leki:Leki:01,04,05,06`, `task:${ids[1]}`, 'task:kartka', 'task:kwiaty']);
+    // Wszystkie zamknięte dalej w `done` (ekran zadania szuka w nich zadania).
+    expect(d.done).toHaveLength(7);
   });
 
   it('remis terminu i sort_key rozstrzyga tytuł', () => {
