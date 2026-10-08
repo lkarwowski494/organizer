@@ -1,5 +1,6 @@
 /** Zgłaszanie błędów (D80): treść zgłoszenia, globalny handler, granica błędów; ekran „Wyślij uwagę”. */
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import * as fc from 'fast-check';
 import { Text } from 'react-native';
 
 import { appVersion, ErrorBoundary, installGlobalHandler, toClientError } from '../diagnostics';
@@ -16,6 +17,27 @@ describe('zgłoszenie błędu', () => {
     expect(toClientError('bum', 'error', null, 'v')).toMatchObject({ message: 'Error: bum', screen: null });
     expect(toClientError(new Error('m'.repeat(600)), 'error', 's'.repeat(200), 'v')).toMatchObject({ message: `Error: ${'m'.repeat(493)}`, screen: 's'.repeat(100) });
     expect(appVersion()).toBe('0.1.0 (13)');
+  });
+
+  it('audyt 2 (M-159): błąd kalendarza i dojazdu — tylko nazwa, kod i ramki stosu, bez treści z komunikatu', () => {
+    const e = Object.assign(new Error('Nie można zapisać „Basen Kuby” w kalendarzu Rodzina, ul. Wodna 1'), { code: 'E_CALENDAR_ERROR_UNKNOWN' });
+    e.stack = `Error: ${e.message}\n    at save (calendar.js:10:5)\n    at run (app.js:3:1)\n    at Rodzina, ul. Wodna 1`;
+    expect(toClientError(e, 'error', 'calendar-mirror', 'v', { private: true })).toEqual({ kind: 'error', message: 'Error (E_CALENDAR_ERROR_UNKNOWN)', stack: '    at save (calendar.js:10:5)\n    at run (app.js:3:1)', screen: 'calendar-mirror', appVersion: 'v' });
+    // Kod, który nie wygląda na kod (np. z treścią), pomijany; brak stosu — null; pusty komunikat nie chowa ramek.
+    expect(toClientError(Object.assign(new TypeError('x'), { code: 'Basen Kuby 17:00', stack: undefined }), 'error', null, 'v', { private: true })).toMatchObject({ message: 'TypeError', stack: null });
+    const bare = new Error('');
+    bare.stack = 'Error\n    at a (b.js:1:1)';
+    expect(toClientError(bare, 'error', null, 'v', { private: true }).stack).toBe('    at a (b.js:1:1)');
+    expect(toClientError('Basen', 'error', null, 'v', { private: true }).message).toBe('Error');
+    // Własność: żadna treść wiersza (tytuł, adres, nazwa kalendarza) z komunikatu nie trafia do zgłoszenia.
+    fc.assert(
+      fc.property(fc.string({ minLength: 3 }).filter((x) => x.trim().length >= 3 && !/:\d/.test(x) && !'Error ()E_CALENDAR'.includes(x)), (secret) => {
+        const err = new Error(`Brak: ${secret}`);
+        err.stack = `Error: Brak: ${secret}\n    at f (x.js:1:1)\n    at ${secret}`;
+        const r = toClientError(err, 'error', 'travel', 'v', { private: true });
+        return !JSON.stringify([r.message, r.stack]).includes(JSON.stringify(secret).slice(1, -1));
+      }),
+    );
   });
 
   it('globalny handler zgłasza i oddaje poprzedniemu; zgłoszenie z błędem nie psuje; przywrócenie', () => {
