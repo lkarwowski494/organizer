@@ -232,7 +232,13 @@ describe('Grupy', () => {
     expect(msg).toContain('Grupy → „Dołącz do grupy”');
     expect(msg).toContain('Kod: 731 064 (ważny do: czwartek, 8 października, 10:00)');
     expect(parseJoin(msg)).toEqual({ joinId: '482913507', code: '731064' });
+    // D187: unieważnienia nie da się cofnąć — jedno pytanie; „Anuluj” nic nie robi.
     await press(screen.getByLabelText('Unieważnij kod'));
+    expect(screen.getByText(/tego nie da się cofnąć/)).toBeTruthy();
+    await press(screen.getAllByLabelText('Anuluj').at(-1)!);
+    expect(account.revokeInvite).not.toHaveBeenCalled();
+    await press(screen.getByTestId('revoke'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(account.revokeInvite).toHaveBeenCalledWith('inv-2');
     await type(screen.getByTestId('child-name'), 'Zosia');
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
@@ -351,7 +357,7 @@ describe('Edycja grup (D54–D56)', () => {
     return base;
   };
 
-  it('właściciel: kolor linii, automatyczny, usunięcie do kosza z potwierdzeniem', async () => {
+  it('właściciel: kolor linii, automatyczny, usunięcie do kosza bez pytania, z „Cofnij” (D187)', async () => {
     const { store, account } = await open({ base: asOwner() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
@@ -361,13 +367,12 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Automatyczny'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } });
     await press(screen.getByTestId('delete-group'));
-    expect(screen.getByText(/Przez 30 dni możesz ją przywrócić/)).toBeTruthy();
-    await press(screen.getByLabelText('Anuluj'));
-    await press(screen.getByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
     expect(account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(store.refresh).toHaveBeenCalled();
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto grupę: Rodzina')).toBeTruthy();
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(account.restoreGroup).toHaveBeenCalledWith('gf');
   });
 
   it('błąd usuwania grupy pokazany; admin nie widzi koloru ani usuwania', async () => {
@@ -376,8 +381,8 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
 
   it('admin (domyślne dane): bez koloru i bez usuwania grupy', async () => {

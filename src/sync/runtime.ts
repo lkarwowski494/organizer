@@ -6,6 +6,7 @@
 import { config } from '../config';
 import {
   type ClientState,
+  clearRejected,
   mutate,
   type NewOp,
   type Op,
@@ -101,6 +102,12 @@ export class SyncRuntime {
     const ops: readonly NewOp[] = Array.isArray(op) ? op : [op as NewOp];
     this.setState(ops.reduce((st, o) => mutate(st, o, this.deps.newId), this.state));
     this.event({ t: 'local_change', pending: pendingCount(this.state) });
+  }
+
+  /** „Wyczyść listę” odrzuconych zmian (D190) — zapisane w bazie telefonu jak każda zmiana stanu. */
+  clearRejected(): void {
+    this.setState(clearRejected(this.state));
+    this.emit();
   }
 
   /** Zdarzenia z zewnątrz: pierwszy plan, sieć, poke z Realtime, odświeżona sesja. */

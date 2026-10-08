@@ -95,7 +95,6 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     const s = await openGroup(await open({ base: asOwner() }));
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
     await screen.findByTestId('screen-groups');
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(s.store.dispatched).toEqual([]);
@@ -267,10 +266,11 @@ describe('zaproszenie (audyt 2, R-19, PW-7)', () => {
     await openGroup(await open({ account }));
     await press(screen.getByTestId('invite'));
     await screen.findByTestId('invite-ready');
-    await press(screen.getByLabelText('Unieważnij kod'));
+    await press(screen.getByTestId('revoke'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.getByTestId('invite-ready')).toBeTruthy();
-    await press(screen.getByLabelText('Unieważnij kod'));
+    await press(screen.getByTestId('revoke-confirm'));
     expect(account.revokeInvite).toHaveBeenCalledTimes(2);
     expect(account.revokeInvite).toHaveBeenLastCalledWith('inv-2');
     expect(screen.queryByTestId('invite-ready')).toBeNull();
