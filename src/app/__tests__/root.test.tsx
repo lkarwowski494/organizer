@@ -108,7 +108,7 @@ afterEach(() => jest.restoreAllMocks());
 describe('wylogowanie a przypomnienia (audyt 2, N-4)', () => {
   it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, env: 'sandbox' as const, dismissed: async () => true, dismiss: async () => {}, replaceReminders, reminderSettings: async () => null, saveReminderSettings: async () => {} };
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, dismissed: async () => true, dismiss: async () => {}, replaceReminders, reminderSettings: async () => null, saveReminderSettings: async () => {} };
     const t = makeDeps({ push });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji: przypomnienia z poprzedniego uruchomienia (np. sprzed wylogowania) też idą precz.

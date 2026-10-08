@@ -87,6 +87,26 @@ describe('przekazanie odpowiedzialności (D70)', () => {
     expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['h2']);
     expect(handoffKey('events', 'e1', '2026-10-12')).toBe('events|e1|2026-10-12');
   });
+
+  it('audyt 2 (N-28): termin serii przeniesiony i przemianowany — nazwa i dzień z wyjątku, jak w planie i w powiadomieniu', () => {
+    const t = world();
+    put(t, 'handoffs', 'h2', { id: 'h2', group_id: 'gf', entity: 'events', entity_id: 'e1', occurrence_date: '2026-10-12', from_member: 'mm', to_member: 'mf', status: 'pending' });
+    put(t, 'handoffs', 'h3', { id: 'h3', group_id: 'gf', entity: 'events', entity_id: 'e1', occurrence_date: '2026-10-19', from_member: 'mm', to_member: 'mf', status: 'pending' });
+    put(t, 'handoffs', 'h4', { id: 'h4', group_id: 'gf', entity: 'events', entity_id: 'e1', occurrence_date: null, from_member: 'ma', to_member: 'mf', status: 'pending' });
+    put(t, 'event_overrides', 'o1', { id: 'o1', event_id: 'e1', occurrence_date: '2026-10-12', start_date: '2026-10-13', title: 'Tańce – pokaz', deleted_at: null });
+    // Wyjątek usunięty i wyjątek innej serii tego dnia — bez znaczenia.
+    put(t, 'event_overrides', 'o2', { id: 'o2', event_id: 'e1', occurrence_date: '2026-10-19', start_date: '2026-10-20', title: 'Stare', deleted_at: '2026-10-01T00:00:00Z' });
+    put(t, 'event_overrides', 'o3', { id: 'o3', event_id: 'inna', occurrence_date: '2026-10-19', title: 'Inna', deleted_at: null });
+    // Wyjątek bez zmiany nazwy i dnia (np. tylko inna godzina).
+    put(t, 'handoffs', 'h5', { id: 'h5', group_id: 'gf', entity: 'events', entity_id: 'e1', occurrence_date: '2026-10-26', from_member: 'mm', to_member: 'mf', status: 'pending' });
+    put(t, 'event_overrides', 'o4', { id: 'o4', event_id: 'e1', occurrence_date: '2026-10-26', start_time: '19:00:00', deleted_at: null });
+    expect(incomingHandoffs(t, ME).map((h) => [h.id, h.title, h.date, h.occurrence_date])).toEqual([
+      ['h3', 'Tańce', '2026-10-19', '2026-10-19'],
+      ['h4', 'Tańce', null, null],
+      ['h5', 'Tańce', '2026-10-26', '2026-10-26'],
+      ['h2', 'Tańce – pokaz', '2026-10-13', '2026-10-12'],
+    ]);
+  });
 });
 
 describe('o które przekazania poprosić o push (D70)', () => {

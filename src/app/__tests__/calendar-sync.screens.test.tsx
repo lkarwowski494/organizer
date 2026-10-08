@@ -4,7 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-
 import { config } from '../../config';
 import type { DeviceCalendarSync } from '../device-calendar';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { appStateEvents, put, sampleBase, setup } from './harness';
 
 jest.mock('expo-calendar', () => ({}));
 
@@ -84,6 +84,24 @@ describe('kalendarz iPhone’a', () => {
     await press(screen.getByTestId('device-later'));
     expect(screen.queryByTestId('device-calendar-card')).toBeNull();
     expect(prefs.m.get('calendarAsked')).toBe('1');
+  });
+
+  it('audyt 2 (N-21): zgoda włączona w Ustawieniach iPhone’a widoczna po powrocie do aplikacji, bez restartu', async () => {
+    const app = appStateEvents();
+    try {
+      const sync = fakeSync({ status: jest.fn(async () => 'denied' as const) });
+      await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarMirror: '1', calendarAsked: '1' }));
+      await press(screen.getByLabelText('Ustawienia'));
+      await press(await screen.findByTestId('settings-calendar'));
+      await flush();
+      expect(screen.queryByTestId('device-settings')).toBeNull();
+      sync.status.mockResolvedValue('granted');
+      await app.foreground();
+      expect(await screen.findByTestId('device-settings')).toBeTruthy();
+      expect(sync.listEvents).toHaveBeenCalled();
+    } finally {
+      app.restore();
+    }
   });
 
   it('lista z przerwami (D122): moje wydarzenie z iPhone’a według godziny, przerwy wokół niego', async () => {

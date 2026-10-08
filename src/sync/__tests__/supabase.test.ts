@@ -175,6 +175,50 @@ describe('Supabase: konto', () => {
     expect(auth.signOut).toHaveBeenCalledTimes(4);
   });
 
+  it('audyt 2 (N-11, S-24): token z poprzedniego uruchomienia zdjęty przy wylogowaniu; bez sieci wylogowanie bez wyjątku', async () => {
+    const saved: { v: string | null } = { v: 'ef'.repeat(32) };
+    const memory = { load: jest.fn(async () => saved.v), save: jest.fn(async (v: string | null) => void (saved.v = v)) };
+    let offline = false;
+    const { client, calls, auth } = fakeClient((c) => (offline ? { data: null, error: { message: 'Failed to fetch' }, status: 0 } : { data: {}, error: null, status: 200 }));
+    const a = supabaseAccount(client, async () => ({ identityToken: null }), memory);
+    // Rejestracja w tym uruchomieniu się nie udała (start bez sieci) — zdejmujemy token zapamiętany wcześniej.
+    await a.signOut();
+    expect(calls).toEqual([{ fn: 'unregister_push_token', args: { p_token: 'ef'.repeat(32) } }]);
+    expect(saved.v).toBeNull();
+    // Rejestracja zapamiętuje token; ten sam token drugi raz w tym uruchomieniu — bez zapisu na serwerze.
+    await a.registerPushToken('ab'.repeat(32), 'production');
+    await a.registerPushToken('ab'.repeat(32), 'production');
+    expect(calls.filter((c) => c.fn === 'register_push_token')).toHaveLength(1);
+    expect(saved.v).toBe('ab'.repeat(32));
+    // Bez sieci: wyrejestrowanie się nie udaje (token zostaje zapamiętany), auth-js usuwa sesję i zwraca błąd — bez wyjątku.
+    offline = true;
+    auth.signOut.mockResolvedValueOnce({ error: { message: 'Failed to fetch' } });
+    await expect(a.signOut()).resolves.toBeUndefined();
+    expect(saved.v).toBe('ab'.repeat(32));
+    // Błąd, po którym sesja została na telefonie — wylogowanie się nie udało.
+    auth.signOut.mockResolvedValueOnce({ error: { message: 'boom' } });
+    auth.getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u' } } } });
+    await expect(a.signOut()).rejects.toThrow('boom');
+    // Zapis i odczyt pamięci mogą zawieść — wylogowanie i rejestracja działają dalej.
+    offline = false;
+    memory.load.mockRejectedValueOnce(new Error('keychain'));
+    await expect(a.signOut()).resolves.toBeUndefined();
+    memory.save.mockRejectedValueOnce(new Error('keychain'));
+    await a.registerPushToken('cd'.repeat(32), 'sandbox');
+    memory.save.mockRejectedValueOnce(new Error('keychain'));
+    await a.signOut();
+    expect(calls.at(-1)).toEqual({ fn: 'unregister_push_token', args: { p_token: 'cd'.repeat(32) } });
+    // Po nowym logowaniu w tym samym uruchomieniu ten sam token rejestruje się znowu.
+    await a.registerPushToken('cd'.repeat(32), 'sandbox');
+    expect(calls.filter((c) => c.fn === 'register_push_token')).toHaveLength(3);
+    // Usunięcie konta: tokeny usuwa serwer, pamięć telefonu czyszczona.
+    memory.save.mockClear();
+    await a.deleteAccount();
+    expect(memory.save).toHaveBeenLastCalledWith(null);
+    memory.save.mockRejectedValueOnce(new Error('keychain'));
+    await expect(a.deleteAccount()).resolves.toBeUndefined();
+  });
+
   it('magic link z adresem powrotu w schemacie aplikacji, wylogowanie, usunięcie konta', async () => {
     const { client, auth, functions } = fakeClient();
     const a = supabaseAccount(client, async () => ({ identityToken: null }));

@@ -69,8 +69,15 @@ function check(r: { error: { message: string } | null }): void {
   if (r.error) throw new Error(r.error.message);
 }
 
-export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): AccountApi {
-  // Token APNs zarejestrowany w tej sesji aplikacji (rejestracja przy każdym starcie, HandoffNotifier).
+/**
+ * Ostatni token push zarejestrowany z tego telefonu (w aplikacji: pęk kluczy). Wylogowanie zdejmuje go z serwera także
+ * wtedy, gdy rejestracja w tym uruchomieniu się nie udała albo jeszcze nie odbyła (audyt 2, N-11).
+ */
+export type PushTokenMemory = { load(): Promise<string | null>; save(token: string | null): Promise<void> };
+const NO_MEMORY: PushTokenMemory = { load: async () => null, save: async () => {} };
+
+export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, memory: PushTokenMemory = NO_MEMORY): AccountApi {
+  // Token APNs zarejestrowany w tym uruchomieniu (przy starcie, powrocie do aplikacji i zmianie tokenu — HandoffNotifier).
   let pushToken: string | null = null;
   return {
     async signInWithApple() {
@@ -86,17 +93,23 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       check(await client.auth.signInWithOtp({ email, options: { emailRedirectTo: AUTH_REDIRECT } }));
     },
     async signOut() {
-      // Audyt 8.10.2026: po wylogowaniu telefon nie dostaje już powiadomień tego konta. Brak sieci nie blokuje
-      // wylogowania — wtedy token zostaje na serwerze, aż APNs zgłosi go jako nieważny albo zaloguje się ktoś inny.
-      if (pushToken) {
+      // Audyt 8.10.2026: po wylogowaniu telefon nie dostaje już powiadomień tego konta — token z tego uruchomienia
+      // albo zapamiętany (audyt 2, N-11). Brak sieci nie blokuje wylogowania — wtedy token zostaje na serwerze, aż
+      // APNs zgłosi go jako nieważny albo zaloguje się ktoś inny (zapamiętany token czeka na następne wylogowanie).
+      const token = pushToken ?? (await memory.load().catch(() => null));
+      pushToken = null;
+      if (token) {
         try {
-          await call(client, 'unregister_push_token', { p_token: pushToken });
-          pushToken = null;
+          await call(client, 'unregister_push_token', { p_token: token });
+          await memory.save(null).catch(() => {});
         } catch {
           // jak wyżej
         }
       }
-      check(await client.auth.signOut());
+      // Audyt 2 (S-24): auth-js bez sieci i tak usuwa sesję z telefonu, ale zwraca błąd (GoTrueClient._signOut) —
+      // wylogowanie się udało, więc bez wyjątku. Błąd tylko, gdy sesja została.
+      const r = await client.auth.signOut();
+      if (r.error && (await client.auth.getSession()).data.session) throw new Error(r.error.message);
     },
     async deleteAccount() {
       // Konto z Apple: świeży kod autoryzacji, żeby serwer unieważnił token Apple (wymóg Apple, O-036, ADR 0016).
@@ -106,6 +119,9 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       // Funkcja serwerowa sprawdza JWT i usuwa użytkownika; dane sprząta wyzwalacz bazy (D49, ADR 0004).
       check(await client.functions.invoke('delete-account', { method: 'POST', ...(code ? { body: { appleAuthorizationCode: code } } : {}) }));
       // Konto już nie istnieje, więc tylko lokalne wylogowanie (globalne wymagałoby ważnej sesji na serwerze).
+      // Tokeny push usunął serwer razem z kontem (push_tokens: on delete cascade).
+      pushToken = null;
+      await memory.save(null).catch(() => {});
       check(await client.auth.signOut({ scope: 'local' }));
     },
     async setMyName(name) {
@@ -150,8 +166,11 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       await call(client, 'transfer_ownership', { group_id: groupId, member_id: memberId });
     },
     async registerPushToken(token, env) {
+      // Ten sam token jest już na serwerze z tego uruchomienia (powrót do aplikacji, nasłuch zmiany) — bez zapisu.
+      if (token === pushToken) return;
       await call(client, 'register_push_token', { p_token: token, p_env: env });
       pushToken = token;
+      await memory.save(token).catch(() => {});
     },
     async notifyAssignment(activityId) {
       check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { activityId } }));

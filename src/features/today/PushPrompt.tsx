@@ -1,31 +1,36 @@
 /**
  * Prośba o powiadomienia na „Moje sprawy” (D70, D75; ADR 0015, 0016): przypomnienia dotyczą każdego, więc karta
- * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie.
+ * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie —
+ * włączyć można potem w Ustawieniach → Powiadomienia (audyt 2, N-8). Zgoda i jej skutki (token, plan przypomnień)
+ * w jednym miejscu: RemindersProvider.enable — ten sam przycisk w Ustawieniach robi to samo.
  */
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useServices } from '../../app/context';
-import { registerIfAllowed } from '../../app/push';
+import { useReminderSettings } from '../../app/reminders';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function PushPrompt() {
-  const { push, account } = useServices();
+  const { push } = useServices();
+  const { status, enable } = useReminderSettings();
   const { c, font } = useTheme();
-  const [show, setShow] = useState(false);
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+  const [hidden, setHidden] = useState(false);
   useEffect(() => {
     let live = true;
     if (!push) return;
-    Promise.all([push.status(), push.dismissed()])
-      .then(([s, d]) => live && setShow(s === 'undetermined' && !d))
+    push
+      .dismissed()
+      .then((d) => live && setDismissed(d))
       .catch(() => {});
     return () => {
       live = false;
     };
   }, [push]);
-  if (!show || !push) return null;
+  if (!push || hidden || dismissed !== false || status !== 'undetermined') return null;
   return (
     <View testID="push-prompt" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
       <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
@@ -36,11 +41,8 @@ export function PushPrompt() {
         label={strings['push.enable']}
         testID="push-enable"
         onPress={() => {
-          setShow(false);
-          push
-            .request()
-            .then((ok) => (ok ? registerIfAllowed(push, (t, e) => account.registerPushToken(t, e)) : false))
-            .catch(() => {});
+          setHidden(true);
+          void enable();
         }}
       />
       <Button
@@ -48,7 +50,7 @@ export function PushPrompt() {
         label={strings['push.later']}
         testID="push-later"
         onPress={() => {
-          setShow(false);
+          setHidden(true);
           push.dismiss().catch(() => {});
         }}
       />

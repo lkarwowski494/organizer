@@ -4,7 +4,7 @@ import { Linking } from 'react-native';
 
 import type { TravelService } from '../travel-service';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup, setTime } from './harness';
+import { appStateEvents, put, sampleBase, setTime, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
@@ -93,6 +93,36 @@ describe('dojazd (D115–D117)', () => {
     expect(prefs.m.get('navApp')).toBe('google');
     await press(within(within(box).getByLabelText('Czas dojazdu do dzisiejszych wydarzeń')).getByLabelText('Wyłączony'));
     expect(prefs.m.get('travelEnabled')).toBe('0');
+  });
+
+  it('PW-23 (decyzja właściciela): moje „Nie będę” — bez „Wyjdź o” i bez liczenia dojazdu; zmiana zdania przywraca', async () => {
+    const { store, travel } = await open();
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    const calls = travel.eta.mock.calls.length;
+    const rsvp = { id: 'r-basen', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'mf', answer: 'no', deleted_at: null, version: 1 };
+    store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': rsvp } }));
+    await waitFor(() => expect(screen.queryByText(/Wyjdź o/)).toBeNull());
+    expect(screen.getByLabelText(/^Basen, 17:00–18:00/)).toBeTruthy(); // wiersz zostaje (D129)
+    expect(travel.eta.mock.calls.length).toBe(calls);
+    store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': { ...rsvp, answer: 'yes' } } }));
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+  });
+
+  it('audyt 2 (N-21): zgoda na lokalizację włączona w Ustawieniach iPhone’a — po powrocie do aplikacji dojazd się liczy', async () => {
+    const app = appStateEvents();
+    try {
+      const travel = fakeTravel({ status: jest.fn(async () => 'denied' as const) });
+      await open(travel);
+      expect(screen.queryByText(/Wyjdź o/)).toBeNull();
+      expect(travel.position).not.toHaveBeenCalled();
+      travel.status.mockResolvedValue('granted');
+      await app.foreground();
+      await flush();
+      expect(travel.position).toHaveBeenCalled();
+      expect(await screen.findByText(/Wyjdź o/)).toBeTruthy();
+    } finally {
+      app.restore();
+    }
   });
 
   it('zapisane ustawienia wczytane; Google Maps; nieznany adres — bez czasu; błąd — zgłoszony raz', async () => {

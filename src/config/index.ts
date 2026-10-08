@@ -109,6 +109,8 @@ export const config = {
     LEAD_OPTIONS: [0, 10, 30, 60] as const,
     MORNING: '08:00',
     MORNING_OPTIONS: ['off', '07:00', '08:00', '09:00'] as const,
+    /** „Czas wyjść” (D117) — osobny przełącznik, domyślnie włączony jak dotąd (PWD-17, decyzja właściciela 8.10.2026). */
+    LEAVE: true,
     /** Ile dni naprzód planuje telefon (plan odświeża się przy każdej zmianie danych i uruchomieniu). */
     DAYS_AHEAD: 3,
     /**
@@ -118,6 +120,12 @@ export const config = {
     MAX_SCHEDULED: 40,
     /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
     MORNING_LIST_MAX: 4,
+    /**
+     * Przypomnienia bliższe niż tyle od chwili planowania pomijamy (audyt 2, N-7): iOS odrzuca wyzwalacz z odstępem ≤ 0
+     * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger), a datę ucina do sekundy.
+     * 5 s — zapas na czas między policzeniem planu a zaplanowaniem; wybór projektowy.
+     */
+    SCHEDULE_MARGIN_MS: 5_000,
   },
 
   /**

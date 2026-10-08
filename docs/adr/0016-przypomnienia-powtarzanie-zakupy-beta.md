@@ -13,6 +13,7 @@
    - Plan obejmuje 3 dni naprzód, najwyżej 40 powiadomień naraz, i odświeża się po każdej zmianie danych.
    - Limit iOS na liczbę zaplanowanych powiadomień nie jest potwierdzony w przeczytanej dokumentacji Apple. To otwarte pytanie, dlatego zapas.
    - Sprawy bez terminu (przypięte) nie dostają przypomnień, bo codziennie to samo byłoby szumem.
+   - Audyt 2: dzień naprzód liczony tak, jak aplikacja pokaże go tego dnia — poranne podsumowanie jutra liczy zaległe (M-88); planowanie po kolei (nowszy plan zastępuje starszy), bez pozycji bliższych niż 5 s, błąd jednej pozycji nie przerywa reszty i jest zgłaszany raz (M-100); stan zgody odświeżany po powrocie do aplikacji (M-101); dotknięcie przypomnienia otwiera sprawę (PWD-16). Plan liczy jedna funkcja bez Reacta (`reminderPlan` w `src/app/reminders.tsx`) — do przyszłego planowania w tle (PW-22).
    - Karta zgody pokazuje się teraz każdemu, nie tylko osobom we wspólnej grupie.
 2. **Powtarzanie: kolejne zadanie zamiast przesuwania terminu.**
    - Odhaczenie tworzy następne zadanie ze stałym id (uuidv5), więc dwa telefony nie zrobią duplikatu. Odhaczone zostaje jako historia.
