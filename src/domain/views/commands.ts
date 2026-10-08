@@ -5,7 +5,7 @@
  */
 import type { QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
-import type { Task } from './model';
+import type { Tables, Task } from './model';
 
 export function createTask(a: { id: string; groupId: string; listId: string; parentId?: string | null; parsed: QuickAddResult; sortKey?: string; assigneeId?: string | null }): NewOp {
   const due = a.parsed.due;
@@ -90,4 +90,21 @@ export function renameMember(memberId: string, name: string): NewOp {
 
 export function moveTask(id: string, parentId: string | null, listId?: string): NewOp {
   return { kind: 'cmd', cmd: 'move_task', args: listId === undefined ? { id, parent_id: parentId } : { id, parent_id: parentId, list_id: listId } };
+}
+
+/**
+ * Operacje odwrotne do `ops` względem stanu `t` sprzed nich — do paska „Cofnij” (audyt 8.10.2026: odwołanie albo
+ * usunięcie wydarzenia było bez cofnięcia). Od końca: utworzenie → usunięcie, usunięcie ↔ przywrócenie, zmiana →
+ * poprzednie wartości pól (brak pola = null). Polecenia serwera (cmd) nie mają odwrotności — wtedy `null`.
+ */
+export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
+  if (ops.some((o) => o.kind === 'cmd')) return null;
+  return [...ops].reverse().map((o): NewOp => {
+    if (o.kind === 'create') return { kind: 'delete', entity: o.entity, id: o.id };
+    if (o.kind === 'delete') return { kind: 'restore', entity: o.entity, id: o.id };
+    if (o.kind === 'restore') return { kind: 'delete', entity: o.entity, id: o.id };
+    const p = o as Extract<NewOp, { kind: 'patch' }>;
+    const before = t[p.entity]?.[p.id] ?? {};
+    return { kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, before[k] ?? null])) };
+  });
 }

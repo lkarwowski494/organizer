@@ -245,6 +245,11 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-today');
     expect(store.dispatched).toEqual([{ kind: 'create', entity: 'event_overrides', id: 'new-1', group_id: 'gf', set: { event_id: 'ev-tance', occurrence_date: '2026-10-07', cancelled: true } }]);
     expect(screen.queryByTestId('today-event-ev-tance-2026-10-07')).toBeNull();
+    // Audyt 8.10.2026: „Cofnij” przywraca termin.
+    expect(screen.getByText('Odwołano: Tańce')).toBeTruthy();
+    await press(screen.getByLabelText('Cofnij'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'event_overrides', id: 'new-1' });
+    expect(await screen.findByTestId('today-event-ev-tance-2026-10-07')).toBeTruthy();
   });
 
   it('odwołanie od pierwszego wystąpienia = usunięcie serii', async () => {
@@ -253,6 +258,8 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('scope-following'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-tance' }]);
+    await press(screen.getByLabelText('Cofnij'));
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'events', id: 'ev-tance' });
   });
 
   it('jednorazowe: zmiana bez pytania o zakres, usunięcie z potwierdzeniem', async () => {

@@ -482,6 +482,7 @@ export const strings = {
   'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
+  'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,
   'undo.action': 'Cofnij',
 
   'addressee.ask': 'Dla kogo albo na kiedy?',
