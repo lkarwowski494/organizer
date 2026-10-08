@@ -1,5 +1,6 @@
 import * as fc from 'fast-check';
 
+import { NEXT_FORMS, WEEKDAY_FORMS } from '../../config/quickadd.pl';
 import { type LocalDateTime } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import corpus from './fixtures/quickadd.pl.json';
@@ -59,7 +60,58 @@ describe('parseQuickAdd — tokeny i odklikiwanie', () => {
   });
 
   it('pusty tekst', () => {
-    expect(parseQuickAdd('', now)).toEqual({ title: '', due: null, rrule: null, tokens: [] });
+    expect(parseQuickAdd('', now)).toEqual({ title: '', due: null, rrule: null, tokens: [], unrecognizedDay: null });
+  });
+});
+
+describe('parseQuickAdd — bezpiecznik dnia (audyt 2, M-23)', () => {
+  const now = at('2026-10-07T10:00'); // środa
+
+  it('„dentysta w przyszły wtorek o 15”: nie dziś 15:00 — godzina zostaje w tytule, termin pusty, fragment do pokazania', () => {
+    const text = 'dentysta w przyszły wtorek o 15';
+    const r = parseQuickAdd(text, now);
+    expect(r).toMatchObject({ title: text, due: null, rrule: null, tokens: [] });
+    expect(r.unrecognizedDay).toEqual({ start: 11, end: 26, text: 'przyszły wtorek' });
+  });
+
+  it('fragment: sama nazwa dnia, „następnym tygodniu”, wielkie litery; bez godziny nic nie odpada', () => {
+    expect(parseQuickAdd('rachunek za prąd piątek', now)).toMatchObject({ title: 'rachunek za prąd piątek', due: null, unrecognizedDay: { text: 'piątek' } });
+    expect(parseQuickAdd('zebranie w następnym tygodniu o 9', now).unrecognizedDay?.text).toBe('następnym tygodniu');
+    expect(parseQuickAdd('Basen Środy o 17', now).unrecognizedDay?.text).toBe('Środy');
+    // „przyszłego” tuż przed godziną: godzina nie jest częścią fragmentu.
+    expect(parseQuickAdd('zadanie przyszłego o 7', now).unrecognizedDay?.text).toBe('przyszłego');
+    expect(parseQuickAdd('następny, czwartek o 9', now).unrecognizedDay?.text).toBe('następny');
+  });
+
+  it('rozpoznana data wyłącza bezpiecznik; odklikany dzień to zwykły tekst (godzina jak zwykle, D43)', () => {
+    expect(parseQuickAdd('basen jutro o 17, nie w przyszły czwartek', now)).toMatchObject({ due: { date: '2026-10-08', time: '17:00' }, unrecognizedDay: null });
+    const text = 'kino w piątek o 20';
+    const dateToken = parseQuickAdd(text, now).tokens.find((t) => t.kind === 'date')!;
+    expect(parseQuickAdd(text, now, { ignore: [dateToken] })).toMatchObject({ title: 'kino w piątek', due: { date: '2026-10-07', time: '20:00' }, unrecognizedDay: null });
+    // Odklikane słowo dnia też nie uruchamia bezpiecznika.
+    const t2 = 'spotkanie z p. Środą o 15';
+    const word = { start: t2.indexOf('Środą'), end: t2.indexOf('Środą') + 5 };
+    expect(parseQuickAdd(t2, now).due).toBeNull();
+    expect(parseQuickAdd(t2, now, { ignore: [word] }).due).toEqual({ date: '2026-10-07', time: '15:00' });
+  });
+
+  it('nie myli dni z podobnymi słowami', () => {
+    for (const text of ['środki czystości o 17', 'wśród znajomych o 17', 'kupić wtórnik o 17', 'piątka z matmy o 17', 'następnie zadzwonić o 17']) {
+      expect(parseQuickAdd(text, now).unrecognizedDay).toBeNull();
+      expect(parseQuickAdd(text, now).due).not.toBeNull();
+    }
+  });
+
+  it('własność: każda forma dnia bez przyimka i dowolna godzina → bez terminu, tytuł = tekst', () => {
+    const forms = [...WEEKDAY_FORMS.flat(), ...NEXT_FORMS];
+    fc.assert(
+      fc.property(fc.constantFrom(...forms), fc.integer({ min: 0, max: 23 }), fc.integer({ min: 0, max: 59 }), (form, h, m) => {
+        const text = `zadanie ${form} o ${h}:${String(m).padStart(2, '0')}`;
+        const r = parseQuickAdd(text, now);
+        expect(r).toMatchObject({ title: text, due: null, rrule: null, tokens: [] });
+        expect(r.unrecognizedDay?.text.startsWith(form)).toBe(true);
+      }),
+    );
   });
 });
 

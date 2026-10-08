@@ -24,6 +24,10 @@ Zgłoszenie właściciela:
 3. **„@imię”:**
    - Działa jak początek imienia, bez wielkości liter i polskich znaków, bez odmiany: „@Alę” nie pasuje do „Ala”. (Poprawka 8.10.2026: wcześniej był tu przykład „@Alą”, ale ten pasuje, bo bez polskich znaków ą → a; test w `src/domain/__tests__/mention.test.ts`.)
    - Nie pasuje do mnie samego ani do grup, w których jestem dzieckiem.
-   - Bez dopasowania tekst zostaje w nazwie.
+   - Bez dopasowania tekst zostaje w nazwie — ale najpierw pytanie „Nie ma @Zosia w Twoich grupach” z „Dodaj bez osoby”
+     i „Anuluj” (audyt 2, M-169: wcześniej trafiało po cichu do Osobistych).
+   - „Więcej” przy kilku dopasowaniach pyta w formularzu tak samo jak „+”; „@al” zostaje w nazwie, dopóki nie
+     wybierzesz osoby (audyt 2, M-170: wcześniej wzmianka znikała bez śladu).
+   - Sam termin albo samo „@imię” bez nazwy: pole zostaje, komunikat „Wpisz, co jest do zrobienia.” (audyt 2, M-168).
    - Parser dat (D18, korpus z niezależnym wzorcem) się nie zmienił. „@imię” jest rozpoznawane osobno (`domain/views/mention.ts`) i przed parsowaniem zastępowane spacjami, żeby odklikane fragmenty zachowały pozycje.
 4. **Grupa bez listy zadań:** przy pierwszym zadaniu powstaje lista „Zadania” (nazwa projektowa, bez źródła).

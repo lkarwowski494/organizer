@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formFromTask, formFromText, formGroups, formMembers, formOps, formWeekday, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
+import { formFromTask, formFromText, formGroups, formMembers, formOps, formWeekday, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -47,18 +47,23 @@ describe('pełny formularz zadania (D90)', () => {
 
   it('z tekstu: termin, „co tydzień” i @imię z jednym dopasowaniem', () => {
     const t = base();
-    expect(formFromText(t, ME, 'Basen jutro 19.00', NOW)).toEqual({ form: form(), candidates: [] });
+    expect(formFromText(t, ME, 'Basen jutro 19.00', NOW)).toEqual({ form: form(), candidates: [], mention: null });
     expect(formFromText(t, ME, 'Basen jutro 19.00 @ala', NOW).form).toEqual(form({ groupId: 'gf', assigneeId: 'ala' }));
     expect(formFromText(t, ME, 'basen w piątek co tydzień', NOW).form).toMatchObject({ date: '2026-10-09', time: '', repeat: { kind: 'weekly', days: [4] } });
     expect(formFromText(t, ME, 'basen co tydzień', NOW).form).toMatchObject({ date: '2026-10-08', repeat: { kind: 'weekly', days: [3] } });
   });
 
-  it('@imię: kilka dopasowań — kandydaci, nic nie ustawione; brak dopasowania — @ zostaje w nazwie', () => {
+  it('@imię: kilka dopasowań — kandydaci, „@al” w nazwie do wyboru (audyt 2, M-170); brak dopasowania — @ zostaje w nazwie', () => {
     const t = base();
-    const r = formFromText(t, ME, 'zebranie @al', NOW);
+    const r = formFromText(t, ME, 'zebranie jutro @al', NOW);
     expect(r.candidates.map((c) => c.memberId)).toEqual(['ala', 'alicja']);
-    expect(r.form).toMatchObject({ title: 'zebranie', groupId: ME, assigneeId: null });
-    expect(formFromText(t, ME, 'zebranie @zenek', NOW)).toMatchObject({ form: { title: 'zebranie @zenek' }, candidates: [] });
+    expect(r.mention).toBe('al');
+    expect(r.form).toMatchObject({ title: 'zebranie @al', groupId: ME, assigneeId: null, date: '2026-10-09' });
+    expect(pickCandidate(r.form, 'al', r.candidates[1]!)).toEqual({ ...r.form, title: 'zebranie', groupId: 'gk', assigneeId: 'alicja' });
+    // Nazwa zmieniona przed wyborem: „@al” znika tylko, jeśli jeszcze jest; interpunkcja bez wiszącej spacji.
+    expect(pickCandidate({ ...r.form, title: 'zebranie @al, sala 4' }, 'al', r.candidates[0]!).title).toBe('zebranie, sala 4');
+    expect(pickCandidate({ ...r.form, title: 'zebranie' }, 'al', r.candidates[0]!).title).toBe('zebranie');
+    expect(formFromText(t, ME, 'zebranie @zenek', NOW)).toMatchObject({ form: { title: 'zebranie @zenek' }, candidates: [], mention: null });
     expect(formFromText({}, ME, 'x', NOW).form.groupId).toBe('');
   });
 

@@ -21,6 +21,7 @@ import { groupsView, listDetail, myMemberships, type TaskNode } from '../../doma
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -39,6 +40,8 @@ export function ListScreen({ route, navigation }: Props) {
   const { tables, today, indicator, state } = useAppData();
   const { c, font } = useTheme();
   const [text, setText] = useState('');
+  const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [ask, setAsk] = useState(false);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
@@ -75,15 +78,21 @@ export function ListScreen({ route, navigation }: Props) {
   const planError = planned && 'error' in planned ? planned.error : null;
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(groupKind, planned.trip);
   const add = (extra: { assigneeId?: string; dueDate?: string } = {}, value = text) => {
-    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: [], newId, listId: list.id, ...extra }));
+    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: value === text ? ignore : [], newId, listId: list.id, ...extra }));
     setText('');
+    setIgnore([]);
     setAsk(false);
+    setError(null);
   };
+  // Lista zadań: rozpoznane fragmenty to chipy do odklikania (D18), jak w Moich sprawach. Zakupy — bez terminów (audyt 2, M-20).
+  const parsed = shopping ? null : parseQuickAdd(text, now(), { ignore });
   // D68: we wspólnej grupie zadanie bez osoby i terminu nie zapisze się — najpierw wybór adresata.
   const submit = () => {
-    const parsed = parseQuickAdd(text, now());
-    if (parsed.title.trim() === '') return;
-    if (!shopping && !parsed.due && addresseeRequired(tables, userId, list.id, null)) return setAsk(true);
+    if (text.trim() === '') return;
+    if (!parsed) return add();
+    // Audyt 2 (M-168): sam termin („jutro”) — nie ma czego dodać; pole zostaje z komunikatem.
+    if (parsed.title.trim() === '') return setError(strings['form.error.title']);
+    if (!parsed.due && addresseeRequired(tables, userId, list.id, null)) return setAsk(true);
     add();
   };
   const n = now();
@@ -200,8 +209,12 @@ export function ListScreen({ route, navigation }: Props) {
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
-        <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
-          {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} /> : null}
+        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setAsk(false), setError(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+          {parsed ? (
+            <QuickAddExtras preview={{ title: parsed.title, tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
+          ) : (
+            <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} />
+          )}
         </QuickAddField>
       ) : null}
       {ask ? (
@@ -220,7 +233,7 @@ export function ListScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(false)} />
         </View>
       ) : null}
-      {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{strings['lists.emptyItems']}</Body> : null}
+      {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}
       {shopping ? (
         sections(detail.open, tables, list.group_id).map((sec) => (
           <View key={sec.key} testID={`section-${sec.key}`}>

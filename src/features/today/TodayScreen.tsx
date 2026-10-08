@@ -9,8 +9,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { config } from '../../config';
 import { quickAddOps } from '../../app/quickadd';
-import { findTimeRange, withoutRange } from '../../domain/time-range';
-import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
+import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
 import { routineStreak, taskStreak } from '../../domain/views/routines';
@@ -18,7 +17,6 @@ import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
-import { parseQuickAdd } from '../../domain/quickadd';
 import { useTaskActions } from '../../app/task-actions';
 import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
@@ -35,13 +33,15 @@ import { PushPrompt } from './PushPrompt';
 import { WhatsNew } from './WhatsNew';
 import { NAME_ASKED } from '../profile/NameScreen';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
-import { extractMention, type MentionTarget, mentionTargets } from '../../domain/views/mention';
+import { blankMention, type MentionResolution, type MentionTarget, resolveMention } from '../../domain/views/mention';
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { AskPanel } from '../../ui/AskPanel';
+import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -54,8 +54,10 @@ export function TodayScreen() {
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
-  // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem.
-  const [choices, setChoices] = useState<MentionTarget[] | null>(null);
+  // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem; żadnej — pytanie, czy bez osoby (audyt 2, M-169).
+  const [ask, setAsk] = useState<Extract<MentionResolution, { kind: 'many' | 'unknown' }> | null>(null);
+  // Audyt 2 (M-168): nie ma czego dodać (sam termin, samo „@imię”) — pole zostaje, komunikat zamiast cichego czyszczenia.
+  const [error, setError] = useState<string | null>(null);
   // D127: rozwinięte wiersze lekcji dziecka (klucz wiersza).
   const [openLessons, setOpenLessons] = useState<string[]>([]);
   const undo = useUndo();
@@ -96,9 +98,9 @@ export function TodayScreen() {
   const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
   const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
   const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
-  // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania.
-  const range = text ? findTimeRange(text, ignore) : null;
-  const tokens = text ? [...(range ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parseQuickAdd(range ? withoutRange(text, range) : text, now(), { ignore }).tokens].sort((a, b) => a.start - b.start) : [];
+  // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania. Podgląd mówi też, że powstanie
+  // wydarzenie (audyt 2, M-256) albo że dnia nie rozpoznano (M-23).
+  const preview = quickPreview(text, now(), ignore);
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
@@ -106,9 +108,8 @@ export function TodayScreen() {
 
   // Szybkie dodanie (D90, D91): „@imię” wybiera grupę i osobę; po dodaniu pasek „Dodano … · Zmień” otwiera pełny formularz.
   const addWith = (target?: MentionTarget) => {
-    const { mention } = extractMention(text);
     // „@imię” zastępujemy spacjami tej samej długości, żeby odklikane fragmenty (ignore) zachowały pozycje.
-    const body = mention && target ? `${text.slice(0, mention.start)}${' '.repeat(mention.end - mention.start)}${text.slice(mention.end)}` : text;
+    const body = target ? blankMention(text) : text;
     const group = target ? target.groupName : strings['groups.personal'];
     const q = quickEvent({ tables, userId, text: body, now: now(), ignore, groupId: target?.groupId, memberId: target?.memberId });
     const event = q ? quickEventOps(q, newId) : null;
@@ -119,23 +120,26 @@ export function TodayScreen() {
       return clear();
     }
     const ops = quickAddOps({ tables, userId, text: body, now: now(), ignore, newId, groupId: target?.groupId, assigneeId: target?.memberId });
-    store.dispatch(ops);
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
-    if (created && created.kind === 'create') {
-      undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
-    }
+    // Bez żadnej grupy (np. przed pierwszym pobraniem danych) nie ma gdzie dodać — tekst zostaje w polu.
+    if (!created || created.kind !== 'create') return (setAsk(null), setError(strings['common.error']));
+    store.dispatch(ops);
+    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
     clear();
   };
   const clear = () => {
     setText('');
     setIgnore([]);
-    setChoices(null);
+    setAsk(null);
+    setError(null);
   };
   const submit = () => {
-    const { mention } = extractMention(text);
-    const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
-    if (targets.length > 1) return setChoices(targets);
-    addWith(targets[0]);
+    if (text.trim() === '') return;
+    const r = resolveMention(tables, userId, text);
+    // M-168: sam termin („jutro”) albo samo „@Ala” — bez nazwy nie ma czego dodać.
+    if (quickPreview(r.kind === 'one' || r.kind === 'many' ? blankMention(text) : text, now(), ignore).title.trim() === '') return setError(strings['form.error.title']);
+    if (r.kind === 'many' || r.kind === 'unknown') return setAsk(r);
+    addWith(r.kind === 'one' ? r.target : undefined);
   };
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
@@ -288,14 +292,8 @@ export function TodayScreen() {
           <LineChip key={g.id} name={g.kind === 'personal' ? strings['groups.personal'] : g.name} line={g.line} />
         ))}
       </View>
-      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setChoices(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
-        {tokens.length ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {tokens.map((t) => (
-              <TokenChip key={`${t.start}-${t.end}`} text={t.text} onPress={() => setIgnore([...ignore, { start: t.start, end: t.end }])} />
-            ))}
-          </View>
-        ) : null}
+      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
+        <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button
         kind="secondary"
@@ -303,26 +301,31 @@ export function TodayScreen() {
         a11yHint={strings['form.moreHint']}
         testID="add-more"
         onPress={() => {
-          // Z zakresem godzin — od razu formularz wydarzenia (D99); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu.
-          const { text: rest, mention } = extractMention(text);
-          const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
-          const one = targets.length === 1 ? targets[0] : undefined;
-          const q = quickEvent({ tables, userId, text: one ? rest : text, now: now(), ignore: one ? [] : ignore, groupId: one?.groupId, memberId: one?.memberId });
+          // Z zakresem godzin — od razu formularz wydarzenia (D99); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu
+          // (przy kilku pyta pełny formularz zadania, audyt 2 M-170).
+          const r = resolveMention(tables, userId, text);
+          const one = r.kind === 'one' ? r.target : undefined;
+          const q = quickEvent({ tables, userId, text: one ? blankMention(text) : text, now: now(), ignore, groupId: one?.groupId, memberId: one?.memberId });
           if (q) nav.navigate('EventEdit', { groupId: q.groupId, date: q.form.date, title: q.form.title, start: q.form.slots[0]!.start, end: q.form.slots[0]!.end, responsibleId: q.form.responsibleId ?? undefined });
           else nav.navigate('AddTask', { text });
           clear();
         }}
       />
-      {choices ? (
-        <View testID="mention-choices" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {strings['mention.ask'](extractMention(text).mention?.name ?? '')}
-          </Text>
-          {choices.map((t) => (
-            <Button key={`${t.groupId}-${t.memberId}`} kind="secondary" label={strings['mention.pick'](t.displayName, t.groupName)} onPress={() => addWith(t)} />
-          ))}
-          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setChoices(null)} />
-        </View>
+      {ask?.kind === 'many' ? (
+        <AskPanel
+          testID="mention-choices"
+          title={strings['mention.ask'](ask.name)}
+          options={ask.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => addWith(t) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.kind === 'unknown' ? (
+        <AskPanel
+          testID="mention-unknown"
+          title={strings['mention.unknown'](ask.name)}
+          body={strings['mention.unknownInfo'](ask.name)}
+          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => addWith() }]}
+          onCancel={() => setAsk(null)}
+        />
       ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

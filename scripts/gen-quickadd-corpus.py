@@ -2,7 +2,8 @@
 """Generuje korpus testowy parsera szybkiego dodawania (D18) z NIEZALEŻNĄ implementacją reguł.
 
 Oczekiwane terminy liczy moduł datetime z biblioteki standardowej Pythona, a nie kod parsera,
-więc zgodność obu jest testem różnicowym. Reguły D42–D45 opisane w docs/adr/0003-quickadd-pl.md.
+więc zgodność obu jest testem różnicowym. Reguły D42–D45 i bezpiecznik dnia (audyt 2, M-23) opisane
+w docs/adr/0003-quickadd-pl.md.
 Uruchomienie: python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quickadd.pl.json
 """
 import json
@@ -24,6 +25,21 @@ WEEKDAYS = [  # biernik po przyimku, 0 = poniedziałek
 MONTHS_GEN = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia",
               "września", "października", "listopada", "grudnia"]
 BYDAY = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+# Bezpiecznik dnia (audyt 2, M-23): nazwa dnia w dowolnej formie albo „przyszły/następny”, gdy daty nie rozpoznano —
+# godzina i „co tydzień” zostają w tytule, terminu nie ma. Formy przepisane osobno z haseł sjp.pl (poniedziałek …
+# niedziela, przyszły, następny), nie z kodu parsera.
+DAY_FORMS = [
+    "poniedziałek poniedziałkiem poniedziałkowi poniedziałku poniedziałków poniedziałkach poniedziałkami poniedziałkom poniedziałki",
+    "wtorek wtorkiem wtorkowi wtorku wtorków wtorkach wtorkami wtorkom wtorki",
+    "środa środą środę środo środy środzie środach środami środom śród",
+    "czwartek czwartkiem czwartkowi czwartku czwartków czwartkach czwartkami czwartkom czwartki",
+    "piątek piątkiem piątkowi piątku piątków piątkach piątkami piątkom piątki",
+    "sobota sobocie sobotą sobotę soboto soboty sobotach sobotami sobotom sobót",
+    "niedziela niedziele niedzielą niedzielę niedzieli niedzielo niedzielach niedzielami niedzielom niedziel",
+]
+NEXT_FORMS = ("przyszły przyszłego przyszłemu przyszłych przyszłym przyszłymi przyszli przyszła przyszłą przyszłe przyszłej "
+              "następny następnego następnemu następnych następnym następnymi następni następna następną następne następnej")
+DAY_WORDS = set(" ".join(DAY_FORMS + [NEXT_FORMS]).split())
 
 
 def iso(d):
@@ -61,6 +77,12 @@ def resolve_time(now, day, h, mi):
         if fut(*o):
             return o
     return opts[-1]
+
+
+def unrecognized(now, text):
+    """Bezpiecznik: w tekście jest słowo dnia, a dnia nie rozpoznano — cały tekst zostaje tytułem, bez terminu."""
+    assert DAY_WORDS & set(text.replace(",", " ").split()), text
+    return case(now, text, text, None)
 
 
 def case(now, text, title, day, hm=None, weekly=False):
@@ -112,9 +134,22 @@ for n, now in enumerate(NOWS):
     cases.append(case(now, f"{t} w piątek co tydzień", t, weekday_date(today, 4), weekly=True))
     cases.append(case(now, f"{t} jutro o 17 co tydzień", t, today + timedelta(days=1), (17, 0), weekly=True))
     cases.append(case(now, f"{t} co tydzien o 8", t, None, (8, 0), weekly=True))
+    # Bezpiecznik dnia (M-23): dzień nazwany, ale nierozpoznany — nie zgadujemy go z godziny ani ze startu serii.
+    for txt in ["w przyszły wtorek o 15", "w następną sobotę o 9:30", "piątek o 18", "w przyszłym tygodniu o 8",
+                "w środy co tydzień o 17", "co tydzień w następny poniedziałek", "niedziela 20:15", "czwartek"]:
+        cases.append(unrecognized(now, f"{t} {txt}"))
+    # Data rozpoznana — słowo dnia obok niej nic nie zmienia (pierwsza data wygrywa, reszta zostaje w tytule).
+    cases.append(case(now, f"{t} jutro o 17 zamiast we wtorek", f"{t} zamiast we wtorek", today + timedelta(days=1), (17, 0)))
+    cases.append(case(now, f"{t} w piątek o 18, nie w przyszły czwartek", f"{t}, nie w przyszły czwartek",
+                      weekday_date(today, 4), (18, 0)))
     # Bez rozpoznawalnych fragmentów: tytuł bez zmian, brak terminu.
     for txt in [t, f"{t} do piątku", f"{t} 2 litry", f"{t} 31.04", f"{t} jutrzejsze", f"{t} 24.00", f"{t} 18.60"]:
         cases.append(case(now, txt, txt, None))
+
+# Każda forma ze słownika raz (jedna chwila): z godziną i bez niej.
+for form in sorted(DAY_WORDS):
+    cases.append(unrecognized(NOWS[0], f"{TITLES[0]} {form} o 15"))
+    cases.append(unrecognized(NOWS[0], f"{form} {TITLES[1]} o 7:30 co tydzień"))
 
 json.dump(cases, sys.stdout, ensure_ascii=False, indent=1)
 sys.stdout.write("\n")

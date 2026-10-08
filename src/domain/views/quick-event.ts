@@ -5,10 +5,12 @@
  *  - „co tydzień” — co tydzień w dzień wydarzenia.
  *  - Grupa: osobista albo z „@imię” (D91); osoba z „@imię” zostaje odpowiedzialną, jeśli jest dorosła w grupie
  *    wspólnej (D66 — inaczej serwer by odrzucił).
+ *  - Dzień nazwany, ale nierozpoznany („basen w przyszły wtorek 17–18”, audyt 2 M-23): bez wydarzenia — nie zgadujemy
+ *    dnia; wpis zostaje zadaniem z całym tekstem w nazwie.
  */
 import { addDays, formatIsoDate, isoWeekday, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
-import { parseQuickAdd } from '../quickadd';
+import { type Fragment, parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import { findTimeRange, withoutRange } from '../time-range';
 import { emptyForm, type EventForm, validateForm } from './event-form';
@@ -30,6 +32,7 @@ export function quickEvent(a: {
   const range = findTimeRange(a.text, a.ignore);
   if (!range) return null;
   const parsed = parseQuickAdd(withoutRange(a.text, range), a.now, { ignore: a.ignore });
+  if (parsed.unrecognizedDay) return null;
   const groups = groupsView(a.tables, a.userId).filter((g) => g.me.role !== 'child');
   const group = groups.find((g) => g.id === a.groupId) ?? groups.find((g) => g.kind === 'personal');
   if (!group) return null;
@@ -57,4 +60,21 @@ export function quickEventOps(q: QuickEvent, newId: () => string): { id: string;
   const r = validateForm(q.form);
   if ('error' in r) return null;
   return createEvent(q.groupId, r.fields[0]!, newId);
+}
+
+export type QuickPreview = { title: string; tokens: Fragment[]; event: boolean; unrecognizedDay: Fragment | null };
+
+/**
+ * Podgląd pola szybkiego dodawania — to samo, co potem zapisze quickEvent albo quickAddOps: nazwa (pusta = nie ma czego
+ * dodać, audyt 2 M-168), rozpoznane fragmenty (chipy do odklikania, D18, D99), czy powstanie wydarzenie (zakres godzin,
+ * M-256) i nierozpoznany dzień (M-23).
+ */
+export function quickPreview(text: string, now: LocalDateTime, ignore: readonly { start: number; end: number }[] = []): QuickPreview {
+  const range = findTimeRange(text, ignore);
+  const parsed = parseQuickAdd(range ? withoutRange(text, range) : text, now, { ignore });
+  const event = !!range && !parsed.unrecognizedDay;
+  // Zakres bez wydarzenia (nierozpoznany dzień) zostaje w nazwie zadania, jak w quickAddOps.
+  const title = range && !event ? parseQuickAdd(text, now, { ignore }).title : parsed.title;
+  const tokens = [...(event ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parsed.tokens.map(({ start, end, text: t }) => ({ start, end, text: t }))];
+  return { title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay };
 }

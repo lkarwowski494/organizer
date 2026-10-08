@@ -116,7 +116,7 @@ describe('@imię', () => {
     expect(screen.getByText('Dodano: Basen · Rodzina')).toBeTruthy();
   });
 
-  it('kilka dopasowań: pytanie, wybór osoby i grupy; anuluj nic nie dodaje; brak dopasowania — zwykły tekst', async () => {
+  it('kilka dopasowań: pytanie, wybór osoby i grupy; anuluj nic nie dodaje; brak dopasowania — pytanie, czy bez osoby', async () => {
     const base = sampleBase();
     put(base, 'group_members', 'kala', { member_id: 'kala', group_id: 'gk', user_id: 'u-kala', display_name: 'Alicja', role: 'member', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 });
     const { store } = await open(base);
@@ -129,8 +129,14 @@ describe('@imię', () => {
     await type('Zebranie jutro @al');
     await press(screen.getByText('Alicja · Klasa 2b'));
     expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gk', set: { title: 'Zebranie', assignee_member_id: 'kala' } });
+    // Audyt 2 (M-169): nieznane „@zenek” nie trafia po cichu do Osobistych — pytanie; „Dodaj bez osoby” zostawia je w nazwie.
+    const n = store.dispatched.length;
     await type('Zebranie jutro @zenek');
+    expect(screen.getByText('Nie ma @zenek w Twoich grupach')).toBeTruthy();
+    expect(store.dispatched.length).toBe(n);
+    await press(screen.getByText('Dodaj bez osoby'));
     expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'Zebranie @zenek' } });
+    expect(screen.queryByTestId('mention-unknown')).toBeNull();
     // Zmiana tekstu chowa pytanie.
     await type('x @al');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'x');
