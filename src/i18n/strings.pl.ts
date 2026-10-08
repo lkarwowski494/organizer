@@ -58,6 +58,9 @@ export const strings = {
   'task.assignedTo': (name: string) => `dla: ${name}`,
   // D119: kto w wierszu zadania i wydarzenia; „Ty”, gdy to ja.
   'who.task': (p: { name: string; me: boolean }) => `dla: ${p.me ? 'Ty' : p.name}`,
+  // D122: przerwa w widoku dnia.
+  'day.gap': (length: string) => `wolne ${length}`,
+  'day.gapA11y': (length: string) => `Wolne ${length}`,
   'who.event': (p: { name: string; me: boolean }) => `odpowiada: ${p.me ? 'Ty' : p.name}`,
   'task.open': (title: string) => `Otwórz: ${title}`,
   'task.title': 'Tytuł',

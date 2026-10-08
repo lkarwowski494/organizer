@@ -12,23 +12,25 @@ import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatDue, formatLongDate, formatMonth, parseIsoDate } from '../../domain/format';
+import { formatDue, formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
-import { nestEntries } from '../../domain/views/nesting';
+import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { dayPlan, type Span } from '../../domain/views/day-plan';
+import type { AgendaEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceCalendarCard } from './DeviceCalendarCard';
 import { DeviceEventRow } from './DeviceEventRow';
 
 export function CalendarScreen() {
-  const { userId } = useServices();
+  const { userId, now } = useServices();
   const actions = useTaskActions();
   const { tables, today } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
@@ -50,6 +52,33 @@ export function CalendarScreen() {
     return p ? [strings[kind](p)] : [];
   };
   const isoToday = formatIsoDate(today);
+  const calRow = ({ entry: x, ...n }: Nested<AgendaEntry>) =>
+            x.kind === 'event' ? (
+              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+            ) : x.task.trip ? (
+              <StationRow
+                key={x.key}
+                testID={`cal-trip-${x.task.id}`}
+                title={strings['trip.title'](x.task.title)}
+                line={x.task.line}
+                group={x.task.groupName}
+                meta={[formatDue(x.task.due!, today), strings['trip.open'](x.task.trip.open), ...who(x.task.assignee_member_id, 'who.task')]}
+                checked={false}
+                onToggle={() => actions.finishTrip(x.task.id, x.task.title)}
+                onOpen={() => nav.navigate('List', { listId: x.task.id })}
+              />
+            ) : (
+              <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
+                <StationRow
+                  testID={`cal-${x.task.id}`}
+                  title={x.task.title}
+                  line={x.task.line}
+                  group={x.task.groupName}
+                  depth={n.depth}
+                  meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
+              </SwipeRow>
+            );
+  const spanOf = ({ entry: x }: { entry: AgendaEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
   // D107: bez dubli wpisów aplikacji z tego samego dnia.
   const allDevice = useDeviceCalendar().days;
@@ -109,36 +138,16 @@ export function CalendarScreen() {
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
           {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
-          {nestEntries(agenda(day.items, dayEvents), tables).map(({ entry: x, ...n }) =>
-            x.kind === 'event' ? (
-              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
-            ) : x.task.trip ? (
-              <StationRow
-                key={x.key}
-                testID={`cal-trip-${x.task.id}`}
-                title={strings['trip.title'](x.task.title)}
-                line={x.task.line}
-                group={x.task.groupName}
-                meta={[formatDue(x.task.due!, today), strings['trip.open'](x.task.trip.open), ...who(x.task.assignee_member_id, 'who.task')]}
-                checked={false}
-                onToggle={() => actions.finishTrip(x.task.id, x.task.title)}
-                onOpen={() => nav.navigate('List', { listId: x.task.id })}
-              />
+          {/* D122: wydarzenia z iPhone'a według godziny i przerwy „wolne …” (dziś od teraz, bez minionych dni). */}
+          {dayPlan(nestEntries(agenda(day.items, dayEvents), tables), dayDevice, spanOf, { nowMin: day.date === isoToday ? now().hh * 60 + now().mm : null, gaps: day.date >= isoToday }).map((r) =>
+            r.kind === 'device' ? (
+              <DeviceEventRow key={r.item.key} e={r.item} />
+            ) : r.kind === 'gap' ? (
+              <GapRow key={r.key} testID={`cal-${r.key}`} length={formatMinutes(r.minutes)} />
             ) : (
-              <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
-                <StationRow
-                  testID={`cal-${x.task.id}`}
-                  title={x.task.title}
-                  line={x.task.line}
-                  group={x.task.groupName}
-                  depth={n.depth}
-                  meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={false} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
-              </SwipeRow>
+              calRow(r.item)
             ),
           )}
-          {dayDevice.map((e) => (
-            <DeviceEventRow key={e.key} e={e} />
-          ))}
         </View>
       ) : null}
       <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />

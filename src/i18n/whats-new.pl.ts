@@ -6,6 +6,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    fromBuild: 20,
+    items: [
+      'Widok dnia z przerwami: między sprawami z godziną widać „wolne 2 h 30 min” (dziś liczone od teraz).',
+      'Wydarzenia z kalendarza iPhone’a stoją teraz na swojej godzinie między sprawami, a nie na końcu dnia.',
+    ],
+  },
+  {
     fromBuild: 19,
     items: [
       'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',

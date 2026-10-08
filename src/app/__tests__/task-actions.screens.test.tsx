@@ -33,7 +33,7 @@ describe('kolejność dnia', () => {
     // Kalendarz: ten sam porządek dnia.
     await press(screen.getByLabelText('Kalendarz'));
     await screen.findByTestId('screen-calendar');
-    expect(ids(/^cal-/)).toEqual(['cal-event-evAll-2026-10-07', 'cal-t-all', 'cal-t-ala', 'cal-event-ev17-2026-10-07', 'cal-t-korki', 'cal-t-paczka', 'cal-event-ev19-2026-10-07']);
+    expect(ids(/^cal-(?!gap)/)).toEqual(['cal-event-evAll-2026-10-07', 'cal-t-all', 'cal-t-ala', 'cal-event-ev17-2026-10-07', 'cal-t-korki', 'cal-t-paczka', 'cal-event-ev19-2026-10-07']);
   });
 });
 

@@ -40,6 +40,12 @@ export const config = {
   travel: { BUFFER_MIN: 5, REFRESH_MIN: 15, AHEAD_HOURS: 12, MAX_EVENTS: 8 },
 
   /**
+   * Widok dnia „lista z przerwami” (D122): najkrótsza przerwa między sprawami z godziną, którą pokazujemy jako
+   * „wolne …”. Wybór projektowy, bez źródła (krótsze przerwy to zwykle tylko przejście między sprawami).
+   */
+  day: { GAP_MIN: 30 },
+
+  /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
    * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D107): różnica godzin
    * i najkrótsze wspólne słowo nazwy. Wybory projektowe, bez źródła.
