@@ -1,5 +1,5 @@
 /**
- * „Dotyczy mnie” w zakresie dnia, tygodnia albo miesiąca (decyzja właściciela z 7.10.2026, ADR 0009):
+ * „Moje sprawy” w zakresie dnia, tygodnia albo miesiąca (decyzja właściciela z 7.10.2026, ADR 0009):
  *  - dzień miniony: zadania odhaczone tego dnia (data odhaczenia w czasie Europe/Warsaw) i wyszarzone wydarzenia,
  *  - dziś: zaległe (termin bez zmian, czerwony znacznik — D61) na górze, potem plan dnia (agenda.ts),
  *  - dzień przyszły: zadania z terminem tego dnia i wydarzenia.

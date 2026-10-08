@@ -6,10 +6,10 @@ Krok po kroku dla właściciela, w App Store Connect: Apps → Organizer grup PL
 ## 1. Test Information (lewy panel → Test Information)
 
 **Beta App Description** (wymagane), PL:
-> Organizer to wspólne listy, zakupy i kalendarz dla rodziny i znajomych. Widok „Dotyczy mnie” zbiera z wszystkich grup to, co jest na Tobie: zadania, wydarzenia i zakupy. Możesz przekazać sprawę innej osobie, a ona przyjmuje albo odrzuca. Wersja testowa — dane mogą się zmienić.
+> Organizer to wspólne listy, zakupy i kalendarz dla rodziny i znajomych. Widok „Moje sprawy” zbiera z wszystkich grup to, co jest na Tobie: zadania, wydarzenia i zakupy. Możesz przekazać sprawę innej osobie, a ona przyjmuje albo odrzuca. Wersja testowa — dane mogą się zmienić.
 
 EN (dla recenzji Apple):
-> Organizer is a shared to-do, shopping and calendar app for families and friends. The "Dotyczy mnie" (Concerns me) view collects everything assigned to you across groups. You can hand a task over to another adult, who accepts or declines it. The app is in Polish.
+> Organizer is a shared to-do, shopping and calendar app for families and friends. The "Moje sprawy" (My things) view collects everything assigned to you across groups. You can hand a task over to another adult, who accepts or declines it. The app is in Polish.
 
 **Feedback Email:** adres, na który testerzy mają pisać — wybierz sam (do repozytorium go nie wpisuję).
 

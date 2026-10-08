@@ -21,7 +21,7 @@ async function open(base = sampleBase()) {
 const ids = (prefix: RegExp) => screen.getAllByTestId(prefix).map((e) => e.props.testID as string);
 
 describe('kolejność dnia', () => {
-  it('Dotyczy mnie: całodniowe na górze, potem godziny po kolei, wydarzenia między zadaniami', async () => {
+  it('Moje sprawy: całodniowe na górze, potem godziny po kolei, wydarzenia między zadaniami', async () => {
     const base = sampleBase();
     put(base, 'events', 'ev17', { id: 'ev17', group_id: 'gf', title: 'Tańce', start_date: '2026-10-07', start_time: '17:00:00', end_time: null, rrule: null, audience: 'group', deleted_at: null, version: 1 });
     put(base, 'events', 'evAll', { id: 'evAll', group_id: 'gf', title: 'Dzień nauczyciela', start_date: '2026-10-07', start_time: null, end_time: null, rrule: null, audience: 'group', deleted_at: null, version: 1 });

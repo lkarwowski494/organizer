@@ -1,6 +1,6 @@
 /**
  * Motyw „Wstążki” w kolorach „piasek + terakota” (D72, D74 — decyzje właściciela z 7.10.2026; następca „Linii” z D50): każda grupa to kolorowa wstążka, a widok
- * „Dotyczy mnie” to stacja przesiadkowa. Jedyne źródło kolorów, krojów i rozmiarów ekranów.
+ * „Moje sprawy” to stacja przesiadkowa. Jedyne źródło kolorów, krojów i rozmiarów ekranów.
  *
  * Progi czytelności (test src/config/__tests__/theme.test.ts liczy kontrast każdej pary poniżej):
  *  - tekst: co najmniej 4,5:1, WCAG 2.2 SC 1.4.3 (https://www.w3.org/TR/WCAG22/#contrast-minimum):

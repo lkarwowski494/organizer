@@ -1,4 +1,4 @@
-/** Push o przekazaniach (D70): prośba o zgodę na „Dotyczy mnie”, rejestracja tokenu, prośba o powiadomienie. */
+/** Push o przekazaniach (D70): prośba o zgodę na „Moje sprawy”, rejestracja tokenu, prośba o powiadomienie. */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';

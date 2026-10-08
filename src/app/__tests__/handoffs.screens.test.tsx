@@ -90,7 +90,7 @@ describe('przekazanie wydarzenia', () => {
     await press(screen.getByLabelText('Przekaż: Ala'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { entity_id: 'ev', occurrence_date: null } });
     await press(screen.getByLabelText(strings['common.back']));
-    // Cudze wydarzenie nie jest na „Dotyczy mnie” (D66) — otwieram z kalendarza.
+    // Cudze wydarzenie nie jest na „Moje sprawy” (D66) — otwieram z kalendarza.
     await press(await screen.findByTestId('tab-Calendar'));
     await press(await screen.findByTestId('cal-event-ev2-2026-10-07'));
     await screen.findByTestId('screen-event');

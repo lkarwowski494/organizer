@@ -18,7 +18,7 @@ async function open(opts: Parameters<typeof setup>[0] = {}) {
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
 
-describe('Dotyczy mnie', () => {
+describe('Moje sprawy', () => {
   it('dzień: przypięte, moje sprawy z grup, bez cudzych przypisanych; jutro strzałką, powrót „Dziś”; tydzień', async () => {
     await open();
     expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');

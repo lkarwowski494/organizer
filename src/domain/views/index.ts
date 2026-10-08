@@ -177,12 +177,12 @@ export type TodayItem = Task & { due: Due; line: number; groupName: string; list
 export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: TodayItem[]; tomorrow: TodayItem[] };
 
 /**
- * „Dotyczy mnie” (D0.4: wszystko z moich grup, co dotyczy mnie dziś). Zadanie dotyczy mnie, gdy
+ * „Moje sprawy” (D0.4: wszystko z moich grup, co dotyczy mnie dziś). Zadanie dotyczy mnie, gdy
  * jest otwarte, widoczne dziś (start_date) i: przypisane do mnie, albo nieprzypisane w mojej grupie
  * osobistej, albo nieprzypisane z terminem (każdy w grupie może je zrobić). Sekcje: zaległe, przypięte
  * (bez terminu — tylko moje i osobiste, żeby wspólne bez terminu nie zalewały widoku), dziś, jutro.
  */
-/** Zadanie dotyczy mnie (reguła „Dotyczy mnie” powyżej, bez warunku „otwarte”). */
+/** Zadanie dotyczy mnie (reguła „Moje sprawy” powyżej, bez warunku „otwarte”). */
 export function concernsMeTask(x: Task, g: GroupItem, due: Due): boolean {
   const unassigned = x.assignee_member_id === null;
   return x.assignee_member_id === g.me.member_id || (unassigned && (g.kind === 'personal' || due !== null));

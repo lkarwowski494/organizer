@@ -1,7 +1,7 @@
 /**
  * Adresat zadania (D68, decyzja właściciela z 7.10.2026, ADR 0012): we wspólnej grupie zadanie główne na liście zadań
  * musi mieć osobę albo termin (własny, z zadania nadrzędnego albo ze spotkania) — inaczej nie trafi do niczyjego
- * „Dotyczy mnie”. Grupa osobista, listy zakupów i podzadania (mają kontekst rodzica) są poza regułą.
+ * „Moje sprawy”. Grupa osobista, listy zakupów i podzadania (mają kontekst rodzica) są poza regułą.
  */
 import { groupsView } from './index';
 import { asList, type Tables, type Task } from './model';

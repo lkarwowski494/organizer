@@ -201,7 +201,7 @@ describe('listy', () => {
   });
 });
 
-describe('Dotyczy mnie', () => {
+describe('Moje sprawy', () => {
   it('reguła i sekcje', () => {
     const t = world();
     task(t, { id: 'mine-today', assignee_member_id: 'mf', ...own('2026-10-07', '18:00') });

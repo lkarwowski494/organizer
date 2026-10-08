@@ -60,7 +60,7 @@ describe('termin z wystąpienia (D13)', () => {
     expect(occ()(id, '2026-10-12')).toBeNull();
   });
 
-  it('zadanie idzie za przeniesionym spotkaniem w Dotyczy mnie', () => {
+  it('zadanie idzie za przeniesionym spotkaniem w Moje sprawy', () => {
     const { t, newId, d } = dances();
     expect(due(t, 'strój')).toEqual({ date: '2026-10-12', time: '18:00' });
     run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' }), newId));

@@ -1,7 +1,7 @@
 /**
  * Zakupy na liście zakupów (D73, decyzja właściciela z 7.10.2026, ADR 0014; migracja 20261008160000_shopping_trip):
- * lista zakupów sama ma termin i osobę odpowiedzialną i trafia do „Dotyczy mnie” jak zadanie „Zakupy: <nazwa>”.
- * Dotyczy mnie na tych samych zasadach co zadanie (concernsMeTask): moja osoba, albo bez osoby z terminem (każdy może
+ * lista zakupów sama ma termin i osobę odpowiedzialną i trafia do „Moje sprawy” jak zadanie „Zakupy: <nazwa>”.
+ * Moje sprawy na tych samych zasadach co zadanie (concernsMeTask): moja osoba, albo bez osoby z terminem (każdy może
  * zrobić), albo bez osoby w grupie osobistej. We wspólnej grupie osoba albo termin są obowiązkowe (jak D68).
  * Odhaczenie „Zakupy” (ręcznie, z potwierdzeniem): kupione pozycje schodzą do kosza, termin i osoba się czyszczą;
  * niekupione zostają na następne zakupy albo — na życzenie — też są oznaczane jako kupione.
@@ -54,7 +54,7 @@ export function finishTripOps(t: Tables, userId: string, listId: string, all: bo
   return ops;
 }
 
-/** Zakupy jako wpis „Dotyczy mnie” (kształt zadania, `trip` = id listy). Tytuł to nazwa listy; ekran dopisuje „Zakupy:”. */
+/** Zakupy jako wpis „Moje sprawy” (kształt zadania, `trip` = id listy). Tytuł to nazwa listy; ekran dopisuje „Zakupy:”. */
 export type TripItem = TodayItem & { trip: { listId: string; open: number } };
 
 /** `everyone` — wszystkie zaplanowane zakupy grup (Kalendarz, D73 + O-053); inaczej tylko dotyczące mnie. */

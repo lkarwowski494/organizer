@@ -20,6 +20,8 @@ export type RootStackParams = {
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;
+  /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */
+  AddTask: { text?: string; taskId?: string };
 };
 
 export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };
