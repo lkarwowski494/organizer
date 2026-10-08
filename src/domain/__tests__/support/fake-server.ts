@@ -148,8 +148,10 @@ export class FakeServer {
     const child = this.member(g, user)!.role === 'child';
     if (op.kind === 'patch') {
       if (r.deleted_at) throw new Error('deleted');
-      // D34: dziecko tylko odhacza (tasks_guard), list nie zmienia (lists_guard); widoczność zmienia tylko twórca listy.
-      if (child && (op.entity === 'lists' || Object.keys(op.set).some((k) => k !== 'completed_at'))) throw new Error('forbidden:child');
+      // D34: dziecko tylko odhacza (tasks_guard porównuje wiersz przed i po — zmiana na tę samą wartość przechodzi),
+      // list nie zmienia wcale (lists_guard); widoczność zmienia tylko twórca listy.
+      const changes = Object.entries(op.set).some(([k, v]) => k !== 'completed_at' && (r[k] ?? null) !== (v ?? null));
+      if (child && (op.entity === 'lists' || changes)) throw new Error('forbidden:child');
       if (op.entity === 'lists' && op.set.visibility !== undefined && op.set.visibility !== r.visibility && r.owner !== user) throw new Error('forbidden:not_list_owner');
       t.set(op.id, { ...r, ...op.set, version: this.bump(g) });
       // D139 (lists_widen_bump): lista poszerzona do „cała grupa” — jej zadania z nowymi wersjami, żeby trafiły do nowych osób.
