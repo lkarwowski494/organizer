@@ -16,7 +16,7 @@ import { subtasksOf } from '../domain/views/nesting';
 import { finishTripOps, finishTripUndoOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
-import { groupsView, type Task } from '../domain/views';
+import { checkOff, groupsView, type Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
 import { useAppData, useServices } from './context';
@@ -47,7 +47,9 @@ export function useTaskActions() {
         store.dispatch(ops);
         return undo.show(strings['undo.inCart'](t.title), () => store.dispatch(back), { changed: ops });
       }
-      const open = subtasksOf(tables, t.id).filter((s) => s.completed_at === null);
+      // PW-14 B: dziecko z kontem odhacza razem tylko swoje podzadania (cudze serwer odrzuci: forbidden:not_own).
+      const can = checkOff(tables, userId);
+      const open = subtasksOf(tables, t.id).filter((s) => s.completed_at === null && can(s));
       if (open.length === 0)
         return Alert.alert(strings['confirm.doneTitle'], t.title, [
           { text: strings['common.cancel'], style: 'cancel' },

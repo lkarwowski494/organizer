@@ -10,7 +10,7 @@ import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shoppin
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { addStaple, itemKey, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Field, SectionTitle, Segmented } from '../../ui/components';
+import { Body, Button, ErrorText, Field, SectionTitle, Segmented } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { useTheme } from '../../ui/theme';
 
@@ -60,10 +60,11 @@ export function ItemPanel({ title, current, isStaple, error, onRename, onPick, o
   onClose: () => void;
 }) {
   const { c } = useTheme();
-  const name = useLiveText(title, onRename);
+  const name = useLiveText(title, onRename, { empty: strings['form.error.title'] });
   return (
     <View testID="item-panel" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-      <Field label={strings['shop.itemName']} {...name} maxLength={config.lengths.TASK_TITLE} testID="item-name" />
+      <Field label={strings['shop.itemName']} {...name.field} maxLength={config.lengths.TASK_TITLE} testID="item-name" />
+      {name.error ? <ErrorText>{name.error}</ErrorText> : null}
       <Body muted>{strings['shop.categoryHint']}</Body>
       <Segmented label={strings['shop.category']} value={current} onChange={onPick} options={CATEGORY_OPTIONS} />
       <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={title} />

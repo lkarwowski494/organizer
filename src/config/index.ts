@@ -91,6 +91,12 @@ export const config = {
    */
   day: { GAP_MIN: 30 },
 
+  /**
+   * Szkic formularza z „Zapisz” na telefonie (D179, audyt 2 M-123): po ilu dniach przepada. Wybór projektowy, bez źródła
+   * (tydzień przerwy to raczej porzucony zamiar niż wpis do dokończenia).
+   */
+  forms: { DRAFT_MAX_DAYS: 7 },
+
   /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
   time: { MINUTE_STEP: 5 },
 
@@ -183,6 +189,20 @@ export const config = {
     BACKOFF_MIN_MS: 1000,
     BACKOFF_MAX_MS: 60_000,
     BACKOFF_FACTOR: 2,
+    /**
+     * Wartości domyślne kolumn z wartością domyślną, które telefon może zmieniać (patch_cols w private.sync_entities).
+     * Wiersz utworzony na telefonie nie ma tych pól, dopóki nie wróci z serwera, więc „Cofnij” zmiany takiego pola
+     * wpisuje tę wartość — nie null, który kolumna NOT NULL odrzuca (audyt 2, M-59). Zgodność z bazą: tests/db
+     * (patch-defaults.test.ts czyta information_schema).
+     */
+    PATCH_DEFAULTS: {
+      event_overrides: { all_day: false, cancelled: false, responsible_cleared: false },
+      events: { audience: 'group' },
+      group_members: { role: 'member' },
+      handoffs: { closed: false, status: 'pending' },
+      lists: { sort_key: 'a0', staples: [], visibility: 'group' },
+      tasks: { deadline_mode: 'none', rollover: true, sort_key: 'a0' },
+    } as { readonly [entity: string]: { readonly [column: string]: unknown } },
   },
 
   /**

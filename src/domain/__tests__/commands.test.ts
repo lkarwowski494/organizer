@@ -1,4 +1,4 @@
-import { inverseOps } from '../views/commands';
+import { inheritDue, inverseOps } from '../views/commands';
 
 describe('operacje odwrotne do „Cofnij” (audyt 8.10.2026)', () => {
   const t = { events: { e1: { id: 'e1', rrule: 'FREQ=WEEKLY', title: 'Basen' } }, event_overrides: { o1: { id: 'o1', cancelled: false } } };
@@ -36,7 +36,23 @@ describe('operacje odwrotne do „Cofnij” (audyt 8.10.2026)', () => {
       { kind: 'delete', entity: 'event_overrides', id: 'o3' },
     ]);
   });
+  it('audyt 2 (M-59): pole, którego wiersz utworzony na telefonie jeszcze nie ma — wartość domyślna serwera, nie null', () => {
+    // Wyjątek terminu utworzony przy edycji „tylko ten termin” (bez cancelled), odwołany przed pobraniem.
+    const local = { event_overrides: { o4: { id: 'o4', group_id: 'g', event_id: 'e1', occurrence_date: '2026-10-09', deleted_at: null } }, tasks: { t: { id: 't', title: 'x', deleted_at: null } } };
+    expect(inverseOps(local, [{ kind: 'patch', entity: 'event_overrides', id: 'o4', set: { cancelled: true } }])).toEqual([{ kind: 'patch', entity: 'event_overrides', id: 'o4', set: { cancelled: false } }]);
+    expect(inverseOps(local, [{ kind: 'patch', entity: 'tasks', id: 't', set: { rollover: false, deadline_mode: 'own', note: 'n' } }])).toEqual([
+      { kind: 'patch', entity: 'tasks', id: 't', set: { rollover: true, deadline_mode: 'none', note: null } },
+    ]);
+    // Encja bez kolumn z wartością domyślną: null.
+    expect(inverseOps(local, [{ kind: 'patch', entity: 'activity', id: 'a', set: { x: 1 } }])).toEqual([{ kind: 'patch', entity: 'activity', id: 'a', set: { x: null } }]);
+  });
   it('polecenie serwera — bez cofnięcia', () => {
     expect(inverseOps(t, [{ kind: 'cmd', cmd: 'move_task', args: {} }])).toBeNull();
+  });
+});
+
+describe('„Jak zadanie nadrzędne” (D15; audyt 2, M-204)', () => {
+  it('podzadanie wraca do terminu nadrzędnego: bez własnego terminu i powtarzania', () => {
+    expect(inheritDue('s')).toEqual({ kind: 'patch', entity: 'tasks', id: 's', set: { deadline_mode: 'inherit', due_date: null, due_time: null, repeat: null } });
   });
 });

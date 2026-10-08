@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { addDays, isoWeekday } from '../../domain/civil-date';
@@ -45,6 +46,9 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [error, setError] = useState<{ text: string; index: number } | null>(null);
   const [preview, setPreview] = useState<SeriesEffects | null>(null);
   const [lostChoice, setLostChoice] = useState<LostChoice>('nearest');
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisany plan (app/form-draft); nakłada się
+  // na plan z chwili ponownego otwarcia tylko w polach, które zmieniłem.
+  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil });
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
@@ -68,9 +72,11 @@ export function TimetableScreen({ route, navigation }: Props) {
     const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === plan.until, weekA: plan.weekA, lost: choice });
     if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.index });
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
-    if (r.ops.length === 0) return navigation.goBack();
+    if (r.ops.length === 0) return (draft.saved(), navigation.goBack());
     // Zapis zmienia zadania albo zmienione pojedynczo terminy — najpierw ten sam podgląd co przy „to i następne”.
+    // Szkic zostaje do zapisu: „Wróć” z podglądu i wyjście z ekranu go nie gubią (D179).
     if (!choice && (r.effects.lost.length || r.effects.overridesLost)) return setPreview(r.effects);
+    draft.saved();
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
     undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))));
@@ -85,6 +91,7 @@ export function TimetableScreen({ route, navigation }: Props) {
     <Screen testID="screen-timetable">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['timetable.title'](m.display_name)}</Title>
+      <DraftNote draft={draft} />
       <Body muted>{strings['timetable.info']}</Body>
       <Segmented
         label={strings['timetable.thisWeek'](formatRange(monday, addDays(monday, 6), today))}

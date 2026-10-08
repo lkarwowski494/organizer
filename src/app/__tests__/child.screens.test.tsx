@@ -9,7 +9,8 @@ const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el)
 function childBase() {
   const b = sampleBase();
   put(b, 'group_members', 'mk', { ...b.group_members!.mk!, role: 'child' });
-  put(b, 'tasks', 't-korki', { ...b.tasks!['t-korki']!, note: 'czarne' });
+  // PW-14 B: dziecko z kontem widzi w Moich sprawach tylko swoje sprawy — zadanie przypisane do niego.
+  put(b, 'tasks', 't-korki', { ...b.tasks!['t-korki']!, note: 'czarne', assignee_member_id: 'mk' });
   return b;
 }
 
@@ -21,9 +22,9 @@ describe('dziecko w grupie (D34)', () => {
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
     expect(screen.getByText('czarne')).toBeTruthy();
-    for (const id of ['task-title', 'task-note', 'task-date', 'task-time', 'task-save', 'task-sub']) expect(screen.queryByTestId(id)).toBeNull();
-    for (const label of ['Usuń zadanie', 'Usuń termin', 'Dla kogo']) expect(screen.queryByLabelText(label)).toBeNull();
-    await press(screen.getByLabelText('Oznacz jako zrobione'));
+    for (const id of ['task-title', 'task-note', 'task-date', 'task-time', 'task-save', 'quick-add', 'task-move']) expect(screen.queryByTestId(id)).toBeNull();
+    for (const label of ['Usuń zadanie', 'Bez terminu', 'Dla kogo', 'Przenieś do grupy']) expect(screen.queryByLabelText(label)).toBeNull();
+    await press(screen.getByLabelText('Oznacz jako zrobione: Przynieść korki na trening'));
     await answerAlert(lastAlert().buttons.at(-1)!.text!); // D59: potwierdzenie odhaczenia
     expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'tasks', id: 't-korki' });
     await press(screen.getByLabelText('Wróć'));

@@ -391,7 +391,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' });
   });
 
-  it('nowa lista i nowe wydarzenie z formularza — „Cofnij”; szybkie dodanie na liście zadań — „Zmień” otwiera formularz', async () => {
+  it('nowa lista i nowe wydarzenie z formularza — „Cofnij”; szybkie dodanie na liście zadań — „Zmień” otwiera zadanie', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
@@ -403,7 +403,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(within(bar()).getByText('Dodano: Kupić farbę · Remont')).toBeTruthy();
     await press(within(bar()).getByLabelText('Zmień'));
-    expect(await screen.findByTestId('screen-add-task')).toBeTruthy();
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(store.dispatched.some((o) => o.kind === 'create' && o.entity === 'lists')).toBe(true);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Wróć'));
