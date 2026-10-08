@@ -26,6 +26,9 @@ EN (dla recenzji Apple):
 1. External Testing → „+” → nazwa np. „Testy publiczne”.
 2. Add build → najnowszy build → What to Test (poniżej) → Submit for Review (pierwszy raz Apple sprawdza betę, zwykle 1–2 dni).
 3. Po akceptacji: Testers → **Create Public Link** → Open to Anyone (możesz ustawić limit, np. 50 osób).
+4. Skopiowany link (`https://testflight.apple.com/join/…`) wpisz do `config.invites.TESTFLIGHT_LINK` w `src/config/index.ts`
+   (dziś `null`): wiadomość z zaproszeniem do grupy dopisze wtedy „Nie masz jeszcze aplikacji? Zainstaluj ją przez
+   TestFlight: …” (decyzja PW-7 A z 8.10.2026).
 
 **What to Test**, PL:
 > Sprawdź: dodawanie szybkim polem („mleko jutro o 17”), listy zakupów z dniem i osobą, przekazanie zadania drugiej osobie, przypomnienia (Ustawienia → Przypomnienia), powtarzanie zadań, tryb jasny i ciemny. Uwagi wysyłaj zrzutem ekranu z TestFlight.

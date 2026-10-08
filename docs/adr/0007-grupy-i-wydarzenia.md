@@ -55,3 +55,17 @@ Decyzja wykonawcza: przesuwanie zrobione na poziomym `ScrollView` z RN, bez nowe
 ## Do zrobienia później
 - D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami). → zrobione w ADR 0008.
 - Przypomnienia o wydarzeniach (push). → zrobione: przypomnienia lokalne D75 (ADR 0016) i push do osoby odpowiedzialnej D88 (ADR 0018).
+
+## Audyt 2 (8.10.2026): zmiany
+- **D56, kolor automatyczny:** pomija kolory wybrane przez właścicieli moich grup (dotąd „Rodzina” z automatycznym
+  pomarańczowym i grupa z wybranym pomarańczowym wyglądały tak samo); gdy wolnych kolorów brakuje, automatyczne
+  powtarzają wolne (`src/domain/views/index.ts`, `linesOf`).
+- **D55, imię i kolor osoby (PW-54 A):** osoby z kontem zmienia ona sama albo owner; admin — profile dzieci i siebie.
+  Profil bez konta jest zawsze dzieckiem (B-19). Imiona bez znaków sterujących i kierunkowych (B-18; migracja
+  `20261008360000_member_names_roles.sql`).
+- **Usunięcie osoby (PW-35 A, PW-16 A, D165):** bez pytania, z paskiem „Cofnij”; owner/admin może przywrócić osobę przez
+  30 dni (ten sam `member_id`, więc wracają plan lekcji, obecność i zadania). Konto, które samo wyszło, wraca tylko
+  przez zaproszenie. Listy „Tylko ja” osoby, która wyszła albo została usunięta, idą do kosza na 30 dni i wracają z nią
+  (PW-43 A; migracja `20261008361000_member_departure.sql`), a jej oczekujące przekazania są anulowane (R-34).
+- **D54, kosz grupy (PWD-21 A):** członkowie widzą wpis „Grupa X w koszu (właściciel może przywrócić do: …)”;
+  przywrócenie to przycisk „Przywróć” w wierszu z paskiem „Przywrócono · Cofnij”.
