@@ -153,15 +153,22 @@ export const strings = {
   // PW-24 (decyzja właściciela 8.10.2026): wyjście już minęło, wydarzenie jeszcze nie — od razu.
   'travel.lateBody': (min: number) => `Masz ${formatMinutes(min)} spóźnienia — wyjdź teraz`,
   'travel.section': 'Dojazd',
-  'travel.enabled': 'Czas dojazdu do dzisiejszych wydarzeń',
+  'travel.enabled': 'Czas dojazdu do najbliższych wydarzeń',
   'travel.on': 'Włączony',
   'travel.off': 'Wyłączony',
   'travel.defaultMode': 'Zwykle jadę',
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
   'travel.google': 'Google Maps',
-  'travel.info': `Dla dzisiejszych wydarzeń z miejscem telefon liczy czas dojazdu w Mapach Apple (z korkami) i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
+  'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple (z korkami) i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
   'travel.denied': 'Brak dostępu do lokalizacji. Włączysz go w Ustawieniach iPhone’a → Organizer → Lokalizacja.',
+  // PWD-3 (M-175): przy wydarzeniu z adresem, gdy czas dojazdu jest wyłączony — włącza go i pyta o lokalizację.
+  'travel.suggest': 'Pokaż, kiedy wyjść →',
+  // M-218: dojazd włączony, ale zgoda „Pozwól raz” wygasła — bez niej nic się nie liczy.
+  'travel.needsPermission': 'Czas dojazdu jest włączony, ale potrzebuje zgody na lokalizację.',
+  'travel.allow': 'Zezwól na lokalizację',
+  // M-106: Mapy nie znalazły adresu (sprawdzimy znowu za dobę albo po zmianie miejsca).
+  'travel.notFound': 'Nie znaleźliśmy tego adresu w Mapach, więc nie policzymy dojazdu. Sprawdź miejsce wydarzenia.',
   'event.location': 'Miejsce (adres, opcjonalnie)',
   'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
   'event.navigate': 'Nawiguj',
@@ -210,7 +217,7 @@ export const strings = {
   'timetable.error.title': 'Wpisz nazwę lekcji.',
   'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
   'timetable.saved': (n: number) => `Dodano plan: ${n} ${plural(n, { one: 'seria', few: 'serie', many: 'serii' })} wydarzeń`,
-  'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane.',
+  'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie o tej samej nazwie co wpis z aplikacji (ten sam dzień, podobna godzina) albo dodane przez Organizer jest ukrywane jako dubel — pod listą dnia widać, ile ukryto.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
   'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
   'name.askTitle': 'Jak masz na imię?',
@@ -711,7 +718,22 @@ export const strings = {
   'device.off': 'Wyłączone',
   'device.read': 'Moje wydarzenia z iPhone’a w aplikacji',
   'device.mirror': 'Wydarzenia grup w kalendarzu iPhone’a',
-  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy”, aktualizowany automatycznie. Wyłączenie usuwa te kalendarze z iPhone’a.',
+  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” ze sprawami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
+  // D174: wybór grup w lustrze.
+  'device.mirrorGroups': 'Które grupy dodawać do kalendarza iPhone’a',
+  // D173: znacznik w notatce wpisu dodanego przez Organizer (po nim rozpoznajemy dubel); widać go w Kalendarzu iPhone'a.
+  'device.mark': 'Dodane przez aplikację Organizer',
+  // M-217: zgoda tylko na dodawanie (po „Dodaj do kalendarza”).
+  'device.writeOnly': 'Organizer może teraz tylko dodawać wydarzenia do Twojego kalendarza. Połącz go, żeby widzieć swoje wydarzenia obok spraw grup i mieć wydarzenia grup w iPhonie.',
+  // D173: licznik ukrytych dubli z podglądem.
+  'device.hidden': (n: number) => `Ukryto ${n} ${plural(n, { one: 'dubel', few: 'duble', many: 'dubli' })} z iPhone’a`,
+  'device.hiddenInfo': 'Te wydarzenia z iPhone’a powtarzają wpisy z aplikacji, więc ich nie liczymy.',
+  // PWD-33 (D200): wydarzenie z iPhone'a → wydarzenie grupy.
+  'device.addToGroup': 'Dodaj do grupy',
+  'device.addToGroupA11y': (title: string) => `Dodaj do grupy: ${title}`,
+  'event.copyInfo': 'Kopia wydarzenia z kalendarza iPhone’a. Oryginał zostaje w iPhonie — w aplikacji schowamy go jako dubel.',
+  // PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie.
+  'event.inMirror': (calendar: string) => `Jest w kalendarzu iPhone’a „${calendar}”.`,
   'whatsNew.title': 'Co nowego',
   'whatsNew.ok': 'OK',
   'whatsNew.feedback': 'Wyślij uwagę',
