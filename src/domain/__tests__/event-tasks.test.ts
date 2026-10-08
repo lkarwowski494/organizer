@@ -238,10 +238,12 @@ describe('audyt 2 (M-130, PWD-7 A): zadania wystąpienia na ekranie wydarzenia',
       { kind: 'patch', entity: 'tasks', id: 'buty', set: { completed_at: '2026-10-10T08:00:00Z' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { deadline_mode: 'own', due_date: '2026-10-11', due_time: null } },
       createEventTask({ id: 'kasa', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Kasa' }),
+      createEventTask({ id: 'a-buty', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Buty', }),
       { kind: 'delete', entity: 'tasks', id: 'kasa' },
     ]);
     const r = occurrenceTasks(t, id, '2026-10-12');
-    expect(r.open.map((x) => [x.id, x.due])).toEqual([['strój', { date: '2026-10-11', time: null }]]);
+    // Ten sam tytuł — kolejność po identyfikatorze.
+    expect(r.open.map((x) => [x.id, x.due])).toEqual([['a-buty', { date: '2026-10-12', time: '18:00' }], ['strój', { date: '2026-10-11', time: null }]]);
     expect(r.done.map((x) => [x.id, x.due])).toEqual([['buty', { date: '2026-10-12', time: '18:00' }]]);
     expect(occurrenceTasks(t, id, '2026-10-26')).toEqual({ open: [], done: [] });
   });

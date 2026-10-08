@@ -221,5 +221,10 @@ describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
     ]);
     const cal = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
     expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.completed_at, x.doneOn])).toEqual([['a', '2026-10-07T18:00:00Z', '2026-10-07']]);
+    // M-129: niezrobione zakupy po terminie — „zaległe” jak zadanie; dzisiejsze — nie.
+    put(t, 'lists', 'e', list('e', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'f', list('f', 'gf', { name: 'Rossmann', due_date: '2026-10-07', responsible_member_id: 'mf' }));
+    const again = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
+    expect(again.flatMap((d) => d.items.filter((x) => x.id === 'e' || x.id === 'f').map((x) => [x.id, x.overdueDays]))).toEqual([['e', 2], ['f', 0]]);
   });
 });

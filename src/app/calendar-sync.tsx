@@ -8,7 +8,7 @@ import { AppState, Linking } from 'react-native';
 
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
-import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorCalendarOf, mirrorGroups, mirrorReady } from '../domain/views/calendar-sync';
+import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorGroups, mirrorLookup, mirrorReady } from '../domain/views/calendar-sync';
 import { localNow, localToMs } from './clock';
 import { clearMirror, loadMirror, loadSkip, MIRROR_SKIP_KEY, ownedIn, runMirror } from './calendar-mirror';
 import type { CalendarStatus } from './device-calendar';
@@ -181,6 +181,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   const calendars = useMemo(() => (shown ? deviceCalendars(shown, mirrors).map((c) => ({ ...c, read: !skip.includes(c.id) })) : []), [shown, mirrors, skip]);
   const groups = useMemo(() => mirrorGroups(tables, userId).map((g) => ({ id: g.id, name: g.name, mirrored: !mirrorSkip.includes(g.id) })), [tables, userId, mirrorSkip]);
   const skipSet = useMemo(() => new Set(mirrorSkip), [mirrorSkip]);
+  // „Jest w kalendarzu” (PWD-2): zawartość lustra liczona przy pierwszym pytaniu i trzymana do zmiany danych.
+  const inMirror = useMemo(() => {
+    let lookup: ReturnType<typeof mirrorLookup> | null = null;
+    return () => (lookup ??= mirrorLookup(tables, userId, today, skipSet, scopeOf));
+  }, [tables, userId, today, skipSet, scopeOf]);
   const mirrorOn = available && mirror && status === 'granted';
 
   const api = useMemo<Api>(
@@ -226,10 +231,10 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
         setMirrorSkip(next);
         local?.save(MIRROR_SKIP_KEY, JSON.stringify(next));
       },
-      mirrorCalendar: (eventId, occurrenceDate, date) => (mirrorOn ? mirrorCalendarOf(tables, userId, eventId, occurrenceDate, date, today, skipSet, scopeOf) : null),
+      mirrorCalendar: (eventId, occurrenceDate, date) => (mirrorOn ? inMirror()(eventId, occurrenceDate, date) : null),
       openSettings: () => void Linking.openSettings().catch(() => {}),
     }),
-    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report, groups, mirrorSkip, mirrorOn, tables, userId, today, skipSet, scopeOf],
+    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report, groups, mirrorSkip, mirrorOn, inMirror],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

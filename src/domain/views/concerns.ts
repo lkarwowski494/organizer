@@ -37,7 +37,7 @@ export function ownPrivateList(l: Pick<List, 'visibility' | 'owner_member_id'>, 
  * `ownPrivate` — sprawa z mojej listy „Tylko ja” (ownPrivateList). `scope` — zakres Moich spraw w tej grupie (PW-2,
  * my-scope.ts): poza „Wszystko” sprawa bez osoby z terminem nie jest moja (zostają moja osoba i moja lista „Tylko ja”).
  */
-export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlyMap<string, Member>, ownPrivate: boolean, scope: MyScope = 'all'): boolean {
+export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlyMap<string, Member>, ownPrivate: boolean, scope: MyScope): boolean {
   const who = livePerson(memberId, live);
   return who === g.me.member_id || (who === null && (g.kind === 'personal' || ownPrivate || (due !== null && scope === 'all')));
 }

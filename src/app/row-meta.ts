@@ -5,13 +5,15 @@
  * terminu). Kolejność: czas, grupa, reszta (StationRow, EventRow). Świadome różnice: Kalendarz pokazuje też zrobione
  * w dniu terminu z dniem odhaczenia (D135, PWD-1 C) i przyszłe terminy zadań powtarzanych (PWD-15 A).
  */
+import { useMemo } from 'react';
+
 import { config } from '../config';
 import { formatIsoDate } from '../domain/civil-date';
 import { formatDue, formatTime } from '../domain/format';
 import type { TodayItem } from '../domain/views';
 import type { Occurrence } from '../domain/views/events';
 import type { Nesting } from '../domain/views/nesting';
-import { routineStreak, taskStreak } from '../domain/views/routines';
+import { routineStreak, taskStreaks } from '../domain/views/routines';
 import { rsvpView } from '../domain/views/rsvp';
 import { personOf } from '../domain/views/who';
 import { strings } from '../i18n/strings.pl';
@@ -27,7 +29,8 @@ export function useRowMeta() {
   const { userId } = useServices();
   const { tables, today } = useAppData();
   const travel = useTravel();
-  const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
+  // Seria liczy się z całej tabeli zadań — raz na stan danych, nie przy każdym wierszu.
+  const taskSeries = useMemo(() => taskStreaks(tables, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables]);
   const streak = (k: number) => (k >= config.streak.MIN_SHOWN ? [strings['streak'](k)] : []);
   const who = (memberId: string | null, kind: 'who.task' | 'who.event') => {
     const p = personOf(tables, userId, memberId);
@@ -46,7 +49,7 @@ export function useRowMeta() {
           ...progress(n),
           ...(x.trip && !done ? [strings['trip.open'](x.trip.open)] : []),
           ...who(x.assignee_member_id, 'who.task'),
-          ...(x.trip || x.projected ? [] : streak(taskStreak(tables, x.id, local))),
+          ...(x.trip || x.projected ? [] : streak(taskSeries(x.id))),
           ...(x.doneOn ? [strings['calendar.doneOn'](formatDue({ date: x.doneOn, time: null }, today))] : []),
           ...(x.projected ? [strings['calendar.repeatNext']] : []),
         ],

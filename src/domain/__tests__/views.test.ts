@@ -468,11 +468,16 @@ describe('kalendarz', () => {
     task(t, { id: 'zrob', ...own('2026-10-07'), repeat: 'FREQ=DAILY', completed_at: '2026-10-07T08:00:00Z' });
     task(t, { id: 'pod', parent_id: 'tydz', ...own('2026-10-14'), repeat: 'FREQ=DAILY' });
     task(t, { id: 'spotk', deadline_mode: 'event', repeat: 'FREQ=DAILY' });
+    // Termin ze spotkania (D13) nie powtarza się sam — kolejne terminy daje seria wydarzenia.
+    put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', start_date: '2026-10-07', start_time: '17:00:00', end_time: null, rrule: null, audience: 'group', deleted_at: null });
+    task(t, { id: 'nasp', deadline_mode: 'event', event_id: 'ev', occurrence_date: '2026-10-07', repeat: 'FREQ=DAILY' });
     const days = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 } });
     const projected = days.flatMap((d) => d.items.filter((x) => x.projected).map((x) => `${d.date} ${x.id} ${x.due!.time ?? ''}`));
     expect(projected).toEqual(['2026-10-21 tydz 18:00', '2026-10-28 tydz 18:00']);
     // Siatka listopada sięga 6.12 — ostatni dzień listopada.
     expect(calendarMonth(t, ME, 2026, 11).flatMap((d) => d.items.filter((x) => x.projected && x.id === 'mies').map(() => d.date))).toEqual(['2026-11-30']);
+    // Siatka kończąca się przed terminem — kolejnych terminów w niej nie ma (sam termin też nie).
+    expect(calendarMonth(t, ME, 2026, 9).flatMap((d) => d.items.filter((x) => x.projected))).toEqual([]);
   });
 
   it('liczba tygodni zgodna z modułem calendar Pythona (Calendar(0).monthdatescalendar)', () => {

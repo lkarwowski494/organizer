@@ -78,8 +78,9 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     if (x.completed_at !== null) {
       const d = localDate(x.completed_at);
       // Historia dla minionych dni; odhaczone dziś — w „Zrobione dziś”, nie w planie dnia.
+      // (Odhaczone „jutro” przez przesunięty zegar telefonu liczy się jako dziś.)
       if (d < isoToday) push(d, item);
-      else if (d === isoToday) doneToday.push(item);
+      else doneToday.push(item);
       continue;
     }
     if (!visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;

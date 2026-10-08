@@ -60,7 +60,7 @@ export function finishTripOps(t: Tables, userId: string, listId: string, all: bo
   const ops: NewOp[] = [];
   if (all) for (const x of open) ops.push(toggleDone(x, nowIso));
   for (const x of bought) ops.push({ kind: 'delete', entity: 'tasks', id: x.id });
-  const planned = asTrip(t.lists?.[listId] ?? {}).date;
+  const planned = asTrip(t.lists![listId]!).date;
   ops.push({ kind: 'patch', entity: 'lists', id: listId, set: { ...tripSet({ date: null, time: null, responsibleId: null }), trip_done_at: nowIso, trip_done_date: planned } });
   const pending = outgoingPending(t, userId).get(handoffKey('lists', listId, null));
   if (pending) ops.push(cancelHandoff(pending.id));
