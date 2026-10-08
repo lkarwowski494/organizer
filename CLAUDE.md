@@ -106,4 +106,4 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
 właściciela przy ok. 70% limitu. Progi są w `src/config` (`limits`) i `docs/limits.md`.
-Dopóki repozytorium jest prywatne: żadnych jobów macOS (minuty ×10).
+Repozytorium jest publiczne: standardowe maszyny GitHub Actions (także macOS) są bez opłat — „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners” (https://docs.github.com/en/billing/concepts/product-billing/github-actions). Płatne „larger runners” — nie używamy.
