@@ -4,13 +4,14 @@
  * wychodzą poza telefon — trzymamy je tylko w pamięci ekranu.
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Linking } from 'react-native';
 
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
-import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorReady } from '../domain/views/calendar-sync';
+import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorCalendarOf, mirrorGroups, mirrorReady } from '../domain/views/calendar-sync';
 import { localNow, localToMs } from './clock';
-import { clearMirror, loadMirror, runMirror } from './calendar-mirror';
+import { clearMirror, loadMirror, loadSkip, MIRROR_SKIP_KEY, ownedIn, runMirror } from './calendar-mirror';
+import type { CalendarStatus } from './device-calendar';
 import { useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';
 
@@ -21,7 +22,7 @@ export const CAL_SKIP = 'calendarSkip';
 
 type Api = {
   available: boolean;
-  status: 'granted' | 'denied' | 'undetermined' | null;
+  status: CalendarStatus | null;
   read: boolean;
   mirror: boolean;
   /** Moje wydarzenia po dniach (ISO), bez kalendarzy lustra. */
@@ -33,10 +34,20 @@ type Api = {
   connect(): Promise<boolean>;
   setRead(on: boolean): void;
   setMirror(on: boolean): void;
+  /** D174: moje grupy i czy są w lustrze (wybór w Ustawieniach, w bazie konta). */
+  groups: { id: string; name: string; mirrored: boolean }[];
+  setGroupMirrored(id: string, on: boolean): void;
+  /** PWD-2: kalendarz lustra, w którym jest to wystąpienie (przy włączonym lustrze), albo null. */
+  mirrorCalendar(eventId: string, occurrenceDate: string, date: string): string | null;
+  /** Ustawienia iPhone'a (zgoda odmówiona — iOS nie zapyta drugi raz). */
+  openSettings(): void;
 };
 
 const EMPTY = new Map<string, DeviceEntry[]>();
-const Ctx = createContext<Api>({ available: false, status: null, read: false, mirror: false, days: EMPTY, calendars: [], setCalendarRead: () => {}, connect: async () => false, setRead: () => {}, setMirror: () => {} });
+const Ctx = createContext<Api>({
+  available: false, status: null, read: false, mirror: false, days: EMPTY, calendars: [], setCalendarRead: () => {}, connect: async () => false, setRead: () => {}, setMirror: () => {},
+  groups: [], setGroupMirrored: () => {}, mirrorCalendar: () => null, openSettings: () => {},
+});
 const parseSkip = (v: string | null): string[] => {
   try {
     const x: unknown = JSON.parse(v ?? '[]');
@@ -59,13 +70,16 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<DeviceEvent[]>([]);
   const [skip, setSkip] = useState<string[]>([]);
   const [tick, setTick] = useState(0);
+  // D174: grupy wyłączone z lustra — wybór konta, więc w jego bazie (nie w pęku kluczy telefonu).
+  const [mirrorSkip, setMirrorSkip] = useState<string[]>(() => (local ? loadSkip(local) : []));
   const reported = useRef(false);
   const report = useCallback(
     (e: unknown, screen: string) => {
       // Jedno zgłoszenie na uruchomienie — błąd kalendarza powtarza się przy każdej zmianie danych.
       if (reported.current) return;
       reported.current = true;
-      account.reportError(toClientError(e, 'error', screen, appVersion())).catch(() => {});
+      // Audyt 2 (M-159): komunikat EventKit może zawierać nazwę kalendarza albo tytuł — tylko nazwa i kod błędu.
+      account.reportError(toClientError(e, 'error', screen, appVersion(), { private: true })).catch(() => {});
     },
     [account],
   );
@@ -113,21 +127,45 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
     };
   }, [available, read, status, today, tick, sync, report]);
 
-  // Lustro: po zmianie danych (z opóźnieniem — seria zmian z synchronizacji daje jedno przeliczenie).
+  // Lustro: po zmianie danych (z opóźnieniem — seria zmian z synchronizacji daje jedno przeliczenie). Zmiana w trakcie
+  // przebiegu (audyt 2, M-220) nie przepada: przebieg kończy się i rusza od nowa z najnowszymi danymi.
   const running = useRef(false);
+  const latest = useRef<() => void>(() => {});
+  const dirty = useRef(false);
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      // Odmontowanie (wylogowanie, zmiana konta): przebieg w toku nie tworzy już nic w iPhonie (D172).
+      mounted.current = false;
+    },
+    [],
+  );
   useEffect(() => {
     if (!available || !mirror || status !== 'granted' || !ready) return;
-    const timer = setTimeout(() => {
-      if (running.current) return;
+    // Przebieg tego ustawienia danych: nowsze dane, wyłączenie lustra albo odmontowanie kończą go po bieżącym kroku
+    // (stan zapisany po każdym kroku — następny przebieg zaczyna od tego miejsca).
+    let current = true;
+    const run = () => {
+      if (running.current) {
+        dirty.current = true;
+        return;
+      }
       running.current = true;
-      runMirror(sync!, local!, tables, userId, today)
+      dirty.current = false;
+      runMirror(sync!, local!, tables, userId, today, { owned: ownedIn(prefs!), alive: () => current && mounted.current })
         .catch((e: unknown) => report(e, 'calendar-mirror'))
         .finally(() => {
           running.current = false;
+          if (dirty.current && mounted.current) latest.current();
         });
-    }, config.calendar.MIRROR_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [available, mirror, status, ready, tables, userId, today, tick, sync, local, report]);
+    };
+    latest.current = run;
+    const timer = setTimeout(run, config.calendar.MIRROR_DEBOUNCE_MS);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [available, mirror, status, ready, tables, userId, today, tick, sync, local, prefs, report, mirrorSkip]);
 
   const mirrors = useMemo(() => (local ? new Set(Object.values(loadMirror(local).calendars)) : new Set<string>()), [local, events]); // eslint-disable-line react-hooks/exhaustive-deps
   const exclude = useMemo(() => new Set([...mirrors, ...skip]), [mirrors, skip]);
@@ -139,6 +177,9 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   );
 
   const calendars = useMemo(() => (shown ? deviceCalendars(shown, mirrors).map((c) => ({ ...c, read: !skip.includes(c.id) })) : []), [shown, mirrors, skip]);
+  const groups = useMemo(() => mirrorGroups(tables, userId).map((g) => ({ id: g.id, name: g.name, mirrored: !mirrorSkip.includes(g.id) })), [tables, userId, mirrorSkip]);
+  const skipSet = useMemo(() => new Set(mirrorSkip), [mirrorSkip]);
+  const mirrorOn = available && mirror && status === 'granted';
 
   const api = useMemo<Api>(
     () => ({
@@ -155,6 +196,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       },
       connect: async () => {
         if (!available) return false;
+        // Odmowa: iOS nie zapyta drugi raz — tylko Ustawienia iPhone'a.
+        if (status === 'denied') {
+          void Linking.openSettings().catch(() => {});
+          return false;
+        }
         const ok = await sync!.request().catch(() => false);
         setStatus(ok ? 'granted' : 'denied');
         if (!ok) return false;
@@ -170,10 +216,18 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       setMirror: (on) => {
         setMirrorState(on);
         prefs?.set(CAL_MIRROR, on ? '1' : '0').catch(() => {});
-        if (!on && sync && local) clearMirror(sync, local).catch((e: unknown) => report(e, 'calendar-mirror-off'));
+        if (!on && sync && local) clearMirror(sync, local, prefs ? ownedIn(prefs) : undefined).catch((e: unknown) => report(e, 'calendar-mirror-off'));
       },
+      groups,
+      setGroupMirrored: (id, on) => {
+        const next = on ? mirrorSkip.filter((x) => x !== id) : [...new Set([...mirrorSkip, id])];
+        setMirrorSkip(next);
+        local?.save(MIRROR_SKIP_KEY, JSON.stringify(next));
+      },
+      mirrorCalendar: (eventId, occurrenceDate, date) => (mirrorOn ? mirrorCalendarOf(tables, userId, eventId, occurrenceDate, date, today, skipSet) : null),
+      openSettings: () => void Linking.openSettings().catch(() => {}),
     }),
-    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report],
+    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report, groups, mirrorSkip, mirrorOn, tables, userId, today, skipSet],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }

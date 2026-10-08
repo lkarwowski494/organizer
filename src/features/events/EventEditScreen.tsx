@@ -44,11 +44,12 @@ export function EventEditScreen({ route, navigation }: Props) {
   const [form, setForm] = useState<EventForm>(() => {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
+    // PWD-33 (D200): kopia wydarzenia z iPhone'a — nazwa, dzień, godziny i miejsce do poprawienia przed zapisem.
     // Audyt 2 (M-255): dziecko z „@Kuba” przechodzi jako uczestnik, jak w szybkim dodaniu (quickEvent).
-    const { title, start, end, responsibleId, participantIds } = route.params;
+    const { title, start, end, responsibleId, location, allDay, participantIds } = route.params;
     const f = emptyForm(occurrence, participantIds ?? []);
     const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');
-    return { ...f, title: title ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
+    return { ...f, title: title ?? '', allDay: allDay ?? false, location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
   });
   const [error, setError] = useState<string | null>(null);
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
@@ -158,6 +159,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           ]}
         />
       )}
+      {route.params.fromDevice && !detail ? <Body muted>{strings['event.copyInfo']}</Body> : null}
       {detail && detail.rule ? (
         <Body muted>
           {scope === 'this' ? strings['event.scopeThisInfo'] : scope === 'following' ? strings['event.scopeFollowingInfo'](formatLongDate(parseIsoDate(occurrence), today)) : strings['event.scopeAllInfo']}

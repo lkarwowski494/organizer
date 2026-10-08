@@ -21,7 +21,7 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - **Dane:** `events.location` (tekst, do 300 znaków, `config.events.LOCATION_MAX_LENGTH`, test kontraktowy z SQL) — całej serii; „Tylko to” go nie zmienia. Migracja `20261008260000_event_location.sql`.
 - **Moduł natywny** `modules/travel-time` (Swift, MapKit): czas dojazdu z położenia telefonu do współrzędnych celu. Położenie i adres → współrzędne: expo-location (zgoda tylko „podczas używania”; „zawsze” wyłączone — test kontraktowy Info.plist; opis ruchu dodany w D123, ADR 0032). Współrzędne celu zapamiętane na telefonie.
-- **Kiedy liczymy:** dzisiejsze wydarzenia, które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
+- **Kiedy liczymy:** wydarzenia (od audytu 2 także jutro po północy), które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
 - **Powiadomienie:** „Czas wyjść: Basen” o godzinie wyjścia zastępuje przypomnienie „30 min przed”, jeśli dojazd jest policzony.
   Decyzje właściciela z 8.10.2026 (audyt 2): osobny przełącznik „Czas wyjść” w Ustawieniach → Powiadomienia, domyślnie
   włączony; wyłączony — zwykłe „N min przed” (PWD-17). Gdy wyjście już minęło (np. korki), a wydarzenie jeszcze nie — od
@@ -32,3 +32,16 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
   - Czy MapKit podaje czas dojazdu komunikacją w Polsce. Apple w opisie MKDirections pisze o trasach pieszych i samochodowych. Jeśli komunikacja nie zadziała, zostaje „Nawiguj” z trybem komunikacji, a „Wyjdź o” się nie pojawi.
   - Moduł Swift kompiluje się dopiero w buildzie iOS (brak Xcode w środowisku rozwojowym).
 - **Prywatność:** polityka prywatności uzupełniona. Etykieta prywatności w App Store Connect: lokalizacja przybliżona/dokładna „nie zbierana” przez nas (nie wychodzi poza telefon i Apple) — do potwierdzenia przez właściciela przy publikacji.
+
+## Audyt 2 (8.10.2026)
+- **PWD-3 (decyzja właściciela):** przy wydarzeniu z adresem i wyłączonym czasem dojazdu — „Pokaż, kiedy wyjść →” (włącza
+  dojazd i pyta o lokalizację). Odrzucone: bez podpowiedzi.
+- **Okno** (M-211): wydarzenia od teraz do 12 h naprzód także po północy (dziś i jutro), nie tylko z dzisiejszą datą.
+- **Pora odjazdu** (M-106): pytamy MapKit o odjazd o porze wyjścia (start − poprzedni wynik − zapas), nie „teraz”; bez
+  poprzedniego wyniku — drugie zapytanie od razu. Odrzucone: `arrivalDate` w module Swift (zmiana natywna do sprawdzenia
+  na iPhonie).
+- **Adres, którego Mapy nie znalazły** (M-106): zapamiętany z datą i sprawdzany znowu po `GEO_RETRY_H` = 24 h; najwyżej
+  `GEO_MAX` = 200 adresów; ekran wydarzenia mówi „Nie znaleźliśmy tego adresu w Mapach”. Wybory projektowe bez źródła.
+- **Wygasła zgoda „Pozwól raz”** (M-218): włączony dojazd bez zgody — „Zezwól na lokalizację” na ekranie wydarzenia
+  i w Ustawieniach.
+- **Błędy** geokodera i MapKit zgłaszamy bez komunikatu (mógłby zawierać adres) — M-159.
