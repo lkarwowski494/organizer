@@ -26,7 +26,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
-import { expiredRepeatOps } from '../../domain/views/task-repeat';
+import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
@@ -49,7 +49,7 @@ const MODES: RangeMode[] = ['day', 'week', 'month'];
 export function TodayScreen() {
   const { userId, store, now, nowMs, newId, prefs, needsName } = useServices();
   const actions = useTaskActions();
-  const { tables, today, indicator } = useAppData();
+  const { tables, today, indicator, state } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
@@ -66,10 +66,15 @@ export function TodayScreen() {
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
   // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
+  // Audyt 2: tylko w żywej grupie, w której nie jestem dzieckiem (T-2); odhaczone przez dziecko dostają następne
+  // tutaj (T-12); kopia odrzucona przez serwer nie wraca w każdym cyklu synchronizacji.
+  const rejectedIds = useMemo(() => new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []))), [state.rejected]);
   useEffect(() => {
-    const ops = expiredRepeatOps(tables, today, (g) => groups.find((x) => x.id === g)?.me.role !== 'child');
+    const canCreate = (g: string) => groups.some((x) => x.id === g && x.me.role !== 'child');
+    const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
+    const ops = [...expiredRepeatOps(tables, today, canCreate, rejectedIds), ...missingRepeatOps(tables, today, canCreate, local, rejectedIds)];
     if (ops.length) store.dispatch(ops);
-  }, [tables, today, groups, store]);
+  }, [tables, today, groups, store, rejectedIds]);
   // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie. Stan z chwili otwarcia
   // (useState): po nadaniu imienia sesja się zmienia, a ekran imienia sam przechodzi do wprowadzenia.
   const [askName] = useState(needsName);
