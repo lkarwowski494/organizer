@@ -29,7 +29,8 @@ export const strings = {
   'today.title': 'Moje sprawy',
   'today.pinned': 'Przypięte',
   'today.today': 'Dziś',
-  'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd piątek” albo „mleko jutro o 17”.',
+  // Audyt 2 (M-23, U-45): przykłady, które parser rozumie jednoznacznie, i to zadania, nie zakupy.
+  'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd w piątek” albo „dentysta jutro o 17”.',
   'today.noDue': 'bez terminu',
   'today.range': 'Zakres',
   'today.range.day': 'Dzień',
@@ -46,9 +47,13 @@ export const strings = {
   'today.pastInfo': 'Minęło: zrobione i wydarzenia. Niezrobione z terminem przeszły na dziś; te „tylko tego dnia” i kroki rutyn minęły.',
 
   'quick.label': 'Szybkie dodawanie',
-  'quick.placeholder': 'np. „mleko jutro o 17”',
+  'quick.placeholder': 'np. „dentysta jutro o 17”',
   'quick.add': 'Dodaj',
   'quick.chipA11y': (text: string) => `Rozpoznano: ${text}. Dotknij, żeby zostawić w tytule`,
+  // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
+  'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
+  // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
+  'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
@@ -187,6 +192,10 @@ export const strings = {
   'form.addedEvent': (title: string, group: string) => `Dodano wydarzenie: ${title} · ${group}`,
   'mention.ask': (name: string) => `Kogo masz na myśli: @${name}?`,
   'mention.pick': (person: string, group: string) => `${person} · ${group}`,
+  // Audyt 2 (M-169): nieznane „@imię” — pytanie zamiast cichego dodania do Osobistych.
+  'mention.unknown': (name: string) => `Nie ma @${name} w Twoich grupach`,
+  'mention.unknownInfo': (name: string) => `Popraw imię albo dodaj bez osoby („@${name}” zostanie w nazwie).`,
+  'mention.addWithout': 'Dodaj bez osoby',
   'task.note': 'Notatka',
   'task.due': 'Termin',
   'task.dueNone': 'Bez terminu (przypięte)',
@@ -222,6 +231,8 @@ export const strings = {
   'lists.addItem': 'Dodaj produkt, np. „2 mleka”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
+  // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
+  'lists.emptyShopping': 'Lista jest pusta. Dopisz pierwszy produkt polem powyżej.',
   'lists.delete': 'Usuń listę',
   'lists.expired': 'minęło',
   'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”',
@@ -551,7 +562,7 @@ export const strings = {
   'welcome.1.example': 'Ala przekazuje Ci: odebrać Kubę z treningu',
   'welcome.2.title': 'Pisz po ludzku',
   'welcome.2.body': `Wpisz tak, jak mówisz — aplikacja sama rozpozna termin. Przypomni ${config.reminders.LEAD_MIN} min wcześniej, a rano powie, co na dziś.`,
-  'welcome.2.example': '„mleko jutro o 17” → mleko, jutro 17:00',
+  'welcome.2.example': '„dentysta jutro o 17” → dentysta, jutro 17:00',
   'welcome.next': 'Dalej',
   'welcome.skip': 'Pomiń',
   'welcome.start.title': 'Od czego zaczynasz?',

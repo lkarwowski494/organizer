@@ -12,6 +12,12 @@ export type MentionTarget = { groupId: string; groupName: string; memberId: stri
 
 const AT = /(^|\s)@([\p{L}\p{N}_-]+)/u;
 
+export type MentionResolution =
+  | { kind: 'none' }
+  | { kind: 'one'; target: MentionTarget }
+  | { kind: 'many'; name: string; targets: MentionTarget[] }
+  | { kind: 'unknown'; name: string };
+
 /** Pierwsze „@słowo” w tekście; `text` bez niego (pozostałe spacje złączone). */
 export function extractMention(text: string): { text: string; mention: Mention | null } {
   const m = AT.exec(text);
@@ -40,4 +46,22 @@ export function mentionTargets(t: Tables, userId: string, name: string): Mention
     }
   }
   return out;
+}
+
+/**
+ * „@imię” w tekście: brak, jedno dopasowanie, kilka (telefon pyta, którą osobę i grupę, D91) albo żadnego — wtedy też
+ * pytamy, czy dodać bez osoby, zamiast cicho zostawić „@Zosia” w nazwie w Osobistych (audyt 2, M-169).
+ */
+export function resolveMention(t: Tables, userId: string, text: string): MentionResolution {
+  const { mention } = extractMention(text);
+  if (!mention) return { kind: 'none' };
+  const targets = mentionTargets(t, userId, mention.name);
+  if (targets.length === 1) return { kind: 'one', target: targets[0]! };
+  return targets.length ? { kind: 'many', name: mention.name, targets } : { kind: 'unknown', name: mention.name };
+}
+
+/** Tekst z „@imię” zastąpionym spacjami tej samej długości — odklikane fragmenty (ignore) zachowują pozycje. */
+export function blankMention(text: string): string {
+  const { mention } = extractMention(text);
+  return mention ? `${text.slice(0, mention.start)}${' '.repeat(mention.end - mention.start)}${text.slice(mention.end)}` : text;
 }

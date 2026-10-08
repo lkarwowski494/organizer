@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { extractMention, mentionTargets } from '../views/mention';
+import { blankMention, extractMention, mentionTargets, resolveMention } from '../views/mention';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -58,5 +58,20 @@ describe('@imię w szybkim dodawaniu (D91)', () => {
     put(t, 'group_members', 'x', { member_id: 'x', group_id: 'gf', user_id: 'u-x', display_name: undefined, role: 'member', deleted_at: null });
     expect(mentionTargets(t, ME, 'a').map((x) => x.memberId)).toEqual(['ala', 'ala2']);
     expect(mentionTargets(t, ME, 'x')).toEqual([]);
+  });
+});
+
+describe('rozstrzygnięcie „@imię” (D91; audyt 2, M-169)', () => {
+  it('brak, jedno, kilka, żadne dopasowanie', () => {
+    const t = base();
+    expect(resolveMention(t, ME, 'basen jutro')).toEqual({ kind: 'none' });
+    expect(resolveMention(t, ME, 'basen @kub')).toEqual({ kind: 'one', target: { groupId: 'gf', groupName: 'Rodzina', memberId: 'kuba', displayName: 'Kuba' } });
+    expect(resolveMention(t, ME, 'zebranie @al')).toMatchObject({ kind: 'many', name: 'al', targets: [{ memberId: 'ala' }, { memberId: 'ala2' }] });
+    expect(resolveMention(t, ME, 'kupić bilety @Zosia')).toEqual({ kind: 'unknown', name: 'Zosia' });
+  });
+
+  it('„@imię” zastąpione spacjami tej samej długości', () => {
+    expect(blankMention('basen @Ala jutro')).toBe('basen      jutro');
+    expect(blankMention('basen jutro')).toBe('basen jutro');
   });
 });

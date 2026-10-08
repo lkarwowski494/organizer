@@ -12,7 +12,7 @@ import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import { createList, createTask, patchTask, remove, setDue } from './commands';
 import { groupsView, listsView } from './index';
-import { extractMention, type MentionTarget, mentionTargets } from './mention';
+import { extractMention, type MentionTarget, resolveMention } from './mention';
 import { asTask, type Tables } from './model';
 import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
@@ -58,13 +58,15 @@ export function formMembers(t: Tables, groupId: string): { member_id: string; di
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
 
-/** Formularz z tekstu pola dodawania. „@imię” z jednym dopasowaniem ustawia grupę i osobę; inaczej zwraca kandydatów. */
-export function formFromText(t: Tables, userId: string, text: string, now: LocalDateTime): { form: TaskForm; candidates: MentionTarget[] } {
-  const { text: rest, mention } = extractMention(text);
-  const candidates = mention ? mentionTargets(t, userId, mention.name) : [];
-  const parsed = parseQuickAdd(candidates.length ? rest : text, now);
+/**
+ * Formularz z tekstu pola dodawania. „@imię” z jednym dopasowaniem ustawia grupę i osobę; przy kilku zwraca kandydatów
+ * (`mention` — wpisane imię), a „@imię” zostaje w nazwie, dopóki nie wybierzesz osoby (audyt 2, M-170: nie znika po cichu).
+ */
+export function formFromText(t: Tables, userId: string, text: string, now: LocalDateTime): { form: TaskForm; candidates: MentionTarget[]; mention: string | null } {
+  const r = resolveMention(t, userId, text);
+  const parsed = parseQuickAdd(r.kind === 'one' ? extractMention(text).text : text, now);
   const personal = formGroups(t, userId)[0];
-  const target = candidates.length === 1 ? candidates[0]! : null;
+  const target = r.kind === 'one' ? r.target : null;
 
   return {
     form: {
@@ -77,8 +79,15 @@ export function formFromText(t: Tables, userId: string, text: string, now: Local
       // „co tydzień” (parser zawsze daje wtedy termin) — w dzień tygodnia terminu.
       repeat: parsed.rrule && parsed.due ? { kind: 'weekly', days: [isoWeekday(parseIsoDate(parsed.due.date))] } : null,
     },
-    candidates: candidates.length > 1 ? candidates : [],
+    candidates: r.kind === 'many' ? r.targets : [],
+    mention: r.kind === 'many' ? r.name : null,
   };
+}
+
+/** Wybór osoby spośród kilku dopasowań „@imię” (M-170): jej grupa i ona; „@imię” znika z nazwy. */
+export function pickCandidate(f: TaskForm, mention: string, c: MentionTarget): TaskForm {
+  const title = f.title.replace(`@${mention}`, ' ').replace(/\s+/g, ' ').replace(/\s+([,;:.!?])/g, '$1').trim();
+  return { ...f, title, groupId: c.groupId, assigneeId: c.memberId };
 }
 
 /** Formularz z istniejącego zadania („Zmień”). */
@@ -145,7 +154,7 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
     return { ops, taskId: x.id };
   }
   const id = newId();
-  ops.push(createTask({ id, groupId: f.groupId, listId, parsed: { title, due, rrule: null, tokens: [] }, assigneeId: f.assigneeId }));
+  ops.push(createTask({ id, groupId: f.groupId, listId, parsed: { title, due, rrule: null, tokens: [], unrecognizedDay: null }, assigneeId: f.assigneeId }));
   if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
   if (original) {
     // Inna grupa: kopia z notatką, oryginał do kosza.
