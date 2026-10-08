@@ -8,6 +8,8 @@
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 
+import { stapleCmdResult } from '../../src/domain/sync-engine/client';
+
 const enabled = !!process.env.PGHOST;
 const d = enabled ? describe : describe.skip;
 const DB = process.env.PGDATABASE ?? 'organizer_test';
@@ -141,3 +143,39 @@ d('równoczesne przeniesienia zadań', () => {
     await Promise.all([admin, a, b].map((c) => c.end()));
   }, 120_000);
 });
+
+d('równoczesne stałe zakupy (audyt 2, M-111)', () => {
+  it('dopisania z wielu telefonów naraz się sumują — nic nie ginie, bez dubli; telefon liczy ten sam skutek', async () => {
+    const WRITERS = 5;
+    const NAMES = 4;
+    const admin = await connect();
+    const users = Array.from({ length: WRITERS }, () => randomUUID());
+    const group = randomUUID();
+    const list = randomUUID();
+    await admin.query(`insert into auth.users (id, email) select u, u || '@x.test' from unnest($1::uuid[]) u`, [users]);
+    const owner = await connect(users[0]);
+    await owner.query(`select public.create_group($1, 'Stałe', $2, 'Owner')`, [group, randomUUID()]);
+    await admin.query(`insert into public.group_members (member_id, group_id, user_id, display_name) select gen_random_uuid(), $1, u, 'W' from unnest($2::uuid[]) u`, [group, users.slice(1)]);
+    await owner.query(`select public.sync_push($1, 1, $2::jsonb)`, [randomUUID(), JSON.stringify([{ seq: 1, kind: 'create', entity: 'lists', id: list, group_id: group, set: { kind: 'shopping', name: 'Zakupy' } }])]);
+    const writers = await Promise.all(users.map((u) => connect(u)));
+    // Każdy telefon dopisuje swoje nazwy i jedną wspólną („Mleko”) — wszystkie naraz.
+    const results = await Promise.all(
+      writers.map(async (w, i) => {
+        const ops = [...Array.from({ length: NAMES }, (_, k) => `w${i}-${k}`), 'Mleko'].map((name, k) => ({ seq: k + 1, kind: 'cmd', cmd: 'staple_add', args: { list_id: list, name } }));
+        return (await w.query(`select public.sync_push($1, 1, $2::jsonb) r`, [randomUUID(), JSON.stringify(ops)])).rows[0].r;
+      }),
+    );
+    expect(results.flatMap((r) => r.results.map((x: { status: string }) => x.status)).every((x: string) => x === 'ok')).toBe(true);
+    const staples: string[] = (await admin.query(`select staples from public.lists where id = $1`, [list])).rows[0].staples;
+    const expected = ['Mleko', ...users.flatMap((_, i) => Array.from({ length: NAMES }, (_, k) => `w${i}-${k}`))];
+    expect([...staples].sort()).toEqual(expected.sort());
+    // Usunięcie na starym stanie też niczego nie przywraca ani nie kasuje cudzego.
+    await writers[1]!.query(`select public.sync_push($1, 1, $2::jsonb)`, [randomUUID(), JSON.stringify([{ seq: 1, kind: 'cmd', cmd: 'staple_remove', args: { list_id: list, names: ['Mleko', 'w0-0'] } }])]);
+    const after: string[] = (await admin.query(`select staples from public.lists where id = $1`, [list])).rows[0].staples;
+    expect(after).toEqual(staples.filter((x) => x !== 'Mleko' && x !== 'w0-0'));
+    // Skutek lokalny (telefon przed potwierdzeniem) = skutek serwera dla tej samej kolejności poleceń.
+    expect(stapleCmdResult({ staples }, { cmd: 'staple_remove', args: { names: ['Mleko', 'w0-0'] } })).toEqual(after);
+    await Promise.all([admin, owner, ...writers].map((c) => c.end()));
+  }, 60_000);
+});
+

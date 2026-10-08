@@ -12,6 +12,7 @@ import {
   pullRequest,
   pushRequest,
   rowKey,
+  stapleCmdResult,
   type ClientState,
 } from '../sync-engine/client';
 import { FakeServer } from './support/fake-server';
@@ -134,6 +135,23 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(materialize(a).tasks).toEqual({ t: { title: 'b', id: 't', group_id: 'g', deleted_at: 'pending' } });
     op({ kind: 'restore', entity: 'tasks', id: 't' });
     expect(materialize(a).tasks?.t?.deleted_at).toBeNull();
+  });
+
+  it('audyt 2 (M-111): stałe zakupy jako polecenia — skutek od razu na telefonie, jak na serwerze', () => {
+    let a: ClientState = { ...initialState('ca'), base: { lists: { l: { id: 'l', group_id: 'g', staples: ['Mleko', 7], deleted_at: null }, z: { id: 'z', group_id: 'g', deleted_at: 'x' } } } };
+    const op = (o: Parameters<typeof mutate>[1]) => (a = mutate(a, o, newId));
+    op({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'l', name: 'Chleb' } });
+    op({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'l', name: 'Mleko' } }); // już jest — bez dubla
+    expect(materialize(a).lists?.l?.staples).toEqual(['Mleko', 'Chleb']);
+    op({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'l', names: ['Mleko', 'brak'] } });
+    expect(materialize(a).lists?.l?.staples).toEqual(['Chleb']);
+    // Lista usunięta albo nieznana: bez skutku; inne polecenia: skutek tylko na serwerze.
+    op({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'z', name: 'Chleb' } });
+    op({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'brak', name: 'Chleb' } });
+    op({ kind: 'cmd', cmd: 'move_task', args: { id: 't', parent_id: null, list_id: 'l' } });
+    expect(materialize(a).lists).toEqual({ l: { id: 'l', group_id: 'g', staples: ['Chleb'], deleted_at: null }, z: { id: 'z', group_id: 'g', deleted_at: 'x' } });
+    expect(stapleCmdResult({}, { cmd: 'staple_add', args: { name: 'Woda' } })).toEqual(['Woda']);
+    expect(stapleCmdResult({ staples: ['Woda'] }, { cmd: 'grant_scope', args: {} })).toBeNull();
   });
 
   it('klucze wierszy i zakresy wszystkich encji', () => {

@@ -102,12 +102,12 @@ describe('Listy i zadania', () => {
     await press(await screen.findByTestId('list-lz'));
     expect(await screen.findByText('Zakupy na weekend')).toBeTruthy();
     expect(screen.getByText('W koszyku')).toBeTruthy();
-    await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
-    expect(lastAlert().title).toBe('Do koszyka?');
-    await answerAlert('Do koszyka');
-    expect(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni')).toBeTruthy();
-    // Wyjęcie z koszyka bez pytania (cofnięcie niczego nie ukrywa).
+    // Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
     const n = (Alert.alert as unknown as jest.Mock).mock.calls.length;
+    await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
+    expect(within(screen.getByTestId('undo-bar')).getByText('W koszyku: Chleb żytni')).toBeTruthy();
+    expect(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni')).toBeTruthy();
+    // Wyjęcie z koszyka też bez pytania (cofnięcie niczego nie ukrywa).
     await press(screen.getByLabelText('Wyjmij z koszyka: Chleb żytni'));
     expect((Alert.alert as unknown as jest.Mock).mock.calls).toHaveLength(n);
     expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
@@ -158,18 +158,15 @@ describe('Listy i zadania', () => {
     expect(await screen.findByText('Zadanie usunięte')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij usunięcie'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
-    // D68: we wspólnej grupie bez osoby nie da się zdjąć terminu.
-    const before = store.dispatched.length;
-    await press(screen.getByLabelText('Usuń termin'));
-    expect(screen.getByText(/musi mieć osobę albo termin/)).toBeTruthy();
-    expect(store.dispatched).toHaveLength(before);
-    await press(screen.getByLabelText('Ala'));
+    // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
     await press(screen.getByLabelText('Usuń termin'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
-    // Teraz bez terminu, więc „Nikt konkretny” też jest zablokowane.
-    const n = store.dispatched.length;
+    expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
+    await press(screen.getByLabelText('Ala'));
+    expect(screen.queryByTestId('task-no-addressee')).toBeNull();
     await press(screen.getByLabelText('Nikt konkretny'));
-    expect(store.dispatched).toHaveLength(n);
+    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
+    expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
   });
 
   it('nowa lista prywatna w grupie wspólnej i usunięcie listy', async () => {

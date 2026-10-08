@@ -26,7 +26,13 @@ export function rejectionReason(code: string): string {
 
 export function describeOp(op: Op): string {
   const verb = strings[`rejected.op.${op.kind}`];
-  if (op.kind === 'cmd') return op.cmd === 'move_task' ? strings['rejected.cmd.move_task'] : verb;
+  if (op.kind === 'cmd') {
+    if (op.cmd === 'move_task') return strings['rejected.cmd.move_task'];
+    // Audyt 2 (M-111): stałe zakupy jako polecenia.
+    if (op.cmd === 'staple_add') return `${strings['rejected.cmd.staple_add']}: „${String(op.args.name)}”`;
+    if (op.cmd === 'staple_remove') return `${strings['rejected.cmd.staple_remove']}: „${(op.args.names as readonly unknown[]).join(', ')}”`;
+    return verb;
+  }
   const set = op.kind === 'create' || op.kind === 'patch' ? op.set : {};
   const label = (set.title ?? set.name ?? set.display_name) as string | undefined;
   // Audyt 2 (U-42): bez tytułu — czego dotyczy zmiana („Dodanie: obecność”).
