@@ -11,7 +11,7 @@
  *  - oba telefony widzą to samo,
  *  - powtórzona paczka nigdy nie daje nowego odrzucenia, a odrzucenie wraca z tym samym kodem (M-56),
  *  - pętle „do ciszy” mają górną granicę obrotów (M-49).
- * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany.
+ * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany (z CI_DB=1 — błąd, db-gate.ts).
  */
 import * as fc from 'fast-check';
 import { Client } from 'pg';
@@ -31,9 +31,9 @@ import {
   pullRequest,
   pushRequest,
 } from '../../src/domain/sync-engine/client';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 
 const U = { ala: '00000000-0000-7000-8000-0000000000a1', bartek: '00000000-0000-7000-8000-0000000000b1' } as const;
 const M = { ala: '99999999-0000-7000-8000-0000000000a1', bartek: '99999999-0000-7000-8000-0000000000b1' } as const;

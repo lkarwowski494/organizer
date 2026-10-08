@@ -2,7 +2,7 @@
  * Test różnicowy: te same losowe paczki operacji idą do FakeServer (model używany w symulacji klientów)
  * i do prawdziwych funkcji sync_push / sync_pull w Postgresie. Statusy operacji i to, co każda osoba
  * widzi, muszą być identyczne — inaczej symulacja testowałaby klienta na fałszywym modelu serwera.
- * Wymaga bazy z migracjami (scripts/db/test-db.sh zostawia organizer_test); bez PGHOST test jest pomijany.
+ * Wymaga bazy z migracjami (scripts/db/test-db.sh zostawia organizer_test); bez PGHOST test jest pomijany (z CI_DB=1 — błąd, db-gate.ts).
  */
 import * as fc from 'fast-check';
 import { Client } from 'pg';
@@ -10,9 +10,9 @@ import { Client } from 'pg';
 import { config } from '../../src/config';
 import type { NewOp, Op } from '../../src/domain/sync-engine/client';
 import { FakeServer } from '../../src/domain/__tests__/support/fake-server';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 
 const U = { ala: '00000000-0000-7000-8000-0000000000a1', bartek: '00000000-0000-7000-8000-0000000000b1' } as const;
 const MEMBER = { ala: '99999999-0000-7000-8000-0000000000a1', bartek: '99999999-0000-7000-8000-0000000000b1' } as const;

@@ -26,11 +26,12 @@ if ! xcodebuild \
   ONLY_ACTIVE_ARCH=YES \
   CODE_SIGNING_ALLOWED=NO \
   build >"$log" 2>&1; then
-  grep -E 'error:|\*\* BUILD FAILED' "$log" | head -50 || true
-  tail -n 100 "$log"
+  # Log zadania jest publiczny (D170): bez wierszy `export` (zmienne środowiska buildu wypisywane przez fazy skryptów).
+  grep -E 'error:|\*\* BUILD FAILED' "$log" | grep -v -E '^[[:space:]]*export ' | head -50 || true
+  tail -n 100 "$log" | grep -v -E '^[[:space:]]*export ' || true
   exit 1
 fi
-tail -n 3 "$log"
+tail -n 3 "$log" | grep -v -E '^[[:space:]]*export ' || true
 app="ios/build/e2e/Build/Products/Release-iphonesimulator/Organizer.app"
 test -d "$app" || { echo "Brak $app"; exit 1; }
 echo "$app"

@@ -9,7 +9,8 @@
  * Raport: <out>/report.json, tabela Markdown na stdout i w $GITHUB_STEP_SUMMARY (podsumowanie przebiegu Actions).
  *
  * Użycie: node scripts/e2e/compare-screenshots.mjs --baselines .maestro/baselines --actual <zrzuty> --out <katalog>
- *         [--threshold 0.1] [--max-ratio 0.001] [--fail]
+ *         [--name <wariant>] [--threshold 0.1] [--max-ratio 0.001] [--fail]
+ * --name: nazwa wariantu zrzutów (scripts/e2e/run-matrix.sh, PWD-38 B) w nagłówku podsumowania.
  * Kod wyjścia 1 tylko z --fail i przy co najmniej jednym diff/size/missing (nocny przebieg); bez --fail — informacja.
  */
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     if (a === '--baselines') opts.baselines = next();
     else if (a === '--actual') opts.actual = next();
     else if (a === '--out') opts.out = next();
+    else if (a === '--name') opts.name = next();
     else if (a === '--threshold') opts.threshold = Number(next());
     else if (a === '--max-ratio') opts.maxRatio = Number(next());
     else if (a === '--fail') opts.fail = true;
@@ -70,15 +72,16 @@ function compare(opts) {
 }
 
 function markdown(report, opts) {
+  const title = `### Zrzuty ekranu E2E${opts.name ? ` — ${opts.name}` : ''}`;
   if (report.baselines === 0) {
-    return `### Zrzuty ekranu E2E\n\nBrak wzorców w \`${opts.baselines}\` — ten przebieg tylko zapisuje zrzuty (${report.results.length}). Przyjęcie wzorców: \`scripts/e2e/accept-baselines.sh\` (docs/testing.md).\n`;
+    return `${title}\n\nBrak wzorców w \`${opts.baselines}\` — ten przebieg tylko zapisuje zrzuty (${report.results.length}). Przyjęcie wzorców: \`scripts/e2e/accept-baselines.sh\` (docs/testing.md).\n`;
   }
   const rows = report.results.map((r) => {
     const info = r.status === 'size' ? r.detail : r.ratio !== undefined ? `${r.pixels} px (${(r.ratio * 100).toFixed(3)}%)` : '';
     return `| ${r.name} | ${r.status} | ${info} |`;
   });
   const head = report.failed ? `**${report.failed} do sprawdzenia** (obrazy różnic: \`*.diff.png\` w artefakcie)` : 'Wszystkie zrzuty zgodne z wzorcami';
-  return `### Zrzuty ekranu E2E\n\n${head}; próg ${(opts.maxRatio * 100).toFixed(2)}% pikseli.\n\n| Zrzut | Wynik | Różnica |\n|---|---|---|\n${rows.join('\n')}\n`;
+  return `${title}\n\n${head}; próg ${(opts.maxRatio * 100).toFixed(2)}% pikseli.\n\n| Zrzut | Wynik | Różnica |\n|---|---|---|\n${rows.join('\n')}\n`;
 }
 
 try {

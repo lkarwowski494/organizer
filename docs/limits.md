@@ -28,3 +28,17 @@ użyciem, bez źródła zewnętrznego. Codzienne sprzątanie (`call private.run_
 dane w granicach z `config.retention` (historia 90 dni, rozstrzygnięte przekazania 90, zaproszenia 30 po wygaśnięciu,
 dziennik dostępu 30, instalacje 180). Wynik każdego przebiegu: `private.maintenance_runs`; problem (pominięta grupa,
 przebieg niedokończony) — wpis `kind = 'diagnostic'`, `screen = 'daily_maintenance'` w `public.client_errors`.
+
+## Nocny pomiar i podtrzymanie projektu (D185, audyt 2 M-78)
+Zadanie `free-limits` w `nightly.yml` (`.github/scripts/free-limits.mjs`) co noc: mierzy rozmiar bazy (zapytanie
+tylko do odczytu przez Supabase Management API — to samo zapytanie podtrzymuje projekt Free przed uśpieniem po tygodniu
+bez ruchu), wywołania Edge Functions z ostatnich 24 h (× 30 — szacunek miesiąca; API logów przyjmuje najwyżej 24 h)
+i pamięć podręczną Actions; porównuje je z progami `config.limits`. Próg przekroczony albo pomiar nieudany oblewa
+zadanie (GitHub wysyła powiadomienie o nieudanym nocnym przebiegu). Ruchu wychodzącego (egress) i wiadomości Realtime
+API nie podaje — sprawdzaj je ręcznie na stronie zużycia organizacji w panelu Supabase (Usage).
+
+**Sekret `SUPABASE_MONITOR_TOKEN`** (do dodania przez właściciela: GitHub → Settings → Secrets and variables → Actions →
+New repository secret): osobisty token dostępu Supabase (panel Supabase → Account → Access Tokens, nazwa np.
+„organizer-limits”, z datą wygaśnięcia). Używa go tylko krok pomiaru (zmienna na poziomie kroku, skrypt jej nie
+wypisuje). Dopóki sekretu nie ma, zadanie kończy się komunikatem „Brak sekretu SUPABASE_MONITOR_TOKEN” i niczego nie
+mierzy — wtedy projekt nie jest też podtrzymywany. Token wygasa — przypomnienie jak przy `organizer-match` (30 dni wcześniej).
