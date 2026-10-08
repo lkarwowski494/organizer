@@ -1,7 +1,7 @@
 /**
  * Nawigacja (D26): zakładki Dziś / Listy / Kalendarz / Grupy + ekrany nad nimi.
  * Linki głębokie (D40, schemat config.URL_SCHEME) skonfigurowane ręcznie: invite/<token>, join?g=&c= (i https …/j/?g=&c=,
- * D94), list/<id>, task/<id>.
+ * D94), list/<id>, task/<id>, event/<id>[/<data>] — te same ścieżki niosą powiadomienia (PWD-16, NotificationOpener).
  */
 import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
@@ -36,6 +36,7 @@ import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
 import { HandoffNotifier } from './HandoffNotifier';
+import { NotificationOpener } from './NotificationOpener';
 import { CalendarSyncProvider } from './calendar-sync';
 import { RemindersProvider } from './reminders';
 import { TravelProvider } from './travel';
@@ -108,6 +109,7 @@ export function RootStack() {
     <>
       <SeriesFiller />
       <HandoffNotifier />
+      <NotificationOpener />
       <TravelProvider>
       <RemindersProvider>
       <CalendarSyncProvider>
@@ -147,6 +149,7 @@ export const linking: LinkingOptions<RootStackParams> = {
       Invite: { path: 'invite/:token', alias: ['join', 'j'] },
       List: 'list/:listId',
       Task: 'task/:taskId',
+      Event: 'event/:eventId/:date?',
     },
   },
 };

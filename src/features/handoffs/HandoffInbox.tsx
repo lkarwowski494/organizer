@@ -13,7 +13,7 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
   if (incoming.length === 0 && declined.length === 0) return null;
   const titleOf = (h: HandoffItem) => {
     const title = h.entity === 'lists' ? strings['trip.title'](h.title) : h.title;
-    return h.occurrence_date ? `${title} (${formatLongDate(parseIsoDate(h.occurrence_date), today)})` : title;
+    return h.date ? `${title} (${formatLongDate(parseIsoDate(h.date), today)})` : title;
   };
   const card = (h: HandoffItem, text: string, buttons: React.ReactNode) => (
     <View key={h.id} testID={`handoff-${h.id}`} style={{ gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, borderLeftWidth: 6, borderLeftColor: line(h.line).line, backgroundColor: c.surface }}>

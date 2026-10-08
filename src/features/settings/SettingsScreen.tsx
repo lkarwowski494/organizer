@@ -89,6 +89,18 @@ export function SettingsScreen({ navigation, route }: Props) {
       {section === 'notifications' ? (
         reminders.available ? (
           <>
+            {/* Audyt 2 (N-8, P-5): po „Nie teraz” albo odmowie w oknie systemowym — droga do powiadomień jest tu. */}
+            {reminders.status === 'undetermined' ? (
+              <View testID="push-access" style={{ gap: 8 }}>
+                <Body>{strings['push.off']}</Body>
+                <Button label={strings['push.enable']} testID="settings-push-enable" onPress={() => void reminders.enable()} />
+              </View>
+            ) : reminders.status === 'denied' ? (
+              <View testID="push-access" style={{ gap: 8 }}>
+                <Body>{strings['push.denied']}</Body>
+                <Button label={strings['push.openSettings']} testID="settings-push-open" onPress={reminders.openSettings} />
+              </View>
+            ) : null}
             <SectionTitle>{strings['reminders.section']}</SectionTitle>
             <Segmented
               label={strings['reminders.lead']}
@@ -102,6 +114,16 @@ export function SettingsScreen({ navigation, route }: Props) {
               onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
               options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m }))}
             />
+            <Segmented
+              label={strings['reminders.leave']}
+              value={reminders.settings.leave === false ? 'off' : 'on'}
+              onChange={(v) => reminders.setSettings({ ...reminders.settings, leave: v === 'on' })}
+              options={[
+                { value: 'on', label: strings['reminders.leave.on'] },
+                { value: 'off', label: strings['reminders.leave.off'] },
+              ]}
+            />
+            <Body muted>{strings['reminders.leaveInfo']}</Body>
             <Body muted>{strings['reminders.info']}</Body>
             <MuteSettings />
           </>

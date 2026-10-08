@@ -14,12 +14,19 @@
 import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
+import type { Target } from '../notification-target';
 import { type MyEntry, myDays } from './my-days';
 import { nestEntries } from './nesting';
 import type { Tables } from './model';
+import { declinedByMe } from './rsvp';
 
-export type ReminderSettings = { leadMin: number; morning: string | 'off' };
-export type Reminder = { id: string; at: number; title: string; body: string };
+/** `leave` — „Czas wyjść” (PWD-17, decyzja właściciela 8.10.2026: osobno od `leadMin`); brak = włączone, jak dotąd. */
+export type ReminderSettings = { leadMin: number; morning: string | 'off'; leave?: boolean };
+/**
+ * `now` — do pokazania od razu, nie o godzinie (spóźnienie, PW-24); `at` to wtedy chwila policzenia planu.
+ * `target` — co otwiera dotknięcie (PWD-16): sprawa, termin wydarzenia, a poranne podsumowanie — „Moje sprawy”.
+ */
+export type Reminder = { id: string; at: number; title: string; body: string; target: Target; now?: true };
 
 const hm = (t: string) => ({ hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) });
 
@@ -29,15 +36,21 @@ export function planReminders(
   today: CivilDate,
   nowMs: number,
   s: ReminderSettings,
-  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; subtasks?: (titles: string[]) => string; parent?: (title: string, isEvent: boolean) => string };
+  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; late?: (minutes: number) => string; subtasks?: (titles: string[]) => string; parent?: (title: string, isEvent: boolean) => string };
     leaveFor?: (eventId: string, occurrenceDate: string) => { at: number; body: string } | null;
   },
 ): Reminder[] {
   const out: Reminder[] = [];
+  // PW-23 (decyzja właściciela 8.10.2026): termin, na który odpowiedziałem „nie będę” — bez przypomnienia, „Czas
+  // wyjść” i miejsca w porannym podsumowaniu (wiersz w „Moich sprawach” zostaje, D129). Jego zadania przypominają same.
+  const declined = declinedByMe(t, userId);
   for (let k = 0; k < opts.days; k++) {
     const day = addDays(today, k);
     const iso = formatIsoDate(day);
-    const view = myDays(t, userId, today, 'day', day, opts.localDate);
+    // Audyt 2 (T-21, N-12): dzień liczony tak, jak aplikacja pokaże go tego dnia — z zaległymi (niezrobione z „przenoś
+    // na kolejne dni” sprzed tego dnia), bez wygasłych. Plan zakłada, że do tego dnia nic się nie zmieni; zmiana
+    // danych i tak przelicza plan.
+    const view = myDays(t, userId, day, 'day', day, opts.localDate);
     // Chwila własnego przypomnienia wpisu („Czas wyjść” albo `leadMin` przed) albo `null`.
     type Fire = { at: number; leave: { at: number; body: string } | null };
     const fires = new Map<string, Fire | null>();
@@ -46,7 +59,7 @@ export function planReminders(
       let f: Fire | null = null;
       const time = e.kind === 'event' ? e.event.startTime : e.kind === 'task' ? e.task.due!.time : null;
       if (time !== null) {
-        const leave = e.kind === 'event' && opts.leaveFor ? opts.leaveFor(e.event.eventId, e.event.occurrenceDate) : null;
+        const leave = e.kind === 'event' && opts.leaveFor && s.leave !== false ? opts.leaveFor(e.event.eventId, e.event.occurrenceDate) : null;
         if (leave) f = { at: leave.at, leave };
         else if (s.leadMin > 0) f = { at: opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) - s.leadMin * 60_000, leave: null };
       }
@@ -55,7 +68,7 @@ export function planReminders(
     };
     // D134: wpis pod rodzicem trafia do przypomnienia najbliższego przodka, który je ma — chyba że to przyszłoby
     // później niż jego własne; wtedy przypomina sam (i niesie swoje podzadania).
-    const nested = nestEntries(view.days[0]!.entries, t);
+    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`)), t);
     const under = new Map<string, string[]>();
     const parentOf = new Map<string, MyEntry>();
     const holder: MyEntry[] = [];
@@ -96,14 +109,22 @@ export function planReminders(
       }
       timed.push(`${time.slice(0, 5)} ${title}`);
       const f = fire(e);
-      if (!f || f.at <= nowMs) continue;
+      if (!f) continue;
+      const target: Target =
+        e.kind === 'event' ? { screen: 'event', id: e.event.eventId, date: e.event.occurrenceDate } : e.task.trip ? { screen: 'list', id: e.task.id } : { screen: 'task', id: e.task.id };
       if (f.leave && e.kind === 'event') {
-        out.push({ id: `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`, at: f.at, title: opts.label.leave!(title), body: `${f.leave.body}${extra(e)}` });
+        const id = `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`;
+        if (f.at > nowMs) out.push({ id, at: f.at, title: opts.label.leave!(title), body: `${f.leave.body}${extra(e)}`, target });
+        // PW-24 (decyzja właściciela 8.10.2026): wyjście już minęło (np. dojazd wydłużył się w korkach), a wydarzenie
+        // jeszcze się nie zaczęło — od razu „spóźniony o N min” zamiast ciszy. Zamiast „N min przed”, nie obok.
+        else if (opts.label.late && opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) > nowMs)
+          out.push({ id: `${id}|late`, at: nowMs, now: true, title: opts.label.leave!(title), body: `${opts.label.late(Math.max(1, Math.ceil((nowMs - f.at) / 60_000)))}${extra(e)}`, target });
         continue;
       }
+      if (f.at <= nowMs) continue;
       const group = e.kind === 'event' ? e.event.groupName : e.task.groupName;
       const key = e.kind === 'event' ? `e|${e.event.eventId}|${e.event.occurrenceDate}` : `t|${e.task.id}`;
-      out.push({ id: `${key}|${iso}`, at: f.at, title, body: `${time.slice(0, 5)} · ${group}${extra(e)}` });
+      out.push({ id: `${key}|${iso}`, at: f.at, title, body: `${time.slice(0, 5)} · ${group}${extra(e)}`, target });
     }
     const all = [...untimed, ...timed];
     if (s.morning !== 'off' && all.length) {
@@ -111,7 +132,7 @@ export function planReminders(
       const max = config.reminders.MORNING_LIST_MAX;
       const shown = all.slice(0, max).join(', ');
       const list = all.length > max ? `${shown} ${opts.label.more(all.length - max)}` : shown;
-      if (at > nowMs) out.push({ id: `m|${iso}`, at, title: opts.label.morningTitle, body: `${opts.label.summary(all.length, overdue)}: ${list}` });
+      if (at > nowMs) out.push({ id: `m|${iso}`, at, title: opts.label.morningTitle, body: `${opts.label.summary(all.length, overdue)}: ${list}`, target: { screen: 'today' } });
     }
   }
   return out.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)).slice(0, opts.max);

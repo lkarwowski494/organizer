@@ -105,6 +105,9 @@ describe('atrapy E2E', () => {
     expect(await e2ePush.status()).toBe('denied');
     expect(await e2ePush.request()).toBe(false);
     expect(await e2ePush.token()).toBeNull();
+    expect(await e2ePush.env()).toBe('sandbox');
+    expect(() => e2ePush.onToken(() => {})()).not.toThrow();
+    expect(() => e2ePush.onOpen(() => {})()).not.toThrow();
     expect(await e2ePush.dismissed()).toBe(true);
     expect(await e2ePush.reminderSettings()).toBeNull();
     await expect(Promise.all([e2ePush.dismiss(), e2ePush.replaceReminders([]), e2ePush.saveReminderSettings({} as never)])).resolves.toBeDefined();

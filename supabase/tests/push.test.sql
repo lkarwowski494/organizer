@@ -44,7 +44,8 @@ select pg_temp.as_user('');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f2', 24), null, '6: odbiorca nie woła o powiadomienie o własnym przekazaniu');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f3', 24), null, '7: osoba spoza przekazania — nic');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f1', 24),
-  jsonb_build_object('title', 'Łukasz przekazuje Ci', 'body', 'Logopeda. Otwórz Organizer, żeby przyjąć albo odrzucić.', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('ab', 32), 'env', 'production'))),
+  jsonb_build_object('title', 'Łukasz przekazuje Ci', 'body', 'Logopeda. Otwórz Organizer, żeby przyjąć albo odrzucić.', 'tokens', jsonb_build_array(jsonb_build_object('token', repeat('ab', 32), 'env', 'production')),
+                     'key', 'handoff|88880000-0000-7000-8000-0000000007f1|pending', 'path', 'today'),
   '8: nadawca — powiadomienie do odbiorcy z jego tokenami');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f1', 24), null, '9: drugi raz — nic (wysłane)');
 select is((select push_sent_status from public.handoffs where id = '88880000-0000-7000-8000-0000000007f1'), 'pending', '10: zapamiętany stan');
@@ -57,7 +58,7 @@ select is(pg_temp.push('88880000-0000-7000-8000-00000000c0f2', 2, '{"kind":"patc
 reset role;
 select pg_temp.as_user('');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f2', 24),
-  jsonb_build_object('title', 'Magdalena nie przyjmuje', 'body', 'Logopeda', 'tokens', '[]'::jsonb), '12: odrzucenie — do nadawcy (bez tokenów: lista pusta)');
+  jsonb_build_object('title', 'Magdalena nie przyjmuje', 'body', 'Logopeda', 'tokens', '[]'::jsonb, 'key', 'handoff|88880000-0000-7000-8000-0000000007f1|declined', 'path', 'today'), '12: odrzucenie — do nadawcy (bez tokenów: lista pusta)');
 select is(public.handoff_push_claim('88880000-0000-7000-8000-0000000007f1', '00000000-0000-7000-8000-0000000000f1', 24), null, '13: nadawca nie woła o decyzję');
 
 -- 14–16: stare przekazanie, usuwanie tokenów, zmiana konta na telefonie.
