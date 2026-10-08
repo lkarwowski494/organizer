@@ -59,7 +59,7 @@ function audit(root: unknown, scheme: Scheme, where: string) {
 const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promise<void>][] = [
   ['Moje sprawy', async () => {}],
   ['Listy', async (p) => p('Listy')],
-  ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'))],
+  ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'))],
   ['Lista zadań', async (p) => (await p('Listy'), await p('Dom, Rodzina · Zadania · 3 otwarte'))],
   ['Lista zadań: dla kogo albo na kiedy', async (p) => {
     await p('Listy');
@@ -80,7 +80,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
   ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
   ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
-  ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'), await p('Zaplanuj zakupy'))],
+  ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'), await p('Zaplanuj zakupy'))],
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')],
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'))],

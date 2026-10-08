@@ -65,7 +65,7 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
     // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
     if (!g || !l || l.kind === 'shopping') continue;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(t, x, g, due, live)) continue;
+    if (!concernsMeTask(t, x, g, due, live, l)) continue;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
     if (x.completed_at !== null) {
       const d = localDate(x.completed_at);

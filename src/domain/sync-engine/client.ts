@@ -75,18 +75,9 @@ export function mutate(state: ClientState, op: NewOp, newId: () => string): Clie
   return { ...state, nextSeq: state.nextSeq + 1, pending: [...state.pending, full] };
 }
 
-/**
- * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1).
- * Pozostałe (grupy, zakresy list) mają skutek dopiero po stronie serwera.
- */
-const LOCAL_CMDS = new Map<string, (tables: { [e: string]: { [id: string]: Row } }, args: Row) => void>([
-  // Audyt 2 (M-3): „to i następne” jednym poleceniem (migracja 20261008320000_event_split).
-  ['split_event', applySplit],
-]);
-
 /** Lokalny skutek operacji — ten sam kierunek co serwer (pola serwerowe, np. depth, ustala dopiero serwer). */
 export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op): void {
-  if (op.kind === 'cmd') return LOCAL_CMDS.get(op.cmd)?.(tables, op.args);
+  if (op.kind === 'cmd') return applyCmd(tables, op);
   const table = (tables[op.entity] ??= {});
   const current = table[op.id];
   switch (op.kind) {
@@ -103,6 +94,32 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
       if (current) table[op.id] = { ...current, deleted_at: op.kind === 'delete' ? (current.deleted_at ?? 'pending') : null };
       return;
   }
+}
+
+/**
+ * Stałe zakupy po poleceniu (audyt 2, M-111): staple_add dopisuje nazwę na koniec, jeśli jej nie ma; staple_remove usuwa
+ * wskazane nazwy — ten sam skutek co private.staple_cmd na serwerze (20261008370000_staple_commands.sql). Inne polecenia
+ * (grupy, zakresy, przenosiny) mają skutek dopiero po stronie serwera — `null`.
+ */
+export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): string[] | null {
+  const cur = Array.isArray(list.staples) ? list.staples.filter((s): s is string => typeof s === 'string') : [];
+  if (cmd.cmd === 'staple_add') return cur.includes(String(cmd.args.name)) ? cur : [...cur, String(cmd.args.name)];
+  if (cmd.cmd === 'staple_remove') return cur.filter((s) => !(cmd.args.names as readonly unknown[]).includes(s));
+  return null;
+}
+
+/**
+ * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
+ * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split) i stałe zakupy.
+ */
+function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
+  if (op.cmd === 'split_event') return applySplit(tables, op.args);
+  const id = String(op.args.list_id);
+  const list = tables.lists?.[id];
+  // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.
+  if (!list || list.deleted_at != null) return;
+  const staples = stapleCmdResult(list, op);
+  if (staples) tables.lists![id] = { ...list, staples };
 }
 
 function cloneTables(base: ClientState['base']): { [e: string]: { [id: string]: Row } } {

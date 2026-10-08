@@ -20,7 +20,7 @@ import { listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
-import { createSeries, seriesOf, stopOps } from '../../domain/views/series-tasks';
+import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
@@ -93,6 +93,13 @@ export function EventScreen({ route, navigation }: Props) {
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
     if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), () => store.dispatch(back));
     navigation.goBack();
+  };
+  const stopSeries = (s: SeriesDef) => {
+    const ops = stopOps(tables, s, today);
+    // Same usunięcia (definicja i kopie), więc odwrotność zawsze istnieje.
+    const back = inverseOps(tables, ops)!;
+    store.dispatch(ops);
+    undo.show(strings['undo.seriesStopped'](s.title), () => store.dispatch(back));
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
   const cancel = (scope: Scope) => (affectedByCancel(tables, d, date, scope).length ? (setAsk(null), setRelink({ scope, picking: false })) : finish(scope, null));
@@ -204,7 +211,8 @@ export function EventScreen({ route, navigation }: Props) {
           {defs.map((s) => (
             <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ flex: 1, fontFamily: font.text600, fontSize: 16, color: c.ink }}>{s.title}</Text>
-              {d.canEdit ? <Button kind="secondary" label={strings['event.seriesStop'](s.title)} testID={`series-stop-${s.id}`} onPress={() => store.dispatch(stopOps(tables, s, today))} /> : null}
+              {/* Audyt 2 (M-225, G-19): kończy stałe zadanie — czerwony i z „Cofnij” (D60), jak inne usuwanie. */}
+              {d.canEdit ? <Button kind="danger" label={strings['event.seriesStop'](s.title)} testID={`series-stop-${s.id}`} onPress={() => stopSeries(s)} /> : null}
             </View>
           ))}
         </View>
