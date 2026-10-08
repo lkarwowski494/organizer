@@ -23,6 +23,8 @@ export type RootStackParams = {
   Feedback: undefined;
   /** Plan lekcji osoby z tygodniami A/B (D112). */
   Timetable: { groupId: string; memberId: string };
+  /** Nowa rutyna z krokami (D113); `groupId` — podpowiedź grupy. */
+  Routine: { groupId?: string } | undefined;
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */
   Name: { from?: 'settings' } | undefined;
   /** Pełny formularz zadania (D90): `text` z pola dodawania („Więcej”) albo `taskId` dodanego zadania („Zmień”). */

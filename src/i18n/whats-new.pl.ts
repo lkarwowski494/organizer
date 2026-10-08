@@ -11,6 +11,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
       'Zaległe zadania przeniesiesz na dziś jednym przyciskiem „Przenieś zaległe na dziś” (z cofnięciem).',
       'Poranne przypomnienie podsumowuje cały dzień: ile spraw, ile zaległych i co jest na liście.',
       'Plan lekcji z tygodniami A/B: Grupy → osoba → „Plan lekcji”. Lekcje trafiają do Kalendarza jako wydarzenia cykliczne.',
+      'Rutyny z krokami (Kalendarz → „Dodaj rutynę”), np. „Poranek Kuby”: zęby, ubranie, plecak. Przy rutynie i zadaniu powtarzanym widać serię: ile razy z rzędu zrobione.',
     ],
   },
   {

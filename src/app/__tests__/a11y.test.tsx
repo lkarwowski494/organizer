@@ -99,6 +99,7 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await p('Dzień: Wybierz dzień'), await p('Następny miesiąc'))],
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
+  ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Twoje imię, Łukasz'))],
   ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
   ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {

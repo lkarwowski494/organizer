@@ -137,6 +137,7 @@ export function CalendarScreen() {
         </View>
       ) : null}
       <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
+      <Button kind="secondary" label={strings['routine.add']} testID="calendar-add-routine" onPress={() => nav.navigate('Routine')} />
     </Screen>
   );
 }
