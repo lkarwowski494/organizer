@@ -17,7 +17,7 @@ import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
-import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { type PushTokenMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
@@ -36,6 +36,13 @@ const apple = async (scopes?: 'none') =>
   AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
 const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
+
+/** Ostatni zarejestrowany token push (audyt 2, N-11): wylogowanie zdejmuje go także po nieudanej rejestracji przy starcie. */
+const PUSH_TOKEN = 'pushToken';
+const pushTokenMemory: PushTokenMemory = {
+  load: () => SecureStore.getItemAsync(PUSH_TOKEN),
+  save: (t) => (t === null ? SecureStore.deleteItemAsync(PUSH_TOKEN) : SecureStore.setItemAsync(PUSH_TOKEN, t)),
+};
 
 /**
  * Zależności tego buildu. Build E2E (D143, EXPO_PUBLIC_E2E=1 tylko w .github/workflows/e2e.yml) dostaje atrapy w pamięci
@@ -69,7 +76,7 @@ export function realDeps(): RootDeps {
   AppState.addEventListener('change', (s) => (s === 'active' ? client.auth.startAutoRefresh() : client.auth.stopAutoRefresh()));
   const sb = client as unknown as SupabaseLike;
   return {
-    account: supabaseAccount(sb, apple),
+    account: supabaseAccount(sb, apple, pushTokenMemory),
     calendar: expoDeviceCalendar,
     travel: expoTravel,
     push: expoDevicePush,

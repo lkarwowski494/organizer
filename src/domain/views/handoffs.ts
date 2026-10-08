@@ -6,7 +6,7 @@
  * 20261008330000_handoff_obligation): przekazanie dotyczy niezrobionych terminów łańcucha (`handoffSubjects`).
  */
 import type { NewOp, Row } from '../sync-engine/client';
-import { asEvent } from './event-rows';
+import { asEvent, asOverride } from './event-rows';
 import { groupsView } from './index';
 import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
 import { nextId } from './task-repeat';
@@ -37,8 +37,11 @@ export const asHandoff = (r: Row): Handoff => ({
   closed: r.closed === true,
 });
 
-/** `subjects` — czego przekazanie dotyczy teraz (`handoffSubjects`). */
-export type HandoffItem = Handoff & { title: string; otherName: string; groupName: string; line: number; subjects: string[] };
+/**
+ * `subjects` — czego przekazanie dotyczy teraz (`handoffSubjects`); `date` — dzień do pokazania: termin serii po
+ * przeniesieniu (wyjątek) albo z reguły; `occurrence_date` zostaje kluczem.
+ */
+export type HandoffItem = Handoff & { title: string; date: string | null; otherName: string; groupName: string; line: number; subjects: string[] };
 
 /** Klucz przedmiotu przekazania: zadanie, seria albo jeden termin. */
 export const handoffKey = (entity: string, entityId: string, occurrenceDate: string | null) => `${entity}|${entityId}|${occurrenceDate ?? ''}`;
@@ -73,8 +76,16 @@ function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boo
     const subjects = handoffSubjects(t, h);
     const raw = t[h.entity]?.[subjects[0] ?? h.entity_id];
     // Zakupy (D73): tytuł to nazwa listy; ekran dopisuje „Zakupy:”.
-    const title = !raw ? '' : h.entity === 'tasks' ? asTask(raw).title : h.entity === 'events' ? asEvent(raw).title : asList(raw).name;
-    out.push({ ...h, title, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line, subjects });
+    let title = !raw ? '' : h.entity === 'tasks' ? asTask(raw).title : h.entity === 'events' ? asEvent(raw).title : asList(raw).name;
+    let date = h.occurrence_date;
+    // Audyt 2 (N-28): termin serii — nazwa i dzień z wyjątku (przeniesiony, przemianowany), jak w planie i w powiadomieniu
+    // push (handoff_push_claim).
+    const o = date === null ? undefined : rows(t, 'event_overrides', asOverride).find((x) => x.event_id === h.entity_id && x.occurrence_date === date && x.deleted_at === null);
+    if (o) {
+      title = o.title ?? title;
+      date = o.start_date ?? date;
+    }
+    out.push({ ...h, title, date, otherName: members.get(other(h))?.display_name ?? '', groupName: g.name, line: g.line, subjects });
   }
   return out.sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }

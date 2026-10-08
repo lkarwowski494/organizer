@@ -1,8 +1,9 @@
 /** Push o przekazaniach (D70): prośba o zgodę na „Moje sprawy”, rejestracja tokenu, prośba o powiadomienie. */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import { RootStack } from '../navigation';
-import { fakeAccount, fakePush, put, sampleBase, setup } from './harness';
+import { appStateEvents, fakeAccount, fakePush, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
@@ -88,14 +89,18 @@ describe('przypomnienia (D75)', () => {
       await press(await screen.findByTestId('settings-notifications'));
       await screen.findByTestId('screen-settings-notifications');
       await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
-      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '08:00' });
+      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '08:00', leave: true });
       await act(async () => {
         jest.advanceTimersByTime(2000);
       });
       await flush();
       expect(push.replaceReminders.mock.calls.at(-1)![0].filter((r) => !r.id.startsWith('m|'))).toEqual([]);
       await press(screen.getByLabelText('09:00'));
-      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00' });
+      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00', leave: true });
+      // PWD-17 (decyzja właściciela): „Czas wyjść” osobno.
+      await press(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone'));
+      expect(push.saveReminderSettings).toHaveBeenLastCalledWith({ leadMin: 0, morning: '09:00', leave: false });
+      expect(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
     } finally {
       jest.useRealTimers();
     }
@@ -146,6 +151,9 @@ describe('przypisania (D81)', () => {
     await screen.findByTestId('screen-settings-notifications');
     await flush();
     const box = screen.getByTestId('mute-settings');
+    // PWD-18 (decyzja właściciela): sekcja mówi, czego dotyczy wyciszenie, a czego nie.
+    expect(within(box).getByText('Powiadomienia o przypisaniach')).toBeTruthy();
+    expect(within(box).getByText(/Przypomnienia i przekazania \(do przyjęcia\) przychodzą zawsze\.$/)).toBeTruthy();
     expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
     await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyciszone'));
     expect(account.setPushMute).toHaveBeenLastCalledWith('gf', true);
@@ -171,5 +179,175 @@ describe('przypisania (D81)', () => {
     await screen.findByTestId('screen-settings-notifications');
     await flush();
     expect(screen.queryByTestId('mute-settings')).toBeNull();
+  });
+});
+
+let app: ReturnType<typeof appStateEvents>;
+beforeEach(() => {
+  app = appStateEvents();
+});
+afterEach(() => app.restore());
+const tick = (ms: number) => act(async () => void jest.advanceTimersByTime(ms));
+async function openNotificationSettings() {
+  await press(screen.getByLabelText('Ustawienia'));
+  await press(await screen.findByTestId('settings-notifications'));
+  await screen.findByTestId('screen-settings-notifications');
+  await flush();
+}
+
+describe('zgoda na powiadomienia po „Nie teraz” i po odmowie (audyt 2: N-8, N-10, P-5)', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('„Nie teraz”, potem Ustawienia → Powiadomienia: „Włącz powiadomienia” pyta system, rejestruje token i od razu planuje', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const push = fakePush({ dismissed: jest.fn(async () => true) });
+    const { account } = await open({ push });
+    expect(screen.queryByTestId('push-prompt')).toBeNull();
+    await openNotificationSettings();
+    const box = screen.getByTestId('push-access');
+    expect(within(box).getByText('Powiadomienia są wyłączone, więc nie przypomnimy o sprawach ani nie damy znać o przekazaniach.')).toBeTruthy();
+    push.status.mockResolvedValue('granted');
+    await press(within(box).getByRole('button', { name: 'Włącz powiadomienia' }));
+    await flush();
+    expect(push.request).toHaveBeenCalled();
+    expect(account.registerPushToken).toHaveBeenCalledWith('ab'.repeat(32), 'production');
+    expect(screen.queryByTestId('push-access')).toBeNull();
+    // Bez zmiany danych — plan po zgodzie.
+    await tick(2000);
+    await flush();
+    expect(push.replaceReminders).toHaveBeenCalled();
+  });
+
+  it('odmowa wcześniej: „Otwórz Ustawienia iPhone’a”; zgoda włączona tam — po powrocie do aplikacji plan i token bez restartu', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValueOnce(undefined);
+    const push = fakePush({ status: jest.fn(async () => 'denied' as const) });
+    const { account } = await open({ push });
+    await openNotificationSettings();
+    const box = screen.getByTestId('push-access');
+    expect(within(box).getByText('Powiadomienia są wyłączone. Włączysz je w Ustawieniach iPhone’a → Organizer → Powiadomienia.')).toBeTruthy();
+    await press(within(box).getByRole('button', { name: 'Otwórz Ustawienia iPhone’a' }));
+    expect(settings).toHaveBeenCalled();
+    expect(push.request).not.toHaveBeenCalled();
+    await tick(2000);
+    expect(push.replaceReminders).not.toHaveBeenCalled();
+    expect(account.registerPushToken).not.toHaveBeenCalled();
+    // Użytkownik włącza powiadomienia w Ustawieniach iPhone'a i wraca.
+    push.status.mockResolvedValue('granted');
+    await app.background();
+    await app.foreground();
+    await flush();
+    expect(screen.queryByTestId('push-access')).toBeNull();
+    expect(account.registerPushToken).toHaveBeenCalledWith('ab'.repeat(32), 'production');
+    await tick(2000);
+    await flush();
+    expect(push.replaceReminders).toHaveBeenCalled();
+  });
+
+  it('zgoda z karty na „Moich sprawach” planuje od razu, bez czekania na zmianę danych (N-10)', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const push = fakePush();
+    await open({ push });
+    await tick(2000);
+    expect(push.replaceReminders).not.toHaveBeenCalled();
+    push.status.mockResolvedValue('granted');
+    await press(screen.getByTestId('push-enable'));
+    await flush();
+    await tick(2000);
+    await flush();
+    expect(push.replaceReminders).toHaveBeenCalled();
+  });
+
+  it('błąd planowania zgłoszony raz na uruchomienie (N-7)', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const push = fakePush({ status: jest.fn(async () => 'granted' as const), replaceReminders: jest.fn(async () => Promise.reject(new Error('timeInterval'))) });
+    const { account, store } = await open({ push });
+    await tick(2000);
+    await flush();
+    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
+    await tick(2000);
+    await flush();
+    expect(push.replaceReminders).toHaveBeenCalledTimes(2);
+    expect(account.reportError).toHaveBeenCalledTimes(1);
+    expect(account.reportError.mock.calls[0]![0]).toMatchObject({ kind: 'error', screen: 'reminders' });
+  });
+});
+
+describe('token i ponowienia (audyt 2: N-11, N-15, N-36)', () => {
+  it('token zmieniony przez APNs w trakcie działania — od razu na serwer; po powrocie do aplikacji rejestracja jeszcze raz', async () => {
+    const push = fakePush({ status: jest.fn(async () => 'granted' as const) });
+    const { account } = await open({ push });
+    expect(account.registerPushToken).toHaveBeenCalledTimes(1);
+    const listener = (push.onToken as jest.Mock).mock.calls[0]![0] as (t: string) => void;
+    await act(async () => listener('ef'.repeat(32)));
+    expect(account.registerPushToken).toHaveBeenLastCalledWith('ef'.repeat(32), 'production');
+    expect(push.token).toHaveBeenCalledTimes(1); // bez getDevicePushTokenAsync w nasłuchu
+    await app.foreground();
+    await flush();
+    expect(account.registerPushToken).toHaveBeenCalledTimes(3);
+  });
+
+  it('nieudana prośba o powiadomienie: bez ponawiania przy każdej zmianie danych, ponowienie po powrocie do aplikacji', async () => {
+    const base = sampleBase();
+    put(base, 'handoffs', 'h1', { id: 'h1', group_id: 'gf', entity: 'tasks', entity_id: 't-paczka', occurrence_date: null, from_member: 'mf', to_member: 'ala', status: 'pending', closed: false, created_at: new Date(Date.UTC(2026, 9, 7, 7, 30)).toISOString(), push_sent_status: null, version: 1 });
+    put(base, 'activity', 'a1', { id: 'a1', group_id: 'gf', entity: 'tasks', entity_id: 't-ala', actor_member_id: 'mf', changes: { assignee_member_id: [null, 'ala'] }, created_at: new Date(Date.UTC(2026, 9, 7, 7, 30)).toISOString(), version: 1 });
+    const account = fakeAccount({ notifyHandoff: jest.fn(async () => Promise.reject(new Error('apns_failed'))), notifyAssignment: jest.fn(async () => {}) });
+    const { store } = await open({ base, account });
+    expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
+    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
+    await flush();
+    expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
+    await app.foreground();
+    await flush();
+    // Nieudane — jeszcze raz; udane (przypisanie) — nie.
+    expect(account.notifyHandoff).toHaveBeenCalledTimes(2);
+    expect(account.notifyAssignment).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('dotknięcie powiadomienia otwiera sprawę (PWD-16, decyzja właściciela 8.10.2026)', () => {
+  function opener() {
+    let tap!: (path: string) => void;
+    const push = fakePush({ onOpen: jest.fn((fn: (path: string) => void) => ((tap = fn), () => {})) });
+    return { push, tap: (path: string) => act(async () => tap(path)) };
+  }
+  const withSeries = () => {
+    const base = sampleBase();
+    put(base, 'events', 'ev-basen', { id: 'ev-basen', group_id: 'gf', title: 'Basen', start_date: '2026-09-02', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 });
+    return base;
+  };
+
+  it('zadanie, lista zakupów, termin wydarzenia, „Moje sprawy”', async () => {
+    const { push, tap } = opener();
+    await open({ push, base: withSeries() });
+    await tap('task/t-paczka');
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    expect(screen.getByDisplayValue('Odebrać paczkę')).toBeTruthy();
+    await tap('list/lz');
+    expect(await screen.findByTestId('screen-list')).toBeTruthy();
+    await tap('event/ev-basen/2026-10-14');
+    expect(await screen.findByTestId('screen-event')).toBeTruthy();
+    expect(screen.getByText(/^Środa, 14 października · 17:00–18:00/)).toBeTruthy();
+    await tap('today');
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+  });
+
+  it('cała seria (bez dnia) — najbliższy termin od dziś; sprawy już nie ma — zwykły ekran „nie ma”', async () => {
+    const { push, tap } = opener();
+    await open({ push, base: withSeries() });
+    await tap('event/ev-basen');
+    expect(await screen.findByTestId('screen-event')).toBeTruthy();
+    // Dziś środa 7.10 — dzisiejszy termin.
+    expect(screen.getByText(/^Środa, 7 października · 17:00–18:00/)).toBeTruthy();
+    await tap('task/nie-ma');
+    expect(await screen.findByTestId('screen-task-missing')).toBeTruthy();
+  });
+
+  it('uruchomienie aplikacji z powiadomienia — od razu na sprawie', async () => {
+    const push = fakePush({ onOpen: jest.fn((fn: (path: string) => void) => (fn('task/t-kwiaty'), () => {})) });
+    const s = setup({ push });
+    await s.renderApp(<RootStack />);
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    expect(screen.getByDisplayValue('Kupić kwiaty')).toBeTruthy();
   });
 });

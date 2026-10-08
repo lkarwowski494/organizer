@@ -38,5 +38,7 @@ describe('dla których wydarzeń liczyć dojazd (D116)', () => {
     expect(r[1]).toMatchObject({ key: 'a|2026-10-08', startMs: Date.UTC(2026, 9, 8, 15, 0) });
     const many = Array.from({ length: config.travel.MAX_EVENTS + 3 }, (_, i) => o(`e${String(i).padStart(2, '0')}`, { startTime: '15:00' }));
     expect(travelTargets(many, '2026-10-08', now, toMs, () => 'driving')).toHaveLength(config.travel.MAX_EVENTS);
+    // PW-23 (decyzja właściciela 8.10.2026): na termin, na który odpowiedziałem „nie będę”, dojazdu nie liczymy.
+    expect(travelTargets([o('a'), o('b', { startTime: '12:00' })], '2026-10-08', now, toMs, () => 'driving', new Set(['a|2026-10-08'])).map((t) => t.eventId)).toEqual(['b']);
   });
 });

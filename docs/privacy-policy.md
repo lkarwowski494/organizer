@@ -106,8 +106,8 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Zgłoszenia błędów, wyniki samosprawdzenia i uwagi:** 90 dni.
 - **Nieudane próby dołączenia kodem:** 1 dzień.
 - **Dziennik wysyłki powiadomień:** 7 dni.
-- **Token powiadomień:** dopóki działa. Usuwamy go, gdy Apple zgłosi, że jest nieaktualny, i przy usunięciu konta.
-  Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
+- **Token powiadomień:** dopóki działa. Usuwamy go przy wylogowaniu (gdy jest internet), gdy Apple zgłosi, że jest
+  nieaktualny, i przy usunięciu konta. Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
 - **Wyciszenia grup:** dopóki ich nie wyłączysz albo nie usuniesz konta.
 
 ## Usunięcie konta

@@ -22,6 +22,7 @@ import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
+import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -61,6 +62,8 @@ export function ListScreen({ route, navigation }: Props) {
   const { tables, today, indicator, state } = useAppData();
   const { c, font } = useTheme();
   const [text, setText] = useState('');
+  const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
@@ -105,13 +108,19 @@ export function ListScreen({ route, navigation }: Props) {
   const tripNeeds = tripRequired(groupKind, list.visibility);
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(tripNeeds, planned.trip);
   const add = (value = text) => {
-    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: [], newId, listId: list.id }));
+    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: value === text ? ignore : [], newId, listId: list.id }));
     setText('');
+    setIgnore([]);
+    setError(null);
   };
+  // Lista zadań: rozpoznane fragmenty to chipy do odklikania (D18), jak w Moich sprawach. Zakupy — bez terminów (audyt 2, M-20).
+  const parsed = shopping ? null : parseQuickAdd(text, now(), { ignore });
   // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): zadanie bez osoby i terminu też się zapisuje, bez pytania —
   // jego wiersz mówi, że nikt go nie zobaczy w Moich sprawach (lists.noAddressee). Lista „Tylko ja” poza regułą (A).
   const submit = () => {
-    if (parseQuickAdd(text, now()).title.trim() === '') return;
+    if (text.trim() === '') return;
+    // Audyt 2 (M-168): sam termin („jutro”) — nie ma czego dodać; pole zostaje z komunikatem.
+    if (parsed && parsed.title.trim() === '') return setError(strings['form.error.title']);
     add();
   };
   // D85, D86: działy, pamięć grupy, stałe zakupy (tylko dorośli zmieniają listę i działy; dziecko odhacza).
@@ -250,11 +259,15 @@ export function ListScreen({ route, navigation }: Props) {
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
-        <QuickAddField value={text} onChangeText={setText} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
-          {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} /> : null}
+        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+          {parsed ? (
+            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
+          ) : (
+            <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} />
+          )}
         </QuickAddField>
       ) : null}
-      {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{strings['lists.emptyItems']}</Body> : null}
+      {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}
       {shopping ? (
         sections(detail.open, tables, list.group_id).map((sec) => (
           <View key={sec.key} testID={`section-${sec.key}`}>

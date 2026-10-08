@@ -1213,6 +1213,102 @@
  },
  {
   "now": "2026-10-06T10:00",
+  "text": "kupić mleko w przyszły wtorek o 15",
+  "expected": {
+   "title": "kupić mleko w przyszły wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w następną sobotę o 9:30",
+  "expected": {
+   "title": "kupić mleko w następną sobotę o 9:30",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątek o 18",
+  "expected": {
+   "title": "kupić mleko piątek o 18",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w przyszłym tygodniu o 8",
+  "expected": {
+   "title": "kupić mleko w przyszłym tygodniu o 8",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w środy co tydzień o 17",
+  "expected": {
+   "title": "kupić mleko w środy co tydzień o 17",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko co tydzień w następny poniedziałek",
+  "expected": {
+   "title": "kupić mleko co tydzień w następny poniedziałek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedziela 20:15",
+  "expected": {
+   "title": "kupić mleko niedziela 20:15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartek",
+  "expected": {
+   "title": "kupić mleko czwartek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko jutro o 17 zamiast we wtorek",
+  "expected": {
+   "title": "kupić mleko zamiast we wtorek",
+   "due": {
+    "date": "2026-10-07",
+    "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko w piątek o 18, nie w przyszły czwartek",
+  "expected": {
+   "title": "kupić mleko, nie w przyszły czwartek",
+   "due": {
+    "date": "2026-10-09",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
   "text": "kupić mleko",
   "expected": {
    "title": "kupić mleko",
@@ -2484,6 +2580,102 @@
     "time": "08:00"
    },
    "rrule": "FREQ=WEEKLY;BYDAY=SA"
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w przyszły wtorek o 15",
+  "expected": {
+   "title": "zadzwonić do mamy w przyszły wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w następną sobotę o 9:30",
+  "expected": {
+   "title": "zadzwonić do mamy w następną sobotę o 9:30",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy piątek o 18",
+  "expected": {
+   "title": "zadzwonić do mamy piątek o 18",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w przyszłym tygodniu o 8",
+  "expected": {
+   "title": "zadzwonić do mamy w przyszłym tygodniu o 8",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w środy co tydzień o 17",
+  "expected": {
+   "title": "zadzwonić do mamy w środy co tydzień o 17",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy co tydzień w następny poniedziałek",
+  "expected": {
+   "title": "zadzwonić do mamy co tydzień w następny poniedziałek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy niedziela 20:15",
+  "expected": {
+   "title": "zadzwonić do mamy niedziela 20:15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy czwartek",
+  "expected": {
+   "title": "zadzwonić do mamy czwartek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy jutro o 17 zamiast we wtorek",
+  "expected": {
+   "title": "zadzwonić do mamy zamiast we wtorek",
+   "due": {
+    "date": "2026-10-10",
+    "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "zadzwonić do mamy w piątek o 18, nie w przyszły czwartek",
+  "expected": {
+   "title": "zadzwonić do mamy, nie w przyszły czwartek",
+   "due": {
+    "date": "2026-10-16",
+    "time": "18:00"
+   },
+   "rrule": null
   }
  },
  {
@@ -3763,6 +3955,102 @@
  },
  {
   "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w przyszły wtorek o 15",
+  "expected": {
+   "title": "odebrać paczkę w przyszły wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w następną sobotę o 9:30",
+  "expected": {
+   "title": "odebrać paczkę w następną sobotę o 9:30",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę piątek o 18",
+  "expected": {
+   "title": "odebrać paczkę piątek o 18",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w przyszłym tygodniu o 8",
+  "expected": {
+   "title": "odebrać paczkę w przyszłym tygodniu o 8",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w środy co tydzień o 17",
+  "expected": {
+   "title": "odebrać paczkę w środy co tydzień o 17",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę co tydzień w następny poniedziałek",
+  "expected": {
+   "title": "odebrać paczkę co tydzień w następny poniedziałek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę niedziela 20:15",
+  "expected": {
+   "title": "odebrać paczkę niedziela 20:15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę czwartek",
+  "expected": {
+   "title": "odebrać paczkę czwartek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę jutro o 17 zamiast we wtorek",
+  "expected": {
+   "title": "odebrać paczkę zamiast we wtorek",
+   "due": {
+    "date": "2027-01-01",
+    "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
+  "text": "odebrać paczkę w piątek o 18, nie w przyszły czwartek",
+  "expected": {
+   "title": "odebrać paczkę, nie w przyszły czwartek",
+   "due": {
+    "date": "2027-01-01",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
   "text": "odebrać paczkę",
   "expected": {
    "title": "odebrać paczkę",
@@ -5034,6 +5322,102 @@
     "time": "20:00"
    },
    "rrule": "FREQ=WEEKLY;BYDAY=MO"
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w przyszły wtorek o 15",
+  "expected": {
+   "title": "wizyta u dentysty w przyszły wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w następną sobotę o 9:30",
+  "expected": {
+   "title": "wizyta u dentysty w następną sobotę o 9:30",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty piątek o 18",
+  "expected": {
+   "title": "wizyta u dentysty piątek o 18",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w przyszłym tygodniu o 8",
+  "expected": {
+   "title": "wizyta u dentysty w przyszłym tygodniu o 8",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w środy co tydzień o 17",
+  "expected": {
+   "title": "wizyta u dentysty w środy co tydzień o 17",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty co tydzień w następny poniedziałek",
+  "expected": {
+   "title": "wizyta u dentysty co tydzień w następny poniedziałek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty niedziela 20:15",
+  "expected": {
+   "title": "wizyta u dentysty niedziela 20:15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty czwartek",
+  "expected": {
+   "title": "wizyta u dentysty czwartek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty jutro o 17 zamiast we wtorek",
+  "expected": {
+   "title": "wizyta u dentysty zamiast we wtorek",
+   "due": {
+    "date": "2028-02-29",
+    "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
+  "text": "wizyta u dentysty w piątek o 18, nie w przyszły czwartek",
+  "expected": {
+   "title": "wizyta u dentysty, nie w przyszły czwartek",
+   "due": {
+    "date": "2028-03-03",
+    "time": "18:00"
+   },
+   "rrule": null
   }
  },
  {
@@ -6313,6 +6697,102 @@
  },
  {
   "now": "2027-03-28T01:15",
+  "text": "kupić mleko w przyszły wtorek o 15",
+  "expected": {
+   "title": "kupić mleko w przyszły wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w następną sobotę o 9:30",
+  "expected": {
+   "title": "kupić mleko w następną sobotę o 9:30",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko piątek o 18",
+  "expected": {
+   "title": "kupić mleko piątek o 18",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w przyszłym tygodniu o 8",
+  "expected": {
+   "title": "kupić mleko w przyszłym tygodniu o 8",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w środy co tydzień o 17",
+  "expected": {
+   "title": "kupić mleko w środy co tydzień o 17",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko co tydzień w następny poniedziałek",
+  "expected": {
+   "title": "kupić mleko co tydzień w następny poniedziałek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko niedziela 20:15",
+  "expected": {
+   "title": "kupić mleko niedziela 20:15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko czwartek",
+  "expected": {
+   "title": "kupić mleko czwartek",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko jutro o 17 zamiast we wtorek",
+  "expected": {
+   "title": "kupić mleko zamiast we wtorek",
+   "due": {
+    "date": "2027-03-29",
+    "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "kupić mleko w piątek o 18, nie w przyszły czwartek",
+  "expected": {
+   "title": "kupić mleko, nie w przyszły czwartek",
+   "due": {
+    "date": "2027-04-02",
+    "time": "18:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
   "text": "kupić mleko",
   "expected": {
    "title": "kupić mleko",
@@ -6370,6 +6850,1590 @@
   "text": "kupić mleko 18.60",
   "expected": {
    "title": "kupić mleko 18.60",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartek o 15",
+  "expected": {
+   "title": "kupić mleko czwartek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartek zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartek zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartkach o 15",
+  "expected": {
+   "title": "kupić mleko czwartkach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartkach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartkach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartkami o 15",
+  "expected": {
+   "title": "kupić mleko czwartkami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartkami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartkami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartki o 15",
+  "expected": {
+   "title": "kupić mleko czwartki o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartki zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartki zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartkiem o 15",
+  "expected": {
+   "title": "kupić mleko czwartkiem o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartkiem zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartkiem zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartkom o 15",
+  "expected": {
+   "title": "kupić mleko czwartkom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartkom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartkom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartkowi o 15",
+  "expected": {
+   "title": "kupić mleko czwartkowi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartkowi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartkowi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartku o 15",
+  "expected": {
+   "title": "kupić mleko czwartku o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartku zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartku zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko czwartków o 15",
+  "expected": {
+   "title": "kupić mleko czwartków o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "czwartków zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "czwartków zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następna o 15",
+  "expected": {
+   "title": "kupić mleko następna o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następna zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następna zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następne o 15",
+  "expected": {
+   "title": "kupić mleko następne o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następne zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następne zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnego o 15",
+  "expected": {
+   "title": "kupić mleko następnego o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnego zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnego zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnej o 15",
+  "expected": {
+   "title": "kupić mleko następnej o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnej zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnej zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnemu o 15",
+  "expected": {
+   "title": "kupić mleko następnemu o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnemu zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnemu zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następni o 15",
+  "expected": {
+   "title": "kupić mleko następni o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następni zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następni zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następny o 15",
+  "expected": {
+   "title": "kupić mleko następny o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następny zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następny zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnych o 15",
+  "expected": {
+   "title": "kupić mleko następnych o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnych zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnych zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnym o 15",
+  "expected": {
+   "title": "kupić mleko następnym o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnym zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnym zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następnymi o 15",
+  "expected": {
+   "title": "kupić mleko następnymi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następnymi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następnymi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko następną o 15",
+  "expected": {
+   "title": "kupić mleko następną o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "następną zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "następną zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedziel o 15",
+  "expected": {
+   "title": "kupić mleko niedziel o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedziel zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedziel zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedziela o 15",
+  "expected": {
+   "title": "kupić mleko niedziela o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedziela zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedziela zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielach o 15",
+  "expected": {
+   "title": "kupić mleko niedzielach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielami o 15",
+  "expected": {
+   "title": "kupić mleko niedzielami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedziele o 15",
+  "expected": {
+   "title": "kupić mleko niedziele o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedziele zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedziele zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzieli o 15",
+  "expected": {
+   "title": "kupić mleko niedzieli o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzieli zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzieli zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielo o 15",
+  "expected": {
+   "title": "kupić mleko niedzielo o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielo zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielo zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielom o 15",
+  "expected": {
+   "title": "kupić mleko niedzielom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielą o 15",
+  "expected": {
+   "title": "kupić mleko niedzielą o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielą zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielą zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko niedzielę o 15",
+  "expected": {
+   "title": "kupić mleko niedzielę o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "niedzielę zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "niedzielę zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątek o 15",
+  "expected": {
+   "title": "kupić mleko piątek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątek zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątek zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątkach o 15",
+  "expected": {
+   "title": "kupić mleko piątkach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątkach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątkach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątkami o 15",
+  "expected": {
+   "title": "kupić mleko piątkami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątkami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątkami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątki o 15",
+  "expected": {
+   "title": "kupić mleko piątki o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątki zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątki zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątkiem o 15",
+  "expected": {
+   "title": "kupić mleko piątkiem o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątkiem zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątkiem zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątkom o 15",
+  "expected": {
+   "title": "kupić mleko piątkom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątkom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątkom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątkowi o 15",
+  "expected": {
+   "title": "kupić mleko piątkowi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątkowi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątkowi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątku o 15",
+  "expected": {
+   "title": "kupić mleko piątku o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątku zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątku zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko piątków o 15",
+  "expected": {
+   "title": "kupić mleko piątków o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "piątków zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "piątków zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałek o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałek zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałek zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałkach o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałkach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałkach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałkach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałkami o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałkami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałkami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałkami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałki o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałki o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałki zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałki zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałkiem o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałkiem o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałkiem zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałkiem zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałkom o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałkom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałkom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałkom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałkowi o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałkowi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałkowi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałkowi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałku o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałku o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałku zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałku zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko poniedziałków o 15",
+  "expected": {
+   "title": "kupić mleko poniedziałków o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "poniedziałków zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "poniedziałków zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszli o 15",
+  "expected": {
+   "title": "kupić mleko przyszli o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszli zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszli zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszła o 15",
+  "expected": {
+   "title": "kupić mleko przyszła o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszła zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszła zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłe o 15",
+  "expected": {
+   "title": "kupić mleko przyszłe o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłe zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłe zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłego o 15",
+  "expected": {
+   "title": "kupić mleko przyszłego o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłego zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłego zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłej o 15",
+  "expected": {
+   "title": "kupić mleko przyszłej o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłej zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłej zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłemu o 15",
+  "expected": {
+   "title": "kupić mleko przyszłemu o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłemu zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłemu zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszły o 15",
+  "expected": {
+   "title": "kupić mleko przyszły o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszły zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszły zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłych o 15",
+  "expected": {
+   "title": "kupić mleko przyszłych o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłych zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłych zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłym o 15",
+  "expected": {
+   "title": "kupić mleko przyszłym o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłym zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłym zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłymi o 15",
+  "expected": {
+   "title": "kupić mleko przyszłymi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłymi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłymi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko przyszłą o 15",
+  "expected": {
+   "title": "kupić mleko przyszłą o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "przyszłą zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "przyszłą zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobocie o 15",
+  "expected": {
+   "title": "kupić mleko sobocie o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobocie zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobocie zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobota o 15",
+  "expected": {
+   "title": "kupić mleko sobota o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobota zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobota zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobotach o 15",
+  "expected": {
+   "title": "kupić mleko sobotach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobotach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobotach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobotami o 15",
+  "expected": {
+   "title": "kupić mleko sobotami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobotami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobotami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko soboto o 15",
+  "expected": {
+   "title": "kupić mleko soboto o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "soboto zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "soboto zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobotom o 15",
+  "expected": {
+   "title": "kupić mleko sobotom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobotom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobotom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko soboty o 15",
+  "expected": {
+   "title": "kupić mleko soboty o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "soboty zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "soboty zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobotą o 15",
+  "expected": {
+   "title": "kupić mleko sobotą o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobotą zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobotą zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobotę o 15",
+  "expected": {
+   "title": "kupić mleko sobotę o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobotę zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobotę zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko sobót o 15",
+  "expected": {
+   "title": "kupić mleko sobót o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "sobót zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "sobót zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorek o 15",
+  "expected": {
+   "title": "kupić mleko wtorek o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorek zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorek zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorkach o 15",
+  "expected": {
+   "title": "kupić mleko wtorkach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorkach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorkach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorkami o 15",
+  "expected": {
+   "title": "kupić mleko wtorkami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorkami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorkami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorki o 15",
+  "expected": {
+   "title": "kupić mleko wtorki o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorki zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorki zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorkiem o 15",
+  "expected": {
+   "title": "kupić mleko wtorkiem o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorkiem zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorkiem zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorkom o 15",
+  "expected": {
+   "title": "kupić mleko wtorkom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorkom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorkom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorkowi o 15",
+  "expected": {
+   "title": "kupić mleko wtorkowi o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorkowi zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorkowi zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorku o 15",
+  "expected": {
+   "title": "kupić mleko wtorku o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorku zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorku zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko wtorków o 15",
+  "expected": {
+   "title": "kupić mleko wtorków o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "wtorków zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "wtorków zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środa o 15",
+  "expected": {
+   "title": "kupić mleko środa o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środa zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środa zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środach o 15",
+  "expected": {
+   "title": "kupić mleko środach o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środach zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środach zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środami o 15",
+  "expected": {
+   "title": "kupić mleko środami o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środami zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środami zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środo o 15",
+  "expected": {
+   "title": "kupić mleko środo o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środo zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środo zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środom o 15",
+  "expected": {
+   "title": "kupić mleko środom o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środom zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środom zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środy o 15",
+  "expected": {
+   "title": "kupić mleko środy o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środy zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środy zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środzie o 15",
+  "expected": {
+   "title": "kupić mleko środzie o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środzie zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środzie zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środą o 15",
+  "expected": {
+   "title": "kupić mleko środą o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środą zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środą zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko środę o 15",
+  "expected": {
+   "title": "kupić mleko środę o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "środę zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "środę zadzwonić do mamy o 7:30 co tydzień",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "kupić mleko śród o 15",
+  "expected": {
+   "title": "kupić mleko śród o 15",
+   "due": null,
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
+  "text": "śród zadzwonić do mamy o 7:30 co tydzień",
+  "expected": {
+   "title": "śród zadzwonić do mamy o 7:30 co tydzień",
    "due": null,
    "rrule": null
   }
