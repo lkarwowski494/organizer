@@ -13,7 +13,7 @@ import {
 } from '../../domain/sync-engine/client';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
 import { migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
-import { loadLocal, readState, saveLocal, writeState } from '../store';
+import { loadLocal, readState, saveLocal, wipeSynced, writeState } from '../store';
 import { memoryDb } from './sqlite';
 
 const normalize = (s: ClientState): ClientState => ({
@@ -200,5 +200,20 @@ describe('dane lokalne telefonu (D95)', () => {
     expect(readState(db, 'c').cursors).toEqual({});
     saveLocal(db, 'calendarMirror', null);
     expect(loadLocal(db, 'calendarMirror')).toBeNull();
+  });
+});
+
+describe('wyczyść dane na telefonie (D121)', () => {
+  it('kopia serwera, kolejka, odrzucone i kursory znikają; dane telefonu (local:*) zostają', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = initialState('c1');
+    const s1 = mutate(s0, { kind: 'create', entity: 'tasks', id: 't1', group_id: 'g1', set: { list_id: 'l1', title: 'x' } }, () => 'op1');
+    writeState(db, s0, { ...s1, cursors: { g1: 5 }, base: { tasks: { t1: { id: 't1', group_id: 'g1', list_id: 'l1', title: 'x', version: 1 } } }, rejected: [{ op: s1.pending[0]!, code: 'forbidden' }] }, 1);
+    saveLocal(db, 'calendarMirror', '{"a":1}');
+    expect(readState(db, 'c2').pending).toHaveLength(1);
+    wipeSynced(db);
+    expect(readState(db, 'c2')).toEqual(initialState('c2'));
+    expect(loadLocal(db, 'calendarMirror')).toBe('{"a":1}');
   });
 });

@@ -1,4 +1,4 @@
-import { formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
+import { formatDue, formatLength, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -45,4 +45,14 @@ describe('zakres tygodnia (CLDR pl intervalFormats)', () => {
     ['2027-02-22', '2027-03-07', '22 lutego\u2009–\u20097 marca 2027'],
     ['2026-12-28', '2027-01-03', '28 grudnia 2026\u2009–\u20093 stycznia 2027'],
   ])('%s – %s', (a, b, text) => expect(formatRange(parseIsoDate(a), parseIsoDate(b), T)).toBe(text));
+});
+
+describe('długość wydarzenia (D120, BIPM tabela 8)', () => {
+  it.each([
+    ['17:00', '18:30', '1 h 30 min'],
+    ['17:00:00', '18:00:00', '1 h'],
+    ['09:15', '10:00', '45 min'],
+    ['08:00', '20:05', '12 h 5 min'],
+    ['10:00', '10:01', '1 min'],
+  ])('%s–%s → %s', (a, b, out) => expect(formatLength(a, b)).toBe(out));
 });

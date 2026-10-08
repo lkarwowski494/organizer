@@ -8,11 +8,10 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 19,
     items: [
-      'Zaległe zadania przeniesiesz na dziś jednym przyciskiem „Przenieś zaległe na dziś” (z cofnięciem).',
-      'Poranne przypomnienie podsumowuje cały dzień: ile spraw, ile zaległych i co jest na liście.',
-      'Plan lekcji z tygodniami A/B: Grupy → osoba → „Plan lekcji”. Lekcje trafiają do Kalendarza jako wydarzenia cykliczne.',
-      'Rutyny z krokami (Kalendarz → „Dodaj rutynę”), np. „Poranek Kuby”: zęby, ubranie, plecak. Przy rutynie i zadaniu powtarzanym widać serię: ile razy z rzędu zrobione.',
-      'Wydarzenie może mieć miejsce: „Nawiguj” otwiera Mapy Apple albo Google Maps, a po włączeniu „Czasu dojazdu” w Ustawieniach widzisz „Wyjdź o …” i dostajesz „Czas wyjść”.',
+      'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',
+      'Plan lekcji z tygodniami A/B (Grupy → osoba) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z serią „ile razy z rzędu”.',
+      'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a z „Czasem dojazdu” w Ustawieniach widzisz „Wyjdź o …”.',
+      'W wierszach widać, kto odpowiada („dla: Ty”, „odpowiada: Ala”) i ile trwa wydarzenie. Ustawienia → „Wyczyść dane na telefonie” pobiera wszystko od nowa.',
     ],
   },
   {

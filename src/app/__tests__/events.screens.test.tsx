@@ -134,7 +134,7 @@ describe('Wydarzenia: dodawanie', () => {
 describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
   async function openDances() {
     const s = await open();
-    expect(screen.getByLabelText('Tańce, 17:00–18:00, Rodzina, powtarza się')).toBeTruthy(); // dziecko uczestnikiem → dotyczy mnie
+    expect(screen.getByLabelText('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')).toBeTruthy(); // dziecko uczestnikiem → dotyczy mnie
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     await screen.findByTestId('screen-event');
     return s;
@@ -142,7 +142,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
 
   it('szczegóły: kiedy, opis serii, kto', async () => {
     await openDances();
-    expect(screen.getByText('Środa, 7 października · 17:00–18:00')).toBeTruthy();
+    expect(screen.getByText('Środa, 7 października · 17:00–18:00 · 1 h')).toBeTruthy();
     expect(screen.getByText('Co tydzień: śr.')).toBeTruthy();
     expect(screen.getByText('Kuba')).toBeTruthy();
   });
@@ -164,7 +164,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(store.dispatched).toEqual([
       { kind: 'create', entity: 'event_overrides', id: 'new-1', group_id: 'gf', set: { event_id: 'ev-tance', occurrence_date: '2026-10-07', start_date: null, start_time: '16:00', end_time: '17:00', title: null, responsible_member_id: null, cancelled: false } },
     ]);
-    expect(screen.getByLabelText('Tańce, 16:00–17:00, Rodzina, powtarza się')).toBeTruthy();
+    expect(screen.getByLabelText('Tańce, 16:00–17:00, 1 h, Rodzina, powtarza się')).toBeTruthy();
   });
 
   it('„tylko to”: przeniesienie na jutro — w szczegółach widać skąd przeniesione', async () => {
@@ -177,7 +177,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
-    expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00')).toBeTruthy();
+    expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00 · 1 h')).toBeTruthy();
     expect(screen.getByText('Przeniesione z: Środa, 7 października')).toBeTruthy();
   });
 
@@ -303,7 +303,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     expect(screen.getByLabelText('Tańce, Co tydzień: śr. · 17:00–18:00 · najbliżej: dziś')).toBeTruthy();
     expect(screen.getByLabelText(/Stare zajęcia, Co tydzień: śr., do 30.09.2026 · 17:00–18:00 · zakończone/)).toBeTruthy();
     await press(screen.getByTestId('series-ev-old'));
-    expect(await screen.findByText('Środa, 2 września · 17:00–18:00')).toBeTruthy();
+    expect(await screen.findByText('Środa, 2 września · 17:00–18:00 · 1 h')).toBeTruthy();
   });
 
   it('wydarzenie usunięte w międzyczasie: komunikat błędu', async () => {

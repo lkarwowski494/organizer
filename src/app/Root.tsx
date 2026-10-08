@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { loadLocal, readState, saveLocal, writeState } from '../data/store';
+import { loadLocal, readState, saveLocal, wipeSynced, writeState } from '../data/store';
 import type { DbAdapter } from '../data/db/adapter';
 import { migrate } from '../data/db/migrations';
 import { strings } from '../i18n/strings.pl';
@@ -66,10 +66,15 @@ function Loading() {
 
 function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
   const nowMs = deps.nowMs ?? Date.now;
-  const { runtime, db } = useMemo(() => {
+  const db = useMemo(() => {
     const db = deps.openDb(session.userId);
     migrate(db);
-    const runtime = new SyncRuntime({
+    return db;
+  }, [deps, session.userId]);
+  // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
+  const [epoch, setEpoch] = useState(0);
+  const runtime = useMemo(() => {
+    return new SyncRuntime({
       initial: readState(db, deps.newId()),
       transport: deps.transport,
       now: nowMs,
@@ -82,8 +87,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
         }),
       persist: (prev, next, now) => writeState(db, prev, next, now),
     });
-    return { runtime, db };
-  }, [deps, session.userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [db, deps, epoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
   useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
@@ -125,6 +129,11 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
       push: deps.push,
       prefs: deps.prefs,
       local: { load: (k) => loadLocal(db, k), save: (k, v) => saveLocal(db, k, v) },
+      resetLocal: () => {
+        runtime.stop();
+        wipeSynced(db);
+        setEpoch((e) => e + 1);
+      },
       userId: session.userId,
       displayName: session.displayName,
       needsName: session.needsName,

@@ -7,7 +7,7 @@
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
-import { formatLongDate, parseIsoDate } from '../format';
+import { formatLength, formatLongDate, parseIsoDate } from '../format';
 import { plural } from '../plural';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
@@ -327,6 +327,11 @@ export function eventsByDate(t: Tables, userId: string, from: CivilDate, to: Civ
 export function timeLabel(start: string | null, end: string | null): string | null {
   if (start === null) return null;
   return end === null ? start.slice(0, 5) : `${start.slice(0, 5)}–${end.slice(0, 5)}`;
+}
+
+/** Długość do wiersza (D120), tylko gdy jest początek i koniec. */
+export function lengthLabel(start: string | null, end: string | null): string | null {
+  return start !== null && end !== null ? formatLength(start, end) : null;
 }
 
 export type SeriesItem = { id: string; title: string; summary: string; time: string | null; start: string; next: string | null };

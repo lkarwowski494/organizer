@@ -170,7 +170,7 @@ describe('ilości i Kalendarz (D77, O-053)', () => {
     const row = await screen.findByTestId('cal-trip-lz');
     expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
     expect(within(row).getByText(/2 do kupienia/)).toBeTruthy();
-    expect(within(row).getByText(/Łukasz/)).toBeTruthy();
+    expect(within(row).getByText(/dla: Ty/)).toBeTruthy();
     await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
     await answerAlert('Anuluj');
     expect(store.dispatched).toEqual([]);

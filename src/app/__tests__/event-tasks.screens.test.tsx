@@ -89,7 +89,7 @@ describe('zadania na spotkaniu (D13)', () => {
     await press(screen.getByTestId('pick-ev-2026-10-14'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { event_id: 'ev', occurrence_date: '2026-10-14', deadline_mode: 'event' } });
     await press(screen.getByTestId('task-open-event'));
-    expect(await screen.findByText('Środa, 14 października · 17:00–18:00')).toBeTruthy();
+    expect(await screen.findByText('Środa, 14 października · 17:00–18:00 · 1 h')).toBeTruthy();
   });
 
   it('spotkanie odwołane gdzie indziej: zadanie zostaje z komunikatem i można je przepiąć', async () => {

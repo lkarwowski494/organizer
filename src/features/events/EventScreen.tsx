@@ -17,7 +17,7 @@ import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList } from '../../domain/views/commands';
 import { listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
-import { cancelEvent, describeRule, eventDetail, fieldsOf, type Scope, timeLabel } from '../../domain/views/events';
+import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, type Scope, timeLabel } from '../../domain/views/events';
 import { createSeries, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
@@ -57,7 +57,8 @@ export function EventScreen({ route, navigation }: Props) {
   }
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
-  const time = timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'];
+  // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
+  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
   const myMember = d.members.find((m) => m.user_id === userId)?.member_id;
   const iAmResponsible = myMember !== undefined && occ.responsibleId === myMember;
