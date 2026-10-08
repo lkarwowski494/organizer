@@ -4,7 +4,33 @@
  * (cudze zadanie, wydarzenie mnie nie dotyczy, inny dzień), zadanie zostaje na swoim miejscu z dopiskiem rodzica
  * (`parent`), żeby nie wyglądało na samodzielne.
  */
-import { asTask, rows, type Tables } from './model';
+import { config } from '../../config';
+import { asTask, rows, type Tables, type Task } from './model';
+
+/**
+ * Potomkowie zadania w kolejności drzewa (rodzic przed dziećmi, rodzeństwo po sort_key), najwyżej `config.MAX_TASK_DEPTH`
+ * poziomów niżej (więcej serwer nie pozwala; limit chroni też przed cyklem w uszkodzonych danych lokalnych). Schodzi tylko
+ * przez wiersze spełniające `keep`.
+ */
+export function descendants(t: Tables, rootId: string, keep: (x: Task) => boolean): Task[] {
+  const all = rows(t, 'tasks', asTask)
+    .filter(keep)
+    .sort((a, b) => a.sort_key.localeCompare(b.sort_key) || a.id.localeCompare(b.id));
+  const out: Task[] = [];
+  const walk = (id: string, level: number) => {
+    if (level > config.MAX_TASK_DEPTH) return;
+    for (const x of all)
+      if (x.parent_id === id) {
+        out.push(x);
+        walk(x.id, level + 1);
+      }
+  };
+  walk(rootId, 1);
+  return out;
+}
+
+/** Żywe (nieusunięte) podzadania zadania, wszystkie poziomy. */
+export const subtasksOf = (t: Tables, taskId: string) => descendants(t, taskId, (x) => x.deleted_at === null);
 
 type EventLike = { kind: 'event'; event: { eventId: string; occurrenceDate: string } };
 type TaskLike = { kind: 'task' | 'overdue'; task: { id: string; parent_id: string | null; event_id: string | null; occurrence_date: string | null } };

@@ -17,7 +17,9 @@ import {
   formGroups,
   formMembers,
   formOps,
+  formUnseen,
   formWeekday,
+  movedSubtasks,
   type TaskForm,
   validateForm,
 } from '../../domain/views/task-form';
@@ -41,7 +43,6 @@ const ERRORS: Record<FormError, string> = {
   group: strings['form.error.group'],
   date: strings['task.invalidDate'],
   time: strings['task.invalidTime'],
-  addressee: strings['addressee.blocked'],
   repeatNeedsDate: strings['form.error.repeatNeedsDate'],
 };
 
@@ -61,6 +62,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const groups = formGroups(tables, userId);
   const members = formMembers(tables, form.groupId);
   const originalGroup = editing ? tables.tasks?.[editing]?.group_id : undefined;
+  const subtasks = editing ? movedSubtasks(tables, editing) : 0;
   const day = (k: number) => formatIsoDate(addDays(today, k));
   const dateChoice = form.date === '' ? 'none' : form.date === day(0) ? 'today' : form.date === day(1) ? 'tomorrow' : 'other';
 
@@ -99,7 +101,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         onChange={(g) => set({ groupId: g, assigneeId: null })}
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
-      {originalGroup && originalGroup !== form.groupId ? <Body muted>{strings['form.moved']}</Body> : null}
+      {originalGroup && originalGroup !== form.groupId ? <Body muted>{subtasks ? strings['form.movedWithSubtasks'](subtasks) : strings['form.moved']}</Body> : null}
       <Segmented
         label={strings['task.due']}
         value={dateChoice}
@@ -121,6 +123,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
         options={[{ value: '', label: strings['task.assigneeNone'] }, ...members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
       {form.date ? <RepeatEditor value={form.repeat} weekday={formWeekday(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['repeat.needsDue']}</Body>}
+      {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
+      {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {error ? (
         <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
           {ERRORS[error]}

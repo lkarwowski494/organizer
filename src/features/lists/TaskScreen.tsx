@@ -194,7 +194,7 @@ export function TaskScreen({ route, navigation }: Props) {
           kind="secondary"
           label={strings['task.clearDue']}
           onPress={() => {
-            if (lacksAddressee(tables, userId, { ...task, deadline_mode: 'none' })) return setError(strings['addressee.blocked']);
+            // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez terminu i osoby też wolno — wtedy dopisek task.noAddressee.
             store.dispatch(setDue(task.id, null));
             setEdit(({ date: _d, time: _t, ...rest }) => rest);
           }}
@@ -263,16 +263,16 @@ export function TaskScreen({ route, navigation }: Props) {
             }}
             onCancel={() => setHanding(false)}
           />
-        ) : (
+        ) : task.completed_at === null ? (
+          // Zrobionego nie ma czego przekazywać (serwer: „nieaktualne”); powtarzane przekazuje się od następnego terminu.
           <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
-        )
+        ) : null
       ) : null}
       {canEdit ? (
       <Segmented
         label={strings['task.assignee']}
         value={task.assignee_member_id ?? ''}
         onChange={(v) => {
-          if (v === '' && lacksAddressee(tables, userId, { ...task, assignee_member_id: null })) return setError(strings['addressee.blocked']);
           setError(null);
           store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
         }}

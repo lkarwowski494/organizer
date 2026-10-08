@@ -1,8 +1,10 @@
 /** Szybkie i pełne dodawanie (D90, D91): „Więcej”, pasek „Dodano · Zmień”, przeniesienie do grupy z osobą, „@imię”. */
-import { fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
+import { parseQuickAdd } from '../../domain/quickadd';
+import { createTask } from '../../domain/views/commands';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup , pickDate, setTime } from './harness';
+import { NOW, put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -44,6 +46,21 @@ describe('szybkie dodanie i „Zmień”', () => {
   });
 });
 
+describe('„Zmień” na inną grupę a podzadania (audyt 2: T-33)', () => {
+  it('komunikat mówi, ile podzadań pójdzie do kosza z oryginałem (kopia ich nie ma)', async () => {
+    const { store } = await open();
+    await type('Urodziny jutro');
+    const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks') as { id: string };
+    // W tej chwili ktoś dodaje do niego podzadania (ekran zadania) — pasek „Zmień” jest jeszcze widoczny.
+    await act(async () => store.dispatch([0, 1].map((i) => createTask({ id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`prezent ${i}`, NOW) }))));
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Zmień'));
+    await screen.findByTestId('screen-add-task');
+    expect(screen.queryByText(/kosza/)).toBeNull();
+    await press(radio('Grupa', 'Rodzina'));
+    expect(screen.getByText('Zadanie trafi do innej grupy: powstanie tam kopia bez podzadań, a to zadanie razem z 2 podzadaniami pójdzie do kosza.')).toBeTruthy();
+  });
+});
+
 describe('„Więcej” — pełny formularz', () => {
   it('wypełniony tym, co wpisałem; jutro, osoba, powtarzanie co tydzień; bez wyboru listy; zapis nowego zadania', async () => {
     const base = sampleBase();
@@ -68,7 +85,7 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 
-  it('błędy: pusta nazwa, wspólna grupa bez osoby i terminu, zła godzina; „Bez terminu” czyści dzień; anuluj', async () => {
+  it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; anuluj', async () => {
     const { store } = await open();
     await press(screen.getByTestId('add-more'));
     await screen.findByTestId('screen-add-task');
@@ -78,9 +95,9 @@ describe('„Więcej” — pełny formularz', () => {
     await fireEvent.changeText(screen.getByTestId('form-title'), 'Zebranie');
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await press(radio('Grupa', 'Rodzina'));
-    await press(screen.getByTestId('form-save'));
-    expect(screen.getByText(/zadanie musi mieć osobę albo termin/)).toBeTruthy();
+    expect(screen.getByTestId('form-no-addressee')).toBeTruthy();
     await press(radio('Termin', 'Dziś'));
+    expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await setTime('form-time', '25:00');
     await press(screen.getByTestId('form-save'));
     expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();

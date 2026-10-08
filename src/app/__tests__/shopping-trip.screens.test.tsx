@@ -133,7 +133,7 @@ describe('zakupy na liście', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lz'));
     const trip = await screen.findByTestId('trip');
-    expect(within(trip).getByText('Bez zaplanowanych zakupów.')).toBeTruthy();
+    expect(within(trip).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.')).toBeTruthy();
     await press(screen.getByTestId('trip-plan'));
     expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(true);
     await press(screen.getByLabelText('Anuluj'));
@@ -160,7 +160,7 @@ describe('zakupy na liście', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ entity: 'handoffs', set: { status: 'cancelled' } });
     await press(screen.getByTestId('trip-done'));
     await answerAlert('Zostaw na następne zakupy');
-    expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów.')).toBeTruthy();
+    expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.')).toBeTruthy();
   });
 
   it('przekazanie zakupów do mnie: „Do potwierdzenia” z tytułem „Zakupy: …”', async () => {
