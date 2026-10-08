@@ -229,7 +229,7 @@ export function SettingsScreen({ navigation, route }: Props) {
         <>
           <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
           <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
-          <Button kind="secondary" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
+          <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>
               <SectionTitle>{strings['reset.title']}</SectionTitle>
@@ -244,7 +244,7 @@ export function SettingsScreen({ navigation, route }: Props) {
                   <Button kind="secondary" label={strings['common.cancel']} onPress={() => setResetting(false)} />
                 </>
               ) : (
-                <Button kind="secondary" label={strings['reset.start']} testID="reset-start" onPress={() => setResetting(true)} />
+                <Button kind="danger" label={strings['reset.start']} testID="reset-start" onPress={() => setResetting(true)} />
               )}
             </View>
           ) : null}

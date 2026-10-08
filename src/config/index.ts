@@ -12,6 +12,13 @@ export const config = {
   UNDO_MS: 6000,
 
   /**
+   * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
+   * sekcji kosza (D151) widać przed „Pokaż wszystkie”. Wybory projektowe, bez źródła zewnętrznego.
+   */
+  RECENT_MAX: 30,
+  TRASH_PREVIEW: 5,
+
+  /**
    * Zgłaszanie błędów i opinii (D80). Serwer egzekwuje te same liczby (private.client_errors_per_day,
    * feedback_per_day, feedback_retention_days; test kontraktowy). Wybory projektowe, bez źródła.
    */

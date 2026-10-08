@@ -10,17 +10,20 @@ import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
-import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
+import { addChild, remove, renameGroup, restore, setGroupColor } from '../../domain/views/commands';
 import { formatDue } from '../../domain/format';
 import { formatIsoDate } from '../../domain/civil-date';
 import { groupDigits } from '../../domain/invite-link';
 import { localNow } from '../../app/clock';
-import { groupDetail, type GroupDetail, listOpenCount, listsView } from '../../domain/views';
+import { groupDetail, type GroupDetail, listOpenCount, listsView, type Member, memberActions } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
+import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
+import { useUndo } from '../../ui/undo';
+import { useEventActions } from '../../app/event-actions';
+import { useTaskActions } from '../../app/task-actions';
 import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 import { absoluteDay } from './dates';
@@ -39,6 +42,9 @@ export function GroupScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
+  const undo = useUndo();
+  const actions = useTaskActions();
+  const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
   const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
@@ -48,7 +54,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const [nameEdit, setNameEdit] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const latest = useRef({ nameEdit, d });
   useEffect(() => {
@@ -127,6 +133,13 @@ export function GroupScreen({ route, navigation }: Props) {
     dropNameEdit();
   };
 
+  // Jak na ekranie osoby (PW-35 A, D165): bez pytania, z „Cofnij”; owner/admin przywraca też z kosza.
+  const removeMember = (m: Member) => {
+    const op = remove('group_members', m.member_id);
+    store.dispatch(op);
+    undo.show(strings['undo.memberRemoved'](m.display_name), () => store.dispatch(restore('group_members', m.member_id)), { changed: [op] });
+  };
+
   return (
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
@@ -155,14 +168,16 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
+      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
       {d.members.map((m) => (
-        <NavRow
-          key={m.member_id}
-          testID={`member-${m.member_id}`}
-          title={m.display_name}
-          subtitle={strings[`groups.role.${m.role}`]}
-          onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
-        />
+        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
+          <NavRow
+            testID={`member-${m.member_id}`}
+            title={m.display_name}
+            subtitle={strings[`groups.role.${m.role}`]}
+            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
+          />
+        </SwipeRow>
       ))}
       {d.canInvite ? (
         <View style={{ gap: 8 }}>
@@ -186,25 +201,37 @@ export function GroupScreen({ route, navigation }: Props) {
             }
           />
           <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID="invite-new-code" onPress={() => void makeInvite(invite.role, true)} />
-          {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia. */}
-          <Button
-            kind="danger"
-            label={strings['groups.revoke']}
-            onPress={async () => {
-              setError(null);
-              try {
-                await account.revokeInvite(invite.inviteId);
-                setInvite(null);
-              } catch (e) {
-                setError(groupErrorText(e));
-              }
-            }}
-          />
+          {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia. D187: unieważnienia
+              nie da się cofnąć (serwer nie przywraca kodu), więc jedno pytanie — jak przy zmianie ID grupy. */}
+          {confirmRevoke ? (
+            <View style={{ gap: 8 }}>
+              <Body>{strings['groups.revokeConfirm']}</Body>
+              <Button
+                kind="danger"
+                label={strings['groups.revoke']}
+                testID="revoke-confirm"
+                onPress={async () => {
+                  setError(null);
+                  try {
+                    await account.revokeInvite(invite.inviteId);
+                    setInvite(null);
+                    setConfirmRevoke(false);
+                  } catch (e) {
+                    setError(groupErrorText(e));
+                  }
+                }}
+              />
+              <Button kind="secondary" label={strings['common.cancel']} onPress={() => setConfirmRevoke(false)} />
+            </View>
+          ) : (
+            <Button kind="danger" label={strings['groups.revoke']} testID="revoke" onPress={() => setConfirmRevoke(true)} />
+          )}
         </View>
       ) : null}
       {d.group.me.role === 'owner' && !personal ? (
+        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
         <Button
-          kind="secondary"
+          kind="danger"
           label={strings['groups.rotate']}
           testID="rotate-join-id"
           onPress={() =>
@@ -271,21 +298,24 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.map((l) => (
-        <NavRow key={l.id} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
+          <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        </SwipeRow>
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
       {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
       {series.map((e) => (
-        <NavRow
-          key={e.id}
-          testID={`series-${e.id}`}
-          title={e.title}
-          subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
-          line={d.group.line}
-          // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
-          onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
-        />
+        <SwipeRow key={e.id} title={e.title} enabled={d.group.me.role !== 'child'} onDelete={() => events.cancel(e.id, e.nextOccurrence ?? e.start, true)} testID={`swipe-${e.id}`}>
+          <NavRow
+            testID={`series-${e.id}`}
+            title={e.title}
+            subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
+            line={d.group.line}
+            // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
+            onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
+          />
+        </SwipeRow>
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
       {/* Audyt 2 (PWD-26): rutyna i plan lekcji dziecka (D128) także z ekranu grupy, nie tylko z Kalendarza i ekranu osoby. */}
@@ -317,31 +347,30 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : !personal ? (
         <Body muted>{strings['groups.ownerCannotLeave']}</Body>
       ) : null}
+      {/* D187 (audyt 2: PW-16 A, M-121): do kosza bez pytania — pasek „Cofnij” i kosz (właściciel, 30 dni). */}
       {d.canDelete ? (
-        confirmDelete ? (
-          <View style={{ gap: 8 }}>
-            <Body>{strings['groups.deleteConfirm'](config.sync.TOMBSTONE_DAYS)}</Body>
-            <Button
-              kind="danger"
-              label={strings['groups.deleteYes']}
-              testID="delete-group-confirm"
-              onPress={async () => {
-                setError(null);
-                try {
-                  await account.deleteGroup(d.group.id);
-                  dropNameEdit();
-                  store.refresh();
-                  navigation.goBack();
-                } catch (e) {
-                  setError(groupErrorText(e));
-                }
-              }}
-            />
-            <Button kind="secondary" label={strings['common.cancel']} onPress={() => setConfirmDelete(false)} />
-          </View>
-        ) : (
-          <Button kind="danger" label={strings['groups.delete']} onPress={() => setConfirmDelete(true)} testID="delete-group" />
-        )
+        <Button
+          kind="danger"
+          label={strings['groups.delete']}
+          testID="delete-group"
+          onPress={async () => {
+            setError(null);
+            try {
+              await account.deleteGroup(d.group.id);
+            } catch (e) {
+              return setError(groupErrorText(e));
+            }
+            dropNameEdit();
+            store.refresh();
+            navigation.goBack();
+            undo.show(strings['undo.groupDeleted'](d.group.name), () => {
+              account.restoreGroup(d.group.id).then(
+                () => store.refresh(),
+                (e: unknown) => undo.show(groupErrorText(e)),
+              );
+            });
+          }}
+        />
       ) : null}
     </Screen>
   );

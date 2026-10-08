@@ -111,7 +111,7 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Twoje wpisy:** do usunięcia przez Ciebie albo przez osobę z grupy, która może je usunąć.
 - **Kosz:** usunięte listy, zadania, wydarzenia i grupy leżą w koszu 30 dni, potem znikają na zawsze
   (serwer sprząta raz na dobę, więc może to potrwać do jednego dnia dłużej). Grupę z kosza właściciel może przywrócić
-  w ciągu tych 30 dni.
+  w ciągu tych 30 dni, a listę, zadanie i wydarzenie — każdy dorosły z grupy, który je widzi (Grupy → Kosz).
 - **Zgłoszenia błędów, wyniki samosprawdzenia i uwagi:** 90 dni.
 - **Nieudane próby dołączenia kodem:** 1 dzień.
 - **Wyjście albo usunięcie z grupy:** Twoje listy „Tylko ja” w tej grupie trafiają do kosza na 30 dni i wracają, jeśli

@@ -7,6 +7,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Text } from 'react-native';
 
+import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { addDays, formatIsoDate, isValidDate } from '../../domain/civil-date';
@@ -53,6 +54,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const { tables, today } = useAppData();
   const { c, font } = useTheme();
   const editing = route.params.taskId;
+  const added = useAdded();
   // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
   const [initial] = useState(() => formFromText(tables, userId, route.params.text ?? '', now(), { chipGroupId: route.params.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
   const [form, setForm] = useState<TaskForm>(() => {
@@ -75,7 +77,13 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const save = () => {
     const e = validateForm(tables, userId, form);
     if (e) return setError(e);
-    store.dispatch(formOps(tables, userId, form, newId, editing).ops);
+    const { ops } = formOps(tables, userId, form, newId, editing);
+    // D189: nowe zadanie z formularza — „Dodano … · Cofnij”; zmiana istniejącego — bez paska (jak każda edycja).
+    if (editing) store.dispatch(ops);
+    else {
+      const g = groups.find((x) => x.id === form.groupId);
+      added(strings['form.added'](form.title.trim(), g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), ops);
+    }
     navigation.goBack();
   };
 

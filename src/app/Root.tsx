@@ -165,7 +165,7 @@ function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Sess
 
   const services: AppServices = useMemo(
     () => ({
-      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }) },
+      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }), clearRejected: () => runtime.clearRejected() },
       account,
       calendar: deps.calendar,
       travel: deps.travel,

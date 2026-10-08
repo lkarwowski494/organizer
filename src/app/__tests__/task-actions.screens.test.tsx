@@ -105,6 +105,9 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     await press(await screen.findByLabelText('Usuń listę'));
+    // D187: lista z zadaniami — jedno pytanie z ich liczbą.
+    expect(lastAlert().title).toBe('Usunąć listę „Dom” i 3 zadania? Wrócą razem z listą, jeśli przywrócisz ją z kosza.');
+    await answerAlert('Usuń listę');
     expect(await screen.findByText('Usunięto listę: Dom')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'lists', id: 'lf' });
@@ -156,7 +159,8 @@ describe('rolowanie (D61) i miniony dzień', () => {
     await press(screen.getByLabelText('Poprzedni dzień'));
     expect(screen.getByText(/Minęło: zrobione i wydarzenia/)).toBeTruthy();
     expect(screen.getByLabelText('Logopeda, 18:00, Rodzina')).toBeTruthy();
-    expect(screen.queryByLabelText('Usuń: Wynieść śmieci')).toBeNull();
+    // Audyt 2 (M-124): zrobione też przesuwa się do usunięcia — jak na liście i w Kalendarzu.
+    expect(screen.getByLabelText('Usuń: Wynieść śmieci')).toBeTruthy();
     await press(screen.getByLabelText('Oznacz jako niezrobione: Wynieść śmieci'));
     expect(store.dispatched.at(-1)).toMatchObject({ id: 'zrobione', set: { completed_at: null } });
   });
