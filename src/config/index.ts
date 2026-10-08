@@ -182,6 +182,20 @@ export const config = {
     BACKOFF_MIN_MS: 1000,
     BACKOFF_MAX_MS: 60_000,
     BACKOFF_FACTOR: 2,
+    /**
+     * Wartości domyślne kolumn z wartością domyślną, które telefon może zmieniać (patch_cols w private.sync_entities).
+     * Wiersz utworzony na telefonie nie ma tych pól, dopóki nie wróci z serwera, więc „Cofnij” zmiany takiego pola
+     * wpisuje tę wartość — nie null, który kolumna NOT NULL odrzuca (audyt 2, M-59). Zgodność z bazą: tests/db
+     * (patch-defaults.test.ts czyta information_schema).
+     */
+    PATCH_DEFAULTS: {
+      event_overrides: { all_day: false, cancelled: false, responsible_cleared: false },
+      events: { audience: 'group' },
+      group_members: { role: 'member' },
+      handoffs: { closed: false, status: 'pending' },
+      lists: { sort_key: 'a0', staples: [], visibility: 'group' },
+      tasks: { deadline_mode: 'none', rollover: true, sort_key: 'a0' },
+    } as { readonly [entity: string]: { readonly [column: string]: unknown } },
   },
 
   /**

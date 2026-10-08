@@ -107,7 +107,7 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
 1. **Kosz naprawdę „znika na zawsze”** (M-67): przy czyszczeniu kosza znika też historia zmian usuniętej rzeczy (listy,
    wydarzenia, wyjątki terminów, odpowiedzi, uczestnicy, definicje stałych zadań, wpisy dostępu); usunięte wydarzenie
    z przypiętymi zadaniami po 30 dniach znika, a zadania dostają dzień terminu jako własny termin (decyzja PW-42 A, D182):
-   `supabase/migrations/20261008390000_retention.sql` (`private.purge_group`).
+   `supabase/migrations/20261008480000_retention.sql` (`private.purge_group`).
 2. **Historia zmian 90 dni** na serwerze i na telefonach (PW-47 A, D184): ten sam plik; telefon
    `src/domain/sync-engine/retention.ts`.
 3. **Nowe terminy retencji** (M-68): rozstrzygnięte przekazania 90 dni, zaproszenia 30 dni po wygaśnięciu albo

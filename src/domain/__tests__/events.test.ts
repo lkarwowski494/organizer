@@ -407,9 +407,10 @@ describe('uczestnicy i „dotyczy mnie” (D58)', () => {
     expect(concerns(t, withAudience(t, ['nieznany']))).toBe(false);
   });
 
-  it('jako dziecko w grupie: zajęcia innego dziecka mnie nie dotyczą', () => {
+  it('jako dziecko w grupie (z kontem, PW-14 B): zajęcia innego dziecka mnie nie dotyczą i nie widać ich nawet w Kalendarzu', () => {
     const t = world('child');
-    expect(concerns(t, withAudience(t, ['kuba']))).toBe(false);
+    const other = withAudience(t, ['kuba']);
+    expect(range(t, '2026-10-07', '2026-10-07').find((x) => x.eventId === other)).toBeUndefined();
     expect(concerns(t, withAudience(t, ['mf']))).toBe(true);
   });
 
@@ -569,6 +570,22 @@ describe('godziny i lista wydarzeń grupy', () => {
       { id: old.id, title: 'Stare', summary: 'Wtorek, 1 września', time: null, start: '2026-09-01', next: null, nextOccurrence: null },
     ]);
     expect(groupSeries(t, ME, 'gx', TODAY)).toEqual([]);
+  });
+
+  it('groupSeries u dziecka z kontem (PW-14 B): tylko wydarzenia, które go dotyczą', () => {
+    const t = world('child');
+    const newId = ids();
+    const kuby = createEvent('gf', fields({ title: 'Basen Kuby', audience: 'members', participantIds: ['kuba'] }), newId);
+    const moje = createEvent('gf', fields({ title: 'Moje tańce', audience: 'members', participantIds: ['mf'] }), newId);
+    const wszyscy = createEvent('gf', fields({ title: 'Obiad', audience: 'group' }), newId);
+    const ali = createEvent('gf', fields({ title: 'Zebranie', audience: 'group', responsibleId: 'ala' }), newId);
+    const ja = createEvent('gf', fields({ title: 'Sprzątanie', audience: 'group', responsibleId: 'mf' }), newId);
+    const dawna = createEvent('gf', fields({ title: 'Po Zosi', audience: 'group', responsibleId: 'zosia' }), newId);
+    run(t, [...kuby.ops, ...moje.ops, ...wszyscy.ops, ...ali.ops, ...ja.ops, ...dawna.ops]);
+    expect(groupSeries(t, ME, 'gf', TODAY).map((x) => x.title).sort()).toEqual(['Moje tańce', 'Obiad', 'Po Zosi', 'Sprzątanie']);
+    // Dorosły w tej grupie widzi wszystkie.
+    t.group_members!.mf = { ...t.group_members!.mf!, role: 'admin' };
+    expect(groupSeries(t, ME, 'gf', TODAY)).toHaveLength(6);
   });
 });
 

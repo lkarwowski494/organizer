@@ -24,6 +24,7 @@ import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';
 import { lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { rejectedCreateIds } from '../../domain/sync-engine/client';
 import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -80,7 +81,7 @@ export function TodayScreen() {
   // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
   // Audyt 2: tylko w żywej grupie, w której nie jestem dzieckiem (T-2); odhaczone przez dziecko dostają następne
   // tutaj (T-12); kopia odrzucona przez serwer nie wraca w każdym cyklu synchronizacji.
-  const rejectedIds = useMemo(() => new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []))), [state.rejected]);
+  const rejectedIds = useMemo(() => rejectedCreateIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const canCreate = (g: string) => groups.some((x) => x.id === g && x.me.role !== 'child');
     const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
@@ -247,7 +248,8 @@ export function TodayScreen() {
       meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...whoTask(task.assignee_member_id)]}
       alert={alert}
       checked={false}
-      onToggle={() => actions.finishTrip(task.id, task.title)}
+      // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
+      onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
       onOpen={() => nav.navigate('List', { listId: task.id })}
     />
   );
@@ -287,7 +289,8 @@ export function TodayScreen() {
       <Fragment key={x.key}>
         <EventRow
           testID={`today-${x.key}`}
-          title={strings['lessons.title'](b.name, b.lessons.length)}
+          // Moje lekcje (dziecko z kontem, D127 — audyt 2, N-38) bez imienia.
+          title={groups.find((g) => g.id === b.groupId)?.me.member_id === b.memberId ? strings['lessons.mine'](b.lessons.length) : strings['lessons.title'](b.name, b.lessons.length)}
           time={timeLabel(b.start, b.end)}
           line={b.line}
           group={groupLabel(b.groupId, b.groupName)}

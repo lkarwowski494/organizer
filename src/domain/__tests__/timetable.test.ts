@@ -349,7 +349,7 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
     expect(t.events!.nowa).toMatchObject({ start_date: '2026-10-12', start_time: '08:00:00', rrule: 'FREQ=WEEKLY;BYDAY=MO' });
     expect(t.tasks!.daleko).toMatchObject({ event_id: 'nowa', occurrence_date: '2026-10-26', deadline_mode: 'event' });
     expect(t.tasks!.odczynnik).toMatchObject({ occurrence_date: '2026-10-12' });
-    expect([t.tasks!.kopia!.deleted_at, t.tasks!['nowa-kopia']!.deleted_at, t.event_overrides!.wolne!.deleted_at]).toEqual([null, 'pending', null]);
+    expect([t.tasks!.kopia!.deleted_at, t.tasks!['nowa-kopia']!.deleted_at, t.event_overrides!.wolne!.deleted_at]).toEqual([null, expect.stringMatching(/^pending:\d+$/), null]);
   });
 
   it('para: ta sama nazwa albo te same dni i godziny; nowa lekcja bez pary — nowa seria', () => {

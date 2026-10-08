@@ -156,7 +156,8 @@ export function StationRow(props: {
   meta?: string[];
   depth?: number;
   checked: boolean;
-  onToggle: () => void;
+  /** Brak — wiersz bez pola odhaczenia (np. zakupy u dziecka z kontem: serwer ich nie przyjmie, PW-14 B). */
+  onToggle?: () => void;
   onOpen?: () => void;
   /** Etykieta VoiceOver dla dotknięcia wiersza (domyślnie „Otwórz: …”). */
   openLabel?: string;
@@ -200,9 +201,11 @@ export function StationRow(props: {
           </Text>
         ) : null}
       </Pressable>
-      <View style={{ justifyContent: 'center' }}>
-        <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
-      </View>
+      {props.onToggle ? (
+        <View style={{ justifyContent: 'center' }}>
+          <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
+        </View>
+      ) : null}
     </View>
   );
 }

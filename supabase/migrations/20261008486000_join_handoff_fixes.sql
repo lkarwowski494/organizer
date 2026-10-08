@@ -5,7 +5,8 @@
 --  Przekazanie jednego terminu (zgłoszenia P3/P10): osoba odpowiedzialna za termin uwzględnia „nikt konkretny”
 --  (event_overrides.responsible_cleared, 20261008320000), a przyjęcie zapisuje wyjątek z identyfikatorem jak na telefonie
 --  (UUIDv5, overrideId) — bez wyścigu 23505.
--- Zastępuje: private.join_group (20261008362000_join_codes_v2.sql), private.handoffs_guard (20261008361000_member_departure.sql).
+-- Zastępuje: private.join_group (20261008440000_child_account.sql — z jej kodem invite_child_account), private.handoffs_guard
+-- (20261008361000_member_departure.sql).
 -- Testy: supabase/tests/quotas.test.sql (limit grup), supabase/tests/handoff_override.test.sql.
 
 -- Osoba odpowiedzialna za termin serii: bez wyjątku — osoba serii; wyjątek z osobą — ta osoba; wyjątek „nikt konkretny”
@@ -60,7 +61,7 @@ begin
   -- Na zewnątrz: nieznane ID grupy i zły kod dają ten sam błąd invite_invalid (nie zdradzamy, czy grupa o tym ID istnieje).
   -- Szczegółowe kody (wygasł, unieważniony, wykorzystany, usunięto Cię) dostaje tylko ktoś, kto trafił w prawdziwy kod
   -- tej grupy — wie wtedy, że grupa istnieje albo istniała; to akceptowane, bo kod daje i tak więcej (audyt 2, M-182, B-13).
-  return jsonb_build_object('error', case when err in ('invite_expired', 'invite_revoked', 'invite_used_up', 'invite_removed') then err else 'invite_invalid' end);
+  return jsonb_build_object('error', case when err in ('invite_expired', 'invite_revoked', 'invite_used_up', 'invite_removed', 'invite_child_account') then err else 'invite_invalid' end);
 end $$;
 
 create or replace function private.handoffs_guard() returns trigger

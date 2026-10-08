@@ -1,5 +1,5 @@
 /**
- * Codzienne sprzątanie na prawdziwym połączeniu (audyt 2, M-66; migracja 20261008390000_retention): pg_cron woła
+ * Codzienne sprzątanie na prawdziwym połączeniu (audyt 2, M-66; migracja 20261008480000_retention): pg_cron woła
  * `call private.run_daily_maintenance()`, a procedura zatwierdza każdą grupę osobno. Zapis telefonu do grupy już
  * posprzątanej nie czeka na koniec całego zadania (dotąd czekał — blokady grup trzymała jedna transakcja).
  */

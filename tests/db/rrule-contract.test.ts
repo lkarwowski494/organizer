@@ -1,5 +1,5 @@
 /**
- * Kontrakt reguł powtarzania telefon ↔ serwer (audyt 2, M-190, Q-22; migracja 20261008395000_rrule_check): SQL przyjmuje
+ * Kontrakt reguł powtarzania telefon ↔ serwer (audyt 2, M-190, Q-22; migracja 20261008485000_rrule_check): SQL przyjmuje
  * dokładnie te reguły, które telefon umie rozwinąć. Wydarzenia: private.rrule_ok ⇔ parseRule (src/domain/rrule.ts) nie
  * rzuca. Zadania: private.task_repeat_ok ⇔ parseRepeat (src/domain/views/task-repeat.ts) coś odczytuje. Zestaw: korpus
  * RRULE (fixtures/rrule.json), reguły szybkiego dodawania, każdy zapis z formularza powtarzania, lista reguł błędnych

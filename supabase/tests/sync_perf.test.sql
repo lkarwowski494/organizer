@@ -1,4 +1,4 @@
--- Wydajność synchronizacji bez zmiany wyników (audyt 2, M-181, M-73, M-192; migracja 20261008394000_sync_perf).
+-- Wydajność synchronizacji bez zmiany wyników (audyt 2, M-181, M-73, M-192; migracja 20261008484000_sync_perf).
 begin;
 select plan(6);
 

@@ -56,7 +56,7 @@ async function world(claim: object | null, apns: number[] = [], claimStatus = 20
   const f = ((url: string, init?: RequestInit) => {
     calls.push({ url, init });
     if (url.endsWith('/auth/v1/user')) return Promise.resolve(new Response(JSON.stringify(user), { status: userStatus }));
-    // null = baza bez licznika (404, przed migracją 20261008392000).
+    // null = baza bez licznika (404, przed migracją 20261008482000).
     if (url.endsWith('/rpc/notify_rate_hit')) return Promise.resolve(rate === null ? new Response('{}', { status: 404 }) : new Response(JSON.stringify(rate), { status: 200 }));
     if (url.endsWith('/rpc/handoff_push_claim') || url.endsWith('/rpc/assignment_push_claim')) return Promise.resolve(new Response(JSON.stringify(claim), { status: claimStatus }));
     if (url.endsWith('/rpc/drop_push_token') || url.endsWith('/rpc/push_claim_release')) return Promise.resolve(new Response(null, { status: 204 }));

@@ -1,4 +1,4 @@
--- Reguły powtarzania w SQL (audyt 2, M-190; migracja 20261008395000_rrule_check). Pełne porównanie z telefonem:
+-- Reguły powtarzania w SQL (audyt 2, M-190; migracja 20261008485000_rrule_check). Pełne porównanie z telefonem:
 -- tests/db/rrule-contract.test.ts.
 begin;
 select plan(8);
