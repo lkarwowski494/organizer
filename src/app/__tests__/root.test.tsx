@@ -127,6 +127,47 @@ describe('wylogowanie a przypomnienia (audyt 2, N-4)', () => {
   });
 });
 
+describe('wylogowanie a kalendarze „Organizer – …” (D172, audyt 2 M-27)', () => {
+  it('wylogowanie i inne konto usuwają kalendarze lustra tego telefonu; bez zgody, bez listy i bez prefs — nic', async () => {
+    const m = new Map<string, string>([['calendarMirrorOwned', '["cal-a","cal-b"]']]);
+    const prefs = { get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) };
+    const deleteCalendar = jest.fn(async (id: string) => {
+      if (id === 'cal-b') throw new Error('już nie ma');
+    });
+    const status = jest.fn(async () => 'granted' as const);
+    const sync = { status, deleteCalendar } as unknown as NonNullable<RootDeps['calendar']['sync']>;
+    const t = makeDeps({ prefs, calendar: { add: jest.fn(async () => 'saved' as const), sync } });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    // Start bez sesji (np. po wylogowaniu w poprzednim uruchomieniu) — pozostałości znikają.
+    await waitFor(() => expect(deleteCalendar).toHaveBeenCalledWith('cal-a'));
+    expect(deleteCalendar).toHaveBeenCalledWith('cal-b');
+    await waitFor(() => expect(m.get('calendarMirrorOwned')).toBe('[]'));
+    deleteCalendar.mockClear();
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    m.set('calendarMirrorOwned', '["cal-c"]');
+    // Inne konto na tym telefonie: kalendarze poprzedniego znikają.
+    await t.signIn({ userId: 'u-2', displayName: 'Ola' });
+    await waitFor(() => expect(deleteCalendar).toHaveBeenCalledWith('cal-c'));
+    // Bez pełnej zgody nic nie usuwamy (iOS i tak by nie pozwolił), lista zostaje.
+    m.set('calendarMirrorOwned', '["cal-d"]');
+    status.mockResolvedValue('writeOnly' as never);
+    deleteCalendar.mockClear();
+    await t.signIn(null);
+    await act(async () => {});
+    expect(deleteCalendar).not.toHaveBeenCalled();
+    expect(m.get('calendarMirrorOwned')).toBe('["cal-d"]');
+  });
+
+  it('bez prefs albo bez kalendarza w obie strony — nic', async () => {
+    const { removeMirrorCalendars } = jest.requireActual<typeof import('../calendar-mirror')>('../calendar-mirror');
+    const status = jest.fn(async () => 'granted' as const);
+    await removeMirrorCalendars({ add: jest.fn(), sync: { status } as never }, undefined);
+    await removeMirrorCalendars({ add: jest.fn() }, { get: async () => '["x"]', set: async () => {} });
+    await removeMirrorCalendars({ add: jest.fn(), sync: { status } as never }, { get: async () => null, set: async () => {} });
+    expect(status).not.toHaveBeenCalled();
+  });
+});
+
 describe('korzeń aplikacji', () => {
   it('ładowanie, potem logowanie; po zalogowaniu pobranie, „Moje sprawy” i kanały Realtime', async () => {
     const t = makeDeps();
