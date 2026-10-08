@@ -13,7 +13,7 @@ import { remove, renameMember, restore, setRole } from '../../domain/views/comma
 import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, MissingScreen } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
@@ -57,10 +57,7 @@ export function MemberScreen({ route, navigation }: Props) {
 
   if (!d || !m) {
     return (
-      <Screen testID="screen-member-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-member-missing" text={strings['missing.member']} onBack={() => navigation.goBack()} />
     );
   }
   const can = transferred ? NONE : memberActions(d, m);
@@ -75,7 +72,7 @@ export function MemberScreen({ route, navigation }: Props) {
       ) : null}
       {can.rename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
+          <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" testID="member-name" />
           {name.error ? <ErrorText>{name.error}</ErrorText> : null}
         </View>
       ) : null}

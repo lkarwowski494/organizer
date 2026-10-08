@@ -15,12 +15,13 @@ import { parseQuickAdd } from '../../domain/quickadd';
 import { parseQuantity } from '../../domain/quantity';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { memberCanSeeList } from '../../domain/views/visibility';
+import { usePullRefresh } from '../../app/TabHeader';
 import { useTaskActions } from '../../app/task-actions';
 import { patchTask, remove, renameList, restore } from '../../domain/views/commands';
 import { type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -65,12 +66,14 @@ export function ListScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, indicator, state } = useAppData();
-  const { c, font } = useTheme();
+  const { c } = useTheme();
+  const refresh = usePullRefresh();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ask, setAsk] = useState<{ r: Exclude<ListResolution, { kind: 'ok' }>; answers: ListAnswers } | null>(null);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
+  const [planTried, setPlanTried] = useState(false);
   const [handing, setHanding] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
@@ -82,10 +85,7 @@ export function ListScreen({ route, navigation }: Props) {
 
   if (!detail) {
     return (
-      <Screen testID="screen-list-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-list-missing" text={strings['missing.list']} onBack={() => navigation.goBack()} />
     );
   }
   const { list } = detail;
@@ -211,30 +211,29 @@ export function ListScreen({ route, navigation }: Props) {
   };
 
   return (
-    <Screen testID="screen-list">
+    <Screen testID="screen-list" refresh={refresh}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <BackButton onPress={() => navigation.goBack()} />
         <SyncChip indicator={indicator} nowMs={nowMs()} />
       </View>
       <Title>{list.name}</Title>
-      <Text style={{ fontFamily: font.text400, fontSize: 14, color: c.inkMuted }}>
-        <Text style={{ fontFamily: font.text700 }}>{list.groupName}</Text>
-        {`  ·  ${listMarks(list, detail.open.length).join('  ·  ')}`}
-      </Text>
+      <GroupLine name={list.groupName} line={list.line} detail={listMarks(list, detail.open.length).join(META_SEP)} />
       {shopping && canDelete ? (
         <View testID="trip" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {planError ? <Body>{planError}</Body> : null}
+              {/* PWD-5 A (M-274): przycisk aktywny, komunikat po naciśnięciu (podpowiedź „trip.required” stoi w edytorze). */}
+              {planError ? <ErrorText testID="trip-error">{planError}</ErrorText> : planTried && planMissing ? <ErrorText testID="trip-error">{strings['trip.required']}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}
                 testID="trip-save"
-                disabled={!!planError || planMissing}
                 onPress={() => {
+                  if (planError || planMissing) return setPlanTried(true);
                   if (planned && 'trip' in planned) store.dispatch(planTrip(list.id, planned.trip));
                   setPlanning(null);
+                  setPlanTried(false);
                 }}
               />
               <Button kind="secondary" label={strings['common.cancel']} onPress={() => setPlanning(null)} />

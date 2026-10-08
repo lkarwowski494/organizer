@@ -9,6 +9,7 @@ import type { RootStackParams } from '../../app/routes';
 import { type List, listOpenCount, listsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, NavRow, Screen, Title } from '../../ui/components';
+import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 
 /** Licznik listy (audyt 2, M-83, U-61): „N otwarte”, a przy zakupach „N do kupienia” — jak w Moich sprawach. */
 export const openLabel = (kind: List['kind'], n: number) => (kind === 'shopping' ? strings['trip.open'](n) : strings['lists.open'](n));
@@ -23,9 +24,11 @@ export function ListsScreen() {
   const { userId } = useServices();
   const { tables, today } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
+  const refresh = usePullRefresh();
   const lists = useMemo(() => listsView(tables, userId).map((l) => ({ ...l, open: listOpenCount(tables, l, today) })), [tables, userId, today]);
   return (
-    <Screen testID="screen-lists">
+    <Screen testID="screen-lists" refresh={refresh}>
+      <TabHeader />
       <Title>{strings['lists.title']}</Title>
       {lists.length === 0 ? <Body muted>{strings['lists.empty']}</Body> : null}
       <View style={{ gap: 10 }}>

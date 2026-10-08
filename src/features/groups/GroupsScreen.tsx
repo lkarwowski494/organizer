@@ -9,6 +9,7 @@ import type { RootStackParams } from '../../app/routes';
 import { groupsView, type TrashedGroup, trashedGroups } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { Button, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
+import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { absoluteDay } from './dates';
@@ -21,6 +22,7 @@ export function GroupsScreen() {
   const undo = useUndo();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  const refresh = usePullRefresh();
   // Przywrócona na serwerze znika z kosza od razu, nie dopiero po pobraniu (żeby nie przywracać drugi raz). Pamiętamy
   // datę usunięcia: grupa wrzucona do kosza ponownie ma nową i znów jest w koszu.
   const [restored, setRestored] = useState<ReadonlyMap<string, string | null>>(new Map());
@@ -54,7 +56,8 @@ export function GroupsScreen() {
   };
 
   return (
-    <Screen testID="screen-groups">
+    <Screen testID="screen-groups" refresh={refresh}>
+      <TabHeader />
       <Title>{strings['groups.title']}</Title>
       <View style={{ gap: 10 }}>
         {groups.map((g) => (
@@ -70,7 +73,6 @@ export function GroupsScreen() {
       </View>
       <Button label={strings['groups.new']} onPress={() => nav.navigate('NewGroup')} />
       <Button kind="secondary" label={strings['groups.join']} onPress={() => nav.navigate('Invite', {})} />
-      <Button kind="secondary" label={strings['settings.open']} onPress={() => nav.navigate('Settings')} />
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
       {trash.length ? (
         <View style={{ gap: 8 }}>
