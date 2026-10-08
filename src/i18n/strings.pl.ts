@@ -212,6 +212,7 @@ export const strings = {
   'lists.group': 'Grupa',
   'lists.kind.tasks': 'Zadania',
   'lists.kind.shopping': 'Zakupy',
+  'lists.kindLabel': 'Rodzaj listy',
   'lists.visibility': 'Kto widzi',
   'lists.visibility.group': 'Cała grupa',
   'lists.visibility.private': 'Tylko ja',
@@ -231,6 +232,7 @@ export const strings = {
   'lists.pendingItem': 'czeka na wysłanie',
   'shop.pickCategory': (item: string) => `Zmień dział: ${item}`,
   'shop.categoryHint': 'Wybór zapamiętamy w tej grupie dla tej nazwy.',
+  'shop.category': 'Dział',
   'shop.addStaple': 'Dodaj do stałych',
   'shop.removeStaple': 'Usuń ze stałych',
   'shop.suggest': (name: string) => `Dodaj: ${name}`,
@@ -481,6 +483,8 @@ export const strings = {
   'rejected.op.cmd': 'Polecenie',
   // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
   'rejected.cmd.move_task': 'Przeniesienie zadania',
+  'rejected.cmd.staple_add': 'Dodanie do stałych zakupów',
+  'rejected.cmd.staple_remove': 'Usunięcie ze stałych zakupów',
   'rejected.entity': (e: string) =>
     (({ tasks: 'zadanie', lists: 'lista', events: 'wydarzenie', event_participants: 'uczestnik wydarzenia', event_overrides: 'zmiana terminu', event_task_series: 'stałe zadanie', event_rsvps: 'obecność', handoffs: 'przekazanie', object_members: 'dostęp do listy', group_members: 'osoba w grupie', groups: 'grupa', activity: 'historia' }) as Record<string, string>)[e] ?? e,
 
@@ -501,6 +505,8 @@ export const strings = {
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,
+  'undo.tripDone': (list: string) => `Zakupy zrobione: ${list}`,
+  'undo.seriesStopped': (title: string) => `Zakończono: ${title}`,
   'undo.action': 'Cofnij',
 
   'addressee.ask': 'Dla kogo albo na kiedy?',
@@ -601,7 +607,7 @@ export const strings = {
   'trip.keep': 'Zostaw na następne zakupy',
   'trip.all': 'Oznacz wszystko jako kupione',
   'trip.yes': 'Zrobione',
-  'trip.none': 'Bez zaplanowanych zakupów.',
+  'trip.none': 'Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.',
   'device.title': 'Kalendarz iPhone’a',
   'device.body': 'Pokaż swoje wydarzenia z kalendarza iPhone’a (także Google i Outlook dodane w iPhonie) obok spraw grup, a wydarzenia grup dodawaj automatycznie do osobnych kalendarzy „Organizer”. Twoje wydarzenia zostają na telefonie — nikt z grupy ich nie widzi.',
   'device.connect': 'Połącz z kalendarzem',
@@ -660,4 +666,5 @@ export const strings = {
   'common.back': 'Wróć',
   'common.error': 'Coś poszło nie tak. Spróbuj jeszcze raz.',
   'common.offlineOnly': 'Ta czynność wymaga internetu.',
+  'common.maxLength': (n: number) => `Najwyżej ${n} ${plural(n, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
 } as const;

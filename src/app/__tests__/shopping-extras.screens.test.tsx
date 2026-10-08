@@ -42,9 +42,13 @@ describe('działy', () => {
   it('dotknięcie pozycji: wybór działu wysyła zmianę i przenosi pozycję; pamięć grupy działa na nową pozycję', async () => {
     const { store } = await openList();
     await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
-    expect(screen.getByTestId('category-picker')).toBeTruthy();
-    expect(screen.getByTestId('category-hygiene').props.accessibilityState.selected).toBe(true);
-    await press(screen.getByTestId('category-household'));
+    // Audyt 2 (M-238): dział to wybór jednej opcji (radio w grupie „Dział”), jak inne takie wybory.
+    const picker = screen.getByTestId('category-picker');
+    expect(within(picker).getByLabelText('Dział').props.accessibilityRole).toBe('radiogroup');
+    expect(within(picker).getAllByRole('radio')).toHaveLength(13);
+    expect(within(picker).getByRole('radio', { name: 'Higiena i kosmetyki' }).props.accessibilityState.selected).toBe(true);
+    expect(within(picker).getByRole('radio', { name: 'Chemia i dom' }).props.accessibilityState.selected).toBe(false);
+    await press(within(picker).getByRole('radio', { name: 'Chemia i dom' }));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-mydlo', set: { category: 'household' } });
     expect(within(screen.getByTestId('section-household')).getByText('Mydło')).toBeTruthy();
     expect(screen.queryByTestId('category-picker')).toBeNull();
@@ -95,7 +99,7 @@ describe('stałe zakupy', () => {
     await fireEvent.changeText(screen.getByTestId('staple-name'), 'Mleko 2');
     expect(screen.queryByText('Wpisz nazwę.')).toBeNull();
     await press(screen.getByTestId('staple-save'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['Mleko 2'] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mleko 2' } });
     await fireEvent.changeText(screen.getByTestId('staple-name'), 'mleko');
     await fireEvent(screen.getByTestId('staple-name'), 'submitEditing');
     expect(screen.getByText('Ta pozycja już jest na liście stałych.')).toBeTruthy();
@@ -112,7 +116,8 @@ describe('stałe zakupy', () => {
     expect(within(card()).getByText('Wszystkie stałe zakupy są już na liście.')).toBeTruthy();
     await press(screen.getByTestId('staples-edit'));
     await press(screen.getByLabelText('Usuń ze stałych: Mydło'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['Mleko 2'] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
+    expect(screen.queryByLabelText('Usuń ze stałych: Mydło')).toBeNull();
   });
 
   it('pełna lista stałych: komunikat z limitem', async () => {
@@ -127,9 +132,9 @@ describe('stałe zakupy', () => {
     const { store } = await openList(base((x) => put(x, 'lists', 'lz', { ...x.lists!.lz!, staples: ['Mydło'] })));
     await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
     await press(screen.getByText('Usuń ze stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: [] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
     await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
     await press(screen.getByText('Dodaj do stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['2 kg jabłek'] } });
+    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: '2 kg jabłek' } });
   });
 });

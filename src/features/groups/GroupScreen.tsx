@@ -15,11 +15,12 @@ import { formatDue, formatLongDate } from '../../domain/format';
 import { formatIsoDate } from '../../domain/civil-date';
 import { groupDigits } from '../../domain/invite-link';
 import { localNow } from '../../app/clock';
-import { groupDetail, listsView } from '../../domain/views';
+import { groupDetail, listOpenCount, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
+import { openLabel } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
@@ -134,7 +135,7 @@ export function GroupScreen({ route, navigation }: Props) {
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
-          <Field label={strings['groups.childName']} value={child} onChangeText={setChild} testID="child-name" />
+          <Field label={strings['groups.childName']} value={child} onChangeText={setChild} maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
           <Button
             kind="secondary"
             label={strings['groups.addChild']}
@@ -148,7 +149,7 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       {d.canRename ? (
         <View style={{ gap: 8 }}>
-          <Field label={strings['groups.name']} value={name} onChangeText={setName} testID="group-rename" />
+          <Field label={strings['groups.name']} value={name} onChangeText={setName} maxLength={config.lengths.GROUP_NAME} testID="group-rename" />
           <Button kind="secondary" label={strings['groups.rename']} disabled={name.trim() === '' || name.trim() === d.group.name} onPress={() => store.dispatch(renameGroup(d.group.id, name.trim()))} />
         </View>
       ) : null}
@@ -177,7 +178,7 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
       {lists.map((l) => (
-        <NavRow key={l.id} title={l.name} subtitle={strings['lists.open'](l.open)} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        <NavRow key={l.id} title={l.name} subtitle={openLabel(l.kind, listOpenCount(tables, l, today))} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>

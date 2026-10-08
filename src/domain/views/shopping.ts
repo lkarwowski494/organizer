@@ -5,7 +5,12 @@
  *    nazwy na którejkolwiek liście zakupów grupy) → zgadnięty ze słownika (src/config/shopping.pl.ts) → „Inne”.
  *  - Podpowiedzi: nazwy z list zakupów grupy (także odhaczone), najczęstsze, zaczynające się od wpisanego tekstu,
  *    bez tych, które już czekają na liście.
- *  - Stałe zakupy: lists.staples (nazwy). „Dodaj stałe” tworzy pozycje dla tych, których na liście nie ma.
+ *  - Pamięć i podpowiedzi biorą też pozycje usunięte (audyt 2, M-110, R-9): „Zakupy zrobione” wysyła kupione do kosza,
+ *    a pamięć grupy ma zostać. Ograniczenie: telefon trzyma usunięte pozycje do wyczyszczenia kosza
+ *    (config.sync.TOMBSTONE_DAYS, 30 dni) — starsze wybory i podpowiedzi znikają.
+ *  - Stałe zakupy: lists.staples (nazwy). „Dodaj stałe” tworzy pozycje dla tych, których na liście nie ma. Dodanie
+ *    i usunięcie to polecenia serwera staple_add / staple_remove (audyt 2, M-111) — zmieniają jedną nazwę, nie całą
+ *    tablicę, więc zmiany z dwóch telefonów (jeden bez sieci) się nie nadpisują.
  */
 import { config } from '../../config';
 import { SHOPPING_CATEGORIES, SHOPPING_KEYWORDS, type ShoppingCategory } from '../../config/shopping.pl';
@@ -50,20 +55,44 @@ export function guessCategory(title: string): ShoppingCategory {
 const shoppingListIds = (t: Tables, groupId: string) =>
   new Set(Object.values(t.lists ?? {}).filter((l) => l.group_id === groupId && l.kind === 'shopping' && l.deleted_at == null).map((l) => String(l.id)));
 
+/** Pozycje list zakupów grupy, także usunięte (pamięć i podpowiedzi — opis wyżej). */
 const itemsOf = (t: Tables, groupId: string) => {
   const lists = shoppingListIds(t, groupId);
-  return Object.values(t.tasks ?? {}).filter((x) => lists.has(String(x.list_id)) && x.deleted_at == null);
+  return Object.values(t.tasks ?? {}).filter((x) => lists.has(String(x.list_id)));
 };
 
-/** Ręczne wybory działu w grupie: nazwa → dział (najnowszy wybór wygrywa — wyższa wersja wiersza). */
+/**
+ * Kiedy wybrano dział pozycji: wersja ostatniego wpisu historii (activity, private.log_activity: {kolumna: [stara,
+ * nowa]}), który zmienił dział (audyt 2, M-110, R-10 — wersja wiersza rośnie też przy odhaczeniu, więc odhaczenie
+ * starszej pozycji przywracało dawny wybór). Pozycja → { wersja, ustawiony dział }.
+ */
+function categoryChanges(t: Tables, groupId: string): Map<string, { v: number; cat: unknown }> {
+  const out = new Map<string, { v: number; cat: unknown }>();
+  for (const a of Object.values(t.activity ?? {})) {
+    const change = (a.changes as Record<string, unknown> | null | undefined)?.category;
+    if (a.group_id !== groupId || a.entity !== 'tasks' || !Array.isArray(change)) continue;
+    const id = String(a.entity_id);
+    const v = versionOf(a);
+    if ((out.get(id)?.v ?? -1) < v) out.set(id, { v, cat: change[1] });
+  }
+  return out;
+}
+
+/**
+ * Ręczne wybory działu w grupie: nazwa → dział. Najnowszy wybór wygrywa: chwila zmiany działu z historii; dział, którego
+ * historia jeszcze nie zna (zmiana z tego telefonu przed wysłaniem), jest najnowszy. Remis — wyższa wersja wiersza.
+ */
 export function categoryMemory(t: Tables, groupId: string): Map<string, ShoppingCategory> {
-  const best = new Map<string, { cat: ShoppingCategory; v: number }>();
+  const changes = categoryChanges(t, groupId);
+  const best = new Map<string, { cat: ShoppingCategory; at: number; v: number }>();
   for (const x of itemsOf(t, groupId)) {
     if (!isCategory(x.category)) continue;
     const k = itemKey(titleOf(x));
+    const c = changes.get(String(x.id));
+    const at = c && c.cat === x.category ? c.v : Infinity;
     const v = versionOf(x);
     const cur = best.get(k);
-    if (!cur || v >= cur.v) best.set(k, { cat: x.category, v });
+    if (!cur || at > cur.at || (at === cur.at && v >= cur.v)) best.set(k, { cat: x.category, at, v });
   }
   return new Map([...best].map(([k, { cat }]) => [k, cat]));
 }
@@ -141,10 +170,10 @@ export function addStaplesOps(t: Tables, listId: string, newId: () => string): N
 
 export type StaplesEdit = { ok: true; op: NewOp } | { ok: false; error: 'empty' | 'duplicate' | 'full' | 'tooLong' };
 
-/** Usunięcie stałej pozycji (po nazwie bez ilości). */
+/** Usunięcie stałej pozycji (po nazwie bez ilości): wszystkie stałe o tej nazwie. */
 export function removeStaple(list: Row, name: string): NewOp {
   const k = itemKey(name);
-  return { kind: 'patch', entity: 'lists', id: String(list.id), set: { staples: staplesOf(list).filter((s) => itemKey(s) !== k) } };
+  return { kind: 'cmd', cmd: 'staple_remove', args: { list_id: String(list.id), names: staplesOf(list).filter((s) => itemKey(s) === k) } };
 }
 
 /** Dodanie stałej pozycji; bez duplikatów (po nazwie bez ilości), limity z konfiguracji. */
@@ -155,5 +184,5 @@ export function addStaple(list: Row, added: string): StaplesEdit {
   if (name.length > config.shopping.STAPLE_MAX_LENGTH) return { ok: false, error: 'tooLong' };
   if (cur.some((s) => itemKey(s) === itemKey(name))) return { ok: false, error: 'duplicate' };
   if (cur.length >= config.shopping.STAPLES_MAX) return { ok: false, error: 'full' };
-  return { ok: true, op: { kind: 'patch', entity: 'lists', id: String(list.id), set: { staples: [...cur, name] } } };
+  return { ok: true, op: { kind: 'cmd', cmd: 'staple_add', args: { list_id: String(list.id), name } } };
 }

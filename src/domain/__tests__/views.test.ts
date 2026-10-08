@@ -5,7 +5,9 @@ import type { CivilDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
-import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listsView, memberActions, myMemberships, type Tables, todayView, trashedGroups } from '../views';
+import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
+import { tripEntries } from '../views/shopping-trip';
+import { config } from '../../config';
 
 const ME = 'u-me';
 const TODAY: CivilDate = { y: 2026, m: 10, d: 7 };
@@ -150,7 +152,8 @@ describe('listy', () => {
     put(t, 'lists', 'lf2', { id: 'lf2', group_id: 'gf', kind: 'tasks', name: 'Auto', visibility: 'group', sort_key: 'a0', deleted_at: null });
     const v = listsView(t, ME);
     expect(ids(v)).toEqual(['lp', 'lf2', 'lf', 'lz', 'lk']);
-    expect(v.find((l) => l.id === 'lf')).toMatchObject({ open: 1, line: 1, groupName: 'Rodzina' });
+    expect(v.find((l) => l.id === 'lf')).toMatchObject({ line: 1, groupName: 'Rodzina' });
+    expect(listOpenCount(t, v.find((l) => l.id === 'lf')!, TODAY)).toBe(1);
     expect(ids(listsView(t, ME, 'gk'))).toEqual(['lk']);
   });
 
@@ -181,6 +184,113 @@ describe('listy', () => {
     expect(d.members.map((m) => m.member_id).sort()).toEqual(['ala', 'kuba', 'mf', 'old'].filter((x) => x !== 'old').sort());
     expect(listDetail(t, ME, 'lx', TODAY)).toBeNull();
     expect(listDetail(t, ME, 'ldel', TODAY)).toBeNull();
+  });
+
+  it('audyt 2 (M-82, T-7): niezrobione podzadanie zrobionego rodzica stoi w otwartych z dopiskiem rodzica; minione — w zamkniętych bez odhaczenia', () => {
+    const t = world();
+    task(t, { id: 'sprz', title: 'Sprzątanie', ...own('2026-10-05'), completed_at: '2026-10-05T10:00:00Z' });
+    task(t, { id: 'odk', title: 'Odkurzyć', parent_id: 'sprz', deadline_mode: 'inherit' });
+    task(t, { id: 'zmyc', title: 'Zmyć', parent_id: 'sprz', deadline_mode: 'inherit', completed_at: '2026-10-05T10:00:00Z' });
+    task(t, { id: 'kartka', title: 'Kartka', ...own('2026-10-05'), rollover: false });
+    const d = listDetail(t, ME, 'lf', TODAY)!;
+    // Podzadanie z dziedziczonym, minionym terminem jest zaległe (jak w Moich sprawach), więc stoi w otwartych.
+    expect(d.open.map((x) => [x.id, x.parentTitle, x.depth, x.closed, x.due])).toEqual([['odk', 'Sprzątanie', 1, false, { date: '2026-10-05', time: null }]]);
+    expect(d.done.map((x) => [x.id, x.closed, x.expired, x.completed_at !== null, x.parentTitle])).toEqual([
+      ['kartka', true, true, false, null],
+      ['sprz', true, false, true, null],
+    ]);
+    // Ekran zadania dostaje wszystkie podzadania rodzica (także to, które stoi w otwartych).
+    expect(d.done[1]!.children.map((x) => [x.id, x.closed])).toEqual([['odk', false], ['zmyc', true]]);
+    expect(listOpenCount(t, asList(t.lists!.lf!), TODAY)).toBe(1);
+  });
+
+  it('audyt 2 (M-82): otwarte w głębi zamkniętych przechodzi do otwartych; zamknięte pod otwartym rodzicem zostaje pod nim', () => {
+    const t = world();
+    task(t, { id: 'p', title: 'P', completed_at: 'x' });
+    task(t, { id: 'c', title: 'C', parent_id: 'p', completed_at: 'x' });
+    task(t, { id: 'g', title: 'G', parent_id: 'c' });
+    task(t, { id: 'q', title: 'Q' });
+    task(t, { id: 'q1', title: 'Q1', parent_id: 'q', completed_at: 'x' });
+    // Uszkodzone dane: czwarty poziom (ponad D4) nie trafia nigdzie, także do otwartych.
+    task(t, { id: 'd0', title: 'D0', completed_at: 'x' });
+    task(t, { id: 'd1', title: 'D1', parent_id: 'd0', completed_at: 'x' });
+    task(t, { id: 'd2', title: 'D2', parent_id: 'd1', completed_at: 'x' });
+    task(t, { id: 'd3', title: 'D3', parent_id: 'd2' });
+    const d = listDetail(t, ME, 'lf', TODAY)!;
+    expect(d.open.map((x) => [x.id, x.parentTitle, x.depth])).toEqual([['g', 'C', 2], ['q', null, 0]]);
+    expect(d.open[0]!.children).toEqual([]);
+    expect(ids(d.open[1]!.children)).toEqual(['q1']);
+    expect(ids(d.done)).toEqual(['d0', 'p']);
+    expect(listOpenCount(t, asList(t.lists!.lf!), TODAY)).toBe(2);
+  });
+
+  it('audyt 2 (M-83, T-8): licznik listy = otwarte na ekranie listy — bez podzadań, ukrytych do daty i minionych', () => {
+    const t = world();
+    task(t, { id: 'a', ...own('2026-10-08') });
+    task(t, { id: 'a1', parent_id: 'a', deadline_mode: 'inherit' });
+    task(t, { id: 'minelo', ...own('2026-10-06'), rollover: false });
+    task(t, { id: 'pozniej', start_date: '2026-10-20' });
+    const list = listsView(t, ME).find((l) => l.id === 'lf')!;
+    expect(listOpenCount(t, list, TODAY)).toBe(1);
+    expect(listDetail(t, ME, 'lf', TODAY)!.open.length).toBe(1);
+    // Ukryte do daty liczy się od tego dnia.
+    expect(listOpenCount(t, list, { y: 2026, m: 10, d: 20 })).toBe(2);
+  });
+
+  it('audyt 2 (M-83): lista zakupów — pozycje bez terminów i ukrywania (D73); „N do kupienia” jak w Moich sprawach', () => {
+    const t = world();
+    put(t, 'lists', 'lz', { ...t.lists!.lz!, due_date: '2026-10-08', responsible_member_id: 'mf' });
+    task(t, { id: 's1', list_id: 'lz', title: 'Mleko' });
+    task(t, { id: 's2', list_id: 'lz', title: 'Pizza', ...own('2026-10-01'), rollover: false });
+    task(t, { id: 's3', list_id: 'lz', title: 'Chleb', start_date: '2026-12-01' });
+    task(t, { id: 's4', list_id: 'lz', title: 'Masło', completed_at: 'x' });
+    const d = listDetail(t, ME, 'lz', TODAY)!;
+    expect(d.open.map((x) => [x.id, x.expired, x.closed])).toEqual([['s3', false, false], ['s1', false, false], ['s2', false, false]]);
+    expect(ids(d.done)).toEqual(['s4']);
+    expect(listOpenCount(t, asList(t.lists!.lz!), TODAY)).toBe(3);
+    const groups = new Map(groupsView(t, ME).map((g) => [g.id, g]));
+    expect(tripEntries(t, groups).find((x) => x.id === 'lz')!.trip.open).toBe(3);
+  });
+
+  it('audyt 2 (M-82, M-83): każde zadanie raz na ekranie listy, licznik = otwarte, „N do kupienia” = licznik (własność)', () => {
+    const spec = fc.record({ parent: fc.nat(), done: fc.boolean(), due: fc.constantFrom(null, '2026-10-01', '2026-10-07', '2026-10-09'), rollover: fc.boolean(), inherit: fc.boolean() });
+    fc.assert(
+      fc.property(fc.array(spec, { maxLength: 20 }), fc.array(spec, { maxLength: 12 }), (tasks, items) => {
+        const t = world();
+        put(t, 'lists', 'lz', { ...t.lists!.lz!, due_date: '2026-10-08' });
+        const expected = new Map<string, Set<string>>([['lf', new Set()], ['lz', new Set()]]);
+        for (const [listId, specs] of [['lf', tasks], ['lz', items]] as const) {
+          const depth = new Map<string, number>();
+          specs.forEach((s, i) => {
+            const id = `${listId}-${i}`;
+            const p = s.parent % (i + 1);
+            const parent = p === i ? null : `${listId}-${p}`;
+            depth.set(id, parent === null ? 0 : depth.get(parent)! + 1);
+            if (depth.get(id)! <= config.MAX_TASK_DEPTH) expected.get(listId)!.add(id);
+            const deadline = s.inherit && parent ? { deadline_mode: 'inherit' } : s.due ? own(s.due) : {};
+            task(t, { id, list_id: listId, parent_id: parent, completed_at: s.done ? '2026-10-01T10:00:00Z' : null, rollover: s.rollover, ...deadline });
+          });
+        }
+        for (const listId of ['lf', 'lz']) {
+          const d = listDetail(t, ME, listId, TODAY)!;
+          // Jak ekran listy: w otwartych całe poddrzewa, w zamkniętych tylko zamknięte.
+          const shown: string[] = [];
+          const walk = (n: TaskNode, done: boolean) => {
+            if (done && !n.closed) return;
+            shown.push(n.id);
+            n.children.forEach((c) => walk(c, done));
+          };
+          d.open.forEach((n) => walk(n, false));
+          d.done.forEach((n) => walk(n, true));
+          expect(shown.length).toBe(new Set(shown).size);
+          expect(new Set(shown)).toEqual(expected.get(listId));
+          expect(d.open.every((n) => !n.closed) && d.done.every((n) => n.closed)).toBe(true);
+          expect(listOpenCount(t, asList(t.lists![listId]!), TODAY)).toBe(d.open.length);
+        }
+        const groups = new Map(groupsView(t, ME).map((g) => [g.id, g]));
+        expect(tripEntries(t, groups).find((x) => x.id === 'lz')!.trip.open).toBe(listOpenCount(t, asList(t.lists!.lz!), TODAY));
+      }),
+    );
   });
 
   it('remis terminu i sort_key rozstrzyga tytuł', () => {

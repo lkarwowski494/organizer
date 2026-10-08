@@ -27,7 +27,17 @@ opcja („jak zadania”) jest więc stanem obecnym; nowe w D88 jest tylko powia
    - Strony sklepów internetowych (Frisco, Auchan, Carrefour, Biedronka) nie dały się przeczytać. Otwarte pytanie O-059: porównać nazwy działów z drzewem kategorii polskiego sklepu.
    - Słownik to heurystyka podpowiedzi, poprawiana ręcznie.
    - Ręczny wybór zapisany w pozycji (`tasks.category`). Pamięć grupy to najnowszy ręczny wybór dla tej samej nazwy, bez osobnej tabeli.
+   - Audyt 2 (M-110): pamięć i podpowiedzi biorą też pozycje z kosza (po „Zakupy zrobione”); telefon trzyma je do
+     wyczyszczenia kosza (30 dni), starsze wybory znikają. „Najnowszy wybór” to chwila zmiany działu z historii
+     (activity), nie ostatnia zmiana wiersza (np. odhaczenie). Odrzucone teraz: osobna, trwała tabela pamięci grupy
+     (migracja i nowa encja synchronizacji) — do zaległości.
+   - Audyt 2 (M-230): „masło orzechowe” → Spiżarnia (źródła w `src/config/shopping.pl.ts`); tofu i napoje roślinne
+     zostają w O-059.
 5. **D86 Stałe zakupy:** kolumna `lists.staples` (tekst[], najwyżej 50 pozycji po 200 znaków; wybór projektowy). Podpowiedzi z list zakupów grupy, najwyżej 5.
+   - Audyt 2 (M-111): dodanie i usunięcie stałej pozycji to polecenia `staple_add` / `staple_remove`
+     (migracja 20261008370000) — zmieniają jedną nazwę pod blokadą wiersza, więc zmiany z dwóch telefonów się sumują;
+     telefon liczy ten sam skutek od razu. Stary telefon dalej wysyła całą tablicę. Odrzucone: łączenie tablic na
+     telefonie. Migrację trzeba wdrożyć przed wydaniem buildu, który wysyła te polecenia (stary serwer: `unknown_cmd`).
 6. **D87 Naprawa błędu:** serwer od pierwszej migracji odrzucał każdą pozycję listy zakupów (`invalid_list:kind`).
    - Pozycje zakupów to zadania na liście „shopping”. Warunek rodzaju listy został tylko dla przenosin.
    - Odrzucona alternatywa: osobna tabela pozycji zakupów (przebudowa całego telefonu).

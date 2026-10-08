@@ -11,7 +11,7 @@
  * pomysłu z src/domain/__tests__/support/fake-server.ts (bez RLS: osoba demo widzi wszystkie grupy).
  */
 import type { DbAdapter } from '../data/db/adapter';
-import { type Entity, type Op, type PulledRow, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
+import { type Entity, type Op, type PulledRow, type PullResponse, type PushResponse, type Row, rowKey, stapleCmdResult } from '../domain/sync-engine/client';
 import { WHATS_NEW_SEEN } from '../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
 import type { AccountApi } from '../sync/account';
@@ -124,7 +124,13 @@ export class E2eServer {
   }
 
   private apply(op: Op): void {
-    if (op.kind === 'cmd') return; // komendy (zakresy list ukrytych) nie zmieniają danych widocznych dla osoby demo
+    if (op.kind === 'cmd') {
+      // Stałe zakupy (audyt 2, M-111) jak na serwerze; pozostałe komendy (zakresy list ukrytych) nie zmieniają danych demo.
+      const list = this.rows.get(`lists:${String(op.args.list_id)}`)?.row;
+      const staples = list && list.deleted_at == null ? stapleCmdResult(list, op) : null;
+      if (list && staples) this.put('lists', { ...list, staples });
+      return;
+    }
     const current = this.rows.get(`${op.entity}:${op.id}`)?.row;
     if (op.kind === 'create') {
       if (current) return; // powtórzone utworzenie (id nadaje telefon)

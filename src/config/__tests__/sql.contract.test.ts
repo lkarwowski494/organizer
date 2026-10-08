@@ -56,6 +56,17 @@ describe('src/config zgodny z SQL', () => {
     expect(sql).toContain(`left(trim(p_message), ${config.feedback.MAX_LENGTH})`);
   });
 
+  it.each([
+    ['groups', 'name', config.lengths.GROUP_NAME],
+    ['lists', 'name', config.lengths.LIST_NAME],
+    ['tasks', 'title', config.lengths.TASK_TITLE],
+  ])('najdłuższa wartość public.%s.%s w SQL = config.lengths (audyt 2, M-228)', (table, column, max) => {
+    const block = new RegExp(`create table public\\.${table} \\(([\\s\\S]*?)\\n\\);`, 'i').exec(sql)?.[1] ?? '';
+    expect(block).toContain(`${column} text not null check (char_length(${column}) between 1 and ${max})`);
+    // Żadna późniejsza migracja nie zmienia tego ograniczenia.
+    expect(sql).not.toMatch(new RegExp(`alter table public\\.${table}\\b[^;]*char_length\\(${column}\\)`, 'i'));
+  });
+
   it('najdłuższe imię w SQL = config.profile.NAME_MAX_LENGTH (D100)', () => {
     expect(sql).toContain(`char_length(display_name) between 1 and ${config.profile.NAME_MAX_LENGTH}`);
     expect(sql).toContain(`char_length(display_name) <= ${config.profile.NAME_MAX_LENGTH}`);

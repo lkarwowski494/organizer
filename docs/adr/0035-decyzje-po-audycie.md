@@ -42,6 +42,9 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
 - **D131.** Jedna trasa `Settings` z parametrem `section`; wylogowanie z potwierdzeniem. Przy okazji (audyt):
   wylogowanie wyrejestrowuje token powiadomień tego telefonu (`unregister_push_token`); bez sieci wylogowanie i tak
   następuje.
+- **D132.** Audyt 2 (M-22): ta sama reguła dla zakupów — osoba odpowiedzialna za zakupy usunięta z grupy to „Nikt
+  konkretny” (zakupy z dniem widzi każdy w grupie, edytor zakupów pokazuje „Nikt konkretny”). Jedna funkcja dla zadań
+  i zakupów (`src/domain/views/concerns.ts`).
 - **D134.** Podzadania i zadania wystąpienia stojące w planie pod rodzicem nie mają własnych przypomnień; treść
   przypomnienia rodzica (także „Czas wyjść”) kończy się „do zrobienia: …”. Poranne podsumowanie liczy tylko rodziców.
 - **D135.** `calendarMonth` bierze też zrobione zadania (odhaczone w wierszu) w dniu ich terminu.
