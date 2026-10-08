@@ -259,6 +259,13 @@ export function GroupScreen({ route, navigation }: Props) {
         />
       ))}
       {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
+      {/* Audyt 2 (PWD-26): rutyna i plan lekcji dziecka (D128) także z ekranu grupy, nie tylko z Kalendarza i ekranu osoby. */}
+      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['routine.add']} testID="group-add-routine" onPress={() => navigation.navigate('Routine', { groupId: d.group.id })} />}
+      {d.group.kind === 'shared' && d.group.me.role !== 'child'
+        ? d.members
+            .filter((m) => m.role === 'child')
+            .map((m) => <Button key={m.member_id} kind="secondary" label={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />)
+        : null}
       {d.canLeave ? (
         confirmLeave ? (
           <View style={{ gap: 8 }}>

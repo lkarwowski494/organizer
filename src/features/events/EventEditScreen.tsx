@@ -13,7 +13,7 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, parseIsoDate , formatDue } from '../../domain/format';
+import { formatLongDate, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
@@ -25,6 +25,7 @@ import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } fr
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
+import { SeriesPreview } from './SeriesPreview';
 
 type Props = NativeStackScreenProps<RootStackParams, 'EventEdit'>;
 
@@ -101,8 +102,8 @@ export function EventEditScreen({ route, navigation }: Props) {
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
-    draft.saved();
     if (!detail) {
+      draft.saved();
       store.dispatch(r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
       navigation.goBack();
     } else {
@@ -112,29 +113,25 @@ export function EventEditScreen({ route, navigation }: Props) {
     }
   };
   const commit = (ops: NewOp[]) => {
+    // Szkic znika dopiero przy zapisie — „Wróć” z podglądu zmian serii go nie gubi (D179).
+    draft.saved();
     store.dispatch(ops);
     // Ekran wystąpienia za nami może już nie istnieć (np. seria skończyła się dzień wcześniej) — wracamy dalej.
     navigation.pop(2);
   };
 
   if (preview && detail) {
-    const { effects } = preview;
     return (
-      <Screen testID="screen-event-preview">
-        <Title>{strings['event.previewTitle']}</Title>
-        <Body>{effects.preview.length ? strings['event.previewDates'](effects.preview.map((x) => formatDue({ date: x, time: null }, today)).join(', ')) : strings['event.previewNone']}</Body>
-        {effects.kept.length ? <Body muted>{strings['event.previewKept'](effects.kept.length)}</Body> : null}
-        {effects.overridesLost ? <Body>{strings['event.previewOverridesLost'](effects.overridesLost)}</Body> : null}
-        {effects.lost.length ? (
-          <View style={{ gap: 8 }}>
-            <Body>{strings['event.previewLost'](effects.lost.length)}</Body>
-            <Body muted>{effects.lost.map((x) => x.task.title).join(', ')}</Body>
-            <Segmented label={strings['event.previewLostChoice']} value={lostChoice} onChange={setLostChoice} options={[{ value: 'nearest', label: strings['event.previewNearest'] }, { value: 'unlink', label: strings['event.previewUnlink'] }]} />
-          </View>
-        ) : null}
-        <Button label={strings['event.previewSave']} testID="event-preview-save" onPress={() => commit(seriesEditOps(detail, preview.ops, effects, lostChoice))} />
-        <Button kind="secondary" label={strings['event.previewBack']} onPress={() => setPreview(null)} />
-      </Screen>
+      <SeriesPreview
+        testID="screen-event-preview"
+        saveTestID="event-preview-save"
+        effects={preview.effects}
+        today={today}
+        choice={lostChoice}
+        onChoice={setLostChoice}
+        onSave={() => commit(seriesEditOps(detail, preview.ops, preview.effects, lostChoice))}
+        onBack={() => setPreview(null)}
+      />
     );
   }
 
@@ -144,18 +141,22 @@ export function EventEditScreen({ route, navigation }: Props) {
       <Title>{detail ? strings['event.edit'] : strings['event.new']}</Title>
       <DraftNote draft={draft} />
       {detail ? null : (
-        // D98: zadanie albo wydarzenie — wpisane nazwa, dzień, godzina i grupa przechodzą do formularza zadania.
+        // D98, PWD-26: zadanie, wydarzenie albo rutyna — wpisane pola przechodzą do wybranego formularza.
         <Segmented
           label={strings['form.kind']}
           value="event"
           onChange={(k) => {
-            if (k !== 'task') return;
+            if (k === 'event') return;
+            // Wpisane pola przechodzą do innego formularza — szkic wydarzenia nie jest już potrzebny.
             draft.saved();
+            // Audyt 2 (PWD-26): rutyna też stąd — nazwa i grupa przechodzą do jej formularza.
+            if (k === 'routine') return navigation.replace('Routine', { groupId, title: form.title, kindSwitch: true });
             navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId, kindSwitch: true });
           }}
           options={[
             { value: 'task', label: strings['form.kind.task'], hint: strings['form.kind.taskHint'] },
             { value: 'event', label: strings['form.kind.event'] },
+            { value: 'routine', label: strings['form.kind.routine'], hint: strings['form.kind.routineHint'] },
           ]}
         />
       )}

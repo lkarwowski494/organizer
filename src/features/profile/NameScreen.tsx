@@ -33,7 +33,7 @@ export function NameScreen({ route, navigation }: Props) {
   const [error, setError] = useState<NameError | 'server' | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Po pytaniu przy starcie — wprowadzenie, jeśli jeszcze go nie było na tym telefonie (D79).
+  // Po pytaniu przy starcie — wprowadzenie, jeśli to konto jeszcze go nie widziało (D79, D175).
   const close = async () => {
     if (!asked) return navigation.goBack();
     await prefs?.set(NAME_ASKED, '1').catch(() => {});
