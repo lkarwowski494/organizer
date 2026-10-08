@@ -82,7 +82,16 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
         setSkip(parseSkip(k));
       })
       .catch(() => {});
-    const sub = AppState.addEventListener('change', (st) => st === 'active' && setTick((n) => n + 1));
+    // Powrót do aplikacji: odczyt od nowa, a zgoda mogła się zmienić w Ustawieniach iPhone'a (audyt 2, N-21 —
+    // iOS zamyka aplikację przy odebraniu zgody, ale nie przy jej nadaniu).
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') return;
+      setTick((n) => n + 1);
+      sync!
+        .status()
+        .then((s) => live && setStatus(s))
+        .catch(() => {});
+    });
     return () => {
       live = false;
       sub.remove();

@@ -65,9 +65,9 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
    poprawki w kodzie.
 4. **Ekran uwag mówi „Dołączymy wersję aplikacji — nic więcej”** (`src/i18n/strings.pl.ts:552`), a wysyłana jest też nazwa
    ekranu i uwaga jest powiązana z kontem. Tekst w aplikacji do poprawy (poza zakresem tej zmiany).
-5. **Token powiadomień nie jest wyrejestrowany przy wylogowaniu.** `public.unregister_push_token` istnieje
-   (`20261008170000_push.sql:27-30`), ale nic go nie wywołuje. Po wylogowaniu telefon nadal może dostawać powiadomienia
-   poprzedniego konta, dopóki nie zaloguje się inne. W polityce opisałem stan obecny. Naprawić w kodzie?
+5. **Token powiadomień przy wylogowaniu** — naprawione 8.10.2026 (D131, audyt 2): wylogowanie wywołuje
+   `unregister_push_token` także dla tokenu z poprzedniego uruchomienia (zapamiętanego na telefonie). Bez internetu
+   token zostaje na serwerze do zalogowania innego konta albo unieważnienia przez Apple — w polityce: „gdy jest internet”.
 6. **`private.access_events` i `private.sync_clients` nie mają okresu przechowywania**: znikają dopiero z kontem
    (`20261007110000_account_deletion.sql:94` i kaskada). Nie podałem terminu. Czy ustalić retencję?
 7. **Lokalna kopia po usunięciu konta** zostaje w pliku `organizer-<userId>.db` do usunięcia aplikacji (`src/app/wiring.ts:65`;

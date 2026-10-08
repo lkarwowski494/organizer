@@ -11,7 +11,7 @@ import { useAppData, useServices } from '../../app/context';
 import { draftOf } from '../../app/device-calendar';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
-import { formatIsoDate } from '../../domain/civil-date';
+import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList, inverseOps } from '../../domain/views/commands';
@@ -40,7 +40,7 @@ export function EventScreen({ route, navigation }: Props) {
   const { c, font, line } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
-  const { eventId, date } = route.params;
+  const { eventId } = route.params;
   const d = useMemo(() => eventDetail(tables, userId, eventId), [tables, userId, eventId]);
   const [ask, setAsk] = useState<'edit' | 'cancel' | 'delete' | null>(null);
   const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(null);
@@ -59,6 +59,8 @@ export function EventScreen({ route, navigation }: Props) {
       </Screen>
     );
   }
+  // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
+  const date = route.params.date ?? nextOccurrence(tables, userId, eventId, formatIsoDate(addDays(today, -1))) ?? d.event.start_date;
   const occ = fieldsOf(d, date, 'this');
   const recurring = d.rule !== null;
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).

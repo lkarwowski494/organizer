@@ -5,6 +5,9 @@
  * 2. Komu i co: public.handoff_push_claim / assignment_push_claim (baza sprawdza, czy pytający jest stroną albo
  *    autorem, czy już powiadomione, wyciszenie grupy, i zaznacza wysyłkę) — kluczem tajnym przez PostgREST.
  * 3. APNs do każdego tokenu odbiorcy; nieaktualne tokeny usuwane (public.drop_push_token).
+ * 4. Audyt 2 (N-15): gdy żadne urządzenie nie przyjęło powiadomienia z powodu błędu APNs (500/503/429,
+ *    ExpiredProviderToken, sieć), zaznaczenie z claim jest zwalniane (public.push_claim_release) i odpowiedź to 502 —
+ *    telefon ponawia przy powrocie do aplikacji albo następnym uruchomieniu, a baza znów pozwala wysłać raz.
  */
 import { type ApnsEnv, cachedProviderToken, sendAlert } from '../_shared/apns.ts';
 import { type Env, firstKey } from '../_shared/keys.ts';
@@ -15,7 +18,11 @@ export const PUSH_MAX_AGE_H = 24;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (status: number, body: object) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-type Claim = { title: string; body: string; tokens: { token: string; env: ApnsEnv }[] } | null;
+/**
+ * `key` — do zwolnienia zaznaczenia; `path` — co otwiera dotknięcie (PWD-16): obie od migracji 20261008350000, starsza
+ * baza ich nie podaje — wtedy bez zwalniania i bez ścieżki (dotknięcie otwiera aplikację jak dotąd).
+ */
+type Claim = { title: string; body: string; tokens: { token: string; env: ApnsEnv }[]; key?: string; path?: string } | null;
 
 export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fetch, nowSec = Math.floor(Date.now() / 1000)): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
@@ -56,10 +63,17 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
 
   const jwt = await cachedProviderToken(p8, keyId, teamId, nowSec);
   let sent = 0;
+  let failed = 0;
   for (const t of claim.tokens) {
-    const r = await sendAlert({ env: t.env, token: t.token, jwt, topic, title: claim.title, body: claim.body }, fetchFn);
+    const r = await sendAlert({ env: t.env, token: t.token, jwt, topic, title: claim.title, body: claim.body, ...(claim.path ? { data: { path: claim.path } } : {}) }, fetchFn);
     if (r === 'sent') sent++;
-    if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
+    else if (r === 'drop') await rpc('drop_push_token', { p_token: t.token });
+    else failed++;
+  }
+  // Doszło choć na jedno urządzenie — bez ponowienia (inaczej to urządzenie dostałoby je drugi raz).
+  if (sent === 0 && failed > 0) {
+    if (claim.key) await rpc('push_claim_release', { p_key: claim.key });
+    return json(502, { error: 'apns_failed' });
   }
   return json(200, { sent });
 }
