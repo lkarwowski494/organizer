@@ -440,6 +440,38 @@ describe('kalendarz', () => {
     expect(days.filter((d) => d.items.length > 0)).toHaveLength(2);
   });
 
+  it('M-129, PWD-1 C: zrobione w innym dniu — „zrobione” z dniem; minione „tylko tego dnia” — expired; zaległe — liczba dni', () => {
+    const t = world();
+    task(t, { id: 'inny', ...own('2026-10-05'), completed_at: '2026-10-07T09:00:00Z' });
+    task(t, { id: 'tego', ...own('2026-10-05'), completed_at: '2026-10-05T09:00:00Z' });
+    task(t, { id: 'minelo', ...own('2026-10-05'), rollover: false });
+    task(t, { id: 'zalegle', ...own('2026-10-05') });
+    task(t, { id: 'dzis', ...own('2026-10-07') });
+    const day = (d: string) => calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 } }).find((x) => x.date === d)!.items.map((x) => [x.id, x.doneOn, x.expired, x.overdueDays, x.projected]);
+    expect(day('2026-10-05')).toEqual([
+      ['inny', '2026-10-07', false, 0, false],
+      ['minelo', null, true, 0, false],
+      ['tego', null, false, 0, false],
+      ['zalegle', null, false, 2, false],
+    ]);
+    expect(day('2026-10-07')).toEqual([['dzis', null, false, 0, false]]);
+  });
+
+  it('PWD-15 A (M-284): kolejne terminy zadania powtarzanego — policzone w oknie siatki, bez od wykonania, podzadań i zrobionych', () => {
+    const t = world();
+    task(t, { id: 'tydz', ...own('2026-10-14', '18:00'), repeat: 'FREQ=WEEKLY;BYDAY=WE' });
+    task(t, { id: 'mies', ...own('2026-10-31'), repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' });
+    task(t, { id: 'po', ...own('2026-10-14'), repeat: 'AFTER=WEEKLY;INTERVAL=1' });
+    task(t, { id: 'zrob', ...own('2026-10-07'), repeat: 'FREQ=DAILY', completed_at: '2026-10-07T08:00:00Z' });
+    task(t, { id: 'pod', parent_id: 'tydz', ...own('2026-10-14'), repeat: 'FREQ=DAILY' });
+    task(t, { id: 'spotk', deadline_mode: 'event', repeat: 'FREQ=DAILY' });
+    const days = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 } });
+    const projected = days.flatMap((d) => d.items.filter((x) => x.projected).map((x) => `${d.date} ${x.id} ${x.due!.time ?? ''}`));
+    expect(projected).toEqual(['2026-10-21 tydz 18:00', '2026-10-28 tydz 18:00']);
+    // Siatka listopada sięga 6.12 — ostatni dzień listopada.
+    expect(calendarMonth(t, ME, 2026, 11).flatMap((d) => d.items.filter((x) => x.projected && x.id === 'mies').map(() => d.date))).toEqual(['2026-11-30']);
+  });
+
   it('liczba tygodni zgodna z modułem calendar Pythona (Calendar(0).monthdatescalendar)', () => {
     expect(calendarMonth({}, ME, 2026, 6)[0]!.date).toBe('2026-06-01'); // 1.06.2026 to poniedziałek
     expect(calendarMonth({}, ME, 2026, 8)).toHaveLength(42); // sierpień 2026: od soboty, 31 dni

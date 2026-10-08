@@ -25,7 +25,12 @@ describe('nawigacja i „wyjdź o” (D115–D117)', () => {
 describe('dla których wydarzeń liczyć dojazd (D116)', () => {
   const now = Date.UTC(2026, 9, 8, 8, 0); // 10:00 w Warszawie
   const toMs = (date: string, time: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)), Number(time.slice(0, 2)) - 2, Number(time.slice(3, 5)));
-  const o = (id: string, x: Partial<{ date: string; occurrenceDate: string; startTime: string | null; location: string | null; concernsMe: boolean }> = {}) => ({ eventId: id, occurrenceDate: '2026-10-08', date: '2026-10-08', startTime: '17:00:00', title: id, location: 'Wodna 1', concernsMe: true, ...x });
+  const o = (id: string, x: Partial<{ date: string; occurrenceDate: string; startTime: string | null; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string }> = {}) => ({ eventId: id, occurrenceDate: '2026-10-08', date: '2026-10-08', startTime: '17:00:00', title: id, location: 'Wodna 1', concernsMe: true, assignedToMe: false, groupId: 'g', ...x });
+  it('PW-2: zakres „Tylko przypisane do mnie” — dojazd tylko do moich (jak Moje sprawy)', () => {
+    const scope = (g: string) => (g === 'klasa' ? ('mine' as const) : ('all' as const));
+    const r = travelTargets([o('mine', { groupId: 'klasa', assignedToMe: true }), o('class', { groupId: 'klasa' }), o('home')], now, toMs, () => 'driving', new Set(), scope);
+    expect(r.map((x) => x.eventId)).toEqual(['home', 'mine']);
+  });
   it('mnie dotyczy, z miejscem i godziną, od teraz do AHEAD_HOURS; najbliższe najpierw; tryb na wydarzenie', () => {
     const r = travelTargets(
       [o('b', { startTime: '12:00' }), o('a'), o('past', { startTime: '09:00' }), o('late', { startTime: '23:30' }), o('tomorrow', { date: '2026-10-09' }), o('other', { concernsMe: false }), o('allday', { startTime: null }), o('noplace', { location: '  ' }), o('nullplace', { location: null })],

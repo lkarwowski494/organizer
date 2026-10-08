@@ -90,6 +90,15 @@ export const config = {
    */
   forms: { DRAFT_MAX_DAYS: 7 },
 
+  /**
+   * Zakres Moich spraw w dużej grupie (PW-2 A, audyt 2 M-35): od ilu osób grupa dostaje podpowiedź ustawienia „W Moich
+   * sprawach” (po dołączeniu i utworzeniu) — liczą się wszyscy członkowie, także dzieci. Wybór osoby z wyszukiwaniem
+   * (PWD-30 A, M-299): od ilu osób do wyboru zamiast rzędu przycisków. Wybory projektowe, bez źródła (rodzina mieści
+   * się poniżej obu progów, klasa i grupa znajomych — powyżej).
+   */
+  myDays: { LARGE_GROUP_MEMBERS: 10 },
+  people: { PICKER_SEARCH_FROM: 7 },
+
   /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
   time: { MINUTE_STEP: 5 },
 
@@ -182,6 +191,11 @@ export const config = {
     BACKOFF_MIN_MS: 1000,
     BACKOFF_MAX_MS: 60_000,
     BACKOFF_FACTOR: 2,
+    /**
+     * „Przeciągnij, by odświeżyć” (PWD-10 A): najkrótszy czas kółka, żeby szybkie pobranie też dało znak. Wybór
+     * projektowy, bez źródła.
+     */
+    REFRESH_SPIN_MS: 600,
   },
 
   /**

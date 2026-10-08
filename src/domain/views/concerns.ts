@@ -9,6 +9,7 @@
 import type { Due } from '../deadlines';
 import type { GroupItem } from './index';
 import { asMember, type List, type Member, rows, type Tables } from './model';
+import type { MyScope } from './my-scope';
 
 /** Żywi członkowie (bez usuniętych) po identyfikatorze — osoba usunięta z grupy to „nikt konkretny” (D132). */
 export function liveMembers(t: Tables): Map<string, Member> {
@@ -32,8 +33,11 @@ export function ownPrivateList(l: Pick<List, 'visibility' | 'owner_member_id'>, 
   return l.visibility === 'private' && (l.owner_member_id === null || l.owner_member_id === g.me.member_id);
 }
 
-/** `ownPrivate` — sprawa z mojej listy „Tylko ja” (ownPrivateList). */
-export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlyMap<string, Member>, ownPrivate: boolean): boolean {
+/**
+ * `ownPrivate` — sprawa z mojej listy „Tylko ja” (ownPrivateList). `scope` — zakres Moich spraw w tej grupie (PW-2,
+ * my-scope.ts): poza „Wszystko” sprawa bez osoby z terminem nie jest moja (zostają moja osoba i moja lista „Tylko ja”).
+ */
+export function concernsMe(memberId: string | null, g: Pick<GroupItem, 'kind' | 'me'>, due: Due, live: ReadonlyMap<string, Member>, ownPrivate: boolean, scope: MyScope = 'all'): boolean {
   const who = livePerson(memberId, live);
-  return who === g.me.member_id || (who === null && (g.kind === 'personal' || ownPrivate || due !== null));
+  return who === g.me.member_id || (who === null && (g.kind === 'personal' || ownPrivate || (due !== null && scope === 'all')));
 }

@@ -52,7 +52,8 @@ export function formatDue(due: { date: string; time: string | null }, today: Civ
     [formatIsoDate(addDays(today, -1))]: 'wczoraj',
   };
   const day = rel[due.date] ?? `${WEEKDAYS_ABBREVIATED[isoWeekday(d)]} ${d.d} ${MONTHS_ABBREVIATED[d.m - 1]}${d.y === today.y ? '' : ` ${d.y}`}`;
-  return due.time === null ? day : `${day} · ${formatTime(due.time)}`;
+  // Audyt 2 (M-128): dzień i godzina przecinkiem — „·” rozdziela tylko pola wiersza (META_SEP).
+  return due.time === null ? day : `${day}, ${formatTime(due.time)}`;
 }
 
 /**

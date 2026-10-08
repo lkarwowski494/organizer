@@ -16,6 +16,7 @@ import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../c
 import { parseIsoDate } from '../format';
 import type { Target } from '../notification-target';
 import { type MyEntry, myDays } from './my-days';
+import type { ScopeOf } from './my-scope';
 import { nestEntries } from './nesting';
 import type { Tables } from './model';
 import { declinedByMe } from './rsvp';
@@ -39,6 +40,8 @@ export function planReminders(
   s: ReminderSettings,
   opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; late?: (minutes: number) => string; subtasks?: (titles: string[]) => string; parent?: (title: string, isEvent: boolean) => string; who?: (p: Person) => string };
     leaveFor?: (eventId: string, occurrenceDate: string) => { at: number; body: string } | null;
+    /** Zakres Moich spraw w grupach (PW-2, my-scope.ts) — przypomnienia i poranne podsumowanie jak Moje sprawy. */
+    scopeOf?: ScopeOf;
   },
 ): Reminder[] {
   const out: Reminder[] = [];
@@ -51,7 +54,7 @@ export function planReminders(
     // Audyt 2 (T-21, N-12): dzień liczony tak, jak aplikacja pokaże go tego dnia — z zaległymi (niezrobione z „przenoś
     // na kolejne dni” sprzed tego dnia), bez wygasłych. Plan zakłada, że do tego dnia nic się nie zmieni; zmiana
     // danych i tak przelicza plan.
-    const view = myDays(t, userId, day, 'day', day, opts.localDate);
+    const view = myDays(t, userId, day, 'day', day, opts.localDate, opts.scopeOf);
     // Chwila własnego przypomnienia wpisu („Czas wyjść” albo `leadMin` przed) albo `null`.
     type Fire = { at: number; leave: { at: number; body: string } | null };
     const fires = new Map<string, Fire | null>();
@@ -69,7 +72,8 @@ export function planReminders(
     };
     // D134: wpis pod rodzicem trafia do przypomnienia najbliższego przodka, który je ma — chyba że to przyszłoby
     // później niż jego własne; wtedy przypomina sam (i niesie swoje podzadania).
-    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`)), t);
+    // PWD-32 B: wydarzenie dziecka, które prowadzi ktoś inny, stoi w Moich sprawach tylko informacyjnie — bez przypomnień.
+    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || (e.event.concernsMe && !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`))), t);
     const under = new Map<string, string[]>();
     const parentOf = new Map<string, MyEntry>();
     const holder: MyEntry[] = [];

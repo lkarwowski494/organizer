@@ -3,7 +3,7 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
+import { asTrip, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
 import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
@@ -118,7 +118,8 @@ describe('zakupy na liście zakupów (D73)', () => {
     item(t, 'mleko', 'l', false);
     item(t, 'chleb', 'l', true);
     const now = '2026-10-07T10:00:00.000Z';
-    const clear = { kind: 'patch', entity: 'lists', id: 'l', set: { due_date: null, due_time: null, responsible_member_id: null } };
+    // PWD-11 A (M-280): ten sam patch zapamiętuje, kiedy i na kiedy były zakupy.
+    const clear = { kind: 'patch', entity: 'lists', id: 'l', set: { due_date: null, due_time: null, responsible_member_id: null, trip_done_at: now, trip_done_date: '2026-10-07' } };
     expect(finishTripOps(t, ME, 'l', false, now)).toEqual([{ kind: 'delete', entity: 'tasks', id: 'chleb' }, clear]);
     expect(finishTripOps(t, ME, 'l', true, now)).toEqual([
       { kind: 'patch', entity: 'tasks', id: 'mleko', set: { completed_at: now } },
@@ -189,7 +190,8 @@ describe('zakupy na liście zakupów (D73)', () => {
       const back = finishTripUndoOps(t2, ops);
       expect(back.some((o) => o.kind === 'patch' && o.entity === 'handoffs')).toBe(false);
       run(t2, [...ops, ...back]);
-      expect(t2.lists!.l).toEqual(before.lists!.l);
+      // Pola zrobionych zakupów wracają do pustych (przed pierwszymi zakupami ich nie było).
+      expect(t2.lists!.l).toEqual({ ...before.lists!.l, trip_done_at: null, trip_done_date: null });
       expect(t2.tasks).toEqual(before.tasks);
       expect(t2.handoffs!.h!.status).toBe('cancelled');
     }
@@ -201,5 +203,23 @@ describe('zakupy na liście zakupów (D73)', () => {
     put(t, 'lists', 'lq', list('lq', 'gf', { name: 'Nowa', visibility: 'private', owner_member_id: null, responsible_member_id: 'dawny' }));
     put(t, 'lists', 'lg', list('lg', 'gf', { name: 'Wspólna', responsible_member_id: 'dawny' }));
     expect(tripEntries(t, groups(t)).map((x) => x.id).sort()).toEqual(['lp', 'lq']);
+  });
+});
+
+describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
+  it('ostatnie zakupy listy: w dniu planu, bez planu — w dniu zrobienia; przekreślone (completed_at), bez osoby; lista zadań i usunięta — nie', () => {
+    const t = world();
+    put(t, 'lists', 'a', list('a', 'gf', { name: 'Biedronka', trip_done_at: '2026-10-07T18:00:00Z', trip_done_date: '2026-10-06' }));
+    put(t, 'lists', 'b', list('b', 'gf', { name: 'Lidl', trip_done_at: '2026-10-07T23:30:00Z', trip_done_date: null }));
+    put(t, 'lists', 'c', list('c', 'gf', { name: 'Stara', trip_done_at: '2026-10-01T10:00:00Z', deleted_at: '2026-10-02T00:00:00Z' }));
+    put(t, 'lists', 'd', list('d', 'gf', { name: 'Nigdy' }));
+    const local = (iso: string) => (iso === '2026-10-07T23:30:00Z' ? '2026-10-08' : iso.slice(0, 10));
+    const r = doneTrips(t, groups(t), local);
+    expect(r.map((x) => [x.id, x.due, x.completed_at, x.assignee_member_id])).toEqual([
+      ['a', { date: '2026-10-06', time: null }, '2026-10-07T18:00:00Z', null],
+      ['b', { date: '2026-10-08', time: null }, '2026-10-07T23:30:00Z', null],
+    ]);
+    const cal = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
+    expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.completed_at, x.doneOn])).toEqual([['a', '2026-10-07T18:00:00Z', '2026-10-07']]);
   });
 });
