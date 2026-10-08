@@ -57,6 +57,10 @@ describe('src/config zgodny z SQL', () => {
     expect(found.at(-1)).toEqual(groupLines.map((g) => g.key));
   });
 
+  it('dziennik push trzyma wpisy dłużej niż okno powiadomień (D82)', () => {
+    expect(sqlConstant('push_log_retention_days') * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
+  });
+
   it('brak definicji zgłaszany wprost', () => {
     expect(() => sqlConstant('nie_istnieje')).toThrow('Brak funkcji');
   });

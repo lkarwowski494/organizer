@@ -31,10 +31,10 @@ jobs:
       - name: Postgres 16 + pgTAP
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+          sudo apt-get install -y -q postgresql-16 postgresql-16-pgtap postgresql-16-cron libtap-parser-sourcehandler-pgtap-perl
           sudo mkdir -p /var/tmp/pg && sudo chown postgres /var/tmp/pg
           sudo -u postgres /usr/lib/postgresql/16/bin/initdb -D /var/tmp/pg -A trust -U postgres >/dev/null
-          sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pg -o "-p 54329 -k /tmp" -l /var/tmp/pg/log start
+          sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pg -o "-p 54329 -k /tmp -c shared_preload_libraries=pg_cron -c cron.database_name=organizer_test" -l /var/tmp/pg/log start
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
