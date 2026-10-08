@@ -32,7 +32,7 @@ const openEvent = async () => {
 describe('zadania na spotkaniu (D13)', () => {
   it('termin jak spotkanie w Moje sprawy; lista zadań spotkania; nowe zadanie na spotkaniu', async () => {
     const { store } = await open();
-    expect(screen.getByLabelText('Otwórz: Spakować strój')).toBeTruthy();
+    expect(screen.getByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/)).toBeTruthy();
     await openEvent();
     expect(screen.getByTestId('event-task-strój')).toBeTruthy();
     await type(screen.getByTestId('event-task-title'), '  ');
@@ -70,7 +70,7 @@ describe('zadania na spotkaniu (D13)', () => {
 
   it('ekran zadania: spotkanie, otwarcie, własny termin i powrót do terminu spotkania, odpięcie, podpięcie', async () => {
     const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-07' }));
-    await press(screen.getByLabelText('Otwórz: Spakować strój')); // własny termin dziś
+    await press(screen.getByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/)); // własny termin dziś
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Wydarzenie: Tańce, dziś · 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));
@@ -97,10 +97,10 @@ describe('zadania na spotkaniu (D13)', () => {
     put(b, 'event_overrides', 'o1', { id: 'o1', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 1 });
     await open(b);
     // Bez terminu we wspólnej grupie nie ma go w Moje sprawy — jest na liście.
-    expect(screen.queryByLabelText('Otwórz: Spakować strój')).toBeNull();
+    expect(screen.queryByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/)).toBeNull();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await press(await screen.findByLabelText('Otwórz: Spakować strój'));
+    await press(await screen.findByLabelText(/^Otwórz:\ Spakować\ strój(,|$)/));
     expect(await screen.findByText(/Wydarzenie odwołane albo zmienione/)).toBeTruthy();
     expect(screen.queryByTestId('task-open-event')).toBeNull();
     expect(screen.queryByTestId('task-event-due')).toBeNull();

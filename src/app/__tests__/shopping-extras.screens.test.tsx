@@ -41,7 +41,7 @@ describe('działy', () => {
 
   it('dotknięcie pozycji: wybór działu wysyła zmianę i przenosi pozycję; pamięć grupy działa na nową pozycję', async () => {
     const { store } = await openList();
-    await press(screen.getByLabelText('Zmień dział: Mydło'));
+    await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
     expect(screen.getByTestId('category-picker')).toBeTruthy();
     expect(screen.getByTestId('category-hygiene').props.accessibilityState.selected).toBe(true);
     await press(screen.getByTestId('category-household'));
@@ -53,10 +53,10 @@ describe('działy', () => {
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
     // Ponowne dotknięcie zamyka panel; „Anuluj” też.
-    await press(screen.getByLabelText('Zmień dział: jabłek'));
-    await press(screen.getByLabelText('Zmień dział: jabłek'));
+    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
+    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
     expect(screen.queryByTestId('category-picker')).toBeNull();
-    await press(screen.getByLabelText('Zmień dział: jabłek'));
+    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
     await press(screen.getByText('Anuluj'));
     expect(screen.queryByTestId('category-picker')).toBeNull();
   });
@@ -64,7 +64,7 @@ describe('działy', () => {
   it('dziecko nie zmienia działów ani stałych', async () => {
     const b = base((x) => put(x, 'group_members', 'mf', { ...x.group_members!.mf!, role: 'child' }));
     await openList(b);
-    expect(screen.queryByLabelText('Zmień dział: Mydło')).toBeNull();
+    expect(screen.queryByLabelText(/^Zmień dział: Mydło(,|$)/)).toBeNull();
     expect(screen.queryByTestId('staples')).toBeNull();
   });
 });
@@ -125,10 +125,10 @@ describe('stałe zakupy', () => {
 
   it('z panelu pozycji: „Dodaj do stałych” i „Usuń ze stałych”', async () => {
     const { store } = await openList(base((x) => put(x, 'lists', 'lz', { ...x.lists!.lz!, staples: ['Mydło'] })));
-    await press(screen.getByLabelText('Zmień dział: Mydło'));
+    await press(screen.getByLabelText(/^Zmień dział: Mydło(,|$)/));
     await press(screen.getByText('Usuń ze stałych'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: [] } });
-    await press(screen.getByLabelText('Zmień dział: jabłek'));
+    await press(screen.getByLabelText(/^Zmień dział: jabłek(,|$)/));
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { staples: ['2 kg jabłek'] } });
   });

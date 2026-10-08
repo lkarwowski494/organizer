@@ -120,7 +120,7 @@ describe('Listy i zadania', () => {
   it('zadanie: edycja tytułu, terminu z walidacją, osoby, podzadanie, usunięcie i cofnięcie', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Następny dzień'));
-    await press(screen.getByLabelText('Otwórz: Kupić kwiaty'));
+    await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
     await pickDate('task-date', '2026-10-09');
@@ -146,7 +146,7 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect((await screen.findAllByText(/pt\. 9 paź · 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
-    await press(screen.getByLabelText('Otwórz: Kupić kwiaty dla babci'));
+    await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty\ dla\ babci(,|$)/));
     await press(await screen.findByLabelText('Usuń zadanie'));
     expect(await screen.findByText('Zadanie usunięte')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij usunięcie'));
