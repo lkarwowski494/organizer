@@ -3,7 +3,7 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripSet } from '../views/shopping-trip';
+import { asTrip, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
 import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
@@ -43,11 +43,15 @@ describe('zakupy na liście zakupów (D73)', () => {
     expect(hasTrip({ date: null, time: null, responsibleId: 'mf' })).toBe(true);
   });
 
-  it('we wspólnej grupie osoba albo dzień obowiązkowe, w osobistej nie', () => {
-    expect(tripLacksAddressee('shared', { date: null, responsibleId: null })).toBe(true);
-    expect(tripLacksAddressee('shared', { date: '2026-10-08', responsibleId: null })).toBe(false);
-    expect(tripLacksAddressee('shared', { date: null, responsibleId: 'mf' })).toBe(false);
-    expect(tripLacksAddressee('personal', { date: null, responsibleId: null })).toBe(false);
+  it('we wspólnej grupie osoba albo dzień obowiązkowe, w osobistej i na liście „Tylko ja” nie (PW-18 A)', () => {
+    expect(tripRequired('shared', 'group')).toBe(true);
+    expect(tripRequired('shared', 'restricted')).toBe(true);
+    expect(tripRequired('shared', 'private')).toBe(false);
+    expect(tripRequired('personal', 'group')).toBe(false);
+    expect(tripLacksAddressee(true, { date: null, responsibleId: null })).toBe(true);
+    expect(tripLacksAddressee(true, { date: '2026-10-08', responsibleId: null })).toBe(false);
+    expect(tripLacksAddressee(true, { date: null, responsibleId: 'mf' })).toBe(false);
+    expect(tripLacksAddressee(false, { date: null, responsibleId: null })).toBe(false);
   });
 
   it('pola: godzina tylko z dniem; nowa lista i planowanie', () => {
@@ -189,5 +193,13 @@ describe('zakupy na liście zakupów (D73)', () => {
       expect(t2.tasks).toEqual(before.tasks);
       expect(t2.handoffs!.h!.status).toBe('cancelled');
     }
+  });
+
+  it('PW-18 A: zakupy z mojej listy „Tylko ja” bez osoby, której już nie ma, są moje (jak w grupie osobistej)', () => {
+    const t = world();
+    put(t, 'lists', 'lp', list('lp', 'gf', { name: 'Prezenty', visibility: 'private', owner_member_id: 'mf', responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'lq', list('lq', 'gf', { name: 'Nowa', visibility: 'private', owner_member_id: null, responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'lg', list('lg', 'gf', { name: 'Wspólna', responsible_member_id: 'dawny' }));
+    expect(tripEntries(t, groups(t)).map((x) => x.id).sort()).toEqual(['lp', 'lq']);
   });
 });

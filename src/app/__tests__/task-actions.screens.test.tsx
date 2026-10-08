@@ -174,31 +174,21 @@ describe('rolowanie (D61) i miniony dzień', () => {
 });
 
 describe('adresat we wspólnej grupie (D68)', () => {
-  it('dodanie bez osoby i terminu pyta „Dla kogo albo na kiedy?”; wybór osoby albo dnia zapisuje; anulowanie nic', async () => {
+  it('PW-18 b: dodanie bez osoby i terminu zapisuje od razu, bez pytania; wiersz mówi, że nikt tego nie widzi w Moich sprawach', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół dla dzieci');
+    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'nowy odkurzacz');
     await press(screen.getByLabelText('Dodaj'));
-    expect(screen.getByTestId('addressee-ask')).toBeTruthy();
-    expect(store.dispatched).toHaveLength(0);
-    await press(screen.getByLabelText('Anuluj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    await press(screen.getByLabelText('Dodaj'));
-    await press(screen.getByLabelText('Dla: Łukasz'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { title: 'rosół dla dzieci', assignee_member_id: 'mf', deadline_mode: 'none' } });
-    await fireEvent.changeText(screen.getByTestId('quick-add'), 'kotleciki');
-    await press(screen.getByLabelText('Dodaj'));
-    await press(screen.getByLabelText('Na jutro'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'kotleciki', deadline_mode: 'own', due_date: '2026-10-08' } });
-    await fireEvent.changeText(screen.getByTestId('quick-add'), 'zupa');
-    await press(screen.getByLabelText('Dodaj'));
-    await press(screen.getByLabelText('Na dziś'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'zupa', due_date: '2026-10-07' } });
-    // Z terminem w tekście — bez pytania; pusty tekst — nic.
+    const created = store.dispatched.at(-1) as { id: string };
+    expect(created).toMatchObject({ kind: 'create', set: { title: 'nowy odkurzacz', deadline_mode: 'none' } });
+    expect(within(await screen.findByTestId(`task-${created.id}`)).getByText('bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”')).toBeTruthy();
+    // Z terminem w tekście — bez dopisku; pusty tekst — nic.
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'chleb jutro');
     await press(screen.getByLabelText('Dodaj'));
-    expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    const dated = store.dispatched.at(-1) as { id: string };
+    expect(within(await screen.findByTestId(`task-${dated.id}`)).queryByText(/nikt tego nie widzi/)).toBeNull();
     const n = store.dispatched.length;
     await fireEvent.changeText(screen.getByTestId('quick-add'), '  ');
     await press(screen.getByLabelText('Dodaj'));

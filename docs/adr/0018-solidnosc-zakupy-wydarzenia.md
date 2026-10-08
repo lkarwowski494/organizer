@@ -38,6 +38,8 @@ opcja („jak zadania”) jest więc stanem obecnym; nowe w D88 jest tylko powia
      (migracja 20261008370000) — zmieniają jedną nazwę pod blokadą wiersza, więc zmiany z dwóch telefonów się sumują;
      telefon liczy ten sam skutek od razu. Stary telefon dalej wysyła całą tablicę. Odrzucone: łączenie tablic na
      telefonie. Migrację trzeba wdrożyć przed wydaniem buildu, który wysyła te polecenia (stary serwer: `unknown_cmd`).
+   - Decyzja właściciela z 8.10.2026 (audyt 2, PWD-19 A): pozycja w koszyku liczy się jako „już na liście” („Dodaj stałe”
+     jej nie dubluje), a stała zapisuje się bez ilości („Mleko 2” → „Mleko”).
 6. **D87 Naprawa błędu:** serwer od pierwszej migracji odrzucał każdą pozycję listy zakupów (`invalid_list:kind`).
    - Pozycje zakupów to zadania na liście „shopping”. Warunek rodzaju listy został tylko dla przenosin.
    - Odrzucona alternatywa: osobna tabela pozycji zakupów (przebudowa całego telefonu).

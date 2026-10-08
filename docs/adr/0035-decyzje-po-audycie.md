@@ -53,3 +53,21 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   To samo dotyczy `events.kind` (D126): lekcje z planu i rutyny wysyłają `kind` przy tworzeniu (audyt 2, D-2).
   Odrzucone: pusta godzina w wyjątku jako „cały dzień” (dotąd znaczyła „jak w serii” — zmiana znaczenia starych danych).
 - **D141.** `config.invites.LINK_LIVE = false`: wiadomość z zaproszeniem bez linku, z ID grupy i kodem.
+
+## Decyzje właściciela po audycie 2 (8.10.2026) — listy i zakupy
+| Pytanie | Decyzja | Odrzucone |
+|---|---|---|
+| PW-15. Okno „Do koszyka?” przy każdej pozycji (zmiana D59) | A: do koszyka bez pytania, z paskiem „Cofnij” | Zostaje jak jest; przełącznik w Ustawieniach |
+| PW-17. Zarządzanie listą | B: teraz zmiana nazwy listy, edycja pozycji zakupów, oznaczenie „Tylko ja”; „Kto widzi” i „wybrane osoby” po poprawkach synchronizacji | A: od razu pełne „Ustawienia listy” |
+| PW-18. Wyjątki od D68 | A: lista „Tylko ja” poza regułą; b: „kiedyś, ktokolwiek” dozwolone z dopiskiem | B: D68 także na liście prywatnej; (a) zakaz |
+| PWD-14. Minione kopie „Tylko tego dnia” (D133) | A: na liście zwinięte („12 razy minęło”, rozwijane) | Same do kosza po N dniach; bez zmian |
+| PWD-19. Stałe zakupy a koszyk | A: w koszyku = już na liście; stałe bez ilości | Bez zmian |
+
+Wykonanie (Claude; właściciel może zawetować):
+- **PW-17 B.** Nazwa listy — pole „Nazwa listy” na dole ekranu listy, zapis od razu jak tytuł zadania (D130); pozycja
+  zakupów — dotknięcie otwiera panel z polem „Nazwa i ilość” (jeden tekst, jak przy dodawaniu: ilość zostaje w nazwie,
+  D77), działem i stałą pozycją; panel zamyka „Gotowe” (zmiany są już zapisane). „Tylko ja” na ekranie List, w grupie
+  i w nagłówku listy. Odrzucone: osobne pole ilości (drugi format do pilnowania, D77 trzyma ilość w nazwie).
+- **PWD-14 A.** Zwinięte są minione, nieodhaczone kopie jednego łańcucha powtarzania (identyfikatory nextId), od dwóch
+  w górę; odhaczone kopie zostają osobno. Kalendarz bez zmian (D135: co było zaplanowane).
+- **PW-18, PW-15** — szczegóły w ADR 0012 (D68) i 0007 (D59).

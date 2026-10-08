@@ -16,6 +16,7 @@ function world(): T {
   put(t, 'lists', 'lf', { id: 'lf', group_id: 'gf', kind: 'tasks', name: 'Dzisiaj', deleted_at: null });
   put(t, 'lists', 'lz', { id: 'lz', group_id: 'gf', kind: 'shopping', name: 'Zakupy', deleted_at: null });
   put(t, 'lists', 'lx', { id: 'lx', group_id: 'gx', kind: 'tasks', name: 'Obca', deleted_at: null });
+  put(t, 'lists', 'lprv', { id: 'lprv', group_id: 'gf', kind: 'tasks', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf', deleted_at: null });
   return t;
 }
 
@@ -27,6 +28,8 @@ describe('adresat zadania (D68)', () => {
     expect(addresseeRequired(t, ME, 'lp', null)).toBe(false);
     expect(addresseeRequired(t, ME, 'lz', null)).toBe(false);
     expect(addresseeRequired(t, ME, 'lx', null)).toBe(false); // obca grupa
+    // Decyzja właściciela z 8.10.2026 (PW-18 A): lista „Tylko ja” działa jak grupa osobista.
+    expect(addresseeRequired(t, ME, 'lprv', null)).toBe(false);
     expect(addresseeRequired(t, ME, 'nie-ma', null)).toBe(false);
   });
 

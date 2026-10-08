@@ -1,6 +1,6 @@
 /**
- * Dodatki listy zakupów (D85, D86; ADR 0018): wybór działu pozycji, podpowiedzi przy wpisywaniu i stałe zakupy.
- * Logika w src/domain/views/shopping.ts; tu tylko widok i wysyłka operacji.
+ * Dodatki listy zakupów (D85, D86; ADR 0018): panel pozycji (nazwa i ilość, dział), podpowiedzi przy wpisywaniu i stałe
+ * zakupy. Logika w src/domain/views/shopping.ts; tu tylko widok i wysyłka operacji.
  */
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -11,6 +11,7 @@ import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { addStaple, itemKey, removeStaple, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, Field, SectionTitle, Segmented } from '../../ui/components';
+import { useLiveText } from '../../ui/live-text';
 import { useTheme } from '../../ui/theme';
 
 /** Przycisk-pigułka podpowiedzi i „✕” (wybór działu to Segmented). */
@@ -43,26 +44,31 @@ export function stapleError(error: Extract<StaplesEdit, { ok: false }>['error'])
 const CATEGORY_OPTIONS = SHOPPING_CATEGORIES.map((cat) => ({ value: cat.key, label: cat.name }));
 
 /**
- * Panel pod pozycją: dział (zaznaczony bieżący) i przełącznik „stała pozycja”. Dział to wybór jednej opcji, więc
- * Segmented z rolą radio, jak inne takie wybory (audyt 2, M-238, A-32).
+ * Panel pod pozycją (dotknięcie wiersza): nazwa z ilością, dział i przełącznik „stała pozycja” (decyzja właściciela
+ * z 8.10.2026, audyt 2: PW-17 B, M-107). Nazwa i ilość to jeden tekst, jak przy dodawaniu (D77: ilość zostaje w nazwie);
+ * zapis od razu (D130, jak tytuł zadania), także przy zamknięciu panelu — dlatego „Gotowe”, nie „Anuluj”. Dział to wybór
+ * jednej opcji, więc Segmented z rolą radio, jak inne takie wybory (audyt 2, M-238, A-32).
  */
-export function CategoryPicker({ item, current, isStaple, error, onPick, onToggleStaple, onClose }: {
-  item: string;
+export function ItemPanel({ title, current, isStaple, error, onRename, onPick, onToggleStaple, onClose }: {
+  title: string;
   current: ShoppingCategory;
   isStaple: boolean;
   error?: string | null;
+  onRename: (title: string) => void;
   onPick: (c: ShoppingCategory) => void;
   onToggleStaple: () => void;
   onClose: () => void;
 }) {
   const { c } = useTheme();
+  const name = useLiveText(title, onRename);
   return (
-    <View testID="category-picker" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+    <View testID="item-panel" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+      <Field label={strings['shop.itemName']} {...name} maxLength={config.lengths.TASK_TITLE} testID="item-name" />
       <Body muted>{strings['shop.categoryHint']}</Body>
       <Segmented label={strings['shop.category']} value={current} onChange={onPick} options={CATEGORY_OPTIONS} />
-      <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={item} />
+      <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={title} />
       {error ? <Body>{error}</Body> : null}
-      <Button kind="secondary" label={strings['common.cancel']} onPress={onClose} />
+      <Button kind="secondary" label={strings['shop.done']} testID="item-done" onPress={onClose} />
     </View>
   );
 }
@@ -113,7 +119,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit }: { list: Row
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
           {error ? <Body>{error}</Body> : null}
           <Button label={strings['shop.stapleSave']} testID="staple-save" onPress={save} />
-          <Button kind="secondary" label={strings['shop.staplesDone']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
+          <Button kind="secondary" label={strings['shop.done']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
         </>
       ) : (
         <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />

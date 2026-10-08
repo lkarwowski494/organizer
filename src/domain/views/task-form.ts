@@ -4,7 +4,8 @@
  *  - Formularz nie pyta o listę (D97): nowe zadanie trafia na ogólną listę grupy (`generalList`), przy „Zmień” w tej
  *    samej grupie zostaje na swojej liście. Zmiana grupy: serwer trzyma zadanie w jego grupie, więc powstaje kopia
  *    (z notatką) na ogólnej liście nowej grupy, a stare idzie do kosza (można je przywrócić).
- *  - We wspólnej grupie zadanie potrzebuje osoby albo terminu (D68).
+ *  - We wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw (D68) — od decyzji właściciela
+ *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
 import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
@@ -27,7 +28,7 @@ export type TaskForm = {
   repeat: Repeat | null;
 };
 
-export type FormError = 'title' | 'date' | 'time' | 'addressee' | 'repeatNeedsDate' | 'group';
+export type FormError = 'title' | 'date' | 'time' | 'repeatNeedsDate' | 'group';
 
 /** Grupy, do których mogę dodawać (nie jako dziecko), osobista pierwsza. */
 export const formGroups = (t: Tables, userId: string) => groupsView(t, userId).filter((g) => g.me.role !== 'child');
@@ -109,8 +110,19 @@ export function validateForm(t: Tables, userId: string, f: TaskForm): FormError 
   if (d !== '' && (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3])))) return 'date';
   if (f.time.trim() !== '' && (d === '' || !TIME.test(f.time.trim()))) return d === '' ? 'date' : 'time';
   if (f.repeat && d === '') return 'repeatNeedsDate';
-  if (group.kind === 'shared' && f.assigneeId === null && d === '') return 'addressee';
   return null;
+}
+
+/**
+ * Dopisek „nikt tego nie widzi w Moich sprawach” (D68, PW-18 b): zadanie we wspólnej grupie bez osoby (usunięta z grupy
+ * to nikt konkretny — D132) i bez terminu. Zostaje na swojej liście „Tylko ja” (ta sama grupa) — wtedy poza regułą (A).
+ */
+export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
+  if (formGroups(t, userId).find((g) => g.id === f.groupId)?.kind !== 'shared' || f.date.trim() !== '') return false;
+  const person = f.assigneeId === null ? undefined : t.group_members?.[f.assigneeId];
+  if (person && person.deleted_at == null) return false;
+  const list = f.listId === null ? undefined : t.lists?.[f.listId];
+  return !(list && list.visibility === 'private' && list.group_id === f.groupId);
 }
 
 /** Dzień tygodnia daty z formularza (do edytora powtarzania); bez daty — dziś. */

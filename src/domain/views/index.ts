@@ -8,9 +8,9 @@ import { groupLines } from '../../config/theme';
 import { monthGrid } from '../month-grid';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
-import { concernsMe, liveMemberIds } from './concerns';
+import { concernsMe, liveMemberIds, ownPrivateList } from './concerns';
 import { occurrenceResolver } from './event-rows';
-import { shoppingSplit, type Split, splitList } from './list-tree';
+import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
 import { tripEntries } from './shopping-trip';
 import { memberCanSeeList } from './visibility';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
@@ -145,7 +145,14 @@ function groupOrder(groups: Map<string, GroupItem>, id: string): number {
  */
 export type TaskNode = Task & { due: Due; depth: number; children: TaskNode[]; assignee: string | null; expired: boolean; closed: boolean; parentTitle: string | null };
 
-export type ListDetail = { list: ListItem; open: TaskNode[]; done: TaskNode[]; members: Member[] };
+/**
+ * Wiersz zamkniętych na ekranie listy: zadanie albo zwinięte minione kopie zadania powtarzanego (decyzja właściciela
+ * z 8.10.2026, audyt 2: PWD-14 A, M-283) — „12 razy minęło”, rozwijane. Zwijamy od dwóch minionych kopii jednego łańcucha
+ * (repeatHeads); `title` — z najnowszej kopii.
+ */
+export type DoneRow = { kind: 'task'; node: TaskNode } | { kind: 'run'; key: string; title: string; nodes: TaskNode[] };
+
+export type ListDetail = { list: ListItem; open: TaskNode[]; done: TaskNode[]; doneRows: DoneRow[]; members: Member[] };
 
 type ListState = { split: Split<Task>; due: (x: Task) => Due; expired: (x: Task) => boolean };
 
@@ -200,11 +207,27 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
       children: depth < config.MAX_TASK_DEPTH ? (s.split.children.get(x.id) ?? []).map((c) => node(c, depth + 1, null)).sort(order) : [],
     };
   };
+  const done = s.split.done.map((x) => node(x, 0, null)).sort(order);
+  const head = repeatHeads(t, list.id);
+  const runs = new Map<string, TaskNode[]>();
+  for (const n of done) if (n.expired) runs.set(head(n.id), [...(runs.get(head(n.id)) ?? []), n]);
+  const doneRows: DoneRow[] = [];
+  const shown = new Set<string>();
+  for (const n of done) {
+    const key = head(n.id);
+    const run = n.expired ? runs.get(key)! : [];
+    if (run.length < 2) doneRows.push({ kind: 'task', node: n });
+    else if (!shown.has(key)) {
+      shown.add(key);
+      doneRows.push({ kind: 'run', key, title: run.at(-1)!.title, nodes: run });
+    }
+  }
   // Audyt 2 (T-10, R-5): do wyboru osoby tylko ci, którzy widzą listę (serwer odrzuca innych); imiona — wszystkich.
   return {
     list,
     open: s.split.open.map((r) => node(r.x, r.depth, r.parent)).sort(order),
-    done: s.split.done.map((x) => node(x, 0, null)).sort(order),
+    done,
+    doneRows,
     members: members.filter((m) => memberCanSeeList(t, m.member_id, list.id)),
   };
 }
@@ -224,10 +247,11 @@ export { liveMemberIds };
 
 /**
  * Zadanie dotyczy mnie (reguła „Moje sprawy” powyżej, bez warunku „otwarte”). D132: zadanie osoby usuniętej z grupy
- * (albo która wyszła) wraca do reguł nieprzypisanego — nie znika wszystkim. Ta sama reguła dla zakupów (concerns.ts).
+ * (albo która wyszła) wraca do reguł nieprzypisanego — nie znika wszystkim. Na mojej liście „Tylko ja” zadanie bez osoby
+ * jest moje, jak w grupie osobistej (PW-18 A). Ta sama reguła dla zakupów (concerns.ts).
  */
-export function concernsMeTask(x: Task, g: GroupItem, due: Due, live: ReadonlySet<string>): boolean {
-  return concernsMe(x.assignee_member_id, g, due, live);
+export function concernsMeTask(x: Task, g: GroupItem, due: Due, live: ReadonlySet<string>, list: Pick<List, 'visibility' | 'owner_member_id'>): boolean {
+  return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g));
 }
 
 type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id'>;
@@ -267,7 +291,7 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
     if (!g || !l || l.kind === 'shopping' || x.completed_at !== null || !isVisible(x, today)) continue;
     const mine = x.assignee_member_id === g.me.member_id;
     const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(x, g, due, live) || isExpired(x, due, isoToday, byId)) continue;
+    if (!concernsMeTask(x, g, due, live, l) || isExpired(x, due, isoToday, byId)) continue;
     const item: TodayItem = {
       ...x,
       due,

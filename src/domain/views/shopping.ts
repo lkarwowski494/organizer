@@ -8,7 +8,9 @@
  *  - Pamięć i podpowiedzi biorą też pozycje usunięte (audyt 2, M-110, R-9): „Zakupy zrobione” wysyła kupione do kosza,
  *    a pamięć grupy ma zostać. Ograniczenie: telefon trzyma usunięte pozycje do wyczyszczenia kosza
  *    (config.sync.TOMBSTONE_DAYS, 30 dni) — starsze wybory i podpowiedzi znikają.
- *  - Stałe zakupy: lists.staples (nazwy). „Dodaj stałe” tworzy pozycje dla tych, których na liście nie ma. Dodanie
+ *  - Stałe zakupy: lists.staples (nazwy bez ilości). „Dodaj stałe” tworzy pozycje dla tych, których na liście nie ma —
+ *    także w koszyku (decyzja właściciela z 8.10.2026, audyt 2: PWD-19 A, M-288: kupione w tych zakupach się nie dubluje).
+ *    Dodanie
  *    i usunięcie to polecenia serwera staple_add / staple_remove (audyt 2, M-111) — zmieniają jedną nazwę, nie całą
  *    tablicę, więc zmiany z dwóch telefonów (jeden bez sieci) się nie nadpisują.
  */
@@ -121,15 +123,15 @@ export function setCategory(taskId: string, category: ShoppingCategory): NewOp {
   return { kind: 'patch', entity: 'tasks', id: taskId, set: { category } };
 }
 
-/** Nazwy pozycji czekających na liście (bez odhaczonych). */
-const openKeys = (t: Tables, listId: string) =>
-  new Set(Object.values(t.tasks ?? {}).filter((x) => x.list_id === listId && x.deleted_at == null && x.completed_at == null).map((x) => itemKey(titleOf(x))));
+/** Nazwy pozycji na liście: czekających (`withCart` — także tych w koszyku). */
+const listKeys = (t: Tables, listId: string, withCart: boolean) =>
+  new Set(Object.values(t.tasks ?? {}).filter((x) => x.list_id === listId && x.deleted_at == null && (withCart || x.completed_at == null)).map((x) => itemKey(titleOf(x))));
 
 /** Podpowiedzi przy wpisywaniu: najczęściej kupowane w grupie, zaczynające się od tekstu (min. 2 znaki). */
 export function suggestions(t: Tables, groupId: string, listId: string, text: string): string[] {
   const q = text.toLocaleLowerCase('pl').replace(/\s+/g, ' ').trim();
   if (q.length < 2) return [];
-  const waiting = openKeys(t, listId);
+  const waiting = listKeys(t, listId, false);
   const counts = new Map<string, { n: number; name: string; v: number }>();
   for (const x of itemsOf(t, groupId)) {
     const name = parseQuantity(titleOf(x)).name.trim();
@@ -150,10 +152,10 @@ export function staplesOf(list: Row | undefined): string[] {
   return Array.isArray(list?.staples) ? list.staples.filter((s): s is string => typeof s === 'string') : [];
 }
 
-/** Stałe, których nie ma wśród pozycji czekających na liście. */
+/** Stałe, których nie ma na liście — ani wśród czekających, ani w koszyku (PWD-19 A). */
 export function missingStaples(t: Tables, listId: string): string[] {
-  const waiting = openKeys(t, listId);
-  return staplesOf(t.lists?.[listId]).filter((s) => !waiting.has(itemKey(s)));
+  const onList = listKeys(t, listId, true);
+  return staplesOf(t.lists?.[listId]).filter((s) => !onList.has(itemKey(s)));
 }
 
 export function addStaplesOps(t: Tables, listId: string, newId: () => string): NewOp[] {
@@ -176,10 +178,13 @@ export function removeStaple(list: Row, name: string): NewOp {
   return { kind: 'cmd', cmd: 'staple_remove', args: { list_id: String(list.id), names: staplesOf(list).filter((s) => itemKey(s) === k) } };
 }
 
-/** Dodanie stałej pozycji; bez duplikatów (po nazwie bez ilości), limity z konfiguracji. */
+/**
+ * Dodanie stałej pozycji: zapisuje się sama nazwa, bez ilości (PWD-19 A — „Mleko 2” → „Mleko”; ilość dopisuje się przy
+ * zakupach); bez duplikatów, limity z konfiguracji.
+ */
 export function addStaple(list: Row, added: string): StaplesEdit {
   const cur = staplesOf(list);
-  const name = added.replace(/\s+/g, ' ').trim();
+  const name = parseQuantity(added.replace(/\s+/g, ' ').trim()).name;
   if (!name) return { ok: false, error: 'empty' };
   if (name.length > config.shopping.STAPLE_MAX_LENGTH) return { ok: false, error: 'tooLong' };
   if (cur.some((s) => itemKey(s) === itemKey(name))) return { ok: false, error: 'duplicate' };

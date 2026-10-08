@@ -1,11 +1,13 @@
 /**
  * Odhaczanie i usuwanie zadań oraz pozycji zakupów — wspólne dla wszystkich ekranów.
- * Odhaczenie pyta o potwierdzenie (decyzja właściciela z 7.10.2026, D59: łatwo o przypadkowe dotknięcie,
- * a zrobione znika z widoku); cofnięcie odhaczenia nie pyta. Usunięcie trafia do kosza i pokazuje „Cofnij” (D60).
+ * Odhaczenie zadania pyta o potwierdzenie (decyzja właściciela z 7.10.2026, D59: łatwo o przypadkowe dotknięcie,
+ * a zrobione znika z widoku); cofnięcie odhaczenia nie pyta. Pozycja zakupów trafia do koszyka bez pytania, z paskiem
+ * „Cofnij” — nie znika, tylko przechodzi do „W koszyku” (zmiana D59, decyzja właściciela z 8.10.2026, audyt 2: PW-15 A).
+ * Usunięcie trafia do kosza i pokazuje „Cofnij” (D60).
  */
 import { Alert } from 'react-native';
 
-import { remove, restore, toggleDone } from '../domain/views/commands';
+import { inverseOps, remove, restore, toggleDone } from '../domain/views/commands';
 import { finishTripOps, finishTripUndoOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
@@ -26,11 +28,18 @@ export function useTaskActions() {
       const raw = tables.tasks?.[t.id];
       // Dziecko (D34) nie tworzy zadań — następne dołoży telefon dorosłego (audyt 2, T-12).
       const canCreate = raw !== undefined && groupsView(tables, userId).some((g) => g.id === raw.group_id && g.me.role !== 'child');
-      const done = () => store.dispatch([toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])]);
+      const ops = [toggleDone(t, nowIso()), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])];
+      const done = () => store.dispatch(ops);
       if (t.completed_at !== null) return done();
-      Alert.alert(shopping ? strings['confirm.cartTitle'] : strings['confirm.doneTitle'], t.title, [
+      if (shopping) {
+        // Same zmiany w wierszach, bez poleceń serwera — odwrotność zawsze istnieje.
+        const back = inverseOps(tables, ops)!;
+        done();
+        return undo.show(strings['undo.inCart'](t.title), () => store.dispatch(back));
+      }
+      Alert.alert(strings['confirm.doneTitle'], t.title, [
         { text: strings['common.cancel'], style: 'cancel' },
-        { text: shopping ? strings['confirm.cartYes'] : strings['confirm.doneYes'], onPress: done },
+        { text: strings['confirm.doneYes'], onPress: done },
       ]);
     },
     /**

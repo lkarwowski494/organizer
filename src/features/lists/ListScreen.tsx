@@ -4,34 +4,55 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { quickAddOps } from '../../app/quickadd';
 import type { RootStackParams } from '../../app/routes';
-import { addDays, formatIsoDate } from '../../domain/civil-date';
+import { config } from '../../config';
 import { formatDue } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { parseQuantity } from '../../domain/quantity';
-import { addresseeRequired, lacksAddressee } from '../../domain/views/addressee';
+import { lacksAddressee } from '../../domain/views/addressee';
 import { memberCanSeeList } from '../../domain/views/visibility';
 import { useTaskActions } from '../../app/task-actions';
-import { remove, restore } from '../../domain/views/commands';
-import { groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { patchTask, remove, renameList, restore } from '../../domain/views/commands';
+import { type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { useLiveText } from '../../ui/live-text';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
-import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
+import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { addStaple, addStaplesOps, categoryMemory, categoryOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
-import { openLabel } from './ListsScreen';
-import { CategoryPicker, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
+import { listMarks } from './ListsScreen';
+import { ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'List'>;
+
+/**
+ * Zwinięte minione kopie zadania powtarzanego (decyzja właściciela z 8.10.2026, audyt 2: PWD-14 A, M-283): jeden wiersz
+ * „12 razy minęło” zamiast stosu wpisów w „Zrobione”; dotknięcie rozwija (jak zwinięte lekcje, D127).
+ */
+function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string; count: number; open: boolean; onPress: () => void; testID: string }) {
+  const { c, font, size } = useTheme();
+  const meta = `${strings['lists.expiredRun'](count)}  ·  ${open ? strings['lists.runHide'] : strings['lists.runShow']}`;
+  return (
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta.split('  ·  ').join(', ')}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
+      <View style={{ width: 30, alignItems: 'center' }}>
+        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.control }} />
+      </View>
+      <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
+        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{title}</Text>
+        <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{meta}</Text>
+      </View>
+    </Pressable>
+  );
+}
 
 export function ListScreen({ route, navigation }: Props) {
   const { userId, store, now, nowMs, newId } = useServices();
@@ -40,13 +61,15 @@ export function ListScreen({ route, navigation }: Props) {
   const { tables, today, indicator, state } = useAppData();
   const { c, font } = useTheme();
   const [text, setText] = useState('');
-  const [ask, setAsk] = useState(false);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [handing, setHanding] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
+  const [openRuns, setOpenRuns] = useState<string[]>([]);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
+  // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
+  const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)));
 
   if (!detail) {
     return (
@@ -79,21 +102,18 @@ export function ListScreen({ route, navigation }: Props) {
   const planned = planning ? readTrip(planning) : null;
   const groupKind = groupsView(tables, userId).find((g) => g.id === list.group_id)?.kind ?? 'shared';
   const planError = planned && 'error' in planned ? planned.error : null;
-  const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(groupKind, planned.trip);
-  const add = (extra: { assigneeId?: string; dueDate?: string } = {}, value = text) => {
-    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: [], newId, listId: list.id, ...extra }));
+  const tripNeeds = tripRequired(groupKind, list.visibility);
+  const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(tripNeeds, planned.trip);
+  const add = (value = text) => {
+    store.dispatch(quickAddOps({ tables, userId, text: value, now: now(), ignore: [], newId, listId: list.id }));
     setText('');
-    setAsk(false);
   };
-  // D68: we wspólnej grupie zadanie bez osoby i terminu nie zapisze się — najpierw wybór adresata.
+  // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): zadanie bez osoby i terminu też się zapisuje, bez pytania —
+  // jego wiersz mówi, że nikt go nie zobaczy w Moich sprawach (lists.noAddressee). Lista „Tylko ja” poza regułą (A).
   const submit = () => {
-    const parsed = parseQuickAdd(text, now());
-    if (parsed.title.trim() === '') return;
-    if (!shopping && !parsed.due && addresseeRequired(tables, userId, list.id, null)) return setAsk(true);
+    if (parseQuickAdd(text, now()).title.trim() === '') return;
     add();
   };
-  const n = now();
-  const day = (k: number) => formatIsoDate(addDays({ y: n.y, m: n.m, d: n.d }, k));
   // D85, D86: działy, pamięć grupy, stałe zakupy (tylko dorośli zmieniają listę i działy; dziecko odhacza).
   const listRow = tables.lists?.[list.id] ?? {};
   const staples = staplesOf(listRow);
@@ -125,14 +145,15 @@ export function ListScreen({ route, navigation }: Props) {
             shopping={shopping}
             onToggle={() => actions.toggle(t, shopping)}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
-            openLabel={shopping ? strings['shop.pickCategory'](parseQuantity(t.title).name) : undefined}
+            openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
           />
         </SwipeRow>,
         ...(picking === t.id
           ? [
-              <CategoryPicker
+              <ItemPanel
                 key={`pick-${t.id}`}
-                item={t.title}
+                title={t.title}
+                onRename={(title) => store.dispatch(patchTask(t.id, { title }))}
                 current={categoryOf(tables.tasks?.[t.id] ?? {}, memory)}
                 isStaple={staples.some((s) => itemKey(s) === itemKey(t.title))}
                 error={pickError}
@@ -155,6 +176,15 @@ export function ListScreen({ route, navigation }: Props) {
         ...rows(t.children, done, level + 1),
       ]);
 
+  const doneRow = (r: DoneRow): React.ReactNode[] => {
+    if (r.kind === 'task') return rows([r.node], true);
+    const open = openRuns.includes(r.key);
+    return [
+      <ExpiredRunRow key={`run-${r.key}`} testID={`run-${r.key}`} title={r.title} count={r.nodes.length} open={open} onPress={() => setOpenRuns(open ? openRuns.filter((k) => k !== r.key) : [...openRuns, r.key])} />,
+      ...(open ? rows(r.nodes, true, 1) : []),
+    ];
+  };
+
   return (
     <Screen testID="screen-list">
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -164,14 +194,14 @@ export function ListScreen({ route, navigation }: Props) {
       <Title>{list.name}</Title>
       <Text style={{ fontFamily: font.text400, fontSize: 14, color: c.inkMuted }}>
         <Text style={{ fontFamily: font.text700 }}>{list.groupName}</Text>
-        {`  ·  ${openLabel(list.kind, detail.open.length)}`}
+        {`  ·  ${listMarks(list, detail.open.length).join('  ·  ')}`}
       </Text>
       {shopping && canDelete ? (
         <View testID="trip" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
-              <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={groupKind === 'shared'} />
+              <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
               {planError ? <Body>{planError}</Body> : null}
               <Button
                 label={strings['trip.save']}
@@ -220,25 +250,9 @@ export function ListScreen({ route, navigation }: Props) {
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
-        <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
-          {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} /> : null}
+        <QuickAddField value={text} onChangeText={setText} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+          {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} /> : null}
         </QuickAddField>
-      ) : null}
-      {ask ? (
-        <View testID="addressee-ask" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {strings['addressee.ask']}
-          </Text>
-          <Body muted>{strings['addressee.why']}</Body>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {detail.members.map((m) => (
-              <Button key={m.member_id} kind="secondary" label={strings['addressee.for'](m.display_name)} onPress={() => add({ assigneeId: m.member_id })} />
-            ))}
-            <Button kind="secondary" label={strings['addressee.today']} onPress={() => add({ dueDate: day(0) })} />
-            <Button kind="secondary" label={strings['addressee.tomorrow']} onPress={() => add({ dueDate: day(1) })} />
-          </View>
-          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(false)} />
-        </View>
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{strings['lists.emptyItems']}</Body> : null}
       {shopping ? (
@@ -254,9 +268,10 @@ export function ListScreen({ route, navigation }: Props) {
       {detail.done.length ? (
         <View>
           <SectionTitle>{shopping ? strings['lists.inCart'] : strings['lists.done']}</SectionTitle>
-          {rows(detail.done, true)}
+          {detail.doneRows.flatMap(doneRow)}
         </View>
       ) : null}
+      {canDelete ? <Field label={strings['lists.name']} {...rename} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
       {canDelete ? (
         <Button
           kind="danger"
