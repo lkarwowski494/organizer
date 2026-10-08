@@ -19,7 +19,7 @@ import { MuteSettings } from './MuteSettings';
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 
 export function SettingsScreen({ navigation }: Props) {
-  const { account, nowMs } = useServices();
+  const { account, nowMs, displayName } = useServices();
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
@@ -83,6 +83,7 @@ export function SettingsScreen({ navigation }: Props) {
           <Body muted>{strings['device.mirrorInfo']}</Body>
         </View>
       ) : null}
+      <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
       <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
       <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />
       <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />

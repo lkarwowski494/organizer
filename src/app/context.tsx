@@ -38,6 +38,10 @@ export type AppServices = {
   local?: LocalStore;
   userId: string;
   displayName: string;
+  /** D100: konto bez imienia (logowanie e-mailem) — zapytamy przy starcie. */
+  needsName?: boolean;
+  /** Początek adresu e-mail — dawne imię zastępcze (przed D100). */
+  emailName?: string | null;
   newId: () => string;
   /** Lokalny czas Europe/Warsaw (config.TIME_ZONE). */
   now: () => LocalDateTime;

@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { quickAddOps } from '../../app/quickadd';
+import { findTimeRange, withoutRange } from '../../domain/time-range';
+import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -21,6 +23,7 @@ import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from 
 import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
 import { WhatsNew } from './WhatsNew';
+import { NAME_ASKED } from '../profile/NameScreen';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 import { extractMention, type MentionTarget, mentionTargets } from '../../domain/views/mention';
 import { useUndo } from '../../ui/undo';
@@ -34,7 +37,7 @@ import { useTheme } from '../../ui/theme';
 const MODES: RangeMode[] = ['day', 'week', 'month'];
 
 export function TodayScreen() {
-  const { userId, store, now, nowMs, newId, prefs } = useServices();
+  const { userId, store, now, nowMs, newId, prefs, needsName } = useServices();
   const actions = useTaskActions();
   const { tables, today, indicator } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
@@ -50,21 +53,30 @@ export function TodayScreen() {
   const at = anchor ?? today;
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
-  // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie.
+  // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie. Stan z chwili otwarcia
+  // (useState): po nadaniu imienia sesja się zmienia, a ekran imienia sam przechodzi do wprowadzenia.
+  const [askName] = useState(needsName);
   useEffect(() => {
     let live = true;
     prefs
       ?.get(WELCOME_SEEN)
-      .then((v) => live && v !== '1' && nav.navigate('Welcome'))
+      .then(async (v) => {
+        if (!live) return;
+        // D100: najpierw imię (konto bez imienia), potem wprowadzenie — ekran imienia sam do niego przechodzi.
+        if (askName && (await prefs.get(NAME_ASKED)) !== '1') return live && nav.navigate('Name');
+        if (v !== '1') nav.navigate('Welcome');
+      })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [prefs, nav]);
+  }, [prefs, nav, askName]);
   const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
   const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
   const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
-  const tokens = text ? parseQuickAdd(text, now(), { ignore }).tokens : [];
+  // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania.
+  const range = text ? findTimeRange(text, ignore) : null;
+  const tokens = text ? [...(range ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parseQuickAdd(range ? withoutRange(text, range) : text, now(), { ignore }).tokens].sort((a, b) => a.start - b.start) : [];
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
@@ -75,12 +87,24 @@ export function TodayScreen() {
     const { mention } = extractMention(text);
     // „@imię” zastępujemy spacjami tej samej długości, żeby odklikane fragmenty (ignore) zachowały pozycje.
     const body = mention && target ? `${text.slice(0, mention.start)}${' '.repeat(mention.end - mention.start)}${text.slice(mention.end)}` : text;
+    const group = target ? target.groupName : strings['groups.personal'];
+    const q = quickEvent({ tables, userId, text: body, now: now(), ignore, groupId: target?.groupId, memberId: target?.memberId });
+    const event = q ? quickEventOps(q, newId) : null;
+    if (q && event) {
+      // D98: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
+      store.dispatch(event.ops);
+      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
+      return clear();
+    }
     const ops = quickAddOps({ tables, userId, text: body, now: now(), ignore, newId, groupId: target?.groupId, assigneeId: target?.memberId });
     store.dispatch(ops);
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (created && created.kind === 'create') {
-      undo.show(strings['form.added'](String(created.set.title), target ? target.groupName : strings['groups.personal']), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+      undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
     }
+    clear();
+  };
+  const clear = () => {
     setText('');
     setIgnore([]);
     setChoices(null);
@@ -180,10 +204,14 @@ export function TodayScreen() {
         a11yHint={strings['form.moreHint']}
         testID="add-more"
         onPress={() => {
-          nav.navigate('AddTask', { text });
-          setText('');
-          setIgnore([]);
-          setChoices(null);
+          // Z zakresem godzin — od razu formularz wydarzenia (D98); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu.
+          const { text: rest, mention } = extractMention(text);
+          const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
+          const one = targets.length === 1 ? targets[0] : undefined;
+          const q = quickEvent({ tables, userId, text: one ? rest : text, now: now(), ignore: one ? [] : ignore, groupId: one?.groupId, memberId: one?.memberId });
+          if (q) nav.navigate('EventEdit', { groupId: q.groupId, date: q.form.date, title: q.form.title, start: q.form.slots[0]!.start, end: q.form.slots[0]!.end, responsibleId: q.form.responsibleId ?? undefined });
+          else nav.navigate('AddTask', { text });
+          clear();
         }}
       />
       {choices ? (

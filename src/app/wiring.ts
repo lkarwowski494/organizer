@@ -13,6 +13,7 @@ import { AppState } from 'react-native';
 import { config } from '../config';
 import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
+import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
 import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
@@ -32,8 +33,12 @@ const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABAS
 AppState.addEventListener('change', (s) => (s === 'active' ? client.auth.startAutoRefresh() : client.auth.stopAutoRefresh()));
 
 type User = { id: string; email?: string; user_metadata?: { full_name?: string; display_name?: string } };
-const toSession = (u: User | null | undefined): Session | null =>
-  u ? { userId: u.id, displayName: u.user_metadata?.display_name || u.user_metadata?.full_name || u.email?.split('@')[0] || 'Ja' } : null;
+// D100: bez imienia w koncie (logowanie e-mailem) pytamy o nie; do tego czasu — początek adresu jak dotąd.
+const toSession = (u: User | null | undefined): Session | null => {
+  if (!u) return null;
+  const named = u.user_metadata?.display_name || u.user_metadata?.full_name;
+  return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email) };
+};
 
 const apple = async (scopes?: 'none') =>
   AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });

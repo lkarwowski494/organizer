@@ -55,6 +55,11 @@ describe('src/config zgodny z SQL', () => {
     expect(sql).toContain(`left(trim(p_message), ${config.feedback.MAX_LENGTH})`);
   });
 
+  it('najdłuższe imię w SQL = config.profile.NAME_MAX_LENGTH (D100)', () => {
+    expect(sql).toContain(`char_length(display_name) between 1 and ${config.profile.NAME_MAX_LENGTH}`);
+    expect(sql).toContain(`char_length(display_name) <= ${config.profile.NAME_MAX_LENGTH}`);
+  });
+
   it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {
     const found = [...sql.matchAll(/function private\.deleted_user_label\(\)[^$]*\$\$\s*select\s+'([^']*)'::text\s*\$\$/gi)];
     expect(found.map((m) => m[1])).toEqual([strings['member.deleted']]);
