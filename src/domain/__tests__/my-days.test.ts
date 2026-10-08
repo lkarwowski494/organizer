@@ -472,5 +472,12 @@ describe('PW-38 A (M-119): filtr grup', () => {
     expect(keys(f)).toEqual(['2026-10-07 (dziś): ', '2026-10-08: t-dom e-zebranie-2026-10-08']);
     expect([f.pinned.map((x) => x.id), f.doneToday.map((x) => x.id)]).toEqual([['bez'], []]);
     expect(keys(onlyGroups(myDays(t, ME, TODAY, 'day', D('2026-10-09'), local), new Set(['gf']), 'day'))).toEqual(['2026-10-09: ']);
+    // Lekcje dziecka (D127) należą do grupy dziecka.
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    ev(t, 'matma', '2026-10-07', { group_id: 'gf', kind: 'lesson', audience: 'members', start_time: '08:00:00' });
+    put(t, 'event_participants', 'pm', { id: 'pm', event_id: 'matma', group_id: 'gf', member_id: 'kuba', deleted_at: null });
+    const day = myDays(t, ME, TODAY, 'day', TODAY, local);
+    expect(onlyGroups(day, new Set(['gf']), 'day').days[0]!.entries.map((e) => e.kind)).toContain('lessons');
+    expect(onlyGroups(day, new Set(['gp']), 'day').days[0]!.entries.map((e) => e.kind)).not.toContain('lessons');
   });
 });

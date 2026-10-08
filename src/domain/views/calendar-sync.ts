@@ -314,14 +314,21 @@ export const PERSONAL_NAME = 'Osobiste';
  * ich tam nie było). Lekcje dziecka są tam w bloku dnia.
  */
 export function mirrorCalendarOf(t: Tables, userId: string, eventId: string, occurrenceDate: string, date: string, today: CivilDate, skip: ReadonlySet<string>, scopeOf: ScopeOf = scopeAll): string | null {
-  const day = isoDate(date);
-  const o = expandEvents(t, userId, day, day).find((x) => x.eventId === eventId && x.occurrenceDate === occurrenceDate);
-  if (!o) return null;
-  const keys = o.lessonFor ? o.lessonFor.map((c) => `lessons|${c.memberId}|${o.date}`) : [`${eventId}|${occurrenceDate}`];
+  return mirrorLookup(t, userId, today, skip, scopeOf)(eventId, occurrenceDate, date);
+}
+
+/** To samo dla wielu wystąpień: zawartość lustra liczona raz (ekran wydarzenia pyta przy każdym renderze). */
+export function mirrorLookup(t: Tables, userId: string, today: CivilDate, skip: ReadonlySet<string>, scopeOf: ScopeOf): (eventId: string, occurrenceDate: string, date: string) => string | null {
   const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, () => '', scopeOf);
   const groups = mirrorGroups(t, userId, skip);
   const wanted = new Set(mirrorWanted(items, groups, formatIsoDate(today), config.calendar.MIRROR_MAX).map((i) => i.key));
-  if (!keys.some((k) => wanted.has(k))) return null;
-  return mirrorCalendarTitle(groups.find((g) => g.id === o.groupId)!.name);
+  return (eventId, occurrenceDate, date) => {
+    const day = isoDate(date);
+    const o = expandEvents(t, userId, day, day).find((x) => x.eventId === eventId && x.occurrenceDate === occurrenceDate);
+    if (!o) return null;
+    const keys = o.lessonFor ? o.lessonFor.map((c) => `lessons|${c.memberId}|${o.date}`) : [`${eventId}|${occurrenceDate}`];
+    if (!keys.some((k) => wanted.has(k))) return null;
+    return mirrorCalendarTitle(groups.find((g) => g.id === o.groupId)!.name);
+  };
 }
 

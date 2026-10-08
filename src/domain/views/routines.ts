@@ -97,17 +97,25 @@ export function routineStreak(t: Tables, eventId: string, today: CivilDate): num
 }
 
 export function taskStreak(t: Tables, taskId: string, localDate: (iso: string) => string): number {
+  return taskStreaks(t, localDate)(taskId);
+}
+
+/** Seria dla wielu zadań naraz (wiersze Moich spraw i Kalendarza): tabela zadań przechodzona raz. */
+export function taskStreaks(t: Tables, localDate: (iso: string) => string): (taskId: string) => number {
   const all = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
   const repeating = new Set(Object.values(t.tasks ?? {}).filter((r) => r.repeat != null).map((r) => String(r.id)));
   const prev = new Map(all.filter((x) => repeating.has(x.id)).map((x) => [nextId(x.id), x]));
-  const start = all.find((x) => x.id === taskId);
-  if (!start) return 0;
+  const byId = new Map(all.map((x) => [x.id, x]));
   const onTime = (x: (typeof all)[number]) => x.completed_at !== null && x.due_date !== null && localDate(x.completed_at) <= x.due_date;
-  let n = 0;
-  let cur: (typeof all)[number] | undefined = start.completed_at === null ? prev.get(start.id) : start;
-  for (let i = 0; cur && onTime(cur) && i < STREAK_DAYS; i++) {
-    n++;
-    cur = prev.get(cur.id);
-  }
-  return n;
+  return (taskId) => {
+    const start = byId.get(taskId);
+    if (!start) return 0;
+    let n = 0;
+    let cur: (typeof all)[number] | undefined = start.completed_at === null ? prev.get(start.id) : start;
+    for (let i = 0; cur && onTime(cur) && i < STREAK_DAYS; i++) {
+      n++;
+      cur = prev.get(cur.id);
+    }
+    return n;
+  };
 }
