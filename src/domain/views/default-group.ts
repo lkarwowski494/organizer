@@ -14,6 +14,7 @@ export const LAST_USED = 'last';
  * grupy już nie ma) — ostatnio użyta, jeśli nadal jest wśród `groups`; inaczej pierwsza z nich; bez grup — `null`.
  */
 export function startGroup(groups: readonly { id: string }[], setting: string | null, last: string | null): string | null {
-  const valid = (id: string | null) => (id !== null && groups.some((g) => g.id === id) ? id : null);
-  return (setting === LAST_USED ? null : valid(setting)) ?? valid(last) ?? groups[0]?.id ?? null;
+  // `LAST_USED` nie jest id żadnej grupy (id to UUID), więc samo sprawdzenie przynależności je pomija.
+  const valid = (id: string | null) => (groups.some((g) => g.id === id) ? id : null);
+  return valid(setting) ?? valid(last) ?? groups[0]?.id ?? null;
 }
