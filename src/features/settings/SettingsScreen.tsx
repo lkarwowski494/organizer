@@ -81,6 +81,14 @@ export function SettingsScreen({ navigation }: Props) {
           <Segmented label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
           <Segmented label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
           <Body muted>{strings['device.mirrorInfo']}</Body>
+          {calendar.read && calendar.calendars.length ? (
+            <View testID="device-calendars" style={{ gap: 10 }}>
+              <Body muted>{strings['device.calendarsInfo']}</Body>
+              {calendar.calendars.map((cal) => (
+                <Segmented key={cal.id} label={cal.title} value={cal.read ? 'on' : 'off'} onChange={(v) => calendar.setCalendarRead(cal.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
       <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />

@@ -103,6 +103,40 @@ describe('kalendarz iPhone’a', () => {
     expect(prefs.m.get('calendarRead')).toBe('1');
   });
 
+  it('dubel wpisu z aplikacji ukryty (D107); wybór kalendarzy w Ustawieniach (D106)', async () => {
+    const sync = fakeSync({ status: jest.fn(async () => 'granted' as const), listEvents: jest.fn(async () => [mine, { ...mine, id: 'x2', calendarId: 'home', calendarTitle: 'Dom', title: 'Szkoła', startMs: Date.UTC(2026, 9, 7, 6), endMs: Date.UTC(2026, 9, 7, 7) }]) });
+    const base = sampleBase();
+    put(base, 'tasks', 'dent', { ...base.tasks!['t-books']!, id: 'dent', title: 'Wizyta - dentysta', deadline_mode: 'own', due_date: '2026-10-07', due_time: '16:15:00' });
+    const prefs = memoryPrefs({ welcomeSeen: '1', calendarRead: '1' });
+    const s = setup({ base, prefs, calendar: { add: jest.fn(async () => 'saved' as const), sync } });
+    await s.renderApp(<RootStack />);
+    await flush();
+    expect(await screen.findByLabelText(/^Szkoła, 08:00–09:00/)).toBeTruthy();
+    expect(screen.queryByTestId('device-d|x1')).toBeNull();
+    await press(screen.getByLabelText('Ustawienia'));
+    const box = await screen.findByTestId('device-calendars');
+    expect(within(box).getByLabelText('Praca')).toBeTruthy();
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual(['home']);
+    expect(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Włączone'));
+    expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual([]);
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await press(screen.getByLabelText('Wróć'));
+    expect(screen.queryByLabelText(/^Szkoła, 08:00–09:00/)).toBeNull();
+  });
+
+  it('zapisany wybór kalendarzy wczytany; zepsuty zapis — wszystkie czytane', async () => {
+    const sync = fakeSync({ status: jest.fn(async () => 'granted' as const) });
+    await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarSkip: '["work"]' }));
+    await flush();
+    expect(screen.queryByLabelText(/^Dentysta/)).toBeNull();
+    await open(fakeSync({ status: jest.fn(async () => 'granted' as const) }), memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarSkip: 'zepsute' }));
+    expect(await screen.findByLabelText(/^Dentysta/)).toBeTruthy();
+    await open(fakeSync({ status: jest.fn(async () => 'granted' as const) }), memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarSkip: '{"a":1}' }));
+    expect(await screen.findByLabelText(/^Dentysta/)).toBeTruthy();
+  });
+
   it('błąd odczytu — zgłoszony raz, aplikacja działa; bez wsparcia w telefonie — brak karty', async () => {
     const sync = fakeSync({ status: jest.fn(async () => 'granted' as const), listEvents: jest.fn(async () => Promise.reject(new Error('EKError'))) });
     const { account } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));

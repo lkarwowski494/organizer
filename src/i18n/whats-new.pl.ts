@@ -6,6 +6,14 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    fromBuild: 18,
+    items: [
+      'Wydarzenia z iPhone’a wyglądają jak wydarzenia grup, tylko szare — bez kwadracika, który mylił się z polem do odhaczenia.',
+      'Wydarzenie z iPhone’a, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane. W Ustawieniach wybierzesz, które kalendarze iPhone’a pokazywać.',
+      'Treść nie wchodzi już pod zegar i baterię przy przewijaniu.',
+    ],
+  },
+  {
     fromBuild: 17,
     items: [
       'Zadania przypięte do wydarzenia i podzadania stoją teraz pod rodzicem, z wcięciem i mniejszą kropką. Rodzic pokazuje, ile już zrobione („1/3 zrobione”).',

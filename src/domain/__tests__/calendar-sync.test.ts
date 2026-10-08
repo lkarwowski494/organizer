@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { type DeviceEvent, deviceDays, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorHash, mirrorItems, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
+import { type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, withoutDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorHash, mirrorItems, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -27,10 +27,10 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
   it('godziny w czasie lokalnym; całodniowe na każdy dzień; kilkudniowe z godziną tylko pierwszego dnia', () => {
     expect([...days.keys()].sort()).toEqual(['2026-10-08', '2026-10-09', '2026-10-10']);
     expect(days.get('2026-10-09')).toEqual([
-      { key: 'd|b', title: 'Urlop', calendarTitle: 'Praca', time: null, endTime: null, continued: true },
-      { key: 'd|a', title: 'Dentysta', calendarTitle: 'Praca', time: '16:00', endTime: '17:30', continued: false },
-      { key: 'd|c', title: 'Konferencja', calendarTitle: 'Praca', time: '20:00', endTime: null, continued: false },
-      { key: 'd|d', title: 'Do północy', calendarTitle: 'Praca', time: '22:00', endTime: '00:00', continued: false },
+      { key: 'd|b', title: 'Urlop', calendarId: 'c1', calendarTitle: 'Praca', time: null, endTime: null, continued: true },
+      { key: 'd|a', title: 'Dentysta', calendarId: 'c1', calendarTitle: 'Praca', time: '16:00', endTime: '17:30', continued: false },
+      { key: 'd|c', title: 'Konferencja', calendarId: 'c1', calendarTitle: 'Praca', time: '20:00', endTime: null, continued: false },
+      { key: 'd|d', title: 'Do północy', calendarId: 'c1', calendarTitle: 'Praca', time: '22:00', endTime: '00:00', continued: false },
     ]);
     expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.continued])).toEqual([
       ['d|c', null, true],
@@ -42,6 +42,32 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
   it('kalendarze lustra pomijane (bez dubli); poza zakresem nic', () => {
     expect([...days.values()].flat().some((e) => e.key === 'd|m' || e.key === 'd|x')).toBe(false);
     expect(deviceDays([], { y: 2026, m: 10, d: 8 }, { y: 2026, m: 10, d: 8 }, toLocal, new Set()).size).toBe(0);
+  });
+
+  it('kalendarze do wyboru (D106): z wydarzeń, bez lustra, po nazwie, każdy raz', () => {
+    expect(deviceCalendars([...events, { id: 'z', calendarId: 'c0', calendarTitle: 'Dom', title: 'x', allDay: true, startDate: '2026-10-08', endDate: '2026-10-09' }], new Set(['mirror']))).toEqual([
+      { id: 'c0', title: 'Dom' },
+      { id: 'c1', title: 'Praca' },
+    ]);
+    expect(deviceCalendars([{ ...events[0]!, calendarId: 'b' }, { ...events[0]!, calendarId: 'a' }], new Set())).toEqual([{ id: 'a', title: 'Praca' }, { id: 'b', title: 'Praca' }]);
+  });
+
+  it('dubel z wpisem aplikacji (D107): godzina ±30 min i wspólne słowo; bez godziny z bez godziny; „cd.” nigdy', () => {
+    const e = (title: string, time: string | null, continued = false): DeviceEntry => ({ key: `d|${title}`, title, calendarId: 'c1', calendarTitle: 'Ł', time, endTime: null, continued });
+    const app = [{ title: 'Kuba i Róża - Basen - 19.30', time: '19:00:00' }, { title: 'Urodziny Ali', time: null }];
+    expect(isDuplicate(e('Dzieci - basen', '19:00'), app)).toBe(true);
+    expect(isDuplicate(e('Dzieci - BASEN', '19:30'), app)).toBe(true);
+    expect(isDuplicate(e('Dzieci - basen', '19:31'), app)).toBe(false);
+    expect(isDuplicate(e('Dzieci - basen', '18:30'), app)).toBe(true);
+    expect(isDuplicate(e('Dentysta', '19:00'), app)).toBe(false);
+    expect(isDuplicate(e('Róża 19.30 i', '19:00'), app)).toBe(true); // „róża” = „roza” (4 litery)
+    expect(isDuplicate(e('Kuba 1930', '19:00'), app)).toBe(true);
+    expect(isDuplicate(e('Ala 19', '19:00'), [{ title: 'Ala 19', time: '19:00' }])).toBe(false); // krótkie słowa i liczby się nie liczą
+    expect(isDuplicate(e('Urodziny', null), app)).toBe(true);
+    expect(isDuplicate(e('Urodziny', '10:00'), app)).toBe(false);
+    expect(isDuplicate(e('Basen', null), app)).toBe(false);
+    expect(isDuplicate(e('Urodziny', null, true), app)).toBe(false);
+    expect(withoutDuplicates([e('Dzieci - basen', '19:00'), e('Dentysta', '9:00')], app).map((x) => x.title)).toEqual(['Dentysta']);
   });
 
   it('sortowanie w dniu: najpierw bez godziny, potem po godzinie, przy remisie po nazwie', () => {
