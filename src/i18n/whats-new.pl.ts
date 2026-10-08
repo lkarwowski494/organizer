@@ -6,19 +6,14 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
-    fromBuild: 20,
-    items: [
-      'Widok dnia z przerwami: między sprawami z godziną widać „wolne 2 h 30 min” (dziś liczone od teraz).',
-      'Wydarzenia z kalendarza iPhone’a stoją teraz na swojej godzinie między sprawami, a nie na końcu dnia.',
-    ],
-  },
-  {
+    // Buildy 19 i 20 odrzucone przez Apple (ITMS-90683, D123) — pierwszy z tymi zmianami w TestFlight to 21.
     fromBuild: 19,
     items: [
       'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',
       'Plan lekcji z tygodniami A/B (Grupy → osoba) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z serią „ile razy z rzędu”.',
       'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a z „Czasem dojazdu” w Ustawieniach widzisz „Wyjdź o …”.',
       'W wierszach widać, kto odpowiada („dla: Ty”, „odpowiada: Ala”) i ile trwa wydarzenie. Ustawienia → „Wyczyść dane na telefonie” pobiera wszystko od nowa.',
+      'Dzień z przerwami: między sprawami widać „wolne 2 h 30 min”, a wydarzenia z iPhone’a stoją na swojej godzinie.',
     ],
   },
   {

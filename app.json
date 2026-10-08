@@ -46,7 +46,7 @@
           "locationWhenInUsePermission": "Organizer liczy czas dojazdu do Twoich dzisiejszych wydarzeń z miejscem (Mapy Apple). Położenie nie trafia na serwer Organizera.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
-          "motionUsagePermission": false
+          "motionUsagePermission": "Organizer nie korzysta z czujników ruchu. Ten opis wymaga Apple, bo biblioteka lokalizacji (czas dojazdu) zawiera taką funkcję."
         }
       ],
       [
