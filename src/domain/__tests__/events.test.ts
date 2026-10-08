@@ -109,6 +109,38 @@ describe('miejsce wydarzenia (D115)', () => {
   });
 });
 
+describe('całodniowy pojedynczy termin (D136)', () => {
+  it('„tylko to” bez godziny w serii z godziną: znacznik, widoki bez godzin; powrót godziny zdejmuje znacznik; „to i następne” go przenosi', () => {
+    const base = { title: 'Basen', date: '2026-10-05', startTime: '17:00', endTime: '18:00', rule: null, until: null, audience: 'group' as const, participantIds: [], responsibleId: null };
+    let n = 0;
+    const id = () => `o${++n}`;
+    const t = {} as Parameters<typeof put>[0];
+    put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
+    put(t, 'events', 'e', { id: 'e', group_id: 'gf', title: 'Basen', start_date: '2026-10-05', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', deleted_at: null });
+    const rule = eventDetail(t, ME, 'e')!.rule;
+    const [op] = editEvent(eventDetail(t, ME, 'e')!, '2026-10-12', 'this', { ...base, rule, date: '2026-10-12', startTime: null, endTime: null }, id);
+    expect(op).toMatchObject({ kind: 'create', entity: 'event_overrides', set: { all_day: true, start_time: null } });
+    put(t, 'event_overrides', 'o1', { id: 'o1', event_id: 'e', occurrence_date: '2026-10-12', ...(op as { set: object }).set, deleted_at: null });
+    const occ = expandEvents(t, ME, { y: 2026, m: 10, d: 12 }, { y: 2026, m: 10, d: 12 })[0]!;
+    expect([occ.startTime, occ.endTime]).toEqual([null, null]);
+    expect(fieldsOf(eventDetail(t, ME, 'e')!, '2026-10-12', 'this')).toMatchObject({ startTime: null, endTime: null });
+    // Godzina wraca: znacznik zdjęty.
+    expect(editEvent(eventDetail(t, ME, 'e')!, '2026-10-12', 'this', { ...base, rule, date: '2026-10-12' }, id)[0]).toMatchObject({ kind: 'patch', set: { all_day: false, start_time: '17:00' } });
+    // „To i następne” od 5.10 (wcześniej) przenosi znacznik do nowej serii.
+    const following = editEvent(eventDetail(t, ME, 'e')!, '2026-10-05', 'following', { ...base, rule }, id);
+    expect(following.find((o) => o.kind === 'create' && o.entity === 'event_overrides')).toBeUndefined(); // 5.10 = początek → cała seria
+    const later = editEvent(eventDetail(t, ME, 'e')!, '2026-10-12', 'following', { ...base, rule }, id);
+    expect(later.find((o) => o.kind === 'create' && o.entity === 'event_overrides')).toMatchObject({ set: { all_day: true } });
+    // Seria całodniowa: bez znacznika (nic nie zmienia).
+    put(t, 'events', 'e', { ...t.events!.e!, start_time: null, end_time: null });
+    put(t, 'event_overrides', 'o1', { ...t.event_overrides!.o1!, all_day: false });
+    const plain = editEvent(eventDetail(t, ME, 'e')!, '2026-10-19', 'this', { ...base, rule, date: '2026-10-19', startTime: null, endTime: null }, id)[0] as { set: object };
+    expect(plain.set).not.toHaveProperty('all_day');
+    expect((editEvent(eventDetail(t, ME, 'e')!, '2026-10-12', 'following', { ...base, rule }, id).find((o) => o.kind === 'create' && o.entity === 'event_overrides') as { set: object }).set).not.toHaveProperty('all_day');
+  });
+});
+
 describe('wiersze lokalne: wartości domyślne', () => {
   it('as*', () => {
     expect(asEvent({ id: 'e', group_id: 'g', start_date: '2026-10-05' })).toEqual({
@@ -141,9 +173,11 @@ describe('wiersze lokalne: wartości domyślne', () => {
       end_time: null,
       title: null,
       responsible_member_id: null,
+      all_day: false,
       deleted_at: null,
     });
     expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05', cancelled: true }).cancelled).toBe(true);
+    expect(asOverride({ id: 'o', event_id: 'e', occurrence_date: '2026-10-05', all_day: true }).all_day).toBe(true);
   });
 
   it('ruleOf: brak reguły, poprawna, niezrozumiała = jednorazowe; inny błąd leci dalej', () => {

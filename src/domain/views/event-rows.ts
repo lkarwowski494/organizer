@@ -40,6 +40,8 @@ export type Override = {
   title: string | null;
   /** Inna osoba odpowiedzialna w tym wystąpieniu; `null` = jak w serii. */
   responsible_member_id: string | null;
+  /** D136: ten termin całodniowy (godziny wyjątku i serii pomijane). */
+  all_day: boolean;
   deleted_at: string | null;
 };
 
@@ -70,8 +72,18 @@ export const asOverride = (r: Row): Override => ({
   end_time: s(r.end_time),
   title: s(r.title),
   responsible_member_id: s(r.responsible_member_id),
+  all_day: r.all_day === true,
   deleted_at: s(r.deleted_at),
 });
+
+/**
+ * Godziny wystąpienia: całodniowe z wyjątku (D136), inaczej godzina wyjątku (z jego końcem) albo godziny serii.
+ * Bez godziny w wyjątku zostają godziny serii — dlatego całodniowy termin w serii z godziną potrzebuje znacznika.
+ */
+export function occurrenceTimes(o: Pick<Override, 'all_day' | 'start_time' | 'end_time'> | undefined, e: Pick<EventRow, 'start_time' | 'end_time'>): { start: string | null; end: string | null } {
+  if (o?.all_day) return { start: null, end: null };
+  return { start: o?.start_time ?? e.start_time, end: o?.start_time ? o.end_time : e.end_time };
+}
 
 /** Reguła serii albo `null` (wydarzenie jednorazowe; reguła, której telefon nie rozumie, też = jednorazowe). */
 export function ruleOf(e: Pick<EventRow, 'rrule'>): Rule | null {
@@ -98,7 +110,7 @@ export function occurrenceResolver(t: Tables): OccurrenceDue {
     if (occurrences(parseIsoDate(e.start_date), ruleOf(e), d, d).length === 0) return null;
     const o = overrides.get(`${eventId}|${occurrenceDate}`);
     if (o?.cancelled) return null;
-    return { date: o?.start_date ?? occurrenceDate, time: o?.start_time ?? e.start_time };
+    return { date: o?.start_date ?? occurrenceDate, time: occurrenceTimes(o, e).start };
   };
 }
 

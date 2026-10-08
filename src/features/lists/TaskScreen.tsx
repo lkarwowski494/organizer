@@ -3,7 +3,7 @@
  * podzadania (do MAX_TASK_DEPTH, D4), usunięcie z możliwością cofnięcia (kosz, R1 „nic nie ginie”).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
@@ -15,6 +15,8 @@ import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, patchTask, remove, restore, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import type { Task } from '../../domain/views/model';
+import type { NewOp } from '../../domain/sync-engine/client';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
@@ -45,6 +47,14 @@ export function parseDueFields(date: string, time: string): { error: string } | 
   return { due: { date: date.trim(), time: t === '' ? null : t } };
 }
 
+/** D130: zmiany tytułu i notatki do zapisu (puste, gdy nic się nie zmieniło; pusty tytuł zostaje stary). */
+function textOps(v: { title: string; note: string }, cur: Task): NewOp[] {
+  return [
+    ...(v.title.trim() && v.title.trim() !== cur.title ? [patchTask(cur.id, { title: v.title.trim() })] : []),
+    ...((v.note.trim() || null) !== cur.note ? [patchTask(cur.id, { note: v.note.trim() || null })] : []),
+  ];
+}
+
 function find(nodes: TaskNode[], id: string): TaskNode | undefined {
   for (const n of nodes) {
     if (n.id === id) return n;
@@ -71,6 +81,20 @@ export function TaskScreen({ route, navigation }: Props) {
   const [sub, setSub] = useState('');
   const [picking, setPicking] = useState(false);
   const [handing, setHanding] = useState(false);
+  // D130: przy opuszczeniu ekranu zapisujemy też tekst z pola, z którego nie wyszło się wcześniej.
+  const editable = task !== null && task.deleted_at === null && myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
+  const latest = useRef({ title, note, task, editable });
+  useEffect(() => {
+    latest.current = { title, note, task, editable };
+  });
+  useEffect(
+    () => () => {
+      const l = latest.current;
+      const ops = l.task && l.editable ? textOps(l, l.task) : [];
+      if (ops.length) store.dispatch(ops);
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   if (!task || !detail) {
     return (
@@ -100,16 +124,18 @@ export function TaskScreen({ route, navigation }: Props) {
   // D70: zadanie „na mnie” mogę przekazać; do przyjęcia widać, na kogo czeka.
   const mine = task.assignee_member_id !== null && task.assignee_member_id === membership?.member_id;
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
-  const save = () => {
-    if (title.trim() && title.trim() !== task.title) store.dispatch(patchTask(task.id, { title: title.trim() }));
-    if ((note.trim() || null) !== task.note) store.dispatch(patchTask(task.id, { note: note.trim() || null }));
-    if (date.trim() !== '') {
-      const r = parseDueFields(date, time);
-      if ('error' in r) return setError(r.error);
-      if (r.due.date !== task.due_date || r.due.time !== (task.due_time?.slice(0, 5) ?? null) || task.deadline_mode !== 'own') store.dispatch(setDue(task.id, r.due));
-    }
+  // D130: każda zmiana zapisuje się od razu — tytuł i notatka po wyjściu z pola (i przy opuszczeniu ekranu),
+  // termin po wyborze daty albo poprawnej godziny. Bez przycisku „Zapisz”.
+  const commitText = (v: { title: string; note: string }, cur: Task) => {
+    const ops = textOps(v, cur);
+    if (ops.length) store.dispatch(ops);
+  };
+  const commitDue = (d: string, t: string) => {
+    if (d.trim() === '') return;
+    const r = parseDueFields(d, t);
+    if ('error' in r) return setError(r.error);
     setError(null);
-    navigation.goBack();
+    if (r.due.date !== task.due_date || r.due.time !== (task.due_time?.slice(0, 5) ?? null) || task.deadline_mode !== 'own') store.dispatch(setDue(task.id, r.due));
   };
   const addSub = () => {
     const parsed = parseQuickAdd(sub, now());
@@ -129,8 +155,8 @@ export function TaskScreen({ route, navigation }: Props) {
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
-          <Field label={strings['task.title']} value={title} onChangeText={setTitle} testID="task-title" />
-          <Field label={strings['task.note']} value={note} onChangeText={setNote} multiline testID="task-note" />
+          <Field label={strings['task.title']} value={title} onChangeText={setTitle} onBlur={() => commitText({ title, note }, task)} onSubmitEditing={() => commitText({ title, note }, task)} testID="task-title" />
+          <Field label={strings['task.note']} value={note} onChangeText={setNote} onBlur={() => commitText({ title, note }, task)} multiline testID="task-note" />
         </>
       ) : (
         <>
@@ -148,8 +174,8 @@ export function TaskScreen({ route, navigation }: Props) {
               ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
-      {canEdit ? <DateField label={strings['task.dueDate']} value={date} onChange={setDate} today={today} testID="task-date" /> : null}
-      {canEdit ? <TimeField label={strings['task.dueTime']} value={time} onChange={setTime} testID="task-time" optional /> : null}
+      {canEdit ? <DateField label={strings['task.dueDate']} value={date} onChange={(d) => (setDate(d), commitDue(d, time))} today={today} testID="task-date" /> : null}
+      {canEdit ? <TimeField label={strings['task.dueTime']} value={time} onChange={(t) => (setTime(t), commitDue(date, t))} testID="task-time" optional /> : null}
       {canEdit && task.deadline_mode !== 'none' ? (
         <Button
           kind="secondary"
@@ -251,7 +277,6 @@ export function TaskScreen({ route, navigation }: Props) {
           {canEdit ? <Button kind="secondary" label={strings['task.addSubtask']} onPress={addSub} /> : null}
         </View>
       ) : null}
-      {canEdit ? <Button label={strings['task.save']} onPress={save} testID="task-save" /> : null}
       {canEdit ? <Button kind="danger" label={strings['task.delete']} onPress={() => store.dispatch(remove('tasks', task.id))} /> : null}
       <TaskHistory entries={taskHistory(tables, task.id, config.HISTORY_LIMIT)} today={today} />
     </Screen>

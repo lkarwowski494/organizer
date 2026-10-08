@@ -53,7 +53,7 @@ describe('termin z wystąpienia (D13)', () => {
     run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-13', startTime: '17:00' }), newId));
     expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-13', time: '17:00' });
     run(t, editEvent(d(), '2026-10-12', 'this', fields({ date: '2026-10-12', startTime: null }), newId));
-    expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-12', time: '18:00' }); // pusta godzina w wyjątku = bez zmiany
+    expect(occ()(id, '2026-10-12')).toEqual({ date: '2026-10-12', time: null }); // D136: bez godziny = ten termin całodniowy
     run(t, cancelEvent(d(), '2026-10-19', 'this', newId));
     expect(occ()(id, '2026-10-19')).toBeNull();
     run(t, [{ kind: 'delete', entity: 'events', id }]);

@@ -13,7 +13,7 @@ import { plural } from '../plural';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { groupsView, myMemberships } from './index';
-import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
+import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
 import { rsvpId } from './rsvp';
 
@@ -96,8 +96,8 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         eventId: e.id,
         occurrenceDate: occ,
         date,
-        startTime: o?.start_time ?? e.start_time,
-        endTime: o?.start_time ? o.end_time : e.end_time,
+        startTime: occurrenceTimes(o, e).start,
+        endTime: occurrenceTimes(o, e).end,
         title: o?.title ?? e.title,
         recurring: rule !== null,
         overrideId: o?.id ?? null,
@@ -254,6 +254,8 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       title: f.title === e.title ? null : f.title,
       responsible_member_id: f.responsibleId === e.responsible_member_id ? null : f.responsibleId,
       cancelled: false,
+      // D136: bez godziny w serii z godziną — znacznik całodniowy (pole tylko, gdy coś zmienia: starsze dane bez niego).
+      ...(f.startTime === null && e.start_time !== null ? { all_day: true } : o?.all_day ? { all_day: false } : {}),
     };
     return o
       ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set }]
@@ -293,7 +295,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       entity: 'event_overrides',
       id: newId(),
       group_id: e.group_id,
-      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: o.responsible_member_id },
+      set: { event_id: created.id, occurrence_date: o.occurrence_date, cancelled: o.cancelled, start_date: o.start_date, start_time: o.start_time, end_time: o.end_time, title: o.title, responsible_member_id: o.responsible_member_id, ...(o.all_day ? { all_day: true } : {}) },
     });
   }
   // Odpowiedzi o obecności (D124) od tego dnia też przechodzą do nowej serii (audyt 8.10.2026).
@@ -330,8 +332,8 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
   return {
     title: o?.title ?? e.title,
     date: scope === 'all' ? e.start_date : (o?.start_date ?? occurrenceDate),
-    startTime: o?.start_time ?? e.start_time,
-    endTime: o?.start_time ? o.end_time : e.end_time,
+    startTime: occurrenceTimes(o, e).start,
+    endTime: occurrenceTimes(o, e).end,
     rule: d.rule ? { ...d.rule, count: null, until: null } : null,
     until,
     audience: e.audience,

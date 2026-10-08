@@ -5,11 +5,15 @@
  *  - poranne podsumowanie o `morning` (D110): ile spraw na ten dzień, w tym zaległych, i pierwsze z nich — zaległe,
  *    bez godziny, potem z godziną („17:00 Tańce”). Wysyłane, gdy dzień ma cokolwiek (dawniej tylko sprawy bez godziny).
  * Tylko przyszłe chwile, najbliższe `max`. Zamiana czasu warszawskiego na chwilę — wstrzykiwana (`toMs`).
+ * D134: podzadania i zadania wystąpienia stojące w planie pod rodzicem (nesting.ts) nie mają własnych przypomnień —
+ * rodzic (wydarzenie albo zadanie) dostaje jedno, z ich listą w treści (także „Czas wyjść”); poranne podsumowanie
+ * liczy tylko rodziców.
  */
 import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { myDays } from './my-days';
+import { nestEntries } from './nesting';
 import type { Tables } from './model';
 
 export type ReminderSettings = { leadMin: number; morning: string | 'off' };
@@ -23,7 +27,7 @@ export function planReminders(
   today: CivilDate,
   nowMs: number,
   s: ReminderSettings,
-  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string };
+  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string; leave?: (title: string) => string; subtasks?: (titles: string[]) => string };
     leaveFor?: (eventId: string, occurrenceDate: string) => { at: number; body: string } | null;
   },
 ): Reminder[] {
@@ -32,7 +36,20 @@ export function planReminders(
     const day = addDays(today, k);
     const iso = formatIsoDate(day);
     const view = myDays(t, userId, today, 'day', day, opts.localDate);
-    const entries = view.days[0]!.entries;
+    // D134: rodzic z listą tego, co pod nim (podzadania kolejnych poziomów też).
+    const nested = nestEntries(view.days[0]!.entries, t);
+    const under = new Map<string, string[]>();
+    let root = '';
+    for (const n of nested) {
+      // Pod rodzicem stoją tylko zadania (nesting.ts), a pierwszy wpis ma zawsze poziom 0.
+      if (n.depth === 0) root = n.entry.key;
+      else under.set(root, [...(under.get(root) ?? []), (n.entry as { task: { title: string } }).task.title]);
+    }
+    const entries = nested.filter((n) => n.depth === 0).map((n) => n.entry);
+    const extra = (key: string) => {
+      const list = under.get(key);
+      return list && opts.label.subtasks ? ` · ${opts.label.subtasks(list)}` : '';
+    };
     // Bez terminu (przypięte) nie przypominamy — codziennie to samo byłoby szumem.
     const untimed: string[] = [];
     const timed: string[] = [];
@@ -52,7 +69,7 @@ export function planReminders(
       if (e.kind === 'event' && opts.leaveFor) {
         const leave = opts.leaveFor(e.event.eventId, e.event.occurrenceDate);
         if (leave) {
-          if (leave.at > nowMs) out.push({ id: `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`, at: leave.at, title: opts.label.leave!(title), body: leave.body });
+          if (leave.at > nowMs) out.push({ id: `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`, at: leave.at, title: opts.label.leave!(title), body: `${leave.body}${extra(e.key)}` });
           continue;
         }
       }
@@ -60,7 +77,7 @@ export function planReminders(
       const at = opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) - s.leadMin * 60_000;
       const group = e.kind === 'event' ? e.event.groupName : e.task.groupName;
       const key = e.kind === 'event' ? `e|${e.event.eventId}|${e.event.occurrenceDate}` : `t|${e.task.id}`;
-      if (at > nowMs) out.push({ id: `${key}|${iso}`, at, title, body: `${time.slice(0, 5)} · ${group}` });
+      if (at > nowMs) out.push({ id: `${key}|${iso}`, at, title, body: `${time.slice(0, 5)} · ${group}${extra(e.key)}` });
     }
     const all = [...untimed, ...timed];
     if (s.morning !== 'off' && all.length) {

@@ -122,6 +122,17 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
   });
 });
 
+describe('Kalendarz = co było zaplanowane (D135)', () => {
+  it('zrobione zadanie zostaje w swoim dniu, odhaczone', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-paczka', { ...base.tasks!['t-paczka']!, completed_at: '2026-10-07T06:00:00Z' });
+    await open(base);
+    await press(screen.getByLabelText('Kalendarz'));
+    await screen.findByTestId('screen-calendar');
+    expect(screen.getByLabelText(/^Oznacz jako niezrobione: Odebrać paczkę/)).toBeTruthy();
+  });
+});
+
 describe('rolowanie (D61) i miniony dzień', () => {
   it('zaległe dziś na czerwono z liczbą dni; „Tylko tego dnia” mija i trafia na liście do zrobionych z dopiskiem', async () => {
     const base = sampleBase();

@@ -269,7 +269,8 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
     const due = effectiveDue(x, byId, occ);
-    if (!g || !l || l.kind === 'shopping' || due === null || x.completed_at !== null) continue;
+    // D135: Kalendarz = co było zaplanowane — także zrobione (przekreślone) i minione, w dniu swojego terminu.
+    if (!g || !l || l.kind === 'shopping' || due === null) continue;
     const list = byDate.get(due.date) ?? [];
     list.push({ ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null });
     byDate.set(due.date, list);
