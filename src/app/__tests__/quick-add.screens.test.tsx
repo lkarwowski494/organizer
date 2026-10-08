@@ -216,7 +216,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     const [list, task] = store.dispatched.slice(-2);
     expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Zadania' } });
     expect(task).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'zebranie', due_date: '2026-10-08' } });
-    expect(screen.getByText('Dodano: zebranie · Rodzina')).toBeTruthy();
+    expect(screen.getByText('Dodano zadanie: zebranie · Rodzina')).toBeTruthy();
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
   });
 
@@ -258,7 +258,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
 
   it('wspólna grupa bez osoby i terminu: zapis bez pytania, wcześniej napis, że nikt tego nie zobaczy (D68 po PW-18 b)', async () => {
     const { store } = await openWith({ lastUsedGroup: 'gf' });
-    const unseen = 'Bez osoby i terminu nikt nie zobaczy tego w „Moich sprawach” — dopisz np. „@ja” albo „jutro”.';
+    const unseen = 'Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.';
     await write('kupić chleb');
     expect(screen.getByText(unseen)).toBeTruthy();
     await add();
@@ -369,7 +369,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'mleko', deadline_mode: 'none' } });
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     const bar = screen.getByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano: mleko · Zakupy na weekend')).toBeTruthy();
+    expect(within(bar).getByText('Dodano produkt: mleko · Zakupy na weekend')).toBeTruthy();
     await press(within(bar).getByLabelText('Zmień'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
   });

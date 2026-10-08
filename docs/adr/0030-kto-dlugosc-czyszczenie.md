@@ -6,7 +6,7 @@ przycisk „wyczyść dane” w Ustawieniach (podejrzenie danych ze starych wers
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D119 | Gdzie pokazać osobę | W wierszu zawsze: „dla: Ty” / „dla: Ala” przy zadaniu, „odpowiada: Ty” / „odpowiada: Ala” przy wydarzeniu — w Moich sprawach i Kalendarzu | Tylko gdy to ktoś inny; tylko w szczegółach |
+| D119 | Gdzie pokazać osobę | W wierszu zawsze: „dla: Ty” / „dla: Ala” przy zadaniu, „odpowiada: Ty” / „odpowiada: Ala” przy wydarzeniu — w Moich sprawach i Kalendarzu. **→ Brzmienie zmienione:** „dla Ciebie” / „dla: Ala” (audyt 6c66161), „Ty odpowiadasz” / „odpowiada: Ala”, zakupy tym samym wzorem co zadania, „(Ty)” przy sobie wśród osób i uczestników (audyt 2, M-135; słownik: docs/glossary.md) | Tylko gdy to ktoś inny; tylko w szczegółach |
 | D120 | Jak pokazać czas trwania | Godziny + długość: „17:00–18:30 · 1 h 30 min” (wydarzenia; zadania nie mają długości, D99) | Sama długość; tylko w szczegółach |
 | D121 | Co czyści „Wyczyść dane” | Telefon od nowa: usuwa kopię danych i kolejkę na tym iPhonie, pobiera wszystko z serwera; na serwerze nic nie znika; ostrzeżenie o niewysłanych zmianach | Sprzątanie osieroconych wpisów na serwerze; usunięcie moich zadań i wydarzeń |
 

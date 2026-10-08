@@ -1,4 +1,4 @@
-import { formatDue, formatLength, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
+import { formatDateInline, formatDue, formatLength, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -6,6 +6,9 @@ describe('daty na ekranach', () => {
   it('pełna data wg wzorca CLDR „EEEE, d MMMM y”, wielka litera na początku', () => {
     expect(formatLongDate(TODAY, TODAY)).toBe('Środa, 7 października');
     expect(formatLongDate({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('Poniedziałek, 4 stycznia 2027');
+    // Audyt 2 (U-55): w środku zdania małą literą.
+    expect(formatDateInline(TODAY, TODAY)).toBe('środa, 7 października');
+    expect(formatDateInline({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('poniedziałek, 4 stycznia 2027');
     expect(formatLongDate({ y: 2026, m: 10, d: 11 }, TODAY)).toBe('Niedziela, 11 października');
   });
 

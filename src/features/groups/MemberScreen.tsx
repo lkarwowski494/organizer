@@ -90,6 +90,8 @@ export function MemberScreen({ route, navigation }: Props) {
         <View style={{ gap: 6 }}>
           <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
           {name.error ? <ErrorText>{name.error}</ErrorText> : null}
+          {/* Audyt 2 (P-67): imię w tej grupie a imię konta — gdzie zmienić to drugie. */}
+          {m.user_id === userId ? <Body muted>{strings['member.nameHere']}</Body> : null}
         </View>
       ) : null}
       {can.setRole ? (
@@ -99,9 +101,9 @@ export function MemberScreen({ route, navigation }: Props) {
           value={m.role as 'admin' | 'member' | 'child'}
           onChange={(r) => store.dispatch(setRole(m.member_id, r))}
           options={[
-            { value: 'admin', label: strings['groups.role.admin'] },
-            { value: 'member', label: strings['groups.role.member'] },
-            { value: 'child', label: strings['groups.role.child'] },
+            { value: 'admin', label: strings['member.roleOption.admin'] },
+            { value: 'member', label: strings['member.roleOption.member'] },
+            { value: 'child', label: strings['member.roleOption.child'] },
           ]}
         />
       ) : null}

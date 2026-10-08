@@ -20,6 +20,12 @@ export function formatLongDate(date: CivilDate, today: CivilDate): string {
   return cap(date.y === today.y ? base : `${base} ${date.y}`);
 }
 
+/** Ta sama data w środku zdania, małą literą: „Przeniesione z: środa, 7 października” (audyt 2, U-55). */
+export function formatDateInline(date: CivilDate, today: CivilDate): string {
+  const long = formatLongDate(date, today);
+  return long.charAt(0).toLocaleLowerCase('pl') + long.slice(1);
+}
+
 /**
  * Zakres tygodnia: „5–11 października”, „28 września – 4 października”, z rokiem, gdy inny niż bieżący.
  * Wzorce CLDR 48.2.3 pl, intervalFormats MMMMd / yMMMMd: „d–d MMMM”, „d MMMM\u2009–\u2009d MMMM”,
