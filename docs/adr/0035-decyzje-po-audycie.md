@@ -16,7 +16,7 @@
 | D137 | K. „Przenieś zaległe” a miesięczne powtarzanie | Reguła pamięta dzień miesiąca; przeniesienie zmienia tylko ten raz | Nie przenosić powtarzanych |
 | D138 | L. Dziecko wraca przez zaproszenie | Rola dziecka zostaje (zmienia ją tylko admin) | Powrót do zatwierdzenia |
 | D139 | M. Lista poszerzona do „cała grupa” pusta u innych | Naprawić (sygnał nowego dostępu, telefon pobiera zawartość) | Zostaje |
-| D140 | N. Blokowanie dołączania złymi kodami | Zostaje jak jest | Poprawny kod zawsze przechodzi |
+| D140 | N. Blokowanie dołączania złymi kodami | Zostaje jak jest — **odwrócona 8.10.2026 (audyt 2): poprawny kod przechodzi, limit na konto i na kod, ADR 0020** | Poprawny kod zawsze przechodzi |
 | D141 | O. Martwy link w zaproszeniu | Ukryć link w wiadomości, dopóki strona nie będzie gotowa | Kroki właściciela teraz |
 | D142 | P. Polityka prywatności | Uzupełnić teraz, do akceptu właściciela | Przed publikacją |
 | D143 | Q. Testy E2E i zrzuty ekranu | Wdrożyć przy każdej zmianie (repo publiczne — standardowe maszyny GitHub Actions, także macOS, bez opłat: „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners”, https://docs.github.com/en/billing/concepts/product-billing/github-actions) | Tylko w nocy; usunąć z zasad |
@@ -39,6 +39,8 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   Litery A/B nie są zapisywane: przy otwarciu bieżący tydzień to A.
 - **D130.** Tytuł i notatka zapisują się po wyjściu z pola i przy opuszczeniu ekranu; termin po wyborze daty albo
   poprawnej godziny (niepoprawna — komunikat, bez zapisu). Odrzucone: zapis po każdym znaku (wiele zmian w kolejce).
+  Audyt 2 (PW-20 A): tak samo nazwa grupy i imię osoby — pole podąża za danymi, dopóki go nie zmienię, zapis tylko
+  zmienionego pola, bez „Zapisz”; pustej nazwy (i pustego albo za długiego imienia) nie zapisujemy — komunikat.
 - **D131.** Jedna trasa `Settings` z parametrem `section`; wylogowanie z potwierdzeniem. Przy okazji (audyt):
   wylogowanie wyrejestrowuje token powiadomień tego telefonu (`unregister_push_token`); bez sieci wylogowanie i tak
   następuje.

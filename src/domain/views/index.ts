@@ -136,8 +136,7 @@ export function removedMembers(t: Tables, userId: string, groupId: string, nowMs
   const me = myMemberships(t, userId).get(groupId);
   if (!me || (me.role !== 'owner' && me.role !== 'admin')) return [];
   const day = 86_400_000;
-  return Object.values(t.group_members ?? {})
-    .map((r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
+  return rows(t, 'group_members', (r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
     .filter(({ m, removedAt }) => m.group_id === groupId && m.deleted_at !== null && typeof removedAt === 'string' && (me.role === 'owner' || m.role === 'member' || m.role === 'child'))
     .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((Date.parse(removedAt as string) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
     .filter((m) => m.daysLeft > 0)

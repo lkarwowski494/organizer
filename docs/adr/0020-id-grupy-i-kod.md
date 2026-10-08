@@ -33,3 +33,26 @@ Dołącza się, wpisując ID i kod albo klikając link, czyli dwa sposoby, jak p
 
 ## Sprostowanie (8.10.2026, audyt dokumentacji)
 Komentarz w wydanej migracji `20261008250000_join_codes.sql` (`private.random_digits`) mówi o „122 losowych bitach” i liczbie z 2^60. Funkcja bierze 15 pierwszych znaków szesnastkowych UUID z `gen_random_uuid` (wersja 4, RFC 9562), a 13. znak to stała cyfra wersji „4”. Losowych jest więc 56 bitów (14 znaków), nie 60. Wniosek się nie zmienia: przesunięcie modulo dla 10⁹ wynosi najwyżej 10⁹ / 2⁵⁶ ≈ 1,4 · 10⁻⁸, czyli jest pomijalne. Wydanych migracji nie edytujemy, więc poprawka jest tylko tutaj.
+
+## Audyt 2 (8.10.2026): zmiany
+Migracja `20261008362000_join_codes_v2.sql`, testy `supabase/tests/join_codes_v2.test.sql`.
+- **D140 odwrócona (limit prób, zmienia D93 pkt 2).** Limit 20 nieudanych prób na ID grupy na godzinę blokował też
+  poprawny kod (cudze błędy wystarczały, żeby nikt nie dołączył). Teraz: limit tylko na konto (5 na godzinę, bez zmian),
+  a kod, który od utworzenia zebrał `config.invites.JOIN_FAILS_PER_CODE` = 100 nieudanych prób na swoje ID grupy, przestaje
+  działać (zapraszający tworzy nowy). Rachunek (szczebel 1): każda nieudana próba to jeden strzał w aktywne kody grupy
+  (najwyżej dwa — członka i admina), więc szansa odgadnięcia kodu w całym jego życiu ≤ 100 / 10⁶ = 0,01% (któregoś
+  z dwóch ≤ 0,02%; dotąd ≤ 480 / 10⁶ = 0,048% na kod). Zepsucie komuś kodu kosztuje 100 nieudanych prób, czyli 20 kont
+  × 1 h, a skutkiem jest prośba o nowy kod, nie blokada wszystkich. Próby starsze niż doba kasujemy, a kod żyje 24 h, więc
+  liczą się wszystkie z jego życia. Odrzucone: limit grupy tylko z kont z udanym logowaniem Apple (B-9, wariant A —
+  więcej pracy, a cudze próby nadal blokowałyby poprawny kod).
+- **Jeden aktywny kod na grupę i rolę (PW-41 A).** „Zaproś” pokazuje bieżący ważny kod tej roli (także na drugim
+  telefonie), nowy powstaje tylko, gdy ważnego nie ma; „Nowy kod” (`renew_join_code`) unieważnia poprzedni. Dlatego kod
+  6-cyfrowy jest zapisany w `invites.code` (bez uprawnień odczytu dla telefonu; czyta go tylko funkcja dla owner/admin).
+  Bezpieczeństwo bez zmian: przy 10⁶ kodów sam skrót bez sekretu i tak nie chronił przy wycieku bazy (B-20). Długich
+  tokenów nadal nie zapisujemy.
+- **Kolizja skrótu z dawnym kodem grupy (B-8):** losujemy ponownie (do 10 prób) zamiast błędu 23505.
+- **Powrót osoby usuniętej (PW-6 A, D152):** osoba usunięta przez owner/admin (`group_members.removed_at`) wraca tylko
+  z zaproszenia wystawionego po usunięciu (`invite_removed`); jej zaproszenia przestają działać przy usunięciu.
+  Samodzielne wyjście jak dotąd. Przy powrocie imię wpisane przy dołączaniu zastępuje dawne (R-25).
+- **Skąd wziąć aplikację (PW-7 A):** wiadomość ma wiersz z publicznym linkiem TestFlight, gdy
+  `config.invites.TESTFLIGHT_LINK` jest ustawiony (do tego czasu bez wiersza; `docs/testflight-beta.md`, krok 4).
