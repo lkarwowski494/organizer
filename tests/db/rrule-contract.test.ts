@@ -10,6 +10,7 @@ import { join } from 'node:path';
 
 import { Client } from 'pg';
 
+import { formEventRules } from '../../src/domain/__tests__/support/form-rules';
 import { formatRule, parseRule } from '../../src/domain/rrule';
 import { formatRepeat, parseRepeat, type Repeat } from '../../src/domain/views/task-repeat';
 
@@ -27,6 +28,7 @@ const repeats: Repeat[] = [
   { kind: 'daily' },
   { kind: 'monthly' },
   ...Array.from({ length: 31 }, (_, i): Repeat => ({ kind: 'monthly', day: i + 1 })),
+  { kind: 'monthly', day: -1 },
   // Każdy niepusty podzbiór dni tygodnia.
   ...Array.from({ length: 127 }, (_, mask): Repeat => ({ kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6].filter((b) => ((mask + 1) >> b) & 1) })),
   ...(['DAILY', 'WEEKLY'] as const).flatMap((unit) => Array.from({ length: 99 }, (_, i): Repeat => ({ kind: 'after', unit, interval: i + 1 }))),
@@ -94,12 +96,12 @@ d('reguły powtarzania: telefon = serwer (M-190)', () => {
 
   it('wydarzenia: korpus, szybkie dodawanie, formularz, błędne i losowe', async () => {
     const formatted = [...corpus, ...quickadd].map((r) => formatRule(parseRule(r)));
-    const rules = [...new Set([...corpus, ...quickadd, ...formatted, ...BAD, ...GOOD, ...random(4000)])];
+    const rules = [...new Set([...corpus, ...quickadd, ...formatted, ...formEventRules(), ...BAD, ...GOOD, ...random(4000)])];
     const sql = await check('rrule_ok', rules);
     const differ = rules.filter((r) => sql.get(r) !== phoneAccepts(r));
     expect(differ).toEqual([]);
     // Zestaw zawiera i przyjęte, i odrzucone (test nie jest pusty po żadnej stronie).
-    for (const r of [...corpus, ...GOOD]) expect(sql.get(r)).toBe(true);
+    for (const r of [...corpus, ...GOOD, ...formEventRules()]) expect(sql.get(r)).toBe(true);
     for (const r of BAD) expect(sql.get(r)).toBe(false);
   });
 

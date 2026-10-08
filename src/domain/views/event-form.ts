@@ -10,8 +10,12 @@ import { alignStart, type Rule } from '../rrule';
 import type { EventFields } from './events';
 
 export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-/** Co miesiąc: tego samego dnia, w n-ty dzień tygodnia (1.–4.) albo w ostatni dzień tygodnia. */
-export type Monthly = 'day' | 'nth' | 'last';
+/**
+ * Co miesiąc: tego samego dnia, w n-ty dzień tygodnia (1.–4.), w ostatni dzień tygodnia albo ostatniego dnia miesiąca
+ * (BYMONTHDAY=-1, decyzja właściciela 8.10.2026, PWD-37; RFC 5545 §3.3.10: „Valid values are 1 to 31 or -31 to -1”,
+ * https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10). Jak przy „last”, dzień startu musi pasować do reguły.
+ */
+export type Monthly = 'day' | 'nth' | 'last' | 'lastDay';
 export type Slot = { days: number[]; start: string; end: string };
 export type EventForm = {
   title: string;
@@ -43,10 +47,11 @@ const validDate = (s: string) => {
 };
 const hm = (t: string | null) => (t === null ? '' : t.slice(0, 5));
 
-/** Który to dzień tygodnia w miesiącu (1–5) i czy ostatni. */
-export function weekdayPosition(date: string): { n: number; last: boolean; wd: number } {
+/** Który dzień tygodnia w miesiącu (1–5), czy ostatni taki dzień tygodnia i czy to ostatni dzień miesiąca. */
+export function weekdayPosition(date: string): { n: number; last: boolean; wd: number; lastDay: boolean } {
   const d = parseIsoDate(date);
-  return { n: Math.ceil(d.d / 7), last: d.d + 7 > daysInMonth(d.y, d.m), wd: isoWeekday(d) };
+  const dim = daysInMonth(d.y, d.m);
+  return { n: Math.ceil(d.d / 7), last: d.d + 7 > dim, wd: isoWeekday(d), lastDay: d.d === dim };
 }
 
 export function emptyForm(date: string, participantIds: string[] = []): EventForm {
@@ -79,7 +84,7 @@ export function formOf(f: EventFields): EventForm {
     slots: [{ days: r?.freq === 'WEEKLY' && r.byday.length ? [...new Set(r.byday.map((x) => x.wd))].sort((x, y) => x - y) : [wd], start: hm(f.startTime), end: hm(f.endTime) }],
     repeat: r ? REPEAT[r.freq] : 'none',
     interval: String(r?.interval ?? 1),
-    monthly: b && b.n !== null ? (b.n === -1 ? 'last' : 'nth') : 'day',
+    monthly: b && b.n !== null ? (b.n === -1 ? 'last' : 'nth') : r?.bymonthday[0] === -1 ? 'lastDay' : 'day',
     ends: f.until ? 'until' : 'never',
     until: f.until ?? '',
     audience: f.audience,
@@ -93,6 +98,7 @@ function ruleFor(s: EventForm, slot: Slot): Rule | null {
   if (s.repeat === 'none') return null;
   const base: Rule = { freq: FREQ[s.repeat], interval: Number(s.interval), byday: [], bymonthday: [], count: null, until: null };
   if (s.repeat === 'weekly') return { ...base, byday: [...new Set(slot.days)].sort((a, b) => a - b).map((wd) => ({ n: null, wd })) };
+  if (s.repeat === 'monthly' && s.monthly === 'lastDay') return { ...base, bymonthday: [-1] };
   if (s.repeat === 'monthly' && s.monthly !== 'day') {
     const p = weekdayPosition(s.date);
     return { ...base, byday: [{ n: s.monthly === 'last' ? -1 : p.n, wd: p.wd }] };
@@ -117,6 +123,7 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
   if (s.repeat !== 'none' && (!/^\d{1,2}$/.test(s.interval.trim()) || Number(s.interval) < 1)) return { error: 'interval' };
   if (s.repeat === 'monthly' && s.monthly === 'nth' && weekdayPosition(date).n > 4) return { error: 'monthly' };
   if (s.repeat === 'monthly' && s.monthly === 'last' && !weekdayPosition(date).last) return { error: 'monthly' };
+  if (s.repeat === 'monthly' && s.monthly === 'lastDay' && !weekdayPosition(date).lastDay) return { error: 'monthly' };
   const until = s.repeat !== 'none' && s.ends === 'until' ? s.until.trim() : null;
   if (until !== null && (!validDate(until) || until < date)) return { error: 'until' };
   if (s.audience === 'members' && s.participantIds.length === 0) return { error: 'participants' };

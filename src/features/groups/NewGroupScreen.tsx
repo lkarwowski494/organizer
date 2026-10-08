@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { useServices } from '../../app/context';
+import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
@@ -23,6 +24,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   // Audyt 2 (R-27): te same identyfikatory przy ponowieniu — gdy odpowiedź serwera zginęła, druga próba nie tworzy
   // drugiej grupy, a serwer potwierdza istniejącą (create_group_with_owner, migracja 20261008360000).
+  // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Utwórz” zostawia wpisane pola (app/form-draft); nazwa
+  // podana przy otwarciu (Pierwsze kroki) ma pierwszeństwo przed szkicem.
+  const draft = useFormDraft('group:new', { name, me }, { name: setName, me: setMe }, { restore: route.params?.name === undefined });
   const [ids] = useState(() => ({ groupId: newId(), ownerMemberId: newId() }));
 
   const create = async () => {
@@ -30,6 +34,7 @@ export function NewGroupScreen({ navigation, route }: Props) {
     setError(null);
     try {
       await account.createGroup({ ...ids, name: name.trim(), displayName: me.trim() });
+      draft.saved();
       // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków dostaje od razu „Zakupy” i „Zadania”
       // (kolejka, jak każda nowa lista) i kartę „Następne kroki” na ekranie grupy (pamiętaną na tym telefonie).
       if (route.params?.starter) {
@@ -48,6 +53,7 @@ export function NewGroupScreen({ navigation, route }: Props) {
     <Screen testID="screen-new-group">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['groups.new']}</Title>
+      <DraftNote draft={draft} />
       <Field label={strings['groups.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.GROUP_NAME} testID="group-name" />
       <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="group-my-name" />
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}

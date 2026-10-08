@@ -72,7 +72,8 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     await type(screen.getByTestId('group-rename'), '   ');
     await blur(screen.getByTestId('group-rename'));
     expect(screen.getByRole('alert').props.children).toBe('Wpisz nazwę grupy.');
-    expect(screen.getByTestId('group-rename').props.value).toBe('   ');
+    // Jedna reguła pól zapisywanych od razu (ui/live-text, jak tytuł zadania — M-202): pole wraca do zapisanej nazwy.
+    expect(screen.getByTestId('group-rename').props.value).toBe('Rodzina');
     expect(s.store.dispatched).toEqual([]);
     await type(screen.getByTestId('group-rename'), ' Dom ');
     expect(screen.queryByRole('alert')).toBeNull();

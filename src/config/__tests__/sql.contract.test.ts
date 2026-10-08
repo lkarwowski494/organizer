@@ -5,10 +5,12 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { formatRule, parseRule } from '../../domain/rrule';
+import { formEventRules } from '../../domain/__tests__/support/form-rules';
 import { OVERRIDE_NAMESPACE } from '../../domain/views/events';
 import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
 import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
-import { nextId, REPEAT_NAMESPACE } from '../../domain/views/task-repeat';
+import { formatRepeat, nextId, parseRepeat, REPEAT_NAMESPACE, type Repeat } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
@@ -157,4 +159,26 @@ describe('src/config zgodny z SQL', () => {
   it('brak definicji zgłaszany wprost', () => {
     expect(() => sqlConstant('nie_istnieje')).toThrow('Brak funkcji');
   });
+
+  // PWD-37 (audyt 2): każda reguła, którą zapisuje telefon (zadania i wydarzenia, także BYMONTHDAY=-1), czyta telefon.
+  // Że serwer przyjmuje dokładnie te reguły (private.rrule_ok ⇔ parseRule, private.task_repeat_ok ⇔ parseRepeat), sprawdza
+  // na prawdziwym SQL tests/db/rrule-contract.test.ts (M-190) — także dla reguł z formularza wydarzenia z tego testu.
+  it('reguły powtarzania z formularzy telefon odczytuje; CHECK w SQL to funkcje z kontraktem na prawdziwej bazie', () => {
+    const taskRules: Repeat[] = [
+      { kind: 'daily' },
+      { kind: 'weekly', days: [0, 1, 2, 3, 4, 5, 6] },
+      { kind: 'monthly' },
+      { kind: 'monthly', day: 31 },
+      { kind: 'monthly', day: -1 },
+      { kind: 'after', unit: 'DAILY', interval: 14 },
+      { kind: 'after', unit: 'WEEKLY', interval: 99 },
+    ];
+    for (const r of taskRules) expect(parseRepeat(formatRepeat(r))).toEqual(r.kind === 'weekly' ? { ...r, days: [...r.days].sort() } : r);
+    const eventRules = formEventRules();
+    expect(eventRules).toContain('FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=-1');
+    for (const text of eventRules) expect(formatRule(parseRule(text))).toBe(text);
+    // Ostatnie definicje: reguła wydarzenia i powtarzanie zadania przez funkcje (nie wyrażenie skopiowane z telefonu).
+    expect(sql).toMatch(/alter table public\.tasks add constraint tasks_repeat_check check \(private\.task_repeat_ok\(repeat\)\)/);
+  });
 });
+
