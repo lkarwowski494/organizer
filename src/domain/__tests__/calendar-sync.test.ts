@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, withoutDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorHash, mirrorItems, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
+import { type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, withoutDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorHash, mirrorItems, mirrorReady, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -153,5 +153,20 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     const t = base();
     put(t, 'events', 'e3', { id: 'e3', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
     expect(mirrorItems(t, ME, today, 0, 3).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, notes: 'Rodzina' });
+  });
+});
+
+describe('lustro czeka na pobranie (audyt 8.10.2026)', () => {
+  const t = {
+    groups: { g1: { id: 'g1', name: 'Rodzina', kind: 'shared' }, g2: { id: 'g2', name: 'Osobiste', kind: 'personal' } },
+    group_members: {
+      m1: { member_id: 'm1', group_id: 'g1', user_id: 'u1', display_name: 'A', role: 'admin', deleted_at: null },
+      m2: { member_id: 'm2', group_id: 'g2', user_id: 'u1', display_name: 'A', role: 'owner', deleted_at: null },
+    },
+  };
+  it('po wyczyszczeniu (bez grup) i przy niepełnym pobraniu — nie; gdy każda grupa ma kursor — tak', () => {
+    expect(mirrorReady({}, 'u1', {})).toBe(false);
+    expect(mirrorReady(t, 'u1', { g1: 4 })).toBe(false);
+    expect(mirrorReady(t, 'u1', { g1: 4, g2: 0 })).toBe(true);
   });
 });

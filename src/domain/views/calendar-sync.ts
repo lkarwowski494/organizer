@@ -182,6 +182,16 @@ export function planMirror(items: readonly MirrorItem[], state: MirrorState, gro
 
 const dayNo = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000;
 
+/**
+ * Czy dane są już pobrane na tyle, żeby układać lustro (audyt 8.10.2026). Po „Wyczyść dane na telefonie” (D121) albo
+ * przed pierwszym pobraniem nie ma żadnej grupy, a planMirror usunąłby wtedy kalendarze wszystkich grup z iPhone'a
+ * (iOS nie odtworzy ich kolorów i ustawień). Czekamy, aż każda moja grupa ma kursor pobierania.
+ */
+export function mirrorReady(t: Tables, userId: string, cursors: Readonly<Record<string, number>>): boolean {
+  const groups = groupsView(t, userId);
+  return groups.length > 0 && groups.every((g) => cursors[g.id] !== undefined);
+}
+
 /** Grupy do lustra: wszystkie moje (osobista też — jej wydarzenia też są „grupowe” w aplikacji). */
 export const mirrorGroups = (t: Tables, userId: string) => groupsView(t, userId).map((g) => ({ id: g.id, name: g.kind === 'personal' ? PERSONAL_NAME : g.name }));
 

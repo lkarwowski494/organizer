@@ -8,7 +8,7 @@ import { AppState } from 'react-native';
 
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
-import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent } from '../domain/views/calendar-sync';
+import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorReady } from '../domain/views/calendar-sync';
 import { localNow, localToMs } from './clock';
 import { clearMirror, loadMirror, runMirror } from './calendar-mirror';
 import { useAppData, useServices } from './context';
@@ -49,7 +49,8 @@ export const useDeviceCalendar = () => useContext(Ctx);
 
 export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   const { calendar, prefs, local, account, userId } = useServices();
-  const { tables, today } = useAppData();
+  const { tables, today, state } = useAppData();
+  const ready = mirrorReady(tables, userId, state.cursors);
   const sync = calendar.sync;
   const available = !!sync && !!prefs && !!local;
   const [status, setStatus] = useState<Api['status']>(null);
@@ -106,7 +107,7 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   // Lustro: po zmianie danych (z opóźnieniem — seria zmian z synchronizacji daje jedno przeliczenie).
   const running = useRef(false);
   useEffect(() => {
-    if (!available || !mirror || status !== 'granted') return;
+    if (!available || !mirror || status !== 'granted' || !ready) return;
     const timer = setTimeout(() => {
       if (running.current) return;
       running.current = true;
@@ -117,7 +118,7 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
         });
     }, config.calendar.MIRROR_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [available, mirror, status, tables, userId, today, tick, sync, local, report]);
+  }, [available, mirror, status, ready, tables, userId, today, tick, sync, local, report]);
 
   const mirrors = useMemo(() => (local ? new Set(Object.values(loadMirror(local).calendars)) : new Set<string>()), [local, events]); // eslint-disable-line react-hooks/exhaustive-deps
   const exclude = useMemo(() => new Set([...mirrors, ...skip]), [mirrors, skip]);

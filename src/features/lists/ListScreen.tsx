@@ -191,9 +191,12 @@ export function ListScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} /> : null}
-      <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
-        {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} /> : null}
-      </QuickAddField>
+      {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
+      {canDelete ? (
+        <QuickAddField value={text} onChangeText={(v) => (setText(v), setAsk(false))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+          {shopping ? <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add({}, name)} /> : null}
+        </QuickAddField>
+      ) : null}
       {ask ? (
         <View testID="addressee-ask" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
@@ -227,15 +230,17 @@ export function ListScreen({ route, navigation }: Props) {
           {rows(detail.done, true)}
         </View>
       ) : null}
-      <Button
-        kind="danger"
-        label={strings['lists.delete']}
-        onPress={() => {
-          store.dispatch(remove('lists', list.id));
-          undo.show(strings['undo.listDeleted'](list.name), () => store.dispatch(restore('lists', list.id)));
-          navigation.goBack();
-        }}
-      />
+      {canDelete ? (
+        <Button
+          kind="danger"
+          label={strings['lists.delete']}
+          onPress={() => {
+            store.dispatch(remove('lists', list.id));
+            undo.show(strings['undo.listDeleted'](list.name), () => store.dispatch(restore('lists', list.id)));
+            navigation.goBack();
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }

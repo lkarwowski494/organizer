@@ -47,6 +47,18 @@ describe('kto i jak długo (D119, D120)', () => {
 });
 
 describe('wyczyść dane na telefonie (D121)', () => {
+  it('bez internetu — przycisk wyłączony z wyjaśnieniem', async () => {
+    const resetLocal = jest.fn();
+    const s = setup({ resetLocal, indicator: { state: 'offline', pending: 0 } });
+    await s.renderApp(<RootStack />);
+    await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('reset-start'));
+    expect(screen.getByText(/Najpierw połącz się z internetem/)).toBeTruthy();
+    expect(screen.getByTestId('reset-confirm').props.accessibilityState).toMatchObject({ disabled: true });
+    await press(screen.getByTestId('reset-confirm'));
+    expect(resetLocal).not.toHaveBeenCalled();
+  });
+
   it('potwierdzenie z ostrzeżeniem o niewysłanych zmianach; anuluj; wyczyść', async () => {
     const resetLocal = jest.fn();
     const s = setup({ resetLocal });

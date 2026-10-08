@@ -172,7 +172,7 @@ export function GroupScreen({ route, navigation }: Props) {
       {lists.map((l) => (
         <NavRow key={l.id} title={l.name} subtitle={strings['lists.open'](l.open)} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
       ))}
-      <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />
+      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
       {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
       {series.map((e) => (
