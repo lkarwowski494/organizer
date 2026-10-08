@@ -3,8 +3,8 @@ import { migrate } from '../../data/db/migrations';
 import { readState, writeState } from '../../data/store';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { initialState } from '../../domain/sync-engine/client';
-import { SyncRuntime } from '../runtime';
+import { initialState, type PullResponse } from '../../domain/sync-engine/client';
+import { pullStep, SyncRuntime } from '../runtime';
 import { TransportError, errorKind, type SyncTransport } from '../transport';
 
 const G = 'g1';
@@ -242,5 +242,94 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(errorKind(new TransportError('server', 'x'))).toBe('server');
     expect(errorKind(new Error('x'))).toBe('network');
     expect(new TransportError('auth', 'm')).toMatchObject({ name: 'TransportError', message: 'm', kind: 'auth' });
+  });
+
+  it('D159: po wysłaniu — operacje, odpowiedź i stan sprzed niej dla cichych powiadomień; błąd tam nie psuje wysyłki', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const seen: unknown[] = [];
+    const { rt, flush, advance } = harness(tr, {
+      onPushed: (ops, res, st) => {
+        seen.push([ops.map((o) => o.seq), res.results.map((r) => r.status), st.ackedSeq]);
+        throw new Error('awaria');
+      },
+    });
+    rt.start();
+    await flush();
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    expect(seen).toEqual([[[1], ['ok'], 0]]);
+    expect(tr.calls).toEqual(['pull', 'push', 'pull']);
+    expect(rt.getSnapshot().indicator.state).toBe('synced');
+  });
+
+  it('D159: refreshNow czeka na pobranie, które zaczęło się po prośbie (wszystkie porcje); błąd i zatrzymanie też kończą', async () => {
+    const page = (more: boolean): PullResponse => ({ groups: [{ group_id: G, cursor: 1, has_more: more, resync: false, rows: [] }], scopes: [] });
+    const pages: ((v: PullResponse) => void)[] = [];
+    let fail = false;
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: () => (fail ? Promise.reject(new Error('sieć')) : new Promise<PullResponse>((r) => pages.push(r))),
+      fetchScope: async () => [],
+    };
+    const { rt, flush } = harness(tr);
+    rt.start();
+    await flush();
+    expect(pages).toHaveLength(1); // pierwsze pobranie w toku
+    let done = false;
+    void rt.refreshNow().then(() => (done = true));
+    pages[0]!(page(false));
+    await flush();
+    expect(done).toBe(false); // to pobranie zaczęło się przed prośbą
+    expect(pages).toHaveLength(2);
+    pages[1]!(page(true));
+    await flush();
+    expect(done).toBe(false); // jeszcze porcja
+    pages[2]!(page(false));
+    await flush();
+    expect(done).toBe(true);
+    fail = true;
+    await expect(rt.refreshNow()).resolves.toBeUndefined();
+    fail = false;
+    const waiting = rt.refreshNow();
+    rt.stop();
+    await expect(waiting).resolves.toBeUndefined();
+    await expect(rt.refreshNow()).resolves.toBeUndefined();
+  });
+
+  it('D159: refreshNow w tle pobiera mimo tła i wraca do tła; dwa naraz; powrót na pierwszy plan w trakcie zostaje', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const { rt, flush } = harness(tr);
+    rt.start();
+    await flush();
+    rt.event({ t: 'background' });
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls).toEqual(['pull']); // w tle pętla nie pobiera
+    // Druga prośba przyszła w trakcie pierwszego pobrania — jeszcze jedno.
+    await Promise.all([rt.refreshNow(), rt.refreshNow()]);
+    expect(tr.calls).toEqual(['pull', 'pull', 'pull']);
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls).toHaveLength(3); // znów tło
+    const p = rt.refreshNow();
+    rt.event({ t: 'foreground' });
+    await p;
+    await flush();
+    const n = tr.calls.length;
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls.length).toBe(n + 1); // pierwszy plan — pobiera jak zwykle
+  });
+
+  it('pullStep: porcja i nowe ukryte listy; zwraca has_more', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    let st = initialState('c-1');
+    expect(await pullStep(() => st, (n) => (st = n), serverTransport(server, 'ala'))).toBe(false);
+    expect(Object.keys(st.cursors)).toEqual([G]);
   });
 });

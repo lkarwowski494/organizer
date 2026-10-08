@@ -9,11 +9,14 @@ import { AppState, Linking, Platform } from 'react-native';
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
-import { departureMs, type GeoCache, geoLookup, geoStore, isTravelMode, leaveAt, type NavApp, navigationUrl, readGeoCache, type TravelMode, travelMinutes, travelTargets } from '../domain/travel';
+import { type CivilDate } from '../domain/civil-date';
+import { departureMs, type GeoCache, geoLookup, geoStore, isTravelMode, type NavApp, navigationUrl, readGeoCache, readTravelResults, type TravelMode, type TravelResult, travelInfoFor, type TravelTarget, travelTargets } from '../domain/travel';
+import type { Tables } from '../domain/views/model';
 import { expandEvents } from '../domain/views/events';
-import { declinedByMe } from '../domain/views/rsvp';
+import { silencedForMe } from '../domain/views/rsvp';
 import { localToMs } from './clock';
-import { useAppData, useServices } from './context';
+import type { LocalStore } from './calendar-mirror';
+import { type Prefs, useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';
 
 export const TRAVEL_ON = 'travelEnabled';
@@ -21,6 +24,8 @@ export const TRAVEL_MODE = 'travelMode';
 export const NAV_APP = 'navApp';
 const MODES_KEY = 'travelModes';
 const GEO_KEY = 'travelGeo';
+/** Ostatnie wyniki dojazdu (D159): z nich „Czas wyjść” planuje się także w tle, bez pytania o położenie. */
+export const RESULTS_KEY = 'travelResults';
 
 export type TravelInfo = { minutes: number; leaveMs: number; mode: TravelMode };
 
@@ -59,6 +64,27 @@ const parse = <T,>(s: string | null, ok: (x: unknown) => x is T): T | null => {
   }
 };
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+const savedModes = (local: LocalStore): Record<string, TravelMode> =>
+  Object.fromEntries(Object.entries(parse(local.load(MODES_KEY), isRecord) ?? {}).filter((e): e is [string, TravelMode] => isTravelMode(e[1])));
+
+/** Cele dojazdu: dziś i jutro (okno AHEAD_HOURS sięga po północy, audyt 2, M-211), bez terminów wyciszonych. */
+function targetsFor(tables: Tables, userId: string, today: CivilDate, nowMs: number, modeFor: (eventId: string) => TravelMode): TravelTarget[] {
+  return travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs, (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, silencedForMe(tables, userId));
+}
+
+/**
+ * Dojazd z zapisanych ustawień i ostatnich wyników — do planowania przypomnień w tle (D159), gdy aplikacja nie jest
+ * otwarta. Ta sama reguła co `info` dostawcy niżej (travelInfoFor).
+ */
+export async function savedTravel(prefs: Prefs, local: LocalStore, tables: Tables, userId: string, today: CivilDate, nowMs: number): Promise<(eventId: string, occurrenceDate: string) => TravelInfo | null> {
+  if ((await prefs.get(TRAVEL_ON)) !== '1') return () => null;
+  const m = await prefs.get(TRAVEL_MODE);
+  const mode: TravelMode = isTravelMode(m) ? m : 'driving';
+  const overrides = savedModes(local);
+  const results = readTravelResults(parse(local.load(RESULTS_KEY), isRecord));
+  const targets = targetsFor(tables, userId, today, nowMs, (id) => overrides[id] ?? mode);
+  return (eventId, occurrenceDate) => travelInfoFor(targets, results, `${eventId}|${occurrenceDate}`);
+}
 
 export function TravelProvider({ children }: { children: ReactNode }) {
   const { travel, prefs, local, account, userId, nowMs } = useServices();
@@ -69,14 +95,11 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<TravelMode>('driving');
   const [navApp, setNavAppState] = useState<NavApp>('apple');
   // Zmiany środka transportu przy wydarzeniach — tylko na tym telefonie (lokalna baza).
-  const [overrides, setOverrides] = useState<Record<string, TravelMode>>(() => {
-    const saved = (local && parse(local.load(MODES_KEY), isRecord)) || {};
-    return Object.fromEntries(Object.entries(saved).filter((e): e is [string, TravelMode] => isTravelMode(e[1])));
-  });
-  const [results, setResults] = useState<Record<string, { seconds: number; mode: TravelMode }>>({});
+  const [overrides, setOverrides] = useState<Record<string, TravelMode>>(() => (local ? savedModes(local) : {}));
+  const [results, setResults] = useState<Record<string, TravelResult>>({});
   const [missing, setMissing] = useState<ReadonlySet<string>>(new Set());
   // Poprzednie wyniki — pora odjazdu do kolejnego zapytania (M-106).
-  const previous = useRef<Record<string, { seconds: number; mode: TravelMode }>>({});
+  const previous = useRef<Record<string, TravelResult>>({});
   const [tick, setTick] = useState(0);
   const reported = useRef(false);
 
@@ -110,10 +133,8 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   }, [available, travel, prefs, local]);
 
   const modeFor = useCallback((eventId: string) => overrides[eventId] ?? mode, [overrides, mode]);
-  // Dziś i jutro: okno AHEAD_HOURS sięga po północy (audyt 2, M-211).
   const targets = useMemo(
-    () =>
-      travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs(), (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, declinedByMe(tables, userId)),
+    () => targetsFor(tables, userId, today, nowMs(), modeFor),
     [tables, userId, today, nowMs, modeFor, tick], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const signature = targets.map((t) => `${t.key}:${t.location}:${t.mode}:${t.startMs}`).join('|');
@@ -132,7 +153,7 @@ export function TravelProvider({ children }: { children: ReactNode }) {
       const here = await travel!.position();
       if (!here || !live) return;
       let geo: GeoCache = readGeoCache(parse(local!.load(GEO_KEY), isRecord));
-      const next: Record<string, { seconds: number; mode: TravelMode }> = {};
+      const next: Record<string, TravelResult> = {};
       const notFound = new Set<string>();
       // Błąd jednego wydarzenia (np. brak komunikacji w MapKit) nie kasuje pozostałych (ADR 0029; audyt 8.10.2026).
       for (const t of targets) {
@@ -148,10 +169,10 @@ export function TravelProvider({ children }: { children: ReactNode }) {
           }
           // Odjazd o porze wyjścia (korki o 18:00, nie o 8:00); bez poprzedniego wyniku — drugie zapytanie od razu.
           const prev = previous.current[t.key];
-          const before = prev && prev.mode === t.mode ? prev.seconds : null;
+          const before = prev && prev.mode === t.mode && prev.location === t.location ? prev.seconds : null;
           let seconds = await travel!.eta(here, to, t.mode, departureMs(t.startMs, before, nowMs()));
           if (before === null && departureMs(t.startMs, seconds, nowMs()) > nowMs()) seconds = await travel!.eta(here, to, t.mode, departureMs(t.startMs, seconds, nowMs()));
-          next[t.key] = { seconds, mode: t.mode };
+          next[t.key] = { seconds, mode: t.mode, location: t.location };
         } catch (e: unknown) {
           report(e);
         }
@@ -159,6 +180,7 @@ export function TravelProvider({ children }: { children: ReactNode }) {
       local!.save(GEO_KEY, JSON.stringify(geo));
       previous.current = { ...previous.current, ...next };
       if (live) {
+        local!.save(RESULTS_KEY, JSON.stringify(next));
         setResults(next);
         setMissing(notFound);
       }
@@ -169,7 +191,6 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   }, [available, enabled, status, signature, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const api = useMemo<Api>(() => {
-    const starts = new Map(targets.map((t) => [t.key, t.startMs]));
     return {
       available,
       enabled,
@@ -195,13 +216,7 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         setOverrides(next);
         local?.save(MODES_KEY, JSON.stringify(next));
       },
-      info: (eventId, occurrenceDate) => {
-        const key = `${eventId}|${occurrenceDate}`;
-        const r = results[key];
-        const start = starts.get(key);
-        if (!enabled || !r || start === undefined || r.mode !== modeFor(eventId)) return null;
-        return { minutes: travelMinutes(r.seconds), leaveMs: leaveAt(start, r.seconds), mode: r.mode };
-      },
+      info: (eventId, occurrenceDate) => (enabled ? travelInfoFor(targets, results, `${eventId}|${occurrenceDate}`) : null),
       notFound: (location) => enabled && missing.has(location.trim()),
       requestPermission: async () => {
         if (!travel) return;

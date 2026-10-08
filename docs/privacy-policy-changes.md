@@ -102,3 +102,13 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
 4. **Błędy kalendarza i dojazdu bez komunikatu** (punkt 3 wyżej rozwiązany w kodzie dla tych źródeł, M-159): `toClientError`
    z `{ private: true }` w `src/app/diagnostics.tsx`.
 5. **Pamięć adresów:** najwyżej 200, nieznaleziony adres sprawdzany znowu po dobie (`config.travel.GEO_MAX`, `GEO_RETRY_H`).
+
+## Zmiany z audytu 2 — przypomnienia bez otwierania aplikacji (D159, 8.10.2026), do akceptu
+1. **Ciche powiadomienia bez treści** do urządzeń członków grupy po zmianie, która może zmienić przypomnienia
+   (`supabase/functions/notify-handoff/handler.ts`, `sendBackground` w `supabase/functions/_shared/apns.ts`: tylko
+   `content-available`). Przez APNs nie idzie żadna treść spraw.
+2. **Stan budzenia przy tokenie** (`private.wake_state`: token, chwila ostatniego wysłania, „czeka zmiana”),
+   `supabase/migrations/20261008450000_reminder_wake.sql`. Kasowany z tokenem (wylogowanie, token odrzucony przez Apple,
+   usunięcie konta — kaskada).
+3. **Ostatni policzony czas dojazdu** zapisany w bazie konta na telefonie (`travelResults`, `src/app/travel.tsx`), żeby
+   „Czas wyjść” działał przy planowaniu w tle. Nie opuszcza telefonu.

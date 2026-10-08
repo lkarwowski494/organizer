@@ -8,11 +8,13 @@ import {
   type ClientState,
   mutate,
   type NewOp,
+  type Op,
   onFetchScope,
   onPullResponse,
   onPushResponse,
   pendingCount,
   pullRequest,
+  type PushResponse,
   pushRequest,
 } from '../domain/sync-engine/client';
 import { decide, type Indicator, indicator, initialScheduler, onEvent, pendingTimer, type SchedulerEvent, type SchedulerState } from '../domain/sync-engine/scheduler';
@@ -28,7 +30,30 @@ export type RuntimeDeps = {
   setTimer: Timer;
   /** Zapis różnicy stanów (src/data/store.ts writeState); brak = tylko w pamięci. */
   persist?: (prev: ClientState, next: ClientState, now: number) => void;
+  /**
+   * Po udanym wysłaniu: operacje, odpowiedź serwera i stan sprzed odpowiedzi (D159 — ciche powiadomienia do grup).
+   * Błąd tutaj nie psuje synchronizacji (zmiany już są na serwerze).
+   */
+  onPushed?: (ops: readonly Op[], res: PushResponse, state: ClientState) => void;
 };
+
+/**
+ * Jedna porcja pobrania z dociągnięciem nowych ukrytych list (sync_fetch_scope). `get` — bieżący stan (mógł się zmienić
+ * w trakcie zapytania), `set` — zapis kroku. Zwraca, czy któraś grupa ma jeszcze wiersze (has_more). Wspólne dla pętli
+ * synchronizacji i odświeżenia w tle (D159, src/app/background.ts).
+ */
+export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport): Promise<boolean> {
+  const req = pullRequest(get());
+  const res = await transport.pull(req, config.sync.PULL_LIMIT_MAX);
+  const out = onPullResponse(get(), res, req);
+  set(out.state);
+  // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości.
+  for (const listId of out.fetchScopes) {
+    const rows = await transport.fetchScope(listId);
+    set(onFetchScope(get(), rows));
+  }
+  return out.needMore;
+}
 
 export type Snapshot = { state: ClientState; indicator: Indicator };
 
@@ -39,6 +64,14 @@ export class SyncRuntime {
   private readonly listeners = new Set<() => void>();
   private cancelTimer: (() => void) | null = null;
   private stopped = false;
+  /** Czekający na pobranie (refreshNow) i liczba pobrań rozpoczętych przed ich prośbą. */
+  private waiters: { after: number; resolve: () => void }[] = [];
+  private pullRuns = 0;
+  /** Prośba przyszła w trakcie pobierania: po nim pobrać jeszcze raz (scheduler gubi poke z czasu pobierania). */
+  private repoke = false;
+  /** Ostatni stan aplikacji z zewnątrz (pierwszy plan / tło) i liczba trwających odświeżeń z tła. */
+  private appForeground = true;
+  private woken = 0;
 
   constructor(private readonly deps: RuntimeDeps) {
     this.state = deps.initial;
@@ -65,6 +98,7 @@ export class SyncRuntime {
 
   /** Zdarzenia z zewnątrz: pierwszy plan, sieć, poke z Realtime, odświeżona sesja. */
   event(e: SchedulerEvent): void {
+    if (e.t === 'foreground' || e.t === 'background') this.appForeground = e.t === 'foreground';
     this.sched = onEvent(this.sched, e, this.deps.now());
     this.emit();
     this.tick();
@@ -79,6 +113,36 @@ export class SyncRuntime {
     this.stopped = true;
     this.cancelTimer?.();
     this.cancelTimer = null;
+    this.release();
+  }
+
+  /**
+   * Pobierz zmiany teraz i poczekaj na koniec pobierania (wszystkie porcje albo błąd) — odświeżenie z cichego
+   * powiadomienia, gdy aplikacja działa (D159). Zatrzymana pętla kończy czekanie od razu.
+   */
+  refreshNow(): Promise<void> {
+    if (this.stopped) return Promise.resolve();
+    if (this.sched.inflight === 'pull') this.repoke = true;
+    const done = new Promise<void>((resolve) => this.waiters.push({ after: this.pullRuns, resolve }));
+    // W tle pętla nie pobiera (scheduler: tylko na pierwszym planie) — na czas odświeżenia jak na pierwszym planie
+    // (wysyła też czekające zmiany); potem z powrotem tło, chyba że w międzyczasie aplikacja wróciła na pierwszy plan.
+    this.woken++;
+    if (!this.sched.foreground) this.sched = onEvent(this.sched, { t: 'foreground' }, this.deps.now());
+    this.sched = onEvent(this.sched, { t: 'poke', fresh: true }, this.deps.now());
+    this.emit();
+    this.tick();
+    return done.then(() => {
+      if (--this.woken > 0 || this.appForeground || this.stopped) return;
+      this.sched = onEvent(this.sched, { t: 'background' }, this.deps.now());
+      this.emit();
+    });
+  }
+
+  /** Zwalnia czekających na pobranie, które zaczęło się po ich prośbie (`run` — numer pobrania; brak = wszystkich). */
+  private release(run = Infinity): void {
+    const ready = this.waiters.filter((w) => w.after < run);
+    this.waiters = this.waiters.filter((w) => w.after >= run);
+    for (const w of ready) w.resolve();
   }
 
   private setState(next: ClientState): void {
@@ -106,6 +170,7 @@ export class SyncRuntime {
   }
 
   private async run(what: 'push' | 'pull'): Promise<void> {
+    const run = what === 'pull' ? ++this.pullRuns : 0;
     this.sched = onEvent(this.sched, { t: 'started', what }, this.deps.now());
     this.emit();
     let done: SchedulerEvent;
@@ -116,26 +181,35 @@ export class SyncRuntime {
       done = error === 'fatal' ? { t: 'failed', what, error, code: (e as Error).message } : { t: 'failed', what, error };
     }
     this.sched = onEvent(this.sched, done, this.deps.now());
+    if (what === 'pull' && this.repoke) {
+      this.repoke = false;
+      this.sched = onEvent(this.sched, { t: 'poke', fresh: true }, this.deps.now());
+    }
     this.emit();
+    // Pobranie w toku, gdy przyszła prośba, mogło nie objąć nowej zmiany — czekamy na następne (`after`).
+    if (what === 'pull' && (done.t === 'failed' || (done.t === 'pull_ok' && !done.needMore))) this.release(run);
     this.tick();
   }
 
   private async push(): Promise<SchedulerEvent> {
-    const res = await this.deps.transport.push(pushRequest(this.state));
+    const req = pushRequest(this.state);
+    const res = await this.deps.transport.push(req);
+    const before = this.state;
     this.setState(onPushResponse(this.state, res));
+    try {
+      this.deps.onPushed?.(req.ops, res, before);
+    } catch {
+      // Zmiany są już na serwerze; powiadomienie innych to dodatek (D159).
+    }
     return { t: 'push_ok', pending: pendingCount(this.state) };
   }
 
   private async pull(): Promise<SchedulerEvent> {
-    const req = pullRequest(this.state);
-    const res = await this.deps.transport.pull(req, config.sync.PULL_LIMIT_MAX);
-    const out = onPullResponse(this.state, res, req);
-    this.setState(out.state);
-    // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości.
-    for (const listId of out.fetchScopes) {
-      const rows = await this.deps.transport.fetchScope(listId);
-      this.setState(onFetchScope(this.state, rows));
-    }
-    return { t: 'pull_ok', needMore: out.needMore, pending: pendingCount(this.state) };
+    const needMore = await pullStep(
+      () => this.state,
+      (next) => this.setState(next),
+      this.deps.transport,
+    );
+    return { t: 'pull_ok', needMore, pending: pendingCount(this.state) };
   }
 }
