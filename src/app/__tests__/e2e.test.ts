@@ -52,9 +52,12 @@ describe('E2eServer', () => {
       { seq: 3, op_id: 'o3', kind: 'create', entity: 'tasks', id: 't1', group_id: g, set: { title: 'powtórka' } },
       { seq: 4, op_id: 'o4', kind: 'cmd', cmd: 'grant_scope', args: { list_id: 'x', user: 'y' } },
       { seq: 5, op_id: 'o5', kind: 'patch', entity: 'tasks', id: 'brak', set: { title: 'nic' } },
-      { seq: 6, op_id: 'o6', kind: 'create', entity: 'group_members', id: 'm9', group_id: g, set: { display_name: 'Ola', role: 'child', user_id: null } },
+      { seq: 6, op_id: 'o6', kind: 'create', entity: 'group_members', id: 'm9', group_id: g, set: { display_name: 'Ola', role: 'child' } },
     ];
-    expect(s.push(req(ops))).toEqual({ last_seq: 6, results: ops.map((o) => ({ seq: o.seq, status: 'ok' })) });
+    // Reguły jak w SQL (audyt 2, M-50): zmiana nieistniejącego wiersza — not_found.
+    expect(s.push(req(ops))).toEqual({ last_seq: 6, results: ops.map((o) => (o.seq === 5 ? { seq: 5, status: 'rejected', code: 'not_found' } : { seq: o.seq, status: 'ok' })) });
+    // Powtórka odrzuconej operacji: ten sam kod zamiast „duplicate” (M-56).
+    expect(s.push(req([ops[4]!]))).toEqual({ last_seq: 6, results: [{ seq: 5, status: 'rejected', code: 'not_found' }] });
     expect(find(s, 't1')).toMatchObject({ title: 'B', group_id: g, deleted_at: null });
     expect(find(s, 'm9')).toMatchObject({ member_id: 'm9', display_name: 'Ola' });
     expect(find(s, 'brak')).toBeUndefined();
@@ -63,12 +66,35 @@ describe('E2eServer', () => {
     s.push(req([{ seq: 1, op_id: 'p1', kind: 'delete', entity: 'tasks', id: 't1' }], 'c2'));
     expect(find(s, 't1')!.deleted_at).toBe(NOW);
     // Usunięty: edycja i ponowne usunięcie nic nie zmieniają; przywrócenie — tak.
-    s.push(req([{ seq: 2, op_id: 'p2', kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'C' } }, { seq: 3, op_id: 'p3', kind: 'delete', entity: 'tasks', id: 't1' }], 'c2'));
+    expect(s.push(req([{ seq: 2, op_id: 'p2', kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'C' } }, { seq: 3, op_id: 'p3', kind: 'delete', entity: 'tasks', id: 't1' }], 'c2')).results).toEqual([
+      { seq: 2, status: 'rejected', code: 'deleted' },
+      { seq: 3, status: 'ok' },
+    ]);
     expect(find(s, 't1')).toMatchObject({ title: 'B', deleted_at: NOW });
     s.push(req([{ seq: 4, op_id: 'p4', kind: 'restore', entity: 'tasks', id: 't1' }, { seq: 5, op_id: 'p5', kind: 'restore', entity: 'tasks', id: 't1' }], 'c2'));
     expect(find(s, 't1')!.deleted_at).toBeNull();
     const fresh = s.pull({ cursors: { [g]: { v: before, p: 0 } } }, 1000).groups.find((x) => x.group_id === g)!;
     expect(fresh.rows.map((r) => r.row.id ?? r.row.member_id)).toEqual(['m9', 't1']);
+  });
+
+  it('audyt 2 (M-50): odrzucenia i skutki jak na serwerze — pola, cudza obecność, usunięta lista, wartości domyślne, twórca listy, kaskada, nadawca przekazania', () => {
+    const s = new E2eServer(e2eSeed(), () => NOW);
+    const g = E2E_IDS.family;
+    const ops: Op[] = [
+      { seq: 1, op_id: 'q1', kind: 'create', entity: 'tasks', id: 't1', group_id: g, set: { title: 'A', list_id: E2E_IDS.homeList, zly: 1 } },
+      { seq: 2, op_id: 'q2', kind: 'create', entity: 'lists', id: 'l9', group_id: g, set: { kind: 'tasks', name: 'Nowa' } },
+      { seq: 3, op_id: 'q3', kind: 'create', entity: 'tasks', id: 't2', group_id: g, set: { title: 'B', list_id: 'l9', assignee_member_id: E2E_IDS.meInFamily } },
+      { seq: 4, op_id: 'q4', kind: 'create', entity: 'tasks', id: 't3', group_id: g, set: { title: 'C', list_id: 'l9', parent_id: 't2' } },
+      { seq: 5, op_id: 'q5', kind: 'create', entity: 'handoffs', id: 'h1', group_id: g, set: { entity: 'tasks', entity_id: 't2', to_member: E2E_IDS.alaInFamily } },
+      { seq: 6, op_id: 'q6', kind: 'delete', entity: 'lists', id: 'l9' },
+      { seq: 7, op_id: 'q7', kind: 'create', entity: 'tasks', id: 't4', group_id: g, set: { title: 'D', list_id: 'l9' } },
+      { seq: 8, op_id: 'q8', kind: 'create', entity: 'event_rsvps', id: 'r1', group_id: g, set: { event_id: E2E_IDS.swimming, occurrence_date: '2026-10-07', member_id: E2E_IDS.alaInFamily, answer: 'yes' } },
+    ];
+    expect(s.push(req(ops)).results.map((r) => r.code ?? r.status)).toEqual(['invalid_field:zly', 'ok', 'ok', 'ok', 'ok', 'ok', 'deleted:list', 'forbidden:not_self']);
+    expect(find(s, 'l9')).toMatchObject({ owner_member_id: E2E_IDS.meInFamily, sort_key: 'a0', staples: [], deleted_at: NOW });
+    expect(find(s, 't2')).toMatchObject({ deadline_mode: 'none', rollover: true, deleted_at: NOW });
+    expect(find(s, 't3')!.deleted_at).toBe(NOW); // kaskada: lista → zadanie → podzadanie
+    expect(find(s, 'h1')).toMatchObject({ from_member: E2E_IDS.meInFamily, status: 'pending', closed: false });
   });
 
   it('audyt 2 (M-111): stałe zakupy jako polecenia — jak na serwerze; inne polecenia bez zmian danych', () => {

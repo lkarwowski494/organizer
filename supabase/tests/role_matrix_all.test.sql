@@ -8,6 +8,7 @@
 begin;
 select plan(4);
 
+-- DANE: początek (te same dane czyta tests/db/rules-vs-sql.test.ts)
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000b0', 'o@x.test'), ('00000000-0000-7000-8000-0000000000b1', 'ad@x.test'),
   ('00000000-0000-7000-8000-0000000000b2', 'm@x.test'), ('00000000-0000-7000-8000-0000000000b3', 'k@x.test'),
@@ -61,6 +62,8 @@ insert into public.push_mutes (user_id, group_id) select id, '88888888-0000-7000
 insert into public.app_feedback (user_id, message) select id, 'uwaga' from auth.users where email like '%@x.test';
 insert into public.client_errors (user_id, kind, message) select id, 'error', 'błąd' from auth.users where email like '%@x.test';
 insert into public.profiles (user_id, display_name) select id, 'P' from auth.users where email like '%@x.test' on conflict (user_id) do nothing;
+
+-- DANE: koniec
 
 -- Osoby macierzy: użytkownik, członek w G (obcy: członek swojej grupy), urządzenie (client_id).
 create table pg_temp.who (role text primary key, uid uuid, member uuid, client uuid);
