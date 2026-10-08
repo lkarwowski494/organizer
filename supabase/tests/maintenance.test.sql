@@ -32,17 +32,17 @@ update public.app_feedback set created_at = now() - interval '91 days' where mes
 insert into private.join_attempts (user_id, join_id, at) values ('00000000-0000-7000-8000-0000000000e1', '123456789', now() - interval '2 days'), ('00000000-0000-7000-8000-0000000000e1', '123456789', now());
 insert into private.push_log (key, created_at) values ('assign|stary', now() - interval '8 days'), ('assign|nowy', now() - interval '1 day');
 
-select is(private.daily_maintenance(), '{"tombstones": 1, "groups": 1, "client_errors": 1, "app_feedback": 1, "push_log": 1, "join_attempts": 1}'::jsonb, '1: jedno sprzątanie, wynik per rodzaj');
+select is(private.daily_maintenance(), '{"tombstones": 1, "groups": 1, "client_errors": 1, "app_feedback": 1, "push_log": 1, "join_attempts": 1, "activity": 0, "handoffs": 0, "unpinned": 0, "invites": 0, "access_events": 0, "sync_clients": 0, "maintenance_runs": 0, "skipped": []}'::jsonb, '1: jedno sprzątanie, wynik per rodzaj');
 select is((select array_agg(title order by title) from public.tasks where list_id = '99980000-0000-7000-8000-0000000000c1'), '{Świeże}', '2: z kosza znika tylko starsze niż 30 dni');
 select ok(not exists (select 1 from public.groups where id = '99980000-0000-7000-8000-000000000002'), '3: grupa z kosza usunięta na stałe');
 select is((select array_agg(message) from public.client_errors), '{nowy}', '4: stare zgłoszenia błędów usunięte');
 select is((select array_agg(message) from public.app_feedback), '{"nowa uwaga"}', '5: stare uwagi usunięte');
 select is((select array_agg(key) from private.push_log), '{assign|nowy}', '6: dziennik push trzyma 7 dni');
-select is(private.daily_maintenance(), '{"tombstones": 0, "groups": 0, "client_errors": 0, "app_feedback": 0, "push_log": 0, "join_attempts": 0}'::jsonb, '7: drugie przejście nic nie rusza');
+select is(private.daily_maintenance(), '{"tombstones": 0, "groups": 0, "client_errors": 0, "app_feedback": 0, "push_log": 0, "join_attempts": 0, "activity": 0, "handoffs": 0, "unpinned": 0, "invites": 0, "access_events": 0, "sync_clients": 0, "maintenance_runs": 0, "skipped": []}'::jsonb, '7: drugie przejście nic nie rusza');
 
 -- Harmonogram: dwa zadania, o stałych porach, wołające właściwe funkcje.
 select is((select array_agg(jobname || ' ' || schedule || ' ' || command order by jobname) from cron.job where jobname like 'organizer-%'),
-  array['organizer-cron-history 27 3 * * * select private.cron_history_cleanup()', 'organizer-daily-maintenance 17 3 * * * select private.daily_maintenance()'],
+  array['organizer-cron-history 27 3 * * * select private.cron_history_cleanup()', 'organizer-daily-maintenance 17 3 * * * call private.run_daily_maintenance()'],
   '8: dwa zadania w pg_cron');
 insert into cron.job_run_details (jobid, runid, command, status, start_time, end_time)
   values (1, 900001, 'x', 'succeeded', now() - interval '9 days', now() - interval '8 days'), (1, 900002, 'x', 'succeeded', now() - interval '2 days', now() - interval '2 days');

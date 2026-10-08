@@ -16,6 +16,7 @@ import {
   pullRequest,
   pushRequest,
 } from '../domain/sync-engine/client';
+import { pruneExpired } from '../domain/sync-engine/retention';
 import { decide, type Indicator, indicator, initialScheduler, onEvent, pendingTimer, type SchedulerEvent, type SchedulerState } from '../domain/sync-engine/scheduler';
 import { errorKind, type SyncTransport } from './transport';
 
@@ -154,7 +155,8 @@ export class SyncRuntime {
     // Odpowiedź po stop() (np. „Wyczyść dane”) przepada; wynik i tak nie trafi do harmonogramu (run).
     if (gen !== this.generation) return { t: 'pull_ok', needMore: false, pending: 0 };
     const out = onPullResponse(this.state, res, req);
-    this.setState(out.state);
+    // Historia i rozstrzygnięte przekazania po terminie znikają też z telefonu (audyt 2, M-62) — w tym samym zapisie.
+    this.setState(pruneExpired(out.state, this.deps.now()));
     // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości. Lista trafia do
     // pobranych dopiero po udanym pobraniu — błąd przerywa pętlę, a następne pobranie spróbuje jeszcze raz (M-53).
     for (const listId of out.fetchScopes) {

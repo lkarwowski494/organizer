@@ -202,4 +202,20 @@ describe('pamięć działów i podpowiedzi po zakupach (audyt 2, M-110)', () => 
     t.tasks!.b = { ...t.tasks!.b!, category: 'frozen', version: 8 };
     expect(categoryMemory(t, 'g').get('tofu')).toBe('frozen');
   });
+
+  it('M-62: wybór sprzed zachowanej historii (wpis usunęła retencja) nie wygrywa z nowszym wyborem z historii', () => {
+    const t = tables([
+      { id: 'a', title: 'Tofu', category: 'dairy', version: 2 },
+      { id: 'b', title: 'Tofu', category: 'meat', version: 5 },
+    ]) as unknown as { [e: string]: { [id: string]: R } };
+    // Historia zaczyna się od wersji 4: wybór dla „a” (wersja 2) już z niej zniknął.
+    t.activity = { x1: act('b', 5, { category: [null, 'meat'] }), x2: act('q', 4, { title: [null, 'X'] }) };
+    expect(categoryMemory(t, 'g').get('tofu')).toBe('meat');
+    // Pozycja nowsza niż początek historii, a bez wpisu działu — zmiana z tego telefonu przed wysłaniem: najnowsza.
+    t.tasks!.c = { id: 'c', list_id: 'lz', title: 'Tofu', category: 'frozen', version: 6, deleted_at: null, completed_at: null };
+    expect(categoryMemory(t, 'g').get('tofu')).toBe('frozen');
+    // Dwa wybory bez wpisu w historii (oba z tego telefonu) — remis rozstrzyga wyższa wersja wiersza, w dowolnej kolejności.
+    t.tasks!.d = { id: 'd', list_id: 'lz', title: 'Tofu', category: 'pets', version: 5, deleted_at: null, completed_at: null };
+    expect(categoryMemory(t, 'g').get('tofu')).toBe('frozen');
+  });
 });
