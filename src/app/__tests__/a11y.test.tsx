@@ -94,6 +94,10 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz do grupy'))],
   ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Zaproś'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
+  ['Ustawienia: Powiadomienia', async (p) => (await p('Ustawienia'), await p('Powiadomienia'))],
+  ['Ustawienia: Kalendarz i dojazd', async (p) => (await p('Ustawienia'), await p('Kalendarz i dojazd'))],
+  ['Ustawienia: Wygląd', async (p) => (await p('Ustawienia'), await p('Wygląd'))],
+  ['Ustawienia: Konto i dane', async (p) => (await p('Ustawienia'), await p('Konto i dane'))],
   ['Wyślij uwagę', async (p) => (await p('Ustawienia'), await p('Wyślij uwagę'))],
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
@@ -101,13 +105,13 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
   ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
   ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek: /))],
-  ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Twoje imię, Łukasz'))],
+  ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
   ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
   ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {
     fireEvent.changeText(await screen.findByTestId('quick-add'), 'basen jutro 17–18');
     await p('Dodaj');
   }],
-  ['Odrzucone', async (p) => (await p('Ustawienia'), await p('Odrzucone zmiany, 0 zmian'))],
+  ['Odrzucone', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Odrzucone zmiany, 0 zmian'))],
 ];
 
 describe.each(['light', 'dark'] as Scheme[])('tryb %s', (scheme) => {

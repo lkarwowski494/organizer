@@ -440,6 +440,14 @@ export const strings = {
   'settings.title': 'Ustawienia',
   'settings.open': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
+  'settings.signOutAsk': 'Wylogować się?',
+  'settings.signOutInfo': 'Powiadomienia tego konta przestaną przychodzić na ten telefon. Żeby wrócić, zaloguj się tym samym kontem.',
+  // D131: podstrony ustawień.
+  'settings.section.notifications': 'Powiadomienia',
+  'settings.section.calendar': 'Kalendarz i dojazd',
+  'settings.section.appearance': 'Wygląd',
+  'settings.section.account': 'Konto i dane',
+  'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',
   'settings.deleteInfo': (trashDays: number) =>
     `Usuniemy Twoje konto i grupę osobistą. Grupy wspólne przejmie dorosły z najdłuższym stażem (najpierw admin); jeśli takiej osoby nie ma, grupa trafi do kosza na ${trashDays} ${plural(trashDays, { one: 'dzień', few: 'dni', many: 'dni' })}. W historii zmian zostanie podpis „Usunięty użytkownik”.`,
@@ -553,7 +561,8 @@ export const strings = {
   'crash.retry': 'Spróbuj ponownie',
   'feedback.open': 'Wyślij uwagę',
   'feedback.title': 'Twoja uwaga',
-  'feedback.info': 'Co działa źle, czego brakuje, co jest niejasne? Dołączymy wersję aplikacji — nic więcej.',
+  // Audyt 8.10.2026: zgodnie z tym, co faktycznie wysyłamy (send_feedback: treść, ekran, wersja; zgłoszenie przypisane do konta).
+  'feedback.info': 'Co działa źle, czego brakuje, co jest niejasne? Razem z wiadomością zapiszemy wersję aplikacji i to, że pisze to Twoje konto.',
   'feedback.field': 'Treść',
   'feedback.send': 'Wyślij',
   'feedback.sent': 'Dziękujemy! Uwaga dotarła.',

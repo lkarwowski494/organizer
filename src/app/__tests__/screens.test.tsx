@@ -455,6 +455,7 @@ describe('Ustawienia', () => {
     });
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     expect(await screen.findByText('7 zmian')).toBeTruthy();
     await press(screen.getByTestId('open-rejected'));
     expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
@@ -476,13 +477,62 @@ describe('Ustawienia', () => {
     await press(screen.getByTestId('delete-confirm'));
     expect(s.account.deleteAccount).toHaveBeenCalled();
     await press(screen.getByTestId('sign-out'));
+    await answerAlert('Wyloguj');
     expect(s.account.signOut).toHaveBeenCalled();
+  });
+
+  it('strona główna: synchronizacja, cztery podstrony, uwagi i wprowadzenie (D131)', async () => {
+    await open();
+    await press(screen.getByLabelText('Ustawienia'));
+    expect(await screen.findByTestId('screen-settings')).toBeTruthy();
+    expect(screen.getByLabelText(/^Stan synchronizacji: /)).toBeTruthy();
+    expect(screen.getAllByTestId(/^settings-/).map((e) => [e.props.testID, e.props.accessibilityLabel])).toEqual([
+      ['settings-notifications', 'Powiadomienia'],
+      ['settings-calendar', 'Kalendarz i dojazd'],
+      ['settings-appearance', 'Wygląd'],
+      ['settings-account', 'Konto i dane'],
+    ]);
+    expect(screen.getByTestId('open-feedback')).toBeTruthy();
+    expect(screen.getByTestId('welcome-again')).toBeTruthy();
+    expect(screen.queryByTestId('sign-out')).toBeNull();
+    for (const [id, title] of [['notifications', 'Powiadomienia'], ['calendar', 'Kalendarz i dojazd'], ['appearance', 'Wygląd'], ['account', 'Konto i dane']] as const) {
+      await press(screen.getByTestId(`settings-${id}`));
+      const page = await screen.findByTestId(`screen-settings-${id}`);
+      expect(within(page).getAllByRole('header')[0]).toHaveTextContent(title);
+      await press(within(page).getByLabelText('Wróć'));
+      await screen.findByTestId('screen-settings');
+    }
+  });
+
+  it('wylogowanie pyta o potwierdzenie: Anuluj nic nie robi, Wyloguj wylogowuje', async () => {
+    const s = await open();
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
+    await press(await screen.findByTestId('sign-out'));
+    expect(lastAlert().title).toBe('Wylogować się?');
+    expect(lastAlert().message).toMatch(/Powiadomienia tego konta przestaną przychodzić/);
+    expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyloguj', 'destructive']]);
+    await answerAlert('Anuluj');
+    expect(s.account.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId('screen-settings-account')).toBeTruthy();
+    await press(screen.getByTestId('sign-out'));
+    await answerAlert('Wyloguj');
+    expect(s.account.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('Powiadomienia bez powiadomień na urządzeniu: wyjaśnienie zamiast ustawień', async () => {
+    await open(); // bez usługi push przypomnienia są niedostępne (useReminderSettings: available = !!push)
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-notifications'));
+    expect(await screen.findByText('Powiadomienia nie są dostępne na tym urządzeniu.')).toBeTruthy();
+    expect(screen.queryByText('Przypomnienia')).toBeNull();
   });
 
   it('błąd usuwania konta: komunikat; anulowanie czyści pole', async () => {
     const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(new Error('x'))) });
     await open({ account });
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('delete-start'));
     await type(screen.getByTestId('delete-word'), 'USUŃ');
     await press(screen.getByTestId('delete-confirm'));

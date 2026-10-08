@@ -77,11 +77,12 @@ describe('moje imię (D100)', () => {
     await s.renderApp(<RootStack />);
     await flush();
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('open-name'));
     expect(screen.getByText('Twoje imię', { exact: true })).toBeTruthy();
     expect(screen.getByTestId('name-field').props.value).toBe('Łukasz');
     await press(screen.getByTestId('name-later'));
-    expect(await screen.findByTestId('screen-settings')).toBeTruthy();
+    expect(await screen.findByTestId('screen-settings-account')).toBeTruthy();
     await press(screen.getByTestId('open-name'));
     await fireEvent.changeText(await screen.findByTestId('name-field'), 'Łukasz K.');
     await press(screen.getByTestId('name-save'));
@@ -90,6 +91,6 @@ describe('moje imię (D100)', () => {
     // „Łukasz” (dawne imię) i „Ja” — zmienione; „Tata” zostaje.
     expect(s.store.dispatched.map((o) => (o as { id: string }).id).sort()).toEqual(['mf', 'u-me']);
     expect(prefs.m.get('nameAsked')).toBeUndefined();
-    expect(await screen.findByTestId('screen-settings')).toBeTruthy();
+    expect(await screen.findByTestId('screen-settings-account')).toBeTruthy();
   });
 });

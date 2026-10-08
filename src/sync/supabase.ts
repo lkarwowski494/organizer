@@ -70,6 +70,8 @@ function check(r: { error: { message: string } | null }): void {
 }
 
 export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): AccountApi {
+  // Token APNs zarejestrowany w tej sesji aplikacji (rejestracja przy każdym starcie, HandoffNotifier).
+  let pushToken: string | null = null;
   return {
     async signInWithApple() {
       const credential = await apple();
@@ -84,6 +86,16 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
       check(await client.auth.signInWithOtp({ email, options: { emailRedirectTo: AUTH_REDIRECT } }));
     },
     async signOut() {
+      // Audyt 8.10.2026: po wylogowaniu telefon nie dostaje już powiadomień tego konta. Brak sieci nie blokuje
+      // wylogowania — wtedy token zostaje na serwerze, aż APNs zgłosi go jako nieważny albo zaloguje się ktoś inny.
+      if (pushToken) {
+        try {
+          await call(client, 'unregister_push_token', { p_token: pushToken });
+          pushToken = null;
+        } catch {
+          // jak wyżej
+        }
+      }
       check(await client.auth.signOut());
     },
     async deleteAccount() {
@@ -139,6 +151,7 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn): Accou
     },
     async registerPushToken(token, env) {
       await call(client, 'register_push_token', { p_token: token, p_env: env });
+      pushToken = token;
     },
     async notifyAssignment(activityId) {
       check(await client.functions.invoke('notify-handoff', { method: 'POST', body: { activityId } }));

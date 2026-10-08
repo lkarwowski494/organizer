@@ -55,6 +55,7 @@ describe('wyczyść dane na telefonie (D121)', () => {
     const s = setup({ resetLocal, indicator: { state: 'offline', pending: 0 } });
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('reset-start'));
     expect(screen.getByText(/Najpierw połącz się z internetem/)).toBeTruthy();
     expect(screen.getByTestId('reset-confirm').props.accessibilityState).toMatchObject({ disabled: true });
@@ -68,6 +69,7 @@ describe('wyczyść dane na telefonie (D121)', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     const box = await screen.findByTestId('reset-local');
     await act(async () => s.store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-books', set: { title: 'Oddać książki' } }));
     expect(within(box).getByText(/Na serwerze nic nie znika/)).toBeTruthy();
@@ -85,6 +87,7 @@ describe('wyczyść dane na telefonie (D121)', () => {
     const s = setup({ resetLocal: jest.fn() });
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('reset-start'));
     expect(screen.getByTestId('reset-confirm')).toBeTruthy();
     expect(screen.queryByText(/Uwaga:/)).toBeNull();
@@ -92,6 +95,7 @@ describe('wyczyść dane na telefonie (D121)', () => {
     const s2 = setup();
     await s2.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
     await screen.findByTestId('sign-out');
     expect(screen.queryByTestId('reset-local')).toBeNull();
   });

@@ -76,6 +76,7 @@ describe('dojazd (D115–D117)', () => {
     const { prefs } = await open(travel, memoryPrefs({ welcomeSeen: '1' }));
     expect(screen.queryByText(/Wyjdź o/)).toBeNull();
     await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('travel-settings');
     await press(within(within(box).getByLabelText('Czas dojazdu do dzisiejszych wydarzeń')).getByLabelText('Włączony'));
     await flush();

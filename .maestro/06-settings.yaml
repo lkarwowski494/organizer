@@ -8,10 +8,22 @@ name: 06 Ustawienia się otwierają
       id: "screen-settings"
     timeout: 10000
 - assertVisible: "Ustawienia"
+# Wylogowanie jest na podstronie „Konto i dane” (D131).
+- tapOn: "Konto i dane"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings-account"
+    timeout: 10000
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
+    timeout: 10000
+# Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
+- tapOn: "Wróć"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
     timeout: 10000
 - scrollUntilVisible:
     element: "Ustawienia"
