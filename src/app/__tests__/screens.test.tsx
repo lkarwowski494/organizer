@@ -5,7 +5,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert, Share } from 'react-native';
 
-import { parseInviteToken } from '../../domain/invite-link';
+import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
 import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup } from './harness';
 
@@ -212,17 +212,20 @@ describe('Grupy', () => {
     expect(screen.getByLabelText('Ala, właściciel')).toBeTruthy();
     expect(screen.queryByLabelText('Zaproś jako admina')).toBeNull();
     await press(screen.getByTestId('invite'));
-    expect(account.createInvite).toHaveBeenCalledWith('gf', 'member');
-    expect(await screen.findByText('Ważny 7 dni, do 10 osób.')).toBeTruthy();
+    // D92–D94: ID grupy + 6-cyfrowy kod na 24 h, link https w wiadomości.
+    expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'member');
+    expect(await screen.findByText('ID grupy: 482 913 507')).toBeTruthy();
+    expect(screen.getByTestId('join-code').props.children).toBe('Kod: 731 064');
+    expect(screen.getByText('Ważny do: jutro · 10:00. Działa dla najwyżej 50 osób. Wystarczy link albo ID grupy z kodem.')).toBeTruthy();
     await press(screen.getByLabelText('Wyślij zaproszenie'));
-    // D67: kod w wiadomości z instrukcją (link w schemacie aplikacji nie był klikalny w komunikatorach).
     const msg = (share.mock.calls[0]![0] as { message: string }).message;
     expect(msg).toMatch(/^Zapraszam Cię do grupy „Rodzina” w Organizerze\./);
-    expect(msg).toContain('Grupy → „Dołącz kodem zaproszenia”');
-    expect(msg).not.toContain('://');
-    expect(parseInviteToken(msg)).toMatch(/^[0-9a-f]{64}$/);
-    await press(screen.getByLabelText('Unieważnij link'));
-    expect(account.revokeInvite).toHaveBeenCalledWith('inv-1');
+    expect(msg).toContain('Dotknij linku: https://lkarwowski494.github.io/j/?g=482913507&c=731064');
+    expect(msg).toContain('Grupy → „Dołącz do grupy”');
+    expect(msg).toContain('Kod: 731 064 (ważny do: jutro · 10:00)');
+    expect(parseJoin(msg)).toEqual({ joinId: '482913507', code: '731064' });
+    await press(screen.getByLabelText('Unieważnij kod'));
+    expect(account.revokeInvite).toHaveBeenCalledWith('inv-2');
     await type(screen.getByTestId('child-name'), 'Zosia');
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', group_id: 'gf', set: { display_name: 'Zosia', role: 'child' } });
@@ -234,7 +237,7 @@ describe('Grupy', () => {
   });
 
   it('błąd serwera przy zaproszeniu: komunikat; wyjście z grupy z potwierdzeniem', async () => {
-    const account = fakeAccount({ createInvite: jest.fn(async () => Promise.reject(new Error('offline'))) });
+    const account = fakeAccount({ createJoinCode: jest.fn(async () => Promise.reject(new Error('offline'))) });
     const { store } = await open({ account });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
@@ -256,7 +259,16 @@ describe('Grupy', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByLabelText('Zaproś jako admina'));
-    expect(account.createInvite).toHaveBeenCalledWith('gf', 'admin');
+    expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'admin');
+    // Owner może zmienić ID grupy (z potwierdzeniem); kod znika, bo przestał działać.
+    expect(screen.getByTestId('invite-ready')).toBeTruthy();
+    await press(screen.getByTestId('rotate-join-id'));
+    await answerAlert('Anuluj');
+    expect(account.rotateJoinId).not.toHaveBeenCalled();
+    await press(screen.getByTestId('rotate-join-id'));
+    await answerAlert('Zmień ID grupy');
+    expect(account.rotateJoinId).toHaveBeenCalledWith('gf');
+    expect(screen.queryByTestId('invite-ready')).toBeNull();
     expect(screen.getByText(/Właściciel nie wychodzi z grupy/)).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId(`group-${ME}`));
@@ -280,28 +292,42 @@ describe('Grupy', () => {
     expect(store.refresh).toHaveBeenCalled();
   });
 
-  it('przyjęcie zaproszenia z wklejonego linku: zły link, wygasły, poprawny', async () => {
-    const tok = 'ab'.repeat(32);
-    let code = 'invite_expired';
-    const account = fakeAccount({ acceptInvite: jest.fn(async () => (code ? Promise.reject(new Error(code)) : { groupId: 'gf' })) });
+  it('dołączenie ID + kodem: błędy serwera po kolei, potem sukces', async () => {
+    const errors = ['invite_invalid', 'invite_expired', 'rate_limited', 'network', ''];
+    const account = fakeAccount({ joinGroup: jest.fn(async () => { const e = errors.shift(); return e ? Promise.reject(new Error(e)) : { groupId: 'gf' }; }) });
     const { store } = await open({ account });
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Dołącz kodem zaproszenia'));
-    await type(screen.getByTestId('invite-input'), 'https://zly.link');
+    await press(await screen.findByLabelText('Dołącz do grupy'));
+    expect(screen.getByTestId('invite-accept').props.accessibilityState.disabled).toBe(true);
+    await type(screen.getByTestId('invite-join-id'), '482 913 507');
+    await type(screen.getByTestId('invite-code'), '731-064');
     await press(screen.getByTestId('invite-accept'));
-    expect(screen.getByText('Ten link jest nieważny albo wygasł. Poproś o nowy.')).toBeTruthy();
-    expect(account.acceptInvite).not.toHaveBeenCalled();
-    await type(screen.getByTestId('invite-input'), `io.github.lkarwowski494.organizer://invite/${tok}`);
+    expect(account.joinGroup).toHaveBeenLastCalledWith('482913507', '731064', 'Łukasz');
+    expect(await screen.findByText('Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
-    expect(await screen.findByText('Ten link jest nieważny albo wygasł. Poproś o nowy.')).toBeTruthy();
-    code = 'network';
+    expect(await screen.findByText('Ten kod wygasł. Poproś o nowe zaproszenie.')).toBeTruthy();
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText('Za dużo nieudanych prób. Spróbuj ponownie za godzinę.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
-    code = '';
     await press(screen.getByTestId('invite-accept'));
-    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
     expect(store.refresh).toHaveBeenCalled();
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+
+  it('wklejona wiadomość wypełnia ID i kod; stary 64-znakowy kod nadal działa', async () => {
+    const tok = 'ab'.repeat(32);
+    const account = fakeAccount();
+    await open({ account });
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Dołącz do grupy'));
+    await type(screen.getByTestId('invite-input'), 'Dotknij linku: https://lkarwowski494.github.io/j/?g=482913507&c=731064');
+    expect(screen.getByTestId('invite-join-id').props.value).toBe('482 913 507');
+    expect(screen.getByTestId('invite-code').props.value).toBe('731 064');
+    await type(screen.getByTestId('invite-input'), `Wklej kod:\n${tok}`);
+    await press(screen.getByTestId('invite-accept'));
+    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
+    expect(account.joinGroup).not.toHaveBeenCalled();
   });
 });
 

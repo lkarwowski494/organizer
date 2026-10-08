@@ -14,7 +14,8 @@ export type RootStackParams = {
   Event: { eventId: string; date: string };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */
   EventEdit: { groupId?: string; date?: string; eventId?: string; scope?: Scope };
-  Invite: { token?: string };
+  /** `token` — stare zaproszenie (64 znaki); `g` + `c` — ID grupy i kod z linku (D94). */
+  Invite: { token?: string; g?: string; c?: string };
   Settings: undefined;
   Rejected: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */

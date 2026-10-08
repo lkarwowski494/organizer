@@ -40,6 +40,11 @@ describe('src/config zgodny z SQL', () => {
     ['feedback_per_day', config.feedback.PER_DAY],
     ['feedback_retention_days', config.feedback.RETENTION_DAYS],
     ['staples_max', config.shopping.STAPLES_MAX],
+    ['join_id_digits', config.invites.JOIN_ID_DIGITS],
+    ['join_code_digits', config.invites.CODE_DIGITS],
+    ['join_code_ttl_hours', config.invites.CODE_TTL_HOURS],
+    ['join_fails_per_user', config.invites.JOIN_FAILS_PER_USER],
+    ['join_fails_per_group', config.invites.JOIN_FAILS_PER_GROUP],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);

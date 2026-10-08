@@ -3,6 +3,9 @@
  * logowanie, tworzenie grupy (RPC create_group), zaproszenia (create/accept/revoke_invite), usunięcie konta.
  * Implementacja: src/sync/supabase.ts; w testach ekranów — atrapa.
  */
+/** Kod do ID grupy (D92–D94): 6 cyfr, 24 h, dla wielu osób. */
+export type JoinInvite = { inviteId: string; joinId: string; code: string; url: string; expiresAt: string };
+
 export type Invite = { inviteId: string; token: string; url: string; expiresAt: string; maxUses: number };
 
 /** Zgłoszenie błędu (D80): bez treści z tabel. */
@@ -19,6 +22,12 @@ export interface AccountApi {
   createInvite(groupId: string, role: 'member' | 'admin'): Promise<Invite>;
   acceptInvite(token: string, displayName: string): Promise<{ groupId: string }>;
   revokeInvite(inviteId: string): Promise<void>;
+  /** Nowy 6-cyfrowy kod do ID grupy (owner/admin). */
+  createJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
+  /** Dołączenie ID + kod. Błędy (komunikat): invite_invalid, invite_expired, invite_revoked, invite_used_up, rate_limited. */
+  joinGroup(joinId: string, code: string, displayName: string): Promise<{ groupId: string }>;
+  /** Nowe ID grupy (owner); wszystkie kody na stare ID przestają działać. */
+  rotateJoinId(groupId: string): Promise<string>;
   /** Kosz grupy (D54): tylko właściciel; przywrócenie w ciągu config.sync.TOMBSTONE_DAYS dni. */
   deleteGroup(groupId: string): Promise<void>;
   restoreGroup(groupId: string): Promise<void>;

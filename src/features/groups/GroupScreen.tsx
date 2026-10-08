@@ -1,10 +1,10 @@
 /**
- * Grupa: członkowie z rolami, zaproszenie linkiem (D48: 7 dni, 10 osób), profil dziecka bez konta (D10),
+ * Grupa: członkowie z rolami, zaproszenie ID grupy + kodem 24 h (D92–D94), profil dziecka bez konta (D10),
  * zmiana nazwy, listy grupy, wyjście (owner nie wychodzi — strażnik członkostw).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
+import { Alert, Pressable, Share, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
@@ -12,10 +12,13 @@ import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
 import { formatDue } from '../../domain/format';
+import { formatIsoDate } from '../../domain/civil-date';
+import { groupDigits } from '../../domain/invite-link';
+import { localNow } from '../../app/clock';
 import { groupDetail, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
-import type { Invite } from '../../sync/account';
+import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
@@ -28,7 +31,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
-  const [invite, setInvite] = useState<Invite | null>(null);
+  const [invite, setInvite] = useState<JoinInvite | null>(null);
   const [child, setChild] = useState('');
   const [name, setName] = useState(d?.group.name ?? '');
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -44,10 +47,15 @@ export function GroupScreen({ route, navigation }: Props) {
     );
   }
   const personal = d.group.kind === 'personal';
+  // „jutro 18:40” — koniec ważności kodu w czasie Europe/Warsaw.
+  const until = (iso: string) => {
+    const l = localNow(Date.parse(iso));
+    return formatDue({ date: formatIsoDate(l), time: `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}` }, today);
+  };
   const makeInvite = async (role: 'member' | 'admin') => {
     setError(false);
     try {
-      setInvite(await account.createInvite(d.group.id, role));
+      setInvite(await account.createJoinCode(d.group.id, role));
     } catch {
       setError(true);
     }
@@ -79,8 +87,13 @@ export function GroupScreen({ route, navigation }: Props) {
       {invite ? (
         <View testID="invite-ready" style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
           <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
-          <Body muted>{strings['groups.inviteInfo'](config.invites.DEFAULT_TTL_HOURS / 24, invite.maxUses)}</Body>
-          <Button label={strings['groups.share']} onPress={() => void Share.share({ message: strings['groups.inviteMessage'](d.group.name, invite.token) })} />
+          <Body>{`${strings['groups.joinId']}: ${groupDigits(invite.joinId)}`}</Body>
+          <Text testID="join-code" style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${groupDigits(invite.code)}`}</Text>
+          <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT)}</Body>
+          <Button
+            label={strings['groups.share']}
+            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, invite.url, groupDigits(invite.joinId), groupDigits(invite.code), until(invite.expiresAt)) })}
+          />
           <Button
             kind="danger"
             label={strings['groups.revoke']}
@@ -90,6 +103,26 @@ export function GroupScreen({ route, navigation }: Props) {
             }}
           />
         </View>
+      ) : null}
+      {d.group.me.role === 'owner' && !personal ? (
+        <Button
+          kind="secondary"
+          label={strings['groups.rotate']}
+          testID="rotate-join-id"
+          onPress={() =>
+            Alert.alert(strings['groups.rotate'], strings['groups.rotateConfirm'], [
+              { text: strings['common.cancel'], style: 'cancel' },
+              {
+                text: strings['groups.rotate'],
+                style: 'destructive',
+                onPress: () => {
+                  setInvite(null);
+                  account.rotateJoinId(d.group.id).then(() => store.refresh(), () => setError(true));
+                },
+              },
+            ])
+          }
+        />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
       {d.canManageMembers ? (
