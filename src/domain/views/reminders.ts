@@ -1,7 +1,8 @@
 /**
  * Plan przypomnień na telefonie (D75, ADR 0016). Z tego, co dotyczy mnie (myDays, ten sam widok co „Moje sprawy”):
  *  - sprawa z godziną (zadanie, wydarzenie, zakupy): `leadMin` minut przed;
- *  - sprawy bez godziny i zaległe: jedno zbiorcze o `morning` danego dnia.
+ *  - poranne podsumowanie o `morning` (D110): ile spraw na ten dzień, w tym zaległych, i pierwsze z nich — zaległe,
+ *    bez godziny, potem z godziną („17:00 Tańce”). Wysyłane, gdy dzień ma cokolwiek (dawniej tylko sprawy bez godziny).
  * Tylko przyszłe chwile, najbliższe `max`. Zamiana czasu warszawskiego na chwilę — wstrzykiwana (`toMs`).
  */
 import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../civil-date';
@@ -20,7 +21,7 @@ export function planReminders(
   today: CivilDate,
   nowMs: number,
   s: ReminderSettings,
-  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string } },
+  opts: { days: number; max: number; toMs: (t: LocalDateTime) => number; localDate: (iso: string) => string; label: { trip: (name: string) => string; morningTitle: string; more: (n: number) => string; summary: (n: number, overdue: number) => string } },
 ): Reminder[] {
   const out: Reminder[] = [];
   for (let k = 0; k < opts.days; k++) {
@@ -30,24 +31,30 @@ export function planReminders(
     const entries = view.days[0]!.entries;
     // Bez terminu (przypięte) nie przypominamy — codziennie to samo byłoby szumem.
     const untimed: string[] = [];
+    const timed: string[] = [];
+    let overdue = 0;
     for (const e of entries) {
       const title = e.kind === 'event' ? e.event.title : e.task.trip ? opts.label.trip(e.task.title) : e.task.title;
       // Zadania w dniu mają termin (myDays); odhaczone dziś i w przyszłości do widoku nie trafiają.
       const time = e.kind === 'event' ? e.event.startTime : e.kind === 'overdue' ? null : e.task.due!.time;
+      if (e.kind === 'overdue') overdue++;
       if (time === null) {
         untimed.push(title);
         continue;
       }
+      timed.push(`${time.slice(0, 5)} ${title}`);
       if (s.leadMin <= 0) continue;
       const at = opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) - s.leadMin * 60_000;
       const group = e.kind === 'event' ? e.event.groupName : e.task.groupName;
       const key = e.kind === 'event' ? `e|${e.event.eventId}|${e.event.occurrenceDate}` : `t|${e.task.id}`;
       if (at > nowMs) out.push({ id: `${key}|${iso}`, at, title, body: `${time.slice(0, 5)} · ${group}` });
     }
-    if (s.morning !== 'off' && untimed.length) {
+    const all = [...untimed, ...timed];
+    if (s.morning !== 'off' && all.length) {
       const at = opts.toMs({ ...parseIsoDate(iso), ...hm(s.morning) });
-      const shown = untimed.slice(0, 4).join(', ');
-      if (at > nowMs) out.push({ id: `m|${iso}`, at, title: opts.label.morningTitle, body: untimed.length > 4 ? `${shown} ${opts.label.more(untimed.length - 4)}` : shown });
+      const shown = all.slice(0, 4).join(', ');
+      const list = all.length > 4 ? `${shown} ${opts.label.more(all.length - 4)}` : shown;
+      if (at > nowMs) out.push({ id: `m|${iso}`, at, title: opts.label.morningTitle, body: `${opts.label.summary(all.length, overdue)}: ${list}` });
     }
   }
   return out.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)).slice(0, opts.max);

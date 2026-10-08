@@ -6,6 +6,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    fromBuild: 19,
+    items: [
+      'Zaległe zadania przeniesiesz na dziś jednym przyciskiem „Przenieś zaległe na dziś” (z cofnięciem).',
+      'Poranne przypomnienie podsumowuje cały dzień: ile spraw, ile zaległych i co jest na liście.',
+    ],
+  },
+  {
     fromBuild: 18,
     items: [
       'Wydarzenia z iPhone’a wyglądają jak wydarzenia grup, tylko szare — bez kwadracika, który mylił się z polem do odhaczenia.',

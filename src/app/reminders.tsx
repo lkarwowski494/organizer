@@ -46,7 +46,7 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
             max: config.reminders.MAX_SCHEDULED,
             toMs: localToMs,
             localDate: (iso) => formatIsoDate(localNow(Date.parse(iso))),
-            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'] },
+            label: { trip: strings['trip.title'], morningTitle: strings['reminders.morningTitle'], more: strings['reminders.more'], summary: strings['reminders.summary'] },
           });
           return push.replaceReminders(list);
         })
