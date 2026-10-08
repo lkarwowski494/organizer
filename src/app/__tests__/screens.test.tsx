@@ -489,7 +489,7 @@ describe('Ustawienia', () => {
     expect(s.account.signOut).toHaveBeenCalled();
   });
 
-  it('strona główna: synchronizacja, cztery podstrony, uwagi i wprowadzenie (D131)', async () => {
+  it('strona główna: synchronizacja, pięć podstron, uwagi i wprowadzenie (D131; „Dodawanie” — audyt 2, M-24)', async () => {
     await open();
     await press(screen.getByLabelText('Ustawienia'));
     expect(await screen.findByTestId('screen-settings')).toBeTruthy();
@@ -498,12 +498,13 @@ describe('Ustawienia', () => {
       ['settings-notifications', 'Powiadomienia'],
       ['settings-calendar', 'Kalendarz i dojazd'],
       ['settings-appearance', 'Wygląd'],
+      ['settings-adding', 'Dodawanie'],
       ['settings-account', 'Konto i dane'],
     ]);
     expect(screen.getByTestId('open-feedback')).toBeTruthy();
     expect(screen.getByTestId('welcome-again')).toBeTruthy();
     expect(screen.queryByTestId('sign-out')).toBeNull();
-    for (const [id, title] of [['notifications', 'Powiadomienia'], ['calendar', 'Kalendarz i dojazd'], ['appearance', 'Wygląd'], ['account', 'Konto i dane']] as const) {
+    for (const [id, title] of [['notifications', 'Powiadomienia'], ['calendar', 'Kalendarz i dojazd'], ['appearance', 'Wygląd'], ['adding', 'Dodawanie'], ['account', 'Konto i dane']] as const) {
       await press(screen.getByTestId(`settings-${id}`));
       const page = await screen.findByTestId(`screen-settings-${id}`);
       expect(within(page).getAllByRole('header')[0]).toHaveTextContent(title);

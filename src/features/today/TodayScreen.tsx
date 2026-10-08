@@ -9,8 +9,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { config } from '../../config';
 import { quickAddOps } from '../../app/quickadd';
-import { findTimeRange, withoutRange } from '../../domain/time-range';
-import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
+import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
 import { routineStreak, taskStreak } from '../../domain/views/routines';
@@ -18,7 +17,6 @@ import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
-import { parseQuickAdd } from '../../domain/quickadd';
 import { useTaskActions } from '../../app/task-actions';
 import { formatTime, localNow } from '../../app/clock';
 import { useTravel } from '../../app/travel';
@@ -35,13 +33,19 @@ import { PushPrompt } from './PushPrompt';
 import { WhatsNew } from './WhatsNew';
 import { NAME_ASKED } from '../profile/NameScreen';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
-import { extractMention, type MentionTarget, mentionTargets } from '../../domain/views/mention';
+import { startGroup } from '../../domain/views/default-group';
+import { type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, unseenInMyDays, withoutShortcuts } from '../../domain/views/quick-target';
+import { useDefaultGroup } from '../../app/default-group';
+import { QuickGroupChip, ShoppingChip } from './QuickGroupChip';
+import { recentShoppingList, shoppingItem } from '../../domain/views/quick-shopping';
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { AskPanel } from '../../ui/AskPanel';
+import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -54,8 +58,15 @@ export function TodayScreen() {
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
-  // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem.
-  const [choices, setChoices] = useState<MentionTarget[] | null>(null);
+  // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24).
+  // `answers` — dotychczasowe odpowiedzi.
+  const [ask, setAsk] = useState<{ r: Exclude<QuickResolution, { kind: 'ok' | 'noGroup' }>; answers: QuickAnswers } | null>(null);
+  // M-24: grupa wybrana chipem dla tego wpisu (null — start z ustawienia „Grupa domyślna”) i rozwinięty wybór.
+  const [chip, setChip] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const defaultGroup = useDefaultGroup();
+  // Audyt 2 (M-168): nie ma czego dodać (sam termin, samo „@imię”) — pole zostaje, komunikat zamiast cichego czyszczenia.
+  const [error, setError] = useState<string | null>(null);
   // D127: rozwinięte wiersze lekcji dziecka (klucz wiersza).
   const [openLessons, setOpenLessons] = useState<string[]>([]);
   const undo = useUndo();
@@ -96,46 +107,89 @@ export function TodayScreen() {
   const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
   const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
   const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
-  // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania.
-  const range = text ? findTimeRange(text, ignore) : null;
-  const tokens = text ? [...(range ? [{ start: range.start, end: range.end, text: range.text.trim() }] : []), ...parseQuickAdd(range ? withoutRange(text, range) : text, now(), { ignore }).tokens].sort((a, b) => a.start - b.start) : [];
+  // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania. Podgląd mówi też, że powstanie
+  // wydarzenie (audyt 2, M-256) albo że dnia nie rozpoznano (M-23).
+  const preview = quickPreview(text, now(), ignore);
+  // M-24 (decyzja właściciela 8.10.2026): chip pokazuje, dokąd trafi wpis — grupę z „#”/„@”, gdy tekst ją wskazał,
+  // inaczej wybraną chipem albo start z ustawienia.
+  const personalLabel = strings['groups.personal'];
+  const addGroups = useMemo(() => quickGroups(tables, userId, personalLabel), [tables, userId, personalLabel]);
+  const chipGroup = (chip !== null && addGroups.some((g) => g.id === chip) ? chip : null) ?? startGroup(addGroups, defaultGroup.setting, defaultGroup.last);
+  const resolve = (answers: QuickAnswers) => resolveQuick(tables, userId, text, { chipGroupId: chipGroup, personalLabel, answers });
+  const resolved = text ? resolve({}) : null;
+  const target = resolved?.kind === 'ok' ? resolved.target : null;
+  const shownGroup = groups.find((g) => g.id === (target?.groupId ?? chipGroup));
+  const fromText = !!target && target.from !== 'chip';
+  // PW-3 wariant D: cały wpis (bez terminu, „#…”, bez osoby) to produkt — podpowiedź listy zakupów grupy wpisu, której
+  // ostatnio używano. Najpierw dosłownie („mąka 1.5 kg” z ilością), potem bez rozpoznanego terminu („mleko jutro”).
+  const body = target ? quickPreview(target.body, now(), ignore) : null;
+  const plain = target && target.memberId === null && !preview.event ? target : null;
+  const product = plain && body ? (shoppingItem(plain.body) ?? shoppingItem(body.title)) : null;
+  // D68 po PW-18 b: zapis bez pytania; przed dodaniem napis, że nikt tego nie zobaczy w Moich sprawach.
+  const unseen = !!target && !!body && body.title.trim() !== '' && unseenInMyDays(tables, userId, target, body.dated);
+  const shopList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
   const label = mode === 'day' ? formatLongDate(at, today) : mode === 'week' ? formatRange(from, to, today) : formatMonth(at.y, at.m);
 
-  // Szybkie dodanie (D90, D91): „@imię” wybiera grupę i osobę; po dodaniu pasek „Dodano … · Zmień” otwiera pełny formularz.
-  const addWith = (target?: MentionTarget) => {
-    const { mention } = extractMention(text);
-    // „@imię” zastępujemy spacjami tej samej długości, żeby odklikane fragmenty (ignore) zachowały pozycje.
-    const body = mention && target ? `${text.slice(0, mention.start)}${' '.repeat(mention.end - mention.start)}${text.slice(mention.end)}` : text;
-    const group = target ? target.groupName : strings['groups.personal'];
-    const q = quickEvent({ tables, userId, text: body, now: now(), ignore, groupId: target?.groupId, memberId: target?.memberId });
+  // Szybkie dodanie (D90, D91, M-24): grupa z chipa, „#Grupa” albo „@imię”, osoba z „@imię”/„@ja”; po dodaniu pasek
+  // „Dodano … · Zmień” otwiera pełny formularz. Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
+  const addWith = (t: QuickTarget) => {
+    const group = addGroups.find((g) => g.id === t.groupId)!.name;
+    const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: t.memberId ?? undefined });
     const event = q ? quickEventOps(q, newId) : null;
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
       undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('Event', { eventId: event.id, date: q.form.date }), strings['form.change']);
-      return clear();
+      return done(t);
     }
-    const ops = quickAddOps({ tables, userId, text: body, now: now(), ignore, newId, groupId: target?.groupId, assigneeId: target?.memberId });
-    store.dispatch(ops);
+    const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: t.memberId });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
-    if (created && created.kind === 'create') {
-      undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
-    }
+    if (!created || created.kind !== 'create') return fail(strings['common.error']);
+    store.dispatch(ops);
+    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+    done(t);
+  };
+  // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.
+  const toShopping = (t: QuickTarget, item: string, list: { id: string; name: string }) => {
+    const ops = quickAddOps({ tables, userId, text: item, now: now(), ignore: [], newId, listId: list.id });
+    const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    if (!created || created.kind !== 'create') return fail(strings['common.error']);
+    store.dispatch(ops);
+    undo.show(strings['form.added'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['form.change']);
+    done(t);
+  };
+  // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
+  const done = (t: QuickTarget) => {
+    if (t.from === 'tag') defaultGroup.remember(t.groupId);
     clear();
+  };
+  const fail = (message: string) => {
+    setAsk(null);
+    setError(message);
   };
   const clear = () => {
     setText('');
     setIgnore([]);
-    setChoices(null);
+    setAsk(null);
+    setError(null);
+    setChip(null);
+    setPicking(false);
+  };
+  const proceed = (answers: QuickAnswers) => {
+    const r = resolve(answers);
+    // Bez żadnej grupy (np. przed pierwszym pobraniem danych) nie ma gdzie dodać — tekst zostaje w polu.
+    if (r.kind === 'noGroup') return fail(strings['common.error']);
+    if (r.kind !== 'ok') return setAsk({ r, answers });
+    addWith(r.target);
   };
   const submit = () => {
-    const { mention } = extractMention(text);
-    const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
-    if (targets.length > 1) return setChoices(targets);
-    addWith(targets[0]);
+    if (text.trim() === '') return;
+    // M-168: sam termin („jutro”) albo samo „@Ala”/„#Rodzina” — bez nazwy nie ma czego dodać.
+    if (quickPreview(withoutShortcuts(text), now(), ignore).title.trim() === '') return fail(strings['form.error.title']);
+    proceed({});
   };
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
@@ -289,14 +343,31 @@ export function TodayScreen() {
           <LineChip key={g.id} name={g.kind === 'personal' ? strings['groups.personal'] : g.name} line={g.line} />
         ))}
       </View>
-      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setChoices(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
-        {tokens.length ? (
+      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
+        {(addGroups.length > 1 && shownGroup) || shopList ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {tokens.map((t) => (
-              <TokenChip key={`${t.start}-${t.end}`} text={t.text} onPress={() => setIgnore([...ignore, { start: t.start, end: t.end }])} />
-            ))}
+            {addGroups.length > 1 && shownGroup ? (
+              <QuickGroupChip name={addGroups.find((g) => g.id === shownGroup.id)!.name} line={shownGroup.line} fromText={fromText} open={picking} onToggle={() => setPicking(!picking)} />
+            ) : null}
+            {plain && product && shopList ? <ShoppingChip item={product} list={shopList.name} onPress={() => toShopping(plain, product, shopList)} /> : null}
           </View>
         ) : null}
+        {picking && !fromText && chipGroup ? (
+          <Segmented
+            label={strings['quick.groupPick']}
+            value={chipGroup}
+            options={addGroups.map((g) => ({ value: g.id, label: g.name }))}
+            onChange={(g) => {
+              // Zmiana chipem zostaje ostatnio użytą grupą (przy konkretnej grupie domyślnej — tylko dla tego wpisu).
+              setChip(g);
+              defaultGroup.remember(g);
+              setPicking(false);
+            }}
+          />
+        ) : null}
+        {plain && product && !shopList ? <Body muted>{strings['quick.noShoppingList'](product, addGroups.find((g) => g.id === plain.groupId)!.name)}</Body> : null}
+        {unseen ? <Body muted>{strings['quick.unseen']}</Body> : null}
+        <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button
         kind="secondary"
@@ -304,26 +375,44 @@ export function TodayScreen() {
         a11yHint={strings['form.moreHint']}
         testID="add-more"
         onPress={() => {
-          // Z zakresem godzin — od razu formularz wydarzenia (D99); „@imię” wybiera tam grupę tylko przy jednym dopasowaniu.
-          const { text: rest, mention } = extractMention(text);
-          const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
-          const one = targets.length === 1 ? targets[0] : undefined;
-          const q = quickEvent({ tables, userId, text: one ? rest : text, now: now(), ignore: one ? [] : ignore, groupId: one?.groupId, memberId: one?.memberId });
+          // Z zakresem godzin — od razu formularz wydarzenia (D99) w grupie, którą pokazuje chip; osoba z „@…” tylko przy
+          // jednym dopasowaniu (przy kilku pyta pełny formularz zadania, audyt 2 M-170).
+          const q = quickEvent({ tables, userId, text: target?.body ?? text, now: now(), ignore, groupId: target?.groupId ?? chipGroup ?? undefined, memberId: target?.memberId ?? undefined });
           if (q) nav.navigate('EventEdit', { groupId: q.groupId, date: q.form.date, title: q.form.title, start: q.form.slots[0]!.start, end: q.form.slots[0]!.end, responsibleId: q.form.responsibleId ?? undefined });
-          else nav.navigate('AddTask', { text });
+          else nav.navigate('AddTask', { text, defaultGroupId: chipGroup ?? undefined });
           clear();
         }}
       />
-      {choices ? (
-        <View testID="mention-choices" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {strings['mention.ask'](extractMention(text).mention?.name ?? '')}
-          </Text>
-          {choices.map((t) => (
-            <Button key={`${t.groupId}-${t.memberId}`} kind="secondary" label={strings['mention.pick'](t.displayName, t.groupName)} onPress={() => addWith(t)} />
-          ))}
-          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setChoices(null)} />
-        </View>
+      {ask?.r.kind === 'many' ? (
+        <AskPanel
+          testID="mention-choices"
+          title={strings['mention.ask'](ask.r.name)}
+          options={ask.r.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => proceed({ ...ask.answers, person: t }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'unknown' ? (
+        <AskPanel
+          testID="mention-unknown"
+          title={strings['mention.unknown'](ask.r.name)}
+          body={strings['mention.unknownInfo'](ask.r.name)}
+          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'manyGroups' ? (
+        <AskPanel
+          testID="tag-choices"
+          title={strings['tag.ask'](ask.r.name)}
+          options={ask.r.groups.map((g) => ({ key: g.id, label: g.name, onPress: () => proceed({ ...ask.answers, group: g.id }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'unknownGroup' ? (
+        <AskPanel
+          testID="tag-unknown"
+          title={strings['tag.unknown'](ask.r.name)}
+          body={strings['tag.unknownInfo'](ask.r.name, ask.r.chip.name)}
+          options={[{ key: 'chip', label: strings['tag.addTo'](ask.r.chip.name), onPress: () => proceed({ ...ask.answers, skipTag: true }) }]}
+          onCancel={() => setAsk(null)}
+        />
       ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

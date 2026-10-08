@@ -57,3 +57,17 @@ export function answerOps(t: Tables, a: { groupId: string; eventId: string; date
   if (t.event_rsvps?.[id]) return [patch];
   return [{ kind: 'create', entity: 'event_rsvps', id, group_id: a.groupId, set: { event_id: a.eventId, occurrence_date: a.date, member_id: a.memberId, answer: a.answer } }, patch];
 }
+
+/**
+ * Terminy, na które sam odpowiedziałem „nie będę” (klucz `<id wydarzenia>|<data wystąpienia>`). PW-23 (decyzja
+ * właściciela 8.10.2026): bez przypomnienia, „Czas wyjść” i liczenia dojazdu; wiersz zostaje (D129). Liczy się tylko
+ * moja odpowiedź — „nie będzie” za dziecko nie wycisza przypomnień dorosłego (otwarte pytanie do właściciela).
+ */
+export function declinedByMe(t: Tables, userId: string): Set<string> {
+  const mine = myMemberships(t, userId);
+  const out = new Set<string>();
+  for (const r of Object.values(t.event_rsvps ?? {})) {
+    if (r.deleted_at == null && r.answer === 'no' && mine.get(String(r.group_id))?.member_id === r.member_id) out.add(`${String(r.event_id)}|${String(r.occurrence_date)}`);
+  }
+  return out;
+}

@@ -9,6 +9,7 @@ dziś/dzisiaj, jutro, pojutrze (opcjonalnie z „na”); „w/we/na” + dzień 
 o godz. 7, o godzinie 7, 17:30); „co tydzień” → `FREQ=WEEKLY;BYDAY=<dzień startu>`.
 Rozpoznawanie ignoruje polskie znaki. Pierwszy fragment danego rodzaju wygrywa, kolejne zostają w tytule.
 Poza MVP: „w przyszły piątek”, „za 3 dni”, „do piątku”, „rano/wieczorem”, „codziennie”, +osoba, #grupa (Faza 1).
+„@imię” (D91) i „#grupa”, „@ja” (audyt 2, M-24) rozpoznaje osobno `domain/views/quick-target.ts`, poza parserem dat.
 
 ## Źródła językowe
 - Nazwy miesięcy w dopełniaczu i skróty, nazwy dni: Unicode CLDR 48.2.3 (pl, ca-gregorian).
@@ -28,12 +29,41 @@ Poza MVP: „w przyszły piątek”, „za 3 dni”, „do piątku”, „rano/w
 Dopowiedzenia (moje, w duchu D43): godziny 0 i 12–23 czytane dosłownie; seria „co tydzień” bez dnia
 startuje dziś; nieistniejąca data (31.04) nie jest rozpoznawana i zostaje w tytule.
 
+## Bezpiecznik dnia (audyt 2, 8.10.2026; decyzja wykonawcza Claude, właściciel może zawetować)
+Problem: „dentysta w przyszły wtorek o 15” dawało termin dziś 15:00 (D43: godzina bez dnia), bo „przyszły wtorek”
+nie jest w zakresie MVP — zły dzień bez ostrzeżenia.
+- Reguła: gdy w tekście poza rozpoznanymi i odklikanymi fragmentami jest nazwa dnia tygodnia w dowolnej formie
+  („piątek”, „środy”, „wtorki”) albo „przyszły/następny” w dowolnej formie, a żadnej daty nie rozpoznano, parser nie
+  bierze godziny ani „co tydzień” (zostają w tytule) i zwraca ten fragment (`unrecognizedDay`; „przyszły/następny”
+  razem ze słowem tuż po nim). Pole dodawania mówi wtedy: „Nie rozpoznano dnia „przyszły wtorek”, więc zadanie będzie
+  bez terminu…”. Zakres godzin z takim dniem nie tworzy wydarzenia. Słowo dnia odklikane albo obok rozpoznanej daty
+  nic nie zmienia.
+- Formy: sjp.pl (hasła poniedziałek … niedziela, przyszły, następny), w `config/quickadd.pl.ts`.
+- Znaczenie „przyszły wtorek” (pytanie językowe) — źródła się rozchodzą, więc parser go nie tłumaczy:
+  prof. M. Bańko: „Myślę, że przyszły czwartek należy do przyszłego tygodnia”
+  (https://sjp.pwn.pl/poradnia/haslo/przyszly-czwartek;8697.html); prof. K. Kłosińska: „nie ma jednoznacznych
+  rozstrzygnięć co do zakresu użycia słów przyszły i ten”, „Jak wskazuje jednak praktyka, w tej funkcji [najbliższego
+  poniedziałku] jest używany też przymiotnik przyszły”
+  (https://sjp.pwn.pl/poradnia/haslo/Przyszly-poniedzialek-czy-ten-poniedzialek;21133.html). Ta sama odpowiedź:
+  sam „poniedziałek” „w odniesieniu do najbliższego poniedziałku będzie jak najbardziej zrozumiałe” — stąd
+  przykłady w aplikacji tylko z „w piątek”, „jutro o 17” i datą.
+- Odrzucone: „przyszły X” = najbliższy X (sprzeczne z odpowiedzią prof. Bańki); = X w następnym tygodniu (sprzeczne
+  z praktyką opisaną przez prof. Kłosińską); zostawić zgadywanie dziś/jutro (zły dzień bez ostrzeżenia); blokować
+  dodanie do czasu poprawki (wolniejsze, a tekst i tak zostaje w nazwie).
+- Otwarte (do zaległości, każde wymaga źródła): sam dzień bez przyimka („rachunek piątek”), „za tydzień”, „za 3 dni”,
+  „w weekend”, „codziennie / co miesiąc / co roku”, „rano/wieczorem”.
+
 ## Testy
-Korpus 540 fraz (przeliczone 8.10.2026; pierwotnie 470, uzupełniany m.in. w ADR 0009) w `src/domain/__tests__/fixtures/quickadd.pl.json` generowany przez
+Korpus 766 fraz (przeliczone 8.10.2026 po bezpieczniku dnia: każda forma ze słownika z godziną i z „co tydzień”;
+wcześniej 540, pierwotnie 470, uzupełniany m.in. w ADR 0009) w `src/domain/__tests__/fixtures/quickadd.pl.json` generowany przez
 `scripts/gen-quickadd-corpus.py` z niezależną implementacją reguł na `datetime` Pythona (test różnicowy;
 `npm run check:corpus` pilnuje, że plik jest aktualny). Do tego testy własności (fast-check): data → fraza →
 parse = ta sama data; dzień tygodnia zawsze 1–7 dni naprzód; godzina bez dnia zawsze w ciągu 24 h w przyszłości;
 tokeny zawsze wskazują swój tekst. Sprawdzenie mutacyjne: zmiana D42, D43 lub D44 w kodzie łamie 12–33 testy.
 
+Ten sam korpus przechodzi drogę zapisu (`src/app/__tests__/quickadd.test.ts`: tekst → `quickAddOps` → wiersz).
+
 ## Znane ograniczenia
-„2.5 kg” zostanie odczytane jako 2 maja — użytkownik odklikuje chip. Lista zakupów nie używa parsera dat.
+„2.5 kg” zostanie odczytane jako 2 maja — użytkownik odklikuje chip (w Moich sprawach i na liście zadań).
+Lista zakupów nie używa parsera dat (audyt 2, M-20: wcześniej używała — „mąka 1.5 kg” stawała się „mąka kg”
+z terminem 1 maja): tytuł zostaje dosłowny, ilość czyta tylko wyświetlanie (D77).

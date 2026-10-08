@@ -11,6 +11,7 @@ import { formatIsoDate } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
 import { isTravelMode, leaveAt, type NavApp, navigationUrl, type TravelMode, travelMinutes, travelTargets } from '../domain/travel';
 import { expandEvents } from '../domain/views/events';
+import { declinedByMe } from '../domain/views/rsvp';
 import { localToMs } from './clock';
 import { useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';
@@ -85,7 +86,15 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         if (a === 'google') setNavAppState('google');
       })
       .catch(() => {});
-    const sub = AppState.addEventListener('change', (st) => st === 'active' && setTick((n) => n + 1));
+    // Powrót do aplikacji: dojazd od nowa, a zgoda na lokalizację mogła się zmienić w Ustawieniach iPhone'a (audyt 2, N-21).
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') return;
+      setTick((n) => n + 1);
+      travel!
+        .status()
+        .then((s) => live && setStatus(s))
+        .catch(() => {});
+    });
     const timer = setInterval(() => setTick((n) => n + 1), config.travel.REFRESH_MIN * 60_000);
     return () => {
       live = false;
@@ -98,7 +107,7 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   const isoToday = formatIsoDate(today);
   const targets = useMemo(
     () =>
-      travelTargets(expandEvents(tables, userId, today, today), isoToday, nowMs(), (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor),
+      travelTargets(expandEvents(tables, userId, today, today), isoToday, nowMs(), (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, declinedByMe(tables, userId)),
     [tables, userId, today, isoToday, nowMs, modeFor, tick], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const signature = targets.map((t) => `${t.key}:${t.location}:${t.mode}:${t.startMs}`).join('|');

@@ -5,7 +5,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, type AlertButton, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MONTHS_NOMINATIVE } from '../../config/calendar.pl';
@@ -182,7 +182,9 @@ export function fakePush(over: Partial<DevicePush> = {}): jest.Mocked<DevicePush
     status: jest.fn(async () => 'undetermined' as const),
     request: jest.fn(async () => true),
     token: jest.fn(async () => 'ab'.repeat(32)),
-    env: 'production',
+    onToken: jest.fn(() => () => {}),
+    onOpen: jest.fn(() => () => {}),
+    env: jest.fn(async () => 'production' as const),
     dismissed: jest.fn(async () => false),
     dismiss: jest.fn(async () => {}),
     replaceReminders: jest.fn(async () => {}),
@@ -215,4 +217,18 @@ export async function pickDate(testID: string, iso: string) {
 export async function setTime(testID: string, value: string) {
   if (!screen.queryByTestId(`${testID}-panel`)) await fireEvent.press(await screen.findByTestId(testID));
   await fireEvent.changeText(screen.getByTestId(`${testID}-manual`), value);
+}
+
+/**
+ * Powrót do aplikacji i wyjście z niej (AppState) — wszystkie nasłuchujące komponenty dostają zdarzenie. Atrapa
+ * AppState z presetu React Native to jest.fn; mockRestore zostawiłby ją bez implementacji (kolejne testy dostałyby
+ * subskrypcję undefined), więc `restore` przywraca poprzednią implementację.
+ */
+export function appStateEvents() {
+  const listen = AppState.addEventListener as unknown as jest.Mock;
+  const previous = listen.getMockImplementation();
+  const handlers: ((s: string) => void)[] = [];
+  listen.mockImplementation((_e: string, fn: (s: string) => void) => (handlers.push(fn), { remove: () => {} }));
+  const emit = (s: string) => act(async () => handlers.forEach((h) => h(s)));
+  return { foreground: () => emit('active'), background: () => emit('background'), restore: () => void listen.mockImplementation(previous) };
 }

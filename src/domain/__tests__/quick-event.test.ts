@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { quickEvent, quickEventOps } from '../views/quick-event';
+import { quickEvent, quickEventOps, quickPreview } from '../views/quick-event';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -55,5 +55,38 @@ describe('wydarzenie z szybkiego dodania (D98, D99)', () => {
       { kind: 'create', entity: 'events', id: 'n1', group_id: 'gf', set: { title: 'basen', start_date: '2026-10-09', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'group', responsible_member_id: 'ala' } },
     ]);
     expect(quickEventOps(q('17-18')!, () => 'x')).toBeNull();
+  });
+});
+
+describe('nierozpoznany dzień i podgląd pola (audyt 2, M-23, M-256)', () => {
+  it('odklikany dzień przy zakresie — dzień jak bez dnia (dziś albo jutro), słowo w nazwie', () => {
+    expect(q('basen jutro 17-18', { ignore: [{ start: 6, end: 11 }] })!.form).toMatchObject({ title: 'basen jutro', date: '2026-10-08' });
+  });
+
+  it('„basen w przyszły wtorek 17–18” — bez wydarzenia na zgadnięty dzień', () => {
+    expect(q('basen w przyszły wtorek 17–18')).toBeNull();
+    expect(q('basen we wtorek 17–18')!.form.date).toBe('2026-10-13');
+  });
+
+  it('podgląd: zakres = wydarzenie (chip zakresu i chipy terminu po kolei); nierozpoznany dzień — bez wydarzenia i chipów', () => {
+    expect(quickPreview('basen jutro 17–18', NOW, [])).toEqual({
+      title: 'basen',
+      tokens: [{ start: 6, end: 11, text: 'jutro' }, { start: 12, end: 17, text: '17–18' }],
+      event: true,
+      unrecognizedDay: null,
+      dated: true,
+    });
+    expect(quickPreview('basen 17–18 w piątek', NOW, []).tokens.map((t) => t.text)).toEqual(['17–18', 'w piątek']);
+    expect(quickPreview('basen jutro o 17', NOW, [])).toMatchObject({ title: 'basen', event: false, dated: true, tokens: [{ text: 'jutro' }, { text: 'o 17' }] });
+    expect(quickPreview('basen w przyszły wtorek 17–18', NOW, [])).toEqual({ title: 'basen w przyszły wtorek 17–18', tokens: [], event: false, unrecognizedDay: { start: 8, end: 23, text: 'przyszły wtorek' }, dated: false });
+    // Odklikany zakres — zwykłe zadanie z zakresem w nazwie.
+    expect(quickPreview('basen 17–18', NOW, [{ start: 6, end: 11 }])).toEqual({ title: 'basen 17–18', tokens: [], event: false, unrecognizedDay: null, dated: false });
+    expect(quickPreview('', NOW, [])).toEqual({ title: '', tokens: [], event: false, unrecognizedDay: null, dated: false });
+    // Odklikane fragmenty liczą się w każdym odczycie: chipy, nazwa zadania z bezpiecznikiem.
+    expect(quickPreview('basen jutro', NOW, [{ start: 6, end: 11 }])).toMatchObject({ title: 'basen jutro', tokens: [], dated: false });
+    expect(quickPreview('jutro basen środy 17–18', NOW, [{ start: 0, end: 5 }])).toMatchObject({ title: 'jutro basen środy 17–18', event: false, dated: false });
+    // Sam termin albo sam zakres — nazwa pusta (nie ma czego dodać).
+    expect(quickPreview('jutro', NOW, []).title).toBe('');
+    expect(quickPreview('jutro 17–18', NOW, []).title).toBe('');
   });
 });

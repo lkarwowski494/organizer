@@ -31,13 +31,17 @@ export async function cachedProviderToken(p8: string, keyId: string, teamId: str
 
 export type SendResult = 'sent' | 'drop' | 'error';
 
-/** Jedno powiadomienie. `drop` — token do usunięcia (410 albo 400 BadDeviceToken). */
-export async function sendAlert(a: { env: ApnsEnv; token: string; jwt: string; topic: string; title: string; body: string }, fetchFn: typeof fetch = fetch): Promise<SendResult> {
+/**
+ * Jedno powiadomienie. `drop` — token do usunięcia (410 albo 400 BadDeviceToken). `data` — własne pola obok „aps”
+ * pod kluczem „body”: expo-notifications na iPhonie podaje je aplikacji jako `content.data` (dla powiadomień push czyta
+ * `userInfo["body"]`, expo-notifications 57 ios/…/NotificationRecords.swift); starsze buildy je pomijają.
+ */
+export async function sendAlert(a: { env: ApnsEnv; token: string; jwt: string; topic: string; title: string; body: string; data?: Record<string, string> }, fetchFn: typeof fetch = fetch): Promise<SendResult> {
   try {
     const res = await fetchFn(`https://${APNS_HOSTS[a.env]}/3/device/${a.token}`, {
       method: 'POST',
       headers: { authorization: `bearer ${a.jwt}`, 'apns-topic': a.topic, 'apns-push-type': 'alert', 'apns-priority': '10', 'content-type': 'application/json' },
-      body: JSON.stringify({ aps: { alert: { title: a.title, body: a.body }, sound: 'default' } }),
+      body: JSON.stringify({ aps: { alert: { title: a.title, body: a.body }, sound: 'default' }, ...(a.data ? { body: a.data } : {}) }),
     });
     if (res.status === 200) return 'sent';
     const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;

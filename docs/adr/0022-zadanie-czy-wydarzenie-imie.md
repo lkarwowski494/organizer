@@ -27,6 +27,8 @@ w grupach imiona z początku adresu e-mail („lukasz.karwowski93”).
    - Zegar 24-godzinny bez zgadywania rano/po południu (D43 dotyczy jednej godziny). Koniec musi być po początku.
    - Minuty po kropce tylko 00 albo > 12, jak w parserze terminów (D18), żeby „15.10–16.10” nie było godzinami.
    - Zakres jest chipem — odklikany zostaje tekstem zadania. Parser terminów i jego korpus bez zmian.
+   - Pod polem napis „Zakres godzin — dodasz wydarzenie, nie zadanie.” (audyt 2, M-256: zmiana rodzaju była ukryta).
+     Z nierozpoznanym dniem („w przyszły wtorek 17–18”) wydarzenia nie ma — zob. bezpiecznik dnia w ADR 0003.
    - Bez dnia: dziś, a gdy początek minął — jutro. „co tydzień” — co tydzień w dzień wydarzenia.
    - Z „@imię”: grupa tej osoby, osoba odpowiedzialna (tylko dorosła).
    - „Więcej” z zakresem otwiera od razu formularz wydarzenia. Pasek „Dodano wydarzenie: … · Zmień” otwiera wydarzenie.

@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { extractMention, mentionTargets } from '../views/mention';
+import { extractMention, foldName, mentionTargets } from '../views/mention';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -58,5 +58,11 @@ describe('@imię w szybkim dodawaniu (D91)', () => {
     put(t, 'group_members', 'x', { member_id: 'x', group_id: 'gf', user_id: 'u-x', display_name: undefined, role: 'member', deleted_at: null });
     expect(mentionTargets(t, ME, 'a').map((x) => x.memberId)).toEqual(['ala', 'ala2']);
     expect(mentionTargets(t, ME, 'x')).toEqual([]);
+  });
+});
+
+describe('porównanie imion i nazw', () => {
+  it('bez wielkości liter i polskich znaków', () => {
+    expect(foldName('Łucja ŻÓŁTA')).toBe('lucja zolta');
   });
 });
