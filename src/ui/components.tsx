@@ -18,9 +18,13 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
   const content = { paddingTop: insets.top + 12, paddingBottom: 24, paddingHorizontal: 20, gap: 14 };
   return scroll ? (
     // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
-    <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-      {children}
-    </ScrollView>
+    // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
+    <View style={style}>
+      <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        {children}
+      </ScrollView>
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
+    </View>
   ) : (
     <View testID={testID} style={[style, content]}>
       {children}

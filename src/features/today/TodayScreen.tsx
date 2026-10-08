@@ -11,6 +11,7 @@ import { quickAddOps } from '../../app/quickadd';
 import { findTimeRange, withoutRange } from '../../domain/time-range';
 import { quickEvent, quickEventOps } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
+import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -120,8 +121,11 @@ export function TodayScreen() {
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   const pinned = mode === 'day' && showsToday ? view.pinned : [];
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie) — w każdym dniu zakresu, po sprawach grup.
-  const device = useDeviceCalendar().days;
-  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && !device.has(d.date));
+  // D107: bez dubli wpisów aplikacji z tego samego dnia.
+  const allDevice = useDeviceCalendar().days;
+  const deviceOf = (d: (typeof view.days)[number]) =>
+    withoutDuplicates(allDevice.get(d.date) ?? [], d.entries.map((x) => (x.kind === 'event' ? { title: x.event.title, time: x.event.startTime } : { title: x.task.title, time: x.task.due?.time ?? null })));
+  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0);
 
   const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
     // Zakupy z listy zakupów (D73): odhaczenie z potwierdzeniem i pytaniem o niekupione, dotknięcie otwiera listę.
@@ -264,12 +268,12 @@ export function TodayScreen() {
         </View>
       ) : null}
       {view.days.map((d) =>
-        d.entries.length === 0 && !device.has(d.date) ? null : (
+        d.entries.length === 0 && deviceOf(d).length === 0 ? null : (
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
             {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
             {nestEntries(d.entries, tables).map((n) => entryRow(n.entry, d.past, n))}
-            {(device.get(d.date) ?? []).map((e) => (
+            {deviceOf(d).map((e) => (
               <DeviceEventRow key={e.key} e={e} />
             ))}
           </View>

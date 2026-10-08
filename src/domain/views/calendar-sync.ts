@@ -8,6 +8,7 @@
  *     stanem (identyfikatory wydarzeń iPhone'a i skrót treści): utwórz / zmień / usuń.
  *  Kalendarze lustra nie są czytane jako „moje wydarzenia” (inaczej sprawy grup pokazałyby się dwa razy).
  */
+import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { expandEvents } from './events';
 import { groupsView } from './index';
@@ -18,7 +19,7 @@ export type DeviceEvent =
   | { id: string; calendarId: string; calendarTitle: string; title: string; allDay: true; startDate: string; endDate: string }
   | { id: string; calendarId: string; calendarTitle: string; title: string; allDay: false; startMs: number; endMs: number };
 
-export type DeviceEntry = { key: string; title: string; calendarTitle: string; time: string | null; endTime: string | null; continued: boolean };
+export type DeviceEntry = { key: string; title: string; calendarId: string; calendarTitle: string; time: string | null; endTime: string | null; continued: boolean };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -42,7 +43,7 @@ export function deviceDays(
   };
   for (const e of events) {
     if (exclude.has(e.calendarId)) continue;
-    const base = { key: `d|${e.id}`, title: e.title, calendarTitle: e.calendarTitle };
+    const base = { key: `d|${e.id}`, title: e.title, calendarId: e.calendarId, calendarTitle: e.calendarTitle };
     if (e.allDay) {
       for (let d = e.startDate, i = 0; d < e.endDate && i < 366; i++) {
         push(d, { ...base, time: null, endTime: null, continued: d !== e.startDate });
@@ -69,6 +70,41 @@ export function deviceDays(
   for (const list of out.values()) list.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title, 'pl'));
   return out;
 }
+
+/** Kalendarze iPhone'a z pobranych wydarzeń (do wyboru w Ustawieniach, D106), bez kalendarzy lustra, po nazwie. */
+export function deviceCalendars(events: readonly DeviceEvent[], exclude: ReadonlySet<string>): { id: string; title: string }[] {
+  const m = new Map<string, string>();
+  for (const e of events) if (!exclude.has(e.calendarId)) m.set(e.calendarId, e.calendarTitle);
+  return [...m].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+}
+
+const FOLD: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' };
+const words = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!)
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= config.calendar.DUPLICATE_MIN_WORD && !/^\d+$/.test(w)),
+  );
+const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/**
+ * Dubel (D107): wydarzenie z iPhone'a, które opisuje to samo co wpis w aplikacji tego dnia — oba z godziną
+ * (różnica najwyżej config.calendar.DUPLICATE_WINDOW_MIN minut) albo oba bez godziny, i wspólne słowo nazwy
+ * (co najmniej DUPLICATE_MIN_WORD liter, bez liczb, bez polskich znaków). Kolejne dni wielodniowego („cd.”) nie są dublami.
+ */
+export function isDuplicate(e: DeviceEntry, app: readonly { title: string; time: string | null }[]): boolean {
+  if (e.continued) return false;
+  const mine = words(e.title);
+  return app.some((a) => {
+    const t = a.time?.slice(0, 5) ?? null;
+    const timeOk = e.time === null || t === null ? e.time === t : Math.abs(minutes(e.time) - minutes(t)) <= config.calendar.DUPLICATE_WINDOW_MIN;
+    return timeOk && [...words(a.title)].some((w) => mine.has(w));
+  });
+}
+
+export const withoutDuplicates = (entries: readonly DeviceEntry[], app: readonly { title: string; time: string | null }[]) => entries.filter((e) => !isDuplicate(e, app));
 
 const isoDate = (s: string): CivilDate => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)), d: Number(s.slice(8, 10)) });
 

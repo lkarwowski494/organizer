@@ -31,9 +31,10 @@ export const config = {
 
   /**
    * Kalendarz iPhone'a w obie strony (D95, D96): okno odczytu moich wydarzeń i okno lustra grup (dni wstecz /
-   * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych. Wybory projektowe, bez źródła.
+   * naprzód), limit wystąpień w lustrze, opóźnienie po zmianie danych; dubel z wpisem aplikacji (D107): różnica godzin
+   * i najkrótsze wspólne słowo nazwy. Wybory projektowe, bez źródła.
    */
-  calendar: { READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000 },
+  calendar: { READ_DAYS_BACK: 31, READ_DAYS_AHEAD: 62, MIRROR_DAYS_BACK: 7, MIRROR_DAYS_AHEAD: 90, MIRROR_MAX: 500, MIRROR_DEBOUNCE_MS: 3000, DUPLICATE_WINDOW_MIN: 30, DUPLICATE_MIN_WORD: 4 },
 
   /** Ile ostatnich wpisów historii pokazuje ekran zadania (D76). Wybór projektowy, bez źródła. */
   HISTORY_LIMIT: 15,

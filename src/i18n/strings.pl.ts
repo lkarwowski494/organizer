@@ -76,6 +76,7 @@ export const strings = {
   'form.added': (title: string, group: string) => `Dodano: ${title} · ${group}`,
   'form.change': 'Zmień',
   'date.pick': 'Wybierz dzień',
+  'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie, które powtarza wpis z aplikacji (ten sam dzień, podobna godzina i nazwa), jest ukrywane.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
   'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
   'name.askTitle': 'Jak masz na imię?',

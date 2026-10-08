@@ -17,6 +17,7 @@ import { useTaskActions } from '../../app/task-actions';
 import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { nestEntries } from '../../domain/views/nesting';
+import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import { eventsByDate, timeLabel } from '../../domain/views/events';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
@@ -45,8 +46,11 @@ export function CalendarScreen() {
   const memberName = (id: string) => String(tables.group_members?.[id]?.display_name ?? '');
   const isoToday = formatIsoDate(today);
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
-  const device = useDeviceCalendar().days;
-  const dayDevice = day ? (device.get(day.date) ?? []) : [];
+  // D107: bez dubli wpisów aplikacji z tego samego dnia.
+  const allDevice = useDeviceCalendar().days;
+  const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
+    withoutDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime }))]);
+  const dayDevice = day ? deviceOf(day.date, day.items) : [];
 
   return (
     <Screen testID="screen-calendar">
@@ -87,7 +91,7 @@ export function CalendarScreen() {
                 {[...new Set([...evs.map((e) => e.line), ...d.items.map((i) => i.line)])].slice(0, 4).map((l) => (
                   <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: line(l).line }} />
                 ))}
-                {device.has(d.date) ? <View testID={`device-dot-${d.date}`} style={{ width: 6, height: 6, borderRadius: 2, borderWidth: 1, borderColor: c.inkMuted }} /> : null}
+                {deviceOf(d.date, d.items).length ? <View testID={`device-dot-${d.date}`} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inkMuted }} /> : null}
               </View>
             </Pressable>
           );
