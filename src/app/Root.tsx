@@ -7,15 +7,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { loadLocal, readState, saveLocal, wipeSynced, writeState } from '../data/store';
+import { loadLocal, readState, rebuildNewer, saveLocal, wipeSynced, writeState } from '../data/store';
 import type { DbAdapter } from '../data/db/adapter';
-import { migrate } from '../data/db/migrations';
+import { isNewerSchema, migrate } from '../data/db/migrations';
+import { adoptDevice } from '../domain/sync-engine/client';
 import { strings } from '../i18n/strings.pl';
 import type { AccountApi, ClientError } from '../sync/account';
 import { SyncRuntime } from '../sync/runtime';
 import type { SyncTransport } from '../sync/transport';
 import { parseAuthCallback } from '../sync/supabase';
 import { SignInScreen } from '../features/auth/SignInScreen';
+import { Body, Button, Screen, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { localNow } from './clock';
 import { AppProvider, type AppServices, type Prefs } from './context';
@@ -31,7 +33,22 @@ export type Session = { userId: string; displayName: string; needsName?: boolean
 
 export type RootDeps = {
   /** Bieżąca sesja i zmiany (logowanie, wylogowanie, wygaśnięcie). */
-  session: { current(): Promise<Session | null>; onChange(fn: (s: Session | null) => void): () => void; setFromLink(t: { access_token: string; refresh_token: string }): Promise<void> };
+  session: {
+    current(): Promise<Session | null>;
+    onChange(fn: (s: Session | null) => void): () => void;
+    setFromLink(t: { access_token: string; refresh_token: string }): Promise<void>;
+    /** Odświeżenie tokenu po 401 z serwera (audyt 2, M-9); sukces przychodzi przez onChange. */
+    refresh?(): Promise<void>;
+    /** Wylogowanie tylko na tym telefonie, bez czyszczenia danych — ponowne logowanie po wygaśnięciu sesji (M-9). */
+    signOutLocal?(): Promise<void>;
+  };
+  /**
+   * Identyfikator instalacji w pęku kluczy „tylko to urządzenie” (audyt 2, M-8): nie przechodzi do kopii iCloud, więc
+   * baza odtworzona z kopii dostaje nowy. Brak = bez sprawdzania (testy).
+   */
+  deviceClientId?: { load(userId: string): string | null; save(userId: string, clientId: string): void };
+  /** Stan sieci telefonu (NetInfo, audyt 2, M-10): „Offline” we wskaźniku i wyzwalacz „sieć wróciła”. */
+  network?: { subscribe(fn: (online: boolean) => void): () => void };
   account: AccountApi;
   /** Kalendarz iPhone'a, tylko zapis (D7). */
   calendar: DeviceCalendar;
@@ -64,18 +81,49 @@ function Loading() {
   );
 }
 
+/**
+ * Baza z nowszej wersji aplikacji (np. tester wrócił do starszego buildu TestFlight, audyt 2, M-177): tej wersji nie wolno
+ * jej ruszać, więc zamiast awarii przy starcie — wyjaśnienie i wybór.
+ */
+function NewerData({ onReset }: { onReset: () => void }) {
+  return (
+    <Screen testID="screen-newer-data">
+      <Title>{strings['newer.title']}</Title>
+      <Body>{strings['newer.info']}</Body>
+      <Button kind="danger" label={strings['reset.confirm']} testID="newer-reset" onPress={onReset} />
+    </Screen>
+  );
+}
+
 function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
-  const nowMs = deps.nowMs ?? Date.now;
-  const db = useMemo(() => {
+  const [rebuilt, setRebuilt] = useState(0);
+  const opened = useMemo(() => {
     const db = deps.openDb(session.userId);
-    migrate(db);
-    return db;
-  }, [deps, session.userId]);
+    try {
+      if (rebuilt) rebuildNewer(db);
+      migrate(db);
+      return { db, newer: false };
+    } catch (e) {
+      if (!isNewerSchema(e)) throw e;
+      return { db, newer: true };
+    }
+  }, [deps, session.userId, rebuilt]);
+  if (opened.newer) return <NewerData onReset={() => setRebuilt((n) => n + 1)} />;
+  return <SignedInApp deps={deps} session={session} db={opened.db} />;
+}
+
+function SignedInApp({ deps, session, db }: { deps: RootDeps; session: Session; db: DbAdapter }) {
+  const nowMs = deps.nowMs ?? Date.now;
   // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
   const [epoch, setEpoch] = useState(0);
   const runtime = useMemo(() => {
+    const stored = readState(db, deps.newId());
+    // M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy tego urządzenia) — nowy identyfikator od razu w bazie.
+    const initial = deps.deviceClientId ? adoptDevice(stored, deps.deviceClientId.load(session.userId), deps.newId) : stored;
+    if (initial !== stored) writeState(db, stored, initial, nowMs());
+    deps.deviceClientId?.save(session.userId, initial.clientId);
     return new SyncRuntime({
-      initial: readState(db, deps.newId()),
+      initial,
       transport: deps.transport,
       now: nowMs,
       newId: deps.newId,
@@ -87,19 +135,45 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
         }),
       persist: (prev, next, now) => writeState(db, prev, next, now),
     });
-  }, [db, deps, epoch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [db, deps, epoch, session.userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
   useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
 
+  // M-9: prośba o odświeżenie tokenu już wysłana w tym epizodzie „wygasłej sesji”.
+  const asked = useRef(false);
   useEffect(() => {
     runtime.start();
-    const sub = AppState.addEventListener('change', (s) => runtime.event(s === 'active' ? { t: 'foreground' } : { t: 'background' }));
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') asked.current = false;
+      runtime.event(s === 'active' ? { t: 'foreground' } : { t: 'background' });
+    });
     return () => {
       sub.remove();
       runtime.stop();
     };
   }, [runtime]);
+
+  // M-10: sieć z NetInfo — „Offline · N zmian czeka” i natychmiastowa próba po powrocie sieci.
+  useEffect(() => deps.network?.subscribe((online) => runtime.event({ t: 'network', online })), [deps, runtime]);
+
+  // M-9: nowy token (odświeżony w tle albo po naszej prośbie) tego samego konta zdejmuje „wygasłą sesję”. Po 401 prosimy
+  // raz o odświeżenie; następna prośba dopiero po udanej synchronizacji albo powrocie do aplikacji (bez pętli 401).
+  useEffect(() => deps.session.onChange((s) => s?.userId === session.userId && runtime.event({ t: 'auth_refreshed' })), [deps, runtime, session.userId]);
+  useEffect(
+    () =>
+      runtime.subscribe(() => {
+        const i = runtime.getSnapshot().indicator;
+        if (i.state !== 'auth_expired') {
+          if (i.state === 'synced' || i.state === 'pending') asked.current = false;
+          return;
+        }
+        if (asked.current || !deps.session.refresh) return;
+        asked.current = true;
+        void deps.session.refresh().catch(() => {});
+      }),
+    [deps, runtime],
+  );
 
   // Kanały: mój (zmiana dostępu) + każdej mojej grupy (nowa wersja). Odnawiane, gdy zmienia się zbiór grup.
   const [groupIds, setGroupIds] = useState<string[]>([]);
@@ -122,7 +196,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
 
   const services: AppServices = useMemo(
     () => ({
-      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'poke', fresh: true }) },
+      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }) },
       account: deps.account,
       calendar: deps.calendar,
       travel: deps.travel,
@@ -134,6 +208,7 @@ function SignedIn({ deps, session }: { deps: RootDeps; session: Session }) {
         wipeSynced(db);
         setEpoch((e) => e + 1);
       },
+      signInAgain: deps.session.signOutLocal ? () => void deps.session.signOutLocal!().catch(() => {}) : undefined,
       userId: session.userId,
       displayName: session.displayName,
       needsName: session.needsName,

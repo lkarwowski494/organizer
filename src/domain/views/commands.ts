@@ -3,6 +3,7 @@
  * private.sync_entities (supabase/migrations/20261006120200_sync.sql); pola ustawiane przez serwer
  * (owner_member_id, created_by, completed_by, depth) nie są tu wysyłane.
  */
+import { config } from '../../config';
 import type { QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import type { Tables, Task } from './model';
@@ -93,7 +94,7 @@ export function renameMember(memberId: string, name: string): NewOp {
 /**
  * Operacje odwrotne do `ops` względem stanu `t` sprzed nich — do paska „Cofnij” (audyt 8.10.2026: odwołanie albo
  * usunięcie wydarzenia było bez cofnięcia). Od końca: utworzenie → usunięcie, usunięcie ↔ przywrócenie, zmiana →
- * poprzednie wartości pól (brak pola = null). Polecenia serwera (cmd) nie mają odwrotności — wtedy `null`.
+ * poprzednie wartości pól (brak pola = wartość domyślna serwera albo null). Polecenia serwera (cmd) nie mają odwrotności — wtedy `null`.
  */
 export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
   if (ops.some((o) => o.kind === 'cmd')) return null;
@@ -107,6 +108,9 @@ export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
     const p = o as Extract<NewOp, { kind: 'patch' }>;
     if (created.has(`${p.entity}|${p.id}`)) return [];
     const before = t[p.entity]?.[p.id] ?? {};
-    return [{ kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, before[k] ?? null])) }];
+    // Pola, którego wiersz jeszcze nie ma (utworzony na telefonie, nie wrócił z serwera), serwer ma wartość domyślną
+    // kolumny — ją przywracamy, nie null (audyt 2, M-59: „Cofnij” odwołania terminu było odrzucane, invalid:23502).
+    const defaults = config.sync.PATCH_DEFAULTS[p.entity] ?? {};
+    return [{ kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, k in before ? (before[k] ?? null) : (defaults[k] ?? null)])) }];
   });
 }

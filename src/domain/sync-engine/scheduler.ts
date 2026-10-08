@@ -27,6 +27,8 @@ export type SchedulerState = {
   readonly lastError: string | null;
   /** Kod błędu trwałego (np. upgrade_required) — pętla stoi; zdejmuje go dopiero powrót na pierwszy plan. */
   readonly fatal: string | null;
+  /** Ostatnia chwila zegara widziana przez pętlę — do wykrycia cofnięcia zegara telefonu (audyt 2, M-179). */
+  readonly seenAt: number;
 };
 
 export type SchedulerEvent =
@@ -36,6 +38,10 @@ export type SchedulerEvent =
   | { t: 'network'; online: boolean }
   /** Sygnał z serwera; `fresh` = wersja grupy wyższa niż nasz kursor (inaczej nic do pobrania). */
   | { t: 'poke'; fresh: boolean }
+  /** Operacja serwerowa właśnie się udała (nowa grupa, dołączenie): pobierz od razu, bez czekania na ponowienie (M-178). */
+  | { t: 'refresh' }
+  /** Pobudka timera: tylko sprawdzenie zegara (M-179). */
+  | { t: 'clock' }
   | { t: 'started'; what: 'push' | 'pull' }
   | { t: 'push_ok'; pending: number }
   | { t: 'pull_ok'; needMore: boolean; pending: number }
@@ -49,7 +55,7 @@ export function initialScheduler(now: number): SchedulerState {
   return {
     online: true, foreground: true, authExpired: false, inflight: null, pending: 0,
     // Start aplikacji: od razu pobranie (nowe dane innych osób) i wysyłka zaległości.
-    needPull: true, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null, fatal: null,
+    needPull: true, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null, fatal: null, seenAt: now,
   };
 }
 
@@ -58,13 +64,29 @@ export function backoffMs(failures: number): number {
   return Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * BACKOFF_FACTOR ** Math.max(0, failures - 1));
 }
 
-export function onEvent(s: SchedulerState, e: SchedulerEvent, now: number): SchedulerState {
+/**
+ * Terminy są bezwzględne (zegar telefonu), więc cofnięcie zegara (ręcznie albo korekta czasu) wydłużałoby czekanie
+ * o tyle, o ile cofnięto. Przy skoku wstecz przesuwamy terminy o ten sam odcinek — zostaje tyle czekania, ile było.
+ */
+function rebase(s: SchedulerState, now: number): SchedulerState {
+  if (now >= s.seenAt) return { ...s, seenAt: now };
+  const back = s.seenAt - now;
+  return { ...s, seenAt: now, pushNotBefore: s.pushNotBefore - back, pullNotBefore: s.pullNotBefore - back };
+}
+
+export function onEvent(prev: SchedulerState, e: SchedulerEvent, now: number): SchedulerState {
+  const s = rebase(prev, now);
   switch (e.t) {
+    case 'clock':
+      return s;
+    case 'refresh':
+      return { ...s, needPull: true, failures: 0, pullNotBefore: now };
     case 'local_change':
       return { ...s, pending: e.pending, pushNotBefore: Math.max(s.pushNotBefore, now + config.sync.PUSH_DEBOUNCE_MS) };
     case 'foreground':
-      // Powrót na pierwszy plan: pobierz od razu; ponowienia po błędzie zaczynają od nowa (także jedna próba po błędzie trwałym).
-      return { ...s, foreground: true, needPull: true, failures: 0, fatal: null, pushNotBefore: now, pullNotBefore: now };
+      // Powrót na pierwszy plan: pobierz od razu; ponowienia po błędzie zaczynają od nowa (także jedna próba po błędzie
+      // trwałym i po wygasłej sesji — token mógł zostać odświeżony w tle; audyt 2, M-9).
+      return { ...s, foreground: true, needPull: true, failures: 0, fatal: null, authExpired: false, pushNotBefore: now, pullNotBefore: now };
     case 'background':
       return { ...s, foreground: false };
     case 'network':
@@ -90,8 +112,13 @@ export function onEvent(s: SchedulerState, e: SchedulerEvent, now: number): Sche
       const at = now + backoffMs(failures);
       return {
         ...s, inflight: null, failures, lastError: e.error,
-        // Nieudane żądanie traktujemy jak brak sieci (captive portal: isInternetReachable na iOS kłamie).
-        ...(e.what === 'push' ? { pushNotBefore: at } : { pullNotBefore: at, needPull: true }),
+        // Nieudane żądanie traktujemy jak brak sieci (captive portal: isInternetReachable na iOS kłamie). Błąd sieci
+        // wstrzymuje oba kierunki — inaczej po nieudanej wysyłce od razu szło nieudane pobranie (audyt 2, M-10).
+        ...(e.error === 'network'
+          ? { pushNotBefore: at, pullNotBefore: at, needPull: s.needPull || e.what === 'pull' }
+          : e.what === 'push'
+            ? { pushNotBefore: at }
+            : { pullNotBefore: at, needPull: true }),
       };
     }
     case 'auth_refreshed':

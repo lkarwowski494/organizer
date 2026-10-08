@@ -139,6 +139,11 @@ export const strings = {
   'reset.offline': 'Najpierw połącz się z internetem — bez niego telefon zostałby pusty, dopóki sieć nie wróci.',
   // Audyt 2 (M-57): ta wersja nie pobierze już danych z serwera — po wyczyszczeniu telefon zostałby pusty.
   'reset.upgrade': 'Najpierw zaktualizuj aplikację — ta wersja nie pobierze już danych z serwera, więc telefon zostałby pusty.',
+  // Audyt 2, M-177: baza zapisana przez nowszą wersję aplikacji (powrót do starszego buildu).
+  'newer.title': 'Dane z nowszej wersji',
+  'newer.info': 'Dane na tym iPhonie zapisała nowsza wersja aplikacji i ta wersja nie umie ich odczytać. Zainstaluj najnowszą wersję z TestFlight albo wyczyść dane na telefonie i pobierz je od nowa z serwera — przepadną tylko zmiany, które nie zostały jeszcze wysłane.',
+  // Audyt 2, M-9: sesja wygasła i nie dała się odświeżyć.
+  'auth.expiredInfo': 'Sesja wygasła. Zaloguj się ponownie tym samym kontem — zmiany, które czekają na wysłanie, zostaną na telefonie i wyjdą po zalogowaniu.',
   'travel.mode.driving': 'autem',
   'travel.mode.transit': 'komunikacją',
   'travel.mode.walking': 'pieszo',
