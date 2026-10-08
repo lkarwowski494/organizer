@@ -106,7 +106,7 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('korzeń aplikacji', () => {
-  it('ładowanie, potem logowanie; po zalogowaniu pobranie, „Dotyczy mnie” i kanały Realtime', async () => {
+  it('ładowanie, potem logowanie; po zalogowaniu pobranie, „Moje sprawy” i kanały Realtime', async () => {
     const t = makeDeps();
     const r = await render(<Root deps={t.deps} fontsLoaded={false} />);
     expect(screen.getByText('Wczytywanie…')).toBeTruthy();

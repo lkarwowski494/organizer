@@ -1,7 +1,7 @@
 # Organizer — instrukcje dla Claude
 
 Aplikacja iOS (Expo / React Native, TypeScript) do organizacji codzienności w wielu grupach
-(rodzina, dalsza rodzina, znajomi) z widokiem zbiorczym „Dotyczy mnie”. Właściciel produktu: Łukasz.
+(rodzina, dalsza rodzina, znajomi) z widokiem zbiorczym „Moje sprawy” (dawniej „Dotyczy mnie”, D89). Właściciel produktu: Łukasz.
 Claude prowadzi kod i dokumentację; decyzje produktowe podejmuje właściciel.
 
 Dokumentacja projektu (Google Drive, folder „Organizer grup”):
@@ -68,7 +68,7 @@ ma w komentarzu adres źródła.
 ## Struktura katalogów
 
 - `src/domain/` — czysty TypeScript, bez Reacta/Expo (pilnuje tego ESLint). Zależności wstrzykiwane.
-- `src/features/` — moduły funkcji (zadania, zakupy, kalendarz, „Dotyczy mnie”, grupy).
+- `src/features/` — moduły funkcji (zadania, zakupy, kalendarz, „Moje sprawy”, grupy).
 - `src/sync/` — kolejka, push/pull, wyzwalacze, wskaźnik stanu.
 - `src/config/` — jedyne źródło liczb i reguł.
 - `src/i18n/strings.pl.ts` — wszystkie teksty (D30), odmiana przez `src/domain/plural.ts`.

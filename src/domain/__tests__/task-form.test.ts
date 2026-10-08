@@ -1,0 +1,145 @@
+import type { Row } from '../sync-engine/client';
+import { formFromTask, formFromText, formGroups, formLists, formMembers, formOps, formWeekday, NEW_LIST_NAME, type TaskForm, validateForm } from '../views/task-form';
+
+const ME = 'u-me';
+const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
+type T = { [e: string]: { [id: string]: Row } };
+const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
+
+function base(): T {
+  const t: T = {};
+  const g = (id: string, name: string, kind: string, created: string) => put(t, 'groups', id, { id, name, kind, created_at: created, deleted_at: null });
+  g(ME, 'Osobiste', 'personal', '2026-01-01T00:00:00Z');
+  g('gf', 'Rodzina', 'shared', '2026-02-01T00:00:00Z');
+  g('gk', 'Klasa', 'shared', '2026-03-01T00:00:00Z');
+  g('gc', 'Babcia', 'shared', '2026-04-01T00:00:00Z');
+  const m = (id: string, gid: string, user: string | null, name: string, role = 'member', deleted: string | null = null) =>
+    put(t, 'group_members', id, { member_id: id, group_id: gid, user_id: user, display_name: name, role, deleted_at: deleted });
+  m(ME, ME, ME, 'Łukasz', 'owner');
+  m('mf', 'gf', ME, 'Łukasz', 'admin');
+  m('ala', 'gf', 'u-ala', 'Ala', 'owner');
+  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('old', 'gf', 'u-old', 'Ola', 'member', 'x');
+  m('mk', 'gk', ME, 'Łukasz');
+  m('alicja', 'gk', 'u-al', 'Alicja');
+  m('mc', 'gc', ME, 'Łukasz', 'child');
+  const l = (id: string, gid: string, kind = 'tasks') => put(t, 'lists', id, { id, group_id: gid, kind, name: id, visibility: 'group', sort_key: 'a0', deleted_at: null });
+  l('lp', ME);
+  l('lf', 'gf');
+  l('lf2', 'gf');
+  l('lz', 'gf', 'shopping');
+  put(t, 'tasks', 't1', { id: 't1', group_id: ME, list_id: 'lp', parent_id: null, title: 'Basen', note: 'czepek', sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00:00', repeat: null, completed_at: null, deleted_at: null });
+  put(t, 'tasks', 't2', { id: 't2', group_id: 'gf', list_id: 'lf', parent_id: null, title: 'Śmieci', note: null, sort_key: 'a0', assignee_member_id: 'ala', deadline_mode: 'none', due_date: null, due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=MO', completed_at: null, deleted_at: null });
+  return t;
+}
+
+const form = (over: Partial<TaskForm> = {}): TaskForm => ({ title: 'Basen', groupId: ME, listId: null, date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null, ...over });
+
+describe('pełny formularz zadania (D90)', () => {
+  it('grupy (bez tych, gdzie jestem dzieckiem), listy zadań grupy, osoby bez usuniętych', () => {
+    const t = base();
+    expect(formGroups(t, ME).map((g) => g.id)).toEqual([ME, 'gf', 'gk']);
+    expect(formLists(t, ME, 'gf').map((l) => l.id).sort()).toEqual(['lf', 'lf2']);
+    expect(formMembers(t, 'gf').map((m) => m.display_name)).toEqual(['Ala', 'Kuba', 'Łukasz']);
+    put(t, 'group_members', 'nn', { member_id: 'nn', group_id: 'gk', user_id: 'u-n', deleted_at: null });
+    expect(formMembers(t, 'gk').map((m) => m.display_name)).toEqual(['', 'Alicja', 'Łukasz']);
+    expect(formMembers({}, 'gk')).toEqual([]);
+  });
+
+  it('z tekstu: termin, „co tydzień” i @imię z jednym dopasowaniem', () => {
+    const t = base();
+    expect(formFromText(t, ME, 'Basen jutro 19.00', NOW)).toEqual({ form: form(), candidates: [] });
+    expect(formFromText(t, ME, 'Basen jutro 19.00 @ala', NOW).form).toEqual(form({ groupId: 'gf', assigneeId: 'ala' }));
+    expect(formFromText(t, ME, 'basen w piątek co tydzień', NOW).form).toMatchObject({ date: '2026-10-09', time: '', repeat: { kind: 'weekly', days: [4] } });
+    expect(formFromText(t, ME, 'basen co tydzień', NOW).form).toMatchObject({ date: '2026-10-08', repeat: { kind: 'weekly', days: [3] } });
+  });
+
+  it('@imię: kilka dopasowań — kandydaci, nic nie ustawione; brak dopasowania — @ zostaje w nazwie', () => {
+    const t = base();
+    const r = formFromText(t, ME, 'zebranie @al', NOW);
+    expect(r.candidates.map((c) => c.memberId)).toEqual(['ala', 'alicja']);
+    expect(r.form).toMatchObject({ title: 'zebranie', groupId: ME, assigneeId: null });
+    expect(formFromText(t, ME, 'zebranie @zenek', NOW)).toMatchObject({ form: { title: 'zebranie @zenek' }, candidates: [] });
+    expect(formFromText({}, ME, 'x', NOW).form.groupId).toBe('');
+  });
+
+  it('z zadania; nieznane zadanie; termin nie „własny” → pusty', () => {
+    const t = base();
+    expect(formFromTask(t, 't1')).toEqual({ title: 'Basen', groupId: ME, listId: 'lp', date: '2026-10-09', time: '19:00', assigneeId: null, repeat: null });
+    expect(formFromTask(t, 't2')).toEqual({ title: 'Śmieci', groupId: 'gf', listId: 'lf', date: '', time: '', assigneeId: 'ala', repeat: { kind: 'weekly', days: [0] } });
+    put(t, 'tasks', 't3', { ...t.tasks!.t1!, id: 't3', due_time: null });
+    expect(formFromTask(t, 't3')!.time).toBe('');
+    // Termin bez godziny bez zmian — brak operacji.
+    expect(formOps(t, ME, form({ listId: 'lp', time: '' }), () => 'x', 't3').ops).toEqual([]);
+    expect(formFromTask(t, 'brak')).toBeNull();
+  });
+
+  it('walidacja: nazwa, grupa, data, godzina, powtarzanie bez daty, adresat we wspólnej grupie', () => {
+    const t = base();
+    const v = (o: Partial<TaskForm>) => validateForm(t, ME, form(o));
+    expect(v({})).toBeNull();
+    expect(v({ title: '  ' })).toBe('title');
+    expect(v({ groupId: 'gc' })).toBe('group');
+    expect(v({ date: '2026-02-30' })).toBe('date');
+    expect(v({ date: 'jutro' })).toBe('date');
+    expect(v({ time: '25:00' })).toBe('time');
+    expect(v({ date: '', time: '10:00' })).toBe('date');
+    expect(v({ date: '', time: '', repeat: { kind: 'daily' } })).toBe('repeatNeedsDate');
+    expect(v({ groupId: 'gf', date: '', time: '' })).toBe('addressee');
+    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBeNull();
+    expect(v({ date: '', time: '' })).toBeNull();
+  });
+
+  it('dzień tygodnia do edytora powtarzania: z daty albo dzisiejszy', () => {
+    expect(formWeekday(form(), { y: 2026, m: 10, d: 8 })).toBe(4);
+    expect(formWeekday(form({ date: '' }), { y: 2026, m: 10, d: 8 })).toBe(3);
+    expect(formWeekday(form({ date: '2026-13-01' }), { y: 2026, m: 10, d: 8 })).toBe(3);
+  });
+
+  it('nowe: pierwsza lista zadań grupy, osoba, powtarzanie; grupa bez listy — nowa lista', () => {
+    const t = base();
+    let n = 0;
+    const id = () => `n${++n}`;
+    const r = formOps(t, ME, form({ groupId: 'gf', assigneeId: 'ala', repeat: { kind: 'daily' } }), id);
+    expect(r.taskId).toBe('n1');
+    expect(r.ops).toEqual([
+      { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
+      { kind: 'patch', entity: 'tasks', id: 'n1', set: { repeat: 'FREQ=DAILY' } },
+    ]);
+    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf2', time: '' }), id).ops[0]).toMatchObject({ set: { list_id: 'lf2', due_time: null } });
+    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lz' }), id).ops[0]).toMatchObject({ set: { list_id: 'lf' } });
+    const g = formOps(t, ME, form({ groupId: 'gk', date: '' }), id);
+    expect(g.ops[0]).toEqual({ kind: 'create', entity: 'lists', id: 'n4', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } });
+    expect(g.ops[1]).toMatchObject({ kind: 'create', id: 'n5', set: { list_id: 'n4', deadline_mode: 'none', due_date: null } });
+  });
+
+  it('„Zmień” w tej samej grupie: tylko zmienione pola; inna lista — przeniesienie', () => {
+    const t = base();
+    const id = () => 'x';
+    expect(formOps(t, ME, form({ listId: 'lp' }), id, 't1')).toEqual({ ops: [], taskId: 't1' });
+    expect(formOps(t, ME, form({ listId: 'lp', title: 'Basen z Kubą', time: '18:00', repeat: { kind: 'weekly', days: [4] } }), id, 't1').ops).toEqual([
+      { kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'Basen z Kubą' } },
+      { kind: 'patch', entity: 'tasks', id: 't1', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '18:00' } },
+      { kind: 'patch', entity: 'tasks', id: 't1', set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } },
+    ]);
+    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf2', title: 'Śmieci', date: '', time: '', assigneeId: null, repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
+      { kind: 'cmd', cmd: 'move_task', args: { id: 't2', parent_id: null, list_id: 'lf2' } },
+      { kind: 'patch', entity: 'tasks', id: 't2', set: { assignee_member_id: null } },
+    ]);
+    expect(formOps(t, ME, form({ groupId: 'gf', listId: 'lf', title: 'Śmieci', date: '2026-10-12', time: '', assigneeId: 'ala', repeat: { kind: 'weekly', days: [0] } }), id, 't2').ops).toEqual([
+      { kind: 'patch', entity: 'tasks', id: 't2', set: { deadline_mode: 'own', due_date: '2026-10-12', due_time: null } },
+    ]);
+  });
+
+  it('„Zmień” na inną grupę: kopia z notatką w nowej grupie, oryginał do kosza', () => {
+    const t = base();
+    const r = formOps(t, ME, form({ groupId: 'gf', assigneeId: 'ala' }), () => 'copy', 't1');
+    expect(r.taskId).toBe('copy');
+    expect(r.ops).toEqual([
+      { kind: 'create', entity: 'tasks', id: 'copy', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00', assignee_member_id: 'ala' } },
+      { kind: 'patch', entity: 'tasks', id: 'copy', set: { note: 'czepek' } },
+      { kind: 'delete', entity: 'tasks', id: 't1' },
+    ]);
+    expect(formOps(t, ME, form({ groupId: ME, title: 'Śmieci', date: '', time: '' }), () => 'c2', 't2').ops.map((o) => o.kind)).toEqual(['create', 'delete']);
+  });
+});

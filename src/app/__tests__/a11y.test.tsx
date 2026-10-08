@@ -57,7 +57,7 @@ function audit(root: unknown, scheme: Scheme, where: string) {
 }
 
 const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][] = [
-  ['Dotyczy mnie', async () => {}],
+  ['Moje sprawy', async () => {}],
   ['Listy', async (p) => p('Listy')],
   ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 otwarte'))],
   ['Lista zadań', async (p) => (await p('Listy'), await p('Dom, Rodzina · Zadania · 3 otwarte'))],
@@ -69,8 +69,14 @@ const SCREENS: [string, (press: (l: string) => Promise<void>) => Promise<void>][
   }],
   ['Zadanie', async (p) => p('Otwórz: Odebrać paczkę')],
   ['Zadanie: przekazanie', async (p) => (await p('Otwórz: Odebrać paczkę'), await p('Przekaż zadanie'))],
-  ['Dotyczy mnie: tydzień', async (p) => p('Tydzień')],
-  ['Dotyczy mnie: wczoraj', async (p) => p('Poprzedni dzień')],
+  ['Moje sprawy: tydzień', async (p) => p('Tydzień')],
+  ['Pełny formularz zadania', async (p) => p('Więcej')],
+  ['Pełny formularz: zadanie we wspólnej grupie z powtarzaniem', async (p) => (await p('Więcej'), await p('Rodzina'), await p('Jutro'), await p('Co tydzień'))],
+  ['Pasek „Dodano · Zmień”', async (p) => {
+    fireEvent.changeText(await screen.findByTestId('quick-add'), 'basen jutro 19.00');
+    await p('Dodaj');
+  }],
+  ['Moje sprawy: wczoraj', async (p) => p('Poprzedni dzień')],
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
   ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
   ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],

@@ -1,4 +1,4 @@
-/** Zakupy na liście zakupów (D73): tworzenie z dniem i osobą, „Dotyczy mnie”, odhaczenie z pytaniem, planowanie, przekazanie. */
+/** Zakupy na liście zakupów (D73): tworzenie z dniem i osobą, „Moje sprawy”, odhaczenie z pytaniem, planowanie, przekazanie. */
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
@@ -61,7 +61,7 @@ describe('nowa lista zakupów', () => {
   });
 });
 
-describe('zakupy na „Dotyczy mnie”', () => {
+describe('zakupy na „Moje sprawy”', () => {
   it('wpis „Zakupy: …” z liczbą pozycji; odhaczenie pyta o niekupione', async () => {
     const { store } = await open(planned());
     const row = await screen.findByTestId('today-trip-lz');

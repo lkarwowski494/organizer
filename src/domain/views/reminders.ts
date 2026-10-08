@@ -1,5 +1,5 @@
 /**
- * Plan przypomnień na telefonie (D75, ADR 0016). Z tego, co dotyczy mnie (myDays, ten sam widok co „Dotyczy mnie”):
+ * Plan przypomnień na telefonie (D75, ADR 0016). Z tego, co dotyczy mnie (myDays, ten sam widok co „Moje sprawy”):
  *  - sprawa z godziną (zadanie, wydarzenie, zakupy): `leadMin` minut przed;
  *  - sprawy bez godziny i zaległe: jedno zbiorcze o `morning` danego dnia.
  * Tylko przyszłe chwile, najbliższe `max`. Zamiana czasu warszawskiego na chwilę — wstrzykiwana (`toMs`).

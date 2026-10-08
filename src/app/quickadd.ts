@@ -1,12 +1,14 @@
 /**
  * Dodanie zadania z pola szybkiego dodawania: gdzie trafia i jakie operacje wysyła.
  * Bez wskazanej listy — pierwsza lista zadań w grupie osobistej; gdy jej nie ma, powstaje „Moje zadania”.
+ * Z grupą (D91, „@imię”) — pierwsza lista zadań tej grupy; gdy jej nie ma, powstaje „Zadania”.
  */
 import type { LocalDateTime } from '../domain/civil-date';
 import { parseQuickAdd } from '../domain/quickadd';
 import type { NewOp } from '../domain/sync-engine/client';
 import { createList, createTask } from '../domain/views/commands';
 import { groupsView, listsView, type Tables } from '../domain/views';
+import { NEW_LIST_NAME } from '../domain/views/task-form';
 
 export const DEFAULT_LIST_NAME = 'Moje zadania';
 
@@ -18,6 +20,8 @@ export function quickAddOps(a: {
   ignore: readonly { start: number; end: number }[];
   newId: () => string;
   listId?: string;
+  /** D91: grupa z „@imię” — pierwsza lista zadań tej grupy (albo nowa „Zadania”). */
+  groupId?: string;
   /** D68: adresat wybrany po dodaniu (osoba albo dzień), gdy tekst go nie podał. */
   assigneeId?: string | null;
   dueDate?: string | null;
@@ -28,8 +32,13 @@ export function quickAddOps(a: {
   const ops: NewOp[] = [];
   const chosen = a.listId ? listsView(a.tables, a.userId).find((l) => l.id === a.listId) : undefined;
   let target: { groupId: string; listId: string };
+  const inGroup = !chosen && a.groupId ? groupsView(a.tables, a.userId).find((g) => g.id === a.groupId) : undefined;
   if (chosen) target = { groupId: chosen.group_id, listId: chosen.id };
-  else {
+  else if (inGroup) {
+    const first = listsView(a.tables, a.userId, inGroup.id).find((l) => l.kind === 'tasks');
+    target = { groupId: inGroup.id, listId: first?.id ?? a.newId() };
+    if (!first) ops.push(createList({ id: target.listId, groupId: inGroup.id, kind: 'tasks', name: NEW_LIST_NAME }));
+  } else {
     const personal = groupsView(a.tables, a.userId).find((g) => g.kind === 'personal');
     if (!personal) return [];
     const first = listsView(a.tables, a.userId, personal.id).find((l) => l.kind === 'tasks');

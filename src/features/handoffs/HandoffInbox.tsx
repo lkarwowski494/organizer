@@ -1,4 +1,4 @@
-/** „Do potwierdzenia” na „Dotyczy mnie” (D70): przekazania do mnie (Przyjmij / Odrzuć) i informacje o odrzuceniu moich. */
+/** „Do potwierdzenia” na „Moje sprawy” (D70): przekazania do mnie (Przyjmij / Odrzuć) i informacje o odrzuceniu moich. */
 import { Text, View } from 'react-native';
 
 import { formatLongDate, parseIsoDate } from '../../domain/format';

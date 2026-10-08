@@ -1,5 +1,5 @@
 /**
- * Karta „Co nowego” na „Dotyczy mnie” (D84, ADR 0018): raz po aktualizacji, punkty z i18n/whats-new.pl.ts.
+ * Karta „Co nowego” na „Moje sprawy” (D84, ADR 0018): raz po aktualizacji, punkty z i18n/whats-new.pl.ts.
  * „OK” zamyka na tym telefonie; „Wyślij uwagę” otwiera formularz uwag (D80) i też zamyka.
  */
 import { useNavigation } from '@react-navigation/native';

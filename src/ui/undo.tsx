@@ -10,15 +10,16 @@ import { config } from '../config';
 import { strings } from '../i18n/strings.pl';
 import { useTheme } from './theme';
 
-type Undo = { show: (message: string, onUndo: () => void) => void };
+/** `action` — napis przycisku (domyślnie „Cofnij”; „Zmień” po szybkim dodaniu, D90). */
+type Undo = { show: (message: string, onUndo: () => void, action?: string) => void };
 const UndoContext = createContext<Undo>({ show: () => {} });
 
 export function UndoProvider({ children }: { children: ReactNode }) {
   const { c, font, size } = useTheme();
   const insets = useSafeAreaInsets();
-  const [bar, setBar] = useState<{ message: string; onUndo: () => void; n: number } | null>(null);
+  const [bar, setBar] = useState<{ message: string; onUndo: () => void; action: string; n: number } | null>(null);
   const n = useRef(0);
-  const show = useCallback((message: string, onUndo: () => void) => setBar({ message, onUndo, n: ++n.current }), []);
+  const show = useCallback((message: string, onUndo: () => void, action: string = strings['undo.action']) => setBar({ message, onUndo, action, n: ++n.current }), []);
   useEffect(() => {
     if (!bar) return;
     const t = setTimeout(() => setBar((b) => (b?.n === bar.n ? null : b)), config.UNDO_MS);
@@ -38,14 +39,14 @@ export function UndoProvider({ children }: { children: ReactNode }) {
             <Text style={{ flex: 1, fontFamily: font.text600, fontSize: size.META, color: c.inverseInk }}>{bar.message}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={strings['undo.action']}
+              accessibilityLabel={bar.action}
               onPress={() => {
                 bar.onUndo();
                 setBar(null);
               }}
               style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center' }}
             >
-              <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{strings['undo.action']}</Text>
+              <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{bar.action}</Text>
             </Pressable>
           </View>
         ) : null}

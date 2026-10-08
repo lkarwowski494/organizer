@@ -64,7 +64,7 @@ describe('zakupy na liście zakupów (D73)', () => {
     expect(tripAdults(world(), 'gf').map((m) => m.member_id)).toEqual(['babcia', 'mf', 'mm']);
   });
 
-  it('wpisy „Dotyczy mnie”: moje, bez osoby z dniem, bez osoby w grupie osobistej', () => {
+  it('wpisy „Moje sprawy”: moje, bez osoby z dniem, bez osoby w grupie osobistej', () => {
     const t = world();
     put(t, 'lists', 'mine', list('mine', 'gf', { due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'mf' }));
     put(t, 'lists', 'any', list('any', 'gf', { name: 'Lidl', due_date: '2026-10-07' }));
@@ -87,7 +87,7 @@ describe('zakupy na liście zakupów (D73)', () => {
     expect(tripEntries({}, new Map())).toEqual([]);
   });
 
-  it('„Dotyczy mnie”: bez dnia przypięte, po dniu zaległe, inaczej w swoim dniu', () => {
+  it('„Moje sprawy”: bez dnia przypięte, po dniu zaległe, inaczej w swoim dniu', () => {
     const t = world();
     put(t, 'lists', 'a', list('a', 'gf', { responsible_member_id: 'mf' }));
     put(t, 'lists', 'b', list('b', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));

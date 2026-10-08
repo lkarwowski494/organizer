@@ -1,6 +1,6 @@
 /**
  * Wydarzenia przez prawdziwą nawigację: dodanie serii z dwoma terminami (pon. 18:00 i sob. 12:00), zmiana jednego
- * wystąpienia, „to i następne”, „wszystkie”, odwołanie, usunięcie jednorazowego, Dotyczy mnie, kalendarz, grupa.
+ * wystąpienia, „to i następne”, „wszystkie”, odwołanie, usunięcie jednorazowego, Moje sprawy, kalendarz, grupa.
  */
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
@@ -151,7 +151,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByText('Kuba')).toBeTruthy();
   });
 
-  it('„tylko to”: przeniesienie na 16:00 — wyjątek, Dotyczy mnie pokazuje nową godzinę', async () => {
+  it('„tylko to”: przeniesienie na 16:00 — wyjątek, Moje sprawy pokazuje nową godzinę', async () => {
     const { store } = await openDances();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByLabelText('Anuluj'));
@@ -209,7 +209,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByLabelText('Tańce, 18:00, Rodzina, powtarza się')).toBeTruthy();
   });
 
-  it('„wszystkie”: zmiana dnia na czwartek — Dotyczy mnie: jutro', async () => {
+  it('„wszystkie”: zmiana dnia na czwartek — Moje sprawy: jutro', async () => {
     const { store } = await openDances();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-all'));
@@ -322,7 +322,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
 });
 
 describe('osoba odpowiedzialna (D66)', () => {
-  it('wybór dorosłego (bez dzieci); „Dotyczy mnie” tylko u niego; w szczegółach widać kto', async () => {
+  it('wybór dorosłego (bez dzieci); „Moje sprawy” tylko u niego; w szczegółach widać kto', async () => {
     const { store } = await open(sampleBase());
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-event'));

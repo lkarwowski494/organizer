@@ -1,5 +1,5 @@
 /**
- * „Dotyczy mnie” — rdzeń produktu (D0.4): moje sprawy ze wszystkich grup na jednej mapie linii. Dzień / tydzień /
+ * „Moje sprawy” — rdzeń produktu (D0.4): moje sprawy ze wszystkich grup na jednej mapie linii. Dzień / tydzień /
  * miesiąc ze strzałkami (wczoraj, jutro…), zaległe przechodzą na dziś z czerwonym znacznikiem (D61).
  */
 import { useNavigation } from '@react-navigation/native';
@@ -22,9 +22,11 @@ import { HandoffInbox } from '../handoffs/HandoffInbox';
 import { PushPrompt } from './PushPrompt';
 import { WhatsNew } from './WhatsNew';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
+import { extractMention, type MentionTarget, mentionTargets } from '../../domain/views/mention';
+import { useUndo } from '../../ui/undo';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
+import { Body, Button, EventRow, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title, TokenChip } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -37,6 +39,9 @@ export function TodayScreen() {
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
+  // D91: „@imię” pasujące do kilku osób — wybór osoby i grupy przed dodaniem.
+  const [choices, setChoices] = useState<MentionTarget[] | null>(null);
+  const undo = useUndo();
   // Zakres i dzień odniesienia (decyzja właściciela z 7.10.2026: przełącznik + strzałki, ADR 0009).
   const [mode, setMode] = useState<RangeMode>('day');
   const [anchor, setAnchor] = useState<CivilDate | null>(null);
@@ -63,10 +68,26 @@ export function TodayScreen() {
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
   const label = mode === 'day' ? formatLongDate(at, today) : mode === 'week' ? formatRange(from, to, today) : formatMonth(at.y, at.m);
 
-  const submit = () => {
-    for (const op of quickAddOps({ tables, userId, text, now: now(), ignore, newId })) store.dispatch(op);
+  // Szybkie dodanie (D90, D91): „@imię” wybiera grupę i osobę; po dodaniu pasek „Dodano … · Zmień” otwiera pełny formularz.
+  const addWith = (target?: MentionTarget) => {
+    const { mention } = extractMention(text);
+    // „@imię” zastępujemy spacjami tej samej długości, żeby odklikane fragmenty (ignore) zachowały pozycje.
+    const body = mention && target ? `${text.slice(0, mention.start)}${' '.repeat(mention.end - mention.start)}${text.slice(mention.end)}` : text;
+    const ops = quickAddOps({ tables, userId, text: body, now: now(), ignore, newId, groupId: target?.groupId, assigneeId: target?.memberId });
+    store.dispatch(ops);
+    const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    if (created && created.kind === 'create') {
+      undo.show(strings['form.added'](String(created.set.title), target ? target.groupName : strings['groups.personal']), () => nav.navigate('AddTask', { taskId: created.id }), strings['form.change']);
+    }
     setText('');
     setIgnore([]);
+    setChoices(null);
+  };
+  const submit = () => {
+    const { mention } = extractMention(text);
+    const targets = mention ? mentionTargets(tables, userId, mention.name) : [];
+    if (targets.length > 1) return setChoices(targets);
+    addWith(targets[0]);
   };
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
@@ -140,7 +161,7 @@ export function TodayScreen() {
           <LineChip key={g.id} name={g.kind === 'personal' ? strings['groups.personal'] : g.name} line={g.line} />
         ))}
       </View>
-      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
+      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setChoices(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {tokens.length ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {tokens.map((t) => (
@@ -149,6 +170,29 @@ export function TodayScreen() {
           </View>
         ) : null}
       </QuickAddField>
+      <Button
+        kind="secondary"
+        label={strings['form.more']}
+        a11yHint={strings['form.moreHint']}
+        testID="add-more"
+        onPress={() => {
+          nav.navigate('AddTask', { text });
+          setText('');
+          setIgnore([]);
+          setChoices(null);
+        }}
+      />
+      {choices ? (
+        <View testID="mention-choices" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+            {strings['mention.ask'](extractMention(text).mention?.name ?? '')}
+          </Text>
+          {choices.map((t) => (
+            <Button key={`${t.groupId}-${t.memberId}`} kind="secondary" label={strings['mention.pick'](t.displayName, t.groupName)} onPress={() => addWith(t)} />
+          ))}
+          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setChoices(null)} />
+        </View>
+      ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         {arrow(-1, strings[`today.prev.${mode}`], '‹')}

@@ -42,7 +42,7 @@ const MOVE_WINDOW_DAYS = 62;
 const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at === null;
 
 /**
- * Wystąpienia w [from, to] z moich grup. Dotyczy mnie (D58): wydarzenie całej grupy, albo jestem uczestnikiem,
+ * Wystąpienia w [from, to] z moich grup. Do „Moich spraw” trafia (D58): wydarzenie całej grupy, albo jestem uczestnikiem,
  * albo uczestnikiem jest dziecko z tej grupy, a ja jestem dorosłym (rodzic zawozi na zajęcia).
  */
 export function expandEvents(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
@@ -294,7 +294,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
   };
 }
 
-/** Wydarzenia, które dotyczą mnie dziś i jutro (do widoku „Dotyczy mnie”). */
+/** Wydarzenia, które dotyczą mnie dziś i jutro (do widoku „Moje sprawy”). */
 export function todayEvents(t: Tables, userId: string, today: CivilDate): { today: Occurrence[]; tomorrow: Occurrence[] } {
   const all = expandEvents(t, userId, today, addDays(today, 1)).filter((x) => x.concernsMe);
   const iso = formatIsoDate(today);

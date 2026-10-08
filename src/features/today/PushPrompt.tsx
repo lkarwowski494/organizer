@@ -1,5 +1,5 @@
 /**
- * Prośba o powiadomienia na „Dotyczy mnie” (D70, D75; ADR 0015, 0016): przypomnienia dotyczą każdego, więc karta
+ * Prośba o powiadomienia na „Moje sprawy” (D70, D75; ADR 0015, 0016): przypomnienia dotyczą każdego, więc karta
  * pokazuje się, dopóki nie zapytaliśmy. Zgoda w oknie systemowym; „Nie teraz” chowa prośbę na tym telefonie.
  */
 import { useEffect, useState } from 'react';

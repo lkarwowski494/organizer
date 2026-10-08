@@ -8,10 +8,10 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 14,
     items: [
-      'Zakupy podzielone na działy sklepu. Dział możesz zmienić — grupa go zapamięta.',
-      'Stałe zakupy: zapisz je raz, potem „Dodaj stałe” jednym dotknięciem. Aplikacja podpowiada też wcześniej kupowane rzeczy.',
-      'Powiadomienie, gdy ktoś ustawi Cię jako osobę odpowiedzialną za wydarzenie (np. zawiezienie na zajęcia).',
-      'Naprawione: pozycje dodane do listy zakupów nie znikają już po synchronizacji.',
+      '„Dotyczy mnie” nazywa się teraz „Moje sprawy”.',
+      'Obok pola dodawania jest „Więcej”: pełny formularz z grupą, listą, osobą i powtarzaniem. Po szybkim dodaniu dotknij „Zmień”. Dopisz @imię, np. „basen jutro 19 @Ala”.',
+      'Zakupy podzielone na działy, stałe zakupy jednym dotknięciem i podpowiedzi z wcześniejszych zakupów.',
+      'Naprawione: pozycje listy zakupów nie znikają po synchronizacji. Nowe: powiadomienie, gdy ktoś ustawi Cię jako osobę odpowiedzialną za wydarzenie.',
     ],
   },
 ];

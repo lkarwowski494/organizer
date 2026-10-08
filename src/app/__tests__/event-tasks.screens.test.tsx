@@ -30,7 +30,7 @@ const openEvent = async () => {
 };
 
 describe('zadania na spotkaniu (D13)', () => {
-  it('termin jak spotkanie w Dotyczy mnie; lista zadań spotkania; nowe zadanie na spotkaniu', async () => {
+  it('termin jak spotkanie w Moje sprawy; lista zadań spotkania; nowe zadanie na spotkaniu', async () => {
     const { store } = await open();
     expect(screen.getByLabelText('Otwórz: Spakować strój')).toBeTruthy();
     await openEvent();
@@ -96,7 +96,7 @@ describe('zadania na spotkaniu (D13)', () => {
     const b = base();
     put(b, 'event_overrides', 'o1', { id: 'o1', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 1 });
     await open(b);
-    // Bez terminu we wspólnej grupie nie ma go w Dotyczy mnie — jest na liście.
+    // Bez terminu we wspólnej grupie nie ma go w Moje sprawy — jest na liście.
     expect(screen.queryByLabelText('Otwórz: Spakować strój')).toBeNull();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
