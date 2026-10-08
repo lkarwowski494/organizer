@@ -17,7 +17,7 @@ import { useTaskActions } from '../../app/task-actions';
 import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
-import { withoutDuplicates } from '../../domain/views/calendar-sync';
+import { splitDuplicates } from '../../domain/views/calendar-sync';
 import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
 import { rsvpView } from '../../domain/views/rsvp';
@@ -29,6 +29,7 @@ import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceCalendarCard } from './DeviceCalendarCard';
 import { DeviceEventRow } from './DeviceEventRow';
+import { HiddenDuplicates } from './HiddenDuplicates';
 
 export function CalendarScreen() {
   const { userId, now } = useServices();
@@ -88,11 +89,13 @@ export function CalendarScreen() {
             );
   const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
-  // D107: bez dubli wpisów aplikacji z tego samego dnia.
+  // D173: bez dubli wpisów aplikacji z tego samego dnia; ukryte — w wierszu „Ukryto N” pod dniem.
   const allDevice = useDeviceCalendar().days;
-  const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
-    withoutDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime }))]);
-  const dayDevice = day ? deviceOf(day.date, day.items) : [];
+  const deviceSplit = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
+    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime }))]);
+  const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) => deviceSplit(date, items).shown;
+  const daySplit = day ? deviceSplit(day.date, day.items) : { shown: [], hidden: [] };
+  const dayDevice = daySplit.shown;
 
   return (
     <Screen testID="screen-calendar">
@@ -156,6 +159,7 @@ export function CalendarScreen() {
               calRow(r.item)
             ),
           )}
+          <HiddenDuplicates entries={daySplit.hidden} testID={`cal-hidden-${day.date}`} />
         </View>
       ) : null}
       <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
