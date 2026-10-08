@@ -47,11 +47,16 @@ export function parseDueFields(date: string, time: string): { error: string } | 
   return { due: { date: date.trim(), time: t === '' ? null : t } };
 }
 
-/** D130: zmiany tytułu i notatki do zapisu (puste, gdy nic się nie zmieniło; pusty tytuł zostaje stary). */
-function textOps(v: { title: string; note: string }, cur: Task): NewOp[] {
+/** Pola, które edytuję (brak klucza = pole pokazuje dane). */
+type Edits = { title?: string; note?: string; date?: string; time?: string };
+
+/** D130: zmiany tytułu i notatki do zapisu — tylko edytowane pola (pusty tytuł zostaje stary). */
+function textOps(e: Edits, cur: Task): NewOp[] {
+  const title = e.title?.trim();
+  const note = e.note === undefined ? undefined : e.note.trim() || null;
   return [
-    ...(v.title.trim() && v.title.trim() !== cur.title ? [patchTask(cur.id, { title: v.title.trim() })] : []),
-    ...((v.note.trim() || null) !== cur.note ? [patchTask(cur.id, { note: v.note.trim() || null })] : []),
+    ...(title && title !== cur.title ? [patchTask(cur.id, { title })] : []),
+    ...(note !== undefined && note !== cur.note ? [patchTask(cur.id, { note })] : []),
   ];
 }
 
@@ -73,24 +78,25 @@ export function TaskScreen({ route, navigation }: Props) {
   const task = raw ? asTask(raw) : null;
   const detail = useMemo(() => (task ? listDetail(tables, userId, task.list_id, today) : null), [tables, userId, task?.list_id, today]); // eslint-disable-line react-hooks/exhaustive-deps
   const node = detail && task ? (find([...detail.open, ...detail.done], task.id) ?? null) : null;
-  const [title, setTitle] = useState(task?.title ?? '');
-  const [note, setNote] = useState(task?.note ?? '');
-  const [date, setDate] = useState(task?.due_date ?? '');
-  const [time, setTime] = useState(task?.due_time?.slice(0, 5) ?? '');
+  // D130 + audyt 2 (T-22): pole podąża za danymi (także zmianami z drugiego telefonu), dopóki go nie edytuję;
+  // zapisuje się tylko to, co zmieniłem, i od tej chwili pole znów pokazuje dane.
+  const [edit, setEdit] = useState<Edits>({});
+  const cur = { title: task?.title ?? '', note: task?.note ?? '', date: task?.due_date ?? '', time: task?.due_time?.slice(0, 5) ?? '' };
+  const shown = (k: keyof Edits) => edit[k] ?? cur[k];
   const [error, setError] = useState<string | null>(null);
   const [sub, setSub] = useState('');
   const [picking, setPicking] = useState(false);
   const [handing, setHanding] = useState(false);
   // D130: przy opuszczeniu ekranu zapisujemy też tekst z pola, z którego nie wyszło się wcześniej.
   const editable = task !== null && task.deleted_at === null && myMemberships(tables, userId).get(task.group_id)?.role !== 'child';
-  const latest = useRef({ title, note, task, editable });
+  const latest = useRef({ edit, task, editable });
   useEffect(() => {
-    latest.current = { title, note, task, editable };
+    latest.current = { edit, task, editable };
   });
   useEffect(
     () => () => {
       const l = latest.current;
-      const ops = l.task && l.editable ? textOps(l, l.task) : [];
+      const ops = l.task && l.editable ? textOps(l.edit, l.task) : [];
       if (ops.length) store.dispatch(ops);
     },
     [], // eslint-disable-line react-hooks/exhaustive-deps
@@ -126,15 +132,22 @@ export function TaskScreen({ route, navigation }: Props) {
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
   // D130: każda zmiana zapisuje się od razu — tytuł i notatka po wyjściu z pola (i przy opuszczeniu ekranu),
   // termin po wyborze daty albo poprawnej godziny. Bez przycisku „Zapisz”.
-  const commitText = (v: { title: string; note: string }, cur: Task) => {
-    const ops = textOps(v, cur);
+  const commitText = () => {
+    const ops = textOps(edit, task);
     if (ops.length) store.dispatch(ops);
+    setEdit(({ title: _t, note: _n, ...rest }) => rest);
   };
-  const commitDue = (d: string, t: string) => {
+  // Termin: zmieniona część z pola, druga — z danych (chyba że też ją właśnie zmieniam).
+  const changeDue = (patch: Pick<Edits, 'date' | 'time'>) => {
+    const next = { ...edit, ...patch };
+    const d = next.date ?? cur.date;
+    const t = next.time ?? cur.time;
+    setEdit(next);
     if (d.trim() === '') return;
     const r = parseDueFields(d, t);
     if ('error' in r) return setError(r.error);
     setError(null);
+    setEdit(({ date: _d, time: _t, ...rest }) => rest);
     if (r.due.date !== task.due_date || r.due.time !== (task.due_time?.slice(0, 5) ?? null) || task.deadline_mode !== 'own') store.dispatch(setDue(task.id, r.due));
   };
   const addSub = () => {
@@ -155,8 +168,8 @@ export function TaskScreen({ route, navigation }: Props) {
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
-          <Field label={strings['task.title']} value={title} onChangeText={setTitle} onBlur={() => commitText({ title, note }, task)} onSubmitEditing={() => commitText({ title, note }, task)} testID="task-title" />
-          <Field label={strings['task.note']} value={note} onChangeText={setNote} onBlur={() => commitText({ title, note }, task)} multiline testID="task-note" />
+          <Field label={strings['task.title']} value={shown('title')} onChangeText={(v) => setEdit((e) => ({ ...e, title: v }))} onBlur={commitText} onSubmitEditing={commitText} testID="task-title" />
+          <Field label={strings['task.note']} value={shown('note')} onChangeText={(v) => setEdit((e) => ({ ...e, note: v }))} onBlur={commitText} multiline testID="task-note" />
         </>
       ) : (
         <>
@@ -174,8 +187,8 @@ export function TaskScreen({ route, navigation }: Props) {
               ? `${strings['task.dueEvent']}${node?.due ? `: ${formatDue(node.due, today)}` : ''}`
               : formatDue({ date: task.due_date!, time: task.due_time }, today)}
       </Body>
-      {canEdit ? <DateField label={strings['task.dueDate']} value={date} onChange={(d) => (setDate(d), commitDue(d, time))} today={today} testID="task-date" /> : null}
-      {canEdit ? <TimeField label={strings['task.dueTime']} value={time} onChange={(t) => (setTime(t), commitDue(date, t))} testID="task-time" optional /> : null}
+      {canEdit ? <DateField label={strings['task.dueDate']} value={shown('date')} onChange={(d) => changeDue({ date: d })} today={today} testID="task-date" /> : null}
+      {canEdit ? <TimeField label={strings['task.dueTime']} value={shown('time')} onChange={(t) => changeDue({ time: t })} testID="task-time" optional /> : null}
       {canEdit && task.deadline_mode !== 'none' ? (
         <Button
           kind="secondary"
@@ -183,8 +196,7 @@ export function TaskScreen({ route, navigation }: Props) {
           onPress={() => {
             if (lacksAddressee(tables, userId, { ...task, deadline_mode: 'none' })) return setError(strings['addressee.blocked']);
             store.dispatch(setDue(task.id, null));
-            setDate('');
-            setTime('');
+            setEdit(({ date: _d, time: _t, ...rest }) => rest);
           }}
         />
       ) : null}

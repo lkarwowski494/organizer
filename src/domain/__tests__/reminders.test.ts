@@ -109,3 +109,45 @@ describe('jedno przypomnienie z podzadaniami (D134)', () => {
     expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts()).find((x) => x.id === 't|paczka|2026-10-07')!.body).toBe('17:30 · Rodzina');
   });
 });
+
+describe('zbiorcze przypomnienie nie przychodzi później niż własne (audyt 2: N-2, N-3, T-20)', () => {
+  const label = { ...opts().label, leave: (x: string) => `Wyjdź: ${x}`, subtasks: (xs: string[]) => `do zrobienia: ${xs.join(', ')}`, parent: (x: string, ev: boolean) => `↳ ${x}${ev ? ' (wydarzenie)' : ''}` };
+  function world2(): T {
+    const t = world();
+    const task = (id: string, extra: Row) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', parent_id: null, title: id, assignee_member_id: 'mf', deadline_mode: 'own', due_date: null, due_time: null, completed_at: null, deleted_at: null, rollover: true, ...extra });
+    // Wcześniej niż rodzic (17:30) — własne; później — w zbiorczym; wnuk bez godziny idzie za swoim rodzicem.
+    task('karton', { parent_id: 'paczka', due_date: '2026-10-07', due_time: '12:00' });
+    task('taśma', { parent_id: 'karton', deadline_mode: 'inherit' });
+    task('etykieta', { parent_id: 'paczka', due_date: '2026-10-07', due_time: '18:00' });
+    // Rodzic bez godziny (jutro) i zaległy (dziś) — podzadania z godziną przypominają same.
+    task('wazon', { parent_id: 'kwiaty', due_date: '2026-10-08', due_time: '15:00' });
+    task('przelew', { parent_id: 'rachunek', due_date: '2026-10-07', due_time: '15:00' });
+    // Całodniowe wydarzenie i zadanie tego terminu z własną godziną.
+    put(t, 'events', 'ur', { id: 'ur', group_id: 'gf', title: 'Urodziny babci', start_date: '2026-10-08', start_time: null, end_time: null, rrule: null, audience: 'group', deleted_at: null });
+    task('tort', { event_id: 'ur', occurrence_date: '2026-10-08', due_date: '2026-10-08', due_time: '09:00' });
+    return t;
+  }
+
+  it('własne przypomnienie z dopiskiem rodzica; rodzic bez tych pozycji w treści', () => {
+    const r = planReminders(world2(), ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts({ label }));
+    const body = (id: string) => r.find((x) => x.id === id)?.body;
+    expect(body('t|karton|2026-10-07')).toBe('12:00 · Rodzina · ↳ paczka · do zrobienia: taśma');
+    expect(body('t|paczka|2026-10-07')).toBe('17:30 · Rodzina · do zrobienia: etykieta');
+    expect(body('t|wazon|2026-10-08')).toBe('15:00 · Rodzina · ↳ kwiaty');
+    expect(body('t|przelew|2026-10-07')).toBe('15:00 · Rodzina · ↳ rachunek');
+    expect(body('t|tort|2026-10-08')).toBe('09:00 · Rodzina · ↳ Urodziny babci (wydarzenie)');
+    expect(r.filter((x) => /etykieta|taśma/.test(x.id))).toEqual([]);
+  });
+
+  it('poranne podsumowanie liczy podzadania z własnym przypomnieniem', () => {
+    const r = planReminders(world2(), ME, TODAY, NOW, { leadMin: 30, morning: '08:00' }, opts({ label }));
+    expect(r.find((x) => x.id === 'm|2026-10-08')!.body).toBe('5/0: Urodziny babci, kwiaty, 09:00 tort, 15:00 wazon i 1 więcej');
+  });
+
+  it('bez przypomnień przed (leadMin 0) podzadania trafiają do „Czas wyjść” wydarzenia', () => {
+    const t = world2();
+    put(t, 'tasks', 'buty', { id: 'buty', group_id: 'gf', list_id: 'l', parent_id: null, title: 'buty', assignee_member_id: 'mf', deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', event_id: 'ev', occurrence_date: '2026-10-08', completed_at: null, deleted_at: null, rollover: true });
+    const r = planReminders(t, ME, TODAY, NOW, { leadMin: 0, morning: 'off' }, opts({ label, leaveFor: (id: string) => (id === 'ev' ? { at: NOW + 1000, body: 'Wyjdź teraz' } : null) }));
+    expect(r.map((x) => [x.id, x.body])).toEqual([['l|ev|2026-10-08|2026-10-08', 'Wyjdź teraz · do zrobienia: buty']]);
+  });
+});

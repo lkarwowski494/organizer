@@ -20,7 +20,7 @@ import { chunkedSecureStorage } from '../sync/session-storage';
 import { supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
-import { expoDevicePush } from './push';
+import { expoDevicePush, showWhileOpen } from './push';
 import { expoTravel } from './travel-service';
 import type { RootDeps, Session } from './Root';
 
@@ -55,6 +55,7 @@ export function appDeps(): RootDeps {
 }
 
 export function realDeps(): RootDeps {
+  showWhileOpen();
   // Klient tworzony dopiero tutaj (nie przy imporcie modułu): build E2E nie ma klucza Supabase, a createClient bez klucza rzuca wyjątek.
   const client = createClient(config.SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '', {
     auth: {

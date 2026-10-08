@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 
-import { expoDevicePush, registerIfAllowed } from '../push';
+import { expoDevicePush, registerIfAllowed, showWhileOpen } from '../push';
 import { fakePush } from './harness';
 
 jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), SchedulableTriggerInputTypes: { DATE: 'date' } }));
@@ -10,6 +10,13 @@ const m = Notifications as jest.Mocked<typeof Notifications>;
 const ss = SecureStore as jest.Mocked<typeof SecureStore>;
 
 describe('powiadomienia na iPhonie (D70)', () => {
+  it('przy otwartej aplikacji powiadomienie się pokazuje (audyt 2, N-1)', async () => {
+    const setNotificationHandler = jest.fn();
+    showWhileOpen({ setNotificationHandler });
+    const handler = setNotificationHandler.mock.calls[0][0];
+    expect(await handler.handleNotification({})).toEqual({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false });
+  });
+
   it('stan zgody, prośba (alert i dźwięk), token APNs, „Nie teraz”', async () => {
     m.getPermissionsAsync.mockResolvedValueOnce({ status: 'granted' } as never).mockResolvedValueOnce({ status: 'denied' } as never).mockResolvedValueOnce({ status: 'whatever' } as never);
     expect([await expoDevicePush.status(), await expoDevicePush.status(), await expoDevicePush.status()]).toEqual(['granted', 'denied', 'undetermined']);

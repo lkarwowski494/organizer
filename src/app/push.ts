@@ -63,6 +63,15 @@ export const expoDevicePush: DevicePush = {
   saveReminderSettings: (s) => SecureStore.setItemAsync(REMINDERS, JSON.stringify(s)),
 };
 
+/**
+ * Audyt 2 (N-1): powiadomienie (przypomnienie, „Czas wyjść”, push) przy otwartej aplikacji ma się pokazać jak
+ * w tle. Bez obsługi nie pokazuje się wcale — SDK 57: „The default behavior when the handler is not set or does not
+ * respond in time is not to show the notification”. Wołane raz przy starcie (wiring), przed planowaniem.
+ */
+export function showWhileOpen(n: Pick<typeof Notifications, 'setNotificationHandler'> = Notifications): void {
+  n.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }) });
+}
+
 /** Zgoda jest — zarejestruj token tego telefonu (bez zgody: nic). Błędy sieci ciche: spróbujemy przy następnym starcie. */
 export async function registerIfAllowed(push: DevicePush, register: (token: string, env: DevicePush['env']) => Promise<void>): Promise<boolean> {
   try {
