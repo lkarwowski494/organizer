@@ -179,8 +179,11 @@ describe('Listy i zadania', () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
-    expect(screen.getByLabelText('Utwórz listę').props.accessibilityState.disabled).toBe(true);
+    // PWD-5 A (M-274): przycisk aktywny, po naciśnięciu komunikat przy polu.
+    await press(screen.getByLabelText('Utwórz listę'));
+    expect(screen.getByTestId('list-error').props.children).toBe('Wpisz nazwę listy.');
     await type(screen.getByTestId('list-name'), 'Prezenty');
+    expect(screen.queryByTestId('list-error')).toBeNull();
     await press(screen.getByLabelText('Rodzina'));
     await press(screen.getByLabelText('Tylko ja'));
     await press(screen.getByTestId('create-list'));
@@ -255,9 +258,10 @@ describe('Grupy', () => {
     await press(await screen.findByTestId('invite'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     await press(screen.getByTestId('leave'));
-    await press(screen.getByLabelText('Anuluj'));
+    await answerAlert('Anuluj');
+    expect(store.dispatched.some((o) => 'entity' in o && o.entity === 'group_members')).toBe(false);
     await press(screen.getByTestId('leave'));
-    await press(screen.getByTestId('leave-confirm'));
+    await answerAlert('Wyjdź z grupy');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'mf' });
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
     expect(screen.queryByTestId('group-gf')).toBeNull();
@@ -309,7 +313,9 @@ describe('Grupy', () => {
     const { store } = await open({ account });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText('Dołącz do grupy'));
-    expect(screen.getByTestId('invite-accept').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('invite-accept'));
+    expect(screen.getByText('Wpisz ID grupy i kod albo wklej wiadomość z zaproszeniem.')).toBeTruthy();
+    expect(account.joinGroup).not.toHaveBeenCalled();
     await type(screen.getByTestId('invite-join-id'), '482 913 507');
     await type(screen.getByTestId('invite-code'), '731-064');
     await press(screen.getByTestId('invite-accept'));
@@ -363,10 +369,11 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Automatyczny'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } });
     await press(screen.getByTestId('delete-group'));
-    expect(screen.getByText(/Przez 30 dni możesz ją przywrócić/)).toBeTruthy();
-    await press(screen.getByLabelText('Anuluj'));
+    expect(lastAlert().message).toMatch(/Przez 30 dni możesz ją przywrócić/);
+    await answerAlert('Anuluj');
+    expect(account.deleteGroup).not.toHaveBeenCalled();
     await press(screen.getByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
+    await answerAlert('Usuń do kosza');
     expect(account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(store.refresh).toHaveBeenCalled();
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
@@ -378,7 +385,7 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
+    await answerAlert('Usuń do kosza');
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
   });
 
@@ -486,8 +493,11 @@ describe('Ustawienia', () => {
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));
     await type(screen.getByTestId('delete-word'), 'usun');
-    expect(screen.getByTestId('delete-confirm').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('delete-confirm'));
+    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ, żeby potwierdzić.');
+    expect(s.account.deleteAccount).not.toHaveBeenCalled();
     await type(screen.getByTestId('delete-word'), 'usuń');
+    expect(screen.queryByTestId('delete-word-error')).toBeNull();
     await press(screen.getByTestId('delete-confirm'));
     expect(s.account.deleteAccount).toHaveBeenCalled();
     await press(screen.getByTestId('sign-out'));

@@ -32,7 +32,7 @@ const withSub = (extra: Record<string, unknown> = {}) => {
 describe('ekran zadania: nagłówek i pola (M-146, M-202, M-116)', () => {
   it('nagłówek dla VoiceOvera to nazwa zadania; pole odhaczenia mówi, co odhacza; opis „Dla kogo” a „Przekaż”', async () => {
     await openTask('Kupić kwiaty');
-    expect(screen.getByRole('header', { name: /^Kupić kwiaty, Rodzina · Dom/ })).toBeTruthy();
+    expect(screen.getByRole('header', { name: /^Kupić kwiaty, Rodzina, Dom/ })).toBeTruthy();
     expect(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty')).toBeTruthy();
     expect(screen.getByText('Zmiana osoby działa od razu. „Przekaż zadanie” (przy Twoim zadaniu) prosi drugą osobę o przyjęcie.')).toBeTruthy();
   });

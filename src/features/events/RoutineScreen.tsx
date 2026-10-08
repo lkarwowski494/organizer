@@ -4,10 +4,12 @@
  * (stałe zadania — na ekranie wydarzenia). Logika: domain/views/routines.ts.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { useDefaultGroup } from '../../app/default-group';
+import { startGroup } from '../../domain/views/default-group';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
@@ -29,7 +31,9 @@ export function RoutineScreen({ route, navigation }: Props) {
   const { c, font } = useTheme();
   const undo = useUndo();
   const groups = groupsView(tables, userId).filter((g) => g.me.role !== 'child');
-  const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (groups[0]?.id ?? ''));
+  // PW-37 A (M-118, D191): bez wskazanej grupy — „Grupa domyślna”, jak szybkie dodawanie; zapis ją zapamiętuje.
+  const defaultGroup = useDefaultGroup();
+  const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? ''));
   const [title, setTitle] = useState(route.params?.title ?? '');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4]);
   const [start, setStart] = useState('');
@@ -37,6 +41,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [who, setWho] = useState<string[]>([]);
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
+  const stepRefs = useRef<(TextInput | null)[]>([]);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
   const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps }, { restore: route.params?.title === undefined });
@@ -48,6 +53,7 @@ export function RoutineScreen({ route, navigation }: Props) {
     if ('error' in r) return setError(r.error === 'steps' ? strings['routine.error.steps'] : r.error === 'title' ? strings['routine.error.title'] : strings[`event.error.${r.error}`]);
     draft.saved();
     store.dispatch(r.ops);
+    defaultGroup.remember(groupId);
     // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie.
     undo.show(strings['routine.saved'](title.trim()), () => store.dispatch(routineUndoOps(materialize(store.getSnapshot().state), r.ops)));
     navigation.goBack();
@@ -79,7 +85,8 @@ export function RoutineScreen({ route, navigation }: Props) {
       {groups.length > 1 ? (
         <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['routine.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} testID="routine-title" />
+      {/* M-247: kursor w pierwszym polu pustego formularza; M-243: Return przechodzi do pierwszego kroku. */}
+      <Field label={strings['routine.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} autoFocus={title === ''} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => stepRefs.current[0]?.focus()} testID="routine-title" />
       <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
@@ -96,7 +103,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       {steps.map((s, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Field label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} testID={`routine-step-${i}`} />
+            <Field ref={(r) => void (stepRefs.current[i] = r)} label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} returnKeyType={i < steps.length - 1 ? 'next' : 'done'} submitBehavior={i < steps.length - 1 ? 'submit' : undefined} onSubmitEditing={() => stepRefs.current[i + 1]?.focus()} testID={`routine-step-${i}`} />
           </View>
           {steps.length > 1 ? <Button kind="secondary" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>

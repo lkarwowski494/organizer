@@ -21,7 +21,7 @@ import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps,
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, MissingScreen } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
@@ -52,10 +52,7 @@ export function TimetableScreen({ route, navigation }: Props) {
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
-      <Screen testID="screen-timetable-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-timetable-missing" text={strings['missing.member']} onBack={() => navigation.goBack()} />
     );
   }
   const monday = addDays(today, -isoWeekday(today));

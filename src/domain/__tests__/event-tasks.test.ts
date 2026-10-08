@@ -4,7 +4,7 @@ import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { todayView } from '../views';
 import { occurrenceResolver } from '../views/event-rows';
 import { splitId } from '../event-split';
-import { affectedByCancel, attachedTasks, attachOps, createEventTask, nextOccurrence, relinkOps, seriesEditEffects, seriesEditOps, upcomingInGroup } from '../views/event-tasks';
+import { affectedByCancel, attachedTasks, attachOps, createEventTask, nextOccurrence, occurrenceTasks, relinkOps, seriesEditEffects, seriesEditOps, upcomingInGroup } from '../views/event-tasks';
 import { cancelEvent, createEvent, editEvent, eventDetail, type EventFields } from '../views/events';
 import { asTask } from '../views/model';
 
@@ -228,5 +228,21 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
   it('bez operacji na serii (np. pusta lista) — seria bez zmian', () => {
     const { t, d } = dances();
     expect(seriesEditEffects(t, d(), '2026-10-12', 'all', []).kept.map((x) => x.id)).toEqual(['buty', 'opłata', 'strój']);
+  });
+});
+
+describe('audyt 2 (M-130, PWD-7 A): zadania wystąpienia na ekranie wydarzenia', () => {
+  it('otwarte i zrobione osobno, z terminem spotkania albo własnym; inne wystąpienie i usunięte — nie', () => {
+    const { t, id } = dances();
+    run(t, [
+      { kind: 'patch', entity: 'tasks', id: 'buty', set: { completed_at: '2026-10-10T08:00:00Z' } },
+      { kind: 'patch', entity: 'tasks', id: 'strój', set: { deadline_mode: 'own', due_date: '2026-10-11', due_time: null } },
+      createEventTask({ id: 'kasa', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Kasa' }),
+      { kind: 'delete', entity: 'tasks', id: 'kasa' },
+    ]);
+    const r = occurrenceTasks(t, id, '2026-10-12');
+    expect(r.open.map((x) => [x.id, x.due])).toEqual([['strój', { date: '2026-10-11', time: null }]]);
+    expect(r.done.map((x) => [x.id, x.due])).toEqual([['buty', { date: '2026-10-12', time: '18:00' }]]);
+    expect(occurrenceTasks(t, id, '2026-10-26')).toEqual({ open: [], done: [] });
   });
 });

@@ -135,7 +135,8 @@ export function RootStack() {
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
-      <Stack.Screen name="Name" component={NameScreen} />
+      {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}
+      <Stack.Screen name="Name" component={NameScreen} options={({ route }) => ({ gestureEnabled: route.params?.from === 'settings' })} />
       <Stack.Screen name="Timetable" component={TimetableScreen} />
       <Stack.Screen name="Routine" component={RoutineScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />

@@ -503,6 +503,10 @@ export const strings = {
   'groups.revoke': 'Unieważnij kod',
   'groups.addChild': 'Dodaj dziecko (bez konta)',
   'groups.childName': 'Imię dziecka',
+  'groups.error.childEmpty': 'Wpisz imię dziecka.',
+  'groups.error.myNameEmpty': 'Wpisz swoje imię w tej grupie.',
+  'groups.noLists': 'Brak list. Dodaj listę zakupów albo zadań.',
+  'groups.nextSteps.newShopping': 'Utwórz listę zakupów',
   'groups.leave': 'Wyjdź z grupy',
   // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
   'groups.leaveConfirm': (days: number) =>
@@ -568,6 +572,7 @@ export const strings = {
   'invite.paste': 'Wklej wiadomość albo link (opcjonalnie)',
   'invite.joinId': 'ID grupy (9 cyfr)',
   'invite.code': 'Kod (6 cyfr)',
+  'invite.error.missing': 'Wpisz ID grupy i kod albo wklej wiadomość z zaproszeniem.',
 
   'settings.title': 'Ustawienia',
   'settings.open': 'Ustawienia',
@@ -598,6 +603,7 @@ export const strings = {
   'settings.deleteConfirm': 'Usuń konto na zawsze',
   'settings.deleteType': 'Wpisz USUŃ, żeby potwierdzić',
   'settings.deleteWord': 'USUŃ',
+  'settings.deleteWordError': 'Wpisz USUŃ, żeby potwierdzić.',
   'settings.appearance': 'Wygląd',
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
@@ -701,6 +707,7 @@ export const strings = {
   'welcome.2.example': '„dentysta jutro o 17” → dentysta, jutro 17:00',
   'welcome.next': 'Dalej',
   'welcome.skip': 'Pomiń',
+  'welcome.done': 'Zaczynamy',
   'welcome.start.title': 'Od czego zaczynasz?',
   'welcome.start.body': 'Grupę osobistą już masz. Wspólną utworzysz albo dołączysz do niej kodem, który dostaniesz od bliskich.',
   'welcome.start.family': 'Utwórz grupę rodzinną',
@@ -720,6 +727,7 @@ export const strings = {
   'feedback.sent': 'Dziękujemy! Uwaga dotarła.',
   'feedback.limit': 'Na dziś to już dużo uwag — spróbuj jutro.',
   'feedback.error': 'Nie udało się wysłać. Sprawdź internet i spróbuj jeszcze raz.',
+  'feedback.empty': 'Wpisz, co chcesz nam przekazać.',
   // PWD-18 (decyzja właściciela 8.10.2026): wyciszenie dotyczy tylko przypisań — nazwa i dopisek mówią to wprost.
   'mutes.section': 'Powiadomienia o przypisaniach',
   'mutes.info': 'Gdy ktoś przypisze Ci zadanie, zakupy albo wydarzenie, dostaniesz powiadomienie. Możesz to wyciszyć dla wybranej grupy. Przypomnienia i przekazania (do przyjęcia) przychodzą zawsze.',
@@ -754,6 +762,7 @@ export const strings = {
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,
   // Audyt 2 (M-253): pełne słowa — VoiceOver czytał „cd.” jako „c d”.
   'device.continued': 'ciąg dalszy',
+  'device.continuedUntil': (end: string) => `ciąg dalszy, do ${end}`,
   'device.allDay': 'cały dzień',
   'device.on': 'Włączone',
   'device.off': 'Wyłączone',

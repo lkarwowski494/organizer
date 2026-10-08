@@ -12,7 +12,7 @@ import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams, SettingsSection } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
 import { useAppearance, useTheme } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
@@ -46,6 +46,7 @@ export function SettingsScreen({ navigation, route }: Props) {
   const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
   const [word, setWord] = useState('');
+  const [wordError, setWordError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
@@ -253,9 +254,10 @@ export function SettingsScreen({ navigation, route }: Props) {
           {deleting ? (
             <View style={{ gap: 8 }}>
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
-              <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" />
+              <Field label={strings['settings.deleteType']} value={word} onChangeText={(v) => (setWord(v), setWordError(false))} autoCapitalize="characters" testID="delete-word" />
+              {wordError ? <ErrorText testID="delete-word-error">{strings['settings.deleteWordError']}</ErrorText> : null}
               {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
-              <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={busy || word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} onPress={del} testID="delete-confirm" />
+              <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={busy} onPress={() => (word.trim().toLocaleUpperCase('pl') === strings['settings.deleteWord'] ? void del() : setWordError(true))} testID="delete-confirm" />
               <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
             </View>
           ) : (

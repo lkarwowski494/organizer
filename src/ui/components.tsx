@@ -63,9 +63,9 @@ export function SectionTitle({ children }: { children: string }) {
   );
 }
 
-export function Body({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: object }) {
+export function Body({ children, muted, style, testID }: { children: ReactNode; muted?: boolean; style?: object; testID?: string }) {
   const { c, font, size } = useTheme();
-  return <Text style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
+  return <Text testID={testID} style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
 }
 
 /** Komunikat o błędzie pod polem albo przyciskiem: czerwony, ogłaszany przez VoiceOver (rola alert). */
@@ -520,6 +520,37 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
         })}
       </View>
     </View>
+  );
+}
+
+/**
+ * Ekran rzeczy, której nie ma (usunięta, stary link, powiadomienie; audyt 2, M-131): „Wróć” i powód zamiast „Coś poszło nie
+ * tak. Spróbuj jeszcze raz.” — nie ma czego ponawiać.
+ */
+/**
+ * Linia grupy nad tytułem na ekranach szczegółów (audyt 2, M-252): jeden znacznik grupy (pierścień w kolorze linii, jak
+ * w wierszach nawigacji i na ekranie grupy), nazwa grupy w jej kolorze i jedna linia opisu. `header` — etykieta nagłówka
+ * VoiceOvera, gdy linia zastępuje nagłówek ekranu (zadanie, M-146).
+ */
+export function GroupLine({ name, line, detail, header, flex }: { name: string; line: number; detail?: string; header?: string; flex?: boolean }) {
+  const { c, font, size, line: lineOf } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: flex ? 1 : undefined }}>
+      <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: lineOf(line).line, backgroundColor: c.surface }} />
+      <Text accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header} style={{ flex: 1, fontFamily: font.text400, fontSize: size.META + 1, color: c.inkMuted }}>
+        <Text style={{ fontFamily: font.text700, color: lineOf(line).ink }}>{name}</Text>
+        {detail ? `${META_SEP}${detail}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+export function MissingScreen({ text, onBack, testID }: { text: string; onBack: () => void; testID: string }) {
+  return (
+    <Screen testID={testID}>
+      <BackButton onPress={onBack} />
+      <Body muted>{text}</Body>
+    </Screen>
   );
 }
 

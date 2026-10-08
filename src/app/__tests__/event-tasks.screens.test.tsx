@@ -183,6 +183,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     expect(screen.getByText('Spakować strój')).toBeTruthy();
     await press(screen.getByLabelText('Odepnij'));
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): tego terminu po zmianie nie ma — powrót o ekran dalej.
     await screen.findByTestId('screen-today');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } });
   });
@@ -198,6 +199,9 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByText('1 podpięte zadanie przejdzie razem z terminami.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     // Jedno polecenie podziału: zadanie przenosi ono samo (bez osobnej operacji).
     expect(store.dispatched).toEqual([expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ tasks: [] }) })]);

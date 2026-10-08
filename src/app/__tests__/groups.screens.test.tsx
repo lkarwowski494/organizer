@@ -12,7 +12,7 @@ import type { Occurrence } from '../../domain/views/events';
 import { OccurrencePicker } from '../../features/events/OccurrencePicker';
 import { TransportError } from '../../sync/transport';
 import { RootStack } from '../navigation';
-import { fakeAccount, ME, put, sampleBase, setup } from './harness';
+import { answerAlert, fakeAccount, lastAlert, ME, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -86,7 +86,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     const s = await openGroup(await open());
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('leave'));
-    await press(screen.getByTestId('leave-confirm'));
+    await answerAlert('Wyjdź z grupy');
     await screen.findByTestId('screen-groups');
     expect(s.store.dispatched).toEqual([{ kind: 'delete', entity: 'group_members', id: 'mf' }]);
   });
@@ -95,7 +95,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     const s = await openGroup(await open({ base: asOwner() }));
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('delete-group'));
-    await press(screen.getByTestId('delete-group-confirm'));
+    await answerAlert('Usuń do kosza');
     await screen.findByTestId('screen-groups');
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(s.store.dispatched).toEqual([]);
@@ -434,10 +434,11 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     expect(plain).toEqual(['Zaproś', 'Zaproś jako admina']);
   });
 
-  it('PW-43 A: potwierdzenie wyjścia mówi o listach „Tylko ja” w koszu', async () => {
+  it('PW-43 A: potwierdzenie wyjścia mówi o listach „Tylko ja” w koszu (PWD-4 A: okno systemowe tak/nie)', async () => {
     await openGroup(await open());
     await press(screen.getByTestId('leave'));
-    expect(screen.getByText('Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na 30 dni i wrócą, jeśli w tym czasie dołączysz ponownie.')).toBeTruthy();
+    expect(lastAlert()).toMatchObject({ title: 'Wyjdź z grupy', message: 'Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na 30 dni i wrócą, jeśli w tym czasie dołączysz ponownie.' });
+    expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyjdź z grupy', 'destructive']]);
   });
 
   it('PWD-21 A: członek widzi grupę w koszu z datą, do której właściciel może ją przywrócić', async () => {
@@ -490,7 +491,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     expect(prefs.set).toHaveBeenLastCalledWith('nextSteps.new-1', '0');
   });
 
-  it('PW-36 A: grupa z ekranu Grupy — bez list i bez karty', async () => {
+  it('PW-36 A: grupa z ekranu Grupy — bez list; karta „Następne kroki” jest (M-117, zasada A)', async () => {
     const prefs = memoryPrefs({ welcomeSeen: '1' });
     const s = await open({ prefs });
     await press(screen.getByLabelText('Grupy'));
@@ -499,6 +500,6 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     await press(screen.getByTestId('create-group'));
     await screen.findByTestId('screen-group-loading');
     expect(s.store.dispatched).toEqual([]);
-    expect(prefs.set).not.toHaveBeenCalledWith('nextSteps.new-1', '1');
+    expect(prefs.set).toHaveBeenCalledWith('nextSteps.new-1', '1');
   });
 });
