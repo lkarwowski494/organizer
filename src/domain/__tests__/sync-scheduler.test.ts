@@ -154,17 +154,20 @@ describe('pętla synchronizacji — scenariusze', () => {
   });
 });
 
+const evArb: fc.Arbitrary<SchedulerEvent> = fc.oneof(
+  fc.record({ t: fc.constant('local_change' as const), pending: fc.integer({ min: 0, max: 5 }) }),
+  fc.constant({ t: 'foreground' as const }),
+  fc.constant({ t: 'background' as const }),
+  fc.record({ t: fc.constant('network' as const), online: fc.boolean() }),
+  fc.record({ t: fc.constant('poke' as const), fresh: fc.boolean() }),
+  fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constantFrom('network' as const, 'auth' as const, 'server' as const) }),
+  fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constant('fatal' as const), code: fc.constantFrom('upgrade_required', 'client_mismatch') }),
+  fc.constant({ t: 'auth_refreshed' as const }),
+  fc.constant({ t: 'refresh' as const }),
+  fc.constant({ t: 'clock' as const }),
+);
+
 describe('pętla synchronizacji — własności', () => {
-  const evArb: fc.Arbitrary<SchedulerEvent> = fc.oneof(
-    fc.record({ t: fc.constant('local_change' as const), pending: fc.integer({ min: 0, max: 5 }) }),
-    fc.constant({ t: 'foreground' as const }),
-    fc.constant({ t: 'background' as const }),
-    fc.record({ t: fc.constant('network' as const), online: fc.boolean() }),
-    fc.record({ t: fc.constant('poke' as const), fresh: fc.boolean() }),
-    fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constantFrom('network' as const, 'auth' as const, 'server' as const) }),
-    fc.record({ t: fc.constant('failed' as const), what: fc.constantFrom('push' as const, 'pull' as const), error: fc.constant('fatal' as const), code: fc.constantFrom('upgrade_required', 'client_mismatch') }),
-    fc.constant({ t: 'auth_refreshed' as const }),
-  );
 
   it('decyzja zawsze spójna ze stanem; czekanie zawsze w przyszłość; kolejka nigdy nie znika sama', () => {
     fc.assert(
@@ -204,6 +207,67 @@ describe('pętla synchronizacji — własności', () => {
         }
         expect(d).toEqual({ do: 'push' });
         expect(now - T0).toBeLessThanOrEqual(config.sync.BACKOFF_MAX_MS);
+      }),
+    );
+  });
+});
+
+describe('odporność pętli (audyt 2, P2)', () => {
+  it('M-10: błąd sieci przy wysyłce wstrzymuje też pobranie — jedno nieudane żądanie na cykl, nie dwa', () => {
+    let s = run([[{ t: 'local_change', pending: 1 }, T0]]); // start: needPull
+    s = run([[{ t: 'started', what: 'push' }, T0 + 1000], [{ t: 'failed', what: 'push', error: 'network' }, T0 + 1000]], s);
+    expect(decide(s, T0 + 1000)).toEqual({ do: 'wait', until: T0 + 2000 });
+    expect(s.needPull).toBe(true);
+    // Błąd serwera (nie sieci) przy wysyłce nie blokuje pobrania.
+    const srv = run([[{ t: 'started', what: 'push' }, T0 + 1000], [{ t: 'failed', what: 'push', error: 'server' }, T0 + 1000]], run([[{ t: 'local_change', pending: 1 }, T0]]));
+    expect(decide(srv, T0 + 1000)).toEqual({ do: 'pull' });
+    // Błąd sieci przy pobraniu też przesuwa wysyłkę; pobranie zostaje do zrobienia.
+    const pull = run([[{ t: 'pull_ok', needMore: false, pending: 1 }, T0], [{ t: 'started', what: 'pull' }, T0], [{ t: 'failed', what: 'pull', error: 'network' }, T0]]);
+    expect(pull).toMatchObject({ pushNotBefore: T0 + 1000, pullNotBefore: T0 + 1000, needPull: true });
+    const idle = run([[{ t: 'pull_ok', needMore: false, pending: 1 }, T0], [{ t: 'started', what: 'push' }, T0], [{ t: 'failed', what: 'push', error: 'network' }, T0]]);
+    expect(idle.needPull).toBe(false);
+  });
+
+  it('M-9: powrót na pierwszy plan próbuje raz mimo wygasłej sesji (token mógł zostać odświeżony w tle)', () => {
+    let s = run([[{ t: 'local_change', pending: 1 }, T0], [{ t: 'started', what: 'push' }, T0 + 1000], [{ t: 'failed', what: 'push', error: 'auth' }, T0 + 1000]]);
+    expect(decide(s, T0 + 5000)).toEqual({ do: 'idle' });
+    s = onEvent(onEvent(s, { t: 'background' }, T0 + 6000), { t: 'foreground' }, T0 + 7000);
+    expect(s.authExpired).toBe(false);
+    expect(decide(s, T0 + 7000)).toEqual({ do: 'push' });
+  });
+
+  it('M-178: odświeżenie po operacji serwerowej pobiera od razu, mimo trwającego ponowienia po błędzie', () => {
+    let s = run([[{ t: 'started', what: 'pull' }, T0], [{ t: 'failed', what: 'pull', error: 'network' }, T0], [{ t: 'started', what: 'pull' }, T0 + 1000], [{ t: 'failed', what: 'pull', error: 'network' }, T0 + 1000]]);
+    expect(decide(s, T0 + 1500)).toEqual({ do: 'wait', until: T0 + 3000 });
+    // Poke tylko zaznacza potrzebę pobrania — dalej czeka (stan sprzed poprawki dla refresh).
+    expect(decide(onEvent(s, { t: 'poke', fresh: true }, T0 + 1500), T0 + 1500)).toEqual({ do: 'wait', until: T0 + 3000 });
+    s = onEvent(s, { t: 'refresh' }, T0 + 1500);
+    expect(s.failures).toBe(0);
+    expect(decide(s, T0 + 1500)).toEqual({ do: 'pull' });
+  });
+
+  it('M-179: cofnięcie zegara nie wydłuża czekania; zegar do przodu niczego nie przesuwa', () => {
+    let s = run([[{ t: 'pull_ok', needMore: false, pending: 0 }, T0], [{ t: 'local_change', pending: 1 }, T0]]);
+    expect(decide(s, T0)).toEqual({ do: 'wait', until: T0 + 1000 });
+    // Zegar cofnięty o godzinę: zostaje ta sama sekunda czekania.
+    const back = T0 - 3_600_000;
+    s = onEvent(s, { t: 'clock' }, back);
+    expect(decide(s, back)).toEqual({ do: 'wait', until: back + 1000 });
+    expect(s.seenAt).toBe(back);
+    const fwd = onEvent(s, { t: 'clock' }, back + 500);
+    expect(fwd).toEqual({ ...s, seenAt: back + 500 });
+  });
+
+  it('własność: po cofnięciu zegara czekanie nigdy nie jest dłuższe niż przed skokiem', () => {
+    fc.assert(
+      fc.property(fc.array(fc.tuple(evArb, fc.integer({ min: 0, max: 120_000 })), { maxLength: 30 }), fc.integer({ min: 1, max: 86_400_000 }), (steps, jump) => {
+        let s = initialScheduler(T0);
+        let now = T0;
+        for (const [e, dt] of steps) s = onEvent(s, e, (now += dt));
+        const before = decide(s, now);
+        const after = decide(onEvent(s, { t: 'clock' }, now - jump), now - jump);
+        if (before.do === 'wait' && after.do === 'wait') expect(after.until - (now - jump)).toBeLessThanOrEqual(before.until - now);
+        else expect(after.do).toBe(before.do);
       }),
     );
   });

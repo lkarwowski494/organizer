@@ -17,7 +17,7 @@ import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
-import { listsView } from '../../domain/views';
+import { checkOff, listsView } from '../../domain/views';
 import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
@@ -25,7 +25,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, Segmented, StationRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -82,6 +82,8 @@ export function EventScreen({ route, navigation }: Props) {
   const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
+  // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
+  const canCheck = checkOff(tables, userId);
   const rsvp = rsvpView(tables, userId, eventId, date);
   const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
@@ -208,7 +210,7 @@ export function EventScreen({ route, navigation }: Props) {
           line={d.line}
           meta={[formatDue({ date: occ.date, time: occ.startTime }, today)]}
           checked={false}
-          onToggle={() => actions.toggle(t)}
+          onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
           onOpen={() => navigation.navigate('Task', { taskId: t.id })}
         />
       ))}
@@ -238,8 +240,10 @@ export function EventScreen({ route, navigation }: Props) {
               ]}
             />
           ) : null}
-          <Field label={strings['event.taskAdd']} value={taskTitle} onChangeText={setTaskTitle} onSubmitEditing={addTask} testID="event-task-title" />
-          <Button kind="secondary" label={strings['event.taskAdd']} testID="event-task-add" onPress={addTask} />
+          {/* Audyt 2 (M-244): jak każde pole dodawania; terminu nie rozpoznajemy — daje go wydarzenie (tekst zostaje w nazwie). */}
+          <QuickAddField value={taskTitle} onChangeText={setTaskTitle} onSubmit={addTask} placeholder={strings['event.taskAdd']}>
+            <Body muted>{strings['event.taskAddHint']}</Body>
+          </QuickAddField>
         </View>
       ) : null}
 

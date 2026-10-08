@@ -129,6 +129,20 @@ describe('odświeżenie w tle (D159)', () => {
     expect(slow.pulls).toBe(1);
   });
 
+  it('identyfikator instalacji jak przy starcie aplikacji (M-8): z pęku kluczy tego urządzenia, zapisany w bazie', async () => {
+    let n = 0;
+    const saved = new Map<string, string>();
+    const device = { load: (u: string) => saved.get(u) ?? null, save: (u: string, id: string) => void saved.set(u, id) };
+    const first = deps({ deviceClientId: device, newId: () => `id-${++n}` });
+    await refreshInBackground(first.d);
+    const id = saved.get(U)!;
+    expect(readState(first.db, 'x').clientId).toBe(id);
+    // Drugi raz: ten sam identyfikator, bez zmiany.
+    await refreshInBackground(first.d);
+    expect(saved.get(U)).toBe(id);
+    expect(readState(first.db, 'x').clientId).toBe(id);
+  });
+
   it('błąd bazy — „failed”', async () => {
     const { d } = deps({
       openDb: () => {

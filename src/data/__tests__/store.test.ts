@@ -13,8 +13,8 @@ import {
   pushRequest,
 } from '../../domain/sync-engine/client';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { ENTITY_TABLES, migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
-import { loadLocal, readState, saveLocal, wipeSynced, writeState } from '../store';
+import { ENTITY_TABLES, isNewerSchema, migrate, MIGRATIONS, SCHEMA_VERSION } from '../db/migrations';
+import { loadLocal, readState, rebuildNewer, saveLocal, wipeSynced, writeState } from '../store';
 import { memoryDb } from './sqlite';
 
 const normalize = (s: ClientState): ClientState => ({
@@ -28,7 +28,7 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_rsvps', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_rsvps', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'staged_rows', 'sync_state', 'tasks']);
   });
 
   it('aktualizacja z wersji 1 dodaje tabele wydarzeń, stałych zadań serii i obecności i nie rusza istniejących danych', () => {
@@ -88,8 +88,40 @@ describe('lokalna baza: migracje', () => {
     const db = memoryDb();
     db.exec(`pragma user_version = ${SCHEMA_VERSION + 1}`);
     expect(() => migrate(db)).toThrow('local_schema_newer');
+    // M-177: korzeń rozpoznaje ten błąd (i tylko ten), żeby pokazać wyjaśnienie zamiast awarii.
+    let err: unknown;
+    try {
+      migrate(db);
+    } catch (e) {
+      err = e;
+    }
+    expect(isNewerSchema(err)).toBe(true);
+    expect(isNewerSchema(new Error('inny'))).toBe(false);
+    expect(isNewerSchema('local_schema_newer:9')).toBe(false);
+  });
+
+  it('M-177: „Wyczyść i pobierz od nowa” buduje schemat od zera tą wersją, dane telefonu (local:*) zostają', () => {
+    const db = memoryDb();
+    migrate(db);
+    saveLocal(db, 'calendarMirror', '{"a":1}');
+    db.run("insert into tasks (key, group_id, version, data) values ('t', 'g', 1, '{}')");
+    // Nowsza wersja dołożyła tabelę (z cudzysłowem w nazwie) i podbiła wersję.
+    db.exec(`create table "przyszła ""tabela""" (x text); pragma user_version = ${SCHEMA_VERSION + 3}`);
+    expect(() => migrate(db)).toThrow('local_schema_newer');
+    rebuildNewer(db);
+    expect(db.all<{ user_version: number }>('pragma user_version')[0]!.user_version).toBe(SCHEMA_VERSION);
+    expect(db.all("select name from sqlite_master where type = 'table' and name like 'przyszła%'")).toEqual([]);
+    expect(db.all('select key from tasks')).toEqual([]);
+    expect(loadLocal(db, 'calendarMirror')).toBe('{"a":1}');
+    expect(migrate(db)).toBe(SCHEMA_VERSION);
+    // Baza bez sync_state: też się buduje.
+    const other = memoryDb();
+    other.exec(`create table inna (x text); pragma user_version = ${SCHEMA_VERSION + 1}`);
+    rebuildNewer(other);
+    expect(readState(other, 'c')).toEqual(initialState('c'));
   });
 });
+
 
 describe('lokalna baza: zapis stanu synchronizacji', () => {
   it('pusty stan po starcie', () => {
@@ -135,7 +167,7 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
             const req = pullRequest(s);
             const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
             commit(out.state);
-            for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc)));
+            for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc), sc));
           } else {
             // Ponowne uruchomienie aplikacji: stan wyłącznie z bazy.
             s = readState(db, 'c1');
@@ -213,6 +245,8 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     writeState(db, s0, s1, 1);
     expect(readState(db, 'inna').clientId).toBe('instalacja-1');
     expect(readState(db, 'inna').scopes).toEqual(['l9']);
+    // M-53: lista do pobrania (sync_fetch_scope) też przeżywa restart — nieudane pobranie ponowi następny start.
+    expect(readState(db, 'inna').scopesToFetch).toEqual(['l9']);
     expect(db.all('select key, scope_id from lists union all select key, scope_id from activity union all select key, scope_id from object_members union all select key, scope_id from group_members')).toEqual([
       { key: 'l9', scope_id: 'l9' }, { key: 'a1', scope_id: 'l9' }, { key: 'l9:m1', scope_id: 'l9' }, { key: 'm1', scope_id: null },
     ]);
@@ -255,5 +289,57 @@ describe('wyczyść dane na telefonie (D121)', () => {
     wipeSynced(db);
     expect(readState(db, 'c2')).toEqual(initialState('c2'));
     expect(loadLocal(db, 'calendarMirror')).toBe('{"a":1}');
+  });
+});
+
+describe('odporność zapisu (audyt 2, P2)', () => {
+  it('M-61: zmiana na telefonie przy 20 tys. wierszy nie serializuje ani nie zapisuje wierszy lustra', () => {
+    const db = memoryDb();
+    migrate(db);
+    const rows = Array.from({ length: 20_000 }, (_, i) => ({ e: 'tasks' as const, v: i + 1, row: { id: `t${i}`, group_id: 'g1', list_id: 'l1', version: i + 1 } }));
+    const s0 = readState(db, 'c1');
+    const s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 20_000, has_more: false, resync: false, rows }], scopes: [] }, pullRequest(s0)).state;
+    writeState(db, s0, s1, 1);
+    const s2 = mutate(s1, { kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'x' } }, () => 'op-1');
+    const runs: string[] = [];
+    const spyDb = { ...db, run: (sql: string, p?: readonly (string | number | null)[]) => (runs.push(sql), db.run(sql, p)) };
+    const spy = jest.spyOn(JSON, 'stringify');
+    writeState(spyDb, s1, s2, 2);
+    // Tylko wpis w kolejce i kilka wartości stanu — nie 40 tys. serializacji wierszy.
+    expect(spy.mock.calls.length).toBeLessThan(20);
+    spy.mockRestore();
+    expect(runs.filter((r) => r.includes('into tasks'))).toEqual([]);
+    // Pobranie jednego wiersza: zapis jednego wiersza (tabela skopiowana płytko, reszta wierszy ta sama).
+    const s3 = onPullResponse(s2, { groups: [{ group_id: 'g1', cursor: 20_001, has_more: false, resync: false, rows: [{ e: 'tasks', v: 20_001, row: { id: 't5', group_id: 'g1', list_id: 'l1', version: 20_001 } }] }], scopes: [] }, pullRequest(s2)).state;
+    runs.length = 0;
+    writeState(spyDb, s2, s3, 3);
+    expect(runs.filter((r) => r.includes('into tasks'))).toHaveLength(1);
+  });
+
+  it('porcje grupy pobieranej w całości, zakresy z kopii (M-8) i listy do pobrania (M-53) przeżywają restart', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = initialState('c1');
+    const row = (id: string, v: number) => ({ e: 'tasks' as const, v, row: { id, group_id: 'g1', list_id: 'l1', version: v } });
+    let s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 2, has_more: true, resync: false, rows: [row('t1', 1), row('t2', 2)] }, { group_id: 'g2', cursor: 1, has_more: true, resync: false, rows: [{ e: 'tasks', v: 1, row: { id: 'm', group_id: 'g2', version: 1 } }] }], scopes: ['s1'] }, pullRequest(s0)).state;
+    s1 = { ...s1, legacy: [{ clientId: 'stary', upTo: 4 }] };
+    writeState(db, s0, s1, 1);
+    expect(readState(db, 'x')).toEqual(s1);
+    // Kolejna porcja: zmieniony wiersz, nowy, usunięty, grupa g2 zniknęła, pusta tabela.
+    const s2: ClientState = { ...s1, staged: { g1: { tasks: { t1: row('t1', 3).row, t3: row('t3', 3).row }, lists: {} } } };
+    writeState(db, s1, s2, 2);
+    expect(readState(db, 'x').staged).toEqual({ g1: { tasks: { t1: row('t1', 3).row, t3: row('t3', 3).row } } });
+    writeState(db, s2, s2, 3);
+    // Encja znika z porcji w całości (np. zawężona lista usunęła jej zadania).
+    const s2b: ClientState = { ...s2, staged: { g1: { lists: {} } } };
+    writeState(db, s2, s2b, 3);
+    expect(readState(db, 'x').staged).toEqual({});
+    const s3 = { ...s2, staged: {} };
+    writeState(db, s2b, s3, 4);
+    expect(readState(db, 'x').staged).toEqual({});
+    // „Wyczyść dane” usuwa też porcje w toku.
+    writeState(db, s3, s1, 5);
+    wipeSynced(db);
+    expect(readState(db, 'x').staged).toEqual({});
   });
 });

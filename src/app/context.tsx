@@ -49,6 +49,11 @@ export type AppServices = {
   onSignOut?: (fn: () => Promise<void>) => () => void;
   /** D121: wyczyść kopię danych na telefonie i pobierz od nowa (grupy i członkowie wracają z serwera). */
   resetLocal?: () => void;
+  /**
+   * Sesja wygasła i nie dała się odświeżyć (audyt 2, M-9): ponowne logowanie bez czyszczenia danych — kolejka zmian
+   * czeka w bazie tego konta i wyjdzie po zalogowaniu. Brak = funkcja wyłączona (testy).
+   */
+  signInAgain?: () => void;
   userId: string;
   displayName: string;
   /** D100: konto bez imienia (logowanie e-mailem) — zapytamy przy starcie. */

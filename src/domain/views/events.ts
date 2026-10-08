@@ -16,6 +16,7 @@ import { type SplitArgs, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
+import { childEventConcerns } from './child';
 import { groupsView, myMemberships } from './index';
 import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
@@ -74,7 +75,9 @@ const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at ==
 
 /**
  * Wystąpienia w [from, to] z moich grup. Do „Moich spraw” trafia (D58): wydarzenie całej grupy, albo jestem uczestnikiem,
- * albo uczestnikiem jest dziecko z tej grupy, a ja jestem dorosłym (rodzic zawozi na zajęcia).
+ * albo uczestnikiem jest dziecko z tej grupy, a ja jestem dorosłym (rodzic zawozi na zajęcia). W grupie, w której jestem
+ * dzieckiem z kontem, tylko wystąpienia, które mnie dotyczą — także w Kalendarzu (PW-14 B, child.ts), a moje lekcje
+ * zwijają się jak lekcje dziecka u dorosłych, bez przypomnień (D127; audyt 2, N-38).
  */
 export function expandEvents(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
@@ -96,7 +99,9 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       (g.me.role !== 'child' && mine.some((m) => m?.role === 'child' && m.deleted_at === null));
     // D66: wskazana osoba odpowiedzialna — tylko ona i dorośli wskazani imiennie jako uczestnicy.
     const iParticipate = e.audience === 'members' && mine.some((m) => m?.member_id === g.me.member_id);
-    const children = e.kind === 'lesson' && !mine.some((m) => m?.member_id === g.me.member_id) ? mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null) : [];
+    const iAmIn = mine.some((m) => m?.member_id === g.me.member_id);
+    const child = g.me.role === 'child';
+    const children = e.kind !== 'lesson' ? [] : !iAmIn ? mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null) : child ? [g.me] : [];
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
     for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
@@ -108,6 +113,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       const raw = occurrenceResponsible(o, e);
       // D132: osoba usunięta z grupy już nie odpowiada — wydarzenie wraca do reguły „nikt konkretny”.
       const responsibleId = raw !== null && members.get(raw)?.deleted_at === null ? raw : null;
+      if (child && !childEventConcerns(e.audience, responsibleId, g.me.member_id, iAmIn)) continue;
       out.push({
         eventId: e.id,
         occurrenceDate: occ,
@@ -469,9 +475,15 @@ export type SeriesItem = {
  * która ma następczynię po „to i następne”, nie ma osobnego wiersza (audyt 2, E-17).
  */
 export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate): SeriesItem[] {
-  if (!groupsView(t, userId).some((g) => g.id === groupId)) return [];
+  const g = groupsView(t, userId).find((x) => x.id === groupId);
+  if (!g) return [];
   const upcoming = expandEvents(t, userId, today, addDays(today, 366));
-  const events = rows(t, 'events', asEvent).filter((e) => alive(e) && e.group_id === groupId);
+  // PW-14 B: dziecko z kontem widzi tylko wydarzenia, które go dotyczą (child.ts) — według serii.
+  const live = new Set(rows(t, 'group_members', asMember).filter(alive).map((m) => m.member_id));
+  const mine = new Set(rows(t, 'event_participants', asParticipant).filter((p) => alive(p) && p.member_id === g.me.member_id).map((p) => p.event_id));
+  const forMe = (e: EventRow) =>
+    g.me.role !== 'child' || childEventConcerns(e.audience, e.responsible_member_id !== null && live.has(e.responsible_member_id) ? e.responsible_member_id : null, g.me.member_id, mine.has(e.id));
+  const events = rows(t, 'events', asEvent).filter((e) => alive(e) && e.group_id === groupId && forMe(e));
   const continued = new Set(events.flatMap((e) => (e.split_from === null ? [] : [e.split_from])));
   return events
     .map((e): SeriesItem => {

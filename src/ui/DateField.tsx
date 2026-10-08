@@ -18,10 +18,17 @@ const valid = (s: string) => {
   return !!m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3]));
 };
 
-export function DateField({ label, value, onChange, today, testID }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string }) {
+/** `openSignal` — każda nowa wartość (> 0) rozwija kalendarz, np. po wyborze „Inny dzień” w DueFields. */
+export function DateField({ label, value, onChange, today, testID, openSignal = 0 }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string; openSignal?: number }) {
   const { c, font, size } = useTheme();
   const [open, setOpen] = useState(false);
   const [ym, setYm] = useState(() => monthOf(value, today));
+  // Nowy sygnał rozwija kalendarz (zmiana stanu w trakcie rysowania, bez efektu).
+  const [signal, setSignal] = useState(openSignal);
+  if (signal !== openSignal) {
+    setSignal(openSignal);
+    if (openSignal > 0) setOpen(true);
+  }
   const shown = valid(value) ? formatLongDate(parseIsoDate(value.trim()), today) : strings['date.pick'];
   const isoToday = formatIsoDate(today);
   const toggle = () => {

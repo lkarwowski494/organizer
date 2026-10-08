@@ -44,17 +44,29 @@ insert into public.group_members (member_id, group_id, user_id, display_name, ro
   ('b0d20000-0000-7000-8000-0000000000b5', 'b0d20000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000d5', 'U5', 'member');
 
 -- ───────── D138: dziecko wraca jako dziecko ─────────
+-- Od decyzji PW-14 B (migracja 20261008440000) dziecko nie wychodzi samo: wypisuje je owner, a wraca ono z zaproszenia
+-- wystawionego po usunięciu (D152).
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d1');
 set local role authenticated;
+select pg_temp.m('c1000000-0000-7000-8000-000000000001', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4"}');
 create temp table inv as select public.create_invite('b0d20000-0000-7000-8000-000000000001') ->> 'token' member_tok,
-  public.create_invite('b0d20000-0000-7000-8000-000000000001', 'admin') ->> 'token' admin_tok,
-  public.create_join_code('b0d20000-0000-7000-8000-000000000001') code;
+  public.create_invite('b0d20000-0000-7000-8000-000000000001', 'admin') ->> 'token' admin_tok;
+-- Test działa w jednej transakcji (now() stoi w miejscu): zaproszenia wystawione „po” usunięciu.
+reset role;
+update public.invites set created_at = clock_timestamp() + interval '1 minute' where group_id = 'b0d20000-0000-7000-8000-000000000001' and revoked_at is null;
+set local role authenticated;
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d4');
-select pg_temp.m('c4000000-0000-7000-8000-000000000004', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4"}');
 select is(public.accept_invite((select member_tok from inv)) ->> 'member_id', 'b0d20000-0000-7000-8000-0000000000b4', '1: dziecko wraca linkiem (ten sam wiersz)');
 select is(private.my_role('b0d20000-0000-7000-8000-000000000001'), 'child', '2: link: rola child zostaje');
-select pg_temp.m('c4000000-0000-7000-8000-000000000004', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4"}');
-select is(public.join_group((select code ->> 'join_id' from inv), (select code ->> 'code' from inv)) ->> 'already_member', 'false', '3: dziecko wraca ID i kodem');
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000d1');
+select pg_temp.m('c1000000-0000-7000-8000-000000000001', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4"}');
+create temp table code as select public.renew_join_code('b0d20000-0000-7000-8000-000000000001') code;
+-- Test działa w jednej transakcji (now() stoi w miejscu): zaproszenia wystawione „po” usunięciu.
+reset role;
+update public.invites set created_at = clock_timestamp() + interval '1 minute' where group_id = 'b0d20000-0000-7000-8000-000000000001' and revoked_at is null;
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000d4');
+select is(public.join_group((select code ->> 'join_id' from code), (select code ->> 'code' from code)) ->> 'already_member', 'false', '3: dziecko wraca ID i kodem');
 select is(private.my_role('b0d20000-0000-7000-8000-000000000001'), 'child', '4: kod: rola child zostaje');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d5');
 select pg_temp.m('c5000000-0000-7000-8000-000000000005', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b5"}');
@@ -62,10 +74,10 @@ select is(public.accept_invite((select admin_tok from inv)) ->> 'already_member'
 select is(private.my_role('b0d20000-0000-7000-8000-000000000001'), 'admin', '6: dorosły: rola z zaproszenia, jak dotąd');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d3');
 select pg_temp.m('c3000000-0000-7000-8000-000000000003', '{"kind":"delete","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b3"}');
-select is(public.join_group((select code ->> 'join_id' from inv), (select code ->> 'code' from inv)) ->> 'already_member', 'false', '7: dorosły wraca kodem');
+select is(public.join_group((select code ->> 'join_id' from code), (select code ->> 'code' from code)) ->> 'already_member', 'false', '7: dorosły wraca kodem');
 select is(private.my_role('b0d20000-0000-7000-8000-000000000001'), 'member', '8: kod: rola z zaproszenia');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d5');
-select is(pg_temp.p('c5000000-0000-7000-8000-000000000005', '{"kind":"patch","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4","set":{"role":"member"}}'), 'ok', '9: rolę dziecka zmienia admin');
+select is(pg_temp.p('c5000000-0000-7000-8000-000000000005', '{"kind":"patch","entity":"group_members","id":"b0d20000-0000-7000-8000-0000000000b4","set":{"role":"member"}}'), 'forbidden:role', '9: rolę dziecka zmienia tylko owner (PW-14 B; dotąd admin, D138)');
 
 -- ───────── D139: lista poszerzona do „cała grupa” ─────────
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000d1');
