@@ -123,7 +123,7 @@ export function planReminders(
         const id = `l|${e.event.eventId}|${e.event.occurrenceDate}|${iso}`;
         if (f.at > nowMs) out.push({ id, at: f.at, title: opts.label.leave!(title), body: `${f.leave.body}${extra(e)}`, target });
         // PW-24 (decyzja właściciela 8.10.2026): wyjście już minęło (np. dojazd wydłużył się w korkach), a wydarzenie
-        // jeszcze się nie zaczęło — od razu „spóźniony o N min” zamiast ciszy. Zamiast „N min przed”, nie obok.
+        // jeszcze się nie zaczęło — od razu „Masz N min spóźnienia” zamiast ciszy. Zamiast „N min przed”, nie obok.
         else if (opts.label.late && opts.toMs({ ...parseIsoDate(iso), ...hm(time) }) > nowMs)
           out.push({ id: `${id}|late`, at: nowMs, now: true, title: opts.label.leave!(title), body: `${opts.label.late(Math.max(1, Math.ceil((nowMs - f.at) / 60_000)))}${extra(e)}`, target });
         continue;

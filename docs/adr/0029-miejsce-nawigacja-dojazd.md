@@ -25,7 +25,7 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 - **Powiadomienie:** „Czas wyjść: Basen” o godzinie wyjścia zastępuje przypomnienie „30 min przed”, jeśli dojazd jest policzony.
   Decyzje właściciela z 8.10.2026 (audyt 2): osobny przełącznik „Czas wyjść” w Ustawieniach → Powiadomienia, domyślnie
   włączony; wyłączony — zwykłe „N min przed” (PWD-17). Gdy wyjście już minęło (np. korki), a wydarzenie jeszcze nie — od
-  razu „Jesteś spóźniony o N min — wyjdź teraz”, raz na termin i nie po „Czas wyjść”, który już przyszedł (PW-24). Na termin
+  razu „Masz N min spóźnienia — wyjdź teraz” (forma neutralna, 8.10.2026), raz na termin i nie po „Czas wyjść”, który już przyszedł (PW-24). Na termin
   z moją odpowiedzią „Nie będę” dojazdu nie liczymy i nie przypominamy (PW-23).
   - Plan powiadomień układa się, gdy aplikacja działa. Zmiana korków po zamknięciu aplikacji nie przesunie powiadomienia — ograniczenie powiadomień lokalnych.
 - **Do sprawdzenia na iPhonie (otwarte):**

@@ -147,7 +147,7 @@ describe('spóźnienie: od razu, raz, nie po „Czas wyjść” (PW-24, decyzja 
   const n = () => ({ cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async (_req: Notifications.NotificationRequestInput) => 'id') });
   const target = { screen: 'event', id: 'ev', date: '2026-10-07' } as const;
   const leave = (at: number): Reminder => ({ id: 'l|ev|2026-10-07|2026-10-07', at, title: 'Czas wyjść: Tańce', body: '25 min autem — wyjdź teraz', target });
-  const late: Reminder = { id: 'l|ev|2026-10-07|2026-10-07|late', at: NOW, now: true, title: 'Czas wyjść: Tańce', body: 'Jesteś spóźniony o 15 min — wyjdź teraz', target };
+  const late: Reminder = { id: 'l|ev|2026-10-07|2026-10-07|late', at: NOW, now: true, title: 'Czas wyjść: Tańce', body: 'Masz 15 min spóźnienia — wyjdź teraz', target };
   const memory = () => {
     const box: { v: string | null } = { v: null };
     return { box, load: jest.fn(async () => box.v), save: jest.fn(async (v: string) => void (box.v = v)) };
