@@ -199,11 +199,11 @@ type ExpiryTerms = Pick<Task, 'rollover' | 'deadline_mode' | 'parent_id'>;
 export function isExpired(x: ExpiryTerms & Pick<Task, 'completed_at'>, due: Due, isoToday: string, byId: ReadonlyMap<string, ExpiryTerms> = new Map()): boolean {
   if (x.completed_at !== null || due === null || due.date >= isoToday) return false;
   let source: ExpiryTerms = x;
-  // Ograniczenie kroków jak w effectiveDue (uszkodzone dane lokalne).
-  for (let step = 0; step < 8 && source.deadline_mode === 'inherit' && source.parent_id !== null; step++) {
-    const parent = byId.get(source.parent_id);
-    if (!parent) break;
-    source = parent;
+  // Termin jest (due ≠ null), więc łańcuch „inherit” kończy się zadaniem z własnym terminem albo spotkaniem — effectiveDue
+  // przeszedł go tą samą mapą. Ograniczenie kroków jak tam (uszkodzone dane lokalne).
+  for (let step = 0; step < 8; step++) {
+    if (source.deadline_mode !== 'inherit') break;
+    source = byId.get(source.parent_id!)!;
   }
   return !source.rollover || source.deadline_mode === 'event';
 }
