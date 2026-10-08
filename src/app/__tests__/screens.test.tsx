@@ -237,8 +237,9 @@ describe('Grupy', () => {
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', group_id: 'gf', set: { display_name: 'Zosia', role: 'child' } });
     expect(await screen.findByLabelText('Zosia, dziecko')).toBeTruthy();
+    // D130 (audyt 2): nazwa zapisuje się po wyjściu z pola, bez przycisku.
     await type(screen.getByTestId('group-rename'), 'Rodzina K.');
-    await press(screen.getByLabelText('Zmień nazwę grupy'));
+    await fireEvent(screen.getByTestId('group-rename'), 'blur');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } });
     share.mockRestore();
   });
@@ -314,7 +315,7 @@ describe('Grupy', () => {
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByText('Ten kod wygasł. Poproś o nowe zaproszenie.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
-    expect(await screen.findByText('Za dużo nieudanych prób. Spróbuj ponownie za godzinę.')).toBeTruthy();
+    expect(await screen.findByText('Za dużo nieudanych prób z tego konta. Spróbuj ponownie za godzinę.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
@@ -331,6 +332,9 @@ describe('Grupy', () => {
     await type(screen.getByTestId('invite-input'), 'Dotknij linku: https://lkarwowski494.github.io/j/?g=482913507&c=731064');
     expect(screen.getByTestId('invite-join-id').props.value).toBe('482 913 507');
     expect(screen.getByTestId('invite-code').props.value).toBe('731 064');
+    // Audyt 2 (R-39): wpisane ID i kod mają pierwszeństwo, więc stary kod działa przy pustych polach.
+    await type(screen.getByTestId('invite-join-id'), '');
+    await type(screen.getByTestId('invite-code'), '');
     await type(screen.getByTestId('invite-input'), `Wklej kod:\n${tok}`);
     await press(screen.getByTestId('invite-accept'));
     expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
@@ -390,10 +394,13 @@ describe('Edycja grup (D54–D56)', () => {
     const { account, store } = await open({ base });
     await press(screen.getByLabelText('Grupy'));
     expect(screen.queryByTestId('group-gf')).toBeNull();
-    await press(await screen.findByTestId('trash-gf'));
-    expect(screen.getByText('usunięcie za 29 dni')).toBeTruthy();
+    expect(await screen.findByText('usunięcie za 29 dni')).toBeTruthy();
+    await press(screen.getByLabelText('Przywróć: Rodzina'));
     expect(account.restoreGroup).toHaveBeenCalledWith('gf');
     await waitFor(() => expect(store.refresh).toHaveBeenCalled());
+    // Pasek „Przywrócono” (audyt 2); zakładki kończą przejście zegarem (32 ms) — niech minie w act, nie po teście.
+    expect(await screen.findByText('Przywrócono: Rodzina')).toBeTruthy();
+    await act(() => new Promise((r) => setTimeout(r, 50)));
   });
 
   it('osoba: rola admin/członek, imię dziecka, usunięcie, przekazanie własności', async () => {
@@ -410,19 +417,22 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByTestId('make-owner'));
     await press(screen.getByTestId('make-owner-confirm'));
     expect(account.transferOwnership).toHaveBeenCalledWith('gf', 'ala');
+    // Audyt 2 (R-33): ekran wraca do grupy po pobraniu przekazanej własności.
+    await act(async () =>
+      store.pull((b) => ({ ...b, group_members: { ...b.group_members, mf: { ...b.group_members!.mf!, role: 'admin' }, ala: { ...b.group_members!.ala!, role: 'owner' } } })),
+    );
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
     await press(screen.getByTestId('member-kuba'));
     expect(screen.queryByTestId('make-owner')).toBeNull();
     expect(screen.queryByLabelText('członek')).toBeNull();
     await type(screen.getByTestId('member-name'), 'Jakub');
-    await press(screen.getByLabelText('Zapisz imię'));
+    await fireEvent(screen.getByTestId('member-name'), 'blur');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } });
+    // PW-35 A, PW-16 A (decyzje właściciela z 8.10.2026): usunięcie bez pytania, z paskiem „Cofnij”.
     await press(screen.getByTestId('remove-member'));
-    await press(screen.getByLabelText('Anuluj'));
-    await press(screen.getByTestId('remove-member'));
-    await press(screen.getByTestId('remove-confirm'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'kuba' });
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    expect(screen.getByText('Usunięto z grupy: Jakub')).toBeTruthy();
   });
 
   it('przekazanie własności bez sieci: komunikat; osoba, której już nie ma: błąd zamiast awarii', async () => {

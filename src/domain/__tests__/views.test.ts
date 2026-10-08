@@ -5,7 +5,7 @@ import type { CivilDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
-import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listsView, memberActions, myMemberships, type Tables, todayView, trashedGroups } from '../views';
+import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listsView, memberActions, myMemberships, removedMembers, type Tables, todayView, trashedGroups } from '../views';
 
 const ME = 'u-me';
 const TODAY: CivilDate = { y: 2026, m: 10, d: 7 };
@@ -366,7 +366,35 @@ describe('edycja grup (D54–D56)', () => {
     expect(g.find((x) => x.id === 'gf')!.line).toBe(1);
   });
 
-  it('kosz: tylko grupy, których jestem właścicielem, z liczbą dni; przeterminowane znikają', () => {
+  it('kolor wybrany przez właściciela nie powtarza się w przydziale automatycznym (audyt 2, R-23)', () => {
+    const t = world();
+    const orange = groupLines.findIndex((l) => l.key === 'orange');
+    // Dotąd „Rodzina” (automatycznie druga, pomarańczowa) i „Klasa 2b” (pomarańczowy wybrany) wyglądały tak samo.
+    put(t, 'groups', 'gk', { ...t.groups!.gk, color: 'orange' });
+    expect(groupsView(t, ME).map((g) => [g.id, g.line])).toEqual([['gp', 0], ['gf', 2], ['gk', orange]]);
+    // Bez wyboru — kolejność jak dotąd.
+    put(t, 'groups', 'gk', { ...t.groups!.gk, color: null });
+    expect(groupsView(t, ME).map((g) => g.line)).toEqual([0, 1, 2]);
+  });
+
+  it('wolnych kolorów brakuje: automatyczne powtarzają wolne, a gdy wybrane są wszystkie — całą paletę po kolei', () => {
+    const t: T = {};
+    const group = (id: string, color: string | null) => {
+      put(t, 'groups', id, { id, name: id, kind: 'shared', color, created_at: `2026-01-01T00:00:${id.slice(1)}Z`, deleted_at: null });
+      put(t, 'group_members', `m${id}`, { member_id: `m${id}`, group_id: id, user_id: ME, display_name: 'Ł', role: 'owner', deleted_at: null });
+    };
+    // Siedem kolorów wybranych, jeden wolny (czerwony) dla dwóch grup automatycznych.
+    groupLines.slice(0, 7).forEach((l, i) => group(`g${10 + i}`, l.key));
+    group('g20', null);
+    group('g21', null);
+    const red = groupLines.length - 1;
+    expect(groupsView(t, ME).slice(-2).map((g) => g.line)).toEqual([red, red]);
+    // Wszystkie osiem wybrane: automatyczne idą po całej palecie od początku.
+    group('g17', groupLines[red]!.key);
+    expect(groupsView(t, ME).filter((g) => g.color === null).map((g) => g.line)).toEqual([0, 1]);
+  });
+
+  it('kosz: moje grupy z liczbą dni i terminem przywrócenia; przywraca właściciel; przeterminowane znikają', () => {
     const t = world();
     const now = Date.parse('2026-10-07T10:00:00Z');
     put(t, 'groups', 'gt', { id: 'gt', name: 'Wycieczka', kind: 'shared', created_at: null, deleted_at: '2026-10-05T10:00:00Z' });
@@ -375,15 +403,21 @@ describe('edycja grup (D54–D56)', () => {
     put(t, 'group_members', 'mo', { member_id: 'mo', group_id: 'go', user_id: ME, display_name: 'Ł', role: 'admin', deleted_at: null });
     put(t, 'groups', 'gx2', { id: 'gx2', name: 'Stara', kind: 'shared', created_at: null, deleted_at: '2026-09-01T10:00:00Z' });
     put(t, 'group_members', 'mx2', { member_id: 'mx2', group_id: 'gx2', user_id: ME, display_name: 'Ł', role: 'owner', deleted_at: null });
-    expect(trashedGroups(t, ME, now).map((g) => [g.id, g.daysLeft])).toEqual([['gt', 28]]);
+    // PWD-21 A (decyzja właściciela z 8.10.2026): członek też widzi grupę w koszu, ale jej nie przywraca.
+    expect(trashedGroups(t, ME, now).map((g) => [g.id, g.daysLeft, g.canRestore])).toEqual([['go', 28, false], ['gt', 28, true]]);
+    expect(trashedGroups(t, ME, now)[1]!.restoreUntilMs).toBe(Date.parse('2026-11-04T10:00:00Z'));
     expect(groupsView(t, ME).map((g) => g.id)).not.toContain('gt');
+    // Grupa w koszu, z której wyszedłem — nie moja.
+    put(t, 'group_members', 'mo', { ...t.group_members!.mo, deleted_at: '2026-10-06T10:00:00Z' });
+    expect(trashedGroups(t, ME, now).map((g) => g.id)).toEqual(['gt']);
   });
 
   it('uprawnienia do członków jak strażnik członkostw', () => {
     const t = world();
     const asAdmin = groupDetail(t, ME, 'gf')!; // ja = admin
     const m = (id: string) => asAdmin.members.find((x) => x.member_id === id)!;
-    expect(memberActions(asAdmin, m('ala'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
+    // PW-54 A (decyzja właściciela z 8.10.2026): admin zmienia imię tylko profilom bez konta i sobie.
+    expect(memberActions(asAdmin, m('ala'))).toEqual({ rename: false, setRole: false, remove: false, makeOwner: false });
     expect(memberActions(asAdmin, m('kuba'))).toEqual({ rename: true, setRole: false, remove: true, makeOwner: false });
     expect(memberActions(asAdmin, m('mf'))).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
     expect(asAdmin).toMatchObject({ canSetColor: false, canDelete: false });
@@ -400,10 +434,32 @@ describe('edycja grup (D54–D56)', () => {
     const personal = groupDetail(t, ME, 'gp')!;
     expect(personal).toMatchObject({ canSetColor: true, canDelete: false });
     expect(memberActions(personal, personal.members[0]!)).toEqual({ rename: true, setRole: false, remove: false, makeOwner: false });
-    // Admin usuwa też zwykłego członka.
+    // Admin usuwa też zwykłego członka, ale nie zmienia imienia osobie z kontem (także dziecku z kontem).
     put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'admin' });
     const again = groupDetail(t, ME, 'gf')!;
-    expect(memberActions(again, again.members.find((x) => x.member_id === 'ala')!).remove).toBe(true);
+    expect(memberActions(again, again.members.find((x) => x.member_id === 'ala')!)).toMatchObject({ remove: true, rename: false });
+    expect(memberActions(again, again.members.find((x) => x.member_id === 'kid')!).rename).toBe(false);
+  });
+
+  it('usunięte osoby do przywrócenia (D165): przez 30 dni, prawa jak przy usuwaniu; kto sam wyszedł — nie', () => {
+    const t = world();
+    const now = Date.parse('2026-10-07T10:00:00Z');
+    const gone = (id: string, user: string | null, role: string, deleted: string, removed: string | null) =>
+      put(t, 'group_members', id, { member_id: id, group_id: 'gf', user_id: user, display_name: id, role, deleted_at: deleted, removed_at: removed });
+    gone('usunieta', 'u-1', 'member', '2026-10-05T10:00:00Z', '2026-10-05T10:00:00Z');
+    gone('wyszla', 'u-2', 'member', '2026-10-05T10:00:00Z', null);
+    gone('dziecko', null, 'child', '2026-10-06T10:00:00Z', null);
+    gone('dawno', 'u-3', 'member', '2026-09-01T10:00:00Z', '2026-09-01T10:00:00Z');
+    gone('admin', 'u-4', 'admin', '2026-10-06T10:00:00Z', '2026-10-06T10:00:00Z');
+    gone('obca', null, 'child', '2026-10-06T10:00:00Z', null);
+    put(t, 'group_members', 'obca', { ...t.group_members!.obca, group_id: 'gk' });
+    // Ja = admin w „Rodzinie”: członek i dziecko tak, admin nie (strażnik), a dawne „old” bez daty usunięcia przez kogoś.
+    expect(removedMembers(t, ME, 'gf', now).map((m) => [m.member_id, m.daysLeft])).toEqual([['dziecko', 29], ['usunieta', 28]]);
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf, role: 'owner' });
+    expect(removedMembers(t, ME, 'gf', now).map((m) => m.member_id)).toEqual(['admin', 'dziecko', 'usunieta']);
+    // Członek (nie owner ani admin) i obca grupa — nic.
+    expect(removedMembers(t, ME, 'gk', now)).toEqual([]);
+    expect(removedMembers(t, ME, 'gx', now)).toEqual([]);
   });
 
   it('operacje koloru i roli', () => {

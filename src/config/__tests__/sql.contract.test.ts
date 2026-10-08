@@ -44,11 +44,18 @@ describe('src/config zgodny z SQL', () => {
     ['join_code_digits', config.invites.CODE_DIGITS],
     ['join_code_ttl_hours', config.invites.CODE_TTL_HOURS],
     ['join_fails_per_user', config.invites.JOIN_FAILS_PER_USER],
-    ['join_fails_per_group', config.invites.JOIN_FAILS_PER_GROUP],
+    ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
+  });
+
+  it('D140 odwrócona: kod żyje krócej niż ślad prób (doba) i limit na kod daje szansę odgadnięcia ≤ 0,01% (rachunek)', () => {
+    // daily_maintenance usuwa próby starsze niż doba — wszystkie próby z życia kodu muszą być jeszcze policzalne.
+    expect(config.invites.CODE_TTL_HOURS).toBeLessThanOrEqual(24);
+    expect(sql).toContain("delete from private.join_attempts where at < now() - interval '1 day'");
+    expect(config.invites.JOIN_FAILS_PER_CODE / 10 ** config.invites.CODE_DIGITS).toBeLessThanOrEqual(0.0001);
   });
 
   it('długość opinii w SQL = config.feedback.MAX_LENGTH (D80)', () => {

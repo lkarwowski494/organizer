@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { createList } from '../../domain/views/commands';
-import { groupsView } from '../../domain/views';
+import { formGroups } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { tripAdults, tripLacksAddressee } from '../../domain/views/shopping-trip';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
@@ -19,7 +19,8 @@ type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
 export function NewListScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  // Audyt 2 (P-71, R-12): bez grup, w których jestem dzieckiem — serwer odrzuca nową listę (forbidden:child).
+  const groups = useMemo(() => formGroups(tables, userId), [tables, userId]);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'tasks' | 'shopping'>(route.params.kind ?? 'tasks');
   const [groupId, setGroupId] = useState(route.params.groupId ?? groups[0]?.id ?? '');

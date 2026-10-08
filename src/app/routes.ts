@@ -6,10 +6,11 @@ export type RootStackParams = {
   List: { listId: string };
   Task: { taskId: string };
   NewList: { groupId?: string; kind?: 'tasks' | 'shopping' };
-  Group: { groupId: string };
+  /** `fresh` — grupa właśnie utworzona albo dołączona: do pierwszego pobrania „Pobieram grupę…” zamiast błędu (audyt 2, R-16). */
+  Group: { groupId: string; fresh?: boolean };
   Member: { groupId: string; memberId: string };
-  /** `name` — podpowiedź nazwy (pierwsze kroki: „Rodzina”). */
-  NewGroup: { name?: string } | undefined;
+  /** `name` — podpowiedź nazwy (pierwsze kroki: „Rodzina”); `starter` — z Pierwszych kroków: listy i „Następne kroki” (PW-36 A). */
+  NewGroup: { name?: string; starter?: boolean } | undefined;
   /** `date` — data wystąpienia według reguły (klucz wystąpienia, także gdy przeniesione). */
   Event: { eventId: string; date: string };
   /** Nowe: `groupId`/`date` podpowiadają grupę i dzień. Zmiana: `eventId` + `date` (wystąpienie) + `scope` (D57). */

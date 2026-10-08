@@ -3,46 +3,89 @@
  * zmiana nazwy, listy grupy, wyjście (owner nie wychodzi — strażnik członkostw).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, Share, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, Share, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addChild, remove, renameGroup, setGroupColor } from '../../domain/views/commands';
-import { formatDue, formatLongDate } from '../../domain/format';
+import { formatDue } from '../../domain/format';
 import { formatIsoDate } from '../../domain/civil-date';
 import { groupDigits } from '../../domain/invite-link';
 import { localNow } from '../../app/clock';
-import { groupDetail, listsView } from '../../domain/views';
+import { groupDetail, type GroupDetail, listsView } from '../../domain/views';
 import { groupSeries } from '../../domain/views/events';
+import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
+import { absoluteDay } from './dates';
+import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
 
+/** D130: zmiana nazwy do zapisu — tylko edytowana, niepusta i inna niż w danych (pustej nie zapisujemy). */
+function renameOp(d: GroupDetail | null, edit: string | null) {
+  const n = edit?.trim();
+  return d?.canRename && n && n !== d.group.name ? renameGroup(d.group.id, n) : null;
+}
+
 export function GroupScreen({ route, navigation }: Props) {
-  const { userId, store, account, newId } = useServices();
+  const { userId, store, account, newId, prefs } = useServices();
   const { tables, today } = useAppData();
   const { c, font, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
-  const [invite, setInvite] = useState<JoinInvite | null>(null);
+  const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
   const [child, setChild] = useState('');
-  const [name, setName] = useState(d?.group.name ?? '');
+  // D130 + audyt 2 (R-16, R-36, T-22): nazwa podąża za danymi (także po pobraniu i zmianie z drugiego telefonu),
+  // dopóki jej nie edytuję; zapisuje się po wyjściu z pola albo z ekranu i tylko wtedy, gdy ją zmieniłem.
+  const [nameEdit, setNameEdit] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef({ nameEdit, d });
+  useEffect(() => {
+    latest.current = { nameEdit, d };
+  });
+  useEffect(
+    () => () => {
+      const op = renameOp(latest.current.d, latest.current.nameEdit);
+      if (op) store.dispatch(op);
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  // Karta „Następne kroki” grupy z Pierwszych kroków (PW-36 A), do „Nie teraz” na tym telefonie.
+  const [nextSteps, setNextSteps] = useState(false);
+  const childField = useRef<TextInput>(null);
+  useEffect(() => {
+    let live = true;
+    prefs
+      ?.get(nextStepsKey(route.params.groupId))
+      .then((v) => live && setNextSteps(v === '1'))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [prefs, route.params.groupId]);
+  // Wyjście z grupy albo kosz: niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
+  const dropNameEdit = () => {
+    latest.current = { ...latest.current, nameEdit: null };
+    setNameEdit(null);
+  };
 
   if (!d) {
+    // Grupa właśnie utworzona albo dołączona (parametr trasy) dochodzi z pierwszym pobraniem — bez komunikatu o błędzie.
+    const loading = route.params.fresh === true && !tables.groups?.[route.params.groupId];
     return (
-      <Screen testID="screen-group-missing">
+      <Screen testID={loading ? 'screen-group-loading' : 'screen-group-missing'}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
+        <Body muted>{loading ? strings['groups.loading'] : strings['common.error']}</Body>
       </Screen>
     );
   }
@@ -54,18 +97,32 @@ export function GroupScreen({ route, navigation }: Props) {
     const l = localNow(Date.parse(iso));
     return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today).replace(' · ', ', ');
   };
-  const untilAbs = (iso: string) => {
-    const l = localNow(Date.parse(iso));
-    const day = formatLongDate(l, today);
-    return `${day.charAt(0).toLocaleLowerCase('pl')}${day.slice(1)}, ${hhmm(l)}`;
-  };
-  const makeInvite = async (role: 'member' | 'admin') => {
-    setError(false);
+  const untilAbs = (iso: string) => `${absoluteDay(Date.parse(iso), today)}, ${hhmm(localNow(Date.parse(iso)))}`;
+  // Decyzja właściciela z 8.10.2026 (PW-41 A): „Zaproś” pokazuje bieżący ważny kod tej roli (serwer tworzy nowy, gdy
+  // ważnego nie ma), „Nowy kod” tworzy kolejny i unieważnia poprzedni.
+  const makeInvite = async (role: 'member' | 'admin', renew = false) => {
+    setError(null);
     try {
-      setInvite(await account.createJoinCode(d.group.id, role));
-    } catch {
-      setError(true);
+      setInvite({ ...(await (renew ? account.renewJoinCode(d.group.id, role) : account.createJoinCode(d.group.id, role))), role });
+    } catch (e) {
+      setError(groupErrorText(e));
     }
+  };
+  // Decyzja właściciela z 8.10.2026 (PW-34 A): w grupie z dziećmi domyślnie (pierwszy, główny przycisk) zaproszenie admina —
+  // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
+  const adminFirst = d.canInviteAdmin && d.members.some((m) => m.role === 'child');
+  const shopping = lists.find((l) => l.kind === 'shopping');
+  const inviteButtons = [
+    <Button key="member" kind={adminFirst ? 'secondary' : 'primary'} label={strings['groups.invite']} onPress={() => void makeInvite('member')} testID="invite" />,
+    ...(d.canInviteAdmin ? [<Button key="admin" kind={adminFirst ? 'primary' : 'secondary'} label={strings['groups.inviteAdmin']} onPress={() => void makeInvite('admin')} testID="invite-admin" />] : []),
+  ];
+  // Decyzja właściciela z 8.10.2026 (audyt 2, PW-20 A): pustej nazwy nie zapisujemy — komunikat jak przy imieniu.
+  const commitName = () => {
+    if (nameEdit === null) return;
+    if (nameEdit.trim() === '') return setNameError(strings['groups.error.nameEmpty']);
+    const op = renameOp(d, nameEdit);
+    if (op) store.dispatch(op);
+    setNameEdit(null);
   };
 
   return (
@@ -75,6 +132,26 @@ export function GroupScreen({ route, navigation }: Props) {
         <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 6, borderColor: line(d.group.line).line, backgroundColor: c.surface }} />
         <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
       </View>
+      {nextSteps && d.canInvite ? (
+        <View testID="next-steps" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+            {strings['groups.nextSteps']}
+          </Text>
+          <Body muted>{strings['groups.nextSteps.body']}</Body>
+          <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
+          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
+          {shopping ? <Button kind="secondary" label={strings['groups.nextSteps.shopping']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} /> : null}
+          <Button
+            kind="secondary"
+            label={strings['groups.nextSteps.later']}
+            testID="next-later"
+            onPress={() => {
+              setNextSteps(false);
+              prefs?.set(nextStepsKey(d.group.id), '0').catch(() => {});
+            }}
+          />
+        </View>
+      ) : null}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
       {d.members.map((m) => (
         <NavRow
@@ -87,26 +164,38 @@ export function GroupScreen({ route, navigation }: Props) {
       ))}
       {d.canInvite ? (
         <View style={{ gap: 8 }}>
-          <Button label={strings['groups.invite']} onPress={() => makeInvite('member')} testID="invite" />
-          {d.canInviteAdmin ? <Button kind="secondary" label={strings['groups.inviteAdmin']} onPress={() => makeInvite('admin')} /> : null}
+          {adminFirst ? inviteButtons.reverse() : inviteButtons}
+          <Body muted>{strings['groups.rolesInfo']}</Body>
         </View>
       ) : null}
       {invite ? (
         <View testID="invite-ready" style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
           <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{strings['groups.inviteReady']}</Text>
+          <Body muted>{strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}</Body>
           <Body>{`${strings['groups.joinId']}: ${groupDigits(invite.joinId)}`}</Body>
           <Text testID="join-code" style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${groupDigits(invite.code)}`}</Text>
           <Body muted>{strings['groups.joinInfo'](until(invite.expiresAt), config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}</Body>
           <Button
             label={strings['groups.share']}
-            onPress={() => void Share.share({ message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), untilAbs(invite.expiresAt)) })}
+            onPress={() =>
+              void Share.share({
+                message: strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, groupDigits(invite.joinId), groupDigits(invite.code), untilAbs(invite.expiresAt), config.invites.TESTFLIGHT_LINK),
+              })
+            }
           />
+          <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID="invite-new-code" onPress={() => void makeInvite(invite.role, true)} />
+          {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia. */}
           <Button
             kind="danger"
             label={strings['groups.revoke']}
             onPress={async () => {
-              await account.revokeInvite(invite.inviteId).catch(() => setError(true));
-              setInvite(null);
+              setError(null);
+              try {
+                await account.revokeInvite(invite.inviteId);
+                setInvite(null);
+              } catch (e) {
+                setError(groupErrorText(e));
+              }
             }}
           />
         </View>
@@ -124,17 +213,20 @@ export function GroupScreen({ route, navigation }: Props) {
                 style: 'destructive',
                 onPress: () => {
                   setInvite(null);
-                  account.rotateJoinId(d.group.id).then(() => store.refresh(), () => setError(true));
+                  account.rotateJoinId(d.group.id).then(
+                    () => store.refresh(),
+                    (e: unknown) => setError(groupErrorText(e)),
+                  );
                 },
               },
             ])
           }
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
-          <Field label={strings['groups.childName']} value={child} onChangeText={setChild} testID="child-name" />
+          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} testID="child-name" />
           <Button
             kind="secondary"
             label={strings['groups.addChild']}
@@ -147,9 +239,9 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {d.canRename ? (
-        <View style={{ gap: 8 }}>
-          <Field label={strings['groups.name']} value={name} onChangeText={setName} testID="group-rename" />
-          <Button kind="secondary" label={strings['groups.rename']} disabled={name.trim() === '' || name.trim() === d.group.name} onPress={() => store.dispatch(renameGroup(d.group.id, name.trim()))} />
+        <View style={{ gap: 6 }}>
+          <Field label={strings['groups.name']} value={nameEdit ?? d.group.name} onChangeText={(v) => (setNameEdit(v), setNameError(null))} onBlur={commitName} onSubmitEditing={commitName} testID="group-rename" />
+          {nameError ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{nameError}</Text> : null}
         </View>
       ) : null}
       {d.canSetColor ? (
@@ -196,12 +288,13 @@ export function GroupScreen({ route, navigation }: Props) {
       {d.canLeave ? (
         confirmLeave ? (
           <View style={{ gap: 8 }}>
-            <Body>{strings['groups.leaveConfirm']}</Body>
+            <Body>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</Body>
             <Button
               kind="danger"
               label={strings['groups.leave']}
               testID="leave-confirm"
               onPress={() => {
+                dropNameEdit();
                 store.dispatch(remove('group_members', d.group.me.member_id));
                 navigation.goBack();
               }}
@@ -223,13 +316,14 @@ export function GroupScreen({ route, navigation }: Props) {
               label={strings['groups.deleteYes']}
               testID="delete-group-confirm"
               onPress={async () => {
-                setError(false);
+                setError(null);
                 try {
                   await account.deleteGroup(d.group.id);
+                  dropNameEdit();
                   store.refresh();
                   navigation.goBack();
-                } catch {
-                  setError(true);
+                } catch (e) {
+                  setError(groupErrorText(e));
                 }
               }}
             />

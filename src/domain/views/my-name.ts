@@ -7,6 +7,7 @@
 import { config } from '../../config';
 import type { NewOp } from '../sync-engine/client';
 import { renameMember } from './commands';
+import { groupsView } from './index';
 import type { Tables } from './model';
 
 /** Imię zastępcze, gdy konto nie ma imienia (serwer: migracja core, `coalesce(..., 'Ja')`). */
@@ -23,11 +24,16 @@ export function validateName(name: string): NameError | null {
   return n.length > config.profile.NAME_MAX_LENGTH ? 'tooLong' : null;
 }
 
-/** Zmiana nazwy moich członkostw z „dawnymi” imionami (`oldNames`, plus „Ja” i pusto) na `name`. */
+/**
+ * Zmiana nazwy moich członkostw z „dawnymi” imionami (`oldNames`, plus „Ja” i pusto) na `name`. Tylko w grupach, w których
+ * jestem (groupsView: żywe członkostwo w grupie spoza kosza) — zmianę w grupie z kosza serwer odrzuca (deleted:group),
+ * a odrzucenie trafiało do „Odrzuconych zmian” (audyt 2, R-35).
+ */
 export function renameMeOps(t: Tables, userId: string, name: string, oldNames: readonly (string | null | undefined)[]): NewOp[] {
   const n = name.trim();
   const old = new Set(['', PLACEHOLDER_NAME, ...oldNames.filter((x): x is string => !!x)]);
+  const mine = new Set(groupsView(t, userId).map((g) => g.me.member_id));
   return Object.values(t.group_members ?? {})
-    .filter((m) => m.user_id === userId && m.deleted_at == null && old.has(String(m.display_name ?? '').trim()) && m.display_name !== n)
+    .filter((m) => mine.has(String(m.member_id)) && old.has(String(m.display_name ?? '').trim()) && m.display_name !== n)
     .map((m) => renameMember(String(m.member_id), n));
 }

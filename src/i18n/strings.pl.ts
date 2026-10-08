@@ -391,23 +391,31 @@ export const strings = {
   'groups.invite': 'Zaproś',
   'groups.inviteAdmin': 'Zaproś jako admina',
   'groups.inviteReady': 'Zaproszenie gotowe',
+  // Decyzja właściciela z 8.10.2026 (PW-34 A): czym różnią się role przy zapraszaniu.
+  'groups.rolesInfo': 'Admin zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.',
+  // PW-41 A: jeden aktywny kod na rolę; „Nowy kod” unieważnia poprzedni.
+  'groups.newCode': 'Nowy kod',
+  'groups.inviteAs': (role: string) => `Dołączy jako: ${role}`,
+  'groups.newCodeInfo': 'Nowy kod unieważni ten.',
   'groups.joinId': 'ID grupy',
   'groups.joinCode': 'Kod',
   // Audyt 2 (U-41): `until` na ekranie względne („jutro, 18:40”), w wiadomości bezwzględne — adresat czyta ją później.
   'groups.joinInfo': (until: string, people: number, link: boolean) =>
     `Ważny do: ${until}. Działa dla najwyżej ${people} ${plural(people, { one: 'osoby', few: 'osób', many: 'osób' })}. Wystarczy ${link ? 'link albo ' : ''}ID grupy z kodem.`,
   'groups.share': 'Wyślij zaproszenie',
-  // D141: bez linku, dopóki strona zaproszeń nie działa (config.invites.LINK_LIVE).
-  'groups.joinMessage': (group: string, url: string | null, id: string, code: string, until: string) =>
-    `Zapraszam Cię do grupy „${group}” w Organizerze.\n\n${url ? `Dotknij linku: ${url}\n\nAlbo w aplikacji` : 'W aplikacji'}: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until})`,
+  // D141: bez linku, dopóki strona zaproszeń nie działa (config.invites.LINK_LIVE). Decyzja właściciela z 8.10.2026
+  // (audyt 2, PW-7 A): skąd wziąć aplikację — publiczny link TestFlight (config.invites.TESTFLIGHT_LINK), gdy jest.
+  'groups.joinMessage': (group: string, url: string | null, id: string, code: string, until: string, app: string | null) =>
+    `Zapraszam Cię do grupy „${group}” w Organizerze.\n\n${app ? `Nie masz jeszcze aplikacji? Zainstaluj ją przez TestFlight: ${app}\n\n` : ''}${url ? `Dotknij linku: ${url}\n\nAlbo w aplikacji` : 'W aplikacji'}: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until})`,
   'groups.rotate': 'Zmień ID grupy',
   'groups.rotateConfirm': 'Zmienić ID grupy? Wszystkie wysłane kody przestaną działać. Członkowie grupy zostają.',
   'groups.revoke': 'Unieważnij kod',
   'groups.addChild': 'Dodaj dziecko (bez konta)',
   'groups.childName': 'Imię dziecka',
   'groups.leave': 'Wyjdź z grupy',
-  'groups.leaveConfirm': 'Na pewno wyjść? Stracisz dostęp do list tej grupy.',
-  'groups.rename': 'Zmień nazwę grupy',
+  // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
+  'groups.leaveConfirm': (days: number) =>
+    `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie.`,
   'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
   'groups.lists': 'Listy grupy',
   'groups.color': 'Kolor grupy',
@@ -421,21 +429,47 @@ export const strings = {
   'groups.trash': 'Kosz',
   'groups.trashLeft': (days: number) => `usunięcie za ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}`,
   'groups.restore': (name: string) => `Przywróć: ${name}`,
+  'groups.restoreButton': 'Przywróć',
+  // PWD-21 A: data bezwzględna jak w wiadomości z zaproszeniem (audyt 2, U-41).
+  'groups.trashedInfo': (name: string, until: string) => `Grupa ${name} w koszu (właściciel może przywrócić do: ${until})`,
+  'groups.restored': (name: string) => `Przywrócono: ${name}`,
+  // Audyt 2 (R-16): ekran grupy tuż po utworzeniu albo dołączeniu, zanim dojdą jej dane.
+  'groups.loading': 'Pobieram grupę…',
+  // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków — co dalej.
+  'groups.nextSteps': 'Następne kroki',
+  'groups.nextSteps.body': 'Zaproś bliskich, dodaj dziecko bez konta i zaplanuj pierwsze zakupy.',
+  'groups.nextSteps.invite': 'Zaproś do grupy',
+  'groups.nextSteps.child': 'Dodaj dziecko',
+  'groups.nextSteps.shopping': 'Zaplanuj zakupy',
+  'groups.nextSteps.later': 'Nie teraz',
+  // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
+  'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
+  'groups.error.nameEmpty': 'Wpisz nazwę grupy.',
+  'groups.error.trashed': 'Ta grupa jest w koszu.',
+  'groups.error.expired': (days: number) => `Grupa była w koszu dłużej niż ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} — nie da się jej już przywrócić.`,
+  'groups.error.member': 'Tej osoby nie ma już w grupie.',
+  'groups.error.tooLong': 'Nazwa grupy albo imię są za długie. Skróć je i spróbuj jeszcze raz.',
+  'groups.error.session': 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
   'member.name': 'Imię w grupie',
-  'member.saveName': 'Zapisz imię',
   'member.role': 'Rola',
   'member.remove': 'Usuń z grupy',
-  'member.removeConfirm': (name: string) => `Usunąć ${name} z grupy? Przypisane zadania zostaną, ale bez tej osoby w grupie.`,
   'member.makeOwner': 'Przekaż własność grupy',
   'member.makeOwnerConfirm': (name: string) => `${name} zostanie właścicielem grupy, a Ty adminem. Tego nie cofniesz sam.`,
   'member.makeOwnerYes': 'Przekaż',
+  // Audyt 2 (R-33): po przekazaniu czekamy na pobranie, żeby ekran grupy nie pokazywał już opcji właściciela.
+  'member.transferPending': 'Przekazano. Pobieram zmiany…',
 
   'invite.title': 'Zaproszenie do grupy',
   'invite.body': 'Wpisz ID grupy i kod z zaproszenia albo wklej całą wiadomość.',
   'invite.accept': 'Dołącz',
   'invite.invalid': 'Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.',
   'invite.expired': 'Ten kod wygasł. Poproś o nowe zaproszenie.',
-  'invite.rateLimited': 'Za dużo nieudanych prób. Spróbuj ponownie za godzinę.',
+  'invite.revoked': 'Ten kod został unieważniony (przez osobę zapraszającą albo po zbyt wielu błędnych próbach). Poproś o nowe zaproszenie.',
+  'invite.usedUp': 'Z tego kodu skorzystała już największa dozwolona liczba osób. Poproś o nowe zaproszenie.',
+  // Decyzja właściciela z 8.10.2026 (audyt 2, PW-6 A): osoba usunięta z grupy wraca tylko z zaproszenia wystawionego po usunięciu.
+  'invite.removed': 'Usunięto Cię z tej grupy. Wrócić możesz tylko z nowym zaproszeniem — poproś o nie właściciela albo admina grupy.',
+  // D140 odwrócona (8.10.2026): limit prób tylko na konto; kod po zbyt wielu cudzych błędnych próbach jest unieważniany.
+  'invite.rateLimited': 'Za dużo nieudanych prób z tego konta. Spróbuj ponownie za godzinę.',
   'invite.paste': 'Wklej wiadomość albo link (opcjonalnie)',
   'invite.joinId': 'ID grupy (9 cyfr)',
   'invite.code': 'Kod (6 cyfr)',
@@ -501,6 +535,8 @@ export const strings = {
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,
+  // Decyzja właściciela z 8.10.2026 (PW-35 A, PW-16 A): usunięcie osoby z grupy bez pytania, z paskiem „Cofnij”.
+  'undo.memberRemoved': (name: string) => `Usunięto z grupy: ${name}`,
   'undo.action': 'Cofnij',
 
   'addressee.ask': 'Dla kogo albo na kiedy?',
