@@ -29,7 +29,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   const undo = useUndo();
   const groups = groupsView(tables, userId).filter((g) => g.me.role !== 'child');
   const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (groups[0]?.id ?? ''));
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(route.params?.title ?? '');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -51,6 +51,20 @@ export function RoutineScreen({ route, navigation }: Props) {
     <Screen testID="screen-routine">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['routine.title']}</Title>
+      {/* Audyt 2 (PWD-26): ten sam wybór rodzaju co w formularzu zadania i wydarzenia (D98) — nazwa i grupa przechodzą. */}
+      <Segmented
+        label={strings['form.kind']}
+        value="routine"
+        onChange={(k) => {
+          if (k === 'task') navigation.replace('AddTask', { title, groupId: groupId || undefined });
+          else if (k === 'event') navigation.replace('EventEdit', { groupId: groupId || undefined, title });
+        }}
+        options={[
+          { value: 'task', label: strings['form.kind.task'] },
+          { value: 'event', label: strings['form.kind.event'] },
+          { value: 'routine', label: strings['form.kind.routine'] },
+        ]}
+      />
       <Body muted>{strings['routine.info']}</Body>
       {groups.length > 1 ? (
         <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
