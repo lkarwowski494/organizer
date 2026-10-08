@@ -6,11 +6,13 @@ const E = [
 ];
 
 describe('co nowego (D84)', () => {
-  it('aktualizacja: najnowszy wpis nowszy niż obejrzany, nie nowszy niż bieżący build', () => {
+  it('aktualizacja: wszystkie wpisy nowsze niż obejrzany, nie nowsze niż bieżący build, od najnowszego', () => {
     expect(whatsNew(E, 14, 13, true)).toEqual({ show: ['a', 'b'], remember: null });
     expect(whatsNew(E, 15, 13, true)).toEqual({ show: ['a', 'b'], remember: null });
-    expect(whatsNew(E, 17, 13, true)).toEqual({ show: ['c'], remember: null });
+    expect(whatsNew(E, 17, 13, true)).toEqual({ show: ['c', 'a', 'b'], remember: null });
+    expect(whatsNew(E, 17, 14, true)).toEqual({ show: ['c'], remember: null });
     expect(whatsNew(E, 14, null, true)).toEqual({ show: ['a', 'b'], remember: null });
+    expect(whatsNew(E, 17, null, true)).toEqual({ show: ['c'], remember: null });
   });
 
   it('już obejrzane albo nic nowego — tylko zapamiętaj bieżący build', () => {

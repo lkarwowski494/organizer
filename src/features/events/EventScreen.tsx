@@ -26,6 +26,8 @@ import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Stati
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
+import { RsvpBox } from './RsvpBox';
+import { rsvpView } from '../../domain/views/rsvp';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Event'>;
 
@@ -68,6 +70,7 @@ export function EventScreen({ route, navigation }: Props) {
   const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
   const tasks = attachedTasks(tables, eventId, date);
+  const rsvp = rsvpView(tables, userId, eventId, date);
   const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
   const chosenList = taskLists.find((l) => l.id === listId) ?? taskLists[0];
@@ -154,6 +157,9 @@ export function EventScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['handoff.give']} testID="handoff-start" onPress={() => setHanding(true)} />
         )
       ) : null}
+
+      {/* D124: obecność na dzisiejszym i przyszłym terminie. */}
+      {rsvp && occ.date >= formatIsoDate(today) ? <RsvpBox view={rsvp} eventId={eventId} date={date} /> : null}
 
       <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} />
       {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}

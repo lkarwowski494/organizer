@@ -20,6 +20,7 @@ import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { withoutDuplicates } from '../../domain/views/calendar-sync';
 import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events';
 import { personOf } from '../../domain/views/who';
+import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { AgendaEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
@@ -52,9 +53,14 @@ export function CalendarScreen() {
     return p ? [strings[kind](p)] : [];
   };
   const isoToday = formatIsoDate(today);
+  // D124: ile osób potwierdziło obecność.
+  const rsvpOf = (eventId: string, date: string) => {
+    const v = rsvpView(tables, userId, eventId, date);
+    return v && v.counts.yes + v.counts.maybe + v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
+  };
   const calRow = ({ entry: x, ...n }: Nested<AgendaEntry>) =>
             x.kind === 'event' ? (
-              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
             ) : x.task.trip ? (
               <StationRow
                 key={x.key}

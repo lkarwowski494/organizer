@@ -15,7 +15,9 @@ const V2_TABLES = ['events', 'event_participants', 'event_overrides'] as const;
 const V3_TABLES = ['event_task_series'] as const;
 /** Przekazania odpowiedzialności (migracja serwera 20261008150000_handoffs). */
 const V4_TABLES = ['handoffs'] as const;
-export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES, ...V3_TABLES, ...V4_TABLES] as const;
+/** Potwierdzanie obecności (migracja serwera 20261008270000_event_rsvps). */
+const V5_TABLES = ['event_rsvps'] as const;
+export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES, ...V3_TABLES, ...V4_TABLES, ...V5_TABLES] as const;
 
 const mirror = (t: string) => `
 create table ${t} (
@@ -52,6 +54,9 @@ create table sync_state (
   { version: 2, sql: V2_TABLES.map(mirror).join('\n') },
   { version: 3, sql: V3_TABLES.map(mirror).join('\n') },
   { version: 4, sql: V4_TABLES.map(mirror).join('\n') },
+  // Starsza wersja dostawała już odpowiedzi z serwera, ale nie miała ich gdzie zapisać, a kursor poszedł dalej —
+  // zerujemy kursory, żeby pobrać wszystko jeszcze raz (kolejka i identyfikator telefonu zostają).
+  { version: 5, sql: `${V5_TABLES.map(mirror).join('\n')}\ndelete from sync_state where key = 'cursors';` },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

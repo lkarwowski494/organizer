@@ -27,10 +27,10 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_rsvps', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'sync_state', 'tasks']);
   });
 
-  it('aktualizacja z wersji 1 dodaje tabele wydarzeń i stałych zadań serii i nie rusza istniejących danych', () => {
+  it('aktualizacja z wersji 1 dodaje tabele wydarzeń, stałych zadań serii i obecności i nie rusza istniejących danych', () => {
     const db = memoryDb();
     db.transaction(() => {
       db.exec(MIGRATIONS[0]!.sql);
@@ -41,7 +41,18 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(db.all('select key from tasks')).toEqual([{ key: 't1' }]);
     expect(db.all('select seq from pending_ops')).toEqual([{ seq: 1 }]);
-    expect(db.all("select name from sqlite_master where type = 'table' and name like 'event%' order by name").length).toBe(4);
+    expect(db.all("select name from sqlite_master where type = 'table' and name like 'event%' order by name").length).toBe(5);
+  });
+
+  it('wersja 5 (obecność, D124): kursory od zera, reszta stanu zostaje', () => {
+    const db = memoryDb();
+    db.transaction(() => {
+      for (const m of MIGRATIONS.slice(0, 4)) db.exec(m.sql);
+      db.exec('pragma user_version = 4');
+    });
+    db.run("insert into sync_state (key, value) values ('cursors', '{\"g1\":9}'), ('clientId', 'c1'), ('local:x', '1')");
+    expect(migrate(db)).toBe(SCHEMA_VERSION);
+    expect(db.all<{ key: string }>('select key from sync_state order by key').map((r) => r.key)).toEqual(['clientId', 'local:x']);
   });
 
   it('baza z nowszej wersji aplikacji nie jest ruszana', () => {
