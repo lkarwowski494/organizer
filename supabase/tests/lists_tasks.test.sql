@@ -40,8 +40,8 @@ select throws_ok($$ insert into public.tasks (id, group_id, list_id, parent_id, 
   'P0001', 'invalid_parent', '5: rodzic z innej listy');
 select throws_ok($$ update public.tasks set parent_id = null where id = '44444444-0000-7000-8000-000000000003' $$,
   '42501', null, '6: rodzica nie zmienia się zwykłą edycją');
-select throws_ok($$ insert into public.tasks (id, group_id, list_id, title) values (gen_random_uuid(), '22222222-0000-7000-8000-000000000001', '33333333-0000-7000-8000-000000000003', 'X') $$,
-  'P0001', 'invalid_list:kind', '7: zadanie nie trafia na listę zakupów');
+select lives_ok($$ insert into public.tasks (id, group_id, list_id, title) values (gen_random_uuid(), '22222222-0000-7000-8000-000000000001', '33333333-0000-7000-8000-000000000003', 'Mleko') $$,
+  '7: pozycja zakupów to zadanie na liście zakupów (D87)');
 select throws_ok($$ insert into public.tasks (id, group_id, list_id, title, due_time) values (gen_random_uuid(), '22222222-0000-7000-8000-000000000001', '33333333-0000-7000-8000-000000000001', 'X', '10:00') $$,
   '23514', null, '8: godzina wymaga daty');
 select throws_ok($$ insert into public.tasks (id, group_id, list_id, title, deadline_mode) values (gen_random_uuid(), '22222222-0000-7000-8000-000000000001', '33333333-0000-7000-8000-000000000001', 'X', 'own') $$,

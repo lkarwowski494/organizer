@@ -138,7 +138,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
 
   it('zbieżność z serwerem, pusta kolejka, oba telefony widzą to samo, powtórki bez nowych odrzuceń', async () => {
     // Statystyka przebiegów: test ma sens tylko wtedy, gdy losowe operacje naprawdę przechodzą (nie same odrzucenia).
-    const seen = { ok: 0, rejected: 0, entities: new Set<string>() };
+    const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0 };
     await fc.assert(
       fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }), async (cmds) => {
         await db.query('begin');
@@ -206,6 +206,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
             expect(view).toEqual(await fresh(u));
             views[u] = shared(view as never);
             for (const [e, rows] of Object.entries(views[u] as object)) if (Object.keys(rows).length > 0) seen.entities.add(e);
+            seen.shopItems += ITEMS.filter((i) => (views[u] as { tasks?: object }).tasks && i in (views[u] as { tasks: object }).tasks).length;
           }
           // Obie osoby są dorosłymi w tej samej grupie bez ukrytych list — widzą dokładnie to samo.
           expect(views.ala).toEqual(views.bartek);
@@ -216,6 +217,8 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
       { numRuns: 150 },
     );
     expect(seen.ok).toBeGreaterThan(seen.rejected);
+    // Regresja D87: pozycje zakupów naprawdę zapisują się na serwerze (wcześniej odrzucane po cichu).
+    expect(seen.shopItems).toBeGreaterThan(0);
     expect([...seen.entities].sort()).toEqual(expect.arrayContaining(['event_overrides', 'event_participants', 'events', 'lists', 'tasks']));
   }, 240_000);
 });
