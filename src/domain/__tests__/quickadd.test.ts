@@ -60,7 +60,7 @@ describe('parseQuickAdd — tokeny i odklikiwanie', () => {
   });
 
   it('pusty tekst', () => {
-    expect(parseQuickAdd('', now)).toEqual({ title: '', due: null, rrule: null, tokens: [], unrecognizedDay: null });
+    expect(parseQuickAdd('', now)).toEqual({ title: '', due: null, rrule: null, tokens: [], unrecognizedDay: null, farDate: null });
   });
 });
 
@@ -229,5 +229,35 @@ describe('parseQuickAdd — przypadki brzegowe', () => {
     expect(parseQuickAdd('zakupy jutro, potem kino', now).title).toBe('zakupy, potem kino');
     expect(parseQuickAdd('jutro: przegląd auta', now).title).toBe('przegląd auta');
     expect(parseQuickAdd('przegląd auta ,; jutro', now).title).toBe('przegląd auta');
+  });
+});
+
+describe('parseQuickAdd — audyt 3', () => {
+  const now = at('2026-10-09T10:00'); // piątek
+  const p = (text: string, o?: Parameters<typeof parseQuickAdd>[2]) => parseQuickAdd(text, now, o);
+
+  it('N-28: „dziś/jutro/pojutrze” i dzień tygodnia wygrywają z liczbą bez roku („1.5”, „1/2”)', () => {
+    expect(p('raport 1.5 strony jutro')).toMatchObject({ title: 'raport 1.5 strony', due: { date: '2026-10-10', time: null }, farDate: null });
+    expect(p('1/2 kostki masła w środę')).toMatchObject({ title: '1/2 kostki masła', due: { date: '2026-10-14', time: null } });
+    // Data liczbowa z rokiem albo słowna dalej jest pierwszą datą.
+    expect(p('jutro przenieść na 15.10.2026').due?.date).toBe('2026-10-10');
+    expect(p('15.10.2026 zamiast jutro').due?.date).toBe('2026-10-15');
+    // Odklikane „jutro” oddaje termin liczbie.
+    expect(p('raport 1.5 strony jutro', { ignore: [{ start: 18, end: 23 }] }).due?.date).toBe('2027-05-01');
+  });
+
+  it('N-28 (B): data liczbowa bez roku w przyszłym roku — ostrzeżenie z pełną datą', () => {
+    expect(p('1/2 kostki masła').farDate).toEqual({ text: '1/2', label: 'poniedziałek, 1 lutego 2027' });
+    expect(p('mąka 2.5 kg').farDate).toEqual({ text: '2.5', label: 'niedziela, 2 maja 2027' });
+    expect(p('rachunek 31.12').farDate).toBeNull();
+    expect(p('urlop 1.05.2027').farDate).toBeNull();
+    expect(p('urlop 1 maja').farDate).toBeNull();
+    expect(p('bez daty').farDate).toBeNull();
+    expect(p('x 1.01').farDate).toMatchObject({ text: '1.01' });
+  });
+
+  it('N-124: bez rozpoznawania powtarzania (pole podzadania) — „co tydzień” zostaje w nazwie, bez terminu', () => {
+    expect(p('podlać kwiaty co tydzień', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty co tydzień', due: null, rrule: null, tokens: [] });
+    expect(p('podlać kwiaty jutro co tydzień', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty co tydzień', due: { date: '2026-10-10' }, rrule: null });
   });
 });

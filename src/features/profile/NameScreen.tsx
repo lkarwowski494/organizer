@@ -58,7 +58,7 @@ export function NameScreen({ route, navigation }: Props) {
       {asked ? null : <BackButton onPress={() => navigation.goBack()} />}
       <Title>{asked ? strings['name.askTitle'] : strings['name.title']}</Title>
       <Body muted>{strings['name.info']}</Body>
-      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void save()} testID="name-field" />
+      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" onSubmitEditing={() => void save()} testID="name-field" />
       {error ? (
         <ErrorText>{ERRORS[error]}</ErrorText>
       ) : null}

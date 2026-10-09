@@ -13,7 +13,7 @@
  *    the focused element for a screen reader” (zamiast przestarzałego setAccessibilityFocus). accessibilityLiveRegion
  *    działa tylko poza iOS (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android).
  */
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,7 +21,7 @@ import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
 import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
-import { focusLater, pinFocus, spoken, useScreenReader } from './a11y';
+import { announce, focusLater, pinFocus, spoken, useScreenReader } from './a11y';
 import { Glyph } from './glyph';
 import { useTheme } from './theme';
 
@@ -41,10 +41,17 @@ export type UndoOptions = {
 };
 
 /**
- * Cofnięcie: operacje (zapisywane w bazie konta — działają też po ponownym uruchomieniu), operacje według przepisu
- * liczone w chwili cofnięcia (rutyna) albo funkcja (tylko w tym uruchomieniu).
+ * Cofnięcie przez serwer (grupa: usunięcie i przywrócenie). Audyt 3 (N-34): wynik znamy dopiero po odpowiedzi, więc wpis
+ * jest „w toku”, a po błędzie (np. brak internetu) wraca do „Cofnij”, z paskiem „Nie cofnięto: … · Spróbuj ponownie” —
+ * jeden komunikat niezależnie od ekranu, z którego cofamy. `failed` — tekst błędu dla osoby.
  */
-export type UndoAction = RecentUndo | (() => void);
+export type AsyncUndo = { run: () => Promise<unknown>; failed: (e: unknown) => string };
+
+/**
+ * Cofnięcie: operacje (zapisywane w bazie konta — działają też po ponownym uruchomieniu), operacje według przepisu
+ * liczone w chwili cofnięcia (rutyna) albo funkcja (tylko w tym uruchomieniu; także przez serwer — AsyncUndo).
+ */
+export type UndoAction = RecentUndo | (() => void) | AsyncUndo;
 
 export type RecentEntry = Pick<RecentRecord, 'id' | 'message' | 'at' | 'state' | 'lost'>;
 
@@ -62,8 +69,11 @@ type Undo = {
   show: (message: string, undo?: UndoAction, opts?: string | UndoOptions) => void;
   /** Ostatnie zmiany, najnowsze pierwsze. */
   recent: readonly RecentEntry[];
-  /** Cofnięcie z listy; „stale” — rzecz się zmieniła, niczego nie zmieniamy; „gone” — już cofnięte albo niemożliwe. */
-  undoRecent: (id: number) => 'undone' | 'stale' | 'gone';
+  /**
+   * Cofnięcie z listy; „stale” — rzecz się zmieniła, niczego nie zmieniamy; „gone” — już cofnięte, w toku albo
+   * niemożliwe; „pending” — czekamy na serwer (wynik: wpis „Cofnięto” albo pasek błędu).
+   */
+  undoRecent: (id: number) => 'undone' | 'stale' | 'gone' | 'pending';
   /** Nawigacja do „Ostatnich zmian” (podpina ją komponent wewnątrz nawigacji). */
   bindOpenRecent: (fn: (() => void) | null) => void;
 };
@@ -76,7 +86,7 @@ const UndoContext = createContext<Undo>({ show: () => {}, recent: [], undoRecent
 const UndoBarContext = createContext(0);
 export const useUndoBarHeight = () => useContext(UndoBarContext);
 
-type Bar = { message: string; onUndo?: () => void; action: string; n: number; entry: number | null };
+type Bar = { message: string; onUndo?: () => void; action: string; n: number; listed: boolean };
 
 export function UndoProvider({ children, nowMs = Date.now, backend }: { children: ReactNode; nowMs?: () => number; backend?: UndoBackend }) {
   const { c, font, size, layout, radius } = useTheme();
@@ -90,7 +100,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
   const [openRecent, setOpenRecent] = useState<{ fn: () => void } | null>(null);
   const n = useRef(Math.max(0, ...records.map((r) => r.id)));
   // Cofnięcia-funkcje (tylko w tym uruchomieniu).
-  const actions = useRef(new Map<number, () => void>());
+  const actions = useRef(new Map<number, (() => void) | AsyncUndo>());
   const focus = useRef<View>(null);
   const first = useRef(true);
   useEffect(() => {
@@ -99,16 +109,60 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
   }, [records, backend]);
   const recent = useMemo(() => records.map(({ id, message, at, state, lost }) => ({ id, message, at, state, lost })), [records]);
 
+  const retry = useRef<(id: number, message: string) => void>(() => {});
   const mark = useCallback((id: number, state: RecentRecord['state']) => setRecords((r) => r.map((e) => (e.id === id ? { ...e, state, ...(state === 'undone' ? { undo: null } : {}) } : e))), []);
+
+  const show = useCallback(
+    (message: string, undo?: UndoAction, opts?: string | UndoOptions) => {
+      const o = typeof opts === 'string' ? { action: opts } : (opts ?? {});
+      const action = o.action ?? strings['undo.action'];
+      const fn = typeof undo === 'function' ? undo : undefined;
+      const later = undo && 'run' in undo ? undo : undefined;
+      const ops = undo && 'ops' in undo ? undo : undefined;
+      let onUndo = fn ?? (ops ? () => backend?.run(ops) : undefined);
+      // Cofnięcie przez serwer zawsze jest zmianą do cofnięcia (wpis na liście), bo tylko tam widać jego wynik.
+      const listed = (onUndo !== undefined && action === strings['undo.action']) || later !== undefined;
+      if (listed) {
+        const id = ++n.current;
+        // Z paska ta sama ścieżka co z listy (sprawdzenie zmian w międzyczasie, stan „w toku”).
+        onUndo = () => retry.current(id, message);
+        const run = fn ?? later;
+        if (run) actions.current.set(id, run);
+        const rec: RecentRecord = { id, message, at: nowMs(), state: 'open', undo: ops ?? null, lost: fn || later ? (o.lost ?? 'server') : null, fp: o.changed && backend ? backend.fingerprint(o.changed) : null };
+        setRecords((r) => {
+          for (const e of r.slice(config.RECENT_MAX - 1)) actions.current.delete(e.id);
+          return [rec, ...r].slice(0, config.RECENT_MAX);
+        });
+      }
+      setBar({ message, onUndo, action, n: ++n.current, listed });
+    },
+    [nowMs, backend],
+  );
 
   const undoRecent = useCallback(
     (id: number) => {
       const rec = records.find((e) => e.id === id);
       const fn = actions.current.get(id);
-      if (!rec || rec.state === 'undone' || rec.state === 'lost' || (!fn && !rec.undo)) return 'gone' as const;
+      if (!rec || rec.state === 'undone' || rec.state === 'lost' || rec.state === 'pending' || (!fn && !rec.undo)) return 'gone' as const;
       if (rec.fp && backend?.isStale(rec.fp)) {
         mark(id, 'stale');
         return 'stale' as const;
+      }
+      if (fn && typeof fn !== 'function') {
+        // N-34: „Cofnięto” dopiero po odpowiedzi serwera; po błędzie wpis wraca do „Cofnij” (cofnięcie zostaje w pamięci).
+        mark(id, 'pending');
+        fn.run().then(
+          () => {
+            actions.current.delete(id);
+            mark(id, 'undone');
+            announce(strings['recent.undone']);
+          },
+          (e: unknown) => {
+            mark(id, 'open');
+            show(strings['undo.failed'](rec.message, fn.failed(e)), () => retry.current(id, rec.message), strings['common.retry']);
+          },
+        );
+        return 'pending' as const;
       }
       actions.current.delete(id);
       if (fn) fn();
@@ -116,31 +170,15 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
       mark(id, 'undone');
       return 'undone' as const;
     },
-    [records, backend, mark],
+    [records, backend, mark, show],
   );
-
-  const show = useCallback(
-    (message: string, undo?: UndoAction, opts?: string | UndoOptions) => {
-      const o = typeof opts === 'string' ? { action: opts } : (opts ?? {});
-      const action = o.action ?? strings['undo.action'];
-      const fn = typeof undo === 'function' ? undo : undefined;
-      const ops = typeof undo === 'object' ? undo : undefined;
-      const onUndo = fn ?? (ops ? () => backend?.run(ops) : undefined);
-      let entry: number | null = null;
-      if (onUndo && action === strings['undo.action']) {
-        const id = ++n.current;
-        entry = id;
-        if (fn) actions.current.set(id, fn);
-        const rec: RecentRecord = { id, message, at: nowMs(), state: 'open', undo: ops ?? null, lost: fn ? (o.lost ?? 'server') : null, fp: o.changed && backend ? backend.fingerprint(o.changed) : null };
-        setRecords((r) => {
-          for (const e of r.slice(config.RECENT_MAX - 1)) actions.current.delete(e.id);
-          return [rec, ...r].slice(0, config.RECENT_MAX);
-        });
-      }
-      setBar({ message, onUndo, action, n: ++n.current, entry });
-    },
-    [nowMs, backend],
-  );
+  // Z paska (także „Spróbuj ponownie” po błędzie): ta sama ścieżka co z listy — rzecz zmieniona w międzyczasie nie jest
+  // nadpisywana. Przez ref, bo pasek powstaje przed zmianą listy (undoRecent zależy od listy).
+  useLayoutEffect(() => {
+    retry.current = (id, message) => {
+      if (undoRecent(id) === 'stale') show(strings['recent.staleBar'](message));
+    };
+  }, [undoRecent, show]);
 
   useEffect(() => {
     if (!bar) return;
@@ -157,14 +195,12 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
 
   const press = (b: Bar) => {
     setBar(null);
-    if (b.entry === null) return b.onUndo?.();
-    // Ta sama ścieżka co z listy: rzecz zmieniona w międzyczasie nie jest nadpisywana.
-    if (undoRecent(b.entry) === 'stale') show(strings['recent.staleBar'](b.message));
+    b.onUndo?.();
   };
 
   const bindOpenRecent = useCallback((fn: (() => void) | null) => setOpenRecent(fn ? { fn } : null), []);
   const value = useMemo(() => ({ show, recent, undoRecent, bindOpenRecent }), [show, recent, undoRecent, bindOpenRecent]);
-  const link = bar?.entry != null && openRecent ? openRecent.fn : null;
+  const link = bar?.listed && openRecent ? openRecent.fn : null;
   const message = bar ? (
     <>
       <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.META, color: c.inverseInk }}>{bar.message}</Text>

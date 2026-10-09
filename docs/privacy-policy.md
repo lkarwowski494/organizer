@@ -232,6 +232,9 @@ Usunięcie konta (**Ustawienia → Konto i dane → Usuń konto**) usuwa je z se
 - Zaproszenia, które wystawiasz, przestają działać.
 - Grupę w koszu, której właścicielem jest Twoje konto, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje
   w koszu do końca tych samych 30 dni.
+- Jeśli przy usuwaniu zaznaczysz **„Usuń też moje wpisy w grupach”**, zamiast tego Twoje zadania i rzeczy na listach
+  zakupów w grupach wspólnych, Twoje wydarzenia, stałe zadania i odpowiedzi o obecności trafiają do kosza grup (jak przy
+  zwykłym usunięciu w aplikacji) i po 30 dniach są usuwane na stałe. Listy i wpisy innych osób zostają.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), profil, token
   powiadomień, wyciszenia grup, ustawienia „W Moich sprawach”, Twoje raporty błędów i uwagi, nieudane próby dołączenia
   kodem, liczniki limitów i dane techniczne synchronizacji.

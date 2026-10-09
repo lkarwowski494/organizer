@@ -50,6 +50,8 @@ describe('formularz wydarzenia', () => {
     [{ date: '2026-02-30' }, 'date'],
     [{ date: 'jutro' }, 'date'],
     [{ slots: [{ days: [0], start: '', end: '' }] }, 'time'],
+    // Audyt 3 (N-134): nazwa do config.lengths.EVENT_TITLE znaków.
+    [{ title: 'x'.repeat(config.lengths.EVENT_TITLE + 1) }, 'titleLong'],
     [{ slots: [{ days: [0], start: '24:00', end: '' }] }, 'time'],
     [{ slots: [{ days: [0], start: '18:00', end: '7:00' }] }, 'time'],
     [{ slots: [{ days: [0], start: '18:00', end: '18:00' }] }, 'endBeforeStart'],

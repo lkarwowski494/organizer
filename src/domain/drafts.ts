@@ -10,7 +10,11 @@
  */
 import { config } from '../config';
 
-export type Draft<F> = { at: number; changes: Partial<F> };
+/**
+ * `stamp` — znacznik danych, na których szkic powstał (audyt 3, N-31: plan lekcji z chwili otwarcia); formularz
+ * porównuje go z obecnymi danymi przy przywróceniu i przy zapisie.
+ */
+export type Draft<F> = { at: number; changes: Partial<F>; stamp?: string };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -22,8 +26,8 @@ export function changedFields<F extends Record<string, unknown>>(initial: F, cur
 }
 
 /** Zapis szkicu; bez zmian — null (szkic znika). */
-export function encodeDraft<F>(changes: Partial<F>, nowMs: number): string | null {
-  return Object.keys(changes).length ? JSON.stringify({ at: nowMs, changes }) : null;
+export function encodeDraft<F>(changes: Partial<F>, nowMs: number, stamp?: string): string | null {
+  return Object.keys(changes).length ? JSON.stringify({ at: nowMs, changes, ...(stamp === undefined ? {} : { stamp }) }) : null;
 }
 
 /** Odczyt: tylko znane pola (`fields`), nie starszy niż limit; inaczej null. */
@@ -36,8 +40,9 @@ export function decodeDraft<F>(raw: string | null, fields: readonly (keyof F & s
     return null;
   }
   if (typeof v !== 'object' || v === null) return null;
-  const { at, changes } = v as { at?: unknown; changes?: unknown };
+  const { at, changes, stamp } = v as { at?: unknown; changes?: unknown; stamp?: unknown };
   if (typeof at !== 'number' || nowMs - at > config.forms.DRAFT_MAX_DAYS * 86_400_000 || typeof changes !== 'object' || changes === null) return null;
   const known = Object.fromEntries(Object.entries(changes).filter(([k]) => (fields as readonly string[]).includes(k))) as Partial<F>;
-  return Object.keys(known).length ? { at, changes: known } : null;
+  if (!Object.keys(known).length) return null;
+  return typeof stamp === 'string' ? { at, changes: known, stamp } : { at, changes: known };
 }
