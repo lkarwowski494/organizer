@@ -127,5 +127,6 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
 właściciela przy ok. 70% limitu. Progi są w `src/config` (`limits`) i `docs/limits.md`;
-automat porównujący zużycie z progami (D185) jeszcze nie działa — sprawdzaj ręcznie.
+nocny strażnik `free-limits` (D185) mierzy zużycie po dodaniu sekretu `SUPABASE_MONITOR_TOKEN`; bez sekretu nic
+nie mierzy, a od 16.10.2026 oblewa nocny przebieg. Transferu (egress) i Realtime nie mierzy — sprawdzaj je ręcznie.
 Repozytorium jest publiczne: standardowe maszyny GitHub Actions (także macOS) są bez opłat — „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners” (https://docs.github.com/en/billing/concepts/product-billing/github-actions). Płatne „larger runners” — nie używamy.
