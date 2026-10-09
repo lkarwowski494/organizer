@@ -93,8 +93,10 @@ describe('kontrakty bramek wdrożenia i wydania', () => {
     assert.equal(jobs.deploy.environment, 'supabase-prod');
     assert.ok(!usesSecrets(jobs.deploy.env), 'sekrety w env zadania deploy');
     const deploy = steps(jobs.deploy);
-    const firstCli = deploy.findIndex((s) => /\$CLI/.test(s.run ?? ''));
-    assert.ok(!usesSecrets(deploy[firstCli]), 'pierwsze uruchomienie CLI (pobranie paczki) bez sekretów');
+    const install = deploy.findIndex((s) => s.run === '.github/scripts/install-supabase-cli.sh');
+    assert.ok(install >= 0 && !usesSecrets(deploy[install]), 'instalacja CLI bez sekretów');
+    assert.ok(deploy.slice(0, install).every((s) => !usesSecrets(s)), 'instalacja CLI przed krokami z sekretami');
+    assert.equal(jobs.deploy.env.CLI, 'supabase', 'CLI z instalatora (suma SHA-256), nie z npx (N-255)');
     for (const s of deploy) {
       assert.doesNotMatch(s.run ?? '', /--password|\s-p\s/);
       if (usesSecrets(s.env)) assert.match(s.run, /\$CLI (link|db push|functions deploy)|test -n/, s.name);
@@ -115,6 +117,43 @@ describe('kontrakty bramek wdrożenia i wydania', () => {
     assert.equal(jobs.testflight.needs, 'gate');
     assert.ok(!usesSecrets(jobs.testflight.env));
     assert.deepEqual(steps(jobs.testflight).filter((s) => usesSecrets(s.env)).map((s) => s.name), ['fastlane release']);
+  });
+
+  it('Fastfile: sekrety wydania usunięte z ENV po match, przed build_app (xcodebuild ich nie dostaje); klucz ASC do wysyłki zostaje (N-254)', () => {
+    const step = steps(workflow('ios-release.yml').jobs.testflight).find((s) => s.name === 'fastlane release');
+    const secretNames = Object.keys(step.env).filter((k) => usesSecrets(step.env[k]));
+    assert.ok(secretNames.length >= 6, secretNames.join());
+    // Fastfile na atrapach akcji fastlane: build_app zapisuje widziane ENV, upload_to_testflight — otrzymany klucz.
+    const harness = [
+      'require "json"',
+      'LANES = {}',
+      'CALLS = []',
+      'def default_platform(*); end',
+      'def platform(_); yield; end',
+      'def lane(name, &b); LANES[name] = b; end',
+      'def private_lane(name, &b); LANES[name] = b; end',
+      'def method_missing(name, *args, **opts)',
+      '  return LANES[name].call if LANES.key?(name)',
+      '  CALLS << [name.to_s, name == :build_app ? ENV.to_h : opts]',
+      '  name == :app_store_connect_api_key ? { key_content: opts[:key_content] } : nil',
+      'end',
+      'eval(File.read(ARGV[0]), binding, ARGV[0])',
+      'LANES[:release].call',
+      'puts JSON.generate(CALLS)',
+    ].join('\n');
+    const env = { PATH: process.env.PATH, BUILD_NUMBER: '7', MATCH_GIT_BASIC_AUTHORIZATION: 'naglowek-testowy' };
+    for (const k of secretNames) env[k] = `wartosc-testowa-${k}`;
+    const r = spawnSync('ruby', ['-e', harness, join(ROOT, 'fastlane/Fastfile')], { encoding: 'utf8', env });
+    assert.equal(r.status, 0, r.stderr);
+    const calls = JSON.parse(r.stdout);
+    const names = calls.map(([n]) => n);
+    assert.ok(names.indexOf('match') < names.indexOf('build_app'));
+    const buildEnv = calls.find(([n]) => n === 'build_app')[1];
+    for (const k of [...secretNames, 'MATCH_GIT_BASIC_AUTHORIZATION']) assert.equal(buildEnv[k], undefined, `${k} w ENV build_app`);
+    assert.equal(buildEnv.BUILD_NUMBER, '7');
+    assert.ok(!JSON.stringify(buildEnv).includes('wartosc-testowa'));
+    const upload = calls.find(([n]) => n === 'upload_to_testflight')[1];
+    assert.equal(upload.api_key.key_content, env.ASC_KEY_P8, 'klucz ASC dotarł do upload_to_testflight');
   });
 
 });

@@ -12,13 +12,13 @@ import { describe, it } from 'node:test';
 
 import { parse } from 'yaml';
 
-import { evaluate, main, measure, projectRef, report } from './free-limits.mjs';
+import { evaluate, main, measure, missingSecret, monthlyReminder, projectRef, report } from './free-limits.mjs';
 import { ROOT } from './mutation-shards.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const workflow = (name) => parse(read(`.github/workflows/${name}`));
 
-const limits = { supabaseDbBytesWarn: 1000, edgeFunctionInvocationsPerMonthWarn: 300, actionsCacheBytesWarn: 5000 };
+const limits = { supabaseDbBytesWarn: 1000, edgeFunctionInvocationsPerMonthWarn: 300, actionsCacheBytesWarn: 5000, actionsArtifactsBytesWarn: 400, monitorSecretRequiredFrom: '2026-10-16' };
 const TOKEN = 'token-testowy-nie-do-wypisania';
 
 /** Atrapa fetch: odpowiedzi po ścieżce, zapis wywołań (adres, nagłówki, treść). */
@@ -36,11 +36,13 @@ function fakeFetch(answers) {
 }
 
 const REF = 'rkokujgrziaaxabtxnlo';
-const answers = (db, n, cache) => ({
+const answers = (db, n, cache, artifacts) => ({
   [`/v1/projects/${REF}/database/query/read-only`]: db,
   [`/v1/projects/${REF}/analytics/endpoints/logs`]: n,
   '/repos/o/r/actions/cache/usage': cache,
+  '/repos/o/r/actions/artifacts': artifacts,
 });
+const artifact = (size_in_bytes, expired = false) => ({ size_in_bytes, expired });
 
 describe('strażnik darmowych limitów (D185, M-78)', () => {
   it('identyfikator projektu z adresu z config; inny adres to błąd', () => {
@@ -48,16 +50,17 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     assert.throws(() => projectRef('https://example.com'), /Nieoczekiwany adres/);
   });
 
-  it('pomiary: rozmiar bazy (zapytanie tylko do odczytu = podtrzymanie), wywołania z 24 h × 30, pamięć Actions', async () => {
-    const f = fakeFetch(answers([{ bytes: 700 }], { result: [{ n: 4 }] }, { active_caches_size_in_bytes: 100 }));
+  it('pomiary: rozmiar bazy (zapytanie tylko do odczytu = podtrzymanie), wywołania z 24 h × 30, pamięć i artefakty Actions', async () => {
+    const f = fakeFetch(answers([{ bytes: 700 }], { result: [{ n: 4 }] }, { active_caches_size_in_bytes: 100 }, { total_count: 2, artifacts: [artifact(50), artifact(999, true)] }));
     const now = Date.UTC(2026, 9, 9, 3, 0);
     const m = await measure({ fetchFn: f.fn, token: TOKEN, ref: REF, now, github: { token: 'gh', repository: 'o/r' } });
     assert.deepEqual(m, [
       { name: 'dbBytes', value: 700 },
       { name: 'functionInvocationsPerMonth', value: 120 },
       { name: 'actionsCacheBytes', value: 100 },
+      { name: 'actionsArtifactsBytes', value: 50 },
     ]);
-    const [db, logs, cache] = f.calls;
+    const [db, logs, cache, art] = f.calls;
     assert.equal(db.init.method, 'POST');
     assert.equal(db.init.headers.Authorization, `Bearer ${TOKEN}`);
     assert.match(JSON.parse(db.init.body).query, /pg_database_size/);
@@ -65,6 +68,36 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     assert.match(q.get('sql'), /source_name = 'function_edge_logs'/);
     assert.equal(Date.parse(q.get('iso_timestamp_end')) - Date.parse(q.get('iso_timestamp_start')), 24 * 3600 * 1000, 'okno ≤ 24 h (opis endpointu)');
     assert.equal(cache.init.headers.Authorization, 'Bearer gh');
+    assert.equal(art.init.headers.Authorization, 'Bearer gh');
+    assert.equal(new URL(art.url).searchParams.get('per_page'), '100');
+  });
+
+  it('artefakty (N-106): strony po 100 aż do total_count, wygasłe pominięte; zła odpowiedź i zbyt wiele stron to błąd', async () => {
+    const paged = (pages) => {
+      const calls = [];
+      const fn = async (url) => {
+        calls.push(String(url));
+        const page = Number(new URL(url).searchParams.get('page'));
+        return { ok: true, status: 200, json: async () => pages(page) };
+      };
+      return { fn, calls };
+    };
+    const gh = { token: 'gh', repository: 'o/r' };
+    const only = async (pages) => {
+      const f = paged(pages);
+      const m = await measure({ fetchFn: async (url, init) => (String(url).includes('/actions/artifacts') ? f.fn(url, init) : { ok: false, status: 503, json: async () => ({}) }), token: TOKEN, ref: REF, now: 0, github: gh });
+      return { result: m.find((x) => x.name === 'actionsArtifactsBytes'), pages: f.calls.length };
+    };
+    const full = Array.from({ length: 100 }, () => artifact(1));
+    const two = await only((p) => ({ total_count: 103, artifacts: p === 1 ? full : [artifact(2), artifact(3), artifact(4, true)] }));
+    assert.deepEqual(two, { result: { name: 'actionsArtifactsBytes', value: 105 }, pages: 2 });
+    const shrunk = await only((p) => ({ total_count: 500, artifacts: p === 1 ? full : [] }));
+    assert.deepEqual(shrunk, { result: { name: 'actionsArtifactsBytes', value: 100 }, pages: 2 }, 'pusta strona kończy (artefakty usunięte w trakcie)');
+    assert.equal((await only(() => ({ total_count: 1 }))).result.error, 'brak listy artefaktów');
+    assert.equal((await only(() => ({ total_count: 1, artifacts: [{ expired: false }] }))).result.error, 'brak size_in_bytes');
+    const endless = await only(() => ({ total_count: 1e9, artifacts: full }));
+    assert.equal(endless.result.error, 'więcej niż 10000 artefaktów');
+    assert.equal(endless.pages, 100);
   });
 
   it('błąd jednego pomiaru nie ukrywa pozostałych; bez GITHUB_TOKEN nie ma pomiaru Actions', async () => {
@@ -75,32 +108,42 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
       ['functionInvocationsPerMonth', 'błąd API: zła składnia'],
     ]);
     const odd = await measure({ fetchFn: fakeFetch(answers({ x: 1 }, { result: [{}] }, {})).fn, token: TOKEN, ref: REF, now: 0, github: { token: 'g', repository: 'o/r' } });
-    assert.deepEqual(odd.map((x) => x.error), ['nieoczekiwany kształt odpowiedzi', 'brak liczby „n” w odpowiedzi', 'brak active_caches_size_in_bytes']);
+    assert.deepEqual(odd.map((x) => x.error), ['nieoczekiwany kształt odpowiedzi', 'brak liczby „n” w odpowiedzi', 'brak active_caches_size_in_bytes', 'HTTP 404 dla /repos/o/r/actions/artifacts']);
   });
 
   it('ocena: poniżej progu ok, od progu ostrzeżenie, nieudany pomiar błąd', () => {
-    const r = evaluate([{ name: 'dbBytes', value: 999 }, { name: 'functionInvocationsPerMonth', value: 300 }, { name: 'actionsCacheBytes', error: 'x' }], limits);
-    assert.deepEqual(r.map((x) => x.status), ['ok', 'warn', 'error']);
+    const r = evaluate([{ name: 'dbBytes', value: 999 }, { name: 'functionInvocationsPerMonth', value: 300 }, { name: 'actionsCacheBytes', error: 'x' }, { name: 'actionsArtifactsBytes', value: 400 }], limits);
+    assert.deepEqual(r.map((x) => x.status), ['ok', 'warn', 'error', 'warn']);
+    assert.match(report(r), /\| Artefakty Actions \| PRÓG \|/);
     assert.match(report(r), /\| Rozmiar bazy Supabase \| ok \|/);
     assert.match(report(r), /egress/);
   });
 
-  it('bez sekretu: bez żadnego zapytania; ostrzeżenie i kod 0 przed datą graniczną, błąd i kod 1 od niej (N-83)', async () => {
-    const { config } = await import('../../src/config/index.ts');
-    const from = Date.parse(`${config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM}T00:00:00Z`);
+  it('bez sekretu (N-83): do terminu ostrzeżenie i kod 0, od terminu błąd i kod 1; bez żadnego zapytania', async () => {
+    const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
     const run = async (now) => {
       const f = fakeFetch({});
       const out = [];
-      const code = await main({ env: {}, fetchFn: f.fn, log: (s) => out.push(s), now });
+      const code = await main({ env: {}, fetchFn: f.fn, log: (s) => out.push(s), loadConfig, now });
       assert.equal(f.calls.length, 0);
       return { code, out: out.join('\n') };
     };
-    const before = await run(from - 1);
+    const before = await run(Date.parse('2026-10-15T23:59:59Z'));
     assert.equal(before.code, 0);
-    assert.match(before.out, /^::warning::Brak sekretu SUPABASE_MONITOR_TOKEN — limity nie są mierzone.*oblewa to zadanie/);
-    const after = await run(from);
+    assert.match(before.out, /^::warning::Brak sekretu SUPABASE_MONITOR_TOKEN \(środowisko monitor\).*docs\/limits\.md.*Od 2026-10-16/);
+    const after = await run(Date.parse('2026-10-16T00:00:00Z'));
     assert.equal(after.code, 1);
-    assert.match(after.out, /^::error::Brak sekretu SUPABASE_MONITOR_TOKEN — limity nie są mierzone/);
+    assert.match(after.out, /^::error::Brak sekretu SUPABASE_MONITOR_TOKEN/);
+    assert.equal(missingSecret(Date.parse('2027-01-01T00:00:00Z'), '2026-10-16', () => {}), 1);
+  });
+
+  it('pierwszego dnia miesiąca (UTC) przypomnienie o ręcznym odczycie egress i Realtime; w inne dni nic', async () => {
+    assert.match(monthlyReminder(Date.parse('2026-11-01T01:17:00Z')), /^::warning::.*egress.*Realtime/);
+    assert.equal(monthlyReminder(Date.parse('2026-10-31T23:59:00Z')), null);
+    const out = [];
+    const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
+    await main({ env: {}, fetchFn: fakeFetch({}).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-11-01T01:17:00Z') });
+    assert.match(out[0], /Comiesięczny odczyt/);
   });
 
   it('progi z config.limits; przekroczenie albo błąd → kod 1; tokenu nie ma w wyjściu', async () => {
@@ -118,7 +161,7 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     const err = await run(503);
     assert.equal(err.code, 1);
     for (const o of [ok.out, warn.out, err.out]) assert.ok(!o.includes(TOKEN));
-    assert.ok(!ok.out.includes('Początek miesiąca'));
+    assert.ok(!ok.out.includes('Comiesięczny odczyt'));
   });
 
   it('1. dnia miesiąca przypomina o ręcznym odczycie egress i Realtime (N-83)', async () => {
@@ -126,26 +169,35 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     const out = [];
     const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers([{ bytes: 10 }], { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-11-01T03:00:00Z') });
     assert.equal(code, 0);
-    assert.match(out.join('\n'), /::warning::Początek miesiąca: sprawdź ręcznie egress i wiadomości Realtime/);
+    assert.match(out.join('\n'), /::warning::Comiesięczny odczyt ręczny: panel Supabase → Usage \(egress, wiadomości Realtime/);
   });
 
   it('prawdziwe progi: src/config (jedno źródło prawdy) zawiera progi, których używa skrypt', async () => {
     const { config } = await import('../../src/config/index.ts');
-    const r = evaluate([{ name: 'dbBytes', value: 0 }, { name: 'functionInvocationsPerMonth', value: 0 }, { name: 'actionsCacheBytes', value: 0 }], config.limits);
+    const r = evaluate([{ name: 'dbBytes', value: 0 }, { name: 'functionInvocationsPerMonth', value: 0 }, { name: 'actionsCacheBytes', value: 0 }, { name: 'actionsArtifactsBytes', value: 0 }], config.limits);
     assert.ok(r.every((x) => x.status === 'ok' && x.warn > 0));
+    assert.match(config.limits.monitorSecretRequiredFrom, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(Number.isFinite(Date.parse(`${config.limits.monitorSecretRequiredFrom}T00:00:00Z`)));
     assert.equal(projectRef(config.SUPABASE_URL).length, 20);
   });
 
-  it('nightly.yml: zadanie bez sekretów na poziomie zadania, sekret tylko w kroku pomiaru; docs/limits.md opisuje sekret', () => {
+  it('nightly.yml: zadanie w środowisku monitor (N-85), bez sekretów na poziomie zadania, sekret tylko w kroku pomiaru; docs/limits.md opisuje token z zakresem', () => {
     const job = workflow('nightly.yml').jobs['free-limits'];
     assert.ok(job, 'brak zadania free-limits');
+    assert.equal(job.environment, 'monitor');
+    for (const [name, other] of Object.entries(workflow('nightly.yml').jobs)) if (name !== 'free-limits') assert.equal(other.environment, undefined, name);
     assert.ok(!JSON.stringify(job.env ?? {}).includes('secrets.'));
     const withSecret = job.steps.filter((s) => JSON.stringify(s).includes('secrets.'));
     assert.equal(withSecret.length, 1);
     assert.deepEqual(Object.keys(withSecret[0].env).filter((k) => String(withSecret[0].env[k]).includes('secrets.')), ['SUPABASE_MONITOR_TOKEN']);
     assert.match(withSecret[0].run, /free-limits\.mjs/);
     assert.equal(job.permissions.contents, 'read');
-    assert.match(read('docs/limits.md'), /SUPABASE_MONITOR_TOKEN/);
+    const doc = read('docs/limits.md');
+    assert.match(doc, /SUPABASE_MONITOR_TOKEN/);
+    assert.match(doc, /Environments.*`monitor`/s);
+    assert.match(doc, /token z zakresem/i);
+    assert.doesNotMatch(doc, /New repository secret/, 'sekret środowiska, nie repozytorium');
+    assert.doesNotMatch(doc, /jeszcze nie działa/);
   });
 });
 
@@ -169,10 +221,10 @@ describe('log buildu E2E bez wierszy export (D170)', () => {
 });
 
 describe('skan sekretów całego zakresu pusha', () => {
-  it('ci.yml: po gitleaks-action test skryptu i skan zakresu przed..po (push) albo bazy..głowy (PR)', () => {
+  it('ci.yml: po instalacji gitleaks (suma SHA-256) test skryptu i skan zakresu przed..po (push) albo bazy..głowy (PR)', () => {
     const steps = workflow('ci.yml').jobs['secrets-scan'].steps;
     const names = steps.map((s) => s.uses?.split('@')[0] ?? s.run);
-    const action = names.indexOf('gitleaks/gitleaks-action');
+    const action = names.indexOf('.github/scripts/install-gitleaks.sh');
     const test = names.indexOf('.github/scripts/test-gitleaks-range.sh');
     const scan = steps.findIndex((s) => s.run?.startsWith('.github/scripts/gitleaks-range.sh'));
     assert.ok(action >= 0 && test > action && scan > test, names.join(' | '));

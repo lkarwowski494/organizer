@@ -512,6 +512,26 @@ describe('Ustawienia', () => {
     expect(s.account.signOut).toHaveBeenCalled();
   });
 
+  // Audyt 3 (N-2, decyzja Q12 część 3 A): pełna grupa — wyjaśnienie, co zrobić, a nie ogólne „niezgodna z danymi”.
+  it('odrzucone zmiany: grupa pełna (liczba spraw, rozmiar)', async () => {
+    const s = setup({ base: sampleBase() });
+    const rejected = [
+      { op: { seq: 3, op_id: 'o3', kind: 'create' as const, entity: 'tasks' as const, id: 'x', group_id: 'g', set: { title: 'Mleko' } }, code: 'limit:group_rows' },
+      { op: { seq: 4, op_id: 'o4', kind: 'patch' as const, entity: 'tasks' as const, id: 'y', set: { note: 'Długa notatka' } }, code: 'limit:group_size' },
+    ];
+    await act(async () => {
+      s.store.getSnapshot().state = { ...s.store.getSnapshot().state, rejected } as never;
+    });
+    await s.renderApp(<RootStack />);
+    await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
+    await press(await screen.findByTestId('open-rejected'));
+    expect(await screen.findByText('Dodanie: „Mleko”')).toBeTruthy();
+    expect(screen.getByText('Grupa ma już najwięcej spraw, ile może mieć — usuń niepotrzebne i wprowadź zmianę jeszcze raz')).toBeTruthy();
+    expect(screen.getByText('Sprawy grupy zajmują już najwięcej miejsca, ile mogą — usuń niepotrzebne albo skróć długie notatki i wprowadź zmianę jeszcze raz')).toBeTruthy();
+    expect(screen.queryByText(/Przekroczony limit konta/)).toBeNull();
+  });
+
   it('strona główna: synchronizacja, pięć podstron, uwagi i wprowadzenie (D131; „Dodawanie” — audyt 2, M-24)', async () => {
     await open();
     await press(screen.getByLabelText('Ustawienia'));

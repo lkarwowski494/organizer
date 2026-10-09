@@ -8,9 +8,10 @@ import { Pressable, Text, View } from 'react-native';
 import { config } from '../../config';
 import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shopping.pl';
 import type { NewOp, Row } from '../../domain/sync-engine/client';
-import { addStaple, itemKey, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
+import type { Bought } from '../../domain/views/shopping-trip';
+import { addStaple, itemName, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Card, CardTitle, ErrorText, Field, Glyph, Segmented } from '../../ui/components';
+import { Body, Button, Card, CardTitle, Collapsible, ErrorText, Field, Glyph, Segmented } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { useTheme } from '../../ui/theme';
 
@@ -79,7 +80,7 @@ export function Suggestions({ names, onPick }: { names: readonly string[]; onPic
   return (
     <View testID="suggestions" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {names.map((n) => (
-        <Chip key={n} label={n} a11yLabel={strings['shop.suggest'](n)} onPress={() => onPick(n)} testID={`suggest-${itemKey(n)}`} />
+        <Chip key={n} label={n} a11yLabel={strings['shop.suggest'](n)} onPress={() => onPick(n)} testID={`suggest-${itemName(n)}`} />
       ))}
     </View>
   );
@@ -113,7 +114,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
           {staples.map((s) => (
             <View key={s} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <Body>{s}</Body>
-              <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemKey(s)}`} onPress={() => onRemove(s)} />
+              <Chip label="✕" a11yLabel={strings['shop.stapleRemove'](s)} testID={`staple-remove-${itemName(s)}`} onPress={() => onRemove(s)} />
             </View>
           ))}
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
@@ -125,5 +126,25 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
         <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />
       )}
     </Card>
+  );
+}
+
+/**
+ * „Kupione w ostatnich zakupach” (decyzja właściciela, audyt 3: Q9 B, N-49): zwinięte jak „Zrobione (N)”; „Kup jeszcze
+ * raz” przywraca pozycję na listę jako niekupioną. Tytuł z ilością, jak został wpisany.
+ */
+export function BoughtSection({ items, open, onToggle, onBuyAgain }: { items: readonly Bought[]; open: boolean; onToggle: () => void; onBuyAgain: (b: Bought) => void }) {
+  if (items.length === 0) return null;
+  return (
+    <Collapsible title={strings['shop.bought'](items.length)} open={open} onToggle={onToggle} testID="bought">
+      {items.map((b) => (
+        <View key={b.id} testID={`bought-${b.id}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Body>{b.title}</Body>
+          </View>
+          <Button kind="secondary" label={strings['shop.buyAgain']} a11yLabel={strings['shop.buyAgainA11y'](b.title)} testID={`buy-again-${b.id}`} onPress={() => onBuyAgain(b)} />
+        </View>
+      ))}
+    </Collapsible>
   );
 }
