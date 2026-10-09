@@ -180,7 +180,9 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       onInvalidRows: (fields) => void reportError(toClientError(new Error(`pominięte wiersze: ${fields.join(', ')}`), 'error', 'sync', appVersion())).catch(() => {}),
       onPushed: (ops, res, st) => {
         const { y, m, d } = localNow(nowMs());
-        waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))));
+        // N-19 (audyt 3): serwer przyjął zmianę już po wyjściu z aplikacji — prośba od razu, uśpiona nie doczeka odstępu
+        // (AppState.currentState „will be kept up-to-date”, https://reactnative.dev/docs/appstate).
+        waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))), AppState.currentState === 'background');
       },
     });
   }, [db, deps, epoch, session.userId, waker]); // eslint-disable-line react-hooks/exhaustive-deps

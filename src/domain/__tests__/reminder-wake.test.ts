@@ -61,6 +61,43 @@ describe('ciche powiadomienia: które grupy obudzić (D159)', () => {
     expect(wakeGroups(ops, ok(...ops.map((o) => o.seq)), before, before, H)).toEqual(['g1', 'g10', 'g11', 'g3', 'g4', 'g9']);
   });
 
+  // Audyt 3, N-18: przyjęcie przenosi sprawę na odbiorcę — telefon nadawcy musi skasować jej przypomnienia.
+  it('przyjęcie przekazania budzi grupę; propozycja, odrzucenie i sprawa poza oknem — nie', () => {
+    const h = (id: string, row: Row): T => ({ handoffs: { [id]: { id, group_id: 'gh', status: 'pending', ...row } } });
+    const tables: T = {
+      ...before,
+      handoffs: {
+        ...h('zad', { entity: 'tasks', entity_id: 'blisko' }).handoffs,
+        ...h('dal', { entity: 'tasks', entity_id: 'daleko' }).handoffs,
+        ...h('nzn', { entity: 'tasks', entity_id: 'brak' }).handoffs,
+        ...h('ter', { entity: 'events', entity_id: 'seria', occurrence_date: '2026-10-14' }).handoffs,
+        ...h('ted', { entity: 'events', entity_id: 'seria', occurrence_date: '2027-01-06' }).handoffs,
+        ...h('cal', { entity: 'events', entity_id: 'seria', occurrence_date: null }).handoffs,
+        bez: { id: 'bez', status: 'pending' },
+      },
+    };
+    const acc = (id: string) => patch('handoffs', id, { status: 'accepted' });
+    const one = (op: Op, b: T = tables, a: T = tables) => wakeGroups([op], ok(op.seq), b, a, H);
+    expect(one(acc('zad'))).toEqual(['gh']);
+    expect(one(acc('nzn'))).toEqual(['gh']);
+    expect(one(acc('ter'))).toEqual(['gh']);
+    expect(one(acc('cal'))).toEqual(['gh']);
+    expect(one(acc('zad'), {}, tables)).toEqual(['gh']);
+    expect(one(acc('dal'))).toEqual([]);
+    expect(one(acc('ted'))).toEqual([]);
+    expect(one(acc('bez'))).toEqual([]);
+    expect(one(acc('brak'))).toEqual([]);
+    expect(one(patch('handoffs', 'zad', { status: 'declined' }))).toEqual([]);
+    expect(one(patch('handoffs', 'zad', { closed: true }))).toEqual([]);
+    expect(one({ seq: ++n, op_id: 'nh', kind: 'create', entity: 'handoffs', id: 'nowe', group_id: 'gh', set: { status: 'pending' } })).toEqual([]);
+  });
+
+  it('zakres Moich spraw budzi grupę (moje inne urządzenia planują od nowa)', () => {
+    const op = patch('my_day_scopes', 's1', { scope: 'mine' });
+    const t: T = { my_day_scopes: { s1: { id: 's1', group_id: 'gs', scope: 'all' } } };
+    expect(wakeGroups([op], ok(op.seq), t, t, H)).toEqual(['gs']);
+  });
+
   it('wiersz bez grupy — pomijany', () => {
     const op = patch('tasks', 'sierota');
     expect(wakeGroups([op], ok(op.seq), { tasks: { sierota: { id: 'sierota' } } }, {}, H)).toEqual([]);
