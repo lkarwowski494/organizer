@@ -50,8 +50,29 @@ export type Nested<E> = { entry: E } & Nesting;
 const keyOf = (e: EventLike | TaskLike | BlockLike) => (e.kind === 'event' ? `e:${e.event.eventId}|${e.event.occurrenceDate}` : e.kind === 'lessons' ? `l:${e.key}` : `t:${e.task.id}`);
 const parentOf = (x: TaskLike['task']) => (x.parent_id ? `t:${x.parent_id}` : x.event_id && x.occurrence_date ? `e:${x.event_id}|${x.occurrence_date}` : null);
 
-export function nestEntries<E extends EventLike | TaskLike | BlockLike>(entries: readonly E[], t: Tables): Nested<E>[] {
-  const tasks = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
+export type NestIndex = { readonly progress: ReadonlyMap<string, { done: number; total: number }> };
+
+/**
+ * Liczniki „zrobione/wszystkie” podzadań i zadań wystąpienia, policzone raz dla tabel (audyt 3, N-6): plan
+ * przypomnień układa 14 dni z tym samym indeksem, zamiast za każdym wpisem przeglądać wszystkie zadania. `tasks` —
+ * zadania tych tabel, gdy wołający ma je już przeczytane.
+ */
+export function nestIndex(t: Tables, tasks: Iterable<Task> = rows(t, 'tasks', asTask)): NestIndex {
+  const progress = new Map<string, { done: number; total: number }>();
+  for (const x of tasks) {
+    if (x.deleted_at !== null) continue;
+    // Podzadanie liczy się u rodzica; zadanie bez rodzica — u wystąpienia, do którego jest przypięte (jeśli jest).
+    const key = x.parent_id !== null ? `t:${x.parent_id}` : x.event_id !== null && x.occurrence_date !== null ? `e:${x.event_id}|${x.occurrence_date}` : null;
+    if (key === null) continue;
+    const c = progress.get(key) ?? { done: 0, total: 0 };
+    c.total++;
+    if (x.completed_at !== null) c.done++;
+    progress.set(key, c);
+  }
+  return { progress };
+}
+
+export function nestEntries<E extends EventLike | TaskLike | BlockLike>(entries: readonly E[], t: Tables, index: NestIndex = nestIndex(t)): Nested<E>[] {
   const present = new Set(entries.map(keyOf));
   const children = new Map<string, E[]>();
   const roots: E[] = [];
@@ -62,8 +83,8 @@ export function nestEntries<E extends EventLike | TaskLike | BlockLike>(entries:
   }
   const progressOf = (e: E) => {
     if (e.kind === 'lessons') return null;
-    const mine = e.kind === 'event' ? tasks.filter((x) => x.event_id === e.event.eventId && x.occurrence_date === e.event.occurrenceDate && x.parent_id === null) : tasks.filter((x) => x.parent_id === e.task.id);
-    return mine.length ? { done: mine.filter((x) => x.completed_at !== null).length, total: mine.length } : null;
+    const c = index.progress.get(e.kind === 'event' ? `e:${e.event.eventId}|${e.event.occurrenceDate}` : `t:${e.task.id}`);
+    return c ? { ...c } : null;
   };
   const parentLabel = (e: E): ParentLabel | null => {
     if (e.kind === 'event' || e.kind === 'lessons') return null;

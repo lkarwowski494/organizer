@@ -93,6 +93,36 @@ export function moveTooFar(occurrenceDate: string, newDate: string): boolean {
 const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at === null;
 
 /**
+ * Daty wystąpień (rosnąco), które mogą stać w [from, to]: według reguły w tym zakresie i te przeniesione do niego wyjątkiem
+ * z najwyżej MOVE_WINDOW_DAYS dni dalej (audyt 3, N-16). Dawniej rozwijane było całe okno ±MOVE_WINDOW_DAYS — przy
+ * codziennej serii ok. 190 dat na każde wywołanie, choć poza zakresem zostają tylko przeniesione.
+ */
+function occurrenceDates(e: EventRow, rule: Rule | null, byDate: ReadonlyMap<string, Override>, from: CivilDate, to: CivilDate, isoFrom: string, isoTo: string): string[] {
+  const start = parseIsoDate(e.start_date);
+  const dates = new Set(occurrences(start, rule, from, to).map(formatIsoDate));
+  const lo = formatIsoDate(addDays(from, -MOVE_WINDOW_DAYS));
+  const hi = formatIsoDate(addDays(to, MOVE_WINDOW_DAYS));
+  for (const [occ, o] of byDate) {
+    if (dates.has(occ) || o.start_date === null || o.start_date < isoFrom || o.start_date > isoTo || occ < lo || occ > hi) continue;
+    // Wyjątek tylko dla daty, która jest wystąpieniem serii (jak przy rozwijaniu całego okna).
+    const d = parseIsoDate(occ);
+    if (occurrences(start, rule, d, d).length) dates.add(occ);
+  }
+  return [...dates].sort();
+}
+
+/** Wiersze po `event_id`, w kolejności tabeli. */
+function byEvent<T extends { event_id: string }>(xs: readonly T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const x of xs) {
+    const list = out.get(x.event_id);
+    if (list) list.push(x);
+    else out.set(x.event_id, [x]);
+  }
+  return out;
+}
+
+/**
  * Wystąpienia w [from, to] z moich grup. Do „Moich spraw” trafia (D58): wydarzenie całej grupy, albo jestem uczestnikiem,
  * albo uczestnikiem jest dziecko z tej grupy, a ja jestem dorosłym (rodzic zawozi na zajęcia). W grupie, w której jestem
  * dzieckiem z kontem, tylko wystąpienia, które mnie dotyczą — także w Kalendarzu (PW-14 B, child.ts), a moje lekcje
@@ -101,8 +131,10 @@ const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at ==
 export function expandEvents(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const members = new Map(rows(t, 'group_members', asMember).map((m) => [m.member_id, m]));
-  const parts = rows(t, 'event_participants', asParticipant).filter(alive);
-  const overrides = rows(t, 'event_overrides', asOverride).filter(alive);
+  // Uczestnicy i wyjątki pogrupowane po wydarzeniu raz na wywołanie (audyt 3, N-16) — dawniej filtr całej tabeli dla
+  // każdego wydarzenia.
+  const partsOf = byEvent(rows(t, 'event_participants', asParticipant).filter(alive));
+  const overridesOf = byEvent(rows(t, 'event_overrides', asOverride).filter(alive));
   const out: Occurrence[] = [];
   const isoFrom = formatIsoDate(from);
   const isoTo = formatIsoDate(to);
@@ -110,7 +142,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     const g = groups.get(e.group_id);
     if (!g) continue;
     const rule = ruleOf(e);
-    const mine = parts.filter((p) => p.event_id === e.id).map((p) => members.get(p.member_id));
+    const mine = (partsOf.get(e.id) ?? []).map((p) => members.get(p.member_id));
     // D58 bez osoby odpowiedzialnej: cała grupa, ja uczestnikiem albo dziecko uczestnikiem (dla dorosłych).
     const byRule =
       e.audience === 'group' ||
@@ -123,9 +155,8 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     const children = e.kind !== 'lesson' ? [] : !iAmIn ? mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null) : child ? [g.me] : [];
     const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
-    const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
-    for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
-      const occ = formatIsoDate(d);
+    const byDate = new Map((overridesOf.get(e.id) ?? []).map((o) => [o.occurrence_date, o]));
+    for (const occ of occurrenceDates(e, rule, byDate, from, to, isoFrom, isoTo)) {
       const o = byDate.get(occ);
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
@@ -709,7 +740,12 @@ export function todayEvents(t: Tables, userId: string, today: CivilDate): { toda
 /** Wszystkie wydarzenia z moich grup w [from, to], pogrupowane po dniu (kalendarz). */
 export function eventsByDate(t: Tables, userId: string, from: CivilDate, to: CivilDate): Map<string, Occurrence[]> {
   const out = new Map<string, Occurrence[]>();
-  for (const x of expandEventDays(t, userId, from, to)) out.set(x.date, [...(out.get(x.date) ?? []), x]);
+  // Dopisywanie w miejscu (audyt 3, N-16) — dawniej kopia listy dnia przy każdym wpisie.
+  for (const x of expandEventDays(t, userId, from, to)) {
+    const day = out.get(x.date);
+    if (day) day.push(x);
+    else out.set(x.date, [x]);
+  }
   return out;
 }
 
