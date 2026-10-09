@@ -8,9 +8,15 @@
  *    tyle samo: §3.8.5.3 „If the duration of the recurring component is specified with the "DTEND" or "DUE" property,
  *    then the same exact duration will apply to all the members of the generated recurrence set”, a wyjątek może ją
  *    zmienić: „The duration of a specific recurrence may be modified in an exception component” (event_overrides.days);
- *  - z godziną: koniec nie później niż początek („22:00–06:00”, także „8:00–8:00” = doba) znaczy koniec następnego dnia.
+ *  - z godziną: długość w minutach `duration_min` — §3.8.2.5 DURATION: „In a "VEVENT" calendar component the property
+ *    may be used to specify a duration of the event, instead of an explicit end DATE-TIME” (tam „dur-time”, dla dat
+ *    „dur-day”: „When the "DURATION" property relates to a "DTSTART" property that is specified as a DATE value, then the
+ *    "DURATION" property MUST be specified as a "dur-day" or "dur-week" value” — stąd `days` dla całodniowych).
+ *    `null` = długość z godzin: koniec po początku — ten sam dzień, koniec nie później niż początek („22:00–06:00”,
+ *    „8:00–8:00” = doba) — następnego dnia. Dłuższe (pt. 18:00 – nd. 16:00) mają `duration_min`; godzina końca zostaje
+ *    w wierszu i musi się zgadzać z początkiem + długością (inaczej serwer zeruje długość — zmiana godzin z buildu 21).
  *    Godziny to czas lokalny (R2), więc długość liczymy na zegarze (jak „nominal duration” z §3.8.5.3).
- * Telefony z buildem 21 nie znają `days`: widzą takie wydarzenie w dniu startu.
+ * Telefony z buildem 21 nie znają `days` ani `duration_min`: widzą takie wydarzenie w dniu startu.
  */
 import { minutesOf } from './format';
 
@@ -22,17 +28,39 @@ const hm = (t: string) => t.slice(0, 5);
 /** Koniec z godziną nie później niż początek = następnego dnia. */
 export const endsNextDay = (start: string | null, end: string | null) => start !== null && end !== null && hm(end) <= hm(start);
 
-/**
- * Ile dni kalendarzowych obejmuje wystąpienie: całodniowe — `days`, z godziną — 1 albo 2 (przez północ). Koniec o północy
- * („20:00–00:00”) nie wchodzi na następny dzień — koniec jest wyłączny (jak DTEND, RFC 5545 §3.6.1).
- */
-export const coveredDays = (start: string | null, end: string | null, days: number) => (start === null ? days : endsNextDay(start, end) && hm(end!) !== '00:00' ? 2 : 1);
+const DAY = 24 * 60;
 
-/** Długość w minutach (koniec następnego dnia — z dobą), `null` bez końca albo bez godziny. */
-export function lengthMinutes(start: string | null, end: string | null): number | null {
+/** Długość z samych godzin (koniec nie później niż początek — z dobą), `null` bez końca albo bez godziny. */
+export function clockMinutes(start: string | null, end: string | null): number | null {
   if (start === null || end === null) return null;
   const m = minutesOf(end) - minutesOf(start);
-  return m > 0 ? m : m + 24 * 60;
+  return m > 0 ? m : m + DAY;
+}
+
+/** Długość w minutach: zapisana (`duration`) albo z godzin; `null` bez końca albo bez godziny. */
+export const lengthMinutes = (start: string | null, end: string | null, duration: number | null = null) => (start === null || end === null ? null : (duration ?? clockMinutes(start, end)));
+
+/**
+ * Ile dni kalendarzowych obejmuje wystąpienie: całodniowe — `days`, z godziną — od dnia startu do dnia końca. Koniec
+ * o północy („20:00–00:00”) nie wchodzi na następny dzień — koniec jest wyłączny (jak DTEND, RFC 5545 §3.6.1).
+ */
+export function coveredDays(start: string | null, end: string | null, days: number, duration: number | null = null): number {
+  if (start === null) return days;
+  const m = lengthMinutes(start, end, duration);
+  return m === null ? 1 : Math.floor((minutesOf(start) + m - 1) / DAY) + 1;
+}
+
+/** O ile dni po dniu startu jest chwila końca (godzina końca tego dnia; koniec o północy — dzień po ostatnim). */
+export const endDayOffset = (start: string, minutes: number) => Math.floor((minutesOf(start) + minutes) / DAY);
+
+/**
+ * Długość do zapisu w wierszu wydarzenia: `null`, gdy wynika z godzin, albo nie pasuje do godziny końca (tak samo
+ * private.event_duration w SQL). Wyjątek terminu zapisuje długość także wtedy, gdy wynika z godzin (EventFields).
+ */
+export function storedDuration(start: string | null, end: string | null, duration: number | null): number | null {
+  if (start === null || end === null || duration === null) return null;
+  if ((minutesOf(start) + duration) % DAY !== minutesOf(end)) return null;
+  return duration === clockMinutes(start, end) ? null : duration;
 }
 
 /**

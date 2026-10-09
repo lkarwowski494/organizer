@@ -1,0 +1,55 @@
+appId: io.github.lkarwowski494.organizer
+name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z 3” w Kalendarzu
+---
+- runFlow: common/launch.yaml
+- tapOn:
+    id: "tab-Calendar"
+- scrollUntilVisible:
+    element:
+      id: "calendar-add-event"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "calendar-add-event"
+- extendedWaitUntil:
+    visible:
+      id: "screen-event-edit"
+    timeout: 10000
+- tapOn: "Rodzina"
+- tapOn:
+    id: "event-title"
+- inputText: "Obóz"
+- hideKeyboard
+- tapOn: "Cały dzień"
+- scrollUntilVisible:
+    element:
+      id: "event-end-date"
+    direction: DOWN
+    timeout: 10000
+# Dziś w danych demo: środa 7.10.2026 — obóz do piątku 9.10 (3 dni).
+- tapOn:
+    id: "event-end-date"
+- scrollUntilVisible:
+    element:
+      id: "event-end-date-calendar"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Piątek, 9 października.*"
+- scrollUntilVisible:
+    element:
+      id: "event-save"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "event-save"
+- extendedWaitUntil:
+    visible:
+      id: "screen-calendar"
+    timeout: 10000
+- tapOn:
+    id: "day-2026-10-08"
+- scrollUntilVisible:
+    element: "Obóz, cały dzień, dzień 2 z 3.*"
+    direction: DOWN
+    timeout: 10000
+- takeScreenshot: 08-multi-day
