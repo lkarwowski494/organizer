@@ -20,7 +20,7 @@ describe('lista z przerwami (D122)', () => {
     await screen.findByTestId('screen-today');
     // korki 17:30, paczka 18:00, Basen 19:00–20:00; teraz 10:00.
     expect(order(/^today-(gap|event-ev1|t-korki|t-paczka)/)).toEqual(['today-gap-600-1050', 'today-t-korki', 'today-gap-1050-1080', 'today-t-paczka', 'today-gap-1080-1140', 'today-event-ev1-2026-10-07']);
-    expect(screen.getByLabelText('Wolne 7 h 30 min')).toBeTruthy();
+    expect(screen.getByLabelText('Wolne 7 godzin 30 minut')).toBeTruthy();
     expect(within(screen.getByTestId('today-gap-1080-1140')).getByText('wolne 1 h')).toBeTruthy();
   });
 

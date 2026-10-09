@@ -5,6 +5,12 @@ import { Linking } from 'react-native';
 import { RootStack } from '../navigation';
 import { appStateEvents, fakeAccount, fakePush, put, sampleBase, setup } from './harness';
 
+/** Przełącznik iOS w wierszu Ustawień (M-308, PWD-39 A). */
+const toggle = async (el: ReturnType<typeof screen.getByLabelText>, on: boolean) => {
+  expect(el.props.accessibilityRole).toBe('switch');
+  await fireEvent(el, 'valueChange', on);
+};
+
 /** Ustawienia konta (D175) w pamięci; wprowadzenie i „Co nowego” obejrzane (nie zasłaniają „Moich spraw”). */
 function memoryPrefs(initial: Record<string, string> = {}) {
   const m = new Map(Object.entries({ welcomeSeen: '1', whatsNewBuild: String(Number.MAX_SAFE_INTEGER), ...initial }));
@@ -96,7 +102,7 @@ describe('przypomnienia (D75)', () => {
       await press(screen.getByLabelText('Ustawienia'));
       await press(await screen.findByTestId('settings-notifications'));
       await screen.findByTestId('screen-settings-notifications');
-      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
+      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText(/^Wyłączone(,|$)/));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '08:00', leave: true });
       await act(async () => {
         jest.advanceTimersByTime(2000);
@@ -106,9 +112,9 @@ describe('przypomnienia (D75)', () => {
       await press(screen.getByLabelText('09:00'));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: true });
       // PWD-17 (decyzja właściciela): „Czas wyjść” osobno.
-      await press(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone'));
+      await toggle(screen.getByLabelText('Czas wyjść'), false);
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: false });
-      expect(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
+      expect(screen.getByLabelText('Czas wyjść').props.value).toBe(false);
     } finally {
       jest.useRealTimers();
     }
@@ -162,13 +168,13 @@ describe('przypisania (D81)', () => {
     // PWD-18 (decyzja właściciela): sekcja mówi, czego dotyczy wyciszenie, a czego nie.
     expect(within(box).getByText('Powiadomienia o przypisaniach')).toBeTruthy();
     expect(within(box).getByText(/Przypomnienia i przekazania \(do przyjęcia\) przychodzą zawsze\.$/)).toBeTruthy();
-    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
-    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyciszone'));
+    expect(within(box).getByLabelText('Klasa 2b').props.value).toBe(false);
+    await toggle(within(box).getByLabelText('Rodzina'), false);
     expect(account.setPushMute).toHaveBeenLastCalledWith('gf', true);
     account.setPushMute.mockRejectedValueOnce(new Error('offline'));
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await toggle(within(box).getByLabelText('Klasa 2b'), true);
     await flush();
-    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
+    expect(within(box).getByLabelText('Klasa 2b').props.value).toBe(false);
     expect(screen.getByText('Nie udało się zmienić ustawień — sprawdź internet.')).toBeTruthy();
   });
 

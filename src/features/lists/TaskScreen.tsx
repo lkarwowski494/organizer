@@ -48,9 +48,9 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** Walidacja pól terminu; zwraca błąd do pokazania albo termin. */
 export function parseDueFields(date: string, time: string): { error: string } | { due: { date: string; time: string | null } } {
   const m = DATE.exec(date.trim());
-  if (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3]))) return { error: strings['task.invalidDate'] };
+  if (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3]))) return { error: strings['event.error.date'] };
   const t = time.trim();
-  if (t !== '' && !TIME.test(t)) return { error: strings['task.invalidTime'] };
+  if (t !== '' && !TIME.test(t)) return { error: strings['event.error.time'] };
   return { due: { date: date.trim(), time: t === '' ? null : t } };
 }
 
@@ -71,7 +71,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, state } = useAppData();
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
   const task = raw ? asTask(raw) : null;
   const detail = useMemo(() => (task ? listDetail(tables, userId, task.list_id, today) : null), [tables, userId, task?.list_id, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,11 +186,11 @@ export function TaskScreen({ route, navigation }: Props) {
         {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
         {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} /> : null}
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
-        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>
+        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>
           {groupLine}
         </Text>
       </View>
-      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
@@ -200,7 +200,7 @@ export function TaskScreen({ route, navigation }: Props) {
         </>
       ) : (
         <>
-          <Text style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.DETAIL, color: c.ink }}>{task.title}</Text>
           {task.note ? <Body>{task.note}</Body> : null}
         </>
       )}
@@ -260,7 +260,7 @@ export function TaskScreen({ route, navigation }: Props) {
             {repeat ? <Body muted>{strings['repeat.info']}</Body> : null}
           </>
         ) : (
-          <Body muted>{strings['repeat.needsDue']}</Body>
+          <Body muted>{strings['form.error.repeatNeedsDate']}</Body>
         )
       ) : null}
       {canEdit ? (
@@ -298,7 +298,7 @@ export function TaskScreen({ route, navigation }: Props) {
               setError(null);
               store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
             }}
-            options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+            options={[{ value: '', label: strings['common.nobody'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
           />
           {/* D180 (PW-21 B): obie drogi zostają — opis różnicy przy polu. */}
           <Body muted>{strings['task.assigneeHint']}</Body>

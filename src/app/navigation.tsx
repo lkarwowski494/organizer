@@ -7,7 +7,7 @@ import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigat
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -59,14 +59,17 @@ const TAB_LABELS: Record<keyof TabParams, string> = {
 
 /** Pasek zakładek z makiety „Wstążki”: zaokrąglony u góry, aktywna zakładka w pigułce (nie tylko kolor). */
 function TabBar({ state, navigation }: BottomTabBarProps) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, fontScale } = useTheme();
   const insets = useSafeAreaInsets();
   const { userId } = useServices();
   const { tables } = useAppData();
   // Plakietka na „Dziś”: przekazania czekające na moją decyzję (D70).
   const pending = incomingHandoffs(tables, userId).length;
   return (
-    <View accessibilityRole="tablist" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
+    // Audyt 2 (M-40): na iOS role „tab” i „tablist” nie dają żadnej cechy (React Native, accessibilityPropsConversions.h:
+    // brak gałęzi; React Navigation też daje na iOS „button”, BottomTabItem.tsx). Pasek dostaje cechę paska kart
+    // („tabbar” → UIAccessibilityTraitTabBar: VoiceOver mówi „karta 1 z 4”), zakładki — „button” na iOS.
+    <View accessibilityRole="tabbar" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
       {state.routes.map((r, i) => {
         const on = state.index === i;
         const label = TAB_LABELS[r.name as keyof TabParams];
@@ -74,7 +77,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
         return (
           <Pressable
             key={r.key}
-            accessibilityRole="tab"
+            accessibilityRole={Platform.OS === 'ios' ? 'button' : 'tab'}
             accessibilityState={{ selected: on }}
             accessibilityLabel={badge ? `${label}, ${strings['handoff.badge'](badge)}` : label}
             testID={`tab-${r.name}`}
@@ -82,11 +85,12 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             style={{ flex: 1, minHeight: size.TOUCH_TARGET + 8, alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             {/* Aktywna zakładka jako pigułka w kolorze akcentu (D72) — wyróżniona kształtem, nie tylko kolorem. */}
+            {/* M-43: napis rośnie z Dynamic Type do 200% i mieści się w jednej linii (zmniejsza się zamiast łamać w środku słowa). */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? c.accentBg : 'transparent' }}>
-              <Text style={{ fontFamily: font.text700, fontSize: 12, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.TAB, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
               {badge ? (
-                <View testID="tab-badge" style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
-                  <Text style={{ fontFamily: font.text700, fontSize: 11, color: c.inverseInk }}>{badge}</Text>
+                <View testID="tab-badge" style={{ minWidth: 18, minHeight: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
+                  <Text maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: font.text700, fontSize: size.BADGE, color: c.inverseInk }}>{badge}</Text>
                 </View>
               ) : null}
             </View>

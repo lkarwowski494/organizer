@@ -36,10 +36,11 @@ describe('D199: formularz wydarzenia', () => {
     // D199 cz. 2: „Kończy się” jest też przy „O godzinie”.
     await press(screen.getByLabelText('Cały dzień'));
     // Domyślnie ten sam dzień.
-    expect(screen.getByTestId('event-end-date').props.accessibilityLabel).toBe('Kończy się: Środa, 7 października');
+    expect(screen.getByTestId('event-end-date').props.accessibilityLabel).toBe('Kończy się');
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toMatchObject({ text: 'Środa, 7 października' });
     await pickDate('event-end-date', '2026-10-11');
     await pickDate('event-date', '2026-10-12');
-    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toEqual({ text: '2026-10-16' });
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toMatchObject({ text: 'Piątek, 16 października' });
     await press(screen.getByTestId('event-save'));
     expect(created(store.dispatched).map((o) => o.set)).toEqual([expect.objectContaining({ title: 'Obóz', start_date: '2026-10-12', start_time: null, end_time: null, days: 5 })]);
   });
@@ -83,7 +84,7 @@ describe('D199: formularz wydarzenia', () => {
     await pickDate('event-end-date', '2026-10-09');
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('calendar-add-event'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
   });
 
   it('zmiana zapisanego obozu: formularz z ostatnim dniem, krótszy zapis', async () => {
@@ -92,7 +93,7 @@ describe('D199: formularz wydarzenia', () => {
     const { store } = await open(base);
     await press(screen.getByTestId('today-event-oboz-2026-10-07'));
     await press(await screen.findByLabelText('Zmień'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-11' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Niedziela, 11 października' });
     await pickDate('event-end-date', '2026-10-08');
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched).toEqual([{ kind: 'patch', entity: 'events', id: 'oboz', set: expect.objectContaining({ days: 2 }) }]);
@@ -110,7 +111,7 @@ describe('D199: wiersze i ekran wydarzenia', () => {
   it('Moje sprawy: każdy dzień obozu z numerem; nocny dyżur dziś z godzinami, jutro „do 06:00”', async () => {
     await open(camp());
     expect(screen.getByTestId('today-event-oboz-2026-10-05').props.accessibilityLabel).toBe('Obóz, cały dzień, dzień 3 z 5, Rodzina');
-    expect(screen.getByTestId('today-event-dyzur-2026-10-07').props.accessibilityLabel).toBe('Dyżur, 22:00–06:00, 8 h, dzień 1 z 2, Rodzina');
+    expect(screen.getByTestId('today-event-dyzur-2026-10-07').props.accessibilityLabel).toBe('Dyżur, 22:00–06:00, 8 godzin, dzień 1 z 2, Rodzina');
     await press(screen.getByLabelText('Następny dzień'));
     expect((await screen.findByTestId('today-event-dyzur-2026-10-07')).props.accessibilityLabel).toBe('Dyżur, do 06:00, dzień 2 z 2, Rodzina');
     expect(screen.getByText('dzień 4 z 5', { exact: false })).toBeTruthy();

@@ -4,15 +4,13 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { type NameError, renameMeOps, validateName } from '../../domain/views/my-name';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Field, Screen, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Name'>;
@@ -27,7 +25,6 @@ const ERRORS: Record<NameError | 'server', string> = {
 export function NameScreen({ route, navigation }: Props) {
   const { account, store, userId, displayName, emailName, needsName, prefs } = useServices();
   const { tables } = useAppData();
-  const { c, font } = useTheme();
   const asked = route.params?.from !== 'settings';
   const [name, setName] = useState(asked && needsName ? '' : displayName);
   const [error, setError] = useState<NameError | 'server' | null>(null);
@@ -59,14 +56,12 @@ export function NameScreen({ route, navigation }: Props) {
     <Screen testID="screen-name">
       <Title>{asked ? strings['name.askTitle'] : strings['name.title']}</Title>
       <Body muted>{strings['name.info']}</Body>
-      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" testID="name-field" />
+      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" testID="name-field" />
       {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
-          {ERRORS[error]}
-        </Text>
+        <ErrorText>{ERRORS[error]}</ErrorText>
       ) : null}
-      <Button label={strings['name.save']} disabled={busy} onPress={() => void save()} testID="name-save" />
-      <Button kind="secondary" label={asked ? strings['name.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
+      <Button label={strings['name.save']} busy={busy} onPress={() => void save()} testID="name-save" />
+      <Button kind="secondary" label={asked ? strings['common.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
     </Screen>
   );
 }

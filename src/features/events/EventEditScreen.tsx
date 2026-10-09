@@ -5,7 +5,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
@@ -23,8 +23,8 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { SeriesPreview } from './SeriesPreview';
@@ -38,7 +38,7 @@ const FEMININE = new Set([2, 5, 6]); // środa, sobota, niedziela
 export function EventEditScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
+  const { c, space, radius } = useTheme();
   const { eventId, scope = 'all' } = route.params;
   const detail = useMemo(() => (eventId ? eventDetail(tables, userId, eventId) : null), [tables, userId, eventId]);
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
@@ -178,9 +178,9 @@ export function EventEditScreen({ route, navigation }: Props) {
         </Body>
       ) : null}
       {!detail && groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['event.title']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
+      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
         <Field label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
@@ -189,7 +189,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
       {detail?.rule && (scope === 'following' || (scope === 'all' && form.repeat !== 'none')) ? null : (
         // D199: przesunięcie startu przesuwa ostatni dzień (długość zostaje).
-        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
+        <DateField label={series ? strings['event.firstDate'] : strings['due.day']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
@@ -204,8 +204,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       )}
 
       {slots.map((slot, i) => (
-        <View key={i} style={{ gap: 10, ...(multi ? { padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.border } : {}) }}>
-          {multi && form.slots.length > 1 ? <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['event.slot'](i + 1)}</Text> : null}
+        <View key={i} style={{ gap: 10, ...(multi ? { padding: space.PANEL_PAD, borderRadius: radius.PANEL, borderWidth: 1, borderColor: c.border } : {}) }}>
+          {multi && form.slots.length > 1 ? <CardTitle>{strings['event.slot'](i + 1)}</CardTitle> : null}
           {form.repeat === 'weekly' && !only ? (
             <Toggles
               label={strings['event.days']}
@@ -215,14 +215,10 @@ export function EventEditScreen({ route, navigation }: Props) {
             />
           ) : null}
           {form.allDay ? null : (
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <TimeField label={strings['event.start']} value={slot.start} onChange={(start) => setSlot(i, { start })} testID={`event-start-${i}`} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TimeField label={strings['event.end']} value={slot.end} onChange={(end) => setSlot(i, { end })} testID={`event-end-${i}`} optional />
-              </View>
-            </View>
+            <TimeFieldPair
+              start={{ label: strings['event.start'], value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
+              end={{ label: strings['event.end'], value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
+            />
           )}
           {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
           {!form.allDay && form.endDate === '' && clock(slot) && coveredDays(slot.start.trim(), slot.end.trim(), 1) === 2 ? (
@@ -287,10 +283,10 @@ export function EventEditScreen({ route, navigation }: Props) {
           label={strings['event.responsible']}
           value={form.responsibleId ?? ''}
           onChange={(v) => set({ responsibleId: v === '' ? null : v })}
-          options={[{ value: '', label: strings['event.responsibleNone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+          options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>
   );

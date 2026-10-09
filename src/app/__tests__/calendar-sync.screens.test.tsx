@@ -7,6 +7,12 @@ import type { DeviceCalendarSync } from '../device-calendar';
 import { RootStack } from '../navigation';
 import { appStateEvents, put, sampleBase, setup } from './harness';
 
+/** Przełącznik iOS w wierszu Ustawień (M-308, PWD-39 A). */
+const toggle = async (el: ReturnType<typeof screen.getByLabelText>, on: boolean) => {
+  expect(el.props.accessibilityRole).toBe('switch');
+  await fireEvent(el, 'valueChange', on);
+};
+
 jest.mock('expo-calendar', () => ({}));
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
@@ -121,13 +127,13 @@ describe('kalendarz iPhone’a', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-settings');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji'), false);
     expect(prefs.m.get('calendarRead')).toBe('0');
-    await press(within(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a'), false);
     await flush();
     expect(prefs.m.get('calendarMirror')).toBe('0');
     expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Włączone'));
+    await toggle(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji'), true);
     expect(prefs.m.get('calendarRead')).toBe('1');
   });
 
@@ -143,7 +149,8 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     // Audyt 2 (M-105): nic nie znika bez śladu — „Ukryto 1 dubel” i podgląd po dotknięciu (bez „Dodaj do grupy”).
     const hidden = screen.getByTestId('today-hidden-2026-10-07');
-    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a, dotknij, by zobaczyć');
+    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a');
+    expect(hidden.props.accessibilityHint).toBe('Pokazuje ukryte duble');
     await press(hidden);
     expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
@@ -154,12 +161,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-calendars');
     expect(within(box).getByLabelText('Praca')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Dom'), false);
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual(['home']);
-    expect(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Włączone'));
+    expect(within(box).getByLabelText('Dom').props.value).toBe(false);
+    await toggle(within(box).getByLabelText('Dom'), true);
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual([]);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Dom'), false);
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-settings');
     await press(screen.getByLabelText('Wróć'));
@@ -235,12 +242,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-mirror-groups');
     expect(within(box).getByLabelText('Osobiste')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Klasa 2b'), false);
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual(['gk']);
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await toggle(within(box).getByLabelText('Klasa 2b'), true);
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual([]);
     services.local!.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
-    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyłączone'));
+    await toggle(within(box).getByLabelText('Rodzina'), false);
     await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9'), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
   }, 15000);
 
@@ -320,7 +327,7 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     expect(screen.queryByTestId('device-copy-d|camp')).toBeNull();
     await press(screen.getByLabelText('Poprzedni dzień'));
     await press(await screen.findByTestId('device-copy-d|camp'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, days: 3 } });

@@ -5,7 +5,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
 
 import { useServices } from '../../app/context';
 import { buildNumber } from '../../app/diagnostics';
@@ -13,8 +12,7 @@ import type { RootStackParams } from '../../app/routes';
 import { whatsNew } from '../../domain/whats-new';
 import { strings } from '../../i18n/strings.pl';
 import { whatsNewEntries } from '../../i18n/whats-new.pl';
-import { Body, Button } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { Body, Button, Card, CardTitle } from '../../ui/components';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 
 export const WHATS_NEW_SEEN = 'whatsNewBuild';
@@ -22,7 +20,6 @@ export const WHATS_NEW_SEEN = 'whatsNewBuild';
 export function WhatsNew() {
   const { prefs } = useServices();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
-  const { c, font } = useTheme();
   const [items, setItems] = useState<readonly string[] | null>(null);
   const build = buildNumber();
   useEffect(() => {
@@ -45,23 +42,23 @@ export function WhatsNew() {
     prefs.set(WHATS_NEW_SEEN, String(build)).catch(() => {});
   };
   return (
-    <View testID="whats-new" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-      <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+    <Card testID="whats-new">
+      <CardTitle>
         {strings['whatsNew.title']}
-      </Text>
+      </CardTitle>
       {items.map((t) => (
         <Body key={t}>{`• ${t}`}</Body>
       ))}
-      <Button label={strings['whatsNew.ok']} testID="whats-new-ok" onPress={close} />
+      <Button label={strings['common.ok']} testID="whats-new-ok" onPress={close} />
       <Button
         kind="secondary"
-        label={strings['whatsNew.feedback']}
+        label={strings['feedback.open']}
         testID="whats-new-feedback"
         onPress={() => {
           close();
           nav.navigate('Feedback');
         }}
       />
-    </View>
+    </Card>
   );
 }

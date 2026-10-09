@@ -26,7 +26,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -40,7 +40,7 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
   const { tables, today } = useAppData();
-  const { c, font, line } = useTheme();
+  const { c, font, line, size } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
   const { eventId: linked, date: linkedDate } = route.params;
@@ -55,7 +55,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
-  const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
+  const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
 
   if (!d || d.event.deleted_at !== null) {
@@ -76,7 +76,7 @@ export function EventScreen({ route, navigation }: Props) {
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
   // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej.
   const long = occ.startTime !== null && (occ.durationMin ?? null) !== null;
-  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
+  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);
@@ -141,7 +141,7 @@ export function EventScreen({ route, navigation }: Props) {
     setCalendarMsg(null);
     // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
     const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
-    setCalendarMsg(r === 'saved' ? strings['event.calendarSaved'] : r === 'denied' ? strings['event.calendarDenied'] : null);
+    setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 
   const next = relink?.scope === 'this' ? nextOccurrence(tables, userId, eventId, date) : null;
@@ -156,7 +156,7 @@ export function EventScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ width: 20, height: 20, borderRadius: 5, backgroundColor: line(d.line).line }} />
-        <Text style={{ fontFamily: font.text700, fontSize: 15, color: line(d.line).ink }}>{d.groupName}</Text>
+        <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: line(d.line).ink }}>{d.groupName}</Text>
       </View>
       <Title>{occ.title}</Title>
       <Body>{when}</Body>
@@ -177,7 +177,7 @@ export function EventScreen({ route, navigation }: Props) {
       ) : null}
       {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} upcoming={active && occ.date >= formatIsoDate(today) && occ.startTime !== null} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
-      <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
+      <Body>{d.event.audience === 'group' ? strings['event.audience.group'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
       {iAmResponsible && d.canEdit && active ? (
         waiting ? (
@@ -201,7 +201,7 @@ export function EventScreen({ route, navigation }: Props) {
                 onChange={setHandScope}
                 options={[
                   { value: 'one', label: strings['handoff.scope.one'] },
-                  { value: 'series', label: strings['handoff.scope.series'] },
+                  { value: 'series', label: strings['event.scope.all'] },
                 ]}
               />
             ) : null}
@@ -216,7 +216,7 @@ export function EventScreen({ route, navigation }: Props) {
 
       {/* PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie — „Dodaj” zrobiłby nieaktualizowany dubel. */}
       {active ? inMirror ? <Body muted>{strings['event.inMirror'](inMirror)}</Body> : <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
-      {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
+      {calendarMsg === 'saved' ? <StatusText>{strings['event.calendarSaved']}</StatusText> : calendarMsg === 'denied' ? <ErrorText>{strings['event.calendarDenied']}</ErrorText> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
       {/* Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34). */}
@@ -238,7 +238,7 @@ export function EventScreen({ route, navigation }: Props) {
           <Body muted>{strings['event.seriesTasks']}</Body>
           {defs.map((s) => (
             <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ flex: 1, fontFamily: font.text600, fontSize: 16, color: c.ink }}>{s.title}</Text>
+              <Text style={{ flex: 1, fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{s.title}</Text>
               {/* Audyt 2 (M-225, G-19): kończy stałe zadanie — czerwony i z „Cofnij” (D60), jak inne usuwanie. */}
               {d.canEdit ? <Button kind="danger" label={strings['event.seriesStop'](s.title)} testID={`series-stop-${s.id}`} onPress={() => stopSeries(s)} /> : null}
             </View>
@@ -272,30 +272,26 @@ export function EventScreen({ route, navigation }: Props) {
         relink.picking ? (
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (
-          <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-            <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-              {strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}
-            </Text>
+          <Card kind="panel">
+            <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
             {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
             <Button kind="danger" label={strings['event.relinkDelete']} testID="relink-delete" onPress={() => finish(relink.scope, { kind: 'delete' })} />
             <Button kind="secondary" label={strings['common.cancel']} onPress={() => setRelink(null)} />
-          </View>
+          </Card>
         )
       ) : ask === 'edit' || ask === 'cancel' ? (
-        <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}
-          </Text>
+        <Card kind="panel">
+          <PanelTitle>{ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}</PanelTitle>
           {SCOPES.map((s) => (
             <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
-        </View>
+        </Card>
       ) : (
         <View style={{ gap: 8 }}>
-          <Button label={strings['event.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
+          <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
           {/* D187 (audyt 2: PW-16 A, M-121): jednorazowe usuwa się bez pytania — pasek „Cofnij” i kosz; seria pyta o zakres (D57). */}
           <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} />
         </View>
