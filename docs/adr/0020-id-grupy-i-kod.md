@@ -1,7 +1,7 @@
-# 0020. Zaproszenia jak w Zoom: ID grupy + kod 24 h, klikalny link (8.10.2026)
+# 0020. Zaproszenia jak przy wideospotkaniach: ID grupy + kod 24 h, klikalny link (8.10.2026)
 
 Propozycja właściciela: grupa ma stały identyfikator („Team ID”), a zaproszenie generuje tymczasowy kod ważny 24 h.
-Dołącza się, wpisując ID i kod albo klikając link, czyli dwa sposoby, jak przy dołączaniu do spotkania w Zoom.
+Dołącza się, wpisując ID i kod albo klikając link, czyli dwa sposoby, jak przy dołączaniu do wideospotkania.
 
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |

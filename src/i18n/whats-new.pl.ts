@@ -8,6 +8,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 23: poprawki audytu 3 (9.10.2026). „Nawiguj” tylko w Mapach Apple — ADR 0043.
+    fromBuild: 23,
+    items: [
+      '„Nawiguj” przy wydarzeniu otwiera zawsze Mapy Apple, więc wybór aplikacji map zniknął z Ustawień.',
+    ],
+  },
+  {
     // Build 22: zmiany od buildu 21 (D124–D135, D199) i poprawki audytu 2 z 8.10.2026 — jedna karta, najwyżej 8 punktów.
     fromBuild: 22,
     items: [
@@ -51,7 +58,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 16,
     items: [
-      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z Google i Outlooka dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
+      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z innych kont dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
       'Wydarzenia grup same trafiają do osobnych kalendarzy „Organizer – nazwa grupy” w iPhonie i aktualizują się po każdej zmianie.',
       'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz i wyłączysz to w Ustawienia → Kalendarz i dojazd.',
       'Formularz „Więcej”: na górze wybierasz zadanie albo wydarzenie, nie trzeba wybierać listy. Zakres godzin w szybkim dodaniu („basen jutro 17–18”) tworzy wydarzenie.',
