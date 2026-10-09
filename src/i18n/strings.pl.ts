@@ -185,7 +185,7 @@ export const strings = {
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
   'travel.google': 'Google Maps',
-  'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple (z korkami) i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
+  'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
   'travel.denied': 'Brak dostępu do lokalizacji. Włączysz go w Ustawieniach iPhone’a → Organizer → Lokalizacja.',
   // PWD-3 (M-175): przy wydarzeniu z adresem, gdy czas dojazdu jest wyłączony — włącza go i pyta o lokalizację.
   'travel.suggest': 'Pokaż, kiedy wyjść →',
@@ -193,6 +193,8 @@ export const strings = {
   'travel.needsPermission': 'Czas dojazdu jest włączony, ale potrzebuje zgody na lokalizację.',
   'travel.allow': 'Zezwól na lokalizację',
   // M-106: Mapy nie znalazły adresu (sprawdzimy znowu za dobę albo po zmianie miejsca).
+  // Audyt 3 (N-188): dojazd włączony, a wydarzenie dalej niż okno liczenia — „Wyjdź o” pojawi się później.
+  'travel.later': `„Wyjdź o …” pokażemy dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach.`,
   'travel.notFound': 'Nie znaleźliśmy tego adresu w Mapach, więc nie policzymy dojazdu. Sprawdź miejsce wydarzenia.',
   'event.location': 'Miejsce (adres, opcjonalnie)',
   'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
@@ -861,11 +863,19 @@ export const strings = {
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,
   'device.read': 'Moje wydarzenia z iPhone’a w aplikacji',
   'device.mirror': 'Wydarzenia grup w kalendarzu iPhone’a',
-  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” ze sprawami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
+  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” z wydarzeniami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
   // D174: wybór grup w lustrze.
+  // Audyt 3 (N-58): przebieg lustra się nie udał (np. konto kalendarza nie pozwala założyć kalendarza).
+  'device.mirrorFailed': 'Nie udało się zapisać wydarzeń grup w kalendarzu iPhone’a. Spróbujemy znowu przy następnej zmianie.',
+  // Audyt 3 (N-186, Q21 cz. 2 A): zgoda zmieniona z pełnej na „Tylko dodawanie” albo „Brak”.
+  'device.mirrorStale': 'Kalendarze „Organizer – …” w iPhonie przestały się aktualizować — przywróć pełny dostęp albo usuń je w aplikacji Kalendarz.',
+  // Audyt 3 (N-57, Q21 cz. 1 A): iPad z tym samym kontem iCloud co iPhone.
+  'device.mirrorTablet': 'Na iPadzie domyślnie wyłączone: gdy jest włączone na iPhonie z tym samym kontem iCloud, wydarzenia grup już tu są, a włączone na obu urządzeniach pokażą się dwa razy.',
   'device.mirrorGroups': 'Które grupy dodawać do kalendarza iPhone’a',
   // D173: znacznik w notatce wpisu dodanego przez Organizer (po nim rozpoznajemy dubel); widać go w Kalendarzu iPhone'a.
   'device.mark': 'Dodane przez aplikację Organizer',
+  // Audyt 3 (N-187): wpis lustra z osobą odpowiedzialną — jak w wierszu aplikacji („odpowiada: Ala”, docs/glossary.md).
+  'device.mirrorResponsible': (title: string, name: string) => `${title} · odpowiada: ${name}`,
   // M-217: zgoda tylko na dodawanie (po „Dodaj do kalendarza”).
   'device.writeOnly': 'Organizer może teraz tylko dodawać wydarzenia do Twojego kalendarza. Połącz go, żeby widzieć swoje wydarzenia obok spraw grup i mieć wydarzenia grup w iPhonie.',
   // D173: licznik ukrytych dubli z podglądem.

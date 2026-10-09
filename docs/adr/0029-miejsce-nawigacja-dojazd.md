@@ -21,7 +21,7 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - **Dane:** `events.location` (tekst, do 300 znaków, `config.events.LOCATION_MAX_LENGTH`, test kontraktowy z SQL) — całej serii; „Tylko to” go nie zmienia. Migracja `20261008260000_event_location.sql`.
 - **Moduł natywny** `modules/travel-time` (Swift, MapKit): czas dojazdu z położenia telefonu do współrzędnych celu. Położenie i adres → współrzędne: expo-location (zgoda tylko „podczas używania”; „zawsze” wyłączone — test kontraktowy Info.plist; opis ruchu dodany w D123, ADR 0032). Współrzędne celu zapamiętane na telefonie.
-- **Kiedy liczymy:** wydarzenia (od audytu 2 także jutro po północy), które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
+- **Kiedy liczymy:** wydarzenia (od audytu 2 także jutro po północy), które mnie dotyczą, z miejscem i godziną, od teraz do 12 h naprzód, najwyżej 8 (dławienie MapKit); lekcje dziecka — jeden cel na dziecko i dzień, pierwsza lekcja z miejscem (audyt 3, N-189). Odświeżanie co 15 min i przy powrocie do aplikacji. Zapas 5 min doliczony do „Wyjdź o” (`config.travel`, wybory projektowe bez źródła).
 - **Powiadomienie:** „Czas wyjść: Basen” o godzinie wyjścia zastępuje przypomnienie „30 min przed”, jeśli dojazd jest policzony.
   Decyzje właściciela z 8.10.2026 (audyt 2): osobny przełącznik „Czas wyjść” w Ustawieniach → Powiadomienia, domyślnie
   włączony; wyłączony — zwykłe „N min przed” (PWD-17). Gdy wyjście już minęło (np. korki), a wydarzenie jeszcze nie — od
@@ -45,3 +45,10 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 - **Wygasła zgoda „Pozwól raz”** (M-218): włączony dojazd bez zgody — „Zezwól na lokalizację” na ekranie wydarzenia
   i w Ustawieniach.
 - **Błędy** geokodera i MapKit zgłaszamy bez komunikatu (mógłby zawierać adres) — M-159.
+
+## Audyt 3 (9.10.2026)
+- Odmowa lokalizacji: przy wydarzeniu i w Ustawieniach wyjaśnienie i „Otwórz Ustawienia iPhone’a” zamiast „Pokaż, kiedy
+  wyjść →” (iOS nie zapyta drugi raz). Wydarzenie poza oknem 12 h: napis, że „Wyjdź o” pojawi się w oknie.
+- Opis zgody i Ustawień: „najbliższe wydarzenia” (okno 12 h sięga jutra); bez „(z korkami)” — Apple o `departureDate`
+  pisze tylko, że serwer „might consider alternatives to routes that are typically congested at that time”
+  (https://developer.apple.com/documentation/mapkit/mkdirections/request/departuredate).

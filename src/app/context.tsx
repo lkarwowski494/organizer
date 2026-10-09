@@ -48,6 +48,11 @@ export type AppServices = {
    * account-prefs.ts); brak = nic nie zapamiętujemy.
    */
   prefs?: Prefs;
+  /**
+   * Ustawienia telefonu, nie konta (pęk kluczy, RootDeps.prefs): przeżywają wylogowanie, zmianę konta i zwykle
+   * reinstalację — np. lista kalendarzy lustra utworzonych na tym telefonie (D172, audyt 3 N-4); brak = bez tej listy.
+   */
+  devicePrefs?: Prefs;
   /** Dane tylko tego telefonu w lokalnej bazie (stan lustra kalendarza, D95); brak = funkcja wyłączona. */
   local?: LocalStore;
   /**
