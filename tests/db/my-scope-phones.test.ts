@@ -114,7 +114,7 @@ dbDescribe('zakres Moich spraw na kilku telefonach (prawdziwy serwer)', () => {
     let ala = await pullAll('ala', initialState(id('004', 2)));
     // Ala usuwa Jana i od razu cofa (D165: pasek „Cofnij”) — telefon Jana w tym czasie nie pobierał.
     ala = await doOps('ala', ala, [{ kind: 'delete', entity: 'group_members', id: M.jan }]);
-    ala = await doOps('ala', ala, [{ kind: 'restore', entity: 'group_members', id: M.jan }]);
+    expect((await doOps('ala', ala, [{ kind: 'restore', entity: 'group_members', id: M.jan }])).rejected).toEqual([]);
     jan = await pullAll('jan', jan);
     const fresh = await pullAll('jan', initialState(id('004', 3)));
     expect([scopeOn(jan), scopeOn(fresh)]).toEqual(['mine', 'mine']);
@@ -131,7 +131,7 @@ dbDescribe('zakres Moich spraw na kilku telefonach (prawdziwy serwer)', () => {
     await as(null);
     const row = (await db.query(`select s.deleted_at = m.deleted_at same from public.my_day_scopes s join public.group_members m using (member_id) where s.id = $1`, [sid])).rows[0];
     expect(row).toEqual({ same: true });
-    ala = await doOps('ala', ala, [{ kind: 'restore', entity: 'group_members', id: M.jan }]);
+    expect((await doOps('ala', ala, [{ kind: 'restore', entity: 'group_members', id: M.jan }])).rejected).toEqual([]);
     jan = await pullAll('jan', jan);
     expect([scopeOn(jan), materialize(jan).my_day_scopes?.[sid]?.deleted_at]).toEqual(['mineAndEvents', null]);
   });
