@@ -447,6 +447,21 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 describe('odporność synchronizacji (audyt 2, P2)', () => {
   const signedIn = (over: Partial<RootDeps['session']> = {}) => ({ current: async () => ({ userId: ME, displayName: 'Ala' }) as Session, onChange: () => () => {}, ...over });
 
+  it('N-1: wydarzenie z datą spoza zakresu z serwera — aplikacja działa, zgłoszenie z nazwą pola, bez treści', async () => {
+    const t = makeDeps({ session: signedIn() });
+    const pull = t.deps.transport.pull;
+    const bad = { e: 'events' as const, v: 2, row: { id: 'zle', group_id: ME, title: 'Tajne', start_date: 'infinity', start_time: null, end_time: null, rrule: null, version: 2, deleted_at: null } };
+    t.deps.transport = { ...t.deps.transport, pull: async (r, l) => {
+      const res = await pull(r, l);
+      return { ...res, groups: res.groups.map((g) => ({ ...g, rows: [...g.rows, bad] })) };
+    } };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-today');
+    await waitFor(() => expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error', screen: 'sync', message: 'Error: pominięte wiersze: events.start_date' })));
+    expect(JSON.stringify((t.deps.account.reportError as jest.Mock).mock.calls)).not.toContain('Tajne');
+    expect(screen.queryByTestId('screen-crash')).toBeNull();
+  });
+
   it('M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy) — nowy identyfikator, kolejka z kopii pod starym', async () => {
     const saved = new Map<string, string>();
     const t = makeDeps({ session: signedIn(), deviceClientId: { load: (u) => saved.get(u) ?? null, save: (u, id) => void saved.set(u, id) } });
