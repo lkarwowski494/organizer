@@ -13,6 +13,9 @@ fresh() {
 # 1. Migracje na bazie z danymi (jak produkcja): po migracjach rdzenia zasiew przez RPC, potem reszta i sprawdzenie.
 fresh
 for f in supabase/migrations/*.sql; do
+  # Dane, które przed daną migracją mogły już leżeć na produkcji (scripts/db/upgrade-seed-<migracja>.sql).
+  seed="scripts/db/upgrade-seed-$(basename "$f")"
+  if [ -f "$seed" ]; then psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$seed" >/dev/null; fi
   psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$f" >/dev/null || { echo "Migracja nie przeszła na bazie z danymi: $f"; exit 1; }
   if [ "$(basename "$f")" = "20261006120200_sync.sql" ]; then psql -q -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db/upgrade-seed.sql >/dev/null; fi
 done

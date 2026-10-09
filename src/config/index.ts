@@ -52,8 +52,20 @@ export const config = {
    * Także (audyt 2, M-154; kontrakt z bazą: tests/db/config-sql.test.ts): EVENT_TITLE — tytuł wydarzenia i wyjątku
    * (events, event_overrides), NOTE — notatka zadania i wydarzenia; tytuł serii zadań przy wydarzeniu to TASK_TITLE (z serii
    * powstają zadania); PUSH_TOKEN_MIN/MAX — token APNs (cyfry szesnastkowe, push_tokens_token_check).
+   * SORT_KEY (audyt 3, N-2): najdłuższy klucz kolejności zadania i listy (tasks/lists.sort_key, ograniczenia
+   * *_sort_key_length) — klucze telefonu mają kilka znaków ('a0'), zapas na klucze wstawiane między dwa istniejące;
+   * bez limitu jedna porcja pobrania mogła ważyć dziesiątki MB. Wybór projektowy, bez źródła.
    */
-  lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500, EVENT_TITLE: 200, NOTE: 10_000, PUSH_TOKEN_MIN: 64, PUSH_TOKEN_MAX: 200 },
+  lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500, EVENT_TITLE: 200, NOTE: 10_000, PUSH_TOKEN_MIN: 64, PUSH_TOKEN_MAX: 200, SORT_KEY: 128 },
+
+  /**
+   * Zakres dat (audyt 3, N-1): serwer przyjmuje dzień od MIN do MAX (każda kolumna date w public, ograniczenia
+   * <tabela>_<kolumna>_range), godzinę przed 24:00, a chwilę zrobienia (completed_at, done_at) od MIN 00:00 UTC do końca
+   * MAX. Dotąd przechodziły np. 'infinity' i rok p.n.e., na których telefon (parseIsoDate) padał u całej grupy. Wybór
+   * projektowy, bez źródła: MIN mieści daty urodzin najstarszych członków rodziny (urodziny jako wydarzenie co rok), MAX —
+   * każdy plan; kontrakt z bazą: tests/db/config-sql.test.ts.
+   */
+  dates: { MIN: '1900-01-01', MAX: '2199-12-31' },
 
   /**
    * Reguła powtarzania wydarzenia (RRULE, D57): najdłuższy zapis, największy odstęp (INTERVAL) i liczba wystąpień
@@ -356,8 +368,16 @@ export const config = {
    *    z opóźnieniem (sync.BACKOFF_*), nic nie ginie;
    *  - NOTIFY_PER_HOUR — prośby o powiadomienie (funkcja notify-handoff) na konto na godzinę; ponad limit powiadomienie
    *    nie idzie, a zmiana i tak jest w aplikacji.
+   *  - GROUP_ROWS, GROUP_BYTES — limit grupy (audyt 3, N-2; decyzja Q12 część 3 A, 9.10.2026): najwięcej żywych
+   *    (nieusuniętych) wierszy wszystkich spraw grupy (zadania, listy, wydarzenia, uczestnicy, zakupy, członkowie…) i ich
+   *    łączny rozmiar w bajtach (JSON wiersza, jak przy pobieraniu). Rodzina z codziennymi zadaniami ma ich setki do kilku
+   *    tysięcy na rok (zrobione znikają po roku); wiersz to zwykle ok. 0,7 KB. Ponad limit zapis jest odrzucany
+   *    z wyjaśnieniem w „Odrzuconych zmianach” (limit:group_rows, limit:group_size); usuwanie zawsze przechodzi;
+   *  - WRITE_BYTES_PER_DAY — bajty zapisanych żywych wierszy na konto na dobę, wspólnie przez sync_push i bezpośredni
+   *    zapis do tabel (audyt 3, N-2): zwykły dzień to kilkadziesiąt KB; ponad limit telefon ponawia z opóźnieniem, nic nie
+   *    ginie. Bez tego jedno konto zapełniłoby 500 MB w kilka minut.
    */
-  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120 },
+  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120, GROUP_ROWS: 20_000, GROUP_BYTES: 25 * 1024 * 1024, WRITE_BYTES_PER_DAY: 20 * 1024 * 1024 },
 
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',
