@@ -81,7 +81,9 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
     (`src/app/device-calendar.ts:69-71`, komentarz: „zwykle iCloud”). Wydarzenia grup trafiają więc do tego dostawcy.
     Napisałem to wprost. Do akceptu.
 11. **Opis zgody „tylko zapis” w `app.json:25`** („Nie odczytuje kalendarza”) jest prawdziwy tylko dla „Dodaj do kalendarza”
-    bez połączenia. Przy pełnym połączeniu iOS pokazuje opis z `app.json:39`. Zostawiam bez zmian, tylko informuję.
+    bez połączenia. Przy pełnym połączeniu iOS pokazuje opis z `app.json:39`. → Audyt 2 (M-160): opis „tylko zapis” brzmi
+    „Ta zgoda nie daje dostępu do Twoich wpisów”, a opis pełnego dostępu mówi, że wydarzenia grup trafiają do kalendarza
+    iPhone’a (zwykle iCloud).
 
 ## Zmiany z audytu 2 — grupy (8.10.2026), do akceptu
 1. **Kod zaproszenia zapisany na serwerze** (dotąd tylko skrót): `invites.code`, `supabase/migrations/20261008362000_join_codes_v2.sql`

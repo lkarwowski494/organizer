@@ -46,6 +46,12 @@ describe('działy zakupów (D85)', () => {
     ['woda 6', 'drinks'],
     ['kostki lodu', 'frozen'],
     ['karma dla kota', 'pets'],
+    // Audyt 2 (P17): „przysmak* dla” — gwiazdka w środku frazy to początek słowa (dotąd nie pasowało nigdy).
+    ['przysmak dla psa', 'pets'],
+    ['przysmaki dla chomika', 'pets'],
+    ['Przysmaki dla świnki morskiej 2 szt.', 'pets'],
+    ['przysmak', 'other'],
+    ['dla chomika', 'other'],
     ['pomidory w puszce', 'pantry'],
     // Audyt 2 (M-230): masło orzechowe to wyrób z orzeszków ziemnych, nie nabiał (źródła w src/config/shopping.pl.ts).
     ['Masło orzechowe', 'pantry'],

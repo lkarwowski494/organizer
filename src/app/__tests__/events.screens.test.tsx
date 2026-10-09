@@ -46,7 +46,7 @@ describe('Wydarzenia: dodawanie', () => {
     await setTime('event-start-0', '18:00');
     await setTime('event-end-0', '19:00');
     await press(screen.getByTestId('event-add-slot'));
-    await press(screen.getByLabelText('W sobotę (Termin 2)'));
+    await press(screen.getByLabelText('W sobotę (Wariant 2)'));
     await setTime('event-start-1', '12:00');
     await press(screen.getByLabelText('Wybrane osoby'));
     await press(screen.getByLabelText('Uczestnik: Kuba'));
@@ -83,7 +83,7 @@ describe('Wydarzenia: dodawanie', () => {
     await setTime('event-start-1', '08:00');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Wybierz co najmniej jeden dzień tygodnia.')).toBeTruthy();
-    await press(screen.getByLabelText('Usuń termin 2'));
+    await press(screen.getByLabelText('Usuń wariant 2'));
     expect(screen.queryByTestId('event-start-1')).toBeNull();
     // Audyt 2 (P-53): w grupie osobistej bez „Kogo dotyczy”.
     expect(screen.queryByLabelText('Wybrane osoby')).toBeNull();
@@ -161,7 +161,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-this'));
     await screen.findByTestId('screen-event-edit');
-    expect(screen.getByText('Zmieniasz tylko to jedno wystąpienie.')).toBeTruthy();
+    expect(screen.getByText('Zmieniasz tylko ten termin.')).toBeTruthy();
     expect(screen.queryByLabelText('Powtarzanie')).toBeNull();
     expect(screen.queryByLabelText('Kogo dotyczy')).toBeNull();
     await setTime('event-start-0', '16:00');
@@ -219,7 +219,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00 · 1 h')).toBeTruthy();
-    expect(screen.getByText('Przeniesione z: Środa, 7 października')).toBeTruthy();
+    expect(screen.getByText('Przeniesione z: środa, 7 października')).toBeTruthy();
   });
 
   it('„to i następne”: od dziś 18:00 — stara seria kończy się wczoraj, nowa z uczestnikiem, jeden zapis', async () => {
@@ -229,7 +229,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     await press(await screen.findByTestId('event-edit'));
     await press(screen.getByTestId('scope-following'));
-    expect(await screen.findByText('Zmieniasz to wystąpienie i wszystkie następne. Pierwsze zmienione: Środa, 7 października.')).toBeTruthy();
+    expect(await screen.findByText('Zmieniasz ten termin i wszystkie następne. Pierwszy zmieniony: środa, 7 października.')).toBeTruthy();
     // Audyt 2 (E-6): nowa seria zaczyna się od tego wystąpienia — bez pola „Od dnia”, które i tak było pomijane.
     expect(screen.queryByTestId('event-date')).toBeNull();
     await setTime('event-start-0', '18:00');
@@ -267,7 +267,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     const { store } = await openDances();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-all'));
-    expect(await screen.findByText('Zmieniasz wszystkie wystąpienia w serii.')).toBeTruthy();
+    expect(await screen.findByText('Zmieniasz całą serię — wszystkie terminy.')).toBeTruthy();
     expect(screen.queryByTestId('event-date')).toBeNull();
     expect(screen.queryByTestId('event-add-slot')).toBeNull();
     await press(screen.getByLabelText('W środę'));
@@ -301,6 +301,32 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByLabelText('Cofnij'));
     expect(store.dispatched.slice(2)).toEqual([{ kind: 'delete', entity: 'event_overrides', id: oid }]);
     expect(await screen.findByTestId('today-event-ev-tance-2026-10-07')).toBeTruthy();
+  });
+
+  it('audyt 2 (P17, P-81, U-28): zakres jednym słowem „termin”, a odwołanie całej serii to „Usuń całą serię”', async () => {
+    const { store } = await openDances();
+    await press(screen.getByTestId('event-edit'));
+    expect(screen.getByRole('button', { name: 'Tylko ten termin' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ten i następne' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Całą serię' })).toBeTruthy();
+    await press(screen.getByLabelText('Anuluj'));
+    await press(screen.getByTestId('event-cancel'));
+    expect(screen.queryByRole('button', { name: 'Całą serię' })).toBeNull();
+    await press(screen.getByRole('button', { name: 'Usuń całą serię' }));
+    await screen.findByTestId('screen-today');
+    expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'events', id: 'ev-tance' });
+    expect(screen.getByText('Usunięto serię: Tańce')).toBeTruthy();
+  });
+
+  it('audyt 2 (P17, U-30): ja jako osoba odpowiedzialna to „Ty”, wśród uczestników „(Ty)”', async () => {
+    const base = withDances();
+    base.events!['ev-tance'] = { ...base.events!['ev-tance']!, audience: 'members', responsible_member_id: 'mf' };
+    put(base, 'event_participants', 'p2', { id: 'p2', event_id: 'ev-tance', group_id: 'gf', member_id: 'mf', deleted_at: null, version: 1 });
+    await open(base);
+    await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
+    await screen.findByTestId('screen-event');
+    expect(screen.getByText('Osoba odpowiedzialna: Ty')).toBeTruthy();
+    expect(screen.getByText(/Łukasz \(Ty\)/)).toBeTruthy();
   });
 
   it('audyt 2 (E-18): termin odwołany na innym telefonie — informacja i „Przywróć termin”; bez zadań i kalendarza', async () => {

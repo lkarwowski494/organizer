@@ -43,6 +43,20 @@ async function openGroup(s: Awaited<ReturnType<typeof open>>, id = 'gf') {
   return s;
 }
 
+describe('ja w grupie (audyt 2, P17: U-30, P-67)', () => {
+  it('na liście osób przy mnie „(Ty)”, a na moim ekranie odnośnik do imienia we wszystkich grupach', async () => {
+    const s = await open({ base: asOwner() });
+    await openGroup(s);
+    await press(screen.getByTestId('member-mf'));
+    expect(await screen.findByTestId('screen-member')).toBeTruthy();
+    expect(screen.getByText(/Imię we wszystkich grupach zmienisz w Ustawieniach → Konto i dane → Twoje imię/)).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    expect(within(screen.getByTestId('member-mf')).getByText('Łukasz (Ty)')).toBeTruthy();
+    await press(screen.getByTestId('member-ala'));
+    expect(screen.queryByText(/Imię we wszystkich grupach/)).toBeNull();
+  });
+});
+
 describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36, T-22)', () => {
   it('nazwa grupy: bez edycji pole pokazuje nową nazwę, a wyjście z pola i z ekranu nic nie wysyła', async () => {
     const s = await openGroup(await open());
@@ -172,7 +186,7 @@ describe('nowa grupa i dołączenie (audyt 2, R-16, R-27, R-38, R-39)', () => {
       })),
     );
 
-  it('po utworzeniu: „Pobieram grupę…” zamiast błędu, potem nazwa w polu; ponowienie z tymi samymi identyfikatorami', async () => {
+  it('po utworzeniu: „Pobieramy grupę…” zamiast błędu, potem nazwa w polu; ponowienie z tymi samymi identyfikatorami', async () => {
     let fail = true;
     const account = fakeAccount({ createGroup: jest.fn(async () => (fail ? Promise.reject(new Error('Network request failed')) : undefined)) });
     const s = await open({ account });
@@ -187,13 +201,13 @@ describe('nowa grupa i dołączenie (audyt 2, R-16, R-27, R-38, R-39)', () => {
     expect(second).toEqual(first);
     expect(first).toMatchObject({ groupId: 'new-1', ownerMemberId: 'new-2', name: 'Sąsiedzi', displayName: 'Łukasz' });
     expect(await screen.findByTestId('screen-group-loading')).toBeTruthy();
-    expect(screen.getByText('Pobieram grupę…')).toBeTruthy();
+    expect(screen.getByText('Pobieramy grupę…')).toBeTruthy();
     await arrive(s, 'new-1', 'new-2', 'Sąsiedzi');
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
     expect(screen.getByTestId('group-rename').props.value).toBe('Sąsiedzi');
   });
 
-  it('po dołączeniu: „Pobieram grupę…”, potem dane; grupa, której nie ma (np. w koszu), to błąd', async () => {
+  it('po dołączeniu: „Pobieramy grupę…”, potem dane; grupa, której nie ma (np. w koszu), to błąd', async () => {
     const account = fakeAccount({ joinGroup: jest.fn(async () => ({ groupId: 'gnew' })) });
     const base = sampleBase();
     put(base, 'groups', 'gkosz', { id: 'gkosz', name: 'Kosz', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: '2026-10-06T08:00:00Z', version: 1 });
@@ -301,13 +315,13 @@ describe('przekazanie własności (audyt 2, R-33)', () => {
     await press(screen.getByTestId('member-ala'));
     await press(await screen.findByTestId('make-owner'));
     await press(screen.getByTestId('make-owner-confirm'));
-    expect(await screen.findByText('Przekazano. Pobieram zmiany…')).toBeTruthy();
+    expect(await screen.findByText('Przekazano. Pobieramy zmiany…')).toBeTruthy();
     expect(s.account.transferOwnership).toHaveBeenCalledWith('gf', 'ala');
     expect(s.store.refresh).toHaveBeenCalled();
     expect(screen.getByTestId('screen-member')).toBeTruthy();
     expect(screen.queryByTestId('make-owner-confirm')).toBeNull();
     expect(screen.queryByTestId('remove-member')).toBeNull();
-    expect(screen.queryByLabelText('członek')).toBeNull();
+    expect(screen.queryByLabelText('Członek')).toBeNull();
     await act(async () =>
       s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mf: { ...b.group_members!.mf!, role: 'admin' }, ala: { ...b.group_members!.ala!, role: 'owner' } } })),
     );
@@ -416,22 +430,22 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     expect(s.account.renewJoinCode).toHaveBeenCalledWith('gf', 'member');
     expect((await screen.findByTestId('join-code')).props.children).toBe('Kod: 408 215');
     await press(screen.getByTestId('invite-admin'));
-    expect(await screen.findByText('Dołączy jako: admin')).toBeTruthy();
+    expect(await screen.findByText('Dołączy jako: administrator')).toBeTruthy();
     await press(screen.getByLabelText('Nowy kod'));
     expect(s.account.renewJoinCode).toHaveBeenLastCalledWith('gf', 'admin');
   });
 
-  it('PW-34 A: zdanie o rolach; w grupie z dziećmi pierwszy (główny) przycisk to „Zaproś jako admina”', async () => {
+  it('PW-34 A: zdanie o rolach; w grupie z dziećmi pierwszy (główny) przycisk to „Zaproś jako administratora”', async () => {
     await openGroup(await open({ base: asOwner() }));
-    expect(screen.getByText('Admin zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.')).toBeTruthy();
-    const order = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako admina');
-    expect(order).toEqual(['Zaproś jako admina', 'Zaproś']);
+    expect(screen.getByText('Administrator zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.')).toBeTruthy();
+    const order = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako administratora');
+    expect(order).toEqual(['Zaproś jako administratora', 'Zaproś']);
     // Bez dzieci — „Zaproś” (członek) jak dotąd.
     const base = asOwner();
     delete base.group_members!.kuba;
     await openGroup(await open({ base }));
-    const plain = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako admina');
-    expect(plain).toEqual(['Zaproś', 'Zaproś jako admina']);
+    const plain = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako administratora');
+    expect(plain).toEqual(['Zaproś', 'Zaproś jako administratora']);
   });
 
   it('PW-43 A: potwierdzenie wyjścia mówi o listach „Tylko ja” w koszu (PWD-4 A: okno systemowe tak/nie)', async () => {

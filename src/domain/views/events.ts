@@ -6,12 +6,9 @@
  * a telefon od razu u siebie tym samym algorytmem (src/domain/event-split.ts), więc działa też offline (R1).
  * Wcześniej była to paczka osobnych operacji i odrzucenie nowej serii ucinało starą (audyt 2, M-3).
  */
-import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
-import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../format';
-import { plural } from '../plural';
 import { type SplitArgs, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
 import { type DayPart, daySpan, lengthMinutes } from '../span';
@@ -186,42 +183,34 @@ export function expandEventDays(t: Tables, userId: string, from: CivilDate, to: 
   return out.sort((a, b) => a.date.localeCompare(b.date) || at(a).localeCompare(at(b)) || a.title.localeCompare(b.title, 'pl') || a.eventId.localeCompare(b.eventId));
 }
 
-const FEMININE = new Set([2, 5, 6]); // środa, sobota, niedziela
+/**
+ * Słowa opisu reguły (audyt 2, M-158: teksty w src/i18n/strings.pl.ts, `strings['event.rule']`, wstrzykiwane — domena
+ * składa tylko kształt opisu). `base` to wynik `every`; n = −1 to „ostatni”.
+ */
+export type RuleLabels = {
+  every: (freq: Rule['freq'], n: number) => string;
+  weekdays: (base: string, days: readonly number[]) => string;
+  nth: (base: string, n: number, weekday: number) => string;
+  monthDay: (base: string, day: number) => string;
+  until: (until: CivilDate) => string;
+  count: (n: number) => string;
+};
 
 /** Opis reguły po polsku, np. „Co tydzień: pon., sob.”, „Co miesiąc, w ostatni piątek”, „Codziennie, do 31.12.2026”. */
-export function describeRule(rule: Rule, start: CivilDate): string {
-  const n = rule.interval;
-  let text: string;
-  switch (rule.freq) {
-    case 'DAILY':
-      text = n === 1 ? 'Codziennie' : `Co ${n} dni`;
-      break;
-    case 'WEEKLY': {
-      const days = rule.byday.length ? [...new Set(rule.byday.map((b) => b.wd))].sort((a, b) => a - b) : null;
-      text = `${n === 1 ? 'Co tydzień' : `Co ${n} ${plural(n, { one: 'tydzień', few: 'tygodnie', many: 'tygodni' })}`}${days ? `: ${days.map((d) => WEEKDAYS_ABBREVIATED[d]).join(', ')}` : ''}`;
-      break;
-    }
-    case 'MONTHLY': {
-      const base = n === 1 ? 'Co miesiąc' : `Co ${n} ${plural(n, { one: 'miesiąc', few: 'miesiące', many: 'miesięcy' })}`;
-      const b = rule.byday[0];
-      const md = rule.bymonthday[0];
-      if (b && b.n === null) text = `${base}: ${[...new Set(rule.byday.map((x) => x.wd))].sort((x, y) => x - y).map((d) => WEEKDAYS_ABBREVIATED[d]).join(', ')}`;
-      else if (b) {
-        const last = b.n === -1 ? (FEMININE.has(b.wd) ? 'ostatnią' : 'ostatni') : `${b.n}.`;
-        text = `${base}, w ${last} ${WEEKDAYS_ACCUSATIVE[b.wd]}`;
-      } else if (md !== undefined) text = `${base}, ${md === -1 ? 'ostatniego' : `${md}.`} dnia`;
-      else text = `${base}, ${start.d}. dnia`;
-      break;
-    }
-    case 'YEARLY':
-      text = n === 1 ? 'Co roku' : `Co ${n} ${plural(n, { one: 'rok', few: 'lata', many: 'lat' })}`;
-      break;
+export function describeRule(rule: Rule, start: CivilDate, L: RuleLabels): string {
+  const base = L.every(rule.freq, rule.interval);
+  const days = [...new Set(rule.byday.map((x) => x.wd))].sort((x, y) => x - y);
+  const b = rule.byday[0];
+  const md = rule.bymonthday[0];
+  let text = base;
+  if (rule.freq === 'WEEKLY' && days.length) text = L.weekdays(base, days);
+  else if (rule.freq === 'MONTHLY') {
+    if (b && b.n === null) text = L.weekdays(base, days);
+    else if (b) text = L.nth(base, b.n!, b.wd);
+    else text = L.monthDay(base, md ?? start.d);
   }
-  if (rule.until) {
-    const u = parseIsoDate(rule.until);
-    text += `, do ${u.d}.${String(u.m).padStart(2, '0')}.${u.y}`;
-  }
-  if (rule.count !== null) text += `, ${rule.count} ${plural(rule.count, { one: 'raz', few: 'razy', many: 'razy' })}`;
+  if (rule.until) text += L.until(parseIsoDate(rule.until));
+  if (rule.count !== null) text += L.count(rule.count);
   return text;
 }
 
@@ -536,7 +525,7 @@ export type SeriesItem = {
  * Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). Zakończona część serii,
  * która ma następczynię po „to i następne”, nie ma osobnego wiersza (audyt 2, E-17).
  */
-export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate): SeriesItem[] {
+export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate, L: RuleLabels): SeriesItem[] {
   const g = groupsView(t, userId).find((x) => x.id === groupId);
   if (!g) return [];
   const upcoming = expandEvents(t, userId, today, addDays(today, 366));
@@ -556,7 +545,7 @@ export function groupSeries(t: Tables, userId: string, groupId: string, today: C
         title: e.title,
         // D199: jednorazowe przez kilka dni — zakres dni („12–16 października”).
         summary: rule
-          ? describeRule(rule, parseIsoDate(e.start_date))
+          ? describeRule(rule, parseIsoDate(e.start_date), L)
           : e.start_time === null && e.days > 1
             ? formatRange(parseIsoDate(e.start_date), addDays(parseIsoDate(e.start_date), e.days - 1), today)
             : formatLongDate(parseIsoDate(e.start_date), today),
