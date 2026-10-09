@@ -447,11 +447,11 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
 
   it('kilka list zakupów — ta, której ostatnio używano', async () => {
     const base = sampleBase();
-    put(base, 'lists', 'lz2', { ...base.lists!.lz!, id: 'lz2', name: 'Biedronka', version: 2 });
+    put(base, 'lists', 'lz2', { ...base.lists!.lz!, id: 'lz2', name: 'Bazar', version: 2 });
     put(base, 'tasks', 's-ser', { ...base.tasks!['s-chleb']!, id: 's-ser', list_id: 'lz2', title: 'ser', version: 5 });
     await openIn('gf', base);
     await write('masło');
-    expect(within(shop()!).getByText('Na listę: Biedronka')).toBeTruthy();
+    expect(within(shop()!).getByText('Na listę: Bazar')).toBeTruthy();
   });
 
   it('jedna grupa — sama podpowiedź, bez chipa grupy', async () => {

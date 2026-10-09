@@ -6,17 +6,16 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D116 | Skąd czas dojazdu | Mapy Apple na telefonie (MapKit) | Google Routes API (konto rozliczeniowe z kartą — źródło niżej; liczby z cennika usunięte 9.10.2026, bo nie miały przeczytanego cytatu, a wariant jest odrzucony); Apple Maps Server API (serwer, klucz Maps, położenie przez nasz serwer) |
-| D115 | Czym „Nawiguj” | Wybór w Ustawieniach: Mapy Apple (domyślnie) albo Google Maps | Pytanie za każdym razem; tylko Mapy Apple |
+| D116 | Skąd czas dojazdu | Mapy Apple na telefonie (MapKit) | Płatne API tras zewnętrznego dostawcy map (konto rozliczeniowe z kartą — źródło niżej; liczby z cennika usunięte 9.10.2026, bo nie miały przeczytanego cytatu, a wariant jest odrzucony); Apple Maps Server API (serwer, klucz Maps, położenie przez nasz serwer) |
+| D115 | Czym „Nawiguj” | Wybór w Ustawieniach: Mapy Apple (domyślnie) albo aplikacja map innej firmy. **Zmienione 9.10.2026 (decyzja właściciela, ADR 0043): tylko Mapy Apple, bez wyboru w Ustawieniach.** | Pytanie za każdym razem; tylko Mapy Apple (przyjęte 9.10.2026) |
 | D117 | Co przy dzisiejszym wydarzeniu | „Wyjdź o 16:35 · 25 min autem” (od D129, ADR 0035, w osobnej, wyróżnionej linii wiersza) + powiadomienie „Czas wyjść” zamiast stałego „30 min przed” | Tylko napis; tylko czas dojazdu |
 | D118 | Środek transportu | Domyślny w Ustawieniach + zmiana przy wydarzeniu (tylko na moim telefonie) | Tylko w Ustawieniach; trzy czasy naraz |
 
 ## Źródła
 - Mapy Apple, linki iOS 18.4+: `https://maps.apple.com/directions?destination=…&mode=driving|walking|transit|cycling` (https://developer.apple.com/documentation/mapkit/unified-map-urls). Starsze iOS: `?daddr=…&dirflg=…` (dawny opis Map Links: „only the daddr parameter is required”).
-- Google Maps: `https://www.google.com/maps/dir/?api=1&destination=…&travelmode=…`. Cytat: „If the Google Maps app for iOS is installed, the URL launches Google Maps” (https://developers.google.com/maps/documentation/urls/get-started).
 - MapKit `MKDirections.calculateETA`: liczą „the Apple servers”. Uwaga z dokumentacji: „Apps may receive an MKError.Code.loadingThrottled error if the device makes too many requests in too short a time period” (https://developer.apple.com/documentation/mapkit/mkdirections).
 - Apple Maps Server API (odrzucone): „up to 25,000 service calls per day per team” (https://developer.apple.com/documentation/applemapsserverapi).
-- Google Routes API (odrzucone): „must enable billing on each of your projects” (https://developers.google.com/maps/documentation/routes/usage-and-billing).
+- API tras zewnętrznego dostawcy map (odrzucone): „must enable billing on each of your projects” (https://developers.google.com/maps/documentation/routes/usage-and-billing).
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - **Dane:** `events.location` (tekst, do 300 znaków, `config.events.LOCATION_MAX_LENGTH`, test kontraktowy z SQL) — całej serii; „Tylko to” go nie zmienia. Migracja `20261008260000_event_location.sql`.

@@ -382,7 +382,7 @@ describe('PW-2 (M-35): zakres Moich spraw w grupie', () => {
     const t = world();
     put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'lists', 'lpriv', { id: 'lpriv', group_id: 'gf', kind: 'tasks', name: 'Moje w rodzinie', visibility: 'private', owner_member_id: 'mf', sort_key: 'a1', deleted_at: null });
-    put(t, 'lists', 'lz', { id: 'lz', group_id: 'gf', kind: 'shopping', name: 'Biedronka', visibility: 'group', sort_key: 'a2', deleted_at: null, due_date: '2026-10-07', responsible_member_id: null });
+    put(t, 'lists', 'lz', { id: 'lz', group_id: 'gf', kind: 'shopping', name: 'Bazar', visibility: 'group', sort_key: 'a2', deleted_at: null, due_date: '2026-10-07', responsible_member_id: null });
     task(t, 'wspolne', { group_id: 'gf', list_id: 'lf' });
     task(t, 'moje', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'mf' });
     task(t, 'tymka', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek' });

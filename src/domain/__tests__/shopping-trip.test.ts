@@ -15,7 +15,7 @@ const run = (t: T, ops: NewOp[]) => {
   for (const op of ops) applyOp(t, { ...op, seq: ++seq, op_id: `o${seq}` } as Op);
   return t;
 };
-const list = (id: string, g: string, extra: Row = {}): Row => ({ id, group_id: g, kind: 'shopping', name: 'Biedronka', visibility: 'group', sort_key: 'a0', deleted_at: null, ...extra });
+const list = (id: string, g: string, extra: Row = {}): Row => ({ id, group_id: g, kind: 'shopping', name: 'Bazar', visibility: 'group', sort_key: 'a0', deleted_at: null, ...extra });
 function world(): T {
   const t: T = {};
   put(t, 'groups', ME, { id: ME, name: 'Osobiste', kind: 'personal', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
@@ -72,7 +72,7 @@ describe('zakupy na liście zakupów (D73)', () => {
   it('wpisy „Moje sprawy”: moje, bez osoby z dniem, bez osoby w grupie osobistej', () => {
     const t = world();
     put(t, 'lists', 'mine', list('mine', 'gf', { due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'mf' }));
-    put(t, 'lists', 'any', list('any', 'gf', { name: 'Lidl', due_date: '2026-10-07' }));
+    put(t, 'lists', 'any', list('any', 'gf', { name: 'Market', due_date: '2026-10-07' }));
     put(t, 'lists', 'hers', list('hers', 'gf', { responsible_member_id: 'mm' }));
     put(t, 'lists', 'none', list('none', 'gf'));
     put(t, 'lists', 'pers', list('pers', ME, { name: 'Moje', responsible_member_id: null, due_date: null }));
@@ -86,7 +86,7 @@ describe('zakupy na liście zakupów (D73)', () => {
     item(t, 'old', 'mine', false, { deleted_at: 'x' });
     const e = tripEntries(t, groups(t));
     expect(e.map((x) => x.id).sort()).toEqual(['any', 'mine', 'persPlanned']);
-    expect(e.find((x) => x.id === 'mine')).toMatchObject({ title: 'Biedronka', due: { date: '2026-10-08', time: '17:00:00' }, assignee: 'Łukasz', groupName: 'Rodzina', trip: { listId: 'mine', open: 1 }, deadline_mode: 'own' });
+    expect(e.find((x) => x.id === 'mine')).toMatchObject({ title: 'Bazar', due: { date: '2026-10-08', time: '17:00:00' }, assignee: 'Łukasz', groupName: 'Rodzina', trip: { listId: 'mine', open: 1 }, deadline_mode: 'own' });
     expect(e.find((x) => x.id === 'persPlanned')).toMatchObject({ due: null, deadline_mode: 'none' });
     expect(e.find((x) => x.id === 'any')!.assignee).toBeNull();
     expect(tripEntries({}, new Map())).toEqual([]);
@@ -95,8 +95,8 @@ describe('zakupy na liście zakupów (D73)', () => {
   it('„Moje sprawy”: bez dnia przypięte, po dniu zaległe, inaczej w swoim dniu', () => {
     const t = world();
     put(t, 'lists', 'a', list('a', 'gf', { responsible_member_id: 'mf' }));
-    put(t, 'lists', 'b', list('b', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));
-    put(t, 'lists', 'c', list('c', 'gf', { name: 'Rossmann', due_date: '2026-10-07', due_time: '18:00', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'b', list('b', 'gf', { name: 'Market', due_date: '2026-10-05', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'c', list('c', 'gf', { name: 'Warzywniak', due_date: '2026-10-07', due_time: '18:00', responsible_member_id: 'mf' }));
     const v = myDays(t, ME, { y: 2026, m: 10, d: 7 }, 'day', { y: 2026, m: 10, d: 7 }, (iso) => iso.slice(0, 10));
     expect(v.pinned.map((x) => x.id)).toEqual(['a']);
     expect(v.days[0]!.entries.map((x) => (x.kind === 'event' || x.kind === 'lessons' ? x.key : x.kind === 'overdue' ? `o:${x.task.id}:${x.task.overdueDays}` : `t:${x.task.id}`))).toEqual(['o:b:2', 't:c']);
@@ -143,16 +143,16 @@ describe('zakupy na liście zakupów (D73)', () => {
     put(t, 'lists', 'l', list('l', 'gf', { responsible_member_id: 'mm' }));
     put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'l', occurrence_date: null, from_member: 'mm', to_member: 'mf', status: 'pending', closed: false });
     expect(asHandoff(t.handoffs!.h!).entity).toBe('lists');
-    expect(incomingHandoffs(t, ME)).toMatchObject([{ id: 'h', entity: 'lists', title: 'Biedronka', otherName: 'Magdalena' }]);
+    expect(incomingHandoffs(t, ME)).toMatchObject([{ id: 'h', entity: 'lists', title: 'Bazar', otherName: 'Magdalena' }]);
   });
 
   it('Kalendarz: wszystkie zakupy z dniem w moich grupach (także cudze); bez dnia — nie', () => {
     const t = world();
     put(t, 'lists', 'mine', list('mine', 'gf', { due_date: '2026-10-08', responsible_member_id: 'mf' }));
-    put(t, 'lists', 'hers', list('hers', 'gf', { name: 'Lidl', due_date: '2026-10-08', responsible_member_id: 'mm' }));
+    put(t, 'lists', 'hers', list('hers', 'gf', { name: 'Market', due_date: '2026-10-08', responsible_member_id: 'mm' }));
     put(t, 'lists', 'nodate', list('nodate', 'gf', { responsible_member_id: 'mf' }));
     const day = calendarMonth(t, ME, 2026, 10).find((d) => d.date === '2026-10-08')!;
-    // Kolejność jak zadania dnia: termin, potem nazwa (Biedronka przed Lidlem).
+    // Kolejność jak zadania dnia: termin, potem nazwa (Bazar przed Marketem).
     expect(day.items.map((x) => [x.id, x.trip?.listId])).toEqual([['mine', 'mine'], ['hers', 'hers']]);
     expect(calendarMonth(t, ME, 2026, 10).flatMap((d) => d.items.map((x) => x.id))).not.toContain('nodate');
     expect(tripEntries(t, groups(t), true).map((x) => x.id).sort()).toEqual(['hers', 'mine', 'nodate']);
@@ -161,7 +161,7 @@ describe('zakupy na liście zakupów (D73)', () => {
   it('audyt 2 (M-22, R-7): zakupy osoby usuniętej z grupy wracają do „nikt konkretny” (D132), nie znikają wszystkim', () => {
     const t = world();
     put(t, 'lists', 'l1', list('l1', 'gf', { due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'dawny' }));
-    put(t, 'lists', 'l2', list('l2', 'gf', { name: 'Lidl', responsible_member_id: 'dawny' }));
+    put(t, 'lists', 'l2', list('l2', 'gf', { name: 'Market', responsible_member_id: 'dawny' }));
     put(t, 'lists', 'l3', list('l3', ME, { name: 'Apteka', responsible_member_id: 'nieznany' }));
     item(t, 'mleko', 'l1', false);
     // Z dniem: jak zadanie bez osoby — każdy w grupie; bez dnia we wspólnej grupie: nikt (jak zadanie bez adresata);
@@ -176,7 +176,7 @@ describe('zakupy na liście zakupów (D73)', () => {
     const reminders = planReminders(t, ME, { y: 2026, m: 10, d: 7 }, Date.UTC(2026, 9, 7, 8, 0), { leadMin: 30, morning: 'off' }, {
       days: 2, max: 10, toMs: (x) => Date.UTC(x.y, x.m - 1, x.d, x.hh - 2, x.mm), localDate: (iso) => iso.slice(0, 10), label: { trip: (n) => `Zakupy: ${n}`, morningTitle: '', more: () => '', summary: () => '' },
     });
-    expect(reminders.map((r) => r.title)).toEqual(['Zakupy: Biedronka']);
+    expect(reminders.map((r) => r.title)).toEqual(['Zakupy: Bazar']);
   });
 
   it('audyt 2 (M-225): „Cofnij” po „Zakupy zrobione” przywraca pozycje, dzień i osobę; anulowane przekazanie zostaje anulowane', () => {
@@ -213,7 +213,7 @@ describe('zakupy na liście zakupów (D73)', () => {
 describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
   it('każde zakupy: w dniu planu, bez planu — w dniu zrobienia; przekreślone, bez osoby; cofnięte i z usuniętej listy — nie', () => {
     const t = world();
-    put(t, 'lists', 'a', list('a', 'gf', { name: 'Biedronka' }));
+    put(t, 'lists', 'a', list('a', 'gf', { name: 'Bazar' }));
     put(t, 'lists', 'c', list('c', 'gf', { name: 'Stara', deleted_at: '2026-10-02T00:00:00Z' }));
     const trip = (id: string, listId: string, over: Row) => put(t, 'shopping_trips', id, { id, group_id: 'gf', list_id: listId, planned_date: null, done_at: '2026-10-07T18:00:00Z', deleted_at: null, ...over });
     trip('t2', 'a', { planned_date: '2026-10-06', done_at: '2026-10-07T18:00:00Z' });
@@ -235,8 +235,8 @@ describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
     const cal = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
     expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.doneOn])).toEqual([['t0', null], ['t00', null], ['t2', '2026-10-07']]);
     // M-129: niezrobione zakupy po terminie — „zaległe” jak zadanie; dzisiejsze — nie.
-    put(t, 'lists', 'e', list('e', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));
-    put(t, 'lists', 'f', list('f', 'gf', { name: 'Rossmann', due_date: '2026-10-07', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'e', list('e', 'gf', { name: 'Market', due_date: '2026-10-05', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'f', list('f', 'gf', { name: 'Warzywniak', due_date: '2026-10-07', responsible_member_id: 'mf' }));
     const again = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
     expect(again.flatMap((d) => d.items.filter((x) => x.id === 'e' || x.id === 'f').map((x) => [x.id, x.overdueDays]))).toEqual([['e', 2], ['f', 0]]);
   });

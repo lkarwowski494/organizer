@@ -25,7 +25,7 @@ function world(): T {
   task('zrobione', { due_date: '2026-10-08', due_time: '12:00', completed_at: '2026-10-07T08:00:00Z' });
   task('bezterminu', { deadline_mode: 'none' });
   put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', start_date: '2026-10-08', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: 'mf', deleted_at: null });
-  put(t, 'lists', 'z', { id: 'z', group_id: 'gf', kind: 'shopping', name: 'Biedronka', visibility: 'group', deleted_at: null, due_date: '2026-10-09', responsible_member_id: 'mf' });
+  put(t, 'lists', 'z', { id: 'z', group_id: 'gf', kind: 'shopping', name: 'Bazar', visibility: 'group', deleted_at: null, due_date: '2026-10-09', responsible_member_id: 'mf' });
   return t;
 }
 

@@ -5,7 +5,7 @@ Wybór właściciela z listy kierunków: „Kalendarz w obie strony”.
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D95 | Co ma działać | Odczyt moich wydarzeń z kalendarza iPhone'a (też konta Google i Outlook dodane w iPhonie) w Kalendarzu i „Moich sprawach”. Do tego lustro: wydarzenia każdej grupy w osobnym kalendarzu „Organizer – grupa”, utrzymywane automatycznie. | Tylko odczyt; bezpośrednio przez API Google |
+| D95 | Co ma działać | Odczyt moich wydarzeń z kalendarza iPhone'a (też z innych kont dodanych w iPhonie) w Kalendarzu i „Moich sprawach”. Do tego lustro: wydarzenia każdej grupy w osobnym kalendarzu „Organizer – grupa”, utrzymywane automatycznie. | Tylko odczyt; bezpośrednio przez API zewnętrznego dostawcy kalendarza |
 | D96 | Widoczność prywatnych wydarzeń | Tylko na moim telefonie | „Zajęty” dla grupy; kopiowanie wybranych wydarzeń do grupy |
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)

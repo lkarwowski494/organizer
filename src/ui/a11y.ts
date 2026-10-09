@@ -10,7 +10,7 @@
  *  - „sendAccessibilityEvent … like changing the focused element for a screen reader” (zamiast setAccessibilityFocus,
  *    które wymaga numeru widoku).
  * Na iOS `accessibilityLiveRegion` i rola „alert” niczego nie ogłaszają
- * (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android — „Android”), więc ogłaszamy wprost.
+ * (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android — działa tylko poza iOS), więc ogłaszamy wprost.
  */
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, type AccessibilityState } from 'react-native';
@@ -136,7 +136,7 @@ export type ButtonState = { selected?: boolean; disabled?: boolean; expanded?: b
  *  - zaznaczenie i wybór (jedna albo wiele opcji, odhaczone zadanie) — cechą `selected`;
  *  - rozwinięcie i „w toku” — polską wartością (accessibilityValue), dopisaną po wartości pola; zwinięte i wolne nic
  *    nie dodają, jak w RN (expanded: false i busy: false nie dają słowa).
- * Aplikacja jest tylko na iOS (CLAUDE.md), więc bez osobnej gałęzi dla Androida. Audyt drzewa (a11y-audit.ts, reguła 17)
+ * Aplikacja jest tylko na iOS (CLAUDE.md), więc bez osobnej gałęzi dla innych platform. Audyt drzewa (a11y-audit.ts, reguła 17)
  * oblewa `checked` (poza systemowym przełącznikiem), `expanded` i `busy` w accessibilityState.
  * Jak brzmi to na iPhonie z polskim VoiceOverem — do sprawdzenia na urządzeniu.
  */
