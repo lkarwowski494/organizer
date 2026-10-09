@@ -486,7 +486,10 @@ describe('przypadki brzegowe gałęzi (pokrycie)', () => {
     const u = splitAtNov2();
     u.events!.chor = { ...u.events!.chor!, audience: 'members' };
     u.events![B] = { ...u.events![B]!, audience: 'members' };
+    put(u, 'event_participants', 'pb', { id: 'pb', event_id: B, member_id: 'tymek', deleted_at: null });
     const ops = edit(u, 'chor', '2026-10-19', 'all', { participantIds: ['ala'] });
+    // Tymek był tylko w późniejszej części (nie w formularzu) — zostaje; Ala dopisana do obu.
+    expect(ops.some((o) => o.kind === 'delete' && o.entity === 'event_participants')).toBe(false);
     expect(ops.filter((o) => 'id' in o && o.id === B)).toEqual([]);
     expect(ops.some((o) => o.kind === 'create' && o.entity === 'event_participants' && o.set.event_id === B)).toBe(true);
     const [split] = editEvent(det(u, 'chor'), '2026-10-26', 'following', { ...fieldsOf(det(u, 'chor'), '2026-10-26', 'following'), title: 'Nowa' });
