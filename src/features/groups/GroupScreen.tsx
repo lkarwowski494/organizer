@@ -27,6 +27,7 @@ import { useTaskActions } from '../../app/task-actions';
 import { listMarks } from '../lists/ListsScreen';
 import { useTheme } from '../../ui/theme';
 import { useLiveText } from '../../ui/live-text';
+import { useDeleteGroup } from './delete-group';
 import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
 
@@ -67,6 +68,7 @@ export function GroupScreen({ route, navigation }: Props) {
   }, [prefs, route.params.groupId]);
   // Przy wyjściu z grupy i przy koszu niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
   const dropNameEdit = name.drop;
+  const deleteGroup = useDeleteGroup(setError);
 
   if (!d) {
     // Grupa właśnie utworzona albo dołączona (parametr trasy) dochodzi z pierwszym pobraniem — bez komunikatu o błędzie.
@@ -122,7 +124,16 @@ export function GroupScreen({ route, navigation }: Props) {
             {strings['groups.nextSteps']}
           </CardTitle>
           <Body muted>{strings['groups.nextSteps.body']}</Body>
-          <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
+          {/* Audyt 3 (N-8, Q10 C): rola wybrana na karcie, nie przez kolejność kroków (wcześniej członek, gdy nie było
+              jeszcze dzieci). Administratora zaprasza tylko właściciel — administrator widzi jeden przycisk „członek”. */}
+          {d.canInviteAdmin ? (
+            <>
+              <Button label={strings['groups.nextSteps.invitePartner']} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
+              <Button kind="secondary" label={strings['groups.nextSteps.inviteOther']} testID="next-invite" onPress={() => void makeInvite('member')} />
+            </>
+          ) : (
+            <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
+          )}
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
           {shopping ? (
             <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
@@ -140,7 +151,9 @@ export function GroupScreen({ route, navigation }: Props) {
           />
         </Card>
       ) : null}
-      {personal ? null : (
+      {/* Audyt 3 (N-161): dziecko z kontem widzi w Moich sprawach tylko swoje sprawy (PW-14 B, child.ts) — zakres nic by
+          nie zmienił, więc go nie ma. */}
+      {personal || d.group.me.role === 'child' ? null : (
         <View style={{ gap: 6 }}>
           {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
           {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
@@ -309,28 +322,15 @@ export function GroupScreen({ route, navigation }: Props) {
       ) : !personal ? (
         <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
       ) : null}
-      {/* D187 (audyt 2: PW-16 A, M-121): do kosza bez pytania — pasek „Cofnij” i kosz (właściciel, 30 dni). */}
+      {/* D187 i Q19 A (audyt 3, N-156): do kosza z „Cofnij”; pytanie tylko, gdy w grupie są inni (delete-group.ts). */}
       {d.canDelete ? (
         <Button
           kind="danger"
           label={strings['groups.delete']}
           testID="delete-group"
-          onPress={async () => {
+          onPress={() => {
             setError(null);
-            try {
-              await account.deleteGroup(d.group.id);
-            } catch (e) {
-              return setError(groupErrorText(e));
-            }
-            dropNameEdit();
-            store.refresh();
-            navigation.goBack();
-            undo.show(strings['undo.groupDeleted'](d.group.name), () => {
-              account.restoreGroup(d.group.id).then(
-                () => store.refresh(),
-                (e: unknown) => undo.show(groupErrorText(e)),
-              );
-            });
+            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: () => navigation.goBack() });
           }}
         />
       ) : null}

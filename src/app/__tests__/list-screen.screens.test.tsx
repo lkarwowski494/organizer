@@ -46,7 +46,9 @@ describe('wiersze listy (M-82)', () => {
     expect(within(odk).getByText(/↳ Sprzątanie/)).toBeTruthy();
     expect(within(odk).getByLabelText('Oznacz jako zrobione: Odkurzyć')).toBeTruthy();
     expect(odk.props.style.marginLeft).toBe(0);
-    // W „Zrobione” podzadanie nie stoi drugi raz; zrobione podzadanie — pod rodzicem, odhaczone.
+    // W „Zrobione” (zwinięte, audyt 3: N-52) podzadanie nie stoi drugi raz; zrobione podzadanie — pod rodzicem, odhaczone.
+    expect(screen.queryByTestId('task-zmyc')).toBeNull();
+    await press(screen.getByLabelText('Zrobione (2), pokaż'));
     expect(screen.getAllByTestId('task-odk')).toHaveLength(1);
     expect(within(screen.getByTestId('task-zmyc')).getByLabelText('Oznacz jako niezrobione: Zmyć')).toBeTruthy();
     expect(screen.getByTestId('task-zmyc').props.style.marginLeft).toBe(22);
@@ -429,6 +431,7 @@ describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
     // Dzisiejsza kopia (7.10) jest w otwartych; cztery minione — zwinięte.
     expect(screen.getByTestId(`task-${ids[4]}`)).toBeTruthy();
     for (const x of ids.slice(0, 4)) expect(screen.queryByTestId(`task-${x}`)).toBeNull();
+    await press(screen.getByLabelText('Zrobione (4), pokaż'));
     const run = screen.getByLabelText('Leki, 4 razy minęło');
     expect(run.props.accessibilityHint).toBe('Pokazuje minione kopie');
     expect(run.props.accessibilityValue.text).toBeUndefined();

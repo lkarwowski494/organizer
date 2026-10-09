@@ -48,12 +48,17 @@ type Api = {
   /** M-218: ponowna prośba o zgodę na lokalizację (np. po wygaśnięciu „Pozwól raz”). */
   requestPermission(): Promise<void>;
   navigate(location: string, eventId: string): void;
+  /** Audyt 3 (N-188): termin jest wśród celów dojazdu teraz (w oknie AHEAD_HOURS, najbliższe MAX_EVENTS). */
+  scheduled(eventId: string, occurrenceDate: string): boolean;
+  /** Audyt 3 (N-56): Ustawienia iPhone'a — po odmowie iOS nie zapyta drugi raz. */
+  openSettings(): void;
 };
 
 const noop = () => {};
 const Ctx = createContext<Api>({
   available: false, enabled: false, status: null, mode: 'driving', navApp: 'apple',
   setEnabled: async () => {}, setMode: noop, setNavApp: noop, modeFor: () => 'driving', setEventMode: noop, info: () => null, notFound: () => false, requestPermission: async () => {}, navigate: noop,
+  scheduled: () => false, openSettings: noop,
 });
 export const useTravel = () => useContext(Ctx);
 
@@ -227,6 +232,8 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         setStatus(ok ? 'granted' : await travel.status().catch(() => 'denied' as const));
       },
       navigate: (location, eventId) => void Linking.openURL(navigationUrl(navApp, location, modeFor(eventId), String(Platform.Version))).catch(() => {}),
+      scheduled: (eventId, occurrenceDate) => targets.some((t) => t.key === `${eventId}|${occurrenceDate}`),
+      openSettings: () => void Linking.openSettings().catch(() => {}),
     };
   }, [available, enabled, status, mode, navApp, modeFor, overrides, results, missing, targets, travel, prefs, local]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

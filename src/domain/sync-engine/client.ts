@@ -13,6 +13,7 @@
  * przeniesione poza wzrok, filtr encji): 20261008310000_sync_protocol_v2.sql.
  */
 import { config } from '../../config';
+import { applyEndSeries, applyRestoreSeries, repointLate } from '../event-chain';
 import { applySplit } from '../event-split';
 
 /**
@@ -169,10 +170,13 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
   switch (op.kind) {
     case 'create':
       if (!current) table[op.id] = { ...op.set, id: op.id, group_id: op.group_id, deleted_at: null };
+      // Audyt 3 (N-23): termin z części serii, która go już nie ma po „to i następne” — do następczyni (jak serwer).
+      if (!current) repointLate(tables, op.entity, op.id);
       return;
     case 'patch':
       // Usunięcie wygrywa z edycją — tak samo jak na serwerze.
       if (current && current.deleted_at == null) table[op.id] = { ...current, ...op.set };
+      if (op.entity === 'tasks' && ('event_id' in op.set || 'occurrence_date' in op.set)) repointLate(tables, op.entity, op.id);
       return;
     case 'delete':
       // Idempotentne: usunięty zostaje usunięty (z pierwotnym znacznikiem). Znacznik z numerem operacji odróżnia dwa
@@ -203,10 +207,14 @@ export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): str
 
 /**
  * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
- * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split) i stałe zakupy.
+ * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split), koniec serii i jego cofnięcie
+ * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain) i stałe zakupy.
  */
 function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
   if (op.cmd === 'split_event') return applySplit(tables, op.args);
+  // Audyt 3 (N-3, N-117): koniec całej serii (łańcucha) i jego cofnięcie (src/domain/event-chain.ts).
+  if (op.cmd === 'end_series') return applyEndSeries(tables, op.args, `pending:${op.seq}`);
+  if (op.cmd === 'restore_series') return applyRestoreSeries(tables, op.args);
   const id = String(op.args.list_id);
   const list = tables.lists?.[id];
   // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.

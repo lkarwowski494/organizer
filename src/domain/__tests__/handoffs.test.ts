@@ -33,7 +33,7 @@ function world(): T {
   m('tymek', null, 'Tymek', 'child');
   m('dawny', 'u-d', 'Dawny', 'member', { deleted_at: 'x' });
   put(t, 'tasks', 't1', { id: 't1', group_id: 'gf', list_id: 'l', title: 'Logopeda' });
-  put(t, 'events', 'e1', { id: 'e1', group_id: 'gf', title: 'Tańce', start_date: '2026-10-05' });
+  put(t, 'events', 'e1', { id: 'e1', group_id: 'gf', title: 'Tańce', start_date: '2026-10-05', rrule: 'FREQ=WEEKLY;BYDAY=MO' });
   return t;
 }
 

@@ -147,6 +147,15 @@ describe('model reguł serwera', () => {
     expect(v(U.member, create('tasks', { list_id: 'l', title: 'x' }))).toBe('ok');
     expect(v(U.stranger, create('tasks', { list_id: 'l', title: 'x' }))).toBe('forbidden');
     expect(v(U.child, create('tasks', { list_id: 'l', title: 'x' }))).toBe('forbidden:child');
+    // Audyt 3 (Q6d A): dziecko dopisuje produkt do listy zakupów — tylko pozycję główną bez osoby, terminu i reszty.
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'szampon', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null }))).toBe('ok');
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'szampon' }))).toBe('ok');
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'x', assignee_member_id: M.child }))).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'x', deadline_mode: 'own', due_date: '2026-10-08' }))).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'x', parent_id: 't-shop2' }))).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l-shop2', title: 'x', note: 'duży' }))).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'nie-ma', title: 'x' }))).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l2', title: 'x' }))).toBe('forbidden:child');
     expect(v(U.member, create('tasks', { list_id: 'l2', title: 'x' }))).toBe('invalid_list');
     expect(v(U.member, create('tasks', { list_id: 'nie-ma', title: 'x' }))).toBe('invalid_list');
     expect(v(U.member, create('tasks', { list_id: 'l-del', title: 'x' }))).toBe('deleted:list');
@@ -332,6 +341,13 @@ describe('model reguł serwera', () => {
     expect(v(U.owner, patch('group_members', M.owner, { role: 'admin' }))).toBe('forbidden:owner_cannot_demote_self');
     expect(v(U.owner, patch('group_members', M.profile, { role: 'member' }))).toBe('forbidden:role'); // profil bez konta zostaje dzieckiem
     expect(v(U.admin, patch('group_members', M.member, { role: 'child' }))).toBe('forbidden:role');
+    // Audyt 3 (N-42, Q6b A): na dziecko tylko konto połączone kiedyś kodem profilu dziecka (child_linked_at).
+    expect(v(U.owner, patch('group_members', M.member, { role: 'child' }))).toBe('forbidden:role');
+    expect(v(U.owner, patch('group_members', M.child, { role: 'member' }))).toBe('ok');
+    const linked = world();
+    linked.group_members![M.member] = { ...linked.group_members![M.member]!, child_linked_at: '2026-10-01T00:00:00Z' };
+    expect(v(U.owner, patch('group_members', M.member, { role: 'child' }), linked)).toBe('ok');
+    expect(v(U.owner, patch('group_members', M.child, { display_name: 'Ala' }))).toBe('ok'); // dziecko bez znacznika zostaje dzieckiem
     expect(v(U.admin, del('group_members', M.member))).toBe('ok'); // admin usuwa dorosłego członka
     expect(v(U.admin, del('group_members', M.owner))).toBe('forbidden:role');
     expect(v(U.admin, del('group_members', M.profile))).toBe('ok');

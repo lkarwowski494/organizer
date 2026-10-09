@@ -13,7 +13,7 @@ import { WEEKDAYS_ACCUSATIVE, WEEKDAYS_ON } from '../../config/quickadd.pl';
 import { buttonA11y, spoken } from '../../ui/a11y';
 import { EventRow, GroupLine, MissingScreen, StationRow, syncAnnouncement, syncAnnouncer } from '../../ui/components';
 import { RootStack } from '../navigation';
-import { answerAlert, put, sampleBase, setup, TOGGLE_BOX } from './harness';
+import { answerAlert, put, sampleBase, setTime, setup, TOGGLE_BOX } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const announced = () => (AccessibilityInfo.announceForAccessibilityWithOptions as jest.Mock).mock.calls.map((c) => c[0] as string);
@@ -222,6 +222,52 @@ describe('fokus po zamknięciu panelu (N-62)', () => {
     (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
     await press(within(panel).getByRole('button', { name: 'Anuluj' }));
     await expectFocusOn(byTestId('quick-add'));
+  });
+  it('nowe pytania z main (Q8 A, Q6d A, Q27 B): „Anuluj” wraca do pola dodawania albo na przycisk, który otworzył panel', async () => {
+    // Lista zakupów: „… już jest na liście” — do pola dodawania.
+    await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByText('Zakupy na weekend'));
+    await screen.findByTestId('screen-list');
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'chleb żytni');
+    await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
+    const dup = screen.getByTestId('shop-duplicate');
+    (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
+    await press(within(dup).getByRole('button', { name: 'Anuluj' }));
+    expect(screen.queryByTestId('shop-duplicate')).toBeNull();
+    await expectFocusOn(byTestId('quick-add'));
+    // Dziecko z kontem: „W grupie … dopisujesz tylko zakupy” — do pola dodawania.
+    const child = sampleBase();
+    put(child, 'group_members', 'mf', { ...child.group_members!.mf!, role: 'child' });
+    const s = setup({ base: child });
+    s.services.local!.save('lastUsedGroup', 'u-me');
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await fireEvent.changeText(screen.getByTestId('quick-add'), '#Rodzina szampon');
+    await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
+    const tag = screen.getByTestId('tag-child');
+    (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
+    await press(within(tag).getByRole('button', { name: 'Anuluj' }));
+    expect(screen.queryByTestId('tag-child')).toBeNull();
+    await expectFocusOn(byTestId('quick-add'));
+    // Plan lekcji: wybór grupy do skopiowania — na „Skopiuj plan lekcji do…”.
+    const two = sampleBase();
+    put(two, 'group_members', 'kzosia', { member_id: 'kzosia', group_id: 'gk', user_id: null, display_name: 'Zosia', role: 'child', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 });
+    const t = setup({ base: two });
+    await t.renderApp(<RootStack />);
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby, administrator'));
+    await press(await screen.findByLabelText('Tymek, dziecko'));
+    await press(await screen.findByTestId('open-timetable'));
+    await screen.findByTestId('screen-timetable');
+    await press(screen.getByTestId('lesson-add-0'));
+    await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Basen');
+    await setTime('lesson-end-0', '09:00');
+    await press(screen.getByTestId('timetable-copy'));
+    (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
+    await press(within(screen.getByTestId('timetable-copy-choices')).getByRole('button', { name: 'Anuluj' }));
+    expect(screen.queryByTestId('timetable-copy-choices')).toBeNull();
+    await expectFocusOn(byTestId('timetable-copy'));
   });
 });
 

@@ -4,8 +4,7 @@
  * i te same czynności. Koniec ważności w czasie Europe/Warsaw: na ekranie „jutro, 18:40”, w wiadomości „piątek,
  * 9 października, 18:40” (audyt 2, U-41: adresat czyta ją później, „jutro” znaczy wtedy co innego).
  */
-import { useState } from 'react';
-import { Share, Text, View } from 'react-native';
+import { Alert, Share, Text } from 'react-native';
 
 import { localNow } from '../../domain/local-time';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
@@ -39,7 +38,6 @@ export function JoinCodeCard(p: {
   testIDs: { card: string; code: string; renew: string };
 }) {
   const { c, font, size } = useTheme();
-  const [confirm, setConfirm] = useState(false);
   const id = groupDigits(p.code.joinId);
   const code = groupDigits(p.code.code);
   return (
@@ -52,16 +50,19 @@ export function JoinCodeCard(p: {
       <Button label={strings['groups.share']} onPress={() => void Share.share({ message: p.message(id, code, untilAbs(p.code.expiresAt, p.today)) })} />
       <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID={p.testIDs.renew} onPress={p.onRenew} />
       {/* Audyt 2 (G-37, R-19): kod znika dopiero po unieważnieniu; przy błędzie zostaje do ponowienia (robi to ekran).
-          D187: unieważnienia nie da się cofnąć (serwer nie przywraca kodu, „Nowy kod” daje inny), więc jedno pytanie. */}
-      {confirm ? (
-        <View style={{ gap: 8 }}>
-          <Body>{strings['groups.revokeConfirm']}</Body>
-          <Button kind="danger" label={strings['groups.revoke']} testID="revoke-confirm" onPress={p.onRevoke} />
-          <Button kind="secondary" label={strings['common.cancel']} onPress={() => setConfirm(false)} />
-        </View>
-      ) : (
-        <Button kind="danger" label={strings['groups.revoke']} testID="revoke" onPress={() => setConfirm(true)} />
-      )}
+          D187: unieważnienia nie da się cofnąć (serwer nie przywraca kodu, „Nowy kod” daje inny), więc jedno pytanie —
+          tak/nie oknem systemowym jak „Zmień ID grupy” (audyt 3, N-153, decyzja Q32 A; PWD-4 A). */}
+      <Button
+        kind="danger"
+        label={strings['groups.revoke']}
+        testID="revoke"
+        onPress={() =>
+          Alert.alert(strings['groups.revoke'], strings['groups.revokeConfirm'], [
+            { text: strings['common.cancel'], style: 'cancel' },
+            { text: strings['groups.revoke'], style: 'destructive', onPress: p.onRevoke },
+          ])
+        }
+      />
     </Card>
   );
 }

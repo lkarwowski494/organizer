@@ -16,6 +16,7 @@ import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitl
 import { useAppearance } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
+import { CAL_ASKED } from '../calendar/DeviceCalendarCard';
 import { useTravel } from '../../app/travel';
 import { TRAVEL_MODES } from '../../domain/travel';
 import { MuteSettings } from './MuteSettings';
@@ -29,7 +30,7 @@ const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appe
 
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
-  const { account, nowMs, displayName, resetLocal, signInAgain, userId, emailOnly } = useServices();
+  const { account, nowMs, displayName, resetLocal, signInAgain, userId, emailOnly, prefs } = useServices();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
@@ -176,11 +177,13 @@ export function SettingsScreen({ navigation, route }: Props) {
           {calendar.available && calendar.status !== null && calendar.status !== 'granted' ? (
             <View testID="device-access" style={{ gap: 8 }}>
               <SectionTitle>{strings['device.title']}</SectionTitle>
+              {calendar.mirrorStale ? <Body testID="device-mirror-stale">{strings['device.mirrorStale']}</Body> : null}
               <Body muted>{calendar.status === 'denied' ? strings['device.denied'] : calendar.status === 'writeOnly' ? strings['device.writeOnly'] : strings['device.body']}</Body>
               {calendar.status === 'denied' ? (
                 <Button label={strings['push.openSettings']} testID="settings-calendar-open" onPress={calendar.openSettings} />
               ) : (
-                <Button label={strings['device.connect']} testID="settings-calendar-connect" onPress={() => void calendar.connect()} />
+                // Audyt 3 (N-185): połączenie stąd też kończy zaproszenie w Kalendarzu (jak „Połącz” na karcie).
+                <Button label={strings['device.connect']} testID="settings-calendar-connect" onPress={() => void calendar.connect().then((ok) => void (ok && prefs?.set(CAL_ASKED, '1').catch(() => {})))} />
               )}
             </View>
           ) : null}
@@ -189,7 +192,9 @@ export function SettingsScreen({ navigation, route }: Props) {
               <SectionTitle>{strings['device.title']}</SectionTitle>
               <SwitchRow label={strings['device.read']} value={calendar.read} onChange={calendar.setRead} testID="switch-device-read" />
               <SwitchRow label={strings['device.mirror']} value={calendar.mirror} onChange={calendar.setMirror} testID="switch-device-mirror" />
+              {calendar.mirrorFailed ? <ErrorText>{strings['device.mirrorFailed']}</ErrorText> : null}
               <Body muted>{strings['device.mirrorInfo']}</Body>
+              {calendar.tablet ? <Body muted>{strings['device.mirrorTablet']}</Body> : null}
               {/* D174: wybór grup w lustrze (w bazie konta). */}
               {calendar.mirror && calendar.groups.length ? (
                 <View testID="device-mirror-groups" style={{ gap: 10 }}>
@@ -215,7 +220,13 @@ export function SettingsScreen({ navigation, route }: Props) {
             {travel.available ? (
               <>
                 <SwitchRow label={strings['travel.enabled']} value={travel.enabled} onChange={(on) => void travel.setEnabled(on)} testID="switch-travel" />
-                {travel.status === 'denied' ? <Body muted>{strings['travel.denied']}</Body> : null}
+                {/* Audyt 3 (N-56): odmowa — iOS nie zapyta drugi raz, więc droga do Ustawień iPhone'a (jak kalendarz i powiadomienia). */}
+                {travel.status === 'denied' ? (
+                  <>
+                    <Body muted>{strings['travel.denied']}</Body>
+                    <Button label={strings['push.openSettings']} testID="settings-travel-open" onPress={travel.openSettings} />
+                  </>
+                ) : null}
                 {/* M-218: „Pozwól raz” wygasło — włączony dojazd bez zgody nic nie liczy. */}
                 {travel.enabled && travel.status === 'undetermined' ? (
                   <View testID="travel-permission" style={{ gap: 8 }}>

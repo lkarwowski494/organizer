@@ -220,3 +220,87 @@ d('paczki w odwrotnej kolejności grup', () => {
     expect(errors).toEqual([]);
   }, 60_000);
 });
+
+// Audyt 3 (N-98): limity liczone z istniejących wierszy (grupy wspólne konta, aktywne zaproszenia grupy, opinie na dobę)
+// pod równoległymi żądaniami. Pierwsze żądanie trzyma otwartą transakcję tuż przed limitem; drugie musi poczekać na jego
+// koniec i zobaczyć jego wiersz — dotąd liczyło bez blokady i oba przechodziły (np. 51 grup przy limicie 50).
+d('limity pod równoległymi żądaniami (audyt 3, N-98)', () => {
+  const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  /** `first` w otwartej transakcji, potem `second` z drugiego połączenia; zwraca, czy `second` czekało, i jego błąd. */
+  async function race(c1: Client, c2: Client, first: string, second: string, args1: unknown[], args2: unknown[]) {
+    await c1.query('begin');
+    await c1.query(first, args1);
+    let done = false;
+    const p = c2.query(second, args2).then(
+      () => ((done = true), null),
+      (e: Error) => ((done = true), e.message),
+    );
+    await settle(300);
+    const waited = !done;
+    await c1.query('commit');
+    return { waited, error: await p };
+  }
+  const user = async (admin: Client) => {
+    const u = randomUUID();
+    await admin.query(`insert into auth.users (id, email) values ($1::uuid, $1::text || '@x.test')`, [u]);
+    return u;
+  };
+
+  it('grupy wspólne konta: druga grupa ponad limit odrzucona', async () => {
+    const admin = await connect();
+    const u = await user(admin);
+    const max = Number((await admin.query('select private.max_shared_groups() n')).rows[0].n);
+    await admin.query(
+      `with g as (insert into public.groups (id, name, kind) select gen_random_uuid(), 'G', 'shared' from generate_series(1, $2::int - 1) returning id)
+       insert into public.group_members (member_id, group_id, user_id, display_name, role) select gen_random_uuid(), g.id, $1, 'Ala', 'owner' from g`,
+      [u, max],
+    );
+    const [c1, c2] = [await connect(u), await connect(u)];
+    const q = `select public.create_group($1, 'Nowa', $2, 'Ala')`;
+    const r = await race(c1, c2, q, q, [randomUUID(), randomUUID()], [randomUUID(), randomUUID()]);
+    expect(r).toEqual({ waited: true, error: 'limit:groups' });
+    const n = (await admin.query(`select count(*)::int n from public.group_members m join public.groups g on g.id = m.group_id where m.user_id = $1 and g.kind = 'shared'`, [u])).rows[0].n;
+    expect(n).toBe(max);
+    await Promise.all([admin, c1, c2].map((c) => c.end()));
+  }, 30_000);
+
+  it('aktywne zaproszenia grupy: drugie ponad limit odrzucone', async () => {
+    const admin = await connect();
+    const u = await user(admin);
+    const group = randomUUID();
+    const owner = await connect(u);
+    await owner.query(`select public.create_group($1, 'Zaproszenia', $2, 'Ala')`, [group, randomUUID()]);
+    const max = Number((await admin.query('select private.max_active_invites() n')).rows[0].n);
+    for (let i = 0; i < max - 1; i++) await owner.query('select public.create_invite($1)', [group]);
+    const c2 = await connect(u);
+    const q = 'select public.create_invite($1)';
+    const r = await race(owner, c2, q, q, [group], [group]);
+    expect(r).toEqual({ waited: true, error: 'limit:invites' });
+    await Promise.all([admin, owner, c2].map((c) => c.end()));
+  }, 30_000);
+
+  it('opinie na dobę: druga ponad limit odrzucona', async () => {
+    const admin = await connect();
+    const u = await user(admin);
+    const max = Number((await admin.query('select private.feedback_per_day() n')).rows[0].n);
+    await admin.query(`insert into public.app_feedback (user_id, message) select $1, 'stara' from generate_series(1, $2::int - 1)`, [u, max]);
+    const [c1, c2] = [await connect(u), await connect(u)];
+    const q = `select public.send_feedback('Opinia', null, null)`;
+    const r = await race(c1, c2, q, q, [], []);
+    expect(r).toEqual({ waited: true, error: 'rate_limited' });
+    await Promise.all([admin, c1, c2].map((c) => c.end()));
+  }, 30_000);
+
+  it('zgłoszenia błędów na dobę: ponad limit drugie się nie zapisuje', async () => {
+    const admin = await connect();
+    const u = await user(admin);
+    const max = Number((await admin.query('select private.client_errors_per_day() n')).rows[0].n);
+    await admin.query(`insert into public.client_errors (user_id, kind, message) select $1, 'error', 'stary' from generate_series(1, $2::int - 1)`, [u, max]);
+    const [c1, c2] = [await connect(u), await connect(u)];
+    const q = `select public.report_client_error('error', 'nowy', null, null, null)`;
+    const r = await race(c1, c2, q, q, [], []);
+    expect(r).toEqual({ waited: true, error: null });
+    expect((await admin.query('select count(*)::int n from public.client_errors where user_id = $1', [u])).rows[0].n).toBe(max);
+    await Promise.all([admin, c1, c2].map((c) => c.end()));
+  }, 30_000);
+});

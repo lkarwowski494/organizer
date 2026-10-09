@@ -31,8 +31,11 @@
    zmian; „Cofnij” usuwa wiersz).
 4. **Wydarzenie dziecka u drugiego rodzica (PWD-32 B):** wyszarzone „Tymek: Basen” z „odpowiada: Ala” (to samo słowo
    co przy osobie odpowiedzialnej, zamiast „zawozi”), bez przypomnień, lustra i dojazdu.
-5. **Potwierdzenia (PWD-4 A):** proste tak/nie — okno systemowe (wyjście z grupy, kosz grupy, wylogowanie); panel w
-   ekranie tylko przy wyborze z kilku opcji albo dłuższym wyjaśnieniu (czyszczenie danych, usunięcie konta).
+5. **Potwierdzenia (PWD-4 A):** proste tak/nie — okno systemowe (wyjście z grupy, zmiana ID grupy, unieważnienie kodu —
+   audyt 3, Q32 A; usunięcie grupy, w której są inni — audyt 3, Q19 A; lista z zadaniami — D187; wylogowanie); panel
+   w ekranie tylko przy wyborze z kilku opcji albo dłuższym wyjaśnieniu (przekazanie własności — Q32 A, czyszczenie
+   danych, usunięcie konta). Rzeczy, które wracają z kosza, idą tam bez pytania z paskiem „Cofnij” (D187) — także grupa,
+   w której jestem sam.
 6. **Walidacja (PWD-5 A):** przycisk zawsze aktywny (poza wysyłaniem), po naciśnięciu komunikat przy polu (rola alert).
 7. **Po zapisie (M-246):** „pojemniki” (lista, grupa) otwierają się, „wpisy” (zadanie, wydarzenie, rutyna) wracają;
    po zmianie wydarzenia — do jego szczegółów, gdy termin nadal istnieje, inaczej o ekran dalej.

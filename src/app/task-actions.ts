@@ -105,7 +105,9 @@ export function useTaskActions() {
     remove(t: Item) {
       const op = remove('tasks', t.id);
       store.dispatch(op);
-      undo.show(strings['undo.deleted'](t.title), { ops: [restore('tasks', t.id)] }, { changed: [op] });
+      // Audyt 3 (N-150): pasek z rodzajem — pozycja listy zakupów to produkt.
+      const list = tables.lists?.[String(tables.tasks?.[t.id]?.list_id)];
+      undo.show(strings[list?.kind === 'shopping' ? 'undo.itemDeleted' : 'undo.taskDeleted'](t.title), { ops: [restore('tasks', t.id)] }, { changed: [op] });
     },
     /**
      * Usunięcie listy (D187, audyt 2: PW-16 A, M-121): pusta — od razu, z „Cofnij” i koszem; z zadaniami — jedno pytanie
