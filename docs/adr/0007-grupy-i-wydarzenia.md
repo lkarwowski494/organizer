@@ -21,7 +21,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
    - Odrzucone: jedna seria z listą godzin per dzień. To poza standardem i utrudniłoby późniejszy eksport do kalendarza.
 3. **Zmiana jednego wystąpienia to wiersz `event_overrides`**, którego kluczem jest data pierwotna. Wiersz może przenieść wystąpienie (dzień, godziny), zmienić tytuł albo je odwołać.
    - Jedna godzina może się zmienić tylko dla wystąpienia z godziną. Wydarzenie całodniowe pozostaje całodniowe, bo pusta godzina w wyjątku znaczy „bez zmiany”. → Zmienione przez D136 (ADR 0035): wyjątek ma własny znacznik `all_day`, więc pojedynczy termin serii z godziną może być całodniowy i odwrotnie.
-   - Przeniesione wystąpienie jest widoczne, jeśli przesunięto je najwyżej o 62 dni.
+   - Przeniesione wystąpienie jest widoczne, jeśli przesunięto je najwyżej o 62 dni. → Zmienione w audycie 3 (9.10.2026): formularz nadal pozwala przenieść najwyżej o 62 dni (`config.events.MOVE_WINDOW_DAYS`), ale wyjątek przeniesiony dalej (starszy klient, API) stoi w nowym dniu w każdym widoku, jak w RFC 5545 (RECURRENCE-ID wskazuje datę pierwotną, wystąpienie jest w nowym terminie). Wcześniej to, czy był widoczny, zależało od szerokości zakresu widoku (dzień, plan przypomnień, miesiąc).
    - Odrzucone: kopia całego wydarzenia na każde wystąpienie. Zmiana całej serii przestałaby wtedy obejmować kopie.
 4. **„To i następne” = koniec starej serii dzień wcześniej (UNTIL) + nowa seria od tego dnia.** Wyjątki od tego dnia przechodzą do nowej serii.
    - Wszystko idzie jedną paczką operacji zapisaną w jednej transakcji (`dispatch` przyjmuje listę), więc działa offline.
