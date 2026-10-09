@@ -1,8 +1,10 @@
 # Limity darmowych planów i progi ostrzeżeń
 
 Wartości progów: `src/config/index.ts` → `config.limits` (jedno źródło prawdy; kolumna „Próg” podaje klucz, nie liczbę).
-Ta tabela opisuje źródła limitów. Progi sprawdza dziś człowiek: nocny skrypt, który porówna zużycie z `config.limits`
-(D185), jeszcze nie działa. Limity sprawdzone 5–6.10.2026 (Supabase ponownie 8.10.2026, GitHub i TestFlight 9.10.2026);
+Ta tabela opisuje źródła limitów. Nocny skrypt `free-limits` (D185, sekcja niżej) porównuje zużycie z `config.limits`
+od 9.10.2026 — ale mierzy dopiero po dodaniu sekretu `SUPABASE_MONITOR_TOKEN`; bez sekretu nic nie mierzy ani nie
+podtrzymuje projektu. Egress, wiadomości i połączenia Realtime, wiek buildu TestFlight i token `organizer-match` sprawdza
+człowiek. Limity sprawdzone 5–6.10.2026 (Supabase ponownie 8.10.2026, GitHub i TestFlight 9.10.2026);
 przed każdą zmianą planu sprawdź ponownie.
 
 | Zasób | Limit | Próg | Źródło |
@@ -42,5 +44,7 @@ API nie podaje — sprawdzaj je ręcznie na stronie zużycia organizacji w panel
 **Sekret `SUPABASE_MONITOR_TOKEN`** (do dodania przez właściciela: GitHub → Settings → Secrets and variables → Actions →
 New repository secret): osobisty token dostępu Supabase (panel Supabase → Account → Access Tokens, nazwa np.
 „organizer-limits”, z datą wygaśnięcia). Używa go tylko krok pomiaru (zmienna na poziomie kroku, skrypt jej nie
-wypisuje). Dopóki sekretu nie ma, zadanie kończy się komunikatem „Brak sekretu SUPABASE_MONITOR_TOKEN” i niczego nie
-mierzy — wtedy projekt nie jest też podtrzymywany. Token wygasa — przypomnienie jak przy `organizer-match` (30 dni wcześniej).
+wypisuje). Dopóki sekretu nie ma, zadanie niczego nie mierzy i nie podtrzymuje projektu: do 15.10.2026 kończy się ostrzeżeniem
+„Brak sekretu SUPABASE_MONITOR_TOKEN” (na zielono), od `config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM` (16.10.2026) — błędem,
+więc nocny przebieg jest czerwony, dopóki właściciel nie doda sekretu (audyt 3, N-83). 1. dnia miesiąca zadanie
+przypomina ostrzeżeniem o ręcznym odczycie egress i Realtime. Token wygasa — przypomnienie jak przy `organizer-match` (30 dni wcześniej).

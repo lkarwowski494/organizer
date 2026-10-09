@@ -108,7 +108,8 @@ jobs:
     # Darmowe limity (D185, audyt 2 M-78): rozmiar bazy i wywołania Edge Functions z Supabase Management API, pamięć
     # podręczna Actions; ≥ 70% limitu (progi config.limits) albo nieudany pomiar oblewa zadanie. Zapytanie do bazy co noc
     # podtrzymuje projekt Free przed uśpieniem po tygodniu bez ruchu. Sekret SUPABASE_MONITOR_TOKEN dodaje właściciel
-    # (docs/limits.md); bez niego zadanie kończy się komunikatem. Sekret tylko w kroku pomiaru, nigdy wypisywany.
+    # (docs/limits.md); bez niego nic nie jest mierzone: ostrzeżenie, a od config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM błąd
+    # (audyt 3, N-83). Sekret tylko w kroku pomiaru, nigdy wypisywany.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
