@@ -178,15 +178,17 @@ describe('pętla synchronizacji — własności', () => {
           now += dt;
           const before = s.pending;
           s = onEvent(s, e, now);
-          if (e.t !== 'local_change') expect(s.pending).toBe(before);
+          // Tylko lokalna zmiana zmienia liczbę oczekujących.
+          expect(e.t === 'local_change' ? before : s.pending).toBe(before);
           const d = decide(s, now);
-          if (d.do === 'push' || d.do === 'pull') {
-            expect(s.online && !s.authExpired && !s.fatal && s.inflight === null).toBe(true);
-            if (d.do === 'push') expect(s.pending).toBeGreaterThan(0);
+          const runs = d.do === 'push' || d.do === 'pull';
+          expect(!runs || (s.online && !s.authExpired && !s.fatal && s.inflight === null)).toBe(true);
+          expect(d.do !== 'push' || s.pending > 0).toBe(true);
+          if (runs) {
             // Symulacja wywołania i natychmiastowego sukcesu.
             s = onEvent(onEvent(s, { t: 'started', what: d.do }, now), d.do === 'push' ? { t: 'push_ok', pending: s.pending } : { t: 'pull_ok', needMore: false, pending: s.pending }, now);
           }
-          if (d.do === 'wait') expect(d.until).toBeGreaterThan(now);
+          expect(d.do !== 'wait' || d.until > now).toBe(true);
           expect(backoffMs(s.failures)).toBeLessThanOrEqual(config.sync.BACKOFF_MAX_MS);
         }
       }),
@@ -266,8 +268,8 @@ describe('odporność pętli (audyt 2, P2)', () => {
         for (const [e, dt] of steps) s = onEvent(s, e, (now += dt));
         const before = decide(s, now);
         const after = decide(onEvent(s, { t: 'clock' }, now - jump), now - jump);
-        if (before.do === 'wait' && after.do === 'wait') expect(after.until - (now - jump)).toBeLessThanOrEqual(before.until - now);
-        else expect(after.do).toBe(before.do);
+        // Cofnięty zegar nie wydłuża czekania; poza czekaniem decyzja bez zmian.
+        expect(before.do === 'wait' && after.do === 'wait' ? after.until - (now - jump) <= before.until - now : after.do === before.do).toBe(true);
       }),
     );
   });

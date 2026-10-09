@@ -6,7 +6,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { Alert } from 'react-native';
 
 import { memoryDb } from '../../data/__tests__/sqlite';
-import { E2E_IDS, e2eDeps } from '../e2e';
+import { E2E_IDS, E2E_START_MS, e2eDeps } from '../e2e';
 import { Root } from '../Root';
 import { answerAlert, lastAlert } from './harness';
 
@@ -18,13 +18,29 @@ afterEach(() => jest.restoreAllMocks());
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
+/**
+ * Zegar pętli synchronizacji symulowany (audyt 2, M-196): timer pętli „mija” od razu, a zegar przesuwa się o jego
+ * długość — jak w root.test.tsx. Prawdziwe opóźnienie wysyłki (config.sync.PUSH_DEBOUNCE_MS) na obciążonym runnerze
+ * kończyło test komunikatem o limicie czasu zamiast o brakującym elemencie.
+ */
 function start(isSimulator = true) {
   let n = 0;
-  const deps = e2eDeps({
-    openDb: () => memoryDb(),
-    newId: () => `0199b000-0000-7000-8000-${String(++n).padStart(12, '0')}`,
-    isSimulator: async () => isSimulator,
-  });
+  let clock = E2E_START_MS;
+  const deps = {
+    ...e2eDeps({
+      openDb: () => memoryDb(),
+      newId: () => `0199b000-0000-7000-8000-${String(++n).padStart(12, '0')}`,
+      isSimulator: async () => isSimulator,
+      nowMs: () => clock,
+    }),
+    setTimer: (fn: () => void, ms: number) => {
+      const t = setTimeout(() => {
+        clock += ms;
+        fn();
+      }, 0);
+      return () => clearTimeout(t);
+    },
+  };
   return { deps, render: () => render(<Root deps={deps} fontsLoaded />) };
 }
 
@@ -95,7 +111,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     // Bez pytania, z paskiem „Cofnij” (zmiana D59) — .maestro/05 czeka, aż pasek zniknie, przed zrzutem.
     expect(within(screen.getByTestId('undo-bar')).getByText('W koszyku: Ser żółty')).toBeTruthy();
     expect(await screen.findByLabelText('Wyjmij z koszyka: Ser żółty')).toBeTruthy();
-    expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą')).toBeTruthy();
   });
 
   it('06 Ustawienia się otwierają', async () => {
@@ -111,7 +127,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(screen.getByTestId('sign-out')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-settings')).toBeTruthy();
-    expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą')).toBeTruthy();
   });
 
   it('zmiany przechodzą przez „serwer” i wracają przy pobraniu (synchronizacja bez sieci)', async () => {
@@ -120,14 +136,11 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await screen.findByText('Oddać książki do biblioteki');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Zadzwonić do babci');
     await press(screen.getByLabelText('Dodaj'));
-    // Pętla wysyła po config.sync.PUSH_DEBOUNCE_MS (prawdziwy timer), serwer oddaje wiersz przy pobraniu.
-    await waitFor(
-      async () => {
-        const res = await t.deps.transport.pull({ cursors: {}, schema_version: 2, entities: [] }, 100);
-        expect(res.groups.flatMap((g) => g.rows).some((r) => r.row.title === 'Zadzwonić do babci')).toBe(true);
-      },
-      { timeout: 5000 },
-    );
+    // Pętla wysyła po config.sync.PUSH_DEBOUNCE_MS (zegar symulowany), serwer oddaje wiersz przy pobraniu.
+    await waitFor(async () => {
+      const res = await t.deps.transport.pull({ cursors: {}, schema_version: 2, entities: [] }, 100);
+      expect(res.groups.flatMap((g) => g.rows).some((r) => r.row.title === 'Zadzwonić do babci')).toBe(true);
+    });
   });
 
   it('wylogowanie i ponowne logowanie (Apple) w trybie E2E', async () => {

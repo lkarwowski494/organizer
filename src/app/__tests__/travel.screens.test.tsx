@@ -45,7 +45,7 @@ describe('dojazd (D115–D117)', () => {
     const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
     await s.renderApp(<RootStack />);
     await flush();
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     expect(within(screen.getByTestId('today-event-kino-2026-10-07')).queryByText(/Wyjdź o/)).toBeNull();
     expect(s.account.reportError).toHaveBeenCalledTimes(1);
   });
@@ -53,7 +53,7 @@ describe('dojazd (D115–D117)', () => {
   it('„Moje sprawy”: „Wyjdź o 16:30 · 25 min autem”; ekran wydarzenia: adres, nawigacja, zmiana środka tylko u mnie', async () => {
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const { travel, prefs } = await open();
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     expect(travel.geocode).toHaveBeenCalledWith('Basen Delfin, ul. Wodna 1');
     expect(travel.eta).toHaveBeenCalledWith({ lat: 50.06, lng: 19.94 }, { lat: 50.07, lng: 19.9 }, 'driving', expect.any(Number));
     await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
@@ -97,15 +97,15 @@ describe('dojazd (D115–D117)', () => {
 
   it('PW-23 (decyzja właściciela): moje „Nie będę” — bez „Wyjdź o” i bez liczenia dojazdu; zmiana zdania przywraca', async () => {
     const { store, travel } = await open();
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     const calls = travel.eta.mock.calls.length;
     const rsvp = { id: 'r-basen', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'mf', answer: 'no', deleted_at: null, version: 1 };
-    store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': rsvp } }));
+    await act(async () => store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': rsvp } })));
     await waitFor(() => expect(screen.queryByText(/Wyjdź o/)).toBeNull());
     expect(screen.getByLabelText(/^Basen, 17:00–18:00/)).toBeTruthy(); // wiersz zostaje (D129)
     expect(travel.eta.mock.calls.length).toBe(calls);
-    store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': { ...rsvp, answer: 'yes' } } }));
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    await act(async () => store.pull((b) => ({ ...b, event_rsvps: { 'r-basen': { ...rsvp, answer: 'yes' } } })));
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
   });
 
   it('D160 (koordynator): wydarzenie tylko przez dziecko, dziecko „nie będzie” — bez „Wyjdź o” i bez liczenia dojazdu', async () => {
@@ -116,16 +116,16 @@ describe('dojazd (D115–D117)', () => {
     const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
     await s.renderApp(<RootStack />);
     await flush();
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     const calls = travel.eta.mock.calls.length;
-    s.store.pull((x) => ({ ...x, event_rsvps: { r: { id: 'r', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'kuba', answer: 'no', deleted_at: null, version: 1 } } }));
+    await act(async () => s.store.pull((x) => ({ ...x, event_rsvps: { r: { id: 'r', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'kuba', answer: 'no', deleted_at: null, version: 1 } } })));
     await waitFor(() => expect(screen.queryByText(/Wyjdź o/)).toBeNull());
     expect(travel.eta.mock.calls.length).toBe(calls);
   });
 
   it('D159: ostatni wynik dojazdu zapisany na telefonie — z niego „Czas wyjść” w tle (to samo miejsce i środek)', async () => {
     const { services } = await open();
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     expect(JSON.parse(services.local!.load('travelResults')!)).toEqual({ 'basen|2026-10-07': { seconds: 25 * 60, mode: 'driving', location: 'Basen Delfin, ul. Wodna 1' } });
   });
 
@@ -176,7 +176,7 @@ describe('dojazd (D115–D117)', () => {
   it('audyt 2 (M-106): odjazd o porze wyjścia, nie „teraz”; nieznany adres — komunikat, zapamiętany z datą', async () => {
     const travel = fakeTravel();
     const { services } = await open(travel);
-    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     // Pierwsze pytanie — teraz (10:00), drugie — o porze wyjścia z pierwszego wyniku (17:00 − 25 min − zapas = 16:30).
     expect(travel.eta.mock.calls.map((c) => c[3])).toEqual([Date.UTC(2026, 9, 7, 8, 0), Date.UTC(2026, 9, 7, 14, 30)]);
     const geo = JSON.parse(services.local!.load('travelGeo')!);

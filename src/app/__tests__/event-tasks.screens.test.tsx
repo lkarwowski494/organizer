@@ -1,7 +1,7 @@
 /**
  * Zadania na spotkaniu (D13), przepinanie przy odwołaniu (D14), podgląd skutków zmiany serii, „Dodaj do kalendarza” (D7).
  */
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { splitId } from '../../domain/event-split';
 import { materialize, type NewOp, type Row } from '../../domain/sync-engine/client';
@@ -62,7 +62,7 @@ describe('zadania na spotkaniu (D13)', () => {
     expect(store.dispatched[0]).toEqual({ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } });
     expect(store.dispatched[1]).toMatchObject({ entity: 'tasks', set: { list_id: 'new-1' } });
     // Druga lista zadań w grupie → wybór.
-    store.dispatch({ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } });
+    await act(async () => store.dispatch({ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } }));
     expect(await screen.findByLabelText('Na liście')).toBeTruthy();
     await press(screen.getByLabelText('Szkoła'));
     await type(screen.getByTestId('quick-add'), 'Zeszyt');

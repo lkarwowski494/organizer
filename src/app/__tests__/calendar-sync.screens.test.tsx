@@ -296,7 +296,7 @@ describe('kalendarz iPhone’a', () => {
     sync.createEvent.mockImplementationOnce(() => new Promise<string>((r) => (release = () => r('ev-1'))));
     const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarMirror: '1' }));
     await waitFor(() => expect(sync.createEvent).toHaveBeenCalledTimes(1), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
-    store.pull((b) => ({ ...b, events: { ...b.events, ev1: { ...b.events!.ev1!, title: 'Tańce towarzyskie' } } }));
+    await act(async () => store.pull((b) => ({ ...b, events: { ...b.events, ev1: { ...b.events!.ev1!, title: 'Tańce towarzyskie' } } })));
     await act(async () => new Promise((r) => setTimeout(r, config.calendar.MIRROR_DEBOUNCE_MS + 200)));
     await act(async () => release());
     await waitFor(() => expect(sync.updateEvent).toHaveBeenCalledWith('ev-1', expect.objectContaining({ title: 'Tańce towarzyskie' })), { timeout: 3000 });
