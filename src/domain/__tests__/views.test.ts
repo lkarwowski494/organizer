@@ -5,7 +5,7 @@ import type { CivilDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
-import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, removedMembers, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
+import { asGroup, asList, asMember, asTask, calendarMonth, childRoleAllowed, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, removedMembers, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
 import { tripEntries } from '../views/shopping-trip';
 import { nextId } from '../views/task-repeat';
 import { config } from '../../config';
@@ -650,5 +650,15 @@ describe('edycja grup (D54–D56)', () => {
     expect(cmd.setGroupColor('g', 'teal')).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: 'teal' } });
     expect(cmd.setGroupColor('g', null)).toEqual({ kind: 'patch', entity: 'groups', id: 'g', set: { color: null } });
     expect(cmd.setRole('m', 'admin')).toEqual({ kind: 'patch', entity: 'group_members', id: 'm', set: { role: 'admin' } });
+  });
+});
+
+describe('rola „Dziecko” tylko dla konta połączonego z profilem dziecka (audyt 3, N-42, Q6b A)', () => {
+  it('profil i dziecko — tak; konto ze znacznikiem połączenia — tak; dorosły, który dołączył sam — nie', () => {
+    const t: Tables = { group_members: { a: { member_id: 'a', role: 'member', child_linked_at: '2026-10-01T00:00:00Z' }, b: { member_id: 'b', role: 'admin', child_linked_at: null } } };
+    expect(childRoleAllowed(t, { member_id: 'c', role: 'child' })).toBe(true);
+    expect(childRoleAllowed(t, { member_id: 'a', role: 'member' })).toBe(true);
+    expect(childRoleAllowed(t, { member_id: 'b', role: 'admin' })).toBe(false);
+    expect(childRoleAllowed({}, { member_id: 'b', role: 'member' })).toBe(false);
   });
 });

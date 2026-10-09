@@ -184,3 +184,34 @@ describe('plan lekcji (D112)', () => {
     expect(screen.queryByTestId('open-timetable')).toBeNull();
   });
 });
+
+describe('„Skopiuj plan lekcji do…” (audyt 3, N-47, Q27 B)', () => {
+  it('plan z ekranu otwiera się u dziecka z innej grupy do sprawdzenia; zapis tworzy lekcje tam; bez celu — bez przycisku', async () => {
+    await openTimetable();
+    await press(screen.getByTestId('lesson-add-0'));
+    expect(screen.queryByTestId('timetable-copy')).toBeNull(); // w innych grupach nie ma dzieci
+    const base = sampleBase();
+    put(base, 'group_members', 'kzosia', { member_id: 'kzosia', group_id: 'gk', user_id: null, display_name: 'Zosia', role: 'child', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 });
+    const { store } = await openTimetable(base);
+    // Bez lekcji nie ma czego kopiować.
+    expect(screen.queryByTestId('timetable-copy')).toBeNull();
+    await press(screen.getByTestId('lesson-add-0'));
+    await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Basen');
+    await setTime('lesson-end-0', '09:00');
+    await press(screen.getByTestId('timetable-copy'));
+    const panel = screen.getByTestId('timetable-copy-choices');
+    expect(within(panel).getByText(/zapisze się dopiero po „Zapisz plan”/)).toBeTruthy();
+    await press(within(panel).getByLabelText('Zosia, Klasa 2b'));
+    expect(await screen.findByText('Plan lekcji — Zosia')).toBeTruthy();
+    expect(screen.getByTestId('timetable-copied').props.children).toBe('Plan skopiowany z: Tymek · Rodzina. Sprawdź go i zapisz.');
+    expect(screen.getByTestId('lesson-title-0').props.value).toBe('Basen');
+    expect(store.dispatched).toEqual([]);
+    await press(screen.getByTestId('timetable-save'));
+    expectOps(store, [
+      { kind: 'create', entity: 'events', id: 'new-1', group_id: 'gk', set: { title: 'Basen', start_date: '2026-10-05', start_time: '08:00', end_time: '09:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, kind: 'lesson' } },
+      { kind: 'create', entity: 'event_participants', id: 'new-2', group_id: 'gk', set: { event_id: 'new-1', member_id: 'kzosia' } },
+    ]);
+    // Powrót do planu Tymka — jego plan bez zmian (zapisuje się tylko „Zapisz plan” na jego ekranie).
+    expect(await screen.findByText('Plan lekcji — Tymek')).toBeTruthy();
+  });
+});

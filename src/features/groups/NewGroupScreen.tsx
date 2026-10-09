@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 
 import { useServices } from '../../app/context';
+import { useDefaultGroup } from '../../app/default-group';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
@@ -16,6 +17,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
 export function NewGroupScreen({ navigation, route }: Props) {
   const { account, newId, displayName, store, prefs } = useServices();
+  const defaultGroup = useDefaultGroup();
   const [name, setName] = useState(route.params?.name ?? '');
   const [me, setMe] = useState(displayName);
   const [busy, setBusy] = useState(false);
@@ -42,6 +44,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
       // także z ekranu Grupy (audyt 2, M-117, zasada właściciela A).
       if (route.params?.starter) store.dispatch(starterListsOps(ids.groupId, newId));
       prefs?.set(nextStepsKey(ids.groupId), '1').catch(() => {});
+      // Audyt 3 (N-45, decyzja Q14 A): nowa grupa zostaje ostatnio użytą — pierwsze wpisy z Moich spraw trafią do niej
+      // (partner je zobaczy), a nie do „Osobistych”. Chip „Do: …” przy polu pokazuje to przed dodaniem.
+      defaultGroup.remember(ids.groupId);
       store.refresh();
       navigation.replace('Group', { groupId: ids.groupId, fresh: true });
     } catch (e) {

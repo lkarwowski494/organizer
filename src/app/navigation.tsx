@@ -37,6 +37,7 @@ import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
+import { GroupLossNotice } from './GroupLossNotice';
 import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
 import { UndoLinks } from './UndoLinks';
@@ -121,6 +122,7 @@ export function RootStack() {
       <HandoffNotifier />
       <NotificationOpener />
       <UndoLinks />
+      <GroupLossNotice />
       <MyScopeProvider>
       <GroupFilterProvider>
       <TravelProvider>

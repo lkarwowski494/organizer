@@ -4,7 +4,7 @@
  * błędów serwera, pierwszeństwo ID i kodu, link TestFlight w wiadomości, nowa lista bez grup dziecka.
  */
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { Share, TextInput } from 'react-native';
+import { Alert, Share, TextInput } from 'react-native';
 
 import { config } from '../../config';
 import type { Row } from '../../domain/sync-engine/client';
@@ -109,6 +109,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     const s = await openGroup(await open({ base: asOwner() }));
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('delete-group'));
+    await answerAlert('Usuń grupę');
     await screen.findByTestId('screen-groups');
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(s.store.dispatched).toEqual([]);
@@ -218,6 +219,8 @@ describe('nowa grupa i dołączenie (audyt 2, R-16, R-27, R-38, R-39)', () => {
     await type(screen.getByTestId('invite-code'), '731064');
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByTestId('screen-group-loading')).toBeTruthy();
+    // Audyt 3 (N-45, Q14 A): dołączona grupa zostaje ostatnio użytą (jak nowo utworzona).
+    expect(s.services.local!.load('lastUsedGroup')).toBe('gnew');
     await arrive(s, 'gnew', 'm-new', 'Sąsiedzi');
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
@@ -281,10 +284,11 @@ describe('zaproszenie (audyt 2, R-19, PW-7)', () => {
     await press(screen.getByTestId('invite'));
     await screen.findByTestId('invite-ready');
     await press(screen.getByTestId('revoke'));
-    await press(screen.getByTestId('revoke-confirm'));
+    await answerAlert('Unieważnij kod');
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.getByTestId('invite-ready')).toBeTruthy();
-    await press(screen.getByTestId('revoke-confirm'));
+    await press(screen.getByTestId('revoke'));
+    await answerAlert('Unieważnij kod');
     expect(account.revokeInvite).toHaveBeenCalledTimes(2);
     expect(account.revokeInvite).toHaveBeenLastCalledWith('inv-2');
     expect(screen.queryByTestId('invite-ready')).toBeNull();
@@ -451,7 +455,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
   it('PW-43 A: potwierdzenie wyjścia mówi o listach „Tylko ja” w koszu (PWD-4 A: okno systemowe tak/nie)', async () => {
     await openGroup(await open());
     await press(screen.getByTestId('leave'));
-    expect(lastAlert()).toMatchObject({ title: 'Wyjdź z grupy', message: 'Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na 30 dni i wrócą, jeśli w tym czasie dołączysz ponownie.' });
+    expect(lastAlert()).toMatchObject({ title: 'Wyjdź z grupy', message: 'Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na 30 dni i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).' });
     expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyjdź z grupy', 'destructive']]);
   });
 
@@ -483,6 +487,8 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
       { kind: 'create', entity: 'lists', id: 'new-4', group_id: 'new-1', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } },
     ]);
     expect(prefs.set).toHaveBeenCalledWith('nextSteps.new-1', '1');
+    // Audyt 3 (N-45, Q14 A): nowa grupa zostaje ostatnio użytą — pierwsze wpisy z Moich spraw trafią do niej.
+    expect(s.services.local!.load('lastUsedGroup')).toBe('new-1');
     await act(async () =>
       s.store.pull((b) => ({
         ...b,
@@ -499,14 +505,40 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     focus.mockClear();
     await press(within(card).getByLabelText('Dodaj dziecko'));
     expect(focus).toHaveBeenCalledTimes(1);
-    await press(within(card).getByLabelText('Zaproś do grupy'));
-    expect(s.account.createJoinCode).toHaveBeenCalledWith('new-1', 'member');
+    // Audyt 3 (N-8, Q10 C): rola wybrana na karcie — partner jako administrator, choć dzieci jeszcze nie ma.
+    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś partnera (administrator)', 'Zaproś kogoś innego (członek)']);
+    await press(within(card).getByLabelText('Zaproś partnera (administrator)'));
+    expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'admin');
+    expect(await screen.findByText('Dołączy jako: administrator')).toBeTruthy();
+    await press(within(card).getByLabelText('Zaproś kogoś innego (członek)'));
+    expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'member');
+    expect(await screen.findByText('Dołączy jako: członek')).toBeTruthy();
     await press(within(card).getByLabelText('Zaplanuj zakupy'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(within(await screen.findByTestId('next-steps')).getByLabelText('Nie teraz'));
     expect(screen.queryByTestId('next-steps')).toBeNull();
     expect(prefs.set).toHaveBeenLastCalledWith('nextSteps.new-1', '0');
+  });
+
+  it('N-8 (Q10 C): administrator (nie właściciel) widzi na karcie jeden przycisk — zaproszenie członka', async () => {
+    const s = await openGroup(await open({ prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    const card = await screen.findByTestId('next-steps');
+    expect(within(card).queryByLabelText('Zaproś partnera (administrator)')).toBeNull();
+    await press(within(card).getByLabelText('Zaproś do grupy'));
+    expect(s.account.createJoinCode).toHaveBeenLastCalledWith('gf', 'member');
+  });
+
+  it('N-156 (Q19 A): sam w grupie — usunięcie bez pytania, z „Cofnij”', async () => {
+    const base = asOwner();
+    delete base.group_members!.ala;
+    delete base.group_members!.tymek;
+    const s = await openGroup(await open({ base }));
+    (Alert.alert as jest.Mock).mockClear();
+    await press(screen.getByTestId('delete-group'));
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
+    expect(await screen.findByText('Usunięto grupę: Rodzina')).toBeTruthy();
   });
 
   it('PW-36 A: grupa z ekranu Grupy — bez list; karta „Następne kroki” jest (M-117, zasada A)', async () => {
@@ -519,5 +551,38 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     await screen.findByTestId('screen-group-loading');
     expect(s.store.dispatched).toEqual([]);
     expect(prefs.set).toHaveBeenCalledWith('nextSteps.new-1', '1');
+  });
+});
+
+describe('audyt 3: grupy i role (PK-12)', () => {
+  it('N-166: grupa osobista „tylko Ty” (bez „1 osoba · właściciel”); puste Listy wskazują przycisk listy zakupów', async () => {
+    const base = sampleBase();
+    base.lists = {};
+    base.tasks = {};
+    await open({ base });
+    await press(screen.getByLabelText('Grupy'));
+    expect(within(await screen.findByTestId(`group-${ME}`)).getByText('tylko Ty')).toBeTruthy();
+    expect(within(screen.getByTestId('group-gf')).getByText('3 osoby · administrator')).toBeTruthy();
+    await press(screen.getByLabelText('Listy'));
+    expect(await screen.findByText('Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.')).toBeTruthy();
+    expect(screen.getByLabelText('Nowa lista zakupów')).toBeTruthy();
+  });
+});
+
+describe('audyt 3: osoba usunięta z grupy (N-162, Q33 A)', () => {
+  const drop = (b: Record<string, Record<string, Row> | undefined>, g: string) =>
+    Object.fromEntries(Object.entries(b).map(([e, rows]) => [e, Object.fromEntries(Object.entries(rows ?? {}).filter(([id, r]) => (e === 'groups' ? id !== g : r.group_id !== g)))]));
+
+  it('ktoś mnie usunął: po pobraniu jednorazowy pasek z nazwą grupy; moje wyjście — bez paska', async () => {
+    const s = await open();
+    await act(async () => s.store.pull((b) => drop(b, 'gk')));
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Nie należysz już do grupy Klasa 2b')).toBeTruthy();
+    // Moje wyjście z „Rodziny”: grupa znika już przed pobraniem, więc pasek nie mówi o niej.
+    await openGroup(s);
+    await press(screen.getByTestId('leave'));
+    await answerAlert('Wyjdź z grupy');
+    await screen.findByTestId('screen-groups');
+    await act(async () => s.store.pull((b) => drop(b, 'gf')));
+    expect(screen.queryByText('Nie należysz już do grupy Rodzina')).toBeNull();
   });
 });
