@@ -14,7 +14,7 @@ import { type TrashedGroup, trashedGroups } from '../../domain/views';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { TRASH_KINDS, type TrashEntry, type TrashKind, trashView } from '../../domain/views/trash';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, SectionTitle } from '../../ui/components';
+import { Body, Button, CardTitle, ErrorText, SectionTitle } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { absoluteDay } from './dates';
@@ -36,7 +36,6 @@ function TrashRow({ id, title, meta, onRestore, restoreLabel }: { id: string; ti
 export function TrashSection() {
   const { userId, account, store, nowMs } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
   const undo = useUndo();
   // Przywrócona na serwerze grupa znika z kosza od razu, nie dopiero po pobraniu (żeby nie przywracać drugi raz). Pamiętamy
   // datę usunięcia: grupa wrzucona do kosza ponownie ma nową i znów jest w koszu.
@@ -84,10 +83,10 @@ export function TrashSection() {
     <View testID="trash" style={{ gap: 8 }}>
       <SectionTitle>{strings['groups.trash']}</SectionTitle>
       <Body muted>{strings['trash.info'](config.sync.TOMBSTONE_DAYS)}</Body>
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {groups.length ? (
         <View testID="trash-group" style={{ gap: 8 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, color: c.ink }}>{strings['trash.kind.group']}</Text>
+          <CardTitle>{strings['trash.kind.group']}</CardTitle>
           {groups.map((g) =>
             g.canRestore ? (
               <TrashRow key={g.id} id={g.id} title={g.name} meta={strings['groups.trashLeft'](g.daysLeft)} restoreLabel={strings['groups.restore'](g.name)} onRestore={() => void restoreGroup(g)} />
@@ -105,7 +104,7 @@ export function TrashSection() {
         const shown = expanded ? all : all.slice(0, config.TRASH_PREVIEW);
         return (
           <View key={k} testID={`trash-${k}`} style={{ gap: 8 }}>
-            <Text accessibilityRole="header" style={{ fontFamily: font.text700, color: c.ink }}>{strings[`trash.kind.${k}`]}</Text>
+            <CardTitle>{strings[`trash.kind.${k}`]}</CardTitle>
             {shown.map((e) => (
               <TrashRow key={e.id} id={e.id} title={e.title} meta={meta(e)} restoreLabel={strings['groups.restore'](e.title)} onRestore={() => restore(e)} />
             ))}

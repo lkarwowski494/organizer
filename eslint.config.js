@@ -31,6 +31,21 @@ module.exports = defineConfig([
     },
   },
   {
+    // Audyt 2 (M-152, PWD-23 A): rozmiary tekstu i glifów tylko z ról w src/config/theme.ts (sizes) — ta sama rola ma
+    // wszędzie ten sam rozmiar. Liczba wpisana ręcznie w `fontSize` jest błędem.
+    files: ['src/**/*.tsx', 'App.tsx'],
+    ignores: ['src/**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "Property[key.name='fontSize'] > Literal",
+          message: 'Rozmiar tekstu z motywu (size.BODY, size.META, …) — nie liczba wpisana ręcznie (src/config/theme.ts sizes).',
+        },
+      ],
+    },
+  },
+  {
     // W testach domeny dozwolone są moduły Node (np. node:crypto jako źródło losowości).
     files: ['src/domain/**/__tests__/**'],
     rules: { 'import/no-nodejs-modules': 'off' },

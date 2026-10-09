@@ -59,7 +59,7 @@ const TAB_LABELS: Record<keyof TabParams, string> = {
 
 /** Pasek zakładek z makiety „Wstążki”: zaokrąglony u góry, aktywna zakładka w pigułce (nie tylko kolor). */
 function TabBar({ state, navigation }: BottomTabBarProps) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, fontScale } = useTheme();
   const insets = useSafeAreaInsets();
   const { userId } = useServices();
   const { tables } = useAppData();
@@ -82,11 +82,12 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             style={{ flex: 1, minHeight: size.TOUCH_TARGET + 8, alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             {/* Aktywna zakładka jako pigułka w kolorze akcentu (D72) — wyróżniona kształtem, nie tylko kolorem. */}
+            {/* M-43: napis rośnie z Dynamic Type do 200% i mieści się w jednej linii (zmniejsza się zamiast łamać w środku słowa). */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? c.accentBg : 'transparent' }}>
-              <Text style={{ fontFamily: font.text700, fontSize: 12, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.TAB, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
               {badge ? (
-                <View testID="tab-badge" style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
-                  <Text style={{ fontFamily: font.text700, fontSize: 11, color: c.inverseInk }}>{badge}</Text>
+                <View testID="tab-badge" style={{ minWidth: 18, minHeight: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
+                  <Text maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: font.text700, fontSize: size.BADGE, color: c.inverseInk }}>{badge}</Text>
                 </View>
               ) : null}
             </View>

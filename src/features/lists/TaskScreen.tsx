@@ -71,7 +71,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, state } = useAppData();
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
   const task = raw ? asTask(raw) : null;
   const detail = useMemo(() => (task ? listDetail(tables, userId, task.list_id, today) : null), [tables, userId, task?.list_id, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,11 +186,11 @@ export function TaskScreen({ route, navigation }: Props) {
         {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
         {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} /> : null}
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
-        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: 14, color: c.inkMuted }}>
+        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>
           {groupLine}
         </Text>
       </View>
-      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
@@ -200,7 +200,7 @@ export function TaskScreen({ route, navigation }: Props) {
         </>
       ) : (
         <>
-          <Text style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.DETAIL, color: c.ink }}>{task.title}</Text>
           {task.note ? <Body>{task.note}</Body> : null}
         </>
       )}

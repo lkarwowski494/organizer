@@ -5,7 +5,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
@@ -16,7 +16,6 @@ import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
 import { JoinCodeCard } from './JoinCodeCard';
@@ -35,7 +34,6 @@ const NONE: MemberActions = { rename: false, setRole: false, remove: false, make
 export function MemberScreen({ route, navigation }: Props) {
   const { userId, store, account } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
   // D130 + audyt 2 (R-36, T-22): imię podąża za danymi, dopóki go nie edytuję; zapis po wyjściu z pola albo z ekranu.
@@ -133,7 +131,7 @@ export function MemberScreen({ route, navigation }: Props) {
           testIDs={{ card: 'child-code-ready', code: 'child-code', renew: 'child-code-new' }}
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {transferred ? <Body>{strings['member.transferPending']}</Body> : null}
       {confirmOwner && !transferred ? (
         <View style={{ gap: 8 }}>

@@ -5,15 +5,15 @@
  */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { strings } from '../../i18n/strings.pl';
 import type { AccountApi } from '../../sync/account';
-import { Body, Screen } from '../../ui/components';
+import { Body, ErrorText, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWithApple'> }) {
-  const { c, font, size, scheme, line } = useTheme();
+  const { size, scheme, line } = useTheme();
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -23,7 +23,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
           <View key={i} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: line(i).line }} />
         ))}
       </View>
-      <Text accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: 48, letterSpacing: -1.5, color: c.ink }}>{strings['auth.title']}</Text>
+      <Title role="BRAND">{strings['auth.title']}</Title>
       <Body muted>{strings['auth.tagline']}</Body>
       <AppleAuthentication.AppleAuthenticationButton
         testID="apple-sign-in"
@@ -34,7 +34,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
         onPress={() => void account.signInWithApple().catch(() => setError(strings['common.error']))}
       />
       <Body muted>{strings['auth.appleOnly']}</Body>
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </Screen>
   );
 }

@@ -21,7 +21,7 @@ import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -66,7 +66,7 @@ export function ListScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, indicator, state } = useAppData();
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -232,12 +232,12 @@ export function ListScreen({ route, navigation }: Props) {
         <SyncChip indicator={indicator} nowMs={nowMs()} />
       </View>
       <Title>{list.name}</Title>
-      <Text style={{ fontFamily: font.text400, fontSize: 14, color: c.inkMuted }}>
+      <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
         <Text style={{ fontFamily: font.text700 }}>{list.groupName}</Text>
         {`  ·  ${listMarks(list, detail.open.length).join('  ·  ')}`}
       </Text>
       {shopping && canDelete ? (
-        <View testID="trip" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+        <Card testID="trip">
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
@@ -285,7 +285,7 @@ export function ListScreen({ route, navigation }: Props) {
               <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => setPlanning({ date: '', time: '', responsibleId: null })} />
             </>
           )}
-        </View>
+        </Card>
       ) : null}
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} onRemove={dropStaple} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}

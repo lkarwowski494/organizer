@@ -4,15 +4,13 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text } from 'react-native';
 
 import { useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-link';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Invite'>;
@@ -21,7 +19,6 @@ const only = (s: string) => s.replace(/\D/g, '');
 
 export function InviteScreen({ route, navigation }: Props) {
   const { account, displayName, store } = useServices();
-  const { c, font } = useTheme();
   const p = route.params ?? {};
   const [joinId, setJoinId] = useState(groupDigits(only(p.g ?? '')));
   const [code, setCode] = useState(groupDigits(only(p.c ?? '')));
@@ -70,7 +67,7 @@ export function InviteScreen({ route, navigation }: Props) {
         </>
       )}
       <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="invite-name" />
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['invite.accept']} onPress={accept} disabled={busy || me.trim() === '' || !ready} testID="invite-accept" />
     </Screen>
   );
