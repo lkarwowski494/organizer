@@ -15,12 +15,16 @@
  *  4. Z terminów od tego dnia (do końca dzielonej części) do nowej serii przechodzą — z tymi samymi identyfikatorami —
  *     zmiany pojedynczych terminów (te, których nowa seria nie ma, do kosza: podgląd skutków), odpowiedzi o obecności
  *     wszystkich osób, przekazania, zadania (także zrobione), a definicje stałych zadań, gdy nowa seria jest najnowsza.
- *  5. Decyzje z podglądu dla zadań z terminów, których nowa seria nie ma: najbliższy termin, odpięcie, kopia do kosza.
+ *  4b. Późniejsze części łańcucha (audyt 3, N-22): tylko pola zmienione w formularzu (`follow`), część ucięta nowym
+ *     końcem serii do kosza (jej stałe zadania przechodzą do nowej serii).
+ *  5. Decyzje z podglądu dla zadań z terminów, których nowa seria (albo zmieniona późniejsza część) nie ma: najbliższy
+ *     termin, odpięcie, kopia do kosza.
  * Osoba odpowiedzialna usunięta z grupy (albo dziecko) i usunięci uczestnicy nie przechodzą (D132).
  */
 import { addDays, formatIsoDate } from './civil-date';
 import { parseIsoDate } from './format';
 import { uuidv5 } from './ids';
+import { capUntil, chainIds, dropPart, moveDefs, ruleUntil, successor } from './event-chain';
 import { storedDuration } from './span';
 import type { Row } from './sync-engine/client';
 
@@ -44,33 +48,20 @@ export type SplitArgs = {
   /** Zmienione pojedynczo terminy, których nowa seria nie ma (audyt 2, E-20) — do kosza zamiast do nowej serii. */
   drop_overrides: string[];
   tasks: SplitTask[];
+  /**
+   * Audyt 3 (N-22, N-135): późniejsze części łańcucha (zaczynające się po tym dniu) — tylko pola zmienione w formularzu,
+   * uczestnicy po zmianie, ich wyjątki, których nowa reguła nie ma; część, którą ucina nowy koniec serii, do kosza.
+   * Brak pola (starsza wersja telefonu) — późniejsze części bez zmian, jak dotąd.
+   */
+  follow?: SplitFollow[];
 };
+export type FollowSet = Partial<Pick<SplitArgs['set'], 'title' | 'start_date' | 'start_time' | 'end_time' | 'rrule' | 'audience' | 'responsible_member_id' | 'location' | 'days' | 'duration_min'>>;
+export type SplitFollow = { id: string; delete?: boolean; set?: FollowSet; participants?: SplitArgs['participants']; drop_overrides?: string[] };
 
-const UNTIL = /(?:^|;)UNTIL=(\d{4})(\d{2})(\d{2})(?:;|$)/;
-
-/** Ostatni dzień serii z reguły (UNTIL) albo `null` (bez końca albo COUNT). */
-export function ruleUntil(rrule: string | null): string | null {
-  const m = rrule === null ? null : UNTIL.exec(rrule);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
-}
-
-/** Reguła kończąca się najpóźniej `iso` (UNTIL zamiast COUNT; wcześniejszy koniec zostaje). Tekstowo, jak w SQL. */
-export function capUntil(rrule: string | null, iso: string | null): string | null {
-  if (rrule === null || iso === null) return rrule;
-  const until = ruleUntil(rrule);
-  const end = until !== null && until < iso ? until : iso;
-  return `${rrule.split(';').filter((p) => !/^(COUNT|UNTIL)=/.test(p)).join(';')};UNTIL=${end.replaceAll('-', '')}`;
-}
+export { capUntil, ruleUntil } from './event-chain';
 
 const alive = (r: Row | undefined): r is Row => r !== undefined && r.deleted_at == null;
 const trashed = (r: Row): Row => ({ ...r, deleted_at: r.deleted_at ?? 'pending' });
-
-/** Żywa następczyni serii (najwcześniejsza; tak samo sortuje SQL). */
-function successor(events: { [id: string]: Row }, id: string): Row | undefined {
-  return Object.values(events)
-    .filter((e) => e.split_from === id && e.deleted_at == null)
-    .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)) || String(a.id).localeCompare(String(b.id)))[0];
-}
 
 /** Uczestnicy nowej serii: brakujący dopisani, usunięci przywróceni, zbędni do kosza; tylko osoby, które są w grupie. */
 function syncParticipants(t: MutableTables, sid: string, groupId: string, wanted: SplitArgs['participants'], inGroup: (m: string) => boolean): void {
@@ -97,7 +88,8 @@ export function applySplit(t: MutableTables, args: Row): void {
   const groupId = String(target.group_id);
   const members = Object.values(t.group_members ?? {}).filter((m) => m.group_id === groupId && m.deleted_at == null);
   const inGroup = (m: string) => members.some((x) => x.member_id === m);
-  const resp = members.some((m) => m.member_id === a.set.responsible_member_id && m.role !== 'child') ? a.set.responsible_member_id : null;
+  const validResp = (r: string | null | undefined) => (members.some((m) => m.member_id === r && m.role !== 'child') ? r! : null);
+  const resp = validResp(a.set.responsible_member_id);
   // D199: długość całodniowego; bez niej (starszy telefon) — jak w serii; z godziną zawsze 1 (jak wyzwalacz w SQL).
   const days = (from: Row) => (a.set.start_time !== null ? 1 : (a.set.days ?? from.days ?? 1));
   // Długość z godziną: z polecenia (także `null`), bez niej — jak w serii; zgodna z godzinami albo `null` (jak SQL).
@@ -111,6 +103,7 @@ export function applySplit(t: MutableTables, args: Row): void {
     const capped = successor(events, a.id) ? ruleUntil(existing.rrule as string | null) : null;
     events[a.id] = { ...existing, ...fields, days: days(existing), duration_min: duration(existing), rrule: capUntil(a.set.rrule, capped) };
     syncParticipants(t, a.id, groupId, a.participants, inGroup);
+    applyFollow(t, a, groupId, inGroup, validResp);
     return;
   }
   // Krok 2: termin należy do następczyni, gdy dzielona kończy się przed nim.
@@ -151,12 +144,46 @@ export function applySplit(t: MutableTables, args: Row): void {
     const defs = (t.event_task_series ??= {});
     for (const [id, s] of Object.entries(defs)) if (s.event_id === tid) defs[id] = { ...s, event_id: a.id };
   }
+  const targets = applyFollow(t, a, groupId, inGroup, validResp);
   // Krok 5.
   for (const d of a.tasks) {
     const x = tasks[d.id];
-    if (!x || x.event_id !== a.id) continue;
+    if (!x || !targets.has(String(x.event_id))) continue;
     if (d.action === 'relink') tasks[d.id] = { ...x, occurrence_date: d.date };
     else if (d.action === 'unlink') tasks[d.id] = { ...x, event_id: null, occurrence_date: null, ...(x.deadline_mode === 'event' ? { deadline_mode: 'none' } : {}) };
     else if (x.series_id != null && x.deleted_at == null) tasks[d.id] = trashed(x);
   }
+}
+
+/**
+ * Krok 4b (audyt 3, N-22): późniejsze części łańcucha — tylko żywe części tego łańcucha w tej grupie, zaczynające się po
+ * dniu podziału (z widoku „starego” telefonu lista może obejmować część, którą serwer właśnie podzielił — ta zostaje).
+ * Zwraca części, których dotyczą decyzje z podglądu (nowa seria i zmienione części).
+ */
+function applyFollow(t: MutableTables, a: SplitArgs, groupId: string, inGroup: (m: string) => boolean, validResp: (r: string | null | undefined) => string | null): Set<string> {
+  const events = t.events!;
+  const chain = chainIds(events, a.id);
+  const targets = new Set([a.id]);
+  for (const x of a.follow ?? []) {
+    const p = events[x.id];
+    if (!alive(p) || x.id === a.id || p.group_id !== groupId || String(p.start_date) <= a.date || !chain.has(x.id)) continue;
+    if (x.delete) {
+      moveDefs(t, x.id, a.id);
+      dropPart(t, x.id, 'pending');
+      continue;
+    }
+    const set = x.set ?? {};
+    const row: { [k: string]: unknown } = { ...p, ...set };
+    if ('responsible_member_id' in set) row.responsible_member_id = validResp(set.responsible_member_id);
+    if ('location' in set) row.location = set.location || null;
+    // Jak wyzwalacz events_days: z godziną 1 dzień, długość zgodna z godzinami (span.ts).
+    const start = (row.start_time as string | null | undefined) ?? null;
+    events[x.id] = { ...row, days: start !== null ? 1 : ((row.days as number | undefined) ?? 1), duration_min: storedDuration(start, (row.end_time as string | null | undefined) ?? null, (row.duration_min as number | null | undefined) ?? null) };
+    if (x.participants) syncParticipants(t, x.id, groupId, x.participants, inGroup);
+    const ov = t.event_overrides ?? {};
+    const drop = new Set(x.drop_overrides ?? []);
+    for (const [id, o] of Object.entries(ov)) if (o.event_id === x.id && o.deleted_at == null && drop.has(id)) ov[id] = trashed(o);
+    targets.add(x.id);
+  }
+  return targets;
 }

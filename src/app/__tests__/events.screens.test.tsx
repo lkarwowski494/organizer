@@ -317,7 +317,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.queryByRole('button', { name: 'Całą serię' })).toBeNull();
     await press(screen.getByRole('button', { name: 'Usuń całą serię' }));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'events', id: 'ev-tance' });
+    expect(store.dispatched).toContainEqual({ kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev-tance', date: null, title: 'Tańce' } });
     expect(screen.getByText('Usunięto serię: Tańce')).toBeTruthy();
   });
 
@@ -390,7 +390,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-event');
     await press(screen.getByTestId('event-cancel'));
     await screen.findByTestId('screen-today');
-    expect(screen.getByText('Usunięto: Wizyta')).toBeTruthy();
+    expect(screen.getByText('Usunięto wydarzenie: Wizyta')).toBeTruthy();
   });
 
   it('odwołanie od pierwszego wystąpienia = usunięcie serii', async () => {
@@ -398,9 +398,12 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('event-cancel'));
     await press(screen.getByTestId('scope-following'));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-tance' }]);
+    // Audyt 3 (N-3): koniec serii od pierwszego terminu jednym poleceniem — cała seria do kosza, „Usunięto serię”.
+    const end = { kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev-tance', date: '2026-10-07', title: 'Tańce' } };
+    expect(store.dispatched).toEqual([end]);
+    expect(screen.getByText('Usunięto serię: Tańce')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expectOps(store, [{ kind: 'delete', entity: 'events', id: 'ev-tance' }, { kind: 'restore', entity: 'events', id: 'ev-tance' }]);
+    expectOps(store, [end, { kind: 'cmd', cmd: 'restore_series', args: { event_id: 'ev-tance', title: 'Tańce', events: ['ev-tance'], parts: [], overrides: [], rsvps: [] } }]);
   });
 
   it('jednorazowe: zmiana bez pytania o zakres, usunięcie bez pytania (D187)', async () => {
