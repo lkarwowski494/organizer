@@ -52,7 +52,7 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     const { store } = await open();
     await write('dentysta w przyszły wtorek o 15');
     expect(screen.getByText('Nie rozpoznano dnia „przyszły wtorek”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.')).toBeTruthy();
-    expect(screen.queryByLabelText(/Rozpoznano: o 15/)).toBeNull();
+    expect(screen.queryByLabelText(/^o 15[^,]*, rozpoznane$/)).toBeNull();
     await add();
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta w przyszły wtorek o 15', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Z zakresem godzin też bez zgadywania: zadanie, nie wydarzenie na dziś.
@@ -63,14 +63,14 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     // Dzień rozpoznany — bez podpowiedzi.
     await write('dentysta we wtorek o 15');
     expect(screen.queryByText(/Nie rozpoznano dnia/)).toBeNull();
-    expect(screen.getByLabelText(/Rozpoznano: we wtorek/)).toBeTruthy();
+    expect(screen.getByLabelText(/^we wtorek[^,]*, rozpoznane$/)).toBeTruthy();
   });
 
   it('zakres godzin zapowiada wydarzenie; odklikany zakres — zadanie, bez zapowiedzi (M-256)', async () => {
     await open();
     await write('basen jutro 17–18');
     expect(screen.getByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeTruthy();
-    await press(screen.getByLabelText(/Rozpoznano: 17–18/));
+    await press(screen.getByLabelText(/^17–18[^,]*, rozpoznane$/));
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
     await write('basen jutro o 17');
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
@@ -152,7 +152,7 @@ describe('dodawanie na liście', () => {
     const { store } = await openList('lz');
     for (const [i, text] of ['mąka 1.5 kg', 'pizza 18.00', 'sok na sobotę'].entries()) {
       await write(text);
-      expect(screen.queryByLabelText(/^Rozpoznano/)).toBeNull();
+      expect(screen.queryByLabelText(/, rozpoznane$/)).toBeNull();
       await add();
       expectOps(store, [{ kind: 'create', entity: 'tasks', id: `new-${i + 1}`, group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: text, sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     }
@@ -173,7 +173,7 @@ describe('dodawanie na liście', () => {
     const { store } = await openList('lp');
     await write('kupić 2.5 kg mąki');
     // „2.5” czytane jako 2 maja — chip pozwala to odkliknąć (ADR 0003).
-    await press(screen.getByLabelText(/Rozpoznano: 2\.5/));
+    await press(screen.getByLabelText(/^2\.5[^,]*, rozpoznane$/));
     await add();
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'kupić 2.5 kg mąki', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await write('pranie piątek o 18');
@@ -216,7 +216,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     const [list, task] = store.dispatched.slice(-2);
     expect(list).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Zadania' } });
     expect(task).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'zebranie', due_date: '2026-10-08' } });
-    expect(screen.getByText('Dodano: zebranie · Rodzina')).toBeTruthy();
+    expect(screen.getByText('Dodano zadanie: zebranie · Rodzina')).toBeTruthy();
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
   });
 
@@ -258,7 +258,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
 
   it('wspólna grupa bez osoby i terminu: zapis bez pytania, wcześniej napis, że nikt tego nie zobaczy (D68 po PW-18 b)', async () => {
     const { store } = await openWith({ lastUsedGroup: 'gf' });
-    const unseen = 'Bez osoby i terminu nikt nie zobaczy tego w „Moich sprawach” — dopisz np. „@ja” albo „jutro”.';
+    const unseen = 'Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.';
     await write('kupić chleb');
     expect(screen.getByText(unseen)).toBeTruthy();
     await add();
@@ -369,7 +369,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     const bar = screen.getByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano: mleko · Zakupy na weekend')).toBeTruthy();
+    expect(within(bar).getByText('Dodano produkt: mleko · Zakupy na weekend')).toBeTruthy();
     await press(within(bar).getByLabelText('Zmień'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
   });

@@ -22,7 +22,7 @@ const tance = (extra: Record<string, unknown> = {}) => ({ id: 'ev', group_id: 'g
 describe('przekazanie zadania', () => {
   it('moje zadanie: wybór dorosłego z kontem, „czeka na przyjęcie”, anulowanie', async () => {
     const { store } = await open();
-    await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać\ paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByTestId('handoff-start'));
     const picker = screen.getByTestId('handoff-picker');
@@ -46,7 +46,7 @@ describe('przekazanie zadania', () => {
     await open(base);
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Zadanie\ Ali(,|$)/));
+    await press(await screen.findByLabelText(/^Zadanie\ Ali(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('handoff-start')).toBeNull();
   });
@@ -55,7 +55,7 @@ describe('przekazanie zadania', () => {
     const base = sampleBase();
     put(base, 'tasks', 't-books', { ...base.tasks!['t-books']!, assignee_member_id: 'u-me' });
     await open(base);
-    await press(screen.getByLabelText(/^Otwórz:\ Oddać\ książki\ do\ biblioteki(,|$)/));
+    await press(screen.getByLabelText(/^Oddać\ książki\ do\ biblioteki(,|$)/));
     await press(await screen.findByTestId('handoff-start'));
     expect(within(screen.getByTestId('handoff-picker')).getByText('W tej grupie nie ma innego dorosłego z kontem.')).toBeTruthy();
   });
@@ -155,11 +155,11 @@ describe('„Do potwierdzenia” i plakietka', () => {
     await answerAlert('Zrobione');
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Odebrać\ paczkę,\ (?!.*zrobione).*14/));
+    await press(await screen.findByLabelText(/^Odebrać\ paczkę,\ (?!.*zrobione).*14/));
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Odebrać\ paczkę,\ .*dziś/));
+    await press(await screen.findByLabelText(/^Odebrać\ paczkę,\ .*dziś/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByText('Czeka na przyjęcie: Ala')).toBeNull();
     expect(screen.queryByTestId('handoff-start')).toBeNull();

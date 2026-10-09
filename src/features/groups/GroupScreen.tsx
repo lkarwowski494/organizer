@@ -17,7 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, ConfirmText, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
 import { useEventActions } from '../../app/event-actions';
 import { useTaskActions } from '../../app/task-actions';
@@ -38,7 +38,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
-  const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
+  const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today, strings['event.rule']), [tables, userId, route.params.groupId, today]);
   const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
   const [child, setChild] = useState('');
   // D130 + audyt 2 (R-16, R-36, T-22): nazwa podąża za danymi (także po pobraniu i zmianie z drugiego telefonu),
@@ -114,10 +114,10 @@ export function GroupScreen({ route, navigation }: Props) {
           <Body muted>{strings['groups.nextSteps.body']}</Body>
           <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
-          {shopping ? <Button kind="secondary" label={strings['groups.nextSteps.shopping']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} /> : null}
+          {shopping ? <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} /> : null}
           <Button
             kind="secondary"
-            label={strings['groups.nextSteps.later']}
+            label={strings['common.later']}
             testID="next-later"
             onPress={() => {
               setNextSteps(false);
@@ -132,7 +132,7 @@ export function GroupScreen({ route, navigation }: Props) {
         <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
           <NavRow
             testID={`member-${m.member_id}`}
-            title={m.display_name}
+            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
             subtitle={strings[`groups.role.${m.role}`]}
             onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
           />
@@ -189,7 +189,7 @@ export function GroupScreen({ route, navigation }: Props) {
           }
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
           <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
@@ -265,7 +265,7 @@ export function GroupScreen({ route, navigation }: Props) {
       {d.canLeave ? (
         confirmLeave ? (
           <View style={{ gap: 8 }}>
-            <Body>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</Body>
+            <ConfirmText>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</ConfirmText>
             <Button
               kind="danger"
               label={strings['groups.leave']}

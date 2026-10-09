@@ -45,7 +45,7 @@ export function DeviceCalendarCard() {
       ) : (
         <Button label={strings['device.connect']} testID="device-connect" onPress={() => void cal.connect().then((ok) => ok && done())} />
       )}
-      <Button kind="secondary" label={strings['device.later']} testID="device-later" onPress={done} />
+      <Button kind="secondary" label={strings['common.later']} testID="device-later" onPress={done} />
     </View>
   );
 }

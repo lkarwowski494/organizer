@@ -14,6 +14,7 @@ import { formatRepeat, nextId, parseRepeat, REPEAT_NAMESPACE, type Repeat } from
 import { strings } from '../../i18n/strings.pl';
 import { WEEKDAYS_NOMINATIVE } from '../calendar.pl';
 import { config } from '../index';
+import { PLACEHOLDER_NAME } from '../names.pl';
 import { MONTHS_GENITIVE } from '../quickadd.pl';
 import { SHOPPING_CATEGORIES } from '../shopping.pl';
 import { groupLines } from '../theme';
@@ -55,6 +56,8 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
+    // D199: najdłuższe wydarzenie całodniowe.
+    ['event_max_days', config.events.MAX_DAYS],
     // Audyt 2, P16: retencja (M-62, M-68) i limity na konto (M-70, D183).
     ['activity_days', config.retention.ACTIVITY_DAYS],
     ['handoff_days', config.retention.HANDOFF_DAYS],
@@ -101,6 +104,16 @@ describe('src/config zgodny z SQL', () => {
   it('najdłuższe imię w SQL = config.profile.NAME_MAX_LENGTH (D100)', () => {
     expect(sql).toContain(`char_length(display_name) between 1 and ${config.profile.NAME_MAX_LENGTH}`);
     expect(sql).toContain(`char_length(display_name) <= ${config.profile.NAME_MAX_LENGTH}`);
+  });
+
+  it('imię zastępcze konta bez imienia w SQL = PLACEHOLDER_NAME (audyt 2, M-158)', () => {
+    const found = new Set([...sql.matchAll(/coalesce\([^;\n]*display_name[^;\n]*,\s*'([^']*)'\)/gi)].map((m) => m[1]));
+    expect([...found]).toEqual([PLACEHOLDER_NAME]);
+  });
+
+  it('największy odstęp powtarzania w private.rrule_ok = config.events.INTERVAL_MAX', () => {
+    const found = [...sql.matchAll(/'INTERVAL'\)::numeric between 1 and (\d+)/g)].map((m) => Number(m[1]));
+    expect(found.at(-1)).toBe(config.events.INTERVAL_MAX);
   });
 
   it("podpis usuniętego użytkownika = strings['member.deleted'] (D49)", () => {

@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import { groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, SectionTitle, Segmented } from '../../ui/components';
+import { Body, ErrorText, SectionTitle, Segmented } from '../../ui/components';
 
 export function MuteSettings() {
   const { account, userId } = useServices();
@@ -34,16 +34,18 @@ export function MuteSettings() {
       <SectionTitle>{strings['mutes.section']}</SectionTitle>
       <Body muted>{strings['mutes.info']}</Body>
       {muted === null && !error ? <Body muted>{strings['app.loading']}</Body> : null}
-      {error ? <Body muted>{strings['mutes.error']}</Body> : null}
+      {error ? <ErrorText>{strings['mutes.error']}</ErrorText> : null}
       {muted
         ? shared.map((g) => (
             <Segmented
               key={g.id}
               label={g.name}
+              // Audyt 2 (M-264): te same „Włączone / Wyłączone” przy każdej grupie — opcja mówi, której dotyczy.
+              contextual={shared.length > 1}
               value={muted.includes(g.id) ? 'off' : 'on'}
               onChange={(v) => toggle(g.id, v === 'off')}
               options={[
-                { value: 'on', label: strings['mutes.on'] },
+                { value: 'on', label: strings['common.on'] },
                 { value: 'off', label: strings['mutes.off'] },
               ]}
             />

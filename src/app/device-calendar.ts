@@ -19,7 +19,9 @@ import {
 import type { DeviceEvent } from '../domain/views/calendar-sync';
 
 import { config } from '../config';
+import { addDays, type CivilDate } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
+import { endsNextDay, lengthMinutes } from '../domain/span';
 import { strings } from '../i18n/strings.pl';
 import { localToMs } from '../domain/local-time';
 
@@ -140,20 +142,21 @@ const DEFAULT_MINUTES = config.calendar.DEFAULT_EVENT_MINUTES;
 
 /**
  * Wystąpienie (dzień, godziny Europe/Warsaw) → szkic wydarzenia kalendarza iPhone'a.
- *  - Całodniowe od lokalnej północy telefonu do następnej (audyt 2, M-219): iPhone pokazuje całodniowe w swojej strefie
- *    (`timeZone: null` = strefa urządzenia, https://docs.expo.dev/versions/v57.0.0/sdk/calendar/), więc północ
- *    warszawska w Nowym Jorku dawała poprzedni dzień.
- *  - Z godziną — chwile według Europe/Warsaw (R2). Koniec nie wcześniej niż początek: godzina nieistniejąca wiosną
- *    przesuwa początek o godzinę (clock.ts), więc koniec liczymy wtedy od początku z tą samą długością.
+ *  - Całodniowe od lokalnej północy telefonu do północy po ostatnim dniu (audyt 2, M-219): iPhone pokazuje całodniowe
+ *    w swojej strefie (`timeZone: null` = strefa urządzenia, https://docs.expo.dev/versions/v57.0.0/sdk/calendar/), więc
+ *    północ warszawska w Nowym Jorku dawała poprzedni dzień. Wielodniowe (D199) — `days` dni, koniec wyłączny jak DTEND
+ *    (RFC 5545 §3.6.1: „specifies the non-inclusive end of the event”).
+ *  - Z godziną — chwile według Europe/Warsaw (R2); koniec nie później niż początek = następnego dnia (D199, span.ts).
+ *    Koniec nie wcześniej niż początek: godzina nieistniejąca wiosną przesuwa początek o godzinę (clock.ts), więc koniec
+ *    liczymy wtedy od początku z tą samą długością.
  */
-export function draftOf(o: { title: string; date: string; startTime: string | null; endTime: string | null; location?: string | null }, notes?: string): CalendarDraft {
+export function draftOf(o: { title: string; date: string; startTime: string | null; endTime: string | null; days?: number; location?: string | null }, notes?: string): CalendarDraft {
   const d = parseIsoDate(o.date);
   const base = { title: o.title, notes, ...(o.location ? { location: o.location } : {}) };
-  if (o.startTime === null) return { ...base, start: new Date(d.y, d.m - 1, d.d), end: new Date(d.y, d.m - 1, d.d + 1), allDay: true };
-  const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-  const at = (hhmm: string) => new Date(localToMs({ ...d, hh: Number(hhmm.slice(0, 2)), mm: Number(hhmm.slice(3, 5)) }));
-  const start = at(o.startTime);
-  const length = o.endTime && minutes(o.endTime) > minutes(o.startTime) ? minutes(o.endTime) - minutes(o.startTime) : DEFAULT_MINUTES;
-  const end = o.endTime && minutes(o.endTime) > minutes(o.startTime) ? at(o.endTime) : null;
+  if (o.startTime === null) return { ...base, start: new Date(d.y, d.m - 1, d.d), end: new Date(d.y, d.m - 1, d.d + (o.days ?? 1)), allDay: true };
+  const at = (day: CivilDate, hhmm: string) => new Date(localToMs({ ...day, hh: Number(hhmm.slice(0, 2)), mm: Number(hhmm.slice(3, 5)) }));
+  const start = at(d, o.startTime);
+  const length = lengthMinutes(o.startTime, o.endTime) ?? DEFAULT_MINUTES;
+  const end = o.endTime ? at(endsNextDay(o.startTime, o.endTime) ? addDays(d, 1) : d, o.endTime) : null;
   return { ...base, start, end: end && end > start ? end : new Date(start.getTime() + length * 60_000), allDay: false };
 }

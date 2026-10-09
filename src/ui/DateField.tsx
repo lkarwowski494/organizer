@@ -18,8 +18,14 @@ const valid = (s: string) => {
   return !!m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3]));
 };
 
-/** `openSignal` — każda nowa wartość (> 0) rozwija kalendarz, np. po wyborze „Inny dzień” w DueFields. */
-export function DateField({ label, value, onChange, today, testID, openSignal = 0 }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string; openSignal?: number }) {
+/**
+ * `openSignal` — każda nowa wartość (> 0) rozwija kalendarz, np. po wyborze „Inny dzień” w DueFields.
+ * `optional` — pole można wyczyścić: „Bez dnia” w rozwiniętym kalendarzu, jak „Bez godziny” w TimeField (audyt 2,
+ * M-125: jeden sposób czyszczenia dnia w każdym formularzu, także „Do dnia” w planie lekcji).
+ * VoiceOver (M-144, M-141): etykieta to sam podpis, wartość — dzień słownie (bez ISO), podpowiedź mówi, co zrobi
+ * dotknięcie (stan „zwinięte” RN na iOS sam nie ogłasza).
+ */
+export function DateField({ label, value, onChange, today, testID, openSignal = 0, optional }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string; openSignal?: number; optional?: boolean }) {
   const { c, font, size } = useTheme();
   const [open, setOpen] = useState(false);
   const [ym, setYm] = useState(() => monthOf(value, today));
@@ -47,9 +53,10 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${shown}`}
+        accessibilityLabel={label}
         accessibilityState={{ expanded: open }}
-        accessibilityValue={{ text: value.trim() }}
+        accessibilityValue={{ text: shown }}
+        accessibilityHint={strings[open ? 'date.closeHint' : 'date.openHint']}
         testID={testID}
         onPress={toggle}
         style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 12, borderWidth: 1, borderColor: open ? c.ink : c.control, backgroundColor: c.surface, paddingHorizontal: 14, justifyContent: 'center' }}
@@ -59,13 +66,14 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
       {open ? (
         <View testID={`${testID}-calendar`} style={{ padding: 8, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {arrow(-1, strings['calendar.prev'], '‹')}
+            {arrow(-1, strings['today.prev.month'], '‹')}
             <Text accessibilityRole="header" style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: 17, color: c.ink }}>
               {formatMonth(ym.y, ym.m)}
             </Text>
-            {arrow(1, strings['calendar.next'], '›')}
+            {arrow(1, strings['today.next.month'], '›')}
           </View>
-          <View style={{ flexDirection: 'row' }}>
+          {/* Skróty dni tygodnia tylko dla oka — każdy dzień siatki podaje pełną nazwę (audyt 2, M-263, A-46). */}
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
             {WEEKDAYS_ABBREVIATED.map((w) => (
               <Text key={w} style={{ width: `${100 / 7}%`, textAlign: 'center', fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>
                 {w}
@@ -92,6 +100,11 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
               );
             })}
           </View>
+          {optional && valid(value) ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={strings['date.clear']} testID={`${testID}-clear`} onPress={() => (onChange(''), setOpen(false))} style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 6 }}>
+              <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['date.clear']}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>

@@ -111,7 +111,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(within(entries[1]!).getByLabelText('Cofnij: Usunięto: Przynieść korki na trening'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-korki' }, { kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-korki' }]);
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Cofnięto');
+    expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Cofnięto', { queue: true });
   });
 
   it('rzecz zmieniona od tamtej chwili (np. przywrócona na drugim telefonie) — nie cofamy, z listy i z paska', async () => {
@@ -165,7 +165,8 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(await screen.findByTestId('open-recent'));
     expect(screen.getAllByTestId(/^recent-\d+$/)).toHaveLength(config.RECENT_MAX);
     expect(screen.queryByText('Usunięto: Zadanie 0')).toBeNull();
-  });
+    // 31 usunięć na pełnym ekranie Moich spraw — przy obciążonej maszynie CI dłużej niż domyślne 5 s.
+  }, 20_000);
 });
 
 /** Ponowne uruchomienie aplikacji: nowe drzewo (nowy UndoProvider) na tych samych usługach i tej samej bazie konta. */
@@ -363,7 +364,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await press(screen.getByLabelText('Usuń: Wizyta'));
     await screen.findByTestId('screen-event');
     expect(store.dispatched).toHaveLength(n);
-    expect(screen.getByText(/1 zadanie jest podpięte do odwoływanych wydarzeń/)).toBeTruthy();
+    expect(screen.getByText(/1 zadanie jest podpięte do odwoływanych terminów/)).toBeTruthy();
     // Zadanie terminu też przesuwa się do usunięcia (M-124).
     await press(screen.getByLabelText('Usuń: Wziąć skierowanie'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'zad' }]);
@@ -388,7 +389,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     const { store } = await open(base);
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await press(await screen.findByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
+    await press(await screen.findByLabelText(/^Kupić kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Usuń: Wybrać tulipany'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'sub' }]);
@@ -396,7 +397,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     expect(within(bar()).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
     // Zadanie usunięte na drugim telefonie, gdy mam je otwarte (albo link do usuniętego): ekran „Zadanie usunięte”.
-    await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     await act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, deleted_at: ago(0) } } })));
     expect(screen.getByTestId('screen-task-deleted')).toBeTruthy();
@@ -447,7 +448,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     await press(screen.getByTestId('form-save'));
     await screen.findByTestId('screen-today');
     const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks')!;
-    expect(within(bar()).getByText('Dodano: Zadzwonić do mamy · Osobiste')).toBeTruthy();
+    expect(within(bar()).getByText('Dodano zadanie: Zadzwonić do mamy · Osobiste')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zadzwonić do mamy', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }, { kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' }]);
   });
@@ -462,7 +463,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     expect(within(bar()).getByText('Dodano listę: Remont · Osobiste')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Kupić farbę');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(within(bar()).getByText('Dodano: Kupić farbę · Remont')).toBeTruthy();
+    expect(within(bar()).getByText('Dodano zadanie: Kupić farbę · Remont')).toBeTruthy();
     await press(within(bar()).getByLabelText('Zmień'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(store.dispatched.some((o) => o.kind === 'create' && o.entity === 'lists')).toBe(true);

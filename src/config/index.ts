@@ -12,6 +12,13 @@ export const config = {
   UNDO_MS: 6000,
 
   /**
+   * VoiceOver (audyt 2: M-44, M-269; src/ui/a11y.ts): po ilu ms przenosimy fokus na nowo pokazany element (widok musi być
+   * już na ekranie) i jak długo po pokazaniu paska „Cofnij” ma on pierwszeństwo przed tytułem nowego ekranu (przejście
+   * na stosie trwa ok. 0,35 s). Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
+   */
+  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500 },
+
+  /**
    * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
    * sekcji kosza (D151) widać przed „Pokaż wszystkie”. Wybory projektowe, bez źródła zewnętrznego.
    */
@@ -58,9 +65,12 @@ export const config = {
   /**
    * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
    * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
-   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). Wybory projektowe, bez źródła.
+   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
+   * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
+   * dni wstecz widoki dnia szukają wydarzeń, które zaczęły się wcześniej. Wybory projektowe, bez źródła.
+   * INTERVAL_MAX: największy odstęp powtarzania („co 99 tygodni”) — to samo sprawdza private.rrule_ok (test kontraktowy).
    */
-  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62 },
+  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62, MAX_DAYS: 31, INTERVAL_MAX: 99 },
 
   /**
    * Zadania na spotkaniu (D13, D14; ADR 0008): jak daleko naprzód szukamy kolejnego wystąpienia serii (przepinanie,
@@ -244,7 +254,7 @@ export const config = {
      */
     PATCH_DEFAULTS: {
       event_overrides: { all_day: false, cancelled: false, responsible_cleared: false },
-      events: { audience: 'group' },
+      events: { audience: 'group', days: 1 },
       group_members: { role: 'member' },
       handoffs: { closed: false, status: 'pending' },
       lists: { sort_key: 'a0', staples: [], visibility: 'group' },

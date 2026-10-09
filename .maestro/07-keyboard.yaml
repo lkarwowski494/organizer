@@ -1,0 +1,32 @@
+appId: io.github.lkarwowski494.organizer
+name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
+---
+# „Wpisz USUŃ” stoi na samym końcu długiej strony „Konto i dane”. Ekran odsuwa treść o klawiaturę
+# (automaticallyAdjustKeyboardInsets w Screen), więc pole i przycisk pod nim zostają widoczne nad klawiaturą.
+# Przycisku „Usuń konto” nie dotykamy.
+- runFlow: common/launch.yaml
+- tapOn: "Ustawienia"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 10000
+- tapOn: "Konto i dane"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings-account"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "delete-start"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "delete-start"
+- tapOn:
+    id: "delete-word"
+- inputText: "USUŃ"
+- assertVisible:
+    id: "delete-word"
+- assertVisible:
+    id: "delete-confirm"
+- takeScreenshot: 07-keyboard
