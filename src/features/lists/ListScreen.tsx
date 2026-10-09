@@ -309,8 +309,9 @@ export function ListScreen({ route, navigation }: Props) {
         </Card>
       ) : null}
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} onRemove={dropStaple} /> : null}
-      {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
-      {canDelete ? (
+      {/* Dziecko (D34) tylko odhacza — bez usuwania listy; dopisuje tylko produkty na listę zakupów (audyt 3, Q6d A;
+          serwer: tasks_guard z migracji 20261010120000). */}
+      {canDelete || shopping ? (
         <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null), setDup(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (

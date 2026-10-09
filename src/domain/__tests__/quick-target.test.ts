@@ -72,8 +72,14 @@ describe('„#grupa” (audyt 2, M-24)', () => {
     expect(resolveQuick(t, ME, 'zebranie #rodz', { chipGroupId: null, answers: { group: 'gr' } })).toMatchObject({ kind: 'ok', target: { groupId: 'gr', from: 'tag' } });
     expect(r('bilety #kino', 'gk')).toEqual({ kind: 'unknownGroup', name: 'kino', chip: { id: 'gk', name: 'Klasa 2b' } });
     expect(ok('bilety #kino', 'gk', { skipTag: true })).toEqual({ groupId: 'gk', memberId: null, body: 'bilety #kino', from: 'chip' });
-    // Grupa, w której jestem dzieckiem, nie jest do wyboru.
-    expect(r('ciasto #babcia').kind).toBe('unknownGroup');
+    // Grupa, w której jestem dzieckiem, nie jest do wyboru — ale to nie „Nie ma grupy” (audyt 3, N-44): mówimy, że
+    // spraw tam nie dodaję, a produkt dopiszę do jej listy zakupów (Q6d A), jeśli lista jest.
+    expect(r('ciasto #babcia')).toEqual({ kind: 'childGroup', name: 'babcia', body: 'ciasto        ', groups: [{ id: 'gc', name: 'Babcia', list: null }] });
+    const t2 = base();
+    put(t2, 'lists', 'lc', { id: 'lc', group_id: 'gc', kind: 'shopping', name: 'Zakupy', visibility: 'group', sort_key: 'a0', deleted_at: null, version: 3 });
+    expect(resolveQuick(t2, ME, '#Babcia szampon', { chipGroupId: null })).toEqual({ kind: 'childGroup', name: 'Babcia', body: '        szampon', groups: [{ id: 'gc', name: 'Babcia', list: { id: 'lc', name: 'Zakupy' } }] });
+    // Grupa, w której nie jestem dzieckiem, ma pierwszeństwo (jest do wyboru).
+    expect(r('ciasto #r').kind).toBe('ok');
   });
 });
 

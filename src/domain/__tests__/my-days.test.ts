@@ -267,7 +267,6 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 —
     task(t, 'plecak', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', due_time: '20:00' });
     task(t, 'pokój', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', deadline_mode: 'none', due_date: null });
     task(t, 'zeszyt', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', due_date: '2026-10-05' });
-    task(t, 'oli', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ola', deadline_mode: 'none', due_date: null });
     return t;
   }
 
@@ -284,10 +283,14 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 —
     expect(todayView(t, ME, TODAY).today.map((x) => x.id)).toEqual(['plecak']);
   });
 
-  it('nie dotyczy: dziecka z kontem (ma swoje Moje sprawy), mnie jako dziecka, listy, której nie widzę', () => {
+  it('dziecko z kontem też (audyt 3, N-43, Q6a A) — z imieniem; nie dotyczy: mnie jako dziecka, listy, której nie widzę', () => {
     const t = family();
-    expect(myDays(t, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['pokój']);
+    task(t, 'oli', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ola', deadline_mode: 'none', due_date: null });
+    // Połączenie profilu z kontem nie zabiera dorosłym zadań dziecka (jak jego wydarzeń i lekcji).
+    expect(myDays(t, ME, TODAY, 'day', TODAY, local).pinned.map((x) => [x.id, x.assignee])).toEqual([['oli', 'Ola'], ['pokój', 'Tymek']]);
+    expect(myDays(t, ME, TODAY, 'day', TODAY, local, () => 'mine').pinned.map((x) => x.id)).toEqual([]);
     expect(myDays(t, 'u-ola', TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['oli']);
+    delete t.tasks!.oli;
     put(t, 'group_members', 'mf', { ...t.group_members!.mf!, role: 'child' });
     const asChild = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect([keys(asChild), asChild.pinned]).toEqual([['2026-10-07 (dziś): '], []]);

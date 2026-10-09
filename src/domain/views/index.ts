@@ -134,6 +134,15 @@ export function memberActions(d: GroupDetail, m: Member): MemberActions {
   };
 }
 
+/**
+ * Czy osobie można dać rolę „Dziecko” (audyt 3, N-42, decyzja Q6b A; serwer: group_members_child_link w migracji
+ * 20261010120000): profil bez konta zawsze jest dzieckiem, a konto — tylko połączone kiedyś kodem profilu dziecka
+ * (`child_linked_at` ustawia serwer). Dorosły, który dołączył sam, nie zostanie „uwięziony” w roli dziecka.
+ */
+export function childRoleAllowed(t: Tables, m: Pick<Member, 'member_id' | 'role'>): boolean {
+  return m.role === 'child' || t.group_members?.[m.member_id]?.child_linked_at != null;
+}
+
 export type RemovedMember = Member & { daysLeft: number };
 
 /**
@@ -301,8 +310,8 @@ export type TodayView = { overdue: TodayItem[]; pinned: TodayItem[]; today: Toda
  * Reguła „Moje sprawy” (D89; wcześniej „Dotyczy mnie”, ADR 0006, 0011): zadanie dotyczy mnie, gdy jest przypisane do mnie,
  * albo nieprzypisane w mojej grupie osobistej, albo nieprzypisane z terminem (każdy w grupie może je zrobić). Bez terminu
  * (przypięte) — tylko moje i osobiste, żeby wspólne bez terminu nie zalewały widoku. Osoba usunięta z grupy (albo która
- * wyszła) to „nikt konkretny” (D132) — jej zadanie nie znika wszystkim. Zadanie dziecka bez konta (profil, D10) dotyczy
- * każdego dorosłego tej grupy, który widzi listę — jak wydarzenie z dzieckiem-uczestnikiem (D58; decyzja właściciela
+ * wyszła) to „nikt konkretny” (D132) — jej zadanie nie znika wszystkim. Zadanie dziecka (profil bez konta, D10, i od audytu 3
+ * — Q6a A — także dziecka z kontem) dotyczy każdego dorosłego tej grupy, który widzi listę — jak wydarzenie z dzieckiem-uczestnikiem (D58; decyzja właściciela
  * z 8.10.2026, audyt 2: T-25, P-1). Warunki „otwarte”, „widoczne” i „nie minęło” sprawdza widok. Ekran „Moje sprawy”
  * układa dni z my-days.ts (D62); `todayView` niżej to dawny układ sekcji zaległe / przypięte / dziś / jutro.
  */
@@ -311,12 +320,15 @@ export { liveMembers };
 /**
  * Na mojej liście „Tylko ja” zadanie bez osoby jest moje, jak w grupie osobistej (PW-18 A; concerns.ts). W grupie, w której
  * jestem dzieckiem z kontem — tylko moje sprawy (PW-14 B, child.ts); `owns` — reguła zbudowana raz na widok. `scope` — zakres
- * Moich spraw w grupie (PW-2): zadanie dziecka bez konta jest wtedy tylko w „Wszystko” (nie jest przypisane do mnie).
+ * Moich spraw w grupie (PW-2): zadanie dziecka (z kontem albo bez — audyt 3, Q6a A) jest wtedy tylko w „Wszystko” (nie jest
+ * przypisane do mnie).
  */
 export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>, owns: ChildOwner, scope: MyScope = 'all'): boolean {
   if (g.me.role === 'child') return owns(x, g.me.member_id);
   const a = x.assignee_member_id === null ? undefined : live.get(x.assignee_member_id);
-  if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return scope === 'all' && memberCanSeeList(t, g.me.member_id, x.list_id);
+  // Audyt 3 (N-43, decyzja Q6a A): także dziecko połączone z kontem — połączenie nie zabiera rodzicom „stroju na WF”
+  // (jak wydarzenia i lekcje dziecka, events.ts).
+  if (a && a.member_id !== g.me.member_id && a.role === 'child') return scope === 'all' && memberCanSeeList(t, g.me.member_id, x.list_id);
   return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g), scope);
 }
 

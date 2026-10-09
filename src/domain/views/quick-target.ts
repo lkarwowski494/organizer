@@ -12,6 +12,7 @@
  * Użyte „#…” i „@…” znikają z nazwy (zastąpione spacjami tej samej długości, żeby odklikane fragmenty zachowały pozycje).
  */
 import { groupsView } from './index';
+import { recentShoppingList } from './quick-shopping';
 import { extractMention, foldName, type Mention, type MentionTarget, mentionTargets } from './mention';
 import type { Tables } from './model';
 import { memberCanSeeList } from './visibility';
@@ -45,6 +46,8 @@ export type QuickResolution =
   | { kind: 'ok'; target: QuickTarget }
   | { kind: 'manyGroups'; name: string; groups: GroupChoice[] }
   | { kind: 'unknownGroup'; name: string; chip: GroupChoice }
+  /** „#nazwa” pasuje tylko do grup, w których jestem dzieckiem (audyt 3, N-44): spraw tam nie dodaję, produkt — tak. */
+  | { kind: 'childGroup'; name: string; body: string; groups: (GroupChoice & { list: { id: string; name: string } | null })[] }
   | { kind: 'many'; name: string; targets: MentionTarget[] }
   | { kind: 'unknown'; name: string }
   | { kind: 'noGroup' };
@@ -88,6 +91,13 @@ export function quickGroups(t: Tables, userId: string, personalLabel?: string): 
     .map((g) => ({ id: g.id, name: g.kind === 'personal' ? (personalLabel ?? g.name) : g.name, shared: g.kind === 'shared', meId: g.me.member_id }));
 }
 
+/** Grupy, w których jestem dzieckiem z kontem (do „#nazwa” — audyt 3, N-44). */
+function childGroups(t: Tables, userId: string): GroupChoice[] {
+  return groupsView(t, userId)
+    .filter((g) => g.me.role === 'child')
+    .map((g) => ({ id: g.id, name: g.name }));
+}
+
 export function resolveQuick(t: Tables, userId: string, text: string, o: { chipGroupId: string | null; personalLabel?: string; answers?: QuickAnswers }): QuickResolution {
   const a = o.answers ?? {};
   const groups = quickGroups(t, userId, o.personalLabel);
@@ -100,7 +110,13 @@ export function resolveQuick(t: Tables, userId: string, text: string, o: { chipG
   const tag = a.skipTag ? null : extractTag(text);
   if (tag) {
     const found = a.group ? groups.filter((g) => g.id === a.group) : tagTargets(groups, tag.name);
-    if (found.length === 0) return { kind: 'unknownGroup', name: tag.name, chip: { id: chip.id, name: chip.name } };
+    if (found.length === 0) {
+      // Audyt 3 (N-44): grupa jest, ale jestem w niej dzieckiem (D34) — nie „Nie ma grupy”, tylko co mogę: dopisać
+      // produkt do jej listy zakupów (Q6d A).
+      const kids = tagTargets(childGroups(t, userId), tag.name);
+      if (kids.length) return { kind: 'childGroup', name: tag.name, body: blank(text, tag), groups: kids.map((g) => ({ ...g, list: recentShoppingList(t, userId, g.id) })) };
+      return { kind: 'unknownGroup', name: tag.name, chip: { id: chip.id, name: chip.name } };
+    }
     if (found.length > 1) return { kind: 'manyGroups', name: tag.name, groups: found.map(({ id, name }) => ({ id, name })) };
     group = groups.find((g) => g.id === found[0]!.id)!;
     from = 'tag';
