@@ -13,11 +13,11 @@ import { startGroup } from '../../domain/views/default-group';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
-import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
+import { WEEKDAYS_ON } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
 import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { PeopleToggles } from '../../ui/PersonPicker';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { useUndo } from '../../ui/undo';
@@ -38,7 +38,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [end, setEnd] = useState('');
   const [who, setWho] = useState<string[]>([]);
   const [steps, setSteps] = useState<string[]>(['']);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   const stepRefs = useRef<(TextInput | null)[]>([]);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
@@ -86,7 +86,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       ) : null}
       {/* M-247: kursor w pierwszym polu pustego formularza; M-243: Return przechodzi do pierwszego kroku. */}
       <Field label={strings['common.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} autoFocus={title === ''} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => stepRefs.current[0]?.focus()} testID="routine-title" />
-      <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
+      <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](w, WEEKDAYS_ON[wd]!) }))} />
       <TimeFieldPair
         start={{ label: strings['event.start'], value: start, onChange: (v) => (setStart(v), setError(null)), testID: 'routine-start' }}
         end={{ label: strings['event.end'], value: end, onChange: (v) => (setEnd(v), setError(null)), testID: 'routine-end', optional: true }}
@@ -105,7 +105,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />
       {error ? (
-        <ErrorText>{error}</ErrorText>
+        <ErrorText attempt={attempt}>{error}</ErrorText>
       ) : null}
       <Button label={strings['routine.save']} testID="routine-save" onPress={save} />
     </Screen>

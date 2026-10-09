@@ -10,6 +10,7 @@ import { View } from 'react-native';
 
 import { config } from '../config';
 import { strings } from '../i18n/strings.pl';
+import { useClosedPanel } from './a11y';
 import { Body, Button, Field, Segmented, Toggles } from './components';
 
 /** Porównanie bez wielkości liter i polskich znaków („Łukasz” ~ „lukasz”). */
@@ -44,9 +45,11 @@ export function PeopleToggles<T extends string>({ values, options, onChange, lab
 export function PersonPicker<T extends string>({ value, options, onChange, label, testID }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; testID?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // Audyt 3 (N-62): po wyborze lista znika — fokus VoiceOvera wraca na „Zmień” z nową osobą, nie na początek ekranu.
+  const back = useClosedPanel(open) !== null;
   if (options.length < config.people.PICKER_SEARCH_FROM) return <Segmented label={label} value={value} options={options} onChange={onChange} />;
   const current = options.find((o) => o.value === value) ?? options[0]!;
-  if (!open) return <Button kind="secondary" label={strings['people.change'](label, current.label)} testID={testID ? `${testID}-change` : undefined} onPress={() => setOpen(true)} />;
+  if (!open) return <Button kind="secondary" label={strings['people.change'](label, current.label)} testID={testID ? `${testID}-change` : undefined} onPress={() => setOpen(true)} a11yFocus={back} />;
   const [first, ...rest] = options;
   const shown = [first!, ...rest.filter((o) => matchesPerson(o.label, query))];
   return (

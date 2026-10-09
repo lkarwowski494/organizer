@@ -21,7 +21,7 @@ import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
 import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
-import { focusLater, pinFocus, useScreenReader } from './a11y';
+import { focusLater, pinFocus, spoken, useScreenReader } from './a11y';
 import { Glyph } from './glyph';
 import { useTheme } from './theme';
 
@@ -191,7 +191,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
                     ref={focus}
                     testID="undo-message"
                     accessibilityRole="button"
-                    accessibilityLabel={bar.message}
+                    accessibilityLabel={spoken(bar.message)}
                     accessibilityHint={strings['recent.openHint']}
                     onPress={() => (setBar(null), link())}
                     style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}
@@ -199,7 +199,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
                     {message}
                   </Pressable>
                 ) : (
-                  <View ref={focus} testID="undo-message" accessible accessibilityLabel={bar.message} style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View ref={focus} testID="undo-message" accessible accessibilityLabel={spoken(bar.message)} style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     {message}
                   </View>
                 )}

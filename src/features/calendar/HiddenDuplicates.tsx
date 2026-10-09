@@ -8,6 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { DeviceEntry } from '../../domain/views/calendar-sync';
 import { strings } from '../../i18n/strings.pl';
+import { buttonA11y } from '../../ui/a11y';
 import { Body, Glyph } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { DeviceEventRow } from './DeviceEventRow';
@@ -19,7 +20,7 @@ export function HiddenDuplicates({ entries, testID }: { entries: readonly Device
   const title = strings['device.hidden'](entries.length);
   return (
     <View>
-      <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} accessibilityHint={strings[open ? 'device.hiddenHideHint' : 'device.hiddenShowHint']} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+      <Pressable testID={testID} {...buttonA11y({ expanded: open })} accessibilityLabel={title} accessibilityHint={strings[open ? 'device.hiddenHideHint' : 'device.hiddenShowHint']} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
         <View style={{ width: 30, alignItems: 'center' }}>
           <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: c.control }} />
         </View>
