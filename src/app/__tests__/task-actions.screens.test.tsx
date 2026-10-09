@@ -76,7 +76,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     await press(screen.getByLabelText('Usuń: Kupić kwiaty'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.queryByTestId('task-t-kwiaty')).toBeNull();
-    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto zadanie: Kupić kwiaty')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'restore', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.getByTestId('task-t-kwiaty')).toBeTruthy();
@@ -90,7 +90,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
       await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
       await press(screen.getByLabelText('Usuń: Odebrać paczkę'));
       expect(screen.getAllByTestId('undo-bar')).toHaveLength(1);
-      expect(screen.getByText('Usunięto: Odebrać paczkę')).toBeTruthy();
+      expect(screen.getByText('Usunięto zadanie: Odebrać paczkę')).toBeTruthy();
       await act(async () => jest.advanceTimersByTime(config.UNDO_MS - 1));
       expect(screen.getByTestId('undo-bar')).toBeTruthy();
       await act(async () => jest.advanceTimersByTime(1));
@@ -148,6 +148,7 @@ describe('rolowanie (D61) i miniony dzień', () => {
     expect(screen.queryByText('Złożyć życzenia')).toBeNull();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lp'));
+    await press(await screen.findByLabelText('Zrobione (1), pokaż'));
     expect(within(await screen.findByTestId('task-życzenia')).getByText(/minęło/)).toBeTruthy();
   });
 
@@ -241,10 +242,10 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lz'));
-    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'masło');
+    await fireEvent.changeText(await screen.findByTestId('quick-add'), 'jajka');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'masło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jajka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lp'));
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'książka');

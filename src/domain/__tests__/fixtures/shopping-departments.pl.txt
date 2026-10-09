@@ -1,0 +1,362 @@
+# Korpus działów zakupów (audyt 3, N-168; A3-09-3, A3-V5-2): typowa nazwa | oczekiwany dział (dopuszczalne po „/”).
+# Oczekiwania spisane według nazw działów aplikacji niezależnie od słownika (src/config/shopping.pl.ts), bez nazw marek.
+# Niejednoznaczne: budyń (proszek albo deser), mleko kokosowe (napoje roślinne — otwarte pytanie O-059).
+jabłka|produce
+banany|produce
+pomarańcze|produce
+mandarynki|produce
+cytryny|produce
+limonki|produce
+grejpfrut|produce
+winogrona|produce
+truskawki|produce
+maliny|produce
+borówki amerykańskie|produce
+jagody|produce
+wiśnie|produce
+czereśnie|produce
+śliwki|produce
+brzoskwinie|produce
+nektarynki|produce
+morele|produce
+kiwi|produce
+ananas|produce
+arbuz|produce
+melon|produce
+awokado|produce
+mango|produce
+granat|produce
+figi|produce
+daktyle|pantry
+pomidory|produce
+pomidorki koktajlowe|produce
+ogórki|produce
+ogórek zielony|produce
+ziemniaki|produce
+ziemniaki młode|produce
+marchew|produce
+marchewka|produce
+cebula|produce
+cebula czerwona|produce
+czosnek|produce
+papryka czerwona|produce
+sałata lodowa|produce
+rukola|produce
+szpinak|produce
+kapusta pekińska|produce
+kapusta kiszona|produce/pantry
+brokuł|produce
+brokuły|produce
+kalafior|produce
+cukinia|produce
+bakłażan|produce
+dynia|produce
+por|produce
+seler naciowy|produce
+pietruszka|produce
+natka pietruszki|produce
+koperek|produce
+szczypiorek|produce
+rzodkiewki|produce
+buraki|produce
+fasolka szparagowa|produce
+pieczarki|produce
+imbir|produce
+bazylia|produce
+mięta|produce
+kalarepa|produce
+szparagi|produce
+jarmuż|produce
+botwinka|produce
+młoda kapusta|produce
+kiełki|produce
+groszek cukrowy|produce
+kukurydza kolby|produce
+chleb|bakery
+chleb razowy|bakery
+chleb tostowy|bakery
+bułki|bakery
+bułki kajzerki|bakery
+bagietka|bakery
+rogaliki|bakery
+croissanty|bakery
+grahamki|bakery
+chałka|bakery
+drożdżówka|bakery
+pączki|bakery
+tortille|bakery
+pita|bakery
+sucharki|bakery/pantry
+jagodzianki|bakery
+pieczywo chrupkie|bakery
+mleko|dairy
+mleko 2%|dairy
+mleko bez laktozy|dairy
+jogurt naturalny|dairy
+jogurt grecki|dairy
+kefir|dairy
+maślanka|dairy
+śmietana 18%|dairy
+śmietanka 30%|dairy
+masło|dairy
+kostka masła|dairy
+margaryna|dairy
+ser żółty|dairy
+ser gouda|dairy
+serek wiejski|dairy
+serki homogenizowane|dairy
+twaróg|dairy
+twarożek|dairy
+mozzarella|dairy
+parmezan|dairy
+feta|dairy
+jajka|dairy
+jaja|dairy
+skyr|dairy
+mascarpone|dairy
+ricotta|dairy
+camembert|dairy
+halloumi|dairy
+serek śmietankowy|dairy
+kurczak|meat
+pierś z kurczaka|meat
+filet z indyka|meat
+udka kurczaka|meat
+skrzydełka|meat
+wołowina|meat
+mięso mielone|meat
+schab|meat
+karkówka|meat
+boczek|meat
+żeberka|meat
+kiełbasa|meat
+parówki|meat
+szynka|meat
+plastry szynki|meat
+polędwica|meat
+salami|meat
+kabanosy|meat
+pasztet|meat
+wędlina|meat
+łosoś|meat
+dorsz|meat
+mintaj|meat
+pstrąg|meat
+tuńczyk|meat/pantry
+śledzie|meat
+makrela wędzona|meat
+krewetki|meat/frozen
+kaczka|meat
+golonka|meat
+kaszanka|meat
+salceson|meat
+lody|frozen
+lody waniliowe|frozen
+pierogi|frozen
+pyzy|frozen
+kopytka|frozen
+frytki|frozen
+pizza mrożona|frozen
+mrożone warzywa|frozen
+warzywa mrożone|frozen
+szpinak mrożony|frozen
+truskawki mrożone|frozen
+paluszki rybne|frozen
+kostki lodu|frozen
+mieszanka chińska mrożona|frozen
+makaron|pantry
+makaron spaghetti|pantry
+penne|pantry
+ryż|pantry
+ryż basmati|pantry
+kasza gryczana|pantry
+kasza jaglana|pantry
+mąka|pantry
+mąka pszenna|pantry
+mąka ziemniaczana|pantry
+cukier|pantry
+cukier puder|pantry
+sól|pantry
+pieprz|pantry
+przyprawy|pantry
+olej|pantry
+olej rzepakowy|pantry
+oliwa|pantry
+ocet|pantry
+ocet balsamiczny|pantry
+musztarda|pantry
+ketchup|pantry
+majonez|pantry
+sos sojowy|pantry
+koncentrat pomidorowy|pantry
+passata|pantry
+pomidory w puszce|pantry
+pomidory krojone w puszce|pantry
+fasola czerwona|pantry
+ciecierzyca|pantry
+soczewica|pantry
+groch|pantry
+płatki owsiane|pantry
+płatki kukurydziane|pantry
+musli|pantry
+granola|pantry
+kawa|pantry
+kawa mielona|pantry
+kawa ziarnista|pantry
+herbata|pantry
+herbata zielona|pantry
+kakao|pantry
+miód|pantry
+dżem truskawkowy|pantry
+konfitura|pantry
+drożdże|pantry/dairy
+proszek do pieczenia|pantry
+bułka tarta|pantry
+kisiel|pantry
+galaretka|pantry/sweets
+kostki rosołowe|pantry
+bulion|pantry
+zupka chińska|pantry
+orzechy włoskie|pantry
+migdały|pantry
+rodzynki|pantry
+słonecznik|pantry
+pestki dyni|pantry
+siemię lniane|pantry
+oliwki|pantry
+ogórki konserwowe|pantry
+korniszony|pantry
+chrzan|pantry
+cynamon|pantry
+cukier wanilinowy|pantry
+żelatyna|pantry
+kukurydza w puszce|pantry
+kukurydza konserwowa|pantry
+groszek konserwowy|pantry
+tuńczyk w puszce|pantry
+hummus|pantry/dairy
+masło orzechowe|pantry
+kwasek cytrynowy|pantry
+mleko kokosowe|pantry/dairy
+sezam|pantry
+budyń|pantry/dairy
+czekolada|sweets
+czekolada gorzka|sweets
+cukierki|sweets
+batony|sweets
+ciastka|sweets
+herbatniki|sweets
+wafle|sweets
+wafelki|sweets
+żelki|sweets
+chipsy|sweets
+paluszki|sweets
+krakersy|sweets
+popcorn|sweets
+lizaki|sweets
+guma do żucia|sweets
+pierniki|sweets
+biszkopty|sweets
+chrupki|sweets
+orzeszki ziemne|sweets/pantry
+karmelki|sweets
+miętówki|sweets
+kremówka|sweets/bakery
+woda|drinks
+woda gazowana|drinks
+woda niegazowana 6 szt.|drinks
+sok pomarańczowy|drinks
+sok jabłkowy|drinks
+napój izotoniczny|drinks
+oranżada|drinks
+lemoniada|drinks
+piwo|drinks
+wino czerwone|drinks
+wódka|drinks
+syrop malinowy|drinks
+energetyk|drinks
+kompot|drinks
+nektar|drinks
+tonik|drinks
+prosecco|drinks
+szampan|drinks
+pieluchy|baby
+pieluszki|baby
+chusteczki nawilżane|baby
+kaszka|baby
+kaszka ryżowa|baby
+słoiczki|baby
+mleko modyfikowane|baby
+smoczek|baby
+oliwka dla dzieci|baby
+papier toaletowy|hygiene/household
+ręczniki papierowe|household
+worki na śmieci|household
+folia aluminiowa|household
+folia spożywcza|household
+płyn do naczyń|household
+płyn do mycia naczyń|household
+płyn do prania|household
+proszek do prania|household
+kapsułki do prania|household
+żel do prania|household
+tabletki do zmywarki|household
+sól do zmywarki|household
+gąbki|household
+ściereczki|household
+zapałki|household
+świeczki|household
+baterie|household
+żarówka|household
+odplamiacz|household
+odkamieniacz|household
+mop|household
+serwetki|household
+płyn do płukania tkanin|household
+odświeżacz powietrza|household
+rękawiczki gumowe|household
+papier do pieczenia|household
+nabłyszczacz|household
+kostka do wc|household
+worki do odkurzacza|household
+szampon|hygiene
+odżywka do włosów|hygiene
+mydło|hygiene
+mydło w płynie|hygiene
+żel pod prysznic|hygiene
+pasta do zębów|hygiene
+szczoteczka do zębów|hygiene
+nić dentystyczna|hygiene
+dezodorant|hygiene
+antyperspirant|hygiene
+krem do rąk|hygiene
+balsam do ciała|hygiene
+podpaski|hygiene
+tampony|hygiene
+wkładki|hygiene
+patyczki higieniczne|hygiene
+waciki|hygiene
+płatki kosmetyczne|hygiene
+maszynki do golenia|hygiene
+pianka do golenia|hygiene
+płyn do płukania ust|hygiene
+perfumy|hygiene
+plastry|hygiene
+witaminy|hygiene
+leki|hygiene
+chusteczki higieniczne|hygiene
+woda micelarna|hygiene
+płyn micelarny|hygiene
+woda utleniona|hygiene
+syrop na kaszel|hygiene
+olejek do kąpieli|hygiene
+płyn do kąpieli|hygiene
+gumki do włosów|hygiene
+karma dla psa|pets
+karma dla kota|pets
+karma|pets
+żwirek|pets
+przysmaki dla psa|pets
+przysmaki dla chomika|pets
+przysmaki dla dzieci|other/sweets
+saszetki dla kota|pets

@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 
 import { useServices } from '../../app/context';
+import { useDefaultGroup } from '../../app/default-group';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-link';
@@ -19,6 +20,7 @@ const only = (s: string) => s.replace(/\D/g, '');
 
 export function InviteScreen({ route, navigation }: Props) {
   const { account, displayName, store } = useServices();
+  const defaultGroup = useDefaultGroup();
   const p = route.params ?? {};
   const [joinId, setJoinId] = useState(groupDigits(only(p.g ?? '')));
   const [code, setCode] = useState(groupDigits(only(p.c ?? '')));
@@ -48,6 +50,8 @@ export function InviteScreen({ route, navigation }: Props) {
     setError(null);
     try {
       const { groupId } = legacy ? await account.acceptInvite(legacy, me.trim()) : await account.joinGroup(only(joinId), only(code), me.trim());
+      // Audyt 3 (N-45, Q14 A): dołączona grupa zostaje ostatnio użytą, jak nowo utworzona (NewGroupScreen).
+      defaultGroup.remember(groupId);
       store.refresh();
       navigation.replace('Group', { groupId, fresh: true });
     } catch (e) {

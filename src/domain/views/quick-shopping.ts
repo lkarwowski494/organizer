@@ -10,11 +10,14 @@
  *    zabrać zadanie).
  *  - Lista: ta lista zakupów grupy wpisu, której ostatnio używano (najwyższa wersja listy albo jej pozycji — wersje
  *    rosną w grupie, D32; niewysłane zmiany z tego telefonu są najnowsze).
+ *  - Audyt 3 (N-45, decyzja Q14 B): grupa z chipa bez listy zakupów (zwykle „Osobiste”) — lista innej grupy
+ *    (`otherShoppingList`): najpierw ostatnio użytej, potem w kolejności ekranu Grupy. Wersji z różnych grup nie
+ *    porównujemy (każda grupa liczy własne, D32).
  */
 import { SHOPPING_KEYWORDS } from '../../config/shopping.pl';
 import { parseQuantity } from '../quantity';
 import type { Row } from '../sync-engine/client';
-import { listsView } from './index';
+import { groupsView, listsView } from './index';
 import type { Tables } from './model';
 
 // Ta sama składnia słownika co w shopping.ts (guessCategory): „*” na końcu = początek słowa.
@@ -57,4 +60,20 @@ export function recentShoppingList(t: Tables, userId: string, groupId: string): 
     if (!best || used > best.used) best = { id: l.id, name: l.name, used };
   }
   return best && { id: best.id, name: best.name };
+}
+
+/**
+ * Lista zakupów z innej grupy, gdy w grupie wpisu jej nie ma (Q14 B): ostatnio użyta grupa (`prefer`), potem grupy
+ * w kolejności ekranu Grupy (osobista pierwsza). Także grupa, w której jestem dzieckiem — dziecko dopisuje produkty
+ * do list zakupów (Q6d A, tasks_guard z migracji 20261010120000).
+ */
+export function otherShoppingList(t: Tables, userId: string, groupId: string, prefer: string | null): { id: string; name: string; groupId: string } | null {
+  const ids = groupsView(t, userId)
+    .map((g) => g.id)
+    .filter((id) => id !== groupId);
+  for (const g of prefer !== null && ids.includes(prefer) ? [prefer, ...ids.filter((id) => id !== prefer)] : ids) {
+    const l = recentShoppingList(t, userId, g);
+    if (l) return { ...l, groupId: g };
+  }
+  return null;
 }

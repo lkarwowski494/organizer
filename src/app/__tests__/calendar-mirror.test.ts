@@ -1,7 +1,8 @@
 /** Lustro grup w kalendarzu iPhone'a (D95) na atrapie kalendarza; zamiana wydarzeń iPhone'a na dni (toDeviceEvent). */
 import type { Row } from '../../domain/sync-engine/client';
-import { clearMirror, loadMirror, MIRROR_KEY, MIRROR_SKIP_KEY, ownedIn, removeMirrorCalendars, runMirror } from '../calendar-mirror';
+import { ACCOUNT_OWNED_KEY, adoptMirrorOwned, clearMirror, loadMirror, MIRROR_KEY, MIRROR_SKIP_KEY, ownedIn, removeMirrorCalendars, runMirror } from '../calendar-mirror';
 import { type DeviceCalendarSync, toDeviceEvent } from '../device-calendar';
+import { eventLink } from '../../domain/views/calendar-sync';
 
 jest.mock('expo-calendar', () => ({}));
 
@@ -49,6 +50,7 @@ function fakeSync() {
       events.set(id, { ...events.get(id)!, title: d.title, start: d.start });
     }),
     deleteEvent: jest.fn(async (id: string) => void events.delete(id)),
+    hasEvent: jest.fn(async (id: string) => events.has(id)),
   } as unknown as jest.Mocked<DeviceCalendarSync>;
   return { sync, calendars, events, titles };
 }
@@ -145,7 +147,7 @@ describe('lustro grup (D95)', () => {
   });
 
   it('wydarzenie, którego iPhone nie usunie (już go nie ma), znika ze stanu; wydarzenia innej grupy zostają', async () => {
-    const { sync } = fakeSync();
+    const { sync, events } = fakeSync();
     const local = memLocal();
     const t = tables();
     put(t, 'groups', 'gk', { id: 'gk', name: 'Klasa', kind: 'shared', created_at: '2026-03-01T00:00:00Z', deleted_at: null });
@@ -153,7 +155,10 @@ describe('lustro grup (D95)', () => {
     put(t, 'events', 'e2', { ...t.events!.e1!, id: 'e2', group_id: 'gk', title: 'Wywiadówka' });
     await runMirror(sync, local, t, ME, today);
     expect(Object.keys(loadMirror(local).events)).toHaveLength(2);
-    sync.deleteEvent.mockRejectedValueOnce(new Error('nie ma'));
+    sync.deleteEvent.mockImplementationOnce(async (id) => {
+      events.delete(id);
+      throw new Error('nie ma');
+    });
     put(t, 'events', 'e1', { ...t.events!.e1!, deleted_at: '2026-10-08T10:00:00Z' });
     expect(await runMirror(sync, local, t, ME, today)).toEqual({ created: 0, updated: 0, removed: 1 });
     expect(Object.values(loadMirror(local).events).map((e) => e.calendarId)).toEqual([loadMirror(local).calendars.gk]);
@@ -262,12 +267,69 @@ describe('lustro: audyt 2 (M-27, M-97, M-220)', () => {
   });
 });
 
+describe('lustro: audyt 3 (N-4, N-5)', () => {
+  it('N-5: nieudana zmiana wydarzenia, które nadal jest — bez drugiego wpisu, zmiana do ponowienia', async () => {
+    const { sync, events } = fakeSync();
+    const local = memLocal();
+    const t = tables();
+    await runMirror(sync, local, t, ME, today);
+    put(t, 'events', 'e1', { ...t.events!.e1!, title: 'Basen z Tymkiem' });
+    sync.updateEvent.mockRejectedValueOnce(new Error('EventKit'));
+    expect(await runMirror(sync, local, t, ME, today)).toMatchObject({ updated: 1 });
+    expect([...events.values()].map((e) => e.title)).toEqual(['Basen']);
+    expect(sync.createEvent).toHaveBeenCalledTimes(1);
+    // Następny przebieg ponawia zmianę tego samego wpisu.
+    expect(await runMirror(sync, local, t, ME, today)).toMatchObject({ updated: 1, created: 0 });
+    expect([...events.values()].map((e) => e.title)).toEqual(['Basen z Tymkiem']);
+    // Sprawdzenie, czy wpis jest, też zawodzi — nic nie tworzymy (lepiej poczekać niż zrobić dubel).
+    put(t, 'events', 'e1', { ...t.events!.e1!, title: 'Basen z Zosią' });
+    sync.updateEvent.mockRejectedValueOnce(new Error('EventKit'));
+    sync.hasEvent.mockRejectedValueOnce(new Error('brak dostępu'));
+    await runMirror(sync, local, t, ME, today);
+    expect(events.size).toBe(1);
+    expect(sync.createEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('N-5: nieudane usunięcie wydarzenia, które nadal jest — zostaje w stanie i znika przy następnym przebiegu', async () => {
+    const { sync, events } = fakeSync();
+    const local = memLocal();
+    const t = tables();
+    await runMirror(sync, local, t, ME, today);
+    put(t, 'events', 'e1', { ...t.events!.e1!, deleted_at: '2026-10-08T10:00:00Z' });
+    sync.deleteEvent.mockRejectedValueOnce(new Error('EventKit'));
+    await runMirror(sync, local, t, ME, today);
+    expect(events.size).toBe(1);
+    expect(Object.keys(loadMirror(local).events)).toEqual(['e1|2026-10-09']);
+    expect(await runMirror(sync, local, t, ME, today)).toMatchObject({ removed: 1 });
+    expect(events.size).toBe(0);
+    expect(loadMirror(local).events).toEqual({});
+  });
+
+  it('N-4: lista z bazy konta (build 22) przechodzi raz do pęku kluczy — suma list, wpis w bazie konta znika', async () => {
+    const device = memPrefs({ calendarMirrorOwned: '["cal-a"]' });
+    const local = memLocal({ [ACCOUNT_OWNED_KEY]: '["cal-b","cal-a"]' });
+    await adoptMirrorOwned(local, device);
+    expect(await ownedIn(device).get()).toEqual(['cal-a', 'cal-b']);
+    expect(local.m.has(ACCOUNT_OWNED_KEY)).toBe(false);
+    // Bez wpisu w bazie konta — nic.
+    await adoptMirrorOwned(local, device);
+    expect(await ownedIn(device).get()).toEqual(['cal-a', 'cal-b']);
+    // Zapis w pęku kluczy zawodzi — wpis w bazie zostaje na następny start.
+    const broken = { get: async () => null, set: async () => Promise.reject(new Error('keychain')) };
+    const again = memLocal({ [ACCOUNT_OWNED_KEY]: '["cal-c"]' });
+    await expect(adoptMirrorOwned(again, broken)).rejects.toThrow('keychain');
+    expect(again.m.get(ACCOUNT_OWNED_KEY)).toBe('["cal-c"]');
+  });
+});
+
 describe('wydarzenie iPhone’a → dni (D95)', () => {
   const base = { id: 'a', calendarId: 'c', title: 'Urlop' };
   it('z godziną: chwile; całodniowe: daty w strefie telefonu, koniec wyłączny', () => {
     expect(toDeviceEvent({ ...base, allDay: false, startDate: '2026-10-09T14:00:00.000Z', endDate: '2026-10-09T15:00:00.000Z' }, 'Praca')).toEqual({
-      ...base, calendarTitle: 'Praca', allDay: false, startMs: Date.UTC(2026, 9, 9, 14), endMs: Date.UTC(2026, 9, 9, 15), organizer: false, location: null,
+      ...base, calendarTitle: 'Praca', allDay: false, startMs: Date.UTC(2026, 9, 9, 14), endMs: Date.UTC(2026, 9, 9, 15), organizer: false, location: null, link: null,
     });
+    // Audyt 3 (N-183): adres kopii z „Dodaj do kalendarza” → termin aplikacji.
+    expect(toDeviceEvent({ ...base, allDay: false, startDate: 0 as never, endDate: 0 as never, url: eventLink('e1', '2026-10-09') }, 'P')).toMatchObject({ link: 'e1|2026-10-09' });
     // D173: znacznik Organizera w notatce (wiersz) i miejsce.
     expect(toDeviceEvent({ ...base, allDay: false, startDate: 0 as never, endDate: 0 as never, notes: 'Rodzina\n\nDodane przez aplikację Organizer', location: ' Wodna 1 ' }, 'P')).toMatchObject({ organizer: true, location: 'Wodna 1' });
     expect(toDeviceEvent({ ...base, allDay: false, startDate: 0 as never, endDate: 0 as never, notes: 'Dodane przez aplikację Organizer?', location: '  ' }, 'P')).toMatchObject({ organizer: false, location: null });
