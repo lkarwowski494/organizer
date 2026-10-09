@@ -25,6 +25,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
       </View>
       <Title role="BRAND">{strings['auth.title']}</Title>
       <Body muted>{strings['auth.tagline']}</Body>
+      <Body muted>{strings['auth.info']}</Body>
       <AppleAuthentication.AppleAuthenticationButton
         testID="apple-sign-in"
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}

@@ -12,7 +12,7 @@ import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { agenda } from '../views/agenda';
 import { mirrorHash, mirrorItems } from '../views/calendar-sync';
 import { occurrenceDays } from '../views/event-rows';
-import { createEvent, editEvent, eventDetail, type EventFields, eventsByDate, expandEventDays, expandEvents, fieldsOf, groupSeries, lengthLabel, todayEvents } from '../views/events';
+import { createEvent, editEvent, eventDetail, type EventFields, eventsByDate, expandEventDays, expandEvents, fieldsOf, groupSeries, lengthLabel, type RuleLabels, todayEvents } from '../views/events';
 import { myDays } from '../views/my-days';
 import { planReminders } from '../views/reminders';
 
@@ -214,7 +214,7 @@ describe('zapis', () => {
     const t = world();
     event(t, 'oboz', { start_date: '2026-10-12', days: 5 });
     event(t, 'jeden', { start_date: '2026-10-12' });
-    expect(groupSeries(t, ME, 'gf', TODAY).map((s) => s.summary)).toEqual(['Poniedziałek, 12 października', '12–16 października']);
+    expect(groupSeries(t, ME, 'gf', TODAY, {} as RuleLabels).map((s) => s.summary)).toEqual(['Poniedziałek, 12 października', '12–16 października']);
   });
 });
 

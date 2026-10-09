@@ -94,16 +94,16 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')],
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'))],
-  ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'), await p('Wszystkie w serii'))],
+  ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'), await p('Całą serię'))],
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
-  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj inny termin (inne dni albo godzina)'), await p('Wybrane osoby'))],
+  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
-  ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'))],
-  ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'))],
+  ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'))],
+  ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Kuba, dziecko'))],
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz do grupy'))],
-  ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Zaproś'))],
+  ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Zaproś'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
   ['Ustawienia: Powiadomienia', async (p) => (await p('Ustawienia'), await p('Powiadomienia'))],
   ['Ustawienia: Kalendarz i dojazd', async (p) => (await p('Ustawienia'), await p('Kalendarz i dojazd'))],
@@ -113,7 +113,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await p('Inny dzień: Wybierz dzień'), await p('Następny miesiąc'))],
-  ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · admin'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
+  ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
   ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
   ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek: /))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
@@ -178,6 +178,8 @@ describe('logowanie', () => {
     expect(screen.queryByTestId('email')).toBeNull();
     expect(screen.queryByTestId('send-link')).toBeNull();
     expect(screen.getByText('W wersji testowej logujesz się tylko przez Apple.')).toBeTruthy();
+    // Audyt 2 (P-73): co to konto i że powstaje grupa osobista.
+    expect(screen.getByText(/powstaje grupa osobista/)).toBeTruthy();
     expect(audit(screen.root!, scheme, 'Logowanie')).toEqual([]);
   });
 

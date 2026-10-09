@@ -1,7 +1,7 @@
 /**
- * Wydarzenie (jedno wystąpienie): kiedy, gdzie w serii, kogo dotyczy. Zmiana i odwołanie w zakresie
- * „tylko to / to i następne / wszystkie” (D57); jednorazowe — po prostu zmiana albo usunięcie.
- * Zadania na to spotkanie (D13); przy odwołaniu pytanie, co z podpiętymi zadaniami (D14). „Dodaj do kalendarza” (D7).
+ * Wydarzenie (jeden termin): kiedy, gdzie w serii, kogo dotyczy. Zmiana i odwołanie w zakresie
+ * „tylko ten termin / ten i następne / cała seria” (D57); jednorazowe — po prostu zmiana albo usunięcie.
+ * Zadania na ten termin (D13); przy odwołaniu pytanie, co z podpiętymi zadaniami (D14). „Dodaj do kalendarza” (D7).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
@@ -14,7 +14,7 @@ import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
-import { formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
+import { formatDateInline, formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
 import { coveredDays } from '../../domain/span';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
@@ -85,8 +85,10 @@ export function EventScreen({ route, navigation }: Props) {
   const seriesMine = d.event.responsible_member_id === myMember;
   const pending = outgoingPending(tables, userId);
   const waiting = pending.get(handoffKey('events', eventId, date)) ?? pending.get(handoffKey('events', eventId, null));
-  const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
-  const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
+  // Audyt 2 (U-30): ja jako „Ty” — jak w wierszu („Ty odpowiadasz”) i przy obecności.
+  const responsibleRow = occ.responsibleId === null ? undefined : d.members.find((m) => m.member_id === occ.responsibleId);
+  const responsible = responsibleRow ? (responsibleRow.user_id === userId ? strings['who.me'] : responsibleRow.display_name) : null;
+  const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => (m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name));
   const tasks = attachedTasks(tables, eventId, date);
   // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
   const canCheck = checkOff(tables, userId);
@@ -103,7 +105,9 @@ export function EventScreen({ route, navigation }: Props) {
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
-    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
+    // P-81: cała seria (także „ten i następne” od pierwszego terminu) idzie do kosza — „Usunięto serię”.
+    const deleted = ops.some((o) => o.kind === 'delete' && o.entity === 'events');
+    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : deleted ? 'undo.seriesDeleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
     navigation.goBack();
   };
   const stopSeries = (s: SeriesDef) => {
@@ -154,9 +158,9 @@ export function EventScreen({ route, navigation }: Props) {
       </View>
       <Title>{occ.title}</Title>
       <Body>{when}</Body>
-      {occ.startTime !== null && span > 1 ? <Body muted>{strings['event.endsNextDayOn'](formatLongDate(addDays(startDay, 1), today))}</Body> : null}
-      {occ.date !== date ? <Body muted>{strings['event.moved'](formatLongDate(parseIsoDate(date), today))}</Body> : null}
-      <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date)) : strings['event.oneOff']}</Body>
+      {occ.startTime !== null && span > 1 ? <Body muted>{strings['event.endsNextDayOn'](formatDateInline(addDays(startDay, 1), today))}</Body> : null}
+      {occ.date !== date ? <Body muted>{strings['event.moved'](formatDateInline(parseIsoDate(date), today))}</Body> : null}
+      <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff']}</Body>
       {state === 'cancelled' ? (
         <View style={{ gap: 8 }}>
           <Body>{strings['event.cancelledInfo']}</Body>
@@ -279,7 +283,7 @@ export function EventScreen({ route, navigation }: Props) {
             {ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}
           </CardTitle>
           {SCOPES.map((s) => (
-            <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
+            <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
         </Card>

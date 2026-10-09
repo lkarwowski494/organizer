@@ -1,7 +1,7 @@
 /** „Do potwierdzenia” na „Moje sprawy” (D70): przekazania do mnie (Przyjmij / Odrzuć) i informacje o odrzuceniu moich. */
 import { Text, View } from 'react-native';
 
-import { formatLongDate, parseIsoDate } from '../../domain/format';
+import { formatDateInline, parseIsoDate } from '../../domain/format';
 import type { CivilDate } from '../../domain/civil-date';
 import type { HandoffItem } from '../../domain/views/handoffs';
 import { strings } from '../../i18n/strings.pl';
@@ -13,7 +13,7 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
   if (incoming.length === 0 && declined.length === 0) return null;
   const titleOf = (h: HandoffItem) => {
     const title = h.entity === 'lists' ? strings['trip.title'](h.title) : h.title;
-    return h.date ? `${title} (${formatLongDate(parseIsoDate(h.date), today)})` : title;
+    return h.date ? `${title} (${formatDateInline(parseIsoDate(h.date), today)})` : title;
   };
   const card = (h: HandoffItem, text: string, buttons: React.ReactNode) => (
     <Card key={h.id} testID={`handoff-${h.id}`} style={{ borderLeftWidth: 6, borderLeftColor: line(h.line).line }}>

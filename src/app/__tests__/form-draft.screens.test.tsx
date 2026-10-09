@@ -108,7 +108,7 @@ describe('szkic formularza na telefonie (D179)', () => {
     await start();
     const openTimetable = async () => {
       await press(screen.getByLabelText('Grupy'));
-      await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+      await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
       await press(await screen.findByLabelText('Kuba, dziecko'));
       await press(await screen.findByTestId('open-timetable'));
       await screen.findByTestId('screen-timetable');
@@ -131,7 +131,7 @@ describe('szkic formularza na telefonie (D179)', () => {
     const s = await start(base);
     const openTimetable = async () => {
       await press(screen.getByLabelText('Grupy'));
-      await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+      await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
       await press(await screen.findByLabelText('Kuba, dziecko'));
       await press(await screen.findByTestId('open-timetable'));
       await screen.findByTestId('screen-timetable');

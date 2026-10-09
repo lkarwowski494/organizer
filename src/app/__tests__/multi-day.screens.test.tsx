@@ -44,7 +44,7 @@ describe('D199: formularz wydarzenia', () => {
     expect(created(store.dispatched).map((o) => o.set)).toEqual([expect.objectContaining({ title: 'Obóz', start_date: '2026-10-12', start_time: null, end_time: null, days: 5 })]);
   });
 
-  it('błędy: koniec przed początkiem, ponad limit, nachodzące powtórzenia; seria — „Każde powtórzenie trwa tyle samo dni.”', async () => {
+  it('błędy: koniec przed początkiem, ponad limit, nachodzące powtórzenia; seria — „Każdy termin trwa tyle samo dni.”', async () => {
     const { store } = await open();
     await newEvent('Obóz');
     await press(screen.getByLabelText('Cały dzień'));
@@ -56,9 +56,9 @@ describe('D199: formularz wydarzenia', () => {
     expect(screen.getByRole('alert').props.children).toBe('Wydarzenie może trwać najwyżej 31 dni.');
     await pickDate('event-end-date', '2026-10-08');
     await press(screen.getByLabelText('Codziennie'));
-    expect(screen.getByText('Każde powtórzenie trwa tyle samo dni.')).toBeTruthy();
+    expect(screen.getByText('Każdy termin trwa tyle samo dni.')).toBeTruthy();
     await press(screen.getByTestId('event-save'));
-    expect(screen.getByRole('alert').props.children).toBe('Wydarzenie trwa dłużej niż odstęp między powtórzeniami. Skróć je albo zmień powtarzanie.');
+    expect(screen.getByRole('alert').props.children).toBe('Wydarzenie trwa dłużej niż odstęp między terminami. Skróć je albo zmień powtarzanie.');
     expect(store.dispatched).toEqual([]);
   });
 
@@ -128,6 +128,6 @@ describe('D199: wiersze i ekran wydarzenia', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('cal-event-dyzur-2026-10-07'));
     expect(await screen.findByText('Środa, 7 października · 22:00–06:00 · 8 h')).toBeTruthy();
-    expect(screen.getByText('Kończy się następnego dnia: Czwartek, 8 października')).toBeTruthy();
+    expect(screen.getByText('Kończy się następnego dnia: czwartek, 8 października')).toBeTruthy();
   });
 });
