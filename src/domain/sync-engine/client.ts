@@ -406,13 +406,12 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   // Potwierdzone operacje schodzą z kolejki dopiero po ostatniej porcji: wcześniejsza porcja może jeszcze nie mieć
   // wiersza z ich skutkiem i zmiana na chwilę by zniknęła (audyt 2, P2).
   const pending = needMore ? state.pending : state.pending.filter((op) => op.seq > req.ackedAtStart);
-  // Do pobrania: nowe ukryte listy i te, których pobranie się nie udało (M-53) — o ile nadal je widzę. Bez list, których
-  // wiersze i tak przychodzą w całości (N-94): z grupą pobieraną od zera (pierwsza porcja, lista widoczna od początku
-  // pobierania) i moich nowych list (utworzenie jeszcze w kolejce — widzę je od powstania, więc ich wiersze mają wersje
-  // za moim kursorem).
+  // Do pobrania: nowe ukryte listy i te, których pobranie się nie udało (M-53) — o ile nadal je widzę. Bez list z grupy
+  // pobieranej od zera (N-94): lista widoczna od pierwszej porcji przychodzi w całości z grupą. Moje nowe listy nadal
+  // pobieramy osobno: utworzenie przyjęte przez serwer nie znaczy, że lista jest moja (ten sam identyfikator może już
+  // istnieć — utworzenie wtedy nic nie robi), a telefon nie zna tu swojego członkostwa.
   const whole = new Set(res.groups.flatMap((g) => (fromScratch.has(g.group_id) ? (g.lists ?? []) : [])));
-  const mine = new Set(state.pending.flatMap((op) => (op.kind === 'create' && op.entity === 'lists' ? [op.id] : [])));
-  const scopesToFetch = res.scopes.filter((s) => (!state.scopes.includes(s) && !whole.has(s) && !mine.has(s)) || state.scopesToFetch.includes(s));
+  const scopesToFetch = res.scopes.filter((s) => (!state.scopes.includes(s) && !whole.has(s)) || state.scopesToFetch.includes(s));
   const stagedOut = Object.fromEntries(Object.entries(staged).map(([g, t]) => [g, t.result()]));
   // N-15: niezmienione części zostają tymi samymi obiektami; nic się nie zmieniło — ten sam stan.
   const next: ClientState = {
