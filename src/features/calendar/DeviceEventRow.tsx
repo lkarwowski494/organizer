@@ -9,6 +9,8 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { RootStackParams } from '../../app/routes';
 import type { DeviceEntry } from '../../domain/views/calendar-sync';
+import { addDays, formatIsoDate } from '../../domain/civil-date';
+import { parseIsoDate } from '../../domain/format';
 import { dayWhen } from '../../domain/span';
 import { strings } from '../../i18n/strings.pl';
 import { lengthLabel } from '../../domain/views/events';
@@ -17,17 +19,17 @@ import { partText, whenText } from '../../ui/when';
 import { useTheme } from '../../ui/theme';
 
 /**
- * Parametry formularza wydarzenia z wpisu iPhone'a. D199: całodniowe przez kilka dni — z ostatnim dniem; z godziną do
- * następnego dnia (krócej niż doba) albo do północy — z godziną końca (formularz czyta ją jako „następnego dnia”);
- * dłuższe — bez końca.
+ * Parametry formularza wydarzenia z wpisu iPhone'a. D199: przez kilka dni — z ostatnim dniem („Kończy się”), z godziną
+ * także z godziną końca ostatniego dnia (wyjazd pt. 18:00 – nd. 16:00). Koniec o północy — „00:00” następnego dnia.
  */
 export const copyParams = (e: DeviceEntry): RootStackParams['EventEdit'] => {
-  // Koniec o północy — „00:00” (D199: koniec nie później niż początek = następnego dnia, a o północy dzień się nie zmienia).
-  const end = e.part === null ? (e.endTime === '24:00' ? '00:00' : e.endTime) : e.part.days === 2 && e.eventEnd !== null && e.time !== null && e.eventEnd <= e.time ? e.eventEnd : null;
+  const midnight = (e.part === null ? e.endTime : e.eventEnd) === '24:00';
+  const lastDay = midnight && e.part !== null ? formatIsoDate(addDays(parseIsoDate(e.lastDate), 1)) : e.lastDate;
+  const timed = e.time ? { start: e.time, ...(e.endTime ? { end: midnight ? '00:00' : (e.eventEnd ?? e.endTime) } : {}), ...(e.part ? { endDate: lastDay } : {}) } : null;
   return {
     title: e.title,
     date: e.date,
-    ...(e.time ? { start: e.time, ...(end ? { end } : {}) } : { allDay: true, ...(e.part ? { endDate: e.lastDate } : {}) }),
+    ...(timed ?? { allDay: true, ...(e.part ? { endDate: e.lastDate } : {}) }),
     ...(e.location ? { location: e.location } : {}),
     fromDevice: true,
   };

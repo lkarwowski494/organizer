@@ -175,6 +175,8 @@ export type MirrorItem = {
   endTime: string | null;
   /** D199: ile dni trwa całodniowe (1 — jeden; przez północ mówią godziny: draftOf). */
   days: number;
+  /** D199: długość z godziną w minutach, gdy dłuższa niż z godzin (wyjazd pt. 18:00 – nd. 16:00); inaczej `null`. */
+  durationMin: number | null;
   location: string | null;
   notes: string;
 };
@@ -216,7 +218,7 @@ export function mirrorItems(
       // Wspólna lekcja rodzeństwa — w bloku każdego z dzieci (jak Moje sprawy, audyt 2 E-15).
       for (const child of o.lessonFor) {
         const key = `lessons|${child.memberId}|${o.date}`;
-        const b = blocks.get(key) ?? { item: { key, groupId: o.groupId, title: '', date: o.date, startTime: null, endTime: null, days: 1, location: null, notes: o.groupName }, lessons: [] };
+        const b = blocks.get(key) ?? { item: { key, groupId: o.groupId, title: '', date: o.date, startTime: null, endTime: null, days: 1, durationMin: null, location: null, notes: o.groupName }, lessons: [] };
         blocks.set(key, b);
         b.lessons.push({ time: startTime, end: endTime, title: o.title });
         b.item.title = lessonTitle(child.name, b.lessons.length);
@@ -232,6 +234,7 @@ export function mirrorItems(
       endTime,
       // D199: w iPhonie jedno wydarzenie przez wszystkie dni (koniec wyłączny — RFC 5545 §3.6.1, draftOf).
       days: startTime === null ? o.days : 1,
+      durationMin: startTime === null ? null : o.durationMin,
       location: o.location?.trim() || null,
       notes: o.groupName,
     });
@@ -249,7 +252,7 @@ export function mirrorItems(
 }
 
 // Długość tylko, gdy wielodniowe — skrót wpisów sprzed D199 się nie zmienia (bez przepisywania całego lustra).
-export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes, i.location, ...(i.days > 1 ? [i.days] : [])]);
+export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes, i.location, ...(i.days > 1 ? [i.days] : []), ...(i.durationMin !== null ? [i.durationMin] : [])]);
 
 /** Nazwa i kolor kalendarza grupy w iPhonie — zmiana nazwy albo koloru grupy zmienia kalendarz (audyt 2, M-27). */
 export const calendarLook = (title: string, color: string) => JSON.stringify([title, color]);
