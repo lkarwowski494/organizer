@@ -121,13 +121,13 @@ describe('kalendarz iPhone’a', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-settings');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText(/^Wyłączone(,|$)/));
     expect(prefs.m.get('calendarRead')).toBe('0');
-    await press(within(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a')).getByLabelText(/^Wyłączone(,|$)/));
     await flush();
     expect(prefs.m.get('calendarMirror')).toBe('0');
     expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Włączone'));
+    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText(/^Włączone(,|$)/));
     expect(prefs.m.get('calendarRead')).toBe('1');
   });
 
@@ -154,12 +154,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-calendars');
     expect(within(box).getByLabelText('Praca')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/));
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual(['home']);
-    expect(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Włączone'));
+    expect(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/).props.accessibilityState.selected).toBe(true);
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Włączone(,|$)/));
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual([]);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/));
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-settings');
     await press(screen.getByLabelText('Wróć'));
@@ -235,12 +235,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-mirror-groups');
     expect(within(box).getByLabelText('Osobiste')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Wyłączone(,|$)/));
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual(['gk']);
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Włączone(,|$)/));
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual([]);
     services.local!.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
-    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText(/^Wyłączone(,|$)/));
     await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9'), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
   }, 15000);
 

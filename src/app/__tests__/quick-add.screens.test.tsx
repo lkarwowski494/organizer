@@ -52,7 +52,7 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     const { store } = await open();
     await write('dentysta w przyszły wtorek o 15');
     expect(screen.getByText('Nie rozpoznano dnia „przyszły wtorek”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.')).toBeTruthy();
-    expect(screen.queryByLabelText(/Rozpoznano: o 15/)).toBeNull();
+    expect(screen.queryByLabelText(/^o 15[^,]*, rozpoznane$/)).toBeNull();
     await add();
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'u-me', set: { title: 'dentysta w przyszły wtorek o 15', deadline_mode: 'none', due_date: null, due_time: null } });
     // Z zakresem godzin też bez zgadywania: zadanie, nie wydarzenie na dziś.
@@ -63,14 +63,14 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     // Dzień rozpoznany — bez podpowiedzi.
     await write('dentysta we wtorek o 15');
     expect(screen.queryByText(/Nie rozpoznano dnia/)).toBeNull();
-    expect(screen.getByLabelText(/Rozpoznano: we wtorek/)).toBeTruthy();
+    expect(screen.getByLabelText(/^we wtorek[^,]*, rozpoznane$/)).toBeTruthy();
   });
 
   it('zakres godzin zapowiada wydarzenie; odklikany zakres — zadanie, bez zapowiedzi (M-256)', async () => {
     await open();
     await write('basen jutro 17–18');
     expect(screen.getByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeTruthy();
-    await press(screen.getByLabelText(/Rozpoznano: 17–18/));
+    await press(screen.getByLabelText(/^17–18[^,]*, rozpoznane$/));
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
     await write('basen jutro o 17');
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
@@ -173,7 +173,7 @@ describe('dodawanie na liście', () => {
     const { store } = await openList('lp');
     await write('kupić 2.5 kg mąki');
     // „2.5” czytane jako 2 maja — chip pozwala to odkliknąć (ADR 0003).
-    await press(screen.getByLabelText(/Rozpoznano: 2\.5/));
+    await press(screen.getByLabelText(/^2\.5[^,]*, rozpoznane$/));
     await add();
     expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lp', title: 'kupić 2.5 kg mąki', deadline_mode: 'none' } });
     await write('pranie piątek o 18');

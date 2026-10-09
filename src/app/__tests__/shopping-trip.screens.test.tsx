@@ -68,7 +68,7 @@ describe('nowa lista zakupów', () => {
     await press(screen.getByLabelText('Rodzina'));
     expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(true);
     await pickDate('trip-date', '2026-10-12');
-    expect(screen.getByTestId('trip-date').props.accessibilityValue.text).toBe('2026-10-12');
+    expect(screen.getByTestId('trip-date').props.accessibilityValue.text).toBe('Poniedziałek, 12 października');
     expect(screen.getByTestId('create-list').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByLabelText('Bez terminu'));
     // M-89, M-245: bez dnia godzina jest nieaktywna z wyjaśnieniem (jak w zadaniu).
@@ -118,7 +118,7 @@ describe('zakupy na „Moje sprawy”', () => {
 
   it('dotknięcie wpisu otwiera listę', async () => {
     await open(planned());
-    await press(screen.getByLabelText(/^Otwórz:\ Zakupy:\ Zakupy\ na\ weekend(,|$)/));
+    await press(screen.getByLabelText(/^Zakupy:\ Zakupy\ na\ weekend(,|$)/));
     await screen.findByTestId('screen-list');
     expect(screen.getByTestId('trip')).toBeTruthy();
   });
@@ -194,7 +194,7 @@ describe('ilości i Kalendarz (D77, O-053)', () => {
     await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
     await answerAlert('Anuluj');
     expect(store.dispatched).toEqual([]);
-    await press(within(row).getByLabelText(/^Otwórz:\ Zakupy:\ Zakupy\ na\ weekend(,|$)/));
+    await press(within(row).getByLabelText(/^Zakupy:\ Zakupy\ na\ weekend(,|$)/));
     const item = await screen.findByTestId('task-s-mleko');
     expect(within(item).getByText('mleko')).toBeTruthy();
     expect(within(item).getByText(/2/)).toBeTruthy();

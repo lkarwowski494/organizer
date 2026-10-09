@@ -17,7 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, ConfirmText, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
 import { useEventActions } from '../../app/event-actions';
 import { useTaskActions } from '../../app/task-actions';
@@ -189,7 +189,7 @@ export function GroupScreen({ route, navigation }: Props) {
           }
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
           <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
@@ -265,7 +265,7 @@ export function GroupScreen({ route, navigation }: Props) {
       {d.canLeave ? (
         confirmLeave ? (
           <View style={{ gap: 8 }}>
-            <Body>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</Body>
+            <ConfirmText>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</ConfirmText>
             <Button
               kind="danger"
               label={strings['groups.leave']}

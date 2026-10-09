@@ -14,7 +14,7 @@ import { type TrashedGroup, trashedGroups } from '../../domain/views';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { TRASH_KINDS, type TrashEntry, type TrashKind, trashView } from '../../domain/views/trash';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, SectionTitle } from '../../ui/components';
+import { Body, Button, ErrorText, SectionTitle } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { absoluteDay } from './dates';
@@ -84,7 +84,7 @@ export function TrashSection() {
     <View testID="trash" style={{ gap: 8 }}>
       <SectionTitle>{strings['groups.trash']}</SectionTitle>
       <Body muted>{strings['trash.info'](config.sync.TOMBSTONE_DAYS)}</Body>
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {groups.length ? (
         <View testID="trash-group" style={{ gap: 8 }}>
           <Text accessibilityRole="header" style={{ fontFamily: font.text700, color: c.ink }}>{strings['trash.kind.group']}</Text>

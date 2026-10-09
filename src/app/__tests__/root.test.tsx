@@ -3,7 +3,7 @@
  * sygnały Realtime i powrót na pierwszy plan — bez telefonu i bez sieci.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { AppState } from 'react-native';
+import { AccessibilityInfo, AppState } from 'react-native';
 
 import { config } from '../../config';
 import { memoryDb } from '../../data/__tests__/sqlite';
@@ -383,6 +383,20 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     const before = t.pulls();
     await act(() => net(true));
     await waitFor(() => expect(t.pulls()).toBe(before + 1));
+  });
+
+  it('audyt 2 (M-37): przejście w offline i powrót ogłaszane VoiceOverem (chip zmienia się po cichu)', async () => {
+    let net: (online: boolean) => void = () => {};
+    const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByText('Osobiste');
+    const say = AccessibilityInfo.announceForAccessibilityWithOptions as jest.Mock;
+    say.mockClear();
+    await act(() => net(false));
+    await waitFor(() => expect(say).toHaveBeenCalledWith('Offline', { queue: true }));
+    await act(() => net(true));
+    await waitFor(() => expect(say).toHaveBeenCalledTimes(2));
+    expect(say.mock.calls[1]![0]).toMatch(/^Zsynchronizowano|^Przed chwilą/);
   });
 
   it('M-10: bez połączenia (nieudane żądanie, np. captive portal) czyszczenie danych jest zablokowane', async () => {
