@@ -327,7 +327,7 @@ describe('Grupy', () => {
     await type(screen.getByTestId('invite-join-id'), '482 913 507');
     await type(screen.getByTestId('invite-code'), '731-064');
     await press(screen.getByTestId('invite-accept'));
-    expect(account.joinGroup).toHaveBeenLastCalledWith('482913507', '731064', 'Łukasz');
+    expect(account.joinGroup).toHaveBeenLastCalledWith('482913507', '731064', null); // imię z konta niezmienione — po stronie serwera (audyt 3, N-164)
     expect(await screen.findByText('Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByText('Ten kod wygasł. Poproś o nowe zaproszenie.')).toBeTruthy();
@@ -354,7 +354,7 @@ describe('Grupy', () => {
     await type(screen.getByTestId('invite-code'), '');
     await type(screen.getByTestId('invite-input'), `Wklej kod:\n${tok}`);
     await press(screen.getByTestId('invite-accept'));
-    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
+    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, null);
     expect(account.joinGroup).not.toHaveBeenCalled();
   });
 });
