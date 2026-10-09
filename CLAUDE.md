@@ -127,7 +127,9 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 - Nazw innych aplikacji i marek nie używamy w kodzie, komentarzach, tekstach aplikacji, danych (np. słownik działów
   zakupów) ani w opisie w sklepie (App Review 2.3.7, 5.2.1, 2.3.10). Wyjątki (decyzja właściciela 9.10.2026):
   nazwy platformy Apple, na której działa aplikacja (iPhone, kalendarz iPhone’a, Mapy Apple, „Zaloguj się przez
-  Apple”), oraz adresy źródeł w komentarzach (np. github.com/google/fonts). Opis zachowania innej platformy
+  Apple”), adresy źródeł w komentarzach (np. github.com/google/fonts) oraz nazwy naszej infrastruktury i zależności
+  w kodzie, komentarzach i dokumentacji (Supabase, GitHub, Expo, Maestro, TestFlight, identyfikatory paczek) — nie
+  w tekstach aplikacji. Pilnuje tego `src/config/__tests__/brands.contract.test.ts`. Opis zachowania innej platformy
   w komentarzu piszemy ogólnie („poza iOS”).
 - Dane osobowe: w repo, testach, danych demo i zrzutach tylko zmyślone osoby i wpisy (Ala, Jan Kowalski,
   example.com). Zgłoszenia właściciela (zrzuty, wpisy z kalendarza) opisujemy po anonimizacji, bez prawdziwych imion,
