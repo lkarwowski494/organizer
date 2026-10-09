@@ -144,6 +144,11 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    Supabase o logowaniu Apple (https://supabase.com/docs/guides/auth/social-login/auth-apple) nie mówi, czy adres jest
    zapisywany, więc polityka mówi „może go zapisać”. Do sprawdzenia w panelu Supabase (Authentication → Users: czy konto
    Apple ma adres) i wtedy „może” zamienić na „zapisuje” albo usunąć zdanie.
+   Otwarte pytanie: czy przestać prosić Apple o e-mail (aplikacja z niego nie korzysta). Kod serwera logowania
+   (github.com/supabase/auth, `internal/api/provider/oidc.go` › `parseAppleIDToken`: adres z tokenu, także pusty, trafia
+   do danych jako `Verified: true`; `internal/models/linking.go` › `DetermineAccountLinking` łączy konta po zweryfikowanym
+   adresie) nie pozwala potwierdzić bez próby, że dwa konta Apple bez adresu nie zostałyby powiązane po pustym adresie.
+   Zakres EMAIL zostaje do próby na koncie testowym (nie na produkcji).
 2. **„Wysyłamy najwyżej 50 dziennie” → „zapisujemy najwyżej 50 zgłoszeń na dobę”** — limit liczy serwer (wiersze
    `client_errors` z ostatnich 24 h, `private.client_errors_per_day()`), telefon wysyła dalej.
 3. **Kto czyta zgłoszenia i uwagi:** „autor aplikacji w panelu serwera; dostęp techniczny ma też dostawca serwera”
