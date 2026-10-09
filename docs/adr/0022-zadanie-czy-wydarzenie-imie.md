@@ -2,7 +2,7 @@
 
 Zgłoszenie właściciela (zrzut formularza „Nowe zadanie”): 1) „Lista” myli — „Balet – Róża” nie ma nic wspólnego
 z zadaniem „Dzisiaj”; 2) brak czasu trwania; 3) brak wyboru, czy to zadanie, czy wydarzenie. Do tego Claude zauważył
-w grupach imiona z początku adresu e-mail („lukasz.karwowski93”).
+w grupach imiona z początku adresu e-mail („jan.kowalski85”).
 
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |

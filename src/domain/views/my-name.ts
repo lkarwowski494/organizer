@@ -1,6 +1,6 @@
 /**
  * Moje imię (D100): pytanie o imię, gdy konto go nie ma (logowanie e-mailem — dotąd w grupach widać było początek
- * adresu, np. „lukasz.karwowski93”), i zmiana w Ustawieniach. Nowe imię trafia do profilu konta i do moich członkostw,
+ * adresu, np. „jan.kowalski85”), i zmiana w Ustawieniach. Nowe imię trafia do profilu konta i do moich członkostw,
  * ale tylko tam, gdzie nazywam się „po staremu” (stare imię, początek adresu e-mail, „Ja” albo pusto) — imię ustawione
  * w konkretnej grupie (np. „Tata” w rodzinie) zostaje.
  */

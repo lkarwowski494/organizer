@@ -12,7 +12,7 @@ const m = (t: T, id: string, user: string | null, name: unknown, deleted: string
 
 describe('moje imię (D100)', () => {
   it('początek adresu e-mail; walidacja imienia', () => {
-    expect(emailName('lukasz.karwowski93@gmail.com')).toBe('lukasz.karwowski93');
+    expect(emailName('jan.kowalski85@example.com')).toBe('jan.kowalski85');
     expect(emailName(null)).toBeNull();
     expect(emailName(undefined)).toBeNull();
     expect(validateName('  Łukasz ')).toBeNull();
@@ -23,14 +23,14 @@ describe('moje imię (D100)', () => {
 
   it('zmienia tylko moje członkostwa z dawnym imieniem, „Ja” albo pustym; imię grupowe i cudze zostają', () => {
     const t: T = {};
-    m(t, 'a', ME, 'lukasz.karwowski93');
+    m(t, 'a', ME, 'jan.kowalski85');
     m(t, 'b', ME, PLACEHOLDER_NAME);
     m(t, 'c', ME, 'Tata');
-    m(t, 'd', ME, 'lukasz.karwowski93', 'x');
-    m(t, 'e', 'u-ala', 'lukasz.karwowski93');
+    m(t, 'd', ME, 'jan.kowalski85', 'x');
+    m(t, 'e', 'u-ala', 'jan.kowalski85');
     m(t, 'f', ME, null);
     m(t, 'g', ME, 'Łukasz');
-    expect(renameMeOps(t, ME, ' Łukasz ', ['lukasz.karwowski93', null, undefined])).toEqual([
+    expect(renameMeOps(t, ME, ' Łukasz ', ['jan.kowalski85', null, undefined])).toEqual([
       { kind: 'patch', entity: 'group_members', id: 'a', set: { display_name: 'Łukasz' } },
       { kind: 'patch', entity: 'group_members', id: 'b', set: { display_name: 'Łukasz' } },
       { kind: 'patch', entity: 'group_members', id: 'f', set: { display_name: 'Łukasz' } },
