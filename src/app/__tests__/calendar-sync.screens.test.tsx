@@ -143,7 +143,8 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     // Audyt 2 (M-105): nic nie znika bez śladu — „Ukryto 1 dubel” i podgląd po dotknięciu (bez „Dodaj do grupy”).
     const hidden = screen.getByTestId('today-hidden-2026-10-07');
-    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a, dotknij, by zobaczyć');
+    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a');
+    expect(hidden.props.accessibilityHint).toBe('Pokazuje ukryte duble');
     await press(hidden);
     expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
