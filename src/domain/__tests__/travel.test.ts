@@ -25,7 +25,7 @@ describe('nawigacja i „wyjdź o” (D115–D117)', () => {
 describe('dla których wydarzeń liczyć dojazd (D116)', () => {
   const now = Date.UTC(2026, 9, 8, 8, 0); // 10:00 w Warszawie
   const toMs = (date: string, time: string) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)), Number(time.slice(0, 2)) - 2, Number(time.slice(3, 5)));
-  const o = (id: string, x: Partial<{ date: string; occurrenceDate: string; startTime: string | null; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string }> = {}) => ({ eventId: id, occurrenceDate: '2026-10-08', date: '2026-10-08', startTime: '17:00:00', title: id, location: 'Wodna 1', concernsMe: true, assignedToMe: false, groupId: 'g', ...x });
+  const o = (id: string, x: Partial<{ date: string; occurrenceDate: string; startTime: string | null; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string; lessonFor: { memberId: string }[] | null }> = {}) => ({ eventId: id, occurrenceDate: '2026-10-08', date: '2026-10-08', startTime: '17:00:00', title: id, location: 'Wodna 1', concernsMe: true, assignedToMe: false, groupId: 'g', ...x });
   it('PW-2: zakres „Tylko przypisane do mnie” — dojazd tylko do moich (jak Moje sprawy)', () => {
     const scope = (g: string) => (g === 'klasa' ? ('mine' as const) : ('all' as const));
     const r = travelTargets([o('mine', { groupId: 'klasa', assignedToMe: true }), o('class', { groupId: 'klasa' }), o('home')], now, toMs, () => 'driving', new Set(), scope);
@@ -47,6 +47,23 @@ describe('dla których wydarzeń liczyć dojazd (D116)', () => {
     expect(travelTargets([o('night', { date: '2026-10-09', occurrenceDate: '2026-10-09', startTime: '00:30' }), o('far', { date: '2026-10-09', startTime: '17:00' })], evening, toMs, () => 'driving').map((t) => t.key)).toEqual(['night|2026-10-09']);
     // PW-23 (decyzja właściciela 8.10.2026): na termin, na który odpowiedziałem „nie będę”, dojazdu nie liczymy.
     expect(travelTargets([o('a'), o('b', { startTime: '12:00' })], now, toMs, () => 'driving', new Set(['a|2026-10-08'])).map((t) => t.eventId)).toEqual(['b']);
+  });
+  it('audyt 3 (N-189): lekcje dziecka — jeden cel na dziecko i dzień (pierwsza lekcja z miejscem), także po jej początku', () => {
+    const tymek = [{ memberId: 'tymek' }];
+    const zosia = [{ memberId: 'zosia' }];
+    const lessons = [
+      o('mat', { startTime: '11:00', lessonFor: tymek }),
+      o('pol', { startTime: '11:55', lessonFor: tymek }),
+      o('bez', { startTime: '10:30', lessonFor: tymek, location: null }),
+      // Wspólna lekcja rodzeństwa: pierwsza dla Zosi, druga dla Tymka — jeden cel.
+      o('wf', { startTime: '12:50', lessonFor: [...tymek, ...zosia] }),
+      o('ang', { startTime: '13:45', lessonFor: zosia }),
+      o('jutro', { date: '2026-10-09', occurrenceDate: '2026-10-09', startTime: '08:00', lessonFor: tymek }),
+      o('basen', { startTime: '16:00' }),
+    ];
+    expect(travelTargets(lessons, now, toMs, () => 'driving').map((t) => t.eventId)).toEqual(['mat', 'wf', 'basen']);
+    // Po początku pierwszej lekcji dziecko jest na miejscu — następna lekcja nie dostaje „Wyjdź o”.
+    expect(travelTargets(lessons, Date.UTC(2026, 9, 8, 9, 30), toMs, () => 'driving').map((t) => t.eventId)).toEqual(['wf', 'basen']);
   });
 });
 

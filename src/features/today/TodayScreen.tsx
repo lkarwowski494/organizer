@@ -11,7 +11,7 @@ import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
-import { splitDuplicates } from '../../domain/views/calendar-sync';
+import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -219,7 +219,7 @@ export function TodayScreen() {
   const deviceAll = useDeviceCalendar().days;
   const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (d: (typeof view.days)[number]) =>
-    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
+    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part), key: occurrenceKey(x.event) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime, key: occurrenceKey(l) })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
   const shownDay = (d: (typeof view.days)[number]) => d.entries.length > 0 || deviceOf(d).length > 0 || deviceSplit(d).hidden.length > 0;
   const firstPast = view.days.find((d) => d.past && shownDay(d))?.date;

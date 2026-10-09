@@ -4,7 +4,7 @@
  * wychodzą poza telefon — trzymamy je tylko w pamięci ekranu.
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Linking } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
@@ -42,13 +42,24 @@ type Api = {
   mirrorCalendar(eventId: string, occurrenceDate: string, date: string): string | null;
   /** Ustawienia iPhone'a (zgoda odmówiona — iOS nie zapyta drugi raz). */
   openSettings(): void;
+  /** Audyt 3 (N-58): ostatni przebieg lustra się nie udał (np. kalendarza nie dało się założyć). */
+  mirrorFailed: boolean;
+  /**
+   * Audyt 3 (N-186, Q21 cz. 2 A): lustro włączone, kalendarze „Organizer – …” są w iPhonie, a zgoda nie jest już pełna —
+   * przestały się aktualizować.
+   */
+  mirrorStale: boolean;
+  /** Audyt 3 (N-57, Q21 cz. 1 A): iPad — lustro domyślnie wyłączone (to samo iCloud co iPhone dałoby każde wydarzenie dwa razy). */
+  tablet: boolean;
 };
 
 const EMPTY = new Map<string, DeviceEntry[]>();
 const Ctx = createContext<Api>({
   available: false, status: null, read: false, mirror: false, days: EMPTY, calendars: [], setCalendarRead: () => {}, connect: async () => false, setRead: () => {}, setMirror: () => {},
-  groups: [], setGroupMirrored: () => {}, mirrorCalendar: () => null, openSettings: () => {},
+  groups: [], setGroupMirrored: () => {}, mirrorCalendar: () => null, openSettings: () => {}, mirrorFailed: false, mirrorStale: false, tablet: false,
 });
+/** iPad (Platform.isPad, https://reactnative.dev/docs/platform#ispad-ios). */
+const isTablet = () => Platform.OS === 'ios' && Platform.isPad;
 const parseSkip = (v: string | null): string[] => {
   try {
     const x: unknown = JSON.parse(v ?? '[]');
@@ -60,7 +71,7 @@ const parseSkip = (v: string | null): string[] => {
 export const useDeviceCalendar = () => useContext(Ctx);
 
 export function CalendarSyncProvider({ children }: { children: ReactNode }) {
-  const { calendar, prefs, local, account, userId } = useServices();
+  const { calendar, prefs, devicePrefs, local, account, userId, onSignOut } = useServices();
   const { tables, today, state } = useAppData();
   const { scopeOf } = useMyScope();
   const ready = mirrorReady(tables, userId, state.cursors);
@@ -74,6 +85,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   const [tick, setTick] = useState(0);
   // D174: grupy wyłączone z lustra — wybór konta, więc w jego bazie (nie w pęku kluczy telefonu).
   const [mirrorSkip, setMirrorSkip] = useState<string[]>(() => (local ? loadSkip(local) : []));
+  // Audyt 3 (N-58): wynik ostatniego przebiegu i numer zapisu stanu lustra (po nim „Jest w kalendarzu” liczy się od nowa).
+  const [mirrorFailed, setMirrorFailed] = useState(false);
+  const [mirrorRev, setMirrorRev] = useState(0);
+  // Audyt 3 (N-4): lista kalendarzy lustra tego telefonu — w pęku kluczy (wylogowanie czyta ją stamtąd), nie w bazie konta.
+  const owned = useMemo(() => (devicePrefs ? ownedIn(devicePrefs) : undefined), [devicePrefs]);
   const reported = useRef(false);
   const report = useCallback(
     (e: unknown, screen: string) => {
@@ -132,6 +148,9 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   // Lustro: po zmianie danych (z opóźnieniem — seria zmian z synchronizacji daje jedno przeliczenie). Zmiana w trakcie
   // przebiegu (audyt 2, M-220) nie przepada: przebieg kończy się i rusza od nowa z najnowszymi danymi.
   const running = useRef(false);
+  // Audyt 3 (N-184): przebieg w toku — wyłączenie lustra i wylogowanie czekają na jego koniec (inaczej kalendarz założony
+  // po sprzątaniu zostawał w iPhonie).
+  const runDone = useRef<Promise<void>>(Promise.resolve());
   const latest = useRef<() => void>(() => {});
   const dirty = useRef(false);
   const mounted = useRef(true);
@@ -141,6 +160,16 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       mounted.current = false;
     },
     [],
+  );
+  // Wylogowanie i usunięcie konta (D172): przebieg kończy się po bieżącym kroku, a sprzątanie (Root,
+  // removeMirrorCalendars) rusza dopiero po nim — z pełną listą kalendarzy tego telefonu.
+  useEffect(
+    () =>
+      onSignOut?.(async () => {
+        mounted.current = false;
+        await runDone.current;
+      }),
+    [onSignOut],
   );
   useEffect(() => {
     if (!available || !mirror || status !== 'granted' || !ready) return;
@@ -154,10 +183,19 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       }
       running.current = true;
       dirty.current = false;
-      runMirror(sync!, local!, tables, userId, today, { owned: ownedIn(prefs!), alive: () => current && mounted.current, scopeOf })
-        .catch((e: unknown) => report(e, 'calendar-mirror'))
+      runDone.current = runMirror(sync!, local!, tables, userId, today, { owned, alive: () => current && mounted.current, scopeOf })
+        .then(
+          () => {
+            if (mounted.current) setMirrorFailed(false);
+          },
+          (e: unknown) => {
+            report(e, 'calendar-mirror');
+            if (mounted.current) setMirrorFailed(true);
+          },
+        )
         .finally(() => {
           running.current = false;
+          if (mounted.current) setMirrorRev((n) => n + 1);
           if (dirty.current && mounted.current) latest.current();
         });
     };
@@ -167,9 +205,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       current = false;
       clearTimeout(timer);
     };
-  }, [available, mirror, status, ready, tables, userId, today, tick, sync, local, prefs, report, mirrorSkip, scopeOf]);
+  }, [available, mirror, status, ready, tables, userId, today, tick, sync, local, owned, report, mirrorSkip, scopeOf]);
 
-  const mirrors = useMemo(() => (local ? new Set(Object.values(loadMirror(local).calendars)) : new Set<string>()), [local, events]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Stan lustra zapisany w bazie telefonu — odczyt po każdym przebiegu (mirrorRev) i odczycie kalendarza.
+  const stored = useMemo(() => (local ? loadMirror(local) : null), [local, events, mirrorRev]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mirrors = useMemo(() => new Set(stored ? Object.values(stored.calendars) : []), [stored]);
   const exclude = useMemo(() => new Set([...mirrors, ...skip]), [mirrors, skip]);
   // Wyłączony odczyt albo brak zgody — nic nie pokazujemy (ostatnio pobrane wydarzenia zostają tylko w pamięci).
   const shown = read && status === 'granted' ? events : null;
@@ -184,9 +224,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
   // „Jest w kalendarzu” (PWD-2): zawartość lustra liczona przy pierwszym pytaniu i trzymana do zmiany danych.
   const inMirror = useMemo(() => {
     let lookup: ReturnType<typeof mirrorLookup> | null = null;
-    return () => (lookup ??= mirrorLookup(tables, userId, today, skipSet, scopeOf));
-  }, [tables, userId, today, skipSet, scopeOf]);
+    return () => (lookup ??= mirrorLookup(tables, userId, today, skipSet, scopeOf, stored));
+  }, [tables, userId, today, skipSet, scopeOf, stored]);
   const mirrorOn = available && mirror && status === 'granted';
+  const mirrorStale = available && mirror && (status === 'writeOnly' || status === 'denied') && mirrors.size > 0;
+  const tablet = isTablet();
 
   const api = useMemo<Api>(
     () => ({
@@ -211,9 +253,12 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
         const ok = await sync!.request().catch(() => false);
         setStatus(ok ? 'granted' : 'denied');
         if (!ok) return false;
+        // Audyt 3 (N-185): lustro wyłączone świadomie zostaje wyłączone (np. połączenie po zmianie zgody na „Tylko
+        // dodawanie”); na iPadzie domyślnie wyłączone (N-57, Q21 cz. 1 A) — włączysz je w Ustawieniach.
+        const on = mirror || ((await prefs!.get(CAL_MIRROR).catch(() => null)) === null && !tablet);
         setReadState(true);
-        setMirrorState(true);
-        await Promise.all([prefs!.set(CAL_READ, '1'), prefs!.set(CAL_MIRROR, '1')]).catch(() => {});
+        setMirrorState(on);
+        await Promise.all([prefs!.set(CAL_READ, '1'), prefs!.set(CAL_MIRROR, on ? '1' : '0')]).catch(() => {});
         return true;
       },
       setRead: (on) => {
@@ -223,7 +268,12 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       setMirror: (on) => {
         setMirrorState(on);
         prefs?.set(CAL_MIRROR, on ? '1' : '0').catch(() => {});
-        if (!on && sync && local) clearMirror(sync, local, prefs ? ownedIn(prefs) : undefined).catch((e: unknown) => report(e, 'calendar-mirror-off'));
+        // Audyt 3 (N-184): po końcu przebiegu w toku (wyłączenie przerywa go po bieżącym kroku) — razem z tym, co założył.
+        if (!on && sync && local)
+          void runDone.current
+            .then(() => clearMirror(sync, local, owned))
+            .then(() => setMirrorRev((n) => n + 1))
+            .catch((e: unknown) => report(e, 'calendar-mirror-off'));
       },
       groups,
       setGroupMirrored: (id, on) => {
@@ -233,8 +283,11 @@ export function CalendarSyncProvider({ children }: { children: ReactNode }) {
       },
       mirrorCalendar: (eventId, occurrenceDate, date) => (mirrorOn ? inMirror()(eventId, occurrenceDate, date) : null),
       openSettings: () => void Linking.openSettings().catch(() => {}),
+      mirrorFailed: mirrorOn && mirrorFailed,
+      mirrorStale,
+      tablet,
     }),
-    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report, groups, mirrorSkip, mirrorOn, inMirror],
+    [available, status, read, mirror, days, calendars, skip, sync, prefs, local, report, groups, mirrorSkip, mirrorOn, inMirror, owned, mirrorFailed, mirrorStale, tablet],
   );
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
