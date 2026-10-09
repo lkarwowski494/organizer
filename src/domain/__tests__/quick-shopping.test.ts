@@ -18,6 +18,9 @@ describe('podpowiedź „Na listę zakupów”: cały wpis to jeden znany produk
     ['nić dentystyczna', 'nić dentystyczna'],
     ['karma', 'karma'],
     ['baterie', 'baterie'],
+    // Audyt 3 (N-168): nowe wpisy słownika też dają podpowiedź, gdy cały wpis to ten produkt.
+    ['płatki kosmetyczne', 'płatki kosmetyczne'],
+    ['nektarynki', 'nektarynki'],
   ])('„%s” → pozycja „%s”', (text, item) => {
     expect(shoppingItem(text)).toBe(item);
   });

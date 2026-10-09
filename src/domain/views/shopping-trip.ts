@@ -4,7 +4,9 @@
  * Moje sprawy na tych samych zasadach co zadanie (concerns.ts): moja osoba, albo bez osoby z terminem (każdy może
  * zrobić), albo bez osoby w grupie osobistej; osoba usunięta z grupy to „nikt konkretny” (D132). We wspólnej grupie
  * osoba albo termin są obowiązkowe (jak D68).
- * Odhaczenie „Zakupy” (ręcznie, z potwierdzeniem): kupione pozycje schodzą do kosza, termin i osoba się czyszczą;
+ * Odhaczenie „Zakupy” (ręcznie, z potwierdzeniem; także bez planu, gdy coś jest w koszyku — audyt 3, N-7): kupione
+ * pozycje schodzą z listy (usunięte, ale nie w Koszu — sekcja „Kupione w ostatnich zakupach”, boughtItems), termin
+ * i osoba się czyszczą;
  * niekupione zostają na następne zakupy albo — na życzenie — też są oznaczane jako kupione. Każde zrobione zakupy to
  * wiersz `shopping_trips` (kiedy i na kiedy były, migracja 20261008570000_my_scopes_trips) — Kalendarz pokazuje każde
  * przekreślone w ich dniu, jak zrobione zadania (PWD-11 A, audyt 2 M-280; D135).
@@ -16,7 +18,8 @@ import { cancelHandoff, handoffKey, outgoingPending } from './handoffs';
 import type { GroupItem, TodayItem } from './index';
 import { shoppingSplit } from './list-tree';
 import { type ScopeOf, scopeAll } from './my-scope';
-import { asList, asMember, asTask, type List, type Member, rows, type Tables } from './model';
+import { asList, asMember, asTask, type List, type Member, rows, type Tables, type Task } from './model';
+import { itemKey } from './shopping';
 
 export type Trip = { date: string | null; time: string | null; responsibleId: string | null };
 
@@ -61,7 +64,8 @@ export function finishTripOps(t: Tables, userId: string, listId: string, all: bo
   if (all) for (const x of open) ops.push(toggleDone(x, nowIso));
   for (const x of bought) ops.push({ kind: 'delete', entity: 'tasks', id: x.id });
   const list = t.lists![listId]!;
-  ops.push(planTrip(listId, { date: null, time: null, responsibleId: null }));
+  // Zakupy bez planu (audyt 3, N-7: „Zakupy zrobione” przy samym koszyku) — nie ma czego czyścić.
+  if (hasTrip(asTrip(list))) ops.push(planTrip(listId, { date: null, time: null, responsibleId: null }));
   ops.push({ kind: 'create', entity: 'shopping_trips', id: newId(), group_id: String(list.group_id), set: { list_id: listId, planned_date: asTrip(list).date, done_at: nowIso } });
   const pending = outgoingPending(t, userId).get(handoffKey('lists', listId, null));
   if (pending) ops.push(cancelHandoff(pending.id));
@@ -97,6 +101,9 @@ export function tripEntries(t: Tables, groups: Map<string, GroupItem>, everyone 
     const g = groups.get(l.group_id);
     if (!g || !hasTrip(trip)) continue;
     const due = trip.date === null ? null : { date: trip.date, time: trip.time };
+    // Decyzja właściciela (audyt 3: Q6c A, N-177): dziecko z kontem widzi zakupy grupy w Kalendarzu (`everyone`, D155),
+    // ale nie w Moich sprawach, przypomnieniach ani podsumowaniu — zakupy robi dorosły (tripAdults), nie ono.
+    if (!everyone && g.me.role === 'child') continue;
     if (!everyone && !concernsMe(trip.responsibleId, g, due, live, ownPrivateList(l, g), scopeOf(g.id))) continue;
     out.push(tripItem(t, id, l, g, trip));
   }
@@ -170,3 +177,34 @@ export function tripAdults(t: Tables, groupId: string, canSee: (memberId: string
     .filter((m) => m.group_id === groupId && m.deleted_at === null && m.role !== 'child' && canSee(m.member_id))
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
+
+/** Kupiona pozycja z poprzednich zakupów (boughtItems). */
+export type Bought = { id: string; title: string };
+
+/**
+ * „Kupione w ostatnich zakupach” (decyzja właściciela, audyt 3: Q9 B, N-49): pozycje listy usunięte jako kupione
+ * (w koszyku w chwili usunięcia — „Zakupy zrobione” albo usunięcie z koszyka), których telefon jeszcze nie wyczyścił
+ * (config.sync.TOMBSTONE_DAYS). Jeden wiersz na produkt (itemKey), najnowsze pierwsze; bez produktów, które już są na
+ * liście (czekają albo w koszyku). Usunięcie niewysłane („pending:N”, applyOp) jest najnowsze. Kosz ich nie pokazuje.
+ */
+export function boughtItems(t: Tables, listId: string): Bought[] {
+  const all = rows(t, 'tasks', asTask).filter((x) => x.list_id === listId && x.parent_id === null);
+  const onList = new Set(all.filter((x) => x.deleted_at === null).map((x) => itemKey(x.title)));
+  const when = (x: Task) => (x.deleted_at!.startsWith('pending:') ? Infinity : Date.parse(x.deleted_at!));
+  const bought = all.filter((x) => x.deleted_at !== null && x.completed_at !== null).sort((a, b) => when(b) - when(a) || a.title.localeCompare(b.title, 'pl'));
+  const seen = new Set<string>();
+  const out: Bought[] = [];
+  for (const x of bought) {
+    const k = itemKey(x.title);
+    if (onList.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push({ id: x.id, title: x.title });
+  }
+  return out;
+}
+
+/** „Kup jeszcze raz”: pozycja wraca na listę jako niekupiona (przywrócenie i zdjęcie z koszyka, jedna transakcja). */
+export const buyAgainOps = (id: string): NewOp[] => [
+  { kind: 'restore', entity: 'tasks', id },
+  { kind: 'patch', entity: 'tasks', id, set: { completed_at: null } },
+];

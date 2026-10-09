@@ -33,6 +33,9 @@ function world(): T {
   task('t2', 'dom', 'gf', 'Podzadanie żywego', { parent_id: 'tz', deleted_at: ago(4) });
   task('tz', 'dom', 'gf', 'Żywe');
   task('mleko', 'zak', 'gf', 'Mleko', { deleted_at: ago(0.5) });
+  // Audyt 3 (Q9 B, N-49): kupione (usunięte z koszyka) nie są w Koszu; usunięte zadanie odhaczone — jest.
+  task('kupione', 'zak', 'gf', 'Chleb', { completed_at: ago(1), deleted_at: ago(0.5) });
+  task('t3', 'dom', 'gf', 'Zrobione i usunięte', { completed_at: ago(9), deleted_at: ago(8) });
   task('w1', 'stara', 'gf', 'W starej', { deleted_at: ago(1) });
   task('w2', 'stara', 'gf', 'Też w starej');
   task('w3', 'stara', 'gf', 'Usunięta wcześniej', { deleted_at: ago(5) });
@@ -55,6 +58,7 @@ describe('kosz (M-34, D151)', () => {
       ['member', 'tymek', 28],
       ['task', 't1', 27],
       ['task', 't2', 26],
+      ['task', 't3', 22],
       ['list', 'zak2', 20],
     ]);
     expect(v.at(-1)).toMatchObject({ shopping: true, tasks: 0 });

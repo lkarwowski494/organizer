@@ -1,12 +1,17 @@
-import { SHOPPING_CATEGORIES, SHOPPING_KEYWORDS } from '../../config/shopping.pl';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+import { SHOPPING_CATEGORIES, SHOPPING_FORMS, SHOPPING_KEYWORDS, SHOPPING_QUALIFIERS } from '../../config/shopping.pl';
 import {
   addStaplesOps,
   categoryMemory,
   categoryName,
   categoryOf,
   addStaple,
+  duplicateOf,
   guessCategory,
   itemKey,
+  itemName,
   missingStaples,
   removeStaple,
   sections,
@@ -26,9 +31,25 @@ function tables(items: R[], lists: R[] = []) {
 }
 
 describe('działy zakupów (D85)', () => {
-  it('nazwa do porównań bez ilości, małymi literami', () => {
-    expect(itemKey('  2 kg  Jabłek ')).toBe('jabłek');
+  it('nazwa do porównań bez ilości, małymi literami; znane formy produktu — jedna (audyt 3, N-48)', () => {
+    expect(itemName('  2 kg  Jabłek ')).toBe('jabłek');
+    expect(itemKey('  2 kg  Jabłek ')).toBe('jabłko');
     expect(itemKey('Mleko  3,2%')).toBe('mleko 3,2%');
+    expect(itemKey('2 mleka')).toBe(itemKey('Mleko'));
+    expect(itemKey('10 jajek')).toBe(itemKey('jajka'));
+    expect(itemKey('1 kg pomidorów')).toBe(itemKey('pomidory 1 kg'));
+    expect(itemKey('2 piersi z kurczaka')).toBe(itemKey('pierś z kurczaka'));
+    // Nieznane słowa — dosłownie; różne produkty o podobnym początku się nie łączą.
+    expect(itemKey('tofu')).toBe('tofu');
+    expect(itemKey('serki')).not.toBe(itemKey('sery'));
+    expect(itemKey('')).toBe('');
+  });
+
+  it('formy produktów: każda forma należy do jednej grupy, pierwsza to klucz, bez wielkich liter i spacji', () => {
+    const all = SHOPPING_FORMS.flat();
+    expect(new Set(all).size).toBe(all.length);
+    expect(all.filter((f) => !/^[a-ząćęłńóśźż]+$/.test(f))).toEqual([]);
+    for (const forms of SHOPPING_FORMS) for (const f of forms) expect(itemKey(f)).toBe(forms[0]);
   });
 
   it.each([
@@ -65,6 +86,16 @@ describe('działy zakupów (D85)', () => {
     ['ibuprofen', 'hygiene'],
     ['karma mokra dla psa', 'pets'],
     ['coś dziwnego', 'other'],
+    // Audyt 3 (N-168): pełniejsze wyrazy przed krótkimi rdzeniami, określenie wygrywa z pierwszym słowem.
+    ['nektarynki', 'produce'],
+    ['nektar', 'drinks'],
+    ['karmelki', 'sweets'],
+    ['karma', 'pets'],
+    ['szpinak mrożony', 'frozen'],
+    ['kukurydza konserwowa', 'pantry'],
+    ['woda micelarna', 'hygiene'],
+    ['woda', 'drinks'],
+    ['przysmaki dla dzieci', 'sweets'],
   ])('%s → %s', (name, cat) => expect(guessCategory(name)).toBe(cat));
 
   it('słownik: każdy wpis raz, klucze działów znane, „Inne” na końcu', () => {
@@ -76,7 +107,8 @@ describe('działy zakupów (D85)', () => {
   });
 
   it('słownik bez nazw marek — tylko ogólne nazwy produktów', () => {
-    const brands = /^(pepsi|sprite|fanta|pampers|domestos|cif|ludwik|whiskas|pedigree|felix|nutell|apap|ibuprom|haribo)/;
+    const brands = /^(pepsi|sprite|fanta|pampers|domestos|cif|ludwik|whiskas|pedigree|felix|nutell|apap|ibuprom|haribo|delicj|coca|danon|actimel|ptasie)/;
+    expect(Object.values(SHOPPING_QUALIFIERS).flat().filter((k) => brands.test(k))).toEqual([]);
     expect(Object.values(SHOPPING_KEYWORDS).flat().filter((k) => brands.test(k))).toEqual([]);
   });
 
@@ -235,5 +267,83 @@ describe('pamięć działów i podpowiedzi po zakupach (audyt 2, M-110)', () => 
     // Dwa wybory bez wpisu w historii (oba z tego telefonu) — remis rozstrzyga wyższa wersja wiersza, w dowolnej kolejności.
     t.tasks!.d = { id: 'd', list_id: 'lz', title: 'Tofu', category: 'pets', version: 5, deleted_at: null, completed_at: null };
     expect(categoryMemory(t, 'g').get('tofu')).toBe('frozen');
+  });
+});
+
+describe('korpus działów (audyt 3, N-168)', () => {
+  // Oczekiwania spisane niezależnie od słownika (plik korpusu); dopuszczalnych pomyłek: zero.
+  const lines = readFileSync(join(__dirname, 'fixtures', 'shopping-departments.pl.txt'), 'utf8')
+    .split('\n')
+    .filter((l) => l.trim() !== '' && !l.startsWith('#'))
+    .map((l) => l.split('|') as [string, string]);
+
+  it('korpus ma typowe nazwy z każdego działu (poza „Inne”) i znane klucze działów', () => {
+    expect(lines.length).toBeGreaterThan(350);
+    const keys = new Set<string>(SHOPPING_CATEGORIES.map((c) => c.key));
+    expect(lines.flatMap(([, exp]) => exp.split('/')).filter((k) => !keys.has(k))).toEqual([]);
+    expect(new Set(lines.map(([, exp]) => exp.split('/')[0]).filter((k) => k !== 'other')).size).toBe(SHOPPING_CATEGORIES.length - 1);
+  });
+
+  it('każda nazwa z korpusu trafia do oczekiwanego działu', () => {
+    expect(lines.filter(([name, exp]) => !exp.split('/').includes(guessCategory(name))).map(([name, exp]) => `${name} → ${guessCategory(name)} (oczekiwane ${exp})`)).toEqual([]);
+  });
+
+  it('określenia: samo określenie trafia do swojego działu', () => {
+    for (const [cat, words] of Object.entries(SHOPPING_QUALIFIERS)) for (const w of words) expect(guessCategory(w.replace('*', ''))).toBe(cat);
+  });
+});
+
+describe('ten sam produkt na liście (audyt 3, N-7, N-48, N-175)', () => {
+  it('stałe: „2 mleka” i „10 jajek” na liście to już „Mleko” i „Jajka”', () => {
+    const t = tables([{ title: '2 mleka' }, { title: '10 jajek', completed_at: 'x' }], [{ id: 'ls', group_id: 'g', kind: 'shopping', deleted_at: null, staples: ['Mleko', 'Jajka', 'Chleb'] }]);
+    for (const x of Object.values(t.tasks)) x.list_id = 'ls';
+    expect(missingStaples(t, 'ls')).toEqual(['Chleb']);
+    expect(addStaple(t.lists.ls!, 'mleka 2')).toEqual({ ok: false, error: 'duplicate' });
+  });
+
+  it('podpowiedź: jeden produkt, w formie wpisywanej bez liczby; sam dopełniacz — gdy innej formy nie ma', () => {
+    const t = tables([
+      { title: '2 mleka', completed_at: 'x', deleted_at: 'x', version: 9 },
+      { title: '3 mleka', completed_at: 'x', deleted_at: 'x', version: 8 },
+      { title: 'mleko', completed_at: 'x', deleted_at: 'x', version: 2 },
+      { title: '10 jajek', completed_at: 'x', deleted_at: 'x' },
+    ]);
+    expect(suggestions(t, 'g', 'lz', 'mle')).toEqual(['mleko']);
+    expect(suggestions(t, 'g', 'lz', 'jaj')).toEqual(['jajek']);
+    // Dwie formy wpisywane bez liczby — ta z najnowszego wpisu.
+    t.tasks.j1 = { id: 'j1', list_id: 'lz', title: 'jajka', deleted_at: 'x', completed_at: 'y', version: 20 };
+    t.tasks.j2 = { id: 'j2', list_id: 'lz', title: 'Jajko', deleted_at: 'x', completed_at: 'y', version: 30 };
+    expect(suggestions(t, 'g', 'lz', 'jaj')).toEqual(['Jajko']);
+    // Wpisany produkt w innej formie — nie podpowiadam go jeszcze raz.
+    expect(suggestions(t, 'g', 'lz', 'mleka')).toEqual([]);
+  });
+
+  it('pamięć działu: wybór dla „pomidory” działa dla „1 kg pomidorów”', () => {
+    const t = tables([{ title: 'pomidory', category: 'pantry' }]);
+    expect(categoryOf({ title: '1 kg pomidorów' }, categoryMemory(t, 'g'))).toBe('pantry');
+  });
+
+  it('N-175: pamięć działu i podpowiedzi zostają po usunięciu listy zakupów', () => {
+    const t = tables([{ title: 'Tofu', category: 'meat', list_id: 'lu', completed_at: 'x' }], [{ id: 'lu', group_id: 'g', kind: 'shopping', deleted_at: '2026-10-08T08:00:00Z' }]);
+    expect(categoryMemory(t, 'g').get('tofu')).toBe('meat');
+    expect(suggestions(t, 'g', 'lz', 'to')).toEqual(['Tofu']);
+  });
+
+  it('dubel przy dopisywaniu: czekający pierwszy, potem w koszyku; usunięte, podzadania i inne listy się nie liczą', () => {
+    const t = tables([
+      { id: 'a', title: 'mleko 2', completed_at: 'x' },
+      { id: 'b', title: 'Mleko' },
+      { id: 'c', title: 'Chleb', completed_at: 'x' },
+      { id: 'd', title: 'Masło', deleted_at: 'x' },
+      { id: 'e', title: 'Ser', parent_id: 'c' },
+      { id: 'f', title: 'Jajka', list_id: 'lz2' },
+    ]);
+    expect(duplicateOf(t, 'lz', '2 mleka')).toEqual({ id: 'b', title: 'Mleko', inCart: false });
+    expect(duplicateOf(t, 'lz', 'chleb')).toEqual({ id: 'c', title: 'Chleb', inCart: true });
+    expect(duplicateOf(t, 'lz', 'masło')).toBeNull();
+    expect(duplicateOf(t, 'lz', 'ser')).toBeNull();
+    expect(duplicateOf(t, 'lz', 'jajka')).toBeNull();
+    expect(duplicateOf(t, 'lz', '  ')).toBeNull();
+    expect(duplicateOf({}, 'lz', 'mleko')).toBeNull();
   });
 });
