@@ -228,6 +228,13 @@ export const config = {
      * godzinie, górna granica zalecenia Apple. Ta sama wartość w private.wake_push_claim (test kontraktowy).
      */
     MIN_GAP_MIN: 20,
+    /**
+     * Osoba usunięta z grupy albo grupa w koszu jeszcze tyle minut liczy się do budzenia (audyt 3, N-17): jej telefon
+     * musi się obudzić, żeby skasować przypomnienia spraw, do których stracił dostęp (budzenie nie niesie treści).
+     * Trzy przerwy MIN_GAP_MIN: zaległe budzenie z przerwy wychodzi przy ponowieniu. Ta sama wartość w
+     * private.wake_left_grace_min() (test kontraktowy). Wybór projektowy.
+     */
+    LEFT_GRACE_MIN: 60,
     /** Telefon zbiera zmiany przez tyle ms po ostatniej, zanim poprosi serwer (seria edycji = jedno powiadomienie); wyjście z aplikacji wysyła od razu. Wybór projektowy. */
     DEBOUNCE_MS: 30_000,
     /** Najwyżej tyle grup w jednej prośbie (funkcja i baza odrzucają więcej — test kontraktowy). Wybór projektowy. */

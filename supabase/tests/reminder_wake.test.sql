@@ -1,8 +1,8 @@
--- Ciche powiadomienia „odśwież przypomnienia” (D159, migracja 20261008490000_reminder_wake): komu, przerwa między
+-- Ciche powiadomienia „odśwież przypomnienia” (D159, migracje 20261008490000_reminder_wake i 20261010130000_wake_departed): komu, przerwa między
 -- powiadomieniami do urządzenia, zaległe i ponowienie, zwolnienie po błędzie APNs, uprawnienia.
 -- W transakcji now() stoi w miejscu, więc upływ przerwy symulujemy cofnięciem sent_at.
 begin;
-select plan(24);
+select plan(30);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000a1', 'l@x.test'),
@@ -74,12 +74,37 @@ update private.wake_state set sent_at = now() - make_interval(mins => private.wa
 select is(pg_temp.claim('00000000-0000-7000-8000-0000000000a3', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('dd', 32)) -> 'tokens', '[]'::jsonb, '16: Ola spoza Rodziny — nic');
 select is((select count(*)::int from private.wake_state where dirty), 0, '17: bez zaznaczeń');
 
--- 18–19: osoba usunięta z grupy i grupa w koszu — bez powiadomień.
+-- 18–19 (audyt 3, N-17, migracja 20261010130000_wake_departed): usunięcie z grupy, wyjście i kosz budzą też tych,
+-- których przypomnienia mają zniknąć — przez private.wake_left_grace_min() minut od usunięcia; potem już nie.
 update public.group_members set deleted_at = now() where member_id = 'eeee0000-0000-7000-8000-0000000000b2';
-select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32))), 'bbbb:sandbox', '18: Magdalena po odejściu — bez powiadomienia');
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32))),
+  'bbbb:sandbox,cccc:production', '18: Magdalena zaraz po usunięciu — budzona, żeby skasować przypomnienia Rodziny');
+update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min());
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a2', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('cc', 32))),
+  'aaaa:production,bbbb:sandbox', '18a: Magdalena zaraz po wyjściu sama budzi Rodzinę');
+update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min());
+update public.group_members set deleted_at = now() - make_interval(mins => private.wake_left_grace_min() + 1) where member_id = 'eeee0000-0000-7000-8000-0000000000b2';
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32))),
+  'bbbb:sandbox', '18b: po oknie — Magdalena już bez powiadomień');
+update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min());
+select is(pg_temp.claim('00000000-0000-7000-8000-0000000000a2', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('cc', 32)) -> 'tokens', '[]'::jsonb,
+  '18c: po oknie — Magdalena nie budzi Rodziny');
+-- Zaległe z przerwy: usunięta w oknie, zaznaczona w przerwie — ponowienie po przerwie dalej ją budzi.
+update public.group_members set deleted_at = now() where member_id = 'eeee0000-0000-7000-8000-0000000000b2';
+update private.wake_state set sent_at = now() where token = repeat('cc', 32);
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32))),
+  'bbbb:sandbox', '18d: Magdalena w przerwie — czeka');
+update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min()) where token = repeat('cc', 32);
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32), true)),
+  'cccc:production', '18e: ponowienie po przerwie budzi usuniętą w oknie');
+update public.group_members set deleted_at = null where member_id = 'eeee0000-0000-7000-8000-0000000000b2';
 update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min());
 update public.groups set deleted_at = now() where id = 'eeee0000-0000-7000-8000-000000000001';
-select is(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32)) -> 'tokens', '[]'::jsonb, '19: grupa w koszu — nic');
+select is(pg_temp.toks(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32))),
+  'bbbb:sandbox,cccc:production', '19: grupa zaraz po przeniesieniu do kosza — wszyscy budzeni');
+update private.wake_state set sent_at = now() - make_interval(mins => private.wake_min_gap_min());
+update public.groups set deleted_at = now() - make_interval(mins => private.wake_left_grace_min() + 1) where id = 'eeee0000-0000-7000-8000-000000000001';
+select is(pg_temp.claim('00000000-0000-7000-8000-0000000000a1', array['eeee0000-0000-7000-8000-000000000001']::uuid[], repeat('aa', 32)) -> 'tokens', '[]'::jsonb, '19a: grupa w koszu dłużej niż okno — nic');
 
 -- 20: token odrzucony przez APNs znika razem ze stanem.
 select public.drop_push_token(repeat('bb', 32));
