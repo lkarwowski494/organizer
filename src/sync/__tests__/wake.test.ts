@@ -59,6 +59,25 @@ describe('prośby o ciche powiadomienia (D159)', () => {
     expect(h.pending()).toEqual([]);
   });
 
+  // Audyt 3, N-19: zmiana dociera na serwer już po wyjściu z aplikacji — uśpiona aplikacja nie doczeka końca odstępu.
+  it('zmiany po wyjściu z aplikacji (now) — od razu, bez timera; w trakcie wysyłki — zaraz po niej', async () => {
+    const h = harness(async () => ({ retryInSec: null }));
+    await h.w.flush();
+    h.w.add(['g1'], true);
+    await h.flush();
+    expect(h.sent).toEqual([{ groups: ['g1'], retry: false }]);
+    expect(h.pending()).toEqual([]);
+    let release: () => void = () => {};
+    const k = harness((r) => (r.groups.includes('g1') ? new Promise((ok) => (release = () => ok({ retryInSec: null }))) : Promise.resolve({ retryInSec: null })));
+    k.w.add(['g1']);
+    await k.advance(DEBOUNCE_MS);
+    k.w.add(['g2'], true);
+    release();
+    await k.flush();
+    expect(k.sent).toEqual([{ groups: ['g1'], retry: false }, { groups: ['g2'], retry: false }]);
+    expect(k.pending()).toEqual([]);
+  });
+
   it('serwer odkłada (przerwa u odbiorcy) — ponowienie samych zaległych po retryInSec, nie wcześniej niż RETRY_MS', async () => {
     const answers = [{ retryInSec: 600 }, { retryInSec: 1 }, { retryInSec: null }];
     const h = harness(async () => answers.shift()!);
