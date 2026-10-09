@@ -40,7 +40,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
-  const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today), [tables, userId, route.params.groupId, today]);
+  const series = useMemo(() => groupSeries(tables, userId, route.params.groupId, today, strings['event.rule']), [tables, userId, route.params.groupId, today]);
   const [invite, setInvite] = useState<(JoinInvite & { role: 'member' | 'admin' }) | null>(null);
   const [child, setChild] = useState('');
   // D130 + audyt 2 (R-16, R-36, T-22): nazwa podąża za danymi (także po pobraniu i zmianie z drugiego telefonu),
@@ -160,7 +160,7 @@ export function GroupScreen({ route, navigation }: Props) {
         <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
           <NavRow
             testID={`member-${m.member_id}`}
-            title={m.display_name}
+            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
             subtitle={strings[`groups.role.${m.role}`]}
             onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
           />

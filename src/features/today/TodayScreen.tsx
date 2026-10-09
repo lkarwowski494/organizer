@@ -174,7 +174,7 @@ export function TodayScreen() {
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
-    undo.show(strings['form.added'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['form.change']);
+    undo.show(strings['form.addedItem'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['form.change']);
     done(t);
   };
   // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
