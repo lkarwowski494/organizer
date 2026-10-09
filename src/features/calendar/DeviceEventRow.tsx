@@ -33,8 +33,8 @@ export const copyParams = (e: DeviceEntry): RootStackParams['EventEdit'] => {
 
 /** „Kiedy” wpisu: jak przy wydarzeniach grup (ui/when.ts) — dzień wielodniowego zamiast dawnego „cd.” (M-253). */
 const whenOf = (e: DeviceEntry) => {
-  if (e.part === null) return e.time ? (e.endTime ? `${e.time}–${e.endTime}` : e.time) : strings['device.allDay'];
-  return whenText(dayWhen(e.eventStart, e.eventEnd, e.part)) ?? strings['device.allDay'];
+  if (e.part === null) return e.time ? (e.endTime ? `${e.time}–${e.endTime}` : e.time) : strings['common.allDay'];
+  return whenText(dayWhen(e.eventStart, e.eventEnd, e.part)) ?? strings['common.allDay'];
 };
 
 export function DeviceEventRow({ e, copy = true }: { e: DeviceEntry; copy?: boolean }) {

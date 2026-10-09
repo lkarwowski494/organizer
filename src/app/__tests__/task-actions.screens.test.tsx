@@ -151,6 +151,16 @@ describe('rolowanie (D61) i miniony dzień', () => {
     expect(within(await screen.findByTestId('task-życzenia')).getByText(/minęło/)).toBeTruthy();
   });
 
+  it('tydzień: wyjaśnienie minionych dni raz, pod pierwszym minionym dniem (audyt 2, U-63)', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 'pon', { ...base.tasks!['t-books']!, id: 'pon', title: 'Poniedziałkowe', deadline_mode: 'own', due_date: '2026-10-05', completed_at: '2026-10-05T16:00:00Z' });
+    put(base, 'tasks', 'wt', { ...base.tasks!['t-books']!, id: 'wt', title: 'Wtorkowe', deadline_mode: 'own', due_date: '2026-10-06', completed_at: '2026-10-06T16:00:00Z' });
+    await open(base);
+    await press(screen.getByLabelText('Tydzień'));
+    expect(screen.getAllByText(/Minęło: zrobione i wydarzenia/)).toHaveLength(1);
+    expect(within(screen.getByTestId('today-day-2026-10-05')).getByText(/Minęło: zrobione i wydarzenia/)).toBeTruthy();
+  });
+
   it('wczoraj: odhaczone tego dnia i wyszarzone wydarzenia; odhaczone można cofnąć bez pytania', async () => {
     const base = sampleBase();
     put(base, 'tasks', 'zrobione', { ...base.tasks!['t-books']!, id: 'zrobione', title: 'Wynieść śmieci', deadline_mode: 'own', due_date: '2026-10-06', completed_at: '2026-10-06T16:00:00Z' });

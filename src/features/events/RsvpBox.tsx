@@ -9,7 +9,7 @@ import { Body, SectionTitle, Segmented } from '../../ui/components';
 export function RsvpBox({ view, eventId, date }: { view: RsvpView; eventId: string; date: string }) {
   const { store } = useServices();
   const { tables } = useAppData();
-  const name = (p: RsvpView['people'][number]) => (p.me ? strings['rsvp.you'] : p.name);
+  const name = (p: RsvpView['people'][number]) => (p.me ? strings['who.me'] : p.name);
   const answering = view.people.filter((p) => p.canAnswer);
   const list = (a: Answer) => view.people.filter((p) => p.answer === a).map(name).join(', ');
   return (

@@ -107,12 +107,12 @@ export function CalendarScreen() {
 
   return (
     <Screen testID="screen-calendar">
-      <Title>{strings['calendar.title']}</Title>
+      <Title>{strings['tabs.calendar']}</Title>
       <DeviceCalendarCard />
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <PeriodArrow dir={-1} label={strings['calendar.prev']} onPress={() => shift(-1)} />
+        <PeriodArrow dir={-1} label={strings['today.prev.month']} onPress={() => shift(-1)} />
         <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
-        <PeriodArrow dir={1} label={strings['calendar.next']} onPress={() => shift(1)} />
+        <PeriodArrow dir={1} label={strings['today.next.month']} onPress={() => shift(1)} />
       </View>
       {/* Skróty dni tygodnia tylko dla oka — każdy dzień podaje pełną nazwę (audyt 2, M-263, A-46). */}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>

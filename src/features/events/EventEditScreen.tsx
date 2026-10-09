@@ -173,9 +173,9 @@ export function EventEditScreen({ route, navigation }: Props) {
         </Body>
       ) : null}
       {!detail && groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['event.title']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
+      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
         <Field label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
@@ -184,7 +184,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
       {detail?.rule && (scope === 'following' || (scope === 'all' && form.repeat !== 'none')) ? null : (
         // D199: przesunięcie startu przesuwa ostatni dzień (długość zostaje).
-        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
+        <DateField label={series ? strings['event.firstDate'] : strings['due.day']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
@@ -279,7 +279,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           label={strings['event.responsible']}
           value={form.responsibleId ?? ''}
           onChange={(v) => set({ responsibleId: v === '' ? null : v })}
-          options={[{ value: '', label: strings['event.responsibleNone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+          options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
       {error ? <ErrorText>{error}</ErrorText> : null}

@@ -44,7 +44,7 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
           h,
           strings['handoff.declined'](h.otherName, titleOf(h)),
           <View style={{ flex: 1 }}>
-            <Button kind="secondary" label={strings['handoff.ok']} a11yLabel={strings['handoff.okA11y'](titleOf(h))} testID={`handoff-ok-${h.id}`} onPress={() => onClose(h)} />
+            <Button kind="secondary" label={strings['common.ok']} a11yLabel={strings['handoff.okA11y'](titleOf(h))} testID={`handoff-ok-${h.id}`} onPress={() => onClose(h)} />
           </View>,
         ),
       )}

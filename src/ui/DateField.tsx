@@ -64,9 +64,9 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
       {open ? (
         <Card kind="panel" testID={`${testID}-calendar`}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <PeriodArrow dir={-1} label={strings['calendar.prev']} testID={`${testID}-prev`} onPress={() => setYm(shiftMonth(ym, -1))} />
+            <PeriodArrow dir={-1} label={strings['today.prev.month']} testID={`${testID}-prev`} onPress={() => setYm(shiftMonth(ym, -1))} />
             <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
-            <PeriodArrow dir={1} label={strings['calendar.next']} testID={`${testID}-next`} onPress={() => setYm(shiftMonth(ym, 1))} />
+            <PeriodArrow dir={1} label={strings['today.next.month']} testID={`${testID}-next`} onPress={() => setYm(shiftMonth(ym, 1))} />
           </View>
           {/* Skróty dni tygodnia tylko dla oka — każdy dzień siatki podaje pełną nazwę (audyt 2, M-263, A-46). */}
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
