@@ -13,7 +13,9 @@ import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
+import { config } from '../../config';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
+import { namesOf, sanitizeTaskDraft } from '../../domain/views/form-choices';
 import { type FormError, formDate, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { useA11yFocus, useClosedPanel } from '../../ui/a11y';
@@ -31,8 +33,9 @@ const validDate = (s: string) => {
   return !!m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3]));
 };
 
-const ERRORS: Record<FormError, string> = {
+const ERRORS: Record<Exclude<FormError, 'assignee'>, string> = {
   title: strings['form.error.title'],
+  titleLong: strings['common.maxLength'](config.lengths.TASK_TITLE),
   group: strings['form.error.group'],
   date: strings['event.error.date'],
   time: strings['event.error.time'],
@@ -58,7 +61,13 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const set = (patch: Partial<TaskForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
   // D179: szkic na telefonie. Formularz z wpisanym tekstem startuje z tego tekstu (szkicu nie przywraca).
   const prefilled = (p.text ?? '').trim() !== '' || p.title !== undefined || p.kindSwitch === true;
-  const draft = useFormDraft('task:new', form, Object.fromEntries(Object.keys(form).map((k) => [k, (v: unknown) => set({ [k]: v })])) as { [K in keyof TaskForm]: (v: TaskForm[K]) => void }, { restore: !prefilled });
+  // Audyt 3: przywrócony szkic bez grupy, osoby i dnia, których już nie ma (N-32, N-144); pola przeniesione przełącznikiem
+  // „Rodzaj” to zmiany względem pustego formularza — „Wróć” ich nie gubi (N-138).
+  const draft = useFormDraft('task:new', form, Object.fromEntries(Object.keys(form).map((k) => [k, (v: unknown) => set({ [k]: v })])) as { [K in keyof TaskForm]: (v: TaskForm[K]) => void }, {
+    restore: !prefilled,
+    initial: p.kindSwitch ? initial.form : undefined,
+    sanitize: (d, init) => sanitizeTaskDraft(tables, userId, today, d, init),
+  });
   // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
   useAnnounce(p.kindSwitch ? strings['form.newTitle'] : null);
   const groups = formGroups(tables, userId);
@@ -108,7 +117,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
         ]}
       />
       {/* M-247: kursor w pierwszym polu, gdy formularz jest pusty (z „Więcej” tekst już jest). */}
-      <Field ref={titleRef} label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} returnKeyType="done" testID="form-title" />
+      {/* Audyt 3 (N-134): limit z SQL. */}
+      <Field ref={titleRef} label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} maxLength={config.lengths.TASK_TITLE} returnKeyType="done" testID="form-title" />
       {choices.length && initial.mention ? (
         <AskPanel
           testID="mention-choices"
@@ -133,7 +143,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
       {form.date ? <RepeatEditor value={form.repeat} date={formDate(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['form.error.repeatNeedsDate']}</Body>}
       {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
       {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
-      {error ? <ErrorText attempt={attempt}>{ERRORS[error]}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{error === 'assignee' ? strings['form.error.peopleGone'](namesOf(tables, [form.assigneeId!])) : ERRORS[error]}</ErrorText> : null}
       <Button label={strings['form.save']} onPress={save} testID="form-save" />
     </Screen>
   );
