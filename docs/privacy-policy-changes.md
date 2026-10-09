@@ -186,6 +186,11 @@ liczby z `src/config`, administratora, opis każdej tabeli z migracji i konwencj
    (`scripts/site/privacy-html.cjs`), adres `config.privacy.POLICY_URL`; link w Ustawieniach → Konto i dane i na ekranie
    logowania (`src/features/settings/SettingsScreen.tsx`, `src/features/auth/SignInScreen.tsx`). Notatka dla zespołu
    (dawny nagłówek „Szkic do zatwierdzenia”) jest komentarzem HTML — nie trafia na stronę.
+   Publikacja (decyzja właściciela 9.10.2026): GitHub Pages repozytorium `organizer`,
+   https://lkarwowski494.github.io/organizer/privacy/, workflow `.github/workflows/pages.yml`.
+   **Kontakt bez adresu e-mail w buildzie 23** (świadomy wyjątek właściciela): `config.privacy.CONTACT_EMAIL` = `null`
+   i zdanie przejściowe „do czasu publikacji aplikacji w App Store napisz przez „Wyślij uwagę”…”. **Przed App Store
+   trzeba dodać adres** i usunąć zdanie przejściowe (pilnuje test kontraktowy: tylko jeden z tych stanów naraz).
 2. **Raporty błędów z przełącznikiem** (N-74, Q3 A): „Wysyłaj raporty błędów” — `gatedReport` i `useErrorReports`
    w `src/app/diagnostics.tsx`, klucz `local:errorReports`; podstawa: prawnie uzasadniony interes, przełącznik = sprzeciw.
 3. **RODO art. 13 i 14** (N-76): administrator, podstawy przy każdym rodzaju danych, „Komu przekazujemy dane” (Supabase
@@ -212,3 +217,15 @@ liczby z `src/config`, administratora, opis każdej tabeli z migracji i konwencj
      kolejność „Będę / Może / Nie będę”, kod zamiast linku w zaproszeniach (`config.invites.LINK_LIVE` = false);
    - jak cofnąć zgody iOS (Ustawienia iPhone’a → Organizer) i wyłączyć raporty (wymóg Apple 5.1.1(i): „describe how
      a user can revoke consent”).
+
+## Zmiany z audytu 3 — zaproszenia (9.10.2026), do akceptu
+1. **Wyjście, usunięcie z grupy i utrata roli administratora** (decyzja Q7 A, N-39): przestają działać tylko zaproszenia
+   osobiste tej osoby (kody profili dzieci, dawne linki z tokenem); wspólny kod roli grupy działa dalej do wygaśnięcia.
+   Kod: `private.group_members_departure`, `private.group_members_role_invites` (`20261010100000_invites_membership.sql`).
+2. **Usunięcie konta** (decyzja Q1 B koordynatora): to samo — osobiste zaproszenia przestają działać, wspólny kod grupy
+   zostaje, a wystawiającym wszystkich zaproszeń tej osoby w grupie (także unieważnionych) staje się bieżący właściciel
+   grupy, więc żadne zaproszenie nie wskazuje już członkostwa usuniętej osoby. Grupa bez następcy idzie do kosza i żaden jej
+   kod nie działa (wystawiającym zostaje podpis „Usunięty użytkownik” bez konta; zaproszenia znikają z grupą po 30 dniach).
+   Kod: `private.account_invites_handover`, wołana z `private.delete_account_data` i `private.delete_account_trash`
+   (`20261010101000_account_deletion_invites.sql`); testy `supabase/tests/account_deletion_invites.test.sql`.
+   Wcześniej polityka mówiła: „Linki zaproszeń, które wystawiłeś, przestają działać” — zdanie zastąpione.

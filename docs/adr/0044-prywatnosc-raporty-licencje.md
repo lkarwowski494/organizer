@@ -51,7 +51,17 @@ kosztowa właściciela), Q22 A (licencje w aplikacji). Pozostałe rozstrzygnięc
 - **Polityka jako ekran w aplikacji (Q4 B)** — Apple i tak wymaga adresu; dwa egzemplarze do pilnowania.
 - **Licencje na stronie zamiast w aplikacji (Q22 B)** — nie wiadomo, czy link spełnia „included in all copies”.
 
+## Decyzje właściciela z 9.10.2026
+- **Publikacja:** GitHub Pages tego publicznego repozytorium, adres https://lkarwowski494.github.io/organizer/privacy/
+  (`config.privacy.POLICY_URL`). Workflow `.github/workflows/pages.yml`: push na `main` ze zmianą `site/**` albo ręcznie;
+  akcje przypięte do SHA, token domyślnie `contents: read`, zapis `pages: write` i `id-token: write` tylko w zadaniu
+  deploy (środowisko `github-pages`, bez sekretów; wymóg z https://github.com/actions/deploy-pages); przed wgraniem
+  sprawdza, że strona polityki jest aktualna. Krok właściciela: Settings → Pages → Source: GitHub Actions.
+- **Build 23 bez adresu e-mail** (świadomy wyjątek): `CONTACT_EMAIL` = `null`, polityka ma zdanie przejściowe
+  (kontakt przez „Wyślij uwagę” w aplikacji). **Adres trzeba dodać przed publikacją w App Store** — wtedy zdanie
+  przejściowe znika; test kontraktowy oblewa adres obok zdania przejściowego, adres w polityce bez `CONTACT_EMAIL`
+  i brak obu.
+
 ## Otwarte (do decyzji właściciela)
-- Osobny adres e-mail administratora (`config.privacy.CONTACT_EMAIL`) i publikacja `site/` pod adresem
-  `config.privacy.POLICY_URL` — przed wydaniem z linkiem do polityki.
+- Osobny adres e-mail administratora (`config.privacy.CONTACT_EMAIL`) — przed App Store (wyżej).
 - Ocena prawna (podstawy, konto dziecka, ewentualny regulamin usługi) — prawnik to koszt; treść napisana według RODO.

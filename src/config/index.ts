@@ -84,8 +84,8 @@ export const config = {
 
   /**
    * Wydarzenia. LOCATION_MAX_LENGTH (miejsce wydarzenia, ADR 0029): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
-   * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
-   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
+   * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie; dalsze przeniesienie
+   * formularz odrzuca (audyt 8.10.2026). Widoki pokazują w nowym dniu także dalsze (audyt 3, occurrenceDates w events.ts). MAX_DAYS (D199): najdłuższe wydarzenie
    * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
    * dni wstecz widoki dnia szukają wydarzeń, które zaczęły się wcześniej. Wybory projektowe, bez źródła.
    * INTERVAL_MAX: największy odstęp powtarzania („co 99 tygodni”) — to samo sprawdza private.rrule_ok (test kontraktowy).
@@ -347,17 +347,17 @@ export const config = {
   },
 
   /**
-   * Polityka prywatności (audyt 3, N-75 i N-76; decyzja właściciela Q4 A): strona na tej samej witrynie co zaproszenia
-   * (site/privacy/, GitHub Pages), generowana z docs/privacy-policy.md; link w Ustawieniach → Konto i dane i na ekranie
-   * logowania. Apple, App Review 5.1.1(i): „All apps must include a link to their privacy policy in the App Store Connect
+   * Polityka prywatności (audyt 3, N-75 i N-76; decyzja właściciela Q4 A): strona site/privacy/ generowana
+   * z docs/privacy-policy.md, publikowana przez GitHub Pages tego repozytorium (.github/workflows/pages.yml, decyzja
+   * właściciela 9.10.2026 — dlatego /organizer/); link w Ustawieniach → Konto i dane i na ekranie logowania. Apple, App Review 5.1.1(i): „All apps must include a link to their privacy policy in the App Store Connect
    * metadata field and within the app in an easily accessible manner.”
    * (https://developer.apple.com/app-store/review/guidelines/). Administrator danych (RODO art. 13 ust. 1 lit. a —
-   * „swoją tożsamość i dane kontaktowe”): właściciel aplikacji. `CONTACT_EMAIL` — osobny adres tylko dla Organizera,
-   * `null`, dopóki właściciel go nie założy (do tego czasu polityka wskazuje „Wyślij uwagę”); polityka musi podawać
-   * dokładnie te dane (test kontraktowy privacy-policy.contract.test.ts).
+   * „swoją tożsamość i dane kontaktowe”): właściciel aplikacji. `CONTACT_EMAIL` — osobny adres tylko dla Organizera;
+   * build 23 wychodzi z `null` (świadomy wyjątek właściciela 9.10.2026: polityka wskazuje „Wyślij uwagę”), adres trzeba
+   * dodać przed App Store. Polityka musi podawać dokładnie te dane (test kontraktowy privacy-policy.contract.test.ts).
    */
   privacy: {
-    POLICY_URL: 'https://lkarwowski494.github.io/privacy/',
+    POLICY_URL: 'https://lkarwowski494.github.io/organizer/privacy/',
     CONTROLLER: 'Łukasz Karwowski',
     CONTACT_EMAIL: null as string | null,
   },

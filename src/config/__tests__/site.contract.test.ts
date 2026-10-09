@@ -23,13 +23,21 @@ describe('strona zaproszeń zgodna z aplikacją', () => {
     expect(path).toBe('/j/');
   });
 
-  it('strona /j/: te same długości ID i kodu, przycisk w schemacie aplikacji', () => {
+  it('strona /j/: te same długości ID i kodu, bez linku w schemacie aplikacji (audyt 3, N-259)', () => {
     const html = read('site/j/index.html');
     expect(html).toContain(`/^[1-9]\\d{${config.invites.JOIN_ID_DIGITS - 1}}$/`);
     expect(html).toContain(`/^\\d{${config.invites.CODE_DIGITS}}$/`);
-    expect(html).toContain(`'${config.URL_SCHEME}://join?g=' + g + '&c=' + c`);
+    // Schemat może zarejestrować inna aplikacja i przejąć kod — aplikację otwiera tylko link https (Universal Links).
+    expect(html).not.toContain(`'${config.URL_SCHEME}://`);
     // Bez zewnętrznych skryptów i bez wstawiania HTML z adresu.
     expect(html).not.toMatch(/<script[^>]+src=/);
     expect(html).not.toContain('innerHTML');
+  });
+
+  it('link w zaproszeniu dopiero z Universal Links: LINK_LIVE wymaga domeny w app.json (audyt 3, N-259, decyzja Q23 A)', () => {
+    const domains: string[] = JSON.parse(read('app.json')).expo.ios.associatedDomains ?? [];
+    const applinks = domains.includes(`applinks:${new URL(config.invites.JOIN_LINK).host}`);
+    // Bez domeny link https otwiera tylko stronę, a link w schemacie aplikacji mogłaby przechwycić inna aplikacja.
+    expect(!config.invites.LINK_LIVE || applinks).toBe(true);
   });
 });
