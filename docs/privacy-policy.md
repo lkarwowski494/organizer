@@ -109,9 +109,7 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Położenie nigdy nie trafia na serwer Organizera** ani do innych osób. Aplikacja nie śledzi położenia w tle.
 - Na telefonie zapamiętujemy współrzędne adresów wydarzeń (najwyżej 200 adresów; adres, którego Mapy nie znalazły,
   sprawdzamy znowu po dobie) i wybrany środek transportu, żeby nie liczyć ich od nowa.
-- „Nawiguj” otwiera wybraną aplikację map (Mapy Apple albo Mapy Google) z adresem wydarzenia, a gdy aplikacji Google Maps
-  nie ma na iPhonie — stronę Map Google w przeglądarce. Od tej chwili adres przetwarza ta aplikacja albo strona według
-  swoich zasad.
+- „Nawiguj” otwiera Mapy Apple z adresem wydarzenia. Od tej chwili adres przetwarza Apple według swoich zasad.
 - Adres wydarzenia (pole „Miejsce”) jest częścią wydarzenia i widzi go cała grupa.
 - **Czujniki ruchu:** aplikacja z nich nie korzysta i nigdy o nie nie pyta. Opis tej zgody jest w aplikacji tylko dlatego,
   że Apple go wymaga: biblioteka lokalizacji, z której korzysta „Czas dojazdu”, zawiera taką funkcję.

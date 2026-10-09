@@ -2,7 +2,7 @@
 
 Status: przyjęte przez właściciela. Pełne uzasadnienia, odrzucone warianty i źródła:
 [Rejestr decyzji](https://docs.google.com/document/d/1ta-8A-_mhrFnvrv3GJY0QAKwOF0USgl9MZu5CglBYyk/edit)
-i raporty researchu w folderze „Organizer grup” na Google Drive.
+i raporty researchu w folderze „Organizer grup” (dokumenty projektu właściciela).
 
 ## Wymagania
 - **R1 Offline i online** — każda zmiana najpierw lokalnie, nic nie ginie, synchronizacja sama startuje po
@@ -15,7 +15,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 ## Decyzje
 | ID | Temat | Decyzja |
 |---|---|---|
-| D0.1 | Platforma | tylko iOS; Android/web później |
+| D0.1 | Platforma | tylko iOS; inne platformy i web później |
 | D0.2 | Moduły MVP | zadania z podzadaniami, listy zakupów, kalendarz |
 | D1 | Backend | Supabase Free, Frankfurt |
 | D2 | Offline | własna kolejka operacji na expo-sqlite |

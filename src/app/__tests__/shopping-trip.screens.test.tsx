@@ -42,7 +42,7 @@ describe('nowa lista zakupów', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
     await screen.findByTestId('screen-new-list');
-    await fireEvent.changeText(screen.getByTestId('list-name'), 'Biedronka');
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Bazar');
     await press(screen.getByLabelText('Zakupy'));
     await press(screen.getByLabelText('Rodzina'));
     expect(screen.getByText(/We wspólnej grupie wybierz osobę albo dzień zakupów/)).toBeTruthy();
@@ -57,7 +57,7 @@ describe('nowa lista zakupów', () => {
     await press(screen.getByLabelText('Jutro'));
     await setTime('trip-time', '18:30');
     await press(screen.getByTestId('create-list'));
-    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'shopping', name: 'Biedronka', visibility: 'group', due_date: '2026-10-08', due_time: '18:30', responsible_member_id: 'ala' } }]);
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'shopping', name: 'Bazar', visibility: 'group', due_date: '2026-10-08', due_time: '18:30', responsible_member_id: 'ala' } }]);
   });
 
   it('dzień z kalendarza; „Bez terminu” czyści dzień; grupa osobista bez wymogu', async () => {

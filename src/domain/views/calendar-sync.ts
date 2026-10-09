@@ -1,6 +1,6 @@
 /**
  * Kalendarz iPhone'a w obie strony (D95, D96; ADR 0021) — czysta logika, bez expo-calendar.
- *  1. Odczyt: moje wydarzenia z kalendarzy iPhone'a (także kont Google/Outlook dodanych w iPhonie) pokazujemy obok
+ *  1. Odczyt: moje wydarzenia z kalendarzy iPhone'a (także z innych kont dodanych w iPhonie) pokazujemy obok
  *     spraw grup. Zostają na telefonie (D96) — nie trafiają do kolejki synchronizacji ani na serwer.
  *  2. Lustro grup: wydarzenia każdej grupy telefon utrzymuje w osobnym kalendarzu „Organizer – <grupa>”. Każde
  *     wystąpienie to osobne wydarzenie (bez reguł powtarzania — iPhone nie musi rozumieć naszych wyjątków), w oknie

@@ -61,5 +61,5 @@ zawetować.
   cofamy i mówimy dlaczego. Porównanie zna zapis serwera (godzina z sekundami, znacznik czasu w innej strefie). Wejście:
   „Ostatnie zmiany” na ekranie Grupy i treść paska (strzałka „›”). Uszkodzony zapis — pusta lista (to wygoda, nie dane).
 - **VoiceOver (D194).** Pasek przy włączonym czytniku nie znika sam, dostaje fokus (`AccessibilityInfo
-  .sendAccessibilityEvent(…, 'focus')`, React Native 0.86) i ma „Zamknij”; `accessibilityLiveRegion` działa tylko na
-  Androidzie. Do sprawdzenia na iPhonie: czy VoiceOver czyta treść paska od razu po przeniesieniu fokusu.
+  .sendAccessibilityEvent(…, 'focus')`, React Native 0.86) i ma „Zamknij”; `accessibilityLiveRegion` działa tylko
+  poza iOS. Do sprawdzenia na iPhonie: czy VoiceOver czyta treść paska od razu po przeniesieniu fokusu.

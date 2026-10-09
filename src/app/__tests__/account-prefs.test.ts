@@ -5,7 +5,7 @@ import { WHATS_NEW_SEEN } from '../../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../../features/welcome/WelcomeScreen';
 import { accountPrefs, adoptLegacyPrefs, LEGACY_KEYS, PUSH_DISMISSED, REMINDER_SETTINGS } from '../account-prefs';
 import { CAL_MIRROR, CAL_READ, CAL_SKIP } from '../calendar-sync';
-import { NAV_APP, TRAVEL_MODE, TRAVEL_ON } from '../travel';
+import { TRAVEL_MODE, TRAVEL_ON } from '../travel';
 import { memoryLocal } from './harness';
 
 describe('ustawienia konta (D175)', () => {
@@ -20,7 +20,6 @@ describe('ustawienia konta (D175)', () => {
       [CAL_SKIP]: 'pref.calendarSkip',
       [TRAVEL_ON]: 'pref.travelEnabled',
       [TRAVEL_MODE]: 'pref.travelMode',
-      [NAV_APP]: 'pref.navApp',
       [PUSH_DISMISSED]: 'pushPromptDismissed',
       [REMINDER_SETTINGS]: 'reminderSettings',
     });
@@ -62,5 +61,17 @@ describe('ustawienia konta (D175)', () => {
     // Wygląd i nieznane klucze zostają w pęku kluczy (telefon, nie konto); klucz z błędem — na następny start.
     expect([...keychain.keys()].sort()).toEqual(['appearance', 'pref.inne', 'pref.travelMode']);
     await expect(adoptLegacyPrefs(undefined, local)).resolves.toBeUndefined();
+  });
+
+  it('ADR 0043: dawny wybór aplikacji map (build 21–22) znika z pęku kluczy i z konta, bez przenoszenia', async () => {
+    const keychain = new Map([['pref.navApp', 'google']]);
+    const legacy = { get: jest.fn(async (k: string) => keychain.get(k) ?? null), remove: jest.fn(async (k: string) => void keychain.delete(k)) };
+    const local = memoryLocal();
+    local.save('pref.navApp', 'google');
+    await adoptLegacyPrefs(legacy, local);
+    expect([keychain.size, local.load('pref.navApp')]).toEqual([0, null]);
+    // Błąd pęku kluczy nie przerywa startu.
+    legacy.remove.mockRejectedValueOnce(new Error('keychain'));
+    await expect(adoptLegacyPrefs(legacy, local)).resolves.toBeUndefined();
   });
 });
