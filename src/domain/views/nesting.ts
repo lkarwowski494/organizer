@@ -5,6 +5,7 @@
  * (`parent`), żeby nie wyglądało na samodzielne.
  */
 import { config } from '../../config';
+import type { Row } from '../sync-engine/client';
 import { asTask, rows, type Tables, type Task } from './model';
 
 /**
@@ -12,25 +13,40 @@ import { asTask, rows, type Tables, type Task } from './model';
  * poziomów niżej (więcej serwer nie pozwala; limit chroni też przed cyklem w uszkodzonych danych lokalnych). Schodzi tylko
  * przez wiersze spełniające `keep`.
  */
-export function descendants(t: Tables, rootId: string, keep: (x: Task) => boolean): Task[] {
-  const all = rows(t, 'tasks', asTask)
-    .filter(keep)
-    .sort((a, b) => a.sort_key.localeCompare(b.sort_key) || a.id.localeCompare(b.id));
+/** Dzieci po rodzicu (surowe wiersze) — do wielu wywołań `descendants` na tych samych danych. */
+export type ChildIndex = Map<string, Row[]>;
+export function childIndex(t: Tables): ChildIndex {
+  const byParent: ChildIndex = new Map();
+  for (const r of Object.values(t.tasks ?? {})) {
+    if (r.parent_id == null) continue;
+    const k = String(r.parent_id);
+    const list = byParent.get(k);
+    if (list) list.push(r);
+    else byParent.set(k, [r]);
+  }
+  return byParent;
+}
+
+export function descendants(t: Tables, rootId: string, keep: (x: Task) => boolean, index: ChildIndex = childIndex(t)): Task[] {
+  // Audyt 3 (N-27): dzieci po rodzicu bez zamiany i sortowania całej tabeli — plan przypomnień robi to dla każdej
+  // przewidywanej kopii, a historia ma tysiące zadań. Kolejność jak dotąd (sort_key, potem id).
   const out: Task[] = [];
   const walk = (id: string, level: number) => {
     if (level > config.MAX_TASK_DEPTH) return;
-    for (const x of all)
-      if (x.parent_id === id) {
-        out.push(x);
-        walk(x.id, level + 1);
-      }
+    const kids = (index.get(id) ?? [])
+      .map(asTask)
+      .filter(keep)
+      .sort((a, b) => a.sort_key.localeCompare(b.sort_key) || a.id.localeCompare(b.id));
+    for (const x of kids) {
+      out.push(x);
+      walk(x.id, level + 1);
+    }
   };
   walk(rootId, 1);
   return out;
 }
 
-/** Żywe (nieusunięte) podzadania zadania, wszystkie poziomy. */
-export const subtasksOf = (t: Tables, taskId: string) => descendants(t, taskId, (x) => x.deleted_at === null);
+export const subtasksOf = (t: Tables, taskId: string, index?: ChildIndex) => descendants(t, taskId, (x) => x.deleted_at === null, index);
 
 type EventLike = { kind: 'event'; event: { eventId: string; occurrenceDate: string } };
 type TaskLike = { kind: 'task' | 'overdue'; task: { id: string; parent_id: string | null; event_id: string | null; occurrence_date: string | null } };

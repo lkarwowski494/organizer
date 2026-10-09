@@ -287,6 +287,14 @@ d('model reguł serwera = sync_push', () => {
       // 2500: od P13b dwie encje więcej rozrzedzają losowanie (przy 1500 nie trafiało w deleted:list).
       { numRuns: 2500, seed: 20261008 },
     );
+    // Rzadkie odrzucenia, w które losowanie trafia raz na kilka tysięcy (zależnie od kolejności wierszy w bazie, którą
+    // dzielą równoległe testy) — sprawdzane też wprost, żeby test nie zależał od szczęścia.
+    for (const [user, o] of [[USERS.owner, { kind: 'restore', entity: 'tasks', id: id('d7') }]] as [string, NewOp][]) {
+      const want = (await sql(user, o)).code;
+      const got = serverVerdict(tables, user, o) ?? 'ok';
+      seen.set(want, (seen.get(want) ?? 0) + 1);
+      if (want !== got) mismatches.push(`${JSON.stringify(o)}: SQL ${want}, model ${got}`);
+    }
     expect(mismatches.slice(0, 15)).toEqual([]);
     // Generator naprawdę trafia w reguły: przyjęte i różne odrzucenia.
     for (const code of ['ok', 'forbidden', 'forbidden:child', 'not_found', 'deleted', 'deleted:group', 'deleted:list', 'forbidden:role', 'invalid_member', 'forbidden:not_self']) {

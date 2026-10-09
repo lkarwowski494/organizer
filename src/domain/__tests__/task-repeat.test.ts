@@ -1,6 +1,9 @@
+import * as fc from 'fast-check';
+
+import { addDays, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { uuidv5 } from '../ids';
-import type { Row } from '../sync-engine/client';
+import { applyOp, type Row } from '../sync-engine/client';
 import { asTask } from '../views/model';
 import { config } from '../../config';
 import { copiesRepeats } from '../views';
@@ -311,6 +314,38 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     expect(out.tasks![nextId('t2')]?.due_date).toBe('2026-10-13');
     expect(Object.keys(t.tasks!)).toEqual(['t1', 't2']);
     expect(withUpcomingCopies({}, d('2026-10-12'), 1, (iso) => iso)).toEqual({ tasks: {} });
+  });
+
+  it('audyt 3 (N-27, własność): przewidywanie = dokładanie dzień po dniu (missingRepeatOps, potem expiredRepeatOps każdego dnia)', () => {
+    const naive = (t: Record<string, Record<string, Row>>, today: { y: number; m: number; d: number }, days: number, local: (iso: string) => string) => {
+      const out = JSON.parse(JSON.stringify(t)) as Record<string, Record<string, Row>>;
+      const put = (ops: ReturnType<typeof repeatOps>) => ops.forEach((op, i) => applyOp(out, { ...op, seq: i + 1, op_id: '' } as never));
+      put(missingRepeatOps(out, today, () => true, local));
+      for (let k = 0; k < days; k++) put(expiredRepeatOps(out, addDays(today, k), () => true));
+      return out.tasks;
+    };
+    const item = fc.record({
+      parent: fc.option(fc.integer({ min: 0, max: 3 }), { nil: null }),
+      due: fc.integer({ min: -4, max: 6 }),
+      rollover: fc.boolean(),
+      done: fc.option(fc.integer({ min: -9, max: 0 }), { nil: null }),
+      repeat: fc.constantFrom(null, 'FREQ=DAILY', 'FREQ=WEEKLY;BYDAY=MO,TH', 'AFTER=DAILY;INTERVAL=2'),
+    });
+    fc.assert(
+      fc.property(fc.array(item, { maxLength: 6 }), fc.integer({ min: 1, max: 6 }), (items, days) => {
+        const t = g();
+        t.tasks = {};
+        items.forEach((x, i) => {
+          t.tasks![`k${i}`] = {
+            ...g().tasks!.t1!, id: `k${i}`, title: `k${i}`, parent_id: x.parent !== null && x.parent < i ? `k${x.parent}` : null, due_date: formatIsoDate(addDays(d('2026-10-12'), x.due)),
+            rollover: x.rollover, repeat: x.repeat, completed_at: x.done === null ? null : `${formatIsoDate(addDays(d('2026-10-12'), x.done))}T08:00:00Z`,
+          };
+        });
+        const local = (iso: string) => iso.slice(0, 10);
+        expect(withUpcomingCopies(t, d('2026-10-12'), days, local).tasks).toEqual(naive(t, d('2026-10-12'), days, local));
+      }),
+      { numRuns: 300 },
+    );
   });
 
   it('T-3: kopia bez osoby usuniętej z grupy albo bez dostępu do listy; z dostępem — z osobą', () => {

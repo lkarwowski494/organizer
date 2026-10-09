@@ -158,15 +158,17 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     expect(s.store.dispatched).toEqual([]);
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
     // Audyt 3 (N-25): na wcześniej — z pierwotnym dniem terminu, żeby następny nie wrócił na pn. 12.10.
-    expect(s.store.dispatched).toEqual([
+    expectOps(s.store, [
       { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } },
       { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { cycle_date: '2026-10-12' } },
     ]);
     expect(screen.queryByTestId('cycle-ask')).toBeNull();
-    s.store.dispatched.length = 0;
     await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
     await answerAlert('Zrobione');
-    expect(s.store.dispatched[1]).toMatchObject({ kind: 'create', set: { due_date: '2026-10-19', repeat: 'FREQ=WEEKLY;BYDAY=MO' } });
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: expect.any(String) } },
+      expect.objectContaining({ kind: 'create', set: expect.objectContaining({ due_date: '2026-10-19', repeat: 'FREQ=WEEKLY;BYDAY=MO' }) }),
+    ]);
   });
 
   it('„Też kolejne” przestawia cykl; „Anuluj” nic nie zmienia; ten sam dzień tygodnia — bez pytania', async () => {
