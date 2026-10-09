@@ -253,7 +253,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
           id: sid,
           event_id: 'ev-tance',
           date: '2026-10-07',
-          set: { title: 'Tańce', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', responsible_member_id: null, location: null },
+          set: { title: 'Tańce', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', responsible_member_id: null, location: null, days: 1 },
           participants: [{ id: participantId(sid, 'kuba'), member_id: 'kuba' }],
           drop_overrides: [],
           tasks: [],

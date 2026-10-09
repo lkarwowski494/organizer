@@ -3,6 +3,7 @@
  * bez godziny), dalej wszystko z godziną rosnąco; przy tej samej godzinie wydarzenie przed zadaniem, potem tytuł.
  * Godziny z serwera mają sekundy („18:00:00”), z telefonu nie („18:00”) — porównujemy GG:MM.
  */
+import { daySpan } from '../span';
 import type { Occurrence } from './events';
 import type { TodayItem } from './index';
 
@@ -19,7 +20,8 @@ export function agenda(tasks: TodayItem[], events: Occurrence[]): PlainEntry[];
 export function agenda(tasks: TodayItem[], events: Occurrence[], blocks: readonly LessonBlock[]): AgendaEntry[];
 export function agenda(tasks: TodayItem[], events: Occurrence[], blocks: readonly LessonBlock[] = []): AgendaEntry[] {
   const all: { entry: AgendaEntry; time: string | null; rank: number; title: string }[] = [
-    ...events.map((e) => ({ entry: { kind: 'event' as const, key: `e-${e.eventId}-${e.occurrenceDate}`, event: e }, time: hm(e.startTime), rank: 0, title: e.title })),
+    // D199: kolejny dzień wydarzenia przez północ stoi według godzin tego dnia (od 00:00).
+    ...events.map((e) => ({ entry: { kind: 'event' as const, key: `e-${e.eventId}-${e.occurrenceDate}`, event: e }, time: hm(daySpan(e.startTime, e.endTime, e.part).start), rank: 0, title: e.title })),
     ...tasks.map((x) => ({ entry: { kind: 'task' as const, key: `t-${x.id}`, task: x }, time: hm(x.due?.time), rank: 1, title: x.title })),
     ...blocks.map((b) => ({ entry: { kind: 'lessons' as const, key: `l-${b.memberId}-${b.lessons[0]!.date}`, block: b }, time: hm(b.start), rank: 0, title: b.name })),
   ];

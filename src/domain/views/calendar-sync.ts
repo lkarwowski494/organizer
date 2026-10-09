@@ -14,6 +14,7 @@
 import { config } from '../../config';
 import { groupLines } from '../../config/theme';
 import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
+import type { DayPart } from '../span';
 import { expandEvents } from './events';
 import { groupsView } from './index';
 import type { Tables } from './model';
@@ -36,6 +37,15 @@ export type DeviceEntry = {
   time: string | null;
   endTime: string | null;
   continued: boolean;
+  /**
+   * D199: wielodniowe — który to dzień i godziny całego wydarzenia (początek pierwszego dnia, koniec ostatniego; całodniowe
+   * — `null`), do napisu jak przy wydarzeniach grup („do 06:00 · dzień 2 z 2”, span.ts) i do „Dodaj do grupy”.
+   */
+  part: DayPart | null;
+  eventStart: string | null;
+  eventEnd: string | null;
+  /** Ostatni dzień wydarzenia (włącznie). */
+  lastDate: string;
   organizer: boolean;
   location: string | null;
 };
@@ -49,7 +59,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
  * Moje wydarzenia iPhone'a po dniach (ISO → wpisy) w [from, to]. `toLocal` zamienia chwilę na czas Europe/Warsaw.
- * Wydarzenie przez kilka dni pokazuje się w każdym; godzina tylko pierwszego dnia, kolejne jako „cd.”.
+ * Wydarzenie przez kilka dni pokazuje się w każdym, z numerem dnia (`part`, D199 — dawniej „cd.”, audyt 2 M-253).
  */
 export function deviceDays(
   events: readonly DeviceEvent[],
@@ -69,8 +79,10 @@ export function deviceDays(
     if (exclude.has(e.calendarId) || isMirrorCalendar(e.calendarTitle)) continue;
     const base = { key: `d|${e.id}`, title: e.title, calendarId: e.calendarId, calendarTitle: e.calendarTitle, organizer: e.organizer === true, location: e.location?.trim() || null };
     if (e.allDay) {
-      for (let d = e.startDate, i = 0; d < e.endDate && i < 366; i++) {
-        push(d, { ...base, date: d, time: null, endTime: null, continued: d !== e.startDate });
+      const days = Math.min(366, Math.max(0, dayNo(e.endDate) - dayNo(e.startDate)));
+      const lastDate = formatIsoDate(addDays(isoDate(e.startDate), days - 1));
+      for (let d = e.startDate, i = 0; i < days; i++) {
+        push(d, { ...base, date: d, time: null, endTime: null, continued: i > 0, part: days > 1 ? { day: i + 1, days } : null, eventStart: null, eventEnd: null, lastDate });
         d = formatIsoDate(addDays(isoDate(d), 1));
       }
       continue;
@@ -84,13 +96,19 @@ export function deviceDays(
     // więc widok dnia z przerwami (D122) pokazywał „wolne” w środku wydarzenia): pierwszy dzień do 24:00, kolejne od 00:00.
     const e2 = toLocal(e.endMs);
     const lastEnd = formatIsoDate(e2) === last ? `${pad(e2.hh)}:${pad(e2.mm)}` : '24:00';
-    for (let d = first, i = 0; d <= last && i < 366; i++) {
+    const days = Math.min(366, dayNo(last) - dayNo(first) + 1);
+    const eventStart = `${pad(s.hh)}:${pad(s.mm)}`;
+    for (let d = first, i = 0; i < days; i++) {
       push(d, {
         ...base,
         date: d,
-        time: d === first ? `${pad(s.hh)}:${pad(s.mm)}` : '00:00',
+        time: i === 0 ? eventStart : '00:00',
         endTime: d === last ? lastEnd : '24:00',
-        continued: d !== first,
+        continued: i > 0,
+        part: days > 1 ? { day: i + 1, days } : null,
+        eventStart,
+        eventEnd: lastEnd,
+        lastDate: last,
       });
       d = formatIsoDate(addDays(isoDate(d), 1));
     }
@@ -120,12 +138,13 @@ const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)
  * Dubel (D173, decyzja właściciela 8.10.2026, audyt 2 M-105; zastępuje regułę wspólnego słowa z D107): wpis
  * z iPhone'a ze znacznikiem Organizera w notatce (kopia z „Dodaj do kalendarza” — aplikacja ma aktualną wersję) albo
  * o tej samej nazwie po ujednoliceniu co wpis aplikacji tego dnia, oba z godziną (różnica najwyżej
- * config.calendar.DUPLICATE_WINDOW_MIN minut) albo oba bez godziny. Kolejne dni wielodniowego („cd.”) nie są dublami.
+ * config.calendar.DUPLICATE_WINDOW_MIN minut) albo oba bez godziny. Kolejny dzień wielodniowego (D199) jest dublem kolejnego
+ * dnia wpisu aplikacji o tej samej nazwie (`continued`) — godzin się wtedy nie porównuje.
  */
-export function isDuplicate(e: DeviceEntry, app: readonly { title: string; time: string | null }[]): boolean {
-  if (e.continued) return false;
+export function isDuplicate(e: DeviceEntry, app: readonly { title: string; time: string | null; continued?: boolean }[]): boolean {
   if (e.organizer) return true;
   const mine = normalizeTitle(e.title);
+  if (e.continued) return mine !== '' && app.some((a) => a.continued === true && normalizeTitle(a.title) === mine);
   return (
     mine !== '' &&
     app.some((a) => {
@@ -137,7 +156,7 @@ export function isDuplicate(e: DeviceEntry, app: readonly { title: string; time:
 }
 
 /** Wpisy dnia bez dubli i ukryte duble — do licznika „Ukryto N” z podglądem (D173: nic nie znika bez śladu). */
-export function splitDuplicates(entries: readonly DeviceEntry[], app: readonly { title: string; time: string | null }[]): { shown: DeviceEntry[]; hidden: DeviceEntry[] } {
+export function splitDuplicates(entries: readonly DeviceEntry[], app: readonly { title: string; time: string | null; continued?: boolean }[]): { shown: DeviceEntry[]; hidden: DeviceEntry[] } {
   const shown: DeviceEntry[] = [];
   const hidden: DeviceEntry[] = [];
   for (const e of entries) (isDuplicate(e, app) ? hidden : shown).push(e);
@@ -147,7 +166,18 @@ export function splitDuplicates(entries: readonly DeviceEntry[], app: readonly {
 const isoDate = (s: string): CivilDate => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)), d: Number(s.slice(8, 10)) });
 
 /** Jedno wystąpienie wydarzenia grupy w lustrze (albo dzień lekcji dziecka, D174). */
-export type MirrorItem = { key: string; groupId: string; title: string; date: string; startTime: string | null; endTime: string | null; location: string | null; notes: string };
+export type MirrorItem = {
+  key: string;
+  groupId: string;
+  title: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  /** D199: ile dni trwa całodniowe (1 — jeden; przez północ mówią godziny: draftOf). */
+  days: number;
+  location: string | null;
+  notes: string;
+};
 
 export type MirrorState = {
   /** grupa → identyfikator kalendarza iPhone'a */
@@ -186,7 +216,7 @@ export function mirrorItems(
       // Wspólna lekcja rodzeństwa — w bloku każdego z dzieci (jak Moje sprawy, audyt 2 E-15).
       for (const child of o.lessonFor) {
         const key = `lessons|${child.memberId}|${o.date}`;
-        const b = blocks.get(key) ?? { item: { key, groupId: o.groupId, title: '', date: o.date, startTime: null, endTime: null, location: null, notes: o.groupName }, lessons: [] };
+        const b = blocks.get(key) ?? { item: { key, groupId: o.groupId, title: '', date: o.date, startTime: null, endTime: null, days: 1, location: null, notes: o.groupName }, lessons: [] };
         blocks.set(key, b);
         b.lessons.push({ time: startTime, end: endTime, title: o.title });
         b.item.title = lessonTitle(child.name, b.lessons.length);
@@ -200,6 +230,8 @@ export function mirrorItems(
       date: o.date,
       startTime,
       endTime,
+      // D199: w iPhonie jedno wydarzenie przez wszystkie dni (koniec wyłączny — RFC 5545 §3.6.1, draftOf).
+      days: startTime === null ? o.days : 1,
       location: o.location?.trim() || null,
       notes: o.groupName,
     });
@@ -216,7 +248,8 @@ export function mirrorItems(
   return out;
 }
 
-export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes, i.location]);
+// Długość tylko, gdy wielodniowe — skrót wpisów sprzed D199 się nie zmienia (bez przepisywania całego lustra).
+export const mirrorHash = (i: MirrorItem) => JSON.stringify([i.title, i.date, i.startTime, i.endTime, i.notes, i.location, ...(i.days > 1 ? [i.days] : [])]);
 
 /** Nazwa i kolor kalendarza grupy w iPhonie — zmiana nazwy albo koloru grupy zmienia kalendarz (audyt 2, M-27). */
 export const calendarLook = (title: string, color: string) => JSON.stringify([title, color]);

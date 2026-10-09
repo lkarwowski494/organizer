@@ -19,7 +19,8 @@ import { materialize } from '../../domain/sync-engine/client';
 import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { formatLongDate, parseIsoDate } from '../../domain/format';
-import { emptyForm, type EventForm, formOf, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
+import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
+import { coveredDays } from '../../domain/span';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, expandEvents, fieldsOf, moveTooFar } from '../../domain/views/events';
 import { occurrenceOwner } from '../../domain/views/event-rows';
@@ -58,10 +59,10 @@ export function EventEditScreen({ route, navigation }: Props) {
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
     // PWD-33 (D200): kopia wydarzenia z iPhone'a — nazwa, dzień, godziny i miejsce do poprawienia przed zapisem.
     // Audyt 2 (M-255): dziecko z „@Kuba” przechodzi jako uczestnik, jak w szybkim dodaniu (quickEvent).
-    const { title, start, end, responsibleId, location, allDay, participantIds } = route.params;
+    const { title, start, end, responsibleId, location, allDay, participantIds, endDate } = route.params;
     const f = emptyForm(occurrence, participantIds ?? []);
     const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');
-    return { ...f, title: title ?? '', allDay: allDay ?? false, location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
+    return { ...f, title: title ?? '', allDay: allDay ?? false, endDate: allDay && endDate ? endDate : '', location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
   });
   const [error, setError] = useState<string | null>(null);
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
@@ -113,7 +114,8 @@ export function EventEditScreen({ route, navigation }: Props) {
 
   const save = () => {
     // W grupie osobistej „kogo dotyczy” nie ma (P-53) — zawsze cała grupa, czyli ja.
-    const r = validateForm({ ...form, ...(only ? { repeat: 'none' as const } : {}), ...(personal ? { audience: 'group' as const, participantIds: [] } : {}) });
+    // D199: koniec nie później niż początek = następnego dnia (plan lekcji i rutyny tego nie mają).
+    const r = validateForm({ ...form, ...(only ? { repeat: 'none' as const } : {}), ...(personal ? { audience: 'group' as const, participantIds: [] } : {}) }, { overnight: true });
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
@@ -206,10 +208,18 @@ export function EventEditScreen({ route, navigation }: Props) {
       {/* Audyt 2: w serii „to i następne” zaczyna się od tego wystąpienia (E-6, napis wyżej), a „wszystkie” — od początku
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
       {detail?.rule && (scope === 'following' || (scope === 'all' && form.repeat !== 'none')) ? null : (
-        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set({ date })} today={today} testID="event-date" />
+        // D199: przesunięcie startu przesuwa ostatni dzień (długość zostaje).
+        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
+      {form.allDay ? (
+        // D199: całodniowe przez kilka dni (obóz); ten sam dzień = jednodniowe.
+        <View style={{ gap: 6 }}>
+          <DateField label={strings['event.endDate']} value={form.endDate || form.date} onChange={(v) => set({ endDate: v === form.date ? '' : v })} today={today} testID="event-end-date" />
+          {series && form.endDate !== '' && form.endDate !== form.date ? <Body muted>{strings['event.sameLength']}</Body> : null}
+        </View>
+      ) : null}
       {only ? null : (
         <Segmented
           label={strings['event.repeat']}
@@ -241,6 +251,10 @@ export function EventEditScreen({ route, navigation }: Props) {
               </View>
             </View>
           )}
+          {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
+          {!form.allDay && /^\d{2}:\d{2}$/.test(slot.start.trim()) && /^\d{2}:\d{2}$/.test(slot.end.trim()) && coveredDays(slot.start.trim(), slot.end.trim(), 1) === 2 ? (
+            <Body muted>{strings['event.endsNextDay']}</Body>
+          ) : null}
           {multi && form.slots.length > 1 ? <Button kind="danger" label={strings['event.removeSlot'](i + 1)} onPress={() => set({ slots: form.slots.filter((_, j) => j !== i) })} /> : null}
         </View>
       ))}

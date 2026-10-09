@@ -2,7 +2,7 @@ import { config } from '../../config';
 import * as fc from 'fast-check';
 
 import { formatRule, parseRule } from '../rrule';
-import { emptyForm, type EventForm, formOf, validateForm, weekdayPosition } from '../views/event-form';
+import { emptyForm, type EventForm, formOf, moveStart, validateForm, weekdayPosition } from '../views/event-form';
 import type { EventFields } from '../views/events';
 
 const WD = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
@@ -23,8 +23,8 @@ describe('formularz wydarzenia', () => {
   it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
     const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
     expect(fields).toEqual([
-      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null },
-      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1 },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1 },
     ]);
   });
 
@@ -122,8 +122,10 @@ describe('formularz wydarzenia', () => {
       fc.constant('FREQ=YEARLY;INTERVAL=3'),
     );
     fc.assert(
-      fc.property(fc.integer({ min: 1, max: 28 }), time, fc.boolean(), ruleText, fc.boolean(), (day, start, allDay, rt, withUntil) => {
+      fc.property(fc.integer({ min: 1, max: 28 }), time, fc.boolean(), ruleText, fc.boolean(), fc.integer({ min: 1, max: config.events.MAX_DAYS }), (day, start, allDay, rt, withUntil, length) => {
         const rule = rt === null ? null : parseRule(rt);
+        // D199: całodniowe przez kilka dni — jednorazowe i co 3 lata (bez nakładania się terminów).
+        const days = allDay && (rule === null || rule.freq === 'YEARLY') ? length : 1;
         const f: EventFields = {
           title: 'X',
           date: `2026-10-${String(day).padStart(2, '0')}`,
@@ -135,6 +137,7 @@ describe('formularz wydarzenia', () => {
           participantIds: [],
           responsibleId: null,
           location: null,
+          days,
         };
         const back = ok(formOf(f))[0]!;
         expect({ ...back, rule: back.rule && formatRule(back.rule) }).toEqual({ ...f, rule: rule && formatRule(rule) });
@@ -150,5 +153,49 @@ describe('miejsce w formularzu (D115)', () => {
     expect(ok({ ...f, location: '   ' })[0]!.location).toBeNull();
     expect(validateForm({ ...f, location: 'x'.repeat(config.events.LOCATION_MAX_LENGTH + 1) })).toEqual({ error: 'location' });
     expect(formOf({ ...ok(f)[0]!, location: undefined }).location).toBe('');
+  });
+
+  describe('D199: przez kilka dni i przez północ', () => {
+    const allDay = (over: Partial<EventForm> = {}) => form({ allDay: true, ...over });
+    it('„Kończy się”: ostatni dzień włącznie → liczba dni; pusty albo ten sam dzień = jeden', () => {
+      expect(ok(allDay({ endDate: '2026-10-09' }))[0]).toMatchObject({ startTime: null, days: 5 });
+      expect(ok(allDay({ endDate: '' }))[0]!.days).toBe(1);
+      expect(ok(allDay({ endDate: ' 2026-10-05 ' }))[0]!.days).toBe(1);
+      // Z godziną „Kończy się” się nie liczy (pole jest tylko przy „Cały dzień”).
+      expect(ok(form({ endDate: '2026-10-09' }))[0]!.days).toBe(1);
+      // Przez koniec roku i miesiąca: 30.12–2.01 = 4 dni.
+      expect(ok(allDay({ date: '2026-12-30', endDate: '2027-01-02' }))[0]!.days).toBe(4);
+    });
+    it('błędy: koniec przed początkiem, zła data, ponad limit, nachodzące powtórzenia', () => {
+      expect(validateForm(allDay({ endDate: '2026-10-04' }))).toEqual({ error: 'endDate' });
+      expect(validateForm(allDay({ endDate: '2026-02-30' }))).toEqual({ error: 'endDate' });
+      expect(validateForm(allDay({ endDate: '2026-11-05' }))).toEqual({ error: 'tooLong' });
+      expect(ok(allDay({ endDate: '2026-11-04' }))[0]!.days).toBe(config.events.MAX_DAYS);
+      // Codziennie po 2 dni — terminy nachodzą na siebie; co tydzień w pon. i śr. po 3 dni też.
+      expect(validateForm(allDay({ endDate: '2026-10-06', repeat: 'daily' }))).toEqual({ error: 'overlap' });
+      expect(validateForm(allDay({ endDate: '2026-10-07', repeat: 'weekly', slots: [{ days: [0, 2], start: '', end: '' }] }))).toEqual({ error: 'overlap' });
+      // …a po 2 dni w pon. i śr. albo weekend co dwa tygodnie — nie.
+      expect(ok(allDay({ endDate: '2026-10-06', repeat: 'weekly', slots: [{ days: [0, 2], start: '', end: '' }] }))[0]!.days).toBe(2);
+      expect(ok(allDay({ date: '2026-10-16', endDate: '2026-10-18', repeat: 'weekly', interval: '2', slots: [{ days: [4], start: '', end: '' }] }))[0]!.days).toBe(3);
+      // Co 2 dni, każdy na 2 dni — styka się, nie nachodzi.
+      expect(ok(allDay({ endDate: '2026-10-06', repeat: 'daily', interval: '2' }))[0]!.days).toBe(2);
+      // Seria z jednym terminem (koniec powtarzania w dniu startu) nie ma odstępu.
+      expect(ok(allDay({ endDate: '2026-10-06', repeat: 'daily', ends: 'until', until: '2026-10-05' }))[0]!.days).toBe(2);
+    });
+    it('przez północ: tylko w formularzu wydarzenia; koniec równy początkowi = doba', () => {
+      expect(validateForm(form({ slots: [{ days: [0], start: '22:00', end: '06:00' }] }))).toEqual({ error: 'endBeforeStart' });
+      const night = validateForm(form({ slots: [{ days: [0], start: '22:00', end: '06:00' }] }), { overnight: true });
+      expect(night).toMatchObject({ fields: [{ startTime: '22:00', endTime: '06:00', days: 1 }] });
+      expect(validateForm(form({ slots: [{ days: [0], start: '08:00', end: '08:00' }] }), { overnight: true })).toMatchObject({ fields: [{ startTime: '08:00', endTime: '08:00' }] });
+    });
+    it('formularz z zapisanego: ostatni dzień z długości; przesunięcie startu przesuwa koniec', () => {
+      const f = ok(allDay({ endDate: '2026-10-09' }))[0]!;
+      expect(formOf(f)).toMatchObject({ allDay: true, endDate: '2026-10-09' });
+      expect(formOf({ ...f, days: 1 }).endDate).toBe('');
+      expect(formOf({ ...f, days: undefined }).endDate).toBe('');
+      expect(moveStart({ date: '2026-10-05', endDate: '2026-10-09' }, '2026-10-30')).toEqual({ date: '2026-10-30', endDate: '2026-11-03' });
+      expect(moveStart({ date: '2026-10-05', endDate: '' }, '2026-10-30')).toEqual({ date: '2026-10-30', endDate: '' });
+      expect(moveStart({ date: '', endDate: '2026-10-09' }, '2026-10-30')).toEqual({ date: '2026-10-30', endDate: '2026-10-09' });
+    });
   });
 });

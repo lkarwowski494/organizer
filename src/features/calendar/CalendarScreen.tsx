@@ -19,7 +19,9 @@ import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { splitDuplicates } from '../../domain/views/calendar-sync';
-import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events';
+import { eventsByDate } from '../../domain/views/events';
+import { daySpan, isContinuation } from '../../domain/span';
+import { occurrenceRow } from '../../ui/when';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
@@ -74,7 +76,7 @@ export function CalendarScreen() {
       return (
         // Audyt 2 (M-239): termin przesuwa się jak w Moich sprawach — jednorazowe „Usuń”, termin serii „Odwołaj”.
         <SwipeRow key={x.key} title={x.event.title} enabled={roles.get(x.event.groupId)?.role !== 'child'} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => eventActions.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-cal-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
-          <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={groupLabel(x.event.groupId, x.event.groupName)} recurring={x.event.recurring} extra={m.extra} alert={m.alert} faded={date < isoToday} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+          <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} {...occurrenceRow(x.event)} line={x.event.line} group={groupLabel(x.event.groupId, x.event.groupName)} recurring={x.event.recurring} extra={m.extra} alert={m.alert} faded={date < isoToday} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
         </SwipeRow>
       );
     }
@@ -108,14 +110,14 @@ export function CalendarScreen() {
       </SwipeRow>
     );
   };
-  const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
+  const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? daySpan(x.event.startTime, x.event.endTime, x.event.part) : { start: x.task.due?.time ?? null, end: null });
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
   // D173: bez dubli wpisów aplikacji z tego samego dnia; ukryte — w wierszu „Ukryto N” pod dniem.
   const deviceAll = useDeviceCalendar().days;
   // Przy filtrze grup (PW-38) wydarzenia z iPhone'a schowane — nie należą do żadnej grupy (jak w Moich sprawach).
   const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
-    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime }))]);
+    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime, continued: isContinuation(e.part) }))]);
   const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) => deviceSplit(date, items).shown;
   const daySplit = day ? deviceSplit(day.date, day.items) : { shown: [], hidden: [] };
   const dayDevice = daySplit.shown;

@@ -50,7 +50,7 @@ export function loadMirror(local: LocalStore): MirrorState {
   }
 }
 
-const draft = (i: MirrorItem) => draftOf({ title: i.title, date: i.date, startTime: i.startTime, endTime: i.endTime, location: i.location }, withMark(i.notes));
+const draft = (i: MirrorItem) => draftOf({ title: i.title, date: i.date, startTime: i.startTime, endTime: i.endTime, days: i.days, location: i.location }, withMark(i.notes));
 
 /** Przerwanie przebiegu (wylogowanie, wyłączenie lustra) — po bieżącym kroku nic więcej nie zmieniamy w iPhonie. */
 class Stopped extends Error {}

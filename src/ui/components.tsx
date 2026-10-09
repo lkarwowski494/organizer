@@ -502,12 +502,14 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
  * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
  * tytuł i grupa; po godzinach długość (D120). Całość otwiera wydarzenie.
  */
-export function EventRow({ title, time, length, line, group, recurring, onPress, testID, faded, extra, alert }: { title: string; time: string | null; length?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string }) {
+/** `part` (D199) — który to dzień wielodniowego („dzień 2 z 5”, ui/when.ts). */
+export function EventRow({ title, time, length, part, line, group, recurring, onPress, testID, faded, extra, alert }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const when = time ?? strings['event.allDayLabel'];
+  const whenA11y = [when, length, part].filter(Boolean).join(', ');
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, length ? `${when}, ${length}` : when, group, recurring)}${extra ? `, ${extra.split(META_SEP).join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, whenA11y, group, recurring)}${extra ? `, ${extra.split(META_SEP).join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
@@ -516,6 +518,7 @@ export function EventRow({ title, time, length, line, group, recurring, onPress,
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
           {length ? `${META_SEP}${length}` : ''}
+          {part ? `${META_SEP}${part}` : ''}
           {META_SEP}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
           {extra ? `${META_SEP}${extra}` : ''}
