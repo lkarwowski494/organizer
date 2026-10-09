@@ -7,11 +7,12 @@
  * Pokazujemy tylko to, co mogę przywrócić (serwer i tak odrzuci resztę — RLS): dziecko niczego nie usuwa ani nie
  * przywraca (D34), osoby — jak przy usuwaniu (`removedMembers`). Zadanie z usuniętej listy albo pod usuniętym rodzicem
  * wraca razem z nimi (wyzwalacze lists_cascade i tasks_cascade w 20261006120100_lists_tasks.sql), a samo zostałoby
- * odrzucone („deleted:list”, „deleted:parent”) — więc w koszu stoi tylko lista albo rodzic.
+ * odrzucone („deleted:list”, „deleted:parent”) — więc w koszu stoi tylko lista albo rodzic. Zadania przeniesionego do
+ * innej grupy (znacznik moved_to, audyt 3: N-131) nie ma w koszu — jest w tamtej grupie.
  */
 import { config } from '../../config';
 import { groupsView, removedMembers } from './index';
-import { asList, asTask, type Tables } from './model';
+import { asList, asTask, stampMs, type Tables } from './model';
 
 export type TrashKind = 'list' | 'task' | 'item' | 'event' | 'member';
 
@@ -42,7 +43,7 @@ export const TRASH_KINDS: readonly TrashKind[] = ['list', 'task', 'item', 'event
 export function trashView(t: Tables, userId: string, nowMs: number): TrashEntry[] {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const out: TrashEntry[] = [];
-  const when = (deletedAt: unknown) => (typeof deletedAt === 'string' && Number.isFinite(Date.parse(deletedAt)) ? Date.parse(deletedAt) : nowMs);
+  const when = (deletedAt: unknown) => stampMs(deletedAt, nowMs);
   const add = (e: Omit<TrashEntry, 'daysLeft' | 'groupName' | 'line'> & { groupId: string }) => {
     const g = groups.get(e.groupId)!;
     const { groupId: _g, ...rest } = e;
@@ -65,6 +66,8 @@ export function trashView(t: Tables, userId: string, nowMs: number): TrashEntry[
   const byId = new Map(tasks.map((x) => [x.id, x]));
   for (const x of tasks) {
     if (x.deleted_at === null || !adult(x.group_id)) continue;
+    // Audyt 3 (N-131): przeniesione do innej grupy (i kopia po „Cofnij”) to nie usunięcie — w koszu by się zdublowały.
+    if (t.tasks![x.id]!.moved_to != null) continue;
     const list = lists[x.list_id];
     if (!list || list.deleted_at != null) continue;
     if (x.parent_id !== null && byId.get(x.parent_id)?.deleted_at !== null) continue;

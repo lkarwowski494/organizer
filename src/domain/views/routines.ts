@@ -15,6 +15,7 @@ import { occurrences } from '../rrule';
 import type { Entity, NewOp } from '../sync-engine/client';
 import { asEvent, asOverride, asSeries, ruleOf, seriesChain } from './event-rows';
 import { emptyForm, type FormError, validateForm } from './event-form';
+import { choicesError } from './form-choices';
 import { createEvent } from './events';
 import { createSeries } from './series-tasks';
 import { generalList } from './task-form';
@@ -36,12 +37,17 @@ export function routineOps(a: {
   steps: string[];
   today: CivilDate;
   newId: () => string;
-}): { ops: NewOp[]; eventId: string } | { error: FormError | 'steps' } {
+}): { ops: NewOp[]; eventId: string } | { error: FormError | 'steps' | 'stepLong' | 'group' } | { error: 'people'; names: string[] } {
   const steps = a.steps.map((s) => s.trim()).filter(Boolean);
   const f = emptyForm(formatIsoDate(a.today), a.participantIds);
   const r = validateForm({ ...f, title: a.title, repeat: a.days.length === 7 ? 'daily' : 'weekly', slots: [{ days: a.days, start: a.start, end: a.end }] });
   if ('error' in r) return { error: r.error };
   if (steps.length === 0) return { error: 'steps' };
+  // Audyt 3 (N-134): krok to stałe zadanie serii — CHECK char_length(title) między 1 a config.lengths.TASK_TITLE.
+  if (steps.some((s) => [...s].length > config.lengths.TASK_TITLE)) return { error: 'stepLong' };
+  // Audyt 3 (N-32): grupa i osoby zmienione w trakcie wypełniania (serwer odrzuciłby rutynę: forbidden, invalid_member).
+  const c = choicesError(a.tables, a.userId, { groupId: a.groupId, people: a.participantIds });
+  if (c) return c;
   const ev = createEvent(a.groupId, { ...r.fields[0]!, kind: 'routine' }, a.newId);
   const list = generalList(a.tables, a.userId, a.groupId, a.newId);
   return {

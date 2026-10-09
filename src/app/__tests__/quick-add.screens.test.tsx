@@ -464,3 +464,17 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(within(shop()!).getByText('Na listę: Moje zakupy')).toBeTruthy();
   });
 });
+
+describe('audyt 3: parser w polu dodawania', () => {
+  it('N-28: „1/2 kostki masła” — pod polem pełna data z przyszłego roku; odklikane — bez ostrzeżenia; „jutro” wygrywa z liczbą', async () => {
+    await open();
+    await write('1/2 kostki masła');
+    expect(screen.getByText('„1/2” to termin: poniedziałek, 1 lutego 2027. Jeśli to nie data, dotknij „1/2” wyżej.')).toBeTruthy();
+    await press(screen.getByLabelText('1/2, rozpoznane'));
+    expect(screen.queryByText(/to termin:/)).toBeNull();
+    await write('raport 1.5 strony jutro');
+    expect(screen.getByLabelText('jutro, rozpoznane')).toBeTruthy();
+    expect(screen.queryByLabelText('1.5, rozpoznane')).toBeNull();
+    expect(screen.queryByText(/to termin:/)).toBeNull();
+  });
+});

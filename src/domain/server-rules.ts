@@ -4,7 +4,7 @@
  * private.sync_entities, powtórzone utworzenie, wiersz niewidoczny / usunięty), polityki RLS (widoczność list,
  * przekazań, uprawnienia zmiany grupy) i strażnicy wierszy (tasks_guard, lists_guard, events_guard, event_rsvps_guard,
  * event_task_series_guard, group_members_guard, handoffs_guard, object_members_guard, list_responsible_guard,
- * event_responsible_guard, tasks_event_guard, groups_stamp, my_day_scopes_guard, shopping_trips_guard) oraz kosz grup
+ * event_responsible_guard, tasks_event_guard, tasks_moved_guard, groups_stamp, my_day_scopes_guard, shopping_trips_guard) oraz kosz grup
  * (bump_group_version: deleted:group).
  * Kolejność sprawdzeń jak w SQL: kolumny, widoczność, strażnicy w kolejności nazw wyzwalaczy, licznik wersji grupy.
  *
@@ -18,12 +18,15 @@
  * algorytm co tasks_cascade / lists_cascade) i przyjęcie przekazania (handoffs_guard: nowa osoba przy zadaniu, liście
  * zakupów albo wydarzeniu, przy jednym terminie — wyjątek).
  *
- * Poza modelem (zwraca null — „przyjęte”): polecenia (`cmd`: przeniesienie zadania, udostępnienia, stałe zakupy, podział
- * serii), identyfikatory pochodne poza zakresem Moich spraw (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
+ * Polecenia przeniesienia zadania do innej grupy (move_task_to_group, unmove_task — audyt 3, N-12) model sprawdza
+ * krokami z task-move-cmd.ts, jak serwer: pierwsze odrzucenie odrzuca całość.
+ * Poza modelem (zwraca null — „przyjęte”): pozostałe polecenia (`cmd`: przeniesienie zadania w grupie, udostępnienia, stałe
+ * zakupy, podział serii), identyfikatory pochodne poza zakresem Moich spraw (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
  * przyjęcie przekazania nieaktualnego (stale), wygasłe przywrócenie członka (deleted:expired) i przekazania wydarzeń.
  */
 import { config } from '../config';
 import { applyOp, type NewOp, type Op, type Row } from './sync-engine/client';
+import { type MoveArgs, moveCmdSteps, type MoveStep } from './task-move-cmd';
 import { overrideId } from './views/events';
 import { scopeRowId } from './views/my-scope';
 
@@ -156,6 +159,11 @@ function tasksEventGuard(t: ServerTables, row: Row, old: Row | null) {
 }
 
 /** private.child_owns_task: swoje = przypisane do dziecka, zadanie przy wydarzeniu dziecka, zakupy dziecka (po rodzicach). */
+/** tasks_a_guard_moved (audyt 3, N-131): przeniesione nie wraca z kosza, dopóki żyje kopia. */
+function tasksMovedGuard(t: ServerTables, row: Row, old: Row | null) {
+  if (old && old.deleted_at != null && row.deleted_at == null && old.moved_to != null && live(t.tasks?.[String(old.moved_to)])) reject('moved');
+}
+
 function childOwnsTask(t: ServerTables, id: string, me: string): boolean {
   let cur = t.tasks?.[id];
   for (let step = 0; cur && step < 8; step++) {
@@ -312,7 +320,8 @@ function guards(t: ServerTables, user: string, entity: string, row: Row, old: Ro
   switch (entity) {
     case 'tasks':
       tasksGuard(t, me, row, old);
-      return tasksEventGuard(t, row, old);
+      tasksEventGuard(t, row, old);
+      return tasksMovedGuard(t, row, old);
     case 'lists':
       listsGuard(me, row, old);
       return responsibleGuard(t, row, old);
@@ -352,6 +361,30 @@ function trashed(t: ServerTables, group: unknown) {
   if (t.groups?.[String(group)]?.deleted_at != null) reject('deleted:group');
 }
 
+/**
+ * Długości tekstów (audyt 3, N-134): CHECK char_length(…) w SQL (23514 → invalid:23514) — liczba znaków (code points),
+ * nie jednostek UTF-16. [najmniej, najwięcej]; null w kolumnie dopuszczającej null przechodzi. Źródła: migracje
+ * 20261006120000_core, 20261006120100_lists_tasks, 20261008100000_events, 20261008130000_event_task_series,
+ * 20261008260000_event_location (kontrakt liczb z config: tests/db/config-sql.test.ts).
+ */
+const L = config.lengths;
+const LENGTHS: { readonly [entity: string]: { readonly [col: string]: readonly [number, number] } } = {
+  groups: { name: [1, L.GROUP_NAME] },
+  group_members: { display_name: [1, config.profile.NAME_MAX_LENGTH] },
+  lists: { name: [1, L.LIST_NAME] },
+  tasks: { title: [1, L.TASK_TITLE], note: [0, L.NOTE] },
+  events: { title: [1, L.EVENT_TITLE], note: [0, L.NOTE], location: [1, config.events.LOCATION_MAX_LENGTH] },
+  event_overrides: { title: [1, L.EVENT_TITLE] },
+  event_task_series: { title: [1, L.TASK_TITLE] },
+};
+
+function lengths(entity: string, row: Row) {
+  for (const [col, [min, max]] of Object.entries(LENGTHS[entity] ?? {})) {
+    const v = row[col];
+    if (typeof v === 'string' && ([...v].length < min || [...v].length > max)) reject('invalid:23514');
+  }
+}
+
 /** Indeksy unikalne (23505 → invalid:23505): jeden wyjątek na dzień, jeden udział i jedna odpowiedź osoby, jedno oczekujące przekazanie. */
 const UNIQUE: { readonly [entity: string]: readonly string[] } = {
   event_overrides: ['event_id', 'occurrence_date'],
@@ -373,8 +406,62 @@ function afterGuards(t: ServerTables, entity: string, row: Row, old: Row | null)
   if (!memberCanSeeList(t, row.responsible_member_id, row)) reject('invalid_member');
 }
 
+/** Tabele widziane przez `user` (RLS) — polecenie przeniesienia widzi tylko zadania z list, które widzę. */
+function visibleTasks(t: ServerTables, user: string): ServerTables {
+  return { ...t, tasks: Object.fromEntries(Object.entries(t.tasks ?? {}).filter(([, r]) => canSee(t, user, 'tasks', r))) };
+}
+
+/** Kroki polecenia przeniesienia (task-move-cmd.ts) tak, jak wykona je serwer: na zadaniach, które widzę. */
+const serverMoveSteps = (t: ServerTables, user: string, op: Extract<NewOp, { kind: 'cmd' }>): MoveStep[] | null => moveCmdSteps(visibleTasks(t, user), op);
+
+/**
+ * private.move_task_to_group i private.unmove_task (20261010060000_move_task_to_group.sql): te same sprawdzenia, potem
+ * kroki po kolei na kopii danych — pierwsze odrzucenie odrzuca całe polecenie (N-12: wszystko albo nic).
+ */
+function moveVerdict(t: ServerTables, user: string, op: Extract<NewOp, { kind: 'cmd' }>): void {
+  const a = op.args;
+  const src = visibleTasks(t, user).tasks![String(a.task_id)];
+  if (a.task_id == null || (op.cmd === 'move_task_to_group' ? a.group_id == null || !Array.isArray(a.tasks) || a.tasks.length === 0 : a.copy_id == null)) reject('invalid_value');
+  if (!src) return reject('not_found');
+  if (member(t, String(src.group_id), user)?.role === 'child') reject('forbidden:child');
+  if (op.cmd === 'move_task_to_group') {
+    const m = a as MoveArgs;
+    if (src.parent_id != null || src.group_id === m.group_id) reject('invalid_value');
+    if (src.deleted_at != null) reject('deleted');
+    if (m.tasks[0]!.from !== m.task_id || m.tasks[0]!.set.parent_id != null) reject('invalid_value');
+    const sub = new Set([m.task_id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const r of rowsOf(t, 'tasks')) {
+        if (r.parent_id == null || !sub.has(String(r.parent_id)) || sub.has(String(r.id))) continue;
+        sub.add(String(r.id));
+        grew = true;
+      }
+    }
+    if (m.tasks.some((x) => !sub.has(x.from))) reject('invalid_value');
+  } else {
+    if (src.deleted_at == null) return;
+    if (src.moved_to !== a.copy_id) reject('invalid_value');
+  }
+  const sim: { [e: string]: { [k: string]: Row } } = Object.fromEntries(Object.entries(t).map(([e, rows]) => [e, { ...rows }]));
+  for (const step of serverMoveSteps(t, user, op)!) {
+    if ('mark' in step) {
+      sim.tasks![step.mark.id] = { ...sim.tasks![step.mark.id]!, moved_to: step.mark.to };
+      continue;
+    }
+    const code = serverVerdict(sim, user, step.op);
+    if (code !== null) reject(code);
+    applyOnServer(sim, user, step.op, 'now');
+    // Kopia zadania głównego musi powstać teraz (utworzenie istniejącego id to powtórzenie — bez zmian).
+    if (op.cmd === 'move_task_to_group' && step.op.kind === 'create' && step.op.id === (a as MoveArgs).tasks[0]!.id) {
+      const root = sim.tasks![step.op.id]!;
+      if (!live(root) || root.group_id !== a.group_id || root.parent_id != null) reject('invalid_value');
+    }
+  }
+}
+
 function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
-  if (op.kind === 'cmd') return;
+  if (op.kind === 'cmd') return op.cmd === 'move_task_to_group' || op.cmd === 'unmove_task' ? moveVerdict(t, user, op) : undefined;
   const spec = SYNC_ENTITIES[op.entity];
   if (!spec) return reject('unknown_entity');
   const table = t[op.entity] ?? {};
@@ -393,6 +480,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     guards(t, user, op.entity, row, null);
     trashed(t, op.group_id);
     if (!insertAllowed(t, user, op.entity, row)) reject('forbidden'); // RLS WITH CHECK: 42501 → forbidden (sync_push)
+    lengths(op.entity, row);
     unique(t, op.entity, row);
     // lists_guard: twórca listy to ja (owner_member_id nadaje serwer).
     return afterGuards(t, op.entity, { ...row, owner_member_id: member(t, op.group_id, user)?.member_id }, null);
@@ -408,6 +496,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     if (!canUpdate(t, user, op.entity, current)) reject('forbidden');
     guards(t, user, op.entity, { ...current, ...op.set }, current);
     trashed(t, op.entity === 'groups' ? op.id : current.group_id);
+    lengths(op.entity, op.set);
     return afterGuards(t, op.entity, { ...current, ...op.set }, current);
   } else {
     const deleting = op.kind === 'delete';
@@ -474,6 +563,14 @@ function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'dele
  * null. `at` — znacznik czasu dla usunięć i decyzji.
  */
 export function applyOnServer(t: { [e: string]: { [k: string]: Row } }, user: string, op: NewOp, at: string): void {
+  const move = op.kind === 'cmd' ? serverMoveSteps(t, user, op) : null;
+  if (move) {
+    for (const step of move) {
+      if ('op' in step) applyOnServer(t, user, step.op, at);
+      else t.tasks![step.mark.id] = { ...t.tasks![step.mark.id]!, moved_to: step.mark.to };
+    }
+    return;
+  }
   const old = op.kind === 'cmd' ? undefined : t[op.entity]?.[op.id];
   const me = op.kind === 'create' ? member(t, op.group_id, user) : null;
   applyOp(t, { ...op, seq: 0, op_id: 'server' } as Op);

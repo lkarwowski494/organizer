@@ -13,6 +13,8 @@ describe('historia zadania (D76)', () => {
         a5: a('a5', { verb: 'delete', created_at: '2026-10-07T12:00:00Z' }),
         a6: a('a6', { verb: 'restore', created_at: '2026-10-07T13:00:00Z', changes: undefined }),
         a7: a('a7', { changes: { version: [1, 2] } }),
+        // Audyt 3 (N-131): znacznik przeniesienia do innej grupy to nie zmiana treści.
+        a8: a('a8', { changes: { moved_to: [null, 'kopia'] } }),
         other: a('other', { entity_id: 't2' }),
         list: a('list', { entity: 'lists' }),
       },
