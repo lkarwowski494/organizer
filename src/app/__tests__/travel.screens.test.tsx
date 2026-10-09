@@ -239,6 +239,51 @@ describe('dojazd (D115–D117)', () => {
     expect(screen.queryByTestId('travel-permission')).toBeNull(); // odmowa — tylko wskazówka do Ustawień iPhone'a
   });
 
+  it('audyt 3 (N-56): odmowa lokalizacji — przy wydarzeniu wyjaśnienie i „Otwórz Ustawienia iPhone’a” zamiast martwego „Pokaż, kiedy wyjść”', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    // Odmowa w oknie iOS po „Pokaż, kiedy wyjść →”.
+    const travel = fakeTravel({ status: jest.fn(async () => 'undetermined' as const), request: jest.fn(async () => false) });
+    const { prefs } = await open(travel, memoryPrefs({ welcomeSeen: '1' }));
+    await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
+    const box = await screen.findByTestId('travel-box');
+    await press(within(box).getByTestId('travel-suggest'));
+    await flush();
+    expect(prefs.m.get('travelEnabled')).toBeUndefined();
+    expect(within(box).getByText(/Brak dostępu do lokalizacji/)).toBeTruthy();
+    expect(within(box).queryByTestId('travel-suggest')).toBeNull();
+    await press(within(box).getByTestId('travel-open-settings'));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    // Odmowa sprzed uruchomienia (iOS już nie zapyta) — od razu wyjaśnienie; w Ustawieniach ta sama droga.
+    await open(fakeTravel({ status: jest.fn(async () => 'denied' as const) }), memoryPrefs({ welcomeSeen: '1' }));
+    await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
+    const box2 = await screen.findByTestId('travel-box');
+    expect(within(box2).queryByTestId('travel-suggest')).toBeNull();
+    expect(within(box2).getByTestId('travel-open-settings')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-calendar'));
+    await press(await screen.findByTestId('settings-travel-open'));
+    expect(openSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('audyt 3 (N-188): wydarzenie poza oknem liczenia — po włączeniu napis, kiedy pojawi się „Wyjdź o”', async () => {
+    const b = base();
+    put(b, 'events', 'daleko', { id: 'daleko', group_id: 'gf', title: 'Wycieczka', note: null, start_date: '2026-10-28', start_time: '09:00:00', end_time: '10:00:00', rrule: null, audience: 'group', responsible_member_id: null, location: 'Rynek 1', deleted_at: null, version: 1 });
+    const prefs = memoryPrefs({ welcomeSeen: '1' });
+    const s = setup({ base: b, prefs, travel: fakeTravel() });
+    await s.renderApp(<RootStack />);
+    await flush();
+    await press(screen.getByLabelText('Kalendarz'));
+    await press(await screen.findByTestId('day-2026-10-28'));
+    await press(screen.getByTestId('cal-event-daleko-2026-10-28'));
+    const box = await screen.findByTestId('travel-box');
+    expect(within(box).queryByText(/pokażemy dla wydarzeń z miejscem/)).toBeNull();
+    await press(within(box).getByTestId('travel-suggest'));
+    await flush();
+    expect(prefs.m.get('travelEnabled')).toBe('1');
+    expect(within(box).getByText('„Wyjdź o …” pokażemy dla wydarzeń z miejscem w najbliższych 12 godzinach.')).toBeTruthy();
+  });
+
   it('M-218 w Ustawieniach: włączony dojazd bez zgody — „Zezwól na lokalizację”; wydarzenie minione — bez podpowiedzi', async () => {
     const travel = fakeTravel({ status: jest.fn(async () => 'undetermined' as const) });
     await open(travel, memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }));

@@ -13,35 +13,22 @@ import { groupDetail, type GroupItem, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { Button, ErrorText, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
-import { useUndo } from '../../ui/undo';
-import { groupErrorText } from './server-errors';
+import { useDeleteGroup } from './delete-group';
 import { TrashSection } from './TrashSection';
 
 export function GroupsScreen() {
-  const { userId, account, store } = useServices();
+  const { userId } = useServices();
   const { tables } = useAppData();
-  const undo = useUndo();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
   const refresh = usePullRefresh();
   const [error, setError] = useState<string | null>(null);
 
-  // D187 (audyt 2: PW-16 A, M-121, M-239): grupa do kosza bez pytania — pasek „Cofnij” i kosz (właściciel, 30 dni).
-  // Usunięcie i przywrócenie idą przez serwer, więc wymagają internetu (komunikat błędu jak na ekranie grupy).
+  // D187 i Q19 A (audyt 3, N-156): jak przycisk na ekranie grupy (delete-group.ts).
+  const removeGroup = useDeleteGroup(setError);
   const deleteGroup = (g: GroupItem) => {
     setError(null);
-    account.deleteGroup(g.id).then(
-      () => {
-        store.refresh();
-        undo.show(strings['undo.groupDeleted'](g.name), () => {
-          account.restoreGroup(g.id).then(
-            () => store.refresh(),
-            (e: unknown) => setError(groupErrorText(e)),
-          );
-        });
-      },
-      (e: unknown) => setError(groupErrorText(e)),
-    );
+    removeGroup(g.id, g.name, g.memberCount - 1);
   };
 
   return (
@@ -54,7 +41,7 @@ export function GroupsScreen() {
             <NavRow
               testID={`group-${g.id}`}
               title={g.kind === 'personal' ? strings['groups.personal'] : g.name}
-              subtitle={`${strings['groups.members'](g.memberCount)} · ${strings[`groups.role.${g.me.role}`]}`}
+              subtitle={g.kind === 'personal' ? strings['groups.personalSubtitle'] : `${strings['groups.members'](g.memberCount)} · ${strings[`groups.role.${g.me.role}`]}`}
               line={g.line}
               onPress={() => nav.navigate('Group', { groupId: g.id })}
             />

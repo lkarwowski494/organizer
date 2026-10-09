@@ -23,6 +23,15 @@ Z porównania z Domownikiem (plan zajęć domownika z tygodniami A/B). Właścic
   to A/B” zmienia tylko nazwy tygodni (litery lekcji zamieniają się razem z nim), nie przesuwa lekcji; zapis ustawia kotwicę.
   Plan sprzed D171 (bez kotwicy): ten tydzień to A, jak dotąd. Odrzucone: zamiana liter bez zapisu (litery dalej „pływają”
   co tydzień), ukrycie przełącznika przy edycji (niezgodne z nazwami szkoły).
+  **Audyt 3 (N-165, decyzja Q26 A):** tydzień A zmienia każdy dorosły w grupie (także innej osoby i właściciela) — plan
+  opieki i szkoły jest wspólny, jak plan lekcji dziecka, który też zmienia każdy dorosły. Zostaje strażnik
+  `group_members_week_a_guard` (odrzuca tylko dziecko i osobę spoza grupy). Odrzucone: tylko ta osoba i owner/admin (B).
+- **Kopiowanie planu do innej grupy (audyt 3, N-47, decyzja Q27 B):** profil dziecka to wiersz jednej grupy, więc plan
+  nie przechodzi sam do drugiego domu. Na ekranie planu „Skopiuj plan lekcji do…” (gdy w moich innych grupach wspólnych,
+  w których jestem dorosłym, są dzieci — `copyTargets`) otwiera plan wybranego dziecka z lekcjami, tygodniem i datą końca
+  z ekranu, do sprawdzenia; zapis jak zawsze (podgląd skutków, „Cofnij”). Kopia jest jednorazowa — dalsze zmiany w jednym
+  planie nie przechodzą do drugiego. Potwierdzenie wyjścia z grupy mówi, że plan, obecności i historia dzieci zostają
+  w grupie i gdzie go skopiować. Odrzucone: profil dziecka wspólny dla dwóch grup (zmiana modelu — C).
 - **Edycja planu od jutra (M-14, zmienia D128):** seria bez zmian zostaje nietknięta; zmieniona (para ze starą: ta sama
   nazwa albo te same dni i godziny) przechodzi poleceniem `split_event` jak „to i następne” — od jutra z odwołaniami,
   zmianami terminów, obecnością, przekazaniami, zadaniami i stałymi zadaniami; kopie stałych zadań z terminów, których

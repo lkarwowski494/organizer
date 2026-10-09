@@ -1,8 +1,10 @@
-import { ExpoCalendar, ExpoCalendarEvent, getCalendarPermissions, getDefaultCalendarSync, requestCalendarPermissions } from 'expo-calendar';
+import { createCalendar, ExpoCalendar, getCalendarPermissions, getDefaultCalendarSync, getSourcesSync, requestCalendarPermissions } from 'expo-calendar';
+import { deleteEventAsync, getEventAsync, updateEventAsync } from 'expo-calendar/legacy';
 
 import { draftOf, expoDeviceCalendar } from '../device-calendar';
 
-jest.mock('expo-calendar', () => ({ requestCalendarPermissions: jest.fn(), getCalendarPermissions: jest.fn(), getDefaultCalendarSync: jest.fn(), ExpoCalendar: { get: jest.fn() }, ExpoCalendarEvent: { get: jest.fn() } }));
+jest.mock('expo-calendar', () => ({ requestCalendarPermissions: jest.fn(), getCalendarPermissions: jest.fn(), getDefaultCalendarSync: jest.fn(), getSourcesSync: jest.fn(), createCalendar: jest.fn(), EntityTypes: { EVENT: 'event' }, ExpoCalendar: { get: jest.fn() } }));
+jest.mock('expo-calendar/legacy', () => ({ Availability: { BUSY: 'busy' }, getEventAsync: jest.fn(), updateEventAsync: jest.fn(), deleteEventAsync: jest.fn() }));
 
 describe('kalendarz iPhone’a (D7)', () => {
   it('szkic: godziny w czasie warszawskim, bez końca = 60 min, cały dzień', () => {
@@ -53,18 +55,61 @@ describe('kalendarz iPhone’a (D7)', () => {
     expect(await sync.status()).toBe('denied');
   });
 
-  it('nazwa i kolor kalendarza; miejsce wydarzenia (usunięte = null)', async () => {
+  it('nazwa i kolor kalendarza; zmiana wydarzenia przez legacy (usunięte miejsce = pusty tekst, „Zajęty”)', async () => {
     const sync = expoDeviceCalendar.sync!;
     const update = jest.fn(async () => {});
     (ExpoCalendar.get as jest.Mock).mockResolvedValue({ update, createEvent: jest.fn(async () => ({ id: 'e1' })) });
     await sync.updateCalendar('c1', 'Organizer – Dom', '#123456');
     expect(update).toHaveBeenCalledWith({ title: 'Organizer – Dom', color: '#123456' });
-    const ev = { update: jest.fn(async () => {}) };
-    (ExpoCalendarEvent.get as jest.Mock).mockResolvedValue(ev);
     const d = draftOf({ title: 'T', date: '2026-10-12', startTime: '18:00', endTime: null });
     await sync.updateEvent('e1', d);
-    expect(ev.update).toHaveBeenCalledWith(expect.objectContaining({ location: null }));
+    expect(updateEventAsync).toHaveBeenCalledWith('e1', { title: 'T', startDate: d.start, endDate: d.end, allDay: false, notes: '', location: '', availability: 'busy' });
+    await sync.updateEvent('e1', { ...d, notes: 'Rodzina', location: 'Wodna 1' });
+    expect(updateEventAsync).toHaveBeenLastCalledWith('e1', expect.objectContaining({ notes: 'Rodzina', location: 'Wodna 1' }));
     expect(await sync.createEvent('c1', { ...d, location: 'Wodna 1' })).toBe('e1');
+  });
+
+  it('audyt 3 (N-5): usunięcie i sprawdzenie wydarzenia tym samym identyfikatorem (legacy); „nie ma” ≠ inny błąd', async () => {
+    const sync = expoDeviceCalendar.sync!;
+    await sync.deleteEvent('e1');
+    expect(deleteEventAsync).toHaveBeenCalledWith('e1');
+    (getEventAsync as jest.Mock).mockResolvedValueOnce({ id: 'e1' });
+    expect(await sync.hasEvent('e1')).toBe(true);
+    (getEventAsync as jest.Mock).mockRejectedValueOnce(Object.assign(new Error('Event with id e1 could not be found'), { code: 'ERR_EVENT_NOT_FOUND' }));
+    expect(await sync.hasEvent('e1')).toBe(false);
+    (getEventAsync as jest.Mock).mockRejectedValueOnce(Object.assign(new Error('brak zgody'), { code: 'ERR_MISSION_PERMISSIONS' }));
+    await expect(sync.hasEvent('e1')).rejects.toThrow('brak zgody');
+    (getEventAsync as jest.Mock).mockRejectedValueOnce(null);
+    await expect(sync.hasEvent('e1')).rejects.toBeNull();
+  });
+
+  it('audyt 3 (N-58): kalendarz lustra na koncie domyślnym, a gdy się nie da — iCloud, potem „Na moim iPhonie”', async () => {
+    const sync = expoDeviceCalendar.sync!;
+    const gmail = { id: 's-g', type: 'caldav', name: 'Gmail' };
+    const icloud = { id: 's-i', type: 'caldav', name: 'iCloud' };
+    const phone = { id: 's-l', type: 'local', name: 'Default' };
+    (getDefaultCalendarSync as jest.Mock).mockReturnValue({ source: gmail });
+    (getSourcesSync as jest.Mock).mockReturnValue([phone, gmail, icloud]);
+    const make = createCalendar as jest.Mock;
+    make.mockResolvedValueOnce({ id: 'cal-1' });
+    expect(await sync.createCalendar('Organizer – Dom', '#123456')).toBe('cal-1');
+    expect(make).toHaveBeenLastCalledWith({ title: 'Organizer – Dom', color: '#123456', entityType: 'event', source: gmail, sourceId: 's-g', name: 'Organizer – Dom' });
+    make.mockClear().mockRejectedValueOnce(new Error('gmail')).mockResolvedValueOnce({ id: 'cal-2' });
+    expect(await sync.createCalendar('Organizer – Dom', '#123456')).toBe('cal-2');
+    expect(make.mock.calls.map((c) => c[0].sourceId)).toEqual(['s-g', 's-i']);
+    make.mockClear().mockRejectedValueOnce(new Error('gmail')).mockRejectedValueOnce(new Error('icloud')).mockRejectedValueOnce(new Error('lokalne'));
+    await expect(sync.createCalendar('Organizer – Dom', '#123456')).rejects.toThrow('lokalne');
+    expect(make.mock.calls.map((c) => c[0].sourceId)).toEqual(['s-g', 's-i', 's-l']);
+    // Bez kalendarza domyślnego — od iCloud; bez żadnego konta — błąd.
+    (getDefaultCalendarSync as jest.Mock).mockImplementation(() => {
+      throw new Error('brak');
+    });
+    make.mockClear().mockResolvedValueOnce({ id: 'cal-3' });
+    expect(await sync.createCalendar('Organizer – Dom', '#123456')).toBe('cal-3');
+    expect(make.mock.calls.map((c) => c[0].sourceId)).toEqual(['s-i']);
+    (getSourcesSync as jest.Mock).mockReturnValue([]);
+    await expect(sync.createCalendar('Organizer – Dom', '#123456')).rejects.toThrow('NoCalendarSource');
+    (getDefaultCalendarSync as jest.Mock).mockReset();
   });
 
   it('zgoda tylko na zapis; brak zgody, zapis, rezygnacja', async () => {
@@ -77,7 +122,10 @@ describe('kalendarz iPhone’a (D7)', () => {
     expect(addEventWithForm).not.toHaveBeenCalled();
     (requestCalendarPermissions as jest.Mock).mockResolvedValue({ granted: true });
     expect(await expoDeviceCalendar.add(draft)).toBe('saved');
-    expect(addEventWithForm).toHaveBeenCalledWith({ title: 'T', startDate: draft.start, endDate: draft.end, allDay: false, notes: undefined, location: undefined });
+    expect(addEventWithForm).toHaveBeenCalledWith({ title: 'T', startDate: draft.start, endDate: draft.end, allDay: false, notes: undefined, location: undefined, url: undefined });
+    // Audyt 3 (N-183): adres terminu w kopii.
+    await expoDeviceCalendar.add({ ...draft, url: 'x://event/e1/2026-10-12' });
+    expect(addEventWithForm).toHaveBeenLastCalledWith(expect.objectContaining({ url: 'x://event/e1/2026-10-12' }));
     addEventWithForm.mockResolvedValueOnce({ action: 'canceled', id: null });
     expect(await expoDeviceCalendar.add(draft)).toBe('canceled');
   });

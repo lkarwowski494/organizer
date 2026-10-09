@@ -35,6 +35,17 @@ dane w granicach z `config.retention` (historia 90 dni, zrobione zakupy 90, rozs
 dziennik dostępu 30, instalacje 180). Wynik każdego przebiegu: `private.maintenance_runs`; problem (pominięta grupa,
 przebieg niedokończony) — wpis `kind = 'diagnostic'`, `screen = 'daily_maintenance'` w `public.client_errors`.
 
+## Limit grupy, zapisów konta i walidacja danych (audyt 3, PK-01, decyzja Q12 część 3 A, 9.10.2026)
+Migracje `20261010010000`–`20261010014000`. Grupa ma najwyżej 20 000 żywych (nieusuniętych) wierszy wszystkich spraw i 25 MB
+ich łącznego rozmiaru (JSON wiersza, jak przy pobieraniu; licznik `private.group_usage`); zapis ponad limit serwer
+odrzuca kodem `limit:group_rows` / `limit:group_size` z wyjaśnieniem w „Odrzuconych zmianach”, usuwanie zawsze przechodzi.
+Konto zapisuje najwyżej 20 MB żywych wierszy na dobę, wspólnie przez `sync_push` i bezpośredni zapis do tabel; ponad limit
+całe wywołanie kończy się błędem przejściowym `rate_limited` (SQLSTATE 53300) i telefon ponawia z opóźnieniem. Klucz
+kolejności (`sort_key`) ma najwyżej 128 znaków, a daty są z zakresu 1900-01-01–2199-12-31 (godzina przed 24:00).
+Liczby: `config.quotas.GROUP_ROWS`, `GROUP_BYTES`, `WRITE_BYTES_PER_DAY`, `config.lengths.SORT_KEY`, `config.dates`
+(testy kontraktowe). Wybory projektowe z zapasem nad zwykłym użyciem, bez źródła zewnętrznego. Bez osobnego limitu zostaje
+historia zmian (`activity`, 90 dni): rośnie z każdą zmianą, ale tempo ogranicza limit zapisów konta.
+
 ## Nocny pomiar i podtrzymanie projektu (D185, audyt 2 M-78)
 Zadanie `free-limits` w `nightly.yml` (`.github/scripts/free-limits.mjs`) co noc: mierzy rozmiar bazy (zapytanie
 tylko do odczytu przez Supabase Management API — to samo zapytanie podtrzymuje projekt Free przed uśpieniem po tygodniu

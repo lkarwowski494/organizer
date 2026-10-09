@@ -10,18 +10,19 @@ import { Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { draftOf, withMark } from '../../app/device-calendar';
+import { eventLink } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDateInline, formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
 import { coveredDays, endDayOffset } from '../../domain/span';
-import { createList, inverseOps } from '../../domain/views/commands';
+import { createList, inverseOps, plainChanges } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
 import { checkOff, listsView } from '../../domain/views';
-import { affectedByCancel, createEventTask, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
+import { affectedByCancel, createEventTask, nextInSeries, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
-import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
+import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, seriesRule, timeLabel } from '../../domain/views/events';
 import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
@@ -85,7 +86,7 @@ export function EventScreen({ route, navigation }: Props) {
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);
   const when = occ.startTime === null && span > 1 ? `${formatRange(startDay, addDays(startDay, span - 1), today)} · ${strings['event.daysCount'](span)}` : `${formatLongDate(startDay, today)} · ${time}`;
-  const rule = d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff'];
+  const rule = d.rule ? describeRule(seriesRule(d)!, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff'];
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
   const myMember = d.members.find((m) => m.user_id === userId)?.member_id;
   const iAmResponsible = myMember !== undefined && occ.responsibleId === myMember;
@@ -128,12 +129,14 @@ export function EventScreen({ route, navigation }: Props) {
     const affected = to ? affectedByCancel(tables, d, date, scope) : [];
     const ops = [...cancelEvent(d, date, scope), ...(to ? relinkOps(affected, to) : []), ...seriesCopiesCancelOps(tables, d, date, scope)];
     const back = inverseOps(tables, ops);
+    // Koniec serii (end_series) jako zwykłe zmiany — do odcisku „Ostatnich zmian” i do napisu.
+    const changed = plainChanges(tables, ops);
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
-    // P-81: cała seria (także „ten i następne” od pierwszego terminu) idzie do kosza — „Usunięto serię”.
-    const deleted = ops.some((o) => o.kind === 'delete' && o.entity === 'events');
-    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : deleted ? 'undo.seriesDeleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
+    // P-81: cała seria (także „ten i następne” od pierwszego terminu — wszystkie części łańcucha) idzie do kosza — „Usunięto serię”.
+    const whole = d.chain.every((p) => changed.some((o) => o.kind === 'delete' && o.entity === 'events' && o.id === p.id));
+    if (back) undo.show(strings[d.rule === null ? 'undo.eventDeleted' : whole ? 'undo.seriesDeleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed });
     navigation.goBack();
   };
   const stopSeries = (s: SeriesDef) => {
@@ -163,17 +166,19 @@ export function EventScreen({ route, navigation }: Props) {
   const inMirror = deviceCalendar.mirrorCalendar(eventId, date, occ.date);
   const addToCalendar = async () => {
     setCalendarMsg(null);
-    // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
-    const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
+    // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału; adres
+    // terminu (audyt 3, N-183) — dubel tylko, gdy ten termin jest tego dnia w aplikacji.
+    const r = await calendar.add({ ...draftOf(occ, withMark(d.groupName)), url: eventLink(eventId, date) });
     setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 
-  const next = relink?.scope === 'this' ? nextOccurrence(tables, userId, eventId, date) : null;
-  const others = relink
-    ? upcomingInGroup(tables, userId, d.event.group_id, formatIsoDate(today)).filter(
-        (o) => !(o.eventId === eventId && (!recurring || relink.scope === 'all' || (relink.scope === 'this' ? o.occurrenceDate === date : o.occurrenceDate >= date))),
-      )
-    : [];
+  // Audyt 3: kolejny termin także w następnej części serii po „to i następne”.
+  const next = relink?.scope === 'this' ? nextInSeries(tables, userId, eventId, date) : null;
+  const chain = new Set(d.chain.map((p) => p.id));
+  // Terminy, które właśnie znikają, nie są do wyboru (cała seria i „ten i następne” — na całym łańcuchu).
+  const gone = (o: { eventId: string; occurrenceDate: string }) =>
+    !recurring ? o.eventId === eventId : relink?.scope === 'this' ? o.eventId === eventId && o.occurrenceDate === date : chain.has(o.eventId) && (relink?.scope === 'all' || o.occurrenceDate >= date);
+  const others = relink ? upcomingInGroup(tables, userId, d.event.group_id, formatIsoDate(today)).filter((o) => !gone(o)) : [];
 
   return (
     <Screen testID="screen-event">
@@ -187,6 +192,7 @@ export function EventScreen({ route, navigation }: Props) {
         <Body muted>{strings['event.endsNextDayOn'](formatDateInline(addDays(startDay, 1), today))}</Body>
       ) : null}
       {occ.date !== date ? <Body muted>{strings['event.moved'](formatDateInline(parseIsoDate(date), today))}</Body> : null}
+      {/* Audyt 3 (N-21): koniec całej serii, nie dzień, w którym ta część przeszła w następną po „to i następne”. */}
       <Body muted a11yLabel={spoken(rule)}>{rule}</Body>
       {state === 'cancelled' ? (
         <View style={{ gap: 8 }}>
@@ -288,7 +294,7 @@ export function EventScreen({ route, navigation }: Props) {
         ) : (
           <Card kind="panel">
             <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
-            {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
+            {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next.occurrenceDate, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', ...next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
             <Button kind="danger" label={strings['event.relinkDelete']} testID="relink-delete" onPress={() => finish(relink.scope, { kind: 'delete' })} />

@@ -31,7 +31,7 @@ import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
-import { removeMirrorCalendars } from './calendar-mirror';
+import { adoptMirrorOwned, removeMirrorCalendars } from './calendar-mirror';
 import type { TravelService } from './travel-service';
 import type { DevicePush } from './push';
 import { AppNavigation } from './navigation';
@@ -136,6 +136,23 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
   const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
+  // Ustawienia telefonu (pęk kluczy). Audyt 3 (N-4): build 22 zapisywał listę kalendarzy lustra w bazie konta, a
+  // wylogowanie czyta ją z pęku kluczy — raz przenosimy ją tam; odczyty i zapisy czekają na przeniesienie.
+  const devicePrefs = useMemo((): Prefs | undefined => {
+    const device = deps.prefs;
+    if (!device) return undefined;
+    const ready = adoptMirrorOwned(local, device).catch(() => {});
+    return {
+      get: async (k) => {
+        await ready;
+        return device.get(k);
+      },
+      set: async (k, v) => {
+        await ready;
+        await device.set(k, v);
+      },
+    };
+  }, [local, deps]);
   // D159: po moich zmianach, które mogą zmienić czyjeś przypomnienia — ciche powiadomienia dla członków grup.
   const waker = useMemo(() => groupWaker((r) => deps.account.notifyGroups(r), deps.setTimer ?? defaultTimer), [deps]);
   useEffect(() => () => waker.stop(), [waker]);
@@ -281,6 +298,7 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       travel: deps.travel,
       push: deps.push,
       prefs,
+      devicePrefs,
       local,
       onSignOut: (fn) => {
         leaving.current.add(fn);
@@ -302,7 +320,7 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       nowIso: () => new Date(nowMs()).toISOString(),
       nowMs,
     }),
-    [runtime, db, deps, session, nowMs, account, prefs, local],
+    [runtime, db, deps, session, nowMs, account, prefs, devicePrefs, local],
   );
 
   // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).

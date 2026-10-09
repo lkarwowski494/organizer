@@ -19,14 +19,22 @@ export function TravelBox({ location, eventId, date, upcoming = true }: { locati
     <View testID="travel-box" style={{ gap: 8 }}>
       <Body>{location}</Body>
       {info ? <Body>{strings['travel.leave'](formatTime(info.leaveMs), info.minutes, strings[`travel.mode.${info.mode}`])}</Body> : null}
-      {upcoming && travel.available && !travel.enabled ? <Button kind="secondary" label={strings['travel.suggest']} testID="travel-suggest" onPress={() => void travel.setEnabled(true)} /> : null}
+      {/* Audyt 3 (N-56): po odmowie lokalizacji iOS już nie zapyta — zamiast „Pokaż, kiedy wyjść” wyjaśnienie i Ustawienia iPhone'a. */}
+      {upcoming && travel.available && travel.status === 'denied' ? (
+        <>
+          <Body muted>{strings['travel.denied']}</Body>
+          <Button label={strings['push.openSettings']} testID="travel-open-settings" onPress={travel.openSettings} />
+        </>
+      ) : null}
+      {upcoming && travel.available && !travel.enabled && travel.status !== 'denied' ? <Button kind="secondary" label={strings['travel.suggest']} testID="travel-suggest" onPress={() => void travel.setEnabled(true)} /> : null}
       {upcoming && travel.enabled && travel.status === 'undetermined' ? (
         <>
           <Body muted>{strings['travel.needsPermission']}</Body>
           <Button kind="secondary" label={strings['travel.allow']} testID="travel-allow" onPress={() => void travel.requestPermission()} />
         </>
       ) : null}
-      {upcoming && travel.enabled && travel.status === 'denied' ? <Body muted>{strings['travel.denied']}</Body> : null}
+      {/* Audyt 3 (N-188): wydarzenie poza oknem liczenia — „Wyjdź o” pojawi się później, a nie „nic się nie dzieje”. */}
+      {upcoming && travel.enabled && travel.status === 'granted' && !info && !travel.scheduled(eventId, date) ? <Body muted>{strings['travel.later']}</Body> : null}
       {upcoming && travel.notFound(location) ? <Body muted>{strings['travel.notFound']}</Body> : null}
       <Button kind="secondary" label={strings['event.navigate']} testID="navigate" onPress={() => travel.navigate(location, eventId)} />
       {travel.available ? (

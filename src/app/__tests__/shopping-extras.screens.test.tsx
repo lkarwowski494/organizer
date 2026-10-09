@@ -56,6 +56,9 @@ describe('działy', () => {
     // Druga pozycja o tej samej nazwie trafia od razu do zapamiętanego działu.
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'mydło');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
+    // Audyt 3 (Q8 A, N-7): ten sam produkt już czeka — pytanie zamiast cichego dubla.
+    expect(within(screen.getByTestId('shop-duplicate')).getByText('„Mydło” już jest na liście')).toBeTruthy();
+    await press(within(screen.getByTestId('shop-duplicate')).getByLabelText('Dodaj jeszcze raz'));
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
     // Dział z pamięci grupy czyta wyświetlanie — nowa pozycja nie wysyła własnego działu.
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mydło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
@@ -85,6 +88,8 @@ describe('podpowiedzi', () => {
     const s = screen.getByTestId('suggestions');
     expect(within(s).getByLabelText('Dodaj: Makaron')).toBeTruthy();
     await press(within(s).getByLabelText('Dodaj: Makaron'));
+    // Makaron leży w koszyku (Q8 A, N-7) — „Dodaj jeszcze raz” dokłada nową pozycję.
+    await press(within(screen.getByTestId('shop-duplicate')).getByLabelText('Dodaj jeszcze raz'));
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Makaron', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });

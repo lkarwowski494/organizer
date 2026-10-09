@@ -75,7 +75,7 @@ export function formFromText(
   const resolve = (answers: QuickAnswers) => resolveQuick(t, userId, text, { chipGroupId: o.chipGroupId ?? null, personalLabel: o.personalLabel, answers });
   let answers: QuickAnswers = {};
   let r: QuickResolution = resolve(answers);
-  if (r.kind === 'manyGroups' || r.kind === 'unknownGroup') r = resolve((answers = { skipTag: true }));
+  if (r.kind === 'manyGroups' || r.kind === 'unknownGroup' || r.kind === 'childGroup') r = resolve((answers = { skipTag: true }));
   const many = r.kind === 'many' ? r : null;
   if (r.kind === 'many' || r.kind === 'unknown') r = resolve({ ...answers, skipMention: true });
   const target = r.kind === 'ok' ? r.target : null;
