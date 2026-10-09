@@ -43,13 +43,13 @@ describe('siatka miesiąca: dziś, święto, zaznaczenie', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Więcej'));
-    await press(await screen.findByLabelText('Inny dzień: Wybierz dzień'));
+    await press(await screen.findByTestId('form-date'));
     const today = screen.getAllByLabelText(/^Dziś, Środa, 7 października/);
     expect(today).toHaveLength(1);
     const id = String(today[0]!.props.testID).replace('-day-', '-num-');
     expect(flat(screen.getByTestId(id))).toMatchObject({ borderWidth: 2, borderColor: c.ink });
     await press(screen.getByLabelText('Czwartek, 8 października'));
-    await press(screen.getByLabelText(/^Inny dzień: /));
+    await press(screen.getByTestId('form-date'));
     const sel = screen.getByLabelText('Czwartek, 8 października');
     expect(sel.props.accessibilityState).toMatchObject({ selected: true });
     expect(flat(screen.getByTestId(String(sel.props.testID).replace('-day-', '-num-'))).backgroundColor).toBe(c.ink);
