@@ -1,5 +1,8 @@
 # 0035. Decyzje po audycie (właściciel, 8.10.2026)
 
+Rejestr D126–D143 (audyt 1) z notatkami wykonania kolejnych paczek. Decyzje D144–D200 z audytu 2 i decyzje podjęte
+potem z upoważnienia właściciela: ADR 0041.
+
 | ID | Sprawa (audyt) | Decyzja | Odrzucone |
 |---|---|---|---|
 | D126 | A. Obecność przy rutynach i lekcjach | Bez obecności przy rutynach (wydarzenie ze stałymi krokami) i lekcjach z planu lekcji | Przełącznik przy wydarzeniu; zostaje |

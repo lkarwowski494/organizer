@@ -5,11 +5,11 @@ Odrzucone: tylko rutyny; tylko nawyki z serią; nie teraz.
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - **D113 Rutyna:** wydarzenie cykliczne (dni, godzina, opcjonalnie osoby) plus stałe zadania serii (D65) jako kroki.
-  - Bez migracji i nowej tabeli.
+  - Bez migracji i nowej tabeli. → Od D126 (ADR 0035) rutyna ma rodzaj `events.kind = 'routine'` (kolumna ustawiana przy tworzeniu) i nie pyta o obecność.
   - Kroki pojawiają się na każde wystąpienie, stoją pod rutyną (D104), a niezrobione po dniu mijają (D61), więc rutyna nie zostawia zaległości.
   - Kroki trafiają na ogólną listę grupy (D97). Siedem dni to `FREQ=DAILY`.
   - Wejście: Kalendarz → „Dodaj rutynę”. Zmiana potem jak wydarzenie, kroki na ekranie wydarzenia („stałe zadania”).
-  - Odrzucone: nowa encja „rutyna” (migracja, druga ścieżka synchronizacji) i powtarzane zadanie z kopiowaniem podzadań. Niezrobione zadanie powtarzane nie tworzy następnego, więc pominięty dzień zatrzymałby rutynę.
+  - Odrzucone: nowa encja „rutyna” (migracja, druga ścieżka synchronizacji) i powtarzane zadanie z kopiowaniem podzadań. Niezrobione zadanie powtarzane nie tworzy następnego, więc pominięty dzień zatrzymałby rutynę. (Od D133, ADR 0035, zadanie „Tylko tego dnia” tworzy następne także po przeminięciu — uzasadnienie dotyczy zwykłego zadania powtarzanego.)
 - **D114 Seria:** licznik od 2 z rzędu („seria: 5 z rzędu”) przy rutynie i zadaniu powtarzanym w „Moich sprawach”.
   - Rutyna: wystąpienia z rzędu ze wszystkimi krokami zrobionymi. Dzisiejsze liczy się po zrobieniu, a niezrobione dziś serii nie przerywa.
   - Zadanie powtarzane: powtórzenia z rzędu odhaczone najpóźniej w dniu terminu (łańcuch kopii po identyfikatorze następnego).

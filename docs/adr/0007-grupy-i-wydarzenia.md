@@ -20,7 +20,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
    - Powód: RFC 5545 daje serii jedną godzinę startu (DTSTART).
    - Odrzucone: jedna seria z listą godzin per dzień. To poza standardem i utrudniłoby późniejszy eksport do kalendarza.
 3. **Zmiana jednego wystąpienia to wiersz `event_overrides`**, którego kluczem jest data pierwotna. Wiersz może przenieść wystąpienie (dzień, godziny), zmienić tytuł albo je odwołać.
-   - Jedna godzina może się zmienić tylko dla wystąpienia z godziną. Wydarzenie całodniowe pozostaje całodniowe, bo pusta godzina w wyjątku znaczy „bez zmiany”.
+   - Jedna godzina może się zmienić tylko dla wystąpienia z godziną. Wydarzenie całodniowe pozostaje całodniowe, bo pusta godzina w wyjątku znaczy „bez zmiany”. → Zmienione przez D136 (ADR 0035): wyjątek ma własny znacznik `all_day`, więc pojedynczy termin serii z godziną może być całodniowy i odwrotnie.
    - Przeniesione wystąpienie jest widoczne, jeśli przesunięto je najwyżej o 62 dni.
    - Odrzucone: kopia całego wydarzenia na każde wystąpienie. Zmiana całej serii przestałaby wtedy obejmować kopie.
 4. **„To i następne” = koniec starej serii dzień wcześniej (UNTIL) + nowa seria od tego dnia.** Wyjątki od tego dnia przechodzą do nowej serii.
@@ -34,6 +34,8 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
 
    Kalendarz pokazuje wszystkie wydarzenia z moich grup.
 
+   → Zmienione: osoba odpowiedzialna zawęża widok dorosłych przy wydarzeniu z dzieckiem (D66, ADR 0011); lekcje dziecka, w których sam nie uczestniczę, to jeden zwinięty wiersz na dzień bez przypomnień (D127, ADR 0035); dziecko z kontem widzi tylko wydarzenia, w których uczestniczy, albo całej grupy (D155, ADR 0035); wydarzenie przez kilka dni stoi w każdym swoim dniu (D199, ADR 0037).
+
    Odrzucone: dziecko jako uczestnik oznacza tylko dziecko. Dzieci zwykle nie mają kont, więc takie wydarzenie nie trafiłoby do nikogo.
 6. **Dzieci nie tworzą ani nie zmieniają wydarzeń.** To ta sama zasada co przy listach, pilnowana w strażniku SQL i w UI.
 7. **COUNT z innych źródeł zamienia się na datę ostatniego wystąpienia** przy edycji. Formularz ma tylko „bez końca” albo „do dnia”.
@@ -42,7 +44,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
 | D59 | Ochrona przed przypadkowym odhaczeniem | Systemowe okno „Zrobione?” przy odhaczaniu zadań. Pozycja zakupów trafia do koszyka bez pytania, z paskiem „Cofnij” — nie znika, tylko przechodzi do „W koszyku” (zmiana: decyzja właściciela z 8.10.2026, audyt 2, PW-15 A; wcześniej okno „Do koszyka?”). Cofnięcie odhaczenia działa bez pytania. | Dwa dotknięcia; bez pytania z paskiem „Cofnij” także przy zadaniach; przy zakupach okno „Do koszyka?” (do 8.10.2026) albo przełącznik w Ustawieniach |
-| D60 | Usuwanie z listy | Przesunięcie wiersza w lewo odsłania „Usuń”, a usuwa dopiero dotknięcie tego przycisku. Potem widać pasek „Cofnij” (także po usunięciu listy), a pozycja trafia do kosza. Dziecko nie dostaje usuwania (D34). Audyt 2: ta sama zasada dla zrobionych, podzadań, list, osób, grup i wydarzeń; kosz na ekranie Grupy (D151, D187 — ADR 0036). | Długie przytrzymanie z menu; usuwanie tylko z ekranu zadania |
+| D60 | Usuwanie z listy | Przesunięcie wiersza w lewo odsłania „Usuń”, a usuwa dopiero dotknięcie tego przycisku. Potem widać pasek „Cofnij” (także po usunięciu listy), a pozycja trafia do kosza. Dziecko nie dostaje usuwania (D34). Audyt 2: ta sama zasada dla zrobionych, podzadań, list, osób, grup i wydarzeń; kosz na ekranie Grupy (D151, D187 — ADR 0040). | Długie przytrzymanie z menu; usuwanie tylko z ekranu zadania |
 
 Kolejność dnia (poprawka): w „Dziś”, „Jutro” i w dniu kalendarza wydarzenia i zadania tworzą jedną listę.
 - Na górze są całodniowe: najpierw wydarzenia, potem zadania bez godziny.
