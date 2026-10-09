@@ -14,7 +14,7 @@ import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { agenda } from '../views/agenda';
 import { mirrorHash, mirrorItems } from '../views/calendar-sync';
 import { occurrenceDays } from '../views/event-rows';
-import { createEvent, editEvent, eventDetail, type EventFields, eventsByDate, expandEventDays, expandEvents, fieldsOf, groupSeries, lengthLabel, todayEvents } from '../views/events';
+import { createEvent, editEvent, eventDetail, type EventFields, eventsByDate, expandEventDays, expandEvents, fieldsOf, groupSeries, lengthLabel, type RuleLabels, todayEvents } from '../views/events';
 import { myDays } from '../views/my-days';
 import { planReminders } from '../views/reminders';
 
@@ -216,7 +216,7 @@ describe('zapis', () => {
     const t = world();
     event(t, 'oboz', { start_date: '2026-10-12', days: 5 });
     event(t, 'jeden', { start_date: '2026-10-12' });
-    expect(groupSeries(t, ME, 'gf', TODAY).map((s) => s.summary)).toEqual(['Poniedziałek, 12 października', '12–16 października']);
+    expect(groupSeries(t, ME, 'gf', TODAY, {} as RuleLabels).map((s) => s.summary)).toEqual(['Poniedziałek, 12 października', '12–16 października']);
   });
 });
 
@@ -340,7 +340,7 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc (pt. 18:00 – nd
     const [i] = mirrorItems(t, ME, TODAY, 0, 7, new Set(), (n) => n);
     expect(i).toMatchObject({ startTime: '18:00', endTime: '16:00', days: 1, durationMin: TRIP });
     expect(mirrorHash(i!)).not.toBe(mirrorHash({ ...i!, durationMin: null }));
-    expect(groupSeries(t, ME, 'gf', TODAY)[0]!.time).toBe('18:00');
+    expect(groupSeries(t, ME, 'gf', TODAY, {} as RuleLabels)[0]!.time).toBe('18:00');
   });
 });
 

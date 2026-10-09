@@ -85,13 +85,13 @@ describe('zakupy na „Moje sprawy”', () => {
   it('wpis „Zakupy: …” z liczbą pozycji; odhaczenie pyta o niekupione', async () => {
     const { store } = await open(planned());
     const row = await screen.findByTestId('today-trip-lz');
-    expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
+    expect(within(row).getByText('Zakupy na weekend')).toBeTruthy();
     expect(within(row).getByText(/1 do kupienia/)).toBeTruthy();
-    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy na weekend'));
     expect(lastAlert()).toMatchObject({ title: 'Zakupy zrobione?', message: 'Na liście została 1 niekupiona pozycja.' });
     await answerAlert('Anuluj');
     expect(store.dispatched).toEqual([]);
-    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy na weekend'));
     await answerAlert('Zostaw na następne zakupy');
     expect(store.dispatched).toEqual([
       { kind: 'delete', entity: 'tasks', id: 's-maslo' },
@@ -103,22 +103,22 @@ describe('zakupy na „Moje sprawy”', () => {
   it('„Oznacz wszystko jako kupione”; pusta lista pyta tylko „Zrobione”; dotknięcie otwiera listę', async () => {
     const base = planned();
     const { store } = await open(base);
-    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy na weekend'));
     await answerAlert('Oznacz wszystko jako kupione');
     expect(store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['patch:s-chleb', 'delete:s-maslo', 'delete:s-chleb', 'patch:lz']);
 
     const empty = planned();
     delete empty.tasks!['s-chleb'];
     const s2 = await open(empty);
-    await press(screen.getAllByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend').at(-1)!);
-    expect(lastAlert()).toMatchObject({ message: 'Zakupy: Zakupy na weekend' });
+    await press(screen.getAllByLabelText('Oznacz jako zrobione: Zakupy na weekend').at(-1)!);
+    expect(lastAlert()).toMatchObject({ message: 'Zakupy na weekend' });
     await answerAlert('Zrobione');
     expect(s2.store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['delete:s-maslo', 'patch:lz']);
   });
 
   it('dotknięcie wpisu otwiera listę', async () => {
     await open(planned());
-    await press(screen.getByLabelText(/^Otwórz:\ Zakupy:\ Zakupy\ na\ weekend(,|$)/));
+    await press(screen.getByLabelText(/^Otwórz:\ Zakupy\ na\ weekend(,|$)/));
     await screen.findByTestId('screen-list');
     expect(screen.getByTestId('trip')).toBeTruthy();
   });
@@ -135,7 +135,7 @@ describe('zakupy na liście', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lz'));
     const trip = await screen.findByTestId('trip');
-    expect(within(trip).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.')).toBeTruthy();
+    expect(within(trip).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.')).toBeTruthy();
     await press(screen.getByTestId('trip-plan'));
     expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(true);
     await press(screen.getByLabelText('Anuluj'));
@@ -144,11 +144,11 @@ describe('zakupy na liście', () => {
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
     await press(screen.getByTestId('trip-save'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } });
-    expect(screen.getByText('dziś · robi: Łukasz')).toBeTruthy();
+    expect(screen.getByText('dziś · dla Ciebie')).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Nikt konkretny'));
     await press(screen.getByTestId('trip-save'));
-    expect(screen.getByText('dziś · ktokolwiek')).toBeTruthy();
+    expect(screen.getByText('dziś · nikt konkretny')).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
     await press(screen.getByTestId('trip-save'));
@@ -162,14 +162,14 @@ describe('zakupy na liście', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ entity: 'handoffs', set: { status: 'cancelled' } });
     await press(screen.getByTestId('trip-done'));
     await answerAlert('Zostaw na następne zakupy');
-    expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w „Moich sprawach”.')).toBeTruthy();
+    expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.')).toBeTruthy();
   });
 
   it('przekazanie zakupów do mnie: „Do potwierdzenia” z tytułem „Zakupy: …”', async () => {
     const base = planned({ responsible_member_id: 'ala' });
     put(base, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'lz', occurrence_date: null, from_member: 'ala', to_member: 'mf', status: 'pending', closed: false, version: 1 });
     await open(base);
-    expect(within(screen.getByTestId('handoff-inbox')).getByText('Ala przekazuje Ci: Zakupy: Zakupy na weekend')).toBeTruthy();
+    expect(within(screen.getByTestId('handoff-inbox')).getByText('Ala przekazuje Ci: Zakupy na weekend')).toBeTruthy();
   });
 
   it('lista zadań nie ma zakupów', async () => {
@@ -188,13 +188,13 @@ describe('ilości i Kalendarz (D77, O-053)', () => {
     const { store } = await open(base);
     await press(screen.getByLabelText('Kalendarz'));
     const row = await screen.findByTestId('cal-trip-lz');
-    expect(within(row).getByText('Zakupy: Zakupy na weekend')).toBeTruthy();
+    expect(within(row).getByText('Zakupy na weekend')).toBeTruthy();
     expect(within(row).getByText(/2 do kupienia/)).toBeTruthy();
     expect(within(row).getByText(/dla Ciebie/)).toBeTruthy();
-    await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
+    await press(within(row).getByLabelText('Oznacz jako zrobione: Zakupy na weekend'));
     await answerAlert('Anuluj');
     expect(store.dispatched).toEqual([]);
-    await press(within(row).getByLabelText(/^Otwórz:\ Zakupy:\ Zakupy\ na\ weekend(,|$)/));
+    await press(within(row).getByLabelText(/^Otwórz:\ Zakupy\ na\ weekend(,|$)/));
     const item = await screen.findByTestId('task-s-mleko');
     expect(within(item).getByText('mleko')).toBeTruthy();
     expect(within(item).getByText(/2/)).toBeTruthy();

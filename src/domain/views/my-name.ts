@@ -5,13 +5,14 @@
  * w konkretnej grupie (np. „Tata” w rodzinie) zostaje.
  */
 import { config } from '../../config';
+import { PLACEHOLDER_NAME } from '../../config/names.pl';
 import type { NewOp } from '../sync-engine/client';
 import { renameMember } from './commands';
 import { groupsView } from './index';
 import type { Tables } from './model';
 
-/** Imię zastępcze, gdy konto nie ma imienia (serwer: migracja core, `coalesce(..., 'Ja')`). */
-export const PLACEHOLDER_NAME = 'Ja';
+/** Imię zastępcze, gdy konto nie ma imienia (src/config/names.pl.ts; serwer: `coalesce(..., 'Ja')`, test kontraktowy). */
+export { PLACEHOLDER_NAME };
 
 /** Początek adresu e-mail — tak aplikacja nazywała osobę bez imienia (przed D100). */
 export const emailName = (email: string | null | undefined) => (email ? email.split('@')[0]! : null);

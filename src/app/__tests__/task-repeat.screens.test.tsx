@@ -87,7 +87,7 @@ describe('powtarzanie zadania', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=DAILY' } });
     await press(within(ed).getByLabelText('Od wykonania'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=DAILY;INTERVAL=7' } });
-    await press(screen.getByLabelText('tygodnie'));
+    await press(screen.getByLabelText('Tygodnie'));
     await press(screen.getByLabelText('2'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=WEEKLY;INTERVAL=2' } });
     await press(within(ed).getByLabelText('Nie'));
@@ -142,7 +142,7 @@ describe('historia zadania', () => {
     await openTask(base);
     const h = screen.getByTestId('task-history');
     const lines = within(h).getAllByText(/ · /).map((n) => [n.props.children].flat().map((x: unknown) => (typeof x === 'string' ? x : (x as { props: { children: string } }).props.children)).join(''));
-    expect(lines).toEqual(['Ktoś odhacza · Środa, 7 października, 09:30', 'Ala zmienia: termin, powtarzanie, inne · Środa, 7 października, 08:00', 'Ala dodaje · Wtorek, 6 października, 18:05']);
+    expect(lines).toEqual(['Ktoś odhacza · dziś · 09:30', 'Ala zmienia: termin, powtarzanie, inne · dziś · 08:00', 'Ala dodaje · wczoraj · 18:05']);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
     expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();
