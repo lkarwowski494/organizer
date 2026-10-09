@@ -319,7 +319,7 @@ describe('„migająca” sieć (N-198)', () => {
       jest.advanceTimersByTime(config.a11y.SYNC_CALM_MS);
       expect(said.filter(Boolean)).toEqual(['Offline, 1 zmiana czeka', 'Przed chwilą']);
       // Powrót, który w chwili ogłoszenia znów jest problemem albo synchronizacją — bez słowa.
-      to({ state: 'error' });
+      to({ state: 'error', pending: 0, error: 'x' });
       to({ state: 'pending', pending: 2 });
       i = { state: 'syncing', pending: 0 };
       jest.advanceTimersByTime(config.a11y.SYNC_CALM_MS);
