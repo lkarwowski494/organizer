@@ -367,6 +367,31 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
     await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
   });
 
+  // Audyt 3, N-19: „odwołuję i chowam telefon” — serwer przyjmuje zmianę już po wyjściu, uśpiona aplikacja nie doczeka odstępu.
+  it('zmiana przyjęta przez serwer już po wyjściu z aplikacji — prośba od razu', async () => {
+    const t = makeDeps({ session });
+    const instant = t.deps.setTimer!;
+    t.deps.setTimer = (fn, ms) => (ms === config.wake.DEBOUNCE_MS ? () => {} : instant(fn, ms));
+    const push = t.deps.transport.push;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((ok) => (release = ok));
+    t.deps.transport = { ...t.deps.transport, push: async (req) => (await gate, push(req)) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await quickAdd('chleb jutro');
+    expect(t.pushes).toHaveLength(0);
+    // Atrapa RN ma tu funkcję; w aplikacji to napis ze stanem (https://reactnative.dev/docs/appstate#currentstate).
+    const mock = Object.getOwnPropertyDescriptor(AppState, 'currentState')!;
+    Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+    try {
+      await act(() => appStateHandlers.forEach((h) => h('background')));
+      expect(t.deps.account.notifyGroups).not.toHaveBeenCalled();
+      await act(async () => release());
+      await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
+    } finally {
+      Object.defineProperty(AppState, 'currentState', mock);
+    }
+  });
+
   it('ciche powiadomienie przy działającej aplikacji: pobiera jej pętla, także w tle, potem plan przypomnień', async () => {
     const replaceReminders = jest.fn(async () => {});
     const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
