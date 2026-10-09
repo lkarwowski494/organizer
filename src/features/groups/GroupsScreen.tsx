@@ -44,7 +44,7 @@ export function GroupsScreen() {
 
   return (
     <Screen testID="screen-groups">
-      <Title>{strings['groups.title']}</Title>
+      <Title>{strings['tabs.groups']}</Title>
       <View style={{ gap: 10 }}>
         {groups.map((g) => (
           <SwipeRow key={g.id} title={g.name} enabled={groupDetail(tables, userId, g.id)?.canDelete === true} onDelete={() => deleteGroup(g)} testID={`swipe-${g.id}`}>
@@ -61,7 +61,7 @@ export function GroupsScreen() {
       {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['groups.new']} onPress={() => nav.navigate('NewGroup')} />
       <Button kind="secondary" label={strings['groups.join']} onPress={() => nav.navigate('Invite', {})} />
-      <Button kind="secondary" label={strings['settings.open']} onPress={() => nav.navigate('Settings')} />
+      <Button kind="secondary" label={strings['settings.title']} onPress={() => nav.navigate('Settings')} />
       <NavRow title={strings['recent.title']} testID="open-recent" onPress={() => nav.navigate('Recent')} />
       <TrashSection />
     </Screen>

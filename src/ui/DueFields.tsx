@@ -36,7 +36,7 @@ export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel
         }}
         options={[
           ...(extra ? [{ value: 'extra', label: extra.label }] : []),
-          { value: 'today', label: strings['form.today'] },
+          { value: 'today', label: strings['common.today'] },
           { value: 'tomorrow', label: strings['form.tomorrow'] },
           { value: 'other', label: otherLabel },
           { value: 'none', label: strings['form.noDate'] },
@@ -44,7 +44,7 @@ export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel
       />
       {/* Audyt 2: pole ma inną nazwę niż opcja „Inny dzień” — dwa elementy o jednej nazwie myliły VoiceOver i Sterowanie głosem. */}
       <DateField label={strings['due.day']} value={date} onChange={(d) => (setOther(0), onDate(d))} today={today} testID={`${testID}-date`} openSignal={other} optional />
-      <TimeField label={timeLabel ?? strings['task.dueTime']} value={time} onChange={onTime} testID={`${testID}-time`} optional disabledNote={date === '' ? strings['due.timeNeedsDay'] : undefined} />
+      <TimeField label={timeLabel ?? strings['common.timeOptional']} value={time} onChange={onTime} testID={`${testID}-time`} optional disabledNote={date === '' ? strings['due.timeNeedsDay'] : undefined} />
     </View>
   );
 }

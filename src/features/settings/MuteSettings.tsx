@@ -45,7 +45,7 @@ export function MuteSettings() {
               value={muted.includes(g.id) ? 'off' : 'on'}
               onChange={(v) => toggle(g.id, v === 'off')}
               options={[
-                { value: 'on', label: strings['mutes.on'] },
+                { value: 'on', label: strings['common.on'] },
                 { value: 'off', label: strings['mutes.off'] },
               ]}
             />

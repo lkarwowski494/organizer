@@ -69,7 +69,7 @@ export function ItemPanel({ title, current, isStaple, error, onRename, onPick, o
       <Segmented label={strings['shop.category']} value={current} onChange={onPick} options={CATEGORY_OPTIONS} />
       <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={title} />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button kind="secondary" label={strings['shop.done']} testID="item-done" onPress={onClose} />
+      <Button kind="secondary" label={strings['common.finish']} testID="item-done" onPress={onClose} />
     </View>
   );
 }
@@ -120,8 +120,8 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
           ))}
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
           {error ? <ErrorText>{error}</ErrorText> : null}
-          <Button label={strings['shop.stapleSave']} testID="staple-save" onPress={save} />
-          <Button kind="secondary" label={strings['shop.done']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
+          <Button label={strings['common.add']} testID="staple-save" onPress={save} />
+          <Button kind="secondary" label={strings['common.finish']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
         </>
       ) : (
         <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />
