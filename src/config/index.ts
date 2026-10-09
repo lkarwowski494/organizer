@@ -395,6 +395,11 @@ export const config = {
     edgeFunctionInvocationsPerMonthWarn: 350_000, // limit 500 tys.
     supabaseIdleDaysWarn: 5, // pauza po 7 dniach bezczynności
     actionsCacheBytesWarn: 8 * 1024 ** 3, // limit 10 GB
+    // Artefakty Actions: limit GitHub Free 500 MB (czy dotyczy repo publicznego — do potwierdzenia, audyt 3 N-106).
+    actionsArtifactsBytesWarn: 350 * 1024 * 1024,
+    // Od tego dnia (UTC) brak sekretu SUPABASE_MONITOR_TOKEN oblewa nocny pomiar (audyt 3, N-83; tydzień na dodanie
+    // tokenu przez właściciela — docs/limits.md).
+    monitorSecretRequiredFrom: '2026-10-16',
     testflightBuildAgeDaysWarn: 80, // build wygasa po 90 dniach
   },
 } as const;

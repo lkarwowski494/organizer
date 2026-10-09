@@ -66,7 +66,7 @@ domena — zasada kosztów), D180, D184 i pozostałe. Właściciel może każdą
 | D182 | Usunięte wydarzenie z przypiętymi zadaniami | Po 30 dniach zadania dostają dzień terminu jako własny termin, wydarzenie znika | Wyczyścić treść; zmienić politykę | ADR 0035 |
 | D183 | Nadużycia jednego konta | Twarde limity w bazie, liczby w `config.quotas` | Tylko monitoring | ADR 0035, docs/limits.md |
 | D184 | Historia zmian | 90 dni na serwerze i na telefonach | Na żądanie | ADR 0035 |
-| D185 | Limity darmowych usług | Nocny skrypt (Supabase Management API), ostrzeżenie przy 70%, podtrzymanie projektu; token API w sekretach GitHub wgrywa właściciel | Ręczne sprawdzanie | — (docs/limits.md: progi dziś sprawdzane ręcznie) |
+| D185 | Limity darmowych usług | Nocny skrypt (Supabase Management API), ostrzeżenie przy 70%, podtrzymanie projektu; token API z zakresem (tylko odczyt, tylko ten projekt) w środowisku GitHub `monitor` (tylko main) wgrywa właściciel (audyt 3, N-85) | Ręczne sprawdzanie | wdrożony 9.10.2026; mierzy po dodaniu sekretu, bez niego ostrzeżenie, od `config.limits.monitorSecretRequiredFrom` błąd (audyt 3, N-83); egress i Realtime ręcznie raz w miesiącu (docs/limits.md) |
 | D186 | Audyt dostępności | Automatyczny na symulatorze w `e2e.yml` | Ręczna lista | — |
 | D187 | Kiedy pytać przy usuwaniu | Bez pytania, zawsze „Cofnij” i kosz; pytanie tylko przy nieodwracalnych i przy liście z zadaniami; wspólną listę usuwa każdy dorosły | Pytanie przy wszystkim, co dotyczy innych | ADR 0040 |
 | D188 | Ustawienia | Ikona w prawym górnym rogu każdej zakładki; chip synchronizacji tylko informuje | Zakładka „Ja”; bez zmian | chip: ADR 0035 (M-9); ikona: — |
