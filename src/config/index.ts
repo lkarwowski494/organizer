@@ -385,6 +385,13 @@ export const config = {
   URL_SCHEME: 'io.github.lkarwowski494.organizer',
 
   /**
+   * Od tego dnia (UTC) brak sekretu SUPABASE_MONITOR_TOKEN oblewa nocne zadanie free-limits (D185, audyt 3 N-83):
+   * bez sekretu nic nie jest mierzone ani podtrzymywane, więc zielony przebieg nie może tego ukrywać. Wybór projektowy:
+   * tydzień od wdrożenia skryptu (9.10.2026) na dodanie sekretu przez właściciela.
+   */
+  LIMITS_MONITOR_TOKEN_REQUIRED_FROM: '2026-10-16',
+
+  /**
    * Progi ostrzeżeń dla darmowych limitów (ok. 70% limitu).
    * Źródła limitów: supabase.com/pricing, docs.github.com (billing, limits) — sprawdzone 5–6.10.2026.
    */
