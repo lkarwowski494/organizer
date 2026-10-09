@@ -42,8 +42,24 @@ d('src/config ↔ liczby w ograniczeniach i funkcjach SQL', () => {
     ['app_feedback', 'app_feedback_message_check', config.feedback.MAX_LENGTH],
     ['app_feedback', 'app_feedback_screen_check', config.feedback.SCREEN_MAX],
     ['app_feedback', 'app_feedback_app_version_check', config.feedback.VERSION_MAX],
+    // Audyt 3 (N-2): klucz kolejności.
+    ['tasks', 'tasks_sort_key_length', config.lengths.SORT_KEY],
+    ['lists', 'lists_sort_key_length', config.lengths.SORT_KEY],
   ] as const)('%s.%s ≤ %d', async (table, name, want) => {
     expect(max(await check(table, name))).toEqual([want]);
+  });
+
+  // Audyt 3 (N-1): każde ograniczenie zakresu dat i godzin (*_range, migracja 20261010010000) ma granice z config.dates.
+  it('zakres dat i godzin = config.dates', async () => {
+    const defs = (await db.query<{ name: string; def: string }>("select conname as name, pg_get_constraintdef(oid) as def from pg_constraint where connamespace = 'public'::regnamespace and conname like '%\\_range' and pg_get_constraintdef(oid) ~ '::(date|time)' order by 1")).rows;
+    expect(defs.length).toBe(19);
+    const { MIN, MAX } = config.dates;
+    const next = new Date(Date.parse(`${MAX}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    for (const { name, def } of defs) {
+      const allowed = [`'${MIN}'::date`, `'${MAX}'::date`, "'24:00:00'::time without time zone", `'${MIN} 00:00:00+00'::timestamp with time zone`, `'${next} 00:00:00+00'::timestamp with time zone`];
+      const literals = [...def.matchAll(/'[^']*'::[a-z ]+/g)].map((m) => m[0]);
+      expect({ name, literals: literals.filter((l) => !allowed.includes(l)) }).toEqual({ name, literals: [] });
+    }
   });
 
   it('token push: cyfry szesnastkowe, długość PUSH_TOKEN_MIN–PUSH_TOKEN_MAX', async () => {

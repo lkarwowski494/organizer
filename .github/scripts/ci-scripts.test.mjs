@@ -146,6 +146,28 @@ describe('wynik testów mutacyjnych z części (M-47)', () => {
   });
 });
 
+describe('zależności skryptów CI zadeklarowane w package.json (audyt 3, N-240)', () => {
+  it('każdy pakiet importowany w .github/scripts i scripts jest w dependencies albo devDependencies (nie tylko przechodnio)', () => {
+    const pkg = JSON.parse(read('package.json'));
+    const declared = new Set([...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})]);
+    const sources = ['.github/scripts', 'scripts', 'scripts/e2e'].flatMap((d) =>
+      readdirSync(join(ROOT, d)).filter((f) => /\.m?js$/.test(f)).map((f) => `${d}/${f}`),
+    );
+    sources.push('stryker.shard.config.mjs');
+    const used = new Map();
+    for (const f of sources) {
+      for (const m of read(f).matchAll(/(?:^|\n)\s*import\s[^'"]*?from\s*['"]([^'".][^'"]*)['"]|import\(\s*['"]([^'".][^'"]*)['"]\s*\)/g)) {
+        const spec = m[1] ?? m[2];
+        if (spec.startsWith('node:')) continue;
+        const name = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
+        used.set(name, f);
+      }
+    }
+    assert.ok(used.has('minimatch') && used.has('mutation-testing-metrics') && used.has('yaml'), [...used.keys()].join());
+    for (const [name, f] of used) assert.ok(declared.has(name), `${f}: ${name} spoza package.json`);
+  });
+});
+
 describe('kontrakty workflow (audyt 2)', () => {
   it('db.yml rusza przy zmianie wszystkiego, co importują testy tests/db, co noc i ręcznie (M-155)', () => {
     const seen = new Set();
@@ -164,7 +186,8 @@ describe('kontrakty workflow (audyt 2)', () => {
     assert.ok(imported.some((p) => p.startsWith('src/domain/sync-engine/')), 'testy tests/db importują silnik synchronizacji');
     const { on } = workflow('db.yml');
     assert.deepEqual(on.pull_request.paths, on.push.paths);
-    for (const p of [...imported, '.github/workflows/db.yml']) {
+    // Zależności npm, z których korzystają tests/db (pg, fast-check, jest) — audyt 3, N-241.
+    for (const p of [...imported, 'package.json', 'package-lock.json', '.github/workflows/db.yml']) {
       assert.ok(on.push.paths.some((glob) => minimatch(p, glob, { dot: true })), `${p} poza filtrem paths w db.yml`);
     }
     assert.ok(on.schedule?.length > 0 && 'workflow_dispatch' in on);

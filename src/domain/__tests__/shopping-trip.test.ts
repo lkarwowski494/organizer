@@ -3,7 +3,7 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
+import { asTrip, boughtItems, buyAgainOps, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
 import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
@@ -239,5 +239,56 @@ describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
     put(t, 'lists', 'f', list('f', 'gf', { name: 'Rossmann', due_date: '2026-10-07', responsible_member_id: 'mf' }));
     const again = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
     expect(again.flatMap((d) => d.items.filter((x) => x.id === 'e' || x.id === 'f').map((x) => [x.id, x.overdueDays]))).toEqual([['e', 2], ['f', 0]]);
+  });
+});
+
+describe('audyt 3: zakupy bez planu, kupione, dziecko z kontem', () => {
+  it('N-7: „Zakupy zrobione” bez planu nie wysyła pustej zmiany planu; historia bez dnia planu', () => {
+    const t = world();
+    put(t, 'lists', 'lz', list('lz', 'gf'));
+    item(t, 'mleko', 'lz', true);
+    expect(finishTripOps(t, ME, 'lz', false, '2026-10-07T09:00:00Z', () => 'tr')).toEqual([
+      { kind: 'delete', entity: 'tasks', id: 'mleko' },
+      { kind: 'create', entity: 'shopping_trips', id: 'tr', group_id: 'gf', set: { list_id: 'lz', planned_date: null, done_at: '2026-10-07T09:00:00Z' } },
+    ]);
+  });
+
+  it('N-49: kupione w ostatnich zakupach — usunięte z koszyka, jeden wiersz na produkt, najnowsze pierwsze, bez tych na liście', () => {
+    const t = world();
+    put(t, 'lists', 'lz', list('lz', 'gf'));
+    item(t, 'm1', 'lz', true, { title: 'Mleko', deleted_at: '2026-10-01T08:00:00Z' });
+    item(t, 'm2', 'lz', true, { title: '2 mleka', deleted_at: '2026-10-05T08:00:00Z' });
+    item(t, 'ch', 'lz', true, { title: 'Chleb', deleted_at: '2026-10-03T08:00:00Z' });
+    item(t, 'ja', 'lz', true, { title: 'Jajka', deleted_at: 'pending:4' });
+    item(t, 'ma', 'lz', true, { title: 'Masło', deleted_at: '2026-10-04T08:00:00Z' });
+    item(t, 'ma2', 'lz', false, { title: 'masło' }); // czeka na liście — nie podpowiadam jeszcze raz
+    item(t, 'se', 'lz', false, { title: 'Ser', deleted_at: '2026-10-04T08:00:00Z' }); // usunięty niekupiony — to Kosz
+    item(t, 'po', 'lz', true, { title: 'Podpozycja', parent_id: 'ch', deleted_at: '2026-10-04T08:00:00Z' });
+    item(t, 'ob', 'inna', true, { title: 'Obca', deleted_at: '2026-10-04T08:00:00Z' });
+    item(t, 'a1', 'lz', true, { title: 'Banany', deleted_at: '2026-10-02T08:00:00Z' });
+    item(t, 'a2', 'lz', true, { title: 'Awokado', deleted_at: '2026-10-02T08:00:00Z' });
+    expect(boughtItems(t, 'lz')).toEqual([
+      { id: 'ja', title: 'Jajka' },
+      { id: 'm2', title: '2 mleka' },
+      { id: 'ch', title: 'Chleb' },
+      { id: 'a2', title: 'Awokado' },
+      { id: 'a1', title: 'Banany' },
+    ]);
+    expect(boughtItems({}, 'lz')).toEqual([]);
+    // „Kup jeszcze raz”: przywrócenie i zdjęcie z koszyka.
+    run(t, buyAgainOps('ch'));
+    expect(t.tasks!.ch).toMatchObject({ deleted_at: null, completed_at: null });
+    expect(boughtItems(t, 'lz').map((b) => b.id)).toEqual(['ja', 'm2', 'a2', 'a1']);
+  });
+
+  it('N-177 (Q6c A): dziecko z kontem — zakupy grupy w Kalendarzu, ale nie w Moich sprawach i przypomnieniach', () => {
+    const t = world();
+    t.group_members!.mf = { ...t.group_members!.mf!, role: 'child' };
+    put(t, 'lists', 'lz', list('lz', 'gf', { due_date: '2026-10-07', due_time: '17:00:00' }));
+    expect(tripEntries(t, groups(t))).toEqual([]);
+    expect(tripEntries(t, groups(t), true).map((x) => x.id)).toEqual(['lz']);
+    const day = { y: 2026, m: 10, d: 7 };
+    expect(myDays(t, ME, day, 'day', day, (iso) => iso.slice(0, 10)).days.flatMap((d) => d.entries)).toEqual([]);
+    expect(calendarMonth(t, ME, 2026, 10, { today: day }).find((d) => d.date === '2026-10-07')!.items.map((x) => x.id)).toEqual(['lz']);
   });
 });
