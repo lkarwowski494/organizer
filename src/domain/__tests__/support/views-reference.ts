@@ -137,8 +137,14 @@ export function refExpandEvents(t: Tables, userId: string, from: CivilDate, to: 
     const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
-    for (const d of refOccurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
-      const occ = formatIsoDate(d);
+    // Jedyna zmiana względem 0430562 (audyt 3, seed -253130834): wyjątek przeniesiony do zakresu z dalszej daty niż okno
+    // ±MOVE_WINDOW_DAYS też się liczy (RFC 5545, RECURRENCE-ID), żeby wynik nie zależał od szerokości zakresu.
+    const window = refOccurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS)).map(formatIsoDate);
+    const far = [...byDate.values()]
+      .filter((o) => o.start_date !== null && o.start_date >= isoFrom && o.start_date <= isoTo && !window.includes(o.occurrence_date))
+      .filter((o) => refOccurrences(parseIsoDate(e.start_date), rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length > 0)
+      .map((o) => o.occurrence_date);
+    for (const occ of [...window, ...far].sort()) {
       const o = byDate.get(occ);
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
