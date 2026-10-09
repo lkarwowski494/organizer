@@ -4,7 +4,8 @@ import { View } from 'react-native';
 import type { CivilDate } from '../../domain/civil-date';
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, ErrorText, Segmented } from '../../ui/components';
+import { Body, ErrorText } from '../../ui/components';
+import { PersonPicker } from '../../ui/PersonPicker';
 import { DueFields } from '../../ui/DueFields';
 import { parseDueFields } from './TaskScreen';
 
@@ -31,7 +32,7 @@ export function TripEditor({ value, onChange, adults, today, required }: { value
         testID="trip"
         timeLabel={strings['common.timeOptional']}
       />
-      <Segmented
+      <PersonPicker
         label={strings['trip.who']}
         value={value.responsibleId ?? ''}
         onChange={(id) => onChange({ ...value, responsibleId: id === '' ? null : id })}

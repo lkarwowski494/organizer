@@ -27,7 +27,7 @@ export function RecentScreen({ navigation }: Props) {
   const { c, font, size } = useTheme();
   const when = (ms: number) => {
     const l = localNow(ms);
-    return formatDue({ date: formatIsoDate(l), time: `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}` }, today).replace(' · ', ', ');
+    return formatDue({ date: formatIsoDate(l), time: `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}` }, today);
   };
   return (
     <Screen testID="screen-recent">

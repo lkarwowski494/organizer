@@ -2,7 +2,7 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { setup } from './harness';
+import { sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
@@ -12,8 +12,16 @@ function memoryPrefs(initial: Record<string, string> = {}) {
   return { get: jest.fn(async (k: string) => m.get(k) ?? null), set: jest.fn(async (k: string, v: string) => void m.set(k, v)) };
 }
 
-async function open(prefs = memoryPrefs()) {
-  const s = setup({ prefs });
+/** Tylko grupa osobista — nowe konto (z grupą wspólną wyboru startu nie ma, PWD-20 A). */
+function alone() {
+  const base = sampleBase();
+  delete base.groups!.gf;
+  delete base.groups!.gk;
+  return base;
+}
+
+async function open(prefs = memoryPrefs(), base = alone()) {
+  const s = setup({ prefs, base });
   await s.renderApp(<RootStack />);
   await flush();
   return { ...s, prefs };
@@ -44,6 +52,21 @@ describe('pierwsze kroki', () => {
     await open();
     await press((await screen.findAllByTestId('welcome-skip')).at(-1)!);
     await press(screen.getAllByTestId('welcome-alone').at(-1)!);
+    expect(screen.queryByTestId('screen-welcome-start')).toBeNull();
+  });
+
+  it('PWD-20 A (M-289): z grupą wspólną — bez wyboru startu: „Zaczynamy” na ostatnim ekranie, „Pomiń” kończy', async () => {
+    const { prefs } = await open(memoryPrefs(), sampleBase());
+    expect(await screen.findByLabelText('Krok 1 z 3')).toBeTruthy();
+    await press(screen.getByTestId('welcome-next'));
+    await press(screen.getByTestId('welcome-next'));
+    expect(screen.queryByTestId('welcome-next')).toBeNull();
+    await press(screen.getByTestId('welcome-done'));
+    expect(prefs.set).toHaveBeenCalledWith('welcomeSeen', '1');
+    expect(screen.queryByTestId('screen-welcome')).toBeNull();
+    expect(screen.queryByTestId('screen-welcome-start')).toBeNull();
+    await open(memoryPrefs(), sampleBase());
+    await press((await screen.findAllByTestId('welcome-skip')).at(-1)!);
     expect(screen.queryByTestId('screen-welcome-start')).toBeNull();
   });
 

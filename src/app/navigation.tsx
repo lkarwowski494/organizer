@@ -1,5 +1,5 @@
 /**
- * Nawigacja (D26): zakładki Dziś / Listy / Kalendarz / Grupy + ekrany nad nimi.
+ * Nawigacja (D26): zakładki Moje sprawy / Listy / Kalendarz / Grupy (PW-27 A, D193) + ekrany nad nimi.
  * Linki głębokie (D40, schemat config.URL_SCHEME) skonfigurowane ręcznie: invite/<token>, join?g=&c= (i https …/j/?g=&c=,
  * D94), list/<id>, task/<id>, event/<id>[/<data>] — te same ścieżki niosą powiadomienia (PWD-16, NotificationOpener).
  */
@@ -42,6 +42,8 @@ import { NotificationOpener } from './NotificationOpener';
 import { UndoLinks } from './UndoLinks';
 import { CalendarSyncProvider } from './calendar-sync';
 import { DefaultGroupProvider } from './default-group';
+import { MyScopeProvider } from './my-scope';
+import { GroupFilterProvider } from './group-filter';
 import { RemindersProvider } from './reminders';
 import { TravelProvider } from './travel';
 import { SeriesFiller } from './SeriesFiller';
@@ -63,7 +65,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { userId } = useServices();
   const { tables } = useAppData();
-  // Plakietka na „Dziś”: przekazania czekające na moją decyzję (D70).
+  // Plakietka na „Moje sprawy”: przekazania czekające na moją decyzję (D70).
   const pending = incomingHandoffs(tables, userId).length;
   return (
     // Audyt 2 (M-40): na iOS role „tab” i „tablist” nie dają żadnej cechy (React Native, accessibilityPropsConversions.h:
@@ -119,6 +121,8 @@ export function RootStack() {
       <HandoffNotifier />
       <NotificationOpener />
       <UndoLinks />
+      <MyScopeProvider>
+      <GroupFilterProvider>
       <TravelProvider>
       <RemindersProvider>
       <CalendarSyncProvider>
@@ -139,7 +143,8 @@ export function RootStack() {
       <Stack.Screen name="Recent" component={RecentScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
-      <Stack.Screen name="Name" component={NameScreen} />
+      {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}
+      <Stack.Screen name="Name" component={NameScreen} options={({ route }) => ({ gestureEnabled: route.params?.from === 'settings' })} />
       <Stack.Screen name="Timetable" component={TimetableScreen} />
       <Stack.Screen name="Routine" component={RoutineScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
@@ -148,6 +153,8 @@ export function RootStack() {
       </CalendarSyncProvider>
       </RemindersProvider>
       </TravelProvider>
+      </GroupFilterProvider>
+      </MyScopeProvider>
     </>
   );
 }

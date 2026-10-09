@@ -22,19 +22,21 @@ describe('Moje sprawy', () => {
   it('dzień: przypięte, moje sprawy z grup, bez cudzych przypisanych; jutro strzałką, powrót „Dziś”; tydzień', async () => {
     await open();
     expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
-    expect(screen.getByText('Przypięte')).toBeTruthy();
+    expect(screen.getByText('Bez terminu')).toBeTruthy();
     expect(screen.getByText('Oddać książki do biblioteki')).toBeTruthy();
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
     expect(screen.queryByText('Kupić kwiaty')).toBeNull();
     expect(screen.queryByText('Zadanie Ali')).toBeNull();
-    expect(within(screen.getByTestId('today-t-paczka')).getByText(/dziś · 18:00/)).toBeTruthy();
-    expect(screen.getAllByLabelText('Dziś', { exact: true })).toHaveLength(2); // zakładka + powrót
+    expect(within(screen.getByTestId('today-t-paczka')).getByText('18:00')).toBeTruthy();
+    // PW-27 A (M-133): zakładka „Moje sprawy”, „Dziś” to tylko skok do dzisiejszego dnia.
+    expect(screen.getAllByLabelText('Dziś', { exact: true })).toHaveLength(1);
+    expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Moje sprawy');
     // D101: „Dziś” zawsze na swoim miejscu, na bieżącym dniu wyszarzony.
     expect(screen.getByTestId('go-today').props.accessibilityState).toMatchObject({ disabled: true });
     await press(screen.getByLabelText('Następny dzień'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Czwartek, 8 października');
     expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
-    expect(screen.queryByText('Przypięte')).toBeNull();
+    expect(screen.queryByText('Bez terminu')).toBeNull();
     expect(screen.getByTestId('go-today').props.accessibilityState).toMatchObject({ disabled: false });
     await press(screen.getByTestId('go-today'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
@@ -43,7 +45,7 @@ describe('Moje sprawy', () => {
     expect(screen.getByText('Dziś · Środa, 7 października')).toBeTruthy();
     expect(screen.getByText('Czwartek, 8 października')).toBeTruthy();
     await press(screen.getByLabelText('Następny tydzień'));
-    expect(screen.getByText('Nic tu nie ma.')).toBeTruthy();
+    expect(screen.getByText('Brak spraw w tym okresie.')).toBeTruthy();
     await press(screen.getByLabelText('Miesiąc'));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Październik 2026');
     await press(screen.getByLabelText('Poprzedni miesiąc'));
@@ -153,7 +155,7 @@ describe('Listy i zadania', () => {
     expect(screen.queryByText('Kupić kwiaty dla babci')).toBeNull();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    expect((await screen.findAllByText(/pt\. 9 paź · 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
+    expect((await screen.findAllByText(/pt\. 9 paź, 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
     await press(screen.getByLabelText(/^Kupić\ kwiaty\ dla\ babci(,|$)/));
     // Audyt 2 (M-254): usunięcie z ekranu zadania jak przesunięcie na liście — powrót i pasek „Cofnij”.
     await press(await screen.findByLabelText('Usuń zadanie'));
@@ -177,8 +179,11 @@ describe('Listy i zadania', () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
-    expect(screen.getByLabelText('Utwórz listę').props.accessibilityState.disabled).toBe(true);
+    // PWD-5 A (M-274): przycisk aktywny, po naciśnięciu komunikat przy polu.
+    await press(screen.getByLabelText('Utwórz listę'));
+    expect(screen.getByTestId('list-error').props.children).toBe('Wpisz nazwę listy.');
     await type(screen.getByTestId('list-name'), 'Prezenty');
+    expect(screen.queryByTestId('list-error')).toBeNull();
     await press(screen.getByLabelText('Rodzina'));
     await press(screen.getByLabelText('Tylko ja'));
     await press(screen.getByTestId('create-list'));
@@ -259,9 +264,10 @@ describe('Grupy', () => {
     await press(await screen.findByTestId('invite'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     await press(screen.getByTestId('leave'));
-    await press(screen.getByLabelText('Anuluj'));
+    await answerAlert('Anuluj');
+    expect(store.dispatched.some((o) => 'entity' in o && o.entity === 'group_members')).toBe(false);
     await press(screen.getByTestId('leave'));
-    await press(screen.getByTestId('leave-confirm'));
+    await answerAlert('Wyjdź z grupy');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'mf' });
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
     expect(screen.queryByTestId('group-gf')).toBeNull();
@@ -313,7 +319,9 @@ describe('Grupy', () => {
     const { store } = await open({ account });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText('Dołącz do grupy'));
-    expect(screen.getByTestId('invite-accept').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('invite-accept'));
+    expect(screen.getByText('Wpisz ID grupy i kod albo wklej wiadomość z zaproszeniem.')).toBeTruthy();
+    expect(account.joinGroup).not.toHaveBeenCalled();
     await type(screen.getByTestId('invite-join-id'), '482 913 507');
     await type(screen.getByTestId('invite-code'), '731-064');
     await press(screen.getByTestId('invite-accept'));
@@ -492,8 +500,11 @@ describe('Ustawienia', () => {
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));
     await type(screen.getByTestId('delete-word'), 'usun');
-    expect(screen.getByTestId('delete-confirm').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByTestId('delete-confirm'));
+    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ, żeby potwierdzić.');
+    expect(s.account.deleteAccount).not.toHaveBeenCalled();
     await type(screen.getByTestId('delete-word'), 'usuń');
+    expect(screen.queryByTestId('delete-word-error')).toBeNull();
     await press(screen.getByTestId('delete-confirm'));
     expect(s.account.deleteAccount).toHaveBeenCalled();
     await press(screen.getByTestId('sign-out'));
@@ -531,7 +542,7 @@ describe('Ustawienia', () => {
     await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('sign-out'));
     expect(lastAlert().title).toBe('Wylogować się?');
-    expect(lastAlert().message).toMatch(/^Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić/);
+    expect(lastAlert().message).toMatch(/^Przypomnienia i kalendarze „Organizer” znikną z tego iPhone’a, a powiadomienia tego konta przestaną tu przychodzić/);
     expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyloguj', 'destructive']]);
     await answerAlert('Anuluj');
     expect(s.account.signOut).not.toHaveBeenCalled();

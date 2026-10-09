@@ -182,14 +182,15 @@ describe('korzeń aplikacji', () => {
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     await waitFor(() => expect(t.pulls()).toBeGreaterThan(0));
     await waitFor(() => expect(t.topics.at(-1)).toEqual([`user:${ME}`, `group:${ME}`]));
-    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    // Dane pobrane (wskaźnik po pobraniu); chipów grup przy jednej grupie nie ma (filtr PW-38).
+    expect(await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/)).toBeTruthy();
   });
 
   it('szybkie dodawanie trafia do bazy i na serwer; poke z nową wersją pobiera, ze starą — nie', async () => {
     const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} } });
     await render(<Root deps={t.deps} fontsLoaded />);
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'mleko jutro');
     await fireEvent.press(screen.getByLabelText('Dodaj'));
     await fireEvent.press(screen.getByLabelText('Następny dzień'));
@@ -209,7 +210,7 @@ describe('korzeń aplikacji', () => {
   it('„Wyczyść dane na telefonie” (D121): pusta baza, pobranie od zera, dane z serwera wracają', async () => {
     const t = makeDeps({ session: { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} } });
     await render(<Root deps={t.deps} fontsLoaded />);
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     const db = t.dbs.get(ME)!;
     db.run("insert into tasks (key, group_id, data) values ('stary', ?, ?)", [ME, JSON.stringify({ id: 'stary', title: 'Stary wpis' })]);
     const before = t.pulls();
@@ -218,7 +219,8 @@ describe('korzeń aplikacji', () => {
     await fireEvent.press(await screen.findByTestId('reset-start'));
     await fireEvent.press(screen.getByTestId('reset-confirm'));
     await waitFor(() => expect(t.pulls()).toBeGreaterThan(before));
-    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    // Dane pobrane (wskaźnik po pobraniu); chipów grup przy jednej grupie nie ma (filtr PW-38).
+    expect(await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/)).toBeTruthy();
     expect(db.all<{ key: string }>('select key from tasks')).toEqual([]);
     expect(db.all<{ key: string }>('select key from groups').map((r) => r.key)).toEqual([ME]);
   });
@@ -268,7 +270,7 @@ describe('korzeń aplikacji', () => {
     const t = makeDeps({ legacyPrefs: { get: async (k) => keychain.get(k) ?? null, remove: async (k) => void keychain.delete(k) } });
     await render(<Root deps={t.deps} fontsLoaded />);
     await t.signIn({ userId: ME, displayName: 'Ala' });
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     expect(screen.queryByTestId('screen-welcome')).toBeNull();
     expect(keychain.size).toBe(0);
     expect(t.dbs.get(ME)!.all('select key, value from sync_state where key like ?', ['local:pref.%'])).toContainEqual({ key: 'local:pref.welcomeSeen', value: '1' });
@@ -279,7 +281,7 @@ describe('korzeń aplikacji', () => {
     // Powrót pierwszego konta — jego ustawienia czekają w jego bazie.
     await t.signIn(null);
     await t.signIn({ userId: ME, displayName: 'Ala' });
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     expect(screen.queryByTestId('screen-welcome')).toBeNull();
   });
 
@@ -295,7 +297,7 @@ describe('korzeń aplikacji', () => {
 describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
   const session = { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} };
   const quickAdd = async (text: string) => {
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     await fireEvent.changeText(screen.getByTestId('quick-add'), text);
     await fireEvent.press(screen.getByLabelText('Dodaj'));
   };
@@ -326,7 +328,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
     const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     await act(() => appStateHandlers.forEach((h) => h('background')));
     const before = t.pulls();
     replaceReminders.mockClear();
@@ -344,7 +346,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
     const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     const before = t.pulls();
     await act(async () => void (await refreshInBackground(t.deps)));
     expect(t.pulls()).toBe(before + 1);
@@ -377,7 +379,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     let net: (online: boolean) => void = () => {};
     const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
     await render(<Root deps={t.deps} fontsLoaded />);
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     await act(() => net(false));
     expect(await screen.findByText('Offline')).toBeTruthy();
     const before = t.pulls();
@@ -389,7 +391,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     let net: (online: boolean) => void = () => {};
     const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
     await render(<Root deps={t.deps} fontsLoaded />);
-    await screen.findByText('Osobiste');
+    await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
     const say = AccessibilityInfo.announceForAccessibilityWithOptions as jest.Mock;
     say.mockClear();
     await act(() => net(false));
@@ -428,7 +430,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     await act(() => listener({ userId: 'u-2', displayName: 'Ola' }));
     expect(screen.getByText('Zaloguj się ponownie')).toBeTruthy();
     await act(() => listener({ userId: ME, displayName: 'Ala' }));
-    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    expect(await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/)).toBeTruthy();
     await waitFor(() => expect(screen.queryByText('Zaloguj się ponownie')).toBeNull());
     expect(refresh).toHaveBeenCalledTimes(1);
   });
@@ -461,7 +463,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     expect(await screen.findByTestId('screen-newer-data')).toBeTruthy();
     expect(screen.getByText(/zapisała nowsza wersja aplikacji/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('newer-reset'));
-    expect(await screen.findByText('Osobiste')).toBeTruthy();
+    expect(await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/)).toBeTruthy();
   });
 
   it('inny błąd otwarcia bazy nie jest ukrywany', async () => {

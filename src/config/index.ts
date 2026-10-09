@@ -107,6 +107,15 @@ export const config = {
    */
   forms: { DRAFT_MAX_DAYS: 7 },
 
+  /**
+   * Zakres Moich spraw w dużej grupie (PW-2 A, audyt 2 M-35): od ilu osób grupa dostaje podpowiedź ustawienia „W Moich
+   * sprawach” (po dołączeniu i utworzeniu) — liczą się wszyscy członkowie, także dzieci. Wybór osoby z wyszukiwaniem
+   * (PWD-30 A, M-299): od ilu osób do wyboru zamiast rzędu przycisków. Wybory projektowe, bez źródła (rodzina mieści
+   * się poniżej obu progów, klasa i grupa znajomych — powyżej).
+   */
+  myDays: { LARGE_GROUP_MEMBERS: 10 },
+  people: { PICKER_SEARCH_FROM: 7 },
+
   /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
   time: { MINUTE_STEP: 5 },
 
@@ -255,6 +264,11 @@ export const config = {
       lists: { sort_key: 'a0', staples: [], visibility: 'group' },
       tasks: { deadline_mode: 'none', rollover: true, sort_key: 'a0' },
     } as { readonly [entity: string]: { readonly [column: string]: unknown } },
+    /**
+     * „Przeciągnij, by odświeżyć” (PWD-10 A): najkrótszy czas kółka, żeby szybkie pobranie też dało znak. Wybór
+     * projektowy, bez źródła.
+     */
+    REFRESH_SPIN_MS: 600,
   },
 
   /**
@@ -305,9 +319,10 @@ export const config = {
    *    instalacja, która wróci później, zaczyna licznik od nowa, a jej niepotwierdzone zmiany serwer przyjmuje jak zmiany
    *    po powrocie z trybu offline;
    *  - JOIN_ATTEMPT_DAYS — nieudane próby dołączenia (limity liczą godzinę i czas życia kodu, 24 h);
-   *  - MAINTENANCE_RUN_DAYS — dziennik przebiegów sprzątania (private.maintenance_runs, M-194).
+   *  - MAINTENANCE_RUN_DAYS — dziennik przebiegów sprzątania (private.maintenance_runs, M-194);
+   *  - TRIP_DAYS — zrobione zakupy w Kalendarzu (PWD-11 A, public.shopping_trips), jak historia zmian.
    */
-  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90 },
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, TRIP_DAYS: 90 },
 
   /**
    * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy

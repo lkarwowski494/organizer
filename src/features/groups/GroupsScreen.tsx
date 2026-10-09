@@ -12,6 +12,7 @@ import type { RootStackParams } from '../../app/routes';
 import { groupDetail, type GroupItem, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { Button, ErrorText, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
+import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { useUndo } from '../../ui/undo';
 import { groupErrorText } from './server-errors';
 import { TrashSection } from './TrashSection';
@@ -22,6 +23,7 @@ export function GroupsScreen() {
   const undo = useUndo();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
+  const refresh = usePullRefresh();
   const [error, setError] = useState<string | null>(null);
 
   // D187 (audyt 2: PW-16 A, M-121, M-239): grupa do kosza bez pytania — pasek „Cofnij” i kosz (właściciel, 30 dni).
@@ -43,7 +45,8 @@ export function GroupsScreen() {
   };
 
   return (
-    <Screen testID="screen-groups">
+    <Screen testID="screen-groups" refresh={refresh}>
+      <TabHeader />
       <Title>{strings['tabs.groups']}</Title>
       <View style={{ gap: 10 }}>
         {groups.map((g) => (
@@ -61,7 +64,6 @@ export function GroupsScreen() {
       {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['groups.new']} onPress={() => nav.navigate('NewGroup')} />
       <Button kind="secondary" label={strings['groups.join']} onPress={() => nav.navigate('Invite', {})} />
-      <Button kind="secondary" label={strings['settings.title']} onPress={() => nav.navigate('Settings')} />
       <NavRow title={strings['recent.title']} testID="open-recent" onPress={() => nav.navigate('Recent')} />
       <TrashSection />
     </Screen>

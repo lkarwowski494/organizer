@@ -17,7 +17,9 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, Card, CardTitle, ConfirmText, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
+import { useMyScope } from '../../app/my-scope';
+import { MY_SCOPES } from '../../domain/views/my-scope';
 import { useUndo } from '../../ui/undo';
 import { useEventActions } from '../../app/event-actions';
 import { useTaskActions } from '../../app/task-actions';
@@ -45,9 +47,11 @@ export function GroupScreen({ route, navigation }: Props) {
   // dopóki jej nie edytuję; zapisuje się po wyjściu z pola albo z ekranu i tylko wtedy, gdy ją zmieniłem. Pustej nie
   // zapisujemy — komunikat (PW-20 A). Mechanizm wspólny z tytułem zadania (ui/live-text).
   const name = useLiveText(d?.group.name ?? '', (n) => d?.canRename && store.dispatch(renameGroup(d.group.id, n)), { empty: strings['groups.error.nameEmpty'] });
-  const [confirmLeave, setConfirmLeave] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Karta „Następne kroki” grupy z Pierwszych kroków (PW-36 A), do „Nie teraz” na tym telefonie.
+  const [childError, setChildError] = useState<string | null>(null);
+  const myScope = useMyScope();
+  // Karta „Następne kroki” nowej grupy (PW-36 A; od audytu 2 M-117 — każdej nowej, także z ekranu Grupy), do „Nie teraz”
+  // na tym telefonie.
   const [nextSteps, setNextSteps] = useState(false);
   const childField = useRef<TextInput>(null);
   useEffect(() => {
@@ -69,7 +73,7 @@ export function GroupScreen({ route, navigation }: Props) {
     return (
       <Screen testID={loading ? 'screen-group-loading' : 'screen-group-missing'}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{loading ? strings['groups.loading'] : strings['common.error']}</Body>
+        <Body muted>{loading ? strings['groups.loading'] : strings['missing.group']}</Body>
       </Screen>
     );
   }
@@ -86,6 +90,11 @@ export function GroupScreen({ route, navigation }: Props) {
   };
   // Decyzja właściciela z 8.10.2026 (PW-34 A): w grupie z dziećmi domyślnie (pierwszy, główny przycisk) zaproszenie admina —
   // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
+  const addChildNow = () => {
+    if (child.trim() === '') return setChildError(strings['groups.error.childEmpty']);
+    store.dispatch(addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() }));
+    setChild('');
+  };
   const adminFirst = d.canInviteAdmin && d.members.some((m) => m.role === 'child');
   const shopping = lists.find((l) => l.kind === 'shopping');
   const inviteButtons = [
@@ -103,7 +112,7 @@ export function GroupScreen({ route, navigation }: Props) {
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 6, borderColor: line(d.group.line).line, backgroundColor: c.surface }} />
+        <GroupMark line={d.group.line} size={22} />
         <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
       </View>
       {nextSteps && d.canInvite ? (
@@ -114,7 +123,11 @@ export function GroupScreen({ route, navigation }: Props) {
           <Body muted>{strings['groups.nextSteps.body']}</Body>
           <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
-          {shopping ? <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} /> : null}
+          {shopping ? (
+            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
+          ) : (
+            <Button kind="secondary" label={strings['groups.nextSteps.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+          )}
           <Button
             kind="secondary"
             label={strings['common.later']}
@@ -126,6 +139,21 @@ export function GroupScreen({ route, navigation }: Props) {
           />
         </Card>
       ) : null}
+      {personal ? null : (
+        <View style={{ gap: 6 }}>
+          {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
+          {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
+            <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
+          ) : null}
+          <Segmented
+            label={strings['myScope.title']}
+            value={myScope.scopeOf(d.group.id)}
+            options={MY_SCOPES.map((v) => ({ value: v, label: strings[`myScope.${v}`] }))}
+            onChange={(v) => myScope.set(d.group.id, v)}
+          />
+          <Body muted>{strings['myScope.info']}</Body>
+        </View>
+      )}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
       {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
       {d.members.map((m) => (
@@ -192,21 +220,15 @@ export function GroupScreen({ route, navigation }: Props) {
       {error ? <ErrorText>{error}</ErrorText> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
-          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={setChild} maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
-          <Button
-            kind="secondary"
-            label={strings['groups.addChild']}
-            disabled={child.trim() === ''}
-            onPress={() => {
-              store.dispatch(addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() }));
-              setChild('');
-            }}
-          />
+          {/* PWD-5 A (M-274): przycisk zawsze aktywny, komunikat przy polu; M-243: Return dodaje. */}
+          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={(v) => (setChild(v), setChildError(null))} onSubmitEditing={addChildNow} returnKeyType="done" maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
+          {childError ? <ErrorText testID="child-error">{childError}</ErrorText> : null}
+          <Button kind="secondary" label={strings['groups.addChild']} testID="add-child" onPress={addChildNow} />
         </View>
       ) : null}
       {d.canRename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} testID="group-rename" />
+          <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} returnKeyType="done" testID="group-rename" />
           {name.error ? <ErrorText>{name.error}</ErrorText> : null}
         </View>
       ) : null}
@@ -234,6 +256,7 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
+      {lists.length === 0 ? <Body muted>{strings['groups.noLists']}</Body> : null}
       {lists.map((l) => (
         <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
           <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
@@ -262,25 +285,27 @@ export function GroupScreen({ route, navigation }: Props) {
             .filter((m) => m.role === 'child')
             .map((m) => <Button key={m.member_id} kind="secondary" label={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />)
         : null}
+      {/* PWD-4 A (M-273): proste tak/nie — okno systemowe (wybór z kilku opcji zostaje panelem w ekranie). */}
       {d.canLeave ? (
-        confirmLeave ? (
-          <View style={{ gap: 8 }}>
-            <ConfirmText>{strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS)}</ConfirmText>
-            <Button
-              kind="danger"
-              label={strings['groups.leave']}
-              testID="leave-confirm"
-              onPress={() => {
-                dropNameEdit();
-                store.dispatch(remove('group_members', d.group.me.member_id));
-                navigation.goBack();
-              }}
-            />
-            <Button kind="secondary" label={strings['common.cancel']} onPress={() => setConfirmLeave(false)} />
-          </View>
-        ) : (
-          <Button kind="danger" label={strings['groups.leave']} onPress={() => setConfirmLeave(true)} testID="leave" />
-        )
+        <Button
+          kind="danger"
+          label={strings['groups.leave']}
+          testID="leave"
+          onPress={() =>
+            Alert.alert(strings['groups.leave'], strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS), [
+              { text: strings['common.cancel'], style: 'cancel' },
+              {
+                text: strings['groups.leave'],
+                style: 'destructive',
+                onPress: () => {
+                  dropNameEdit();
+                  store.dispatch(remove('group_members', d.group.me.member_id));
+                  navigation.goBack();
+                },
+              },
+            ])
+          }
+        />
       ) : !personal ? (
         <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
       ) : null}

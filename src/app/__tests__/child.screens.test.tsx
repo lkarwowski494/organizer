@@ -47,11 +47,11 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1)', 
     const s = setup({ base: b });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    expect(screen.getByLabelText('Posprzątać pokój, Rodzina, bez terminu, dla: Kuba')).toBeTruthy();
+    expect(screen.getByLabelText('Posprzątać pokój, bez terminu, Rodzina, dla: Kuba')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'spakować plecak dziś 20:00 @Kuba');
     await press(screen.getByLabelText('Dodaj'));
     expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'spakować plecak', assignee_member_id: 'kuba', due_time: '20:00' } });
-    expect(await screen.findByLabelText('spakować plecak, Rodzina, dziś, 20:00, dla: Kuba')).toBeTruthy();
+    expect(await screen.findByLabelText('spakować plecak, 20:00, Rodzina, dla: Kuba')).toBeTruthy();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect(await screen.findByLabelText(/^Posprzątać pokój/)).toBeTruthy();

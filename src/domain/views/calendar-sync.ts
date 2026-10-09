@@ -18,6 +18,7 @@ import type { DayPart } from '../span';
 import { expandEvents } from './events';
 import { groupsView } from './index';
 import type { Tables } from './model';
+import { type ScopeOf, occurrenceInScope, scopeAll } from './my-scope';
 
 /**
  * Wydarzenie z kalendarza iPhone'a. Całodniowe — daty (koniec wyłącznie); z godziną — chwile (ms).
@@ -205,11 +206,12 @@ export function mirrorItems(
   ahead: number,
   skip: ReadonlySet<string>,
   lessonTitle: (name: string, count: number) => string,
+  scopeOf: ScopeOf = scopeAll,
 ): MirrorItem[] {
   const out: MirrorItem[] = [];
   const blocks = new Map<string, { item: MirrorItem; lessons: { time: string | null; end: string | null; title: string }[] }>();
   for (const o of expandEvents(t, userId, addDays(today, -back), addDays(today, ahead))) {
-    if (!o.concernsMe || skip.has(o.groupId)) continue;
+    if (!occurrenceInScope(o, scopeOf) || skip.has(o.groupId)) continue;
     const startTime = o.startTime?.slice(0, 5) ?? null;
     const endTime = o.endTime?.slice(0, 5) ?? null;
     if (o.lessonFor) {
@@ -280,10 +282,7 @@ export function planMirror(items: readonly MirrorItem[], state: MirrorState, gro
     .filter(([g]) => !live.has(g))
     .map(([groupId, calendarId]) => ({ groupId, calendarId }));
   const gone = new Set(removeCalendars.map((c) => c.calendarId));
-  const wanted = [...items]
-    .filter((i) => live.has(i.groupId))
-    .sort((a, b) => Math.abs(dayNo(a.date) - dayNo(todayIso)) - Math.abs(dayNo(b.date) - dayNo(todayIso)) || a.key.localeCompare(b.key))
-    .slice(0, max);
+  const wanted = mirrorWanted(items, groups, todayIso, max);
   const byKey = new Map(wanted.map((i) => [i.key, i]));
   const needCalendars = new Set(wanted.map((i) => i.groupId));
   const createCalendars = groups.filter((g) => needCalendars.has(g.id) && !state.calendars[g.id]).map((g) => ({ groupId: g.id, title: mirrorCalendarTitle(g.name), color: g.color }));
@@ -303,6 +302,15 @@ export function planMirror(items: readonly MirrorItem[], state: MirrorState, gro
   const kept = new Set(Object.entries(state.events).filter(([key, ev]) => byKey.has(key) && state.calendars[byKey.get(key)!.groupId] === ev.calendarId).map(([key]) => key));
   for (const i of wanted) if (!kept.has(i.key)) create.push(i);
   return { createCalendars, updateCalendars, removeCalendars, create: create.sort((a, b) => a.key.localeCompare(b.key)), update, remove };
+}
+
+/** Wpisy, które lustro trzyma: z grup lustra, najwyżej `max` najbliższych dacie `todayIso` (planMirror, mirrorCalendarOf). */
+export function mirrorWanted(items: readonly MirrorItem[], groups: readonly { id: string }[], todayIso: string, max: number): MirrorItem[] {
+  const live = new Set(groups.map((g) => g.id));
+  return [...items]
+    .filter((i) => live.has(i.groupId))
+    .sort((a, b) => Math.abs(dayNo(a.date) - dayNo(todayIso)) - Math.abs(dayNo(b.date) - dayNo(todayIso)) || a.key.localeCompare(b.key))
+    .slice(0, max);
 }
 
 const dayNo = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000;
@@ -336,15 +344,27 @@ export const PERSONAL_NAME = 'Osobiste';
 /**
  * PWD-2 (decyzja właściciela 8.10.2026, audyt 2 M-174): nazwa kalendarza lustra, w którym jest to wystąpienie (dzień
  * `date`, klucz `occurrenceDate`), albo null — wtedy ekran wydarzenia proponuje „Dodaj do kalendarza iPhone'a”.
- * W lustrze jest, gdy mnie dotyczy, grupa nie jest wyłączona (D174) i dzień mieści się w oknie lustra; lekcje dziecka
- * są tam w bloku dnia. Limit MIRROR_MAX pomijamy (najdalsze terminy przy setkach wydarzeń — przybliżenie).
+ * W lustrze jest dokładnie to, co wybiera lustro (mirrorItems + mirrorWanted): mnie dotyczy w zakresie grupy (PW-2),
+ * grupa nie jest wyłączona (D174), dzień mieści się w oknie i wpis jest wśród config.calendar.MIRROR_MAX najbliższych
+ * (audyt 2, P8: wcześniej limit pomijano, więc dalekie terminy przy setkach wydarzeń mówiły „Jest w kalendarzu”, choć
+ * ich tam nie było). Lekcje dziecka są tam w bloku dnia.
  */
-export function mirrorCalendarOf(t: Tables, userId: string, eventId: string, occurrenceDate: string, date: string, today: CivilDate, skip: ReadonlySet<string>): string | null {
-  const day = isoDate(date);
-  const back = formatIsoDate(addDays(today, -config.calendar.MIRROR_DAYS_BACK));
-  const ahead = formatIsoDate(addDays(today, config.calendar.MIRROR_DAYS_AHEAD));
-  if (date < back || date > ahead) return null;
-  const o = expandEvents(t, userId, day, day).find((x) => x.eventId === eventId && x.occurrenceDate === occurrenceDate);
-  if (!o?.concernsMe || skip.has(o.groupId)) return null;
-  return mirrorCalendarTitle(mirrorGroups(t, userId).find((g) => g.id === o.groupId)!.name);
+export function mirrorCalendarOf(t: Tables, userId: string, eventId: string, occurrenceDate: string, date: string, today: CivilDate, skip: ReadonlySet<string>, scopeOf: ScopeOf = scopeAll): string | null {
+  return mirrorLookup(t, userId, today, skip, scopeOf)(eventId, occurrenceDate, date);
 }
+
+/** To samo dla wielu wystąpień: zawartość lustra liczona raz (ekran wydarzenia pyta przy każdym renderze). */
+export function mirrorLookup(t: Tables, userId: string, today: CivilDate, skip: ReadonlySet<string>, scopeOf: ScopeOf): (eventId: string, occurrenceDate: string, date: string) => string | null {
+  const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, () => '', scopeOf);
+  const groups = mirrorGroups(t, userId, skip);
+  const wanted = new Set(mirrorWanted(items, groups, formatIsoDate(today), config.calendar.MIRROR_MAX).map((i) => i.key));
+  return (eventId, occurrenceDate, date) => {
+    const day = isoDate(date);
+    const o = expandEvents(t, userId, day, day).find((x) => x.eventId === eventId && x.occurrenceDate === occurrenceDate);
+    if (!o) return null;
+    const keys = o.lessonFor ? o.lessonFor.map((c) => `lessons|${c.memberId}|${o.date}`) : [`${eventId}|${occurrenceDate}`];
+    if (!keys.some((k) => wanted.has(k))) return null;
+    return mirrorCalendarTitle(groups.find((g) => g.id === o.groupId)!.name);
+  };
+}
+

@@ -3,7 +3,7 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
+import { asTrip, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
 import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
@@ -119,17 +119,21 @@ describe('zakupy na liście zakupów (D73)', () => {
     item(t, 'chleb', 'l', true);
     const now = '2026-10-07T10:00:00.000Z';
     const clear = { kind: 'patch', entity: 'lists', id: 'l', set: { due_date: null, due_time: null, responsible_member_id: null } };
-    expect(finishTripOps(t, ME, 'l', false, now)).toEqual([{ kind: 'delete', entity: 'tasks', id: 'chleb' }, clear]);
-    expect(finishTripOps(t, ME, 'l', true, now)).toEqual([
+    // PWD-11 A (M-280): wiersz zrobionych zakupów — kiedy i na kiedy były.
+    const trip = { kind: 'create', entity: 'shopping_trips', id: 'trip-1', group_id: 'gf', set: { list_id: 'l', planned_date: '2026-10-07', done_at: now } };
+    const id = () => 'trip-1';
+    expect(finishTripOps(t, ME, 'l', false, now, id)).toEqual([{ kind: 'delete', entity: 'tasks', id: 'chleb' }, clear, trip]);
+    expect(finishTripOps(t, ME, 'l', true, now, id)).toEqual([
       { kind: 'patch', entity: 'tasks', id: 'mleko', set: { completed_at: now } },
       { kind: 'delete', entity: 'tasks', id: 'chleb' },
       { kind: 'delete', entity: 'tasks', id: 'mleko' },
       clear,
+      trip,
     ]);
     // Oczekujące przekazanie zakupów — anulowane.
     put(t, 'handoffs', 'h', { id: 'h', group_id: 'gf', entity: 'lists', entity_id: 'l', occurrence_date: null, from_member: 'mf', to_member: 'mm', status: 'pending', closed: false });
-    expect(finishTripOps(t, ME, 'l', false, now).at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h', set: { status: 'cancelled' } });
-    run(t, finishTripOps(t, ME, 'l', false, now));
+    expect(finishTripOps(t, ME, 'l', false, now, id).at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h', set: { status: 'cancelled' } });
+    run(t, finishTripOps(t, ME, 'l', false, now, id));
     expect(asTrip(t.lists!.l!)).toEqual({ date: null, time: null, responsibleId: null });
     expect(tripEntries(t, groups(t))).toEqual([]);
   });
@@ -185,11 +189,13 @@ describe('zakupy na liście zakupów (D73)', () => {
     const before = JSON.parse(JSON.stringify(t)) as T;
     for (const all of [false, true]) {
       const t2 = JSON.parse(JSON.stringify(before)) as T;
-      const ops = finishTripOps(t2, ME, 'l', all, now);
+      const ops = finishTripOps(t2, ME, 'l', all, now, () => 'trip-1');
       const back = finishTripUndoOps(t2, ops);
       expect(back.some((o) => o.kind === 'patch' && o.entity === 'handoffs')).toBe(false);
       run(t2, [...ops, ...back]);
       expect(t2.lists!.l).toEqual(before.lists!.l);
+      // Wiersz zakupów — w koszu („Cofnij” to usunięcie utworzonego).
+      expect(t2.shopping_trips!['trip-1']!.deleted_at).not.toBeNull();
       expect(t2.tasks).toEqual(before.tasks);
       expect(t2.handoffs!.h!.status).toBe('cancelled');
     }
@@ -201,5 +207,37 @@ describe('zakupy na liście zakupów (D73)', () => {
     put(t, 'lists', 'lq', list('lq', 'gf', { name: 'Nowa', visibility: 'private', owner_member_id: null, responsible_member_id: 'dawny' }));
     put(t, 'lists', 'lg', list('lg', 'gf', { name: 'Wspólna', responsible_member_id: 'dawny' }));
     expect(tripEntries(t, groups(t)).map((x) => x.id).sort()).toEqual(['lp', 'lq']);
+  });
+});
+
+describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
+  it('każde zakupy: w dniu planu, bez planu — w dniu zrobienia; przekreślone, bez osoby; cofnięte i z usuniętej listy — nie', () => {
+    const t = world();
+    put(t, 'lists', 'a', list('a', 'gf', { name: 'Biedronka' }));
+    put(t, 'lists', 'c', list('c', 'gf', { name: 'Stara', deleted_at: '2026-10-02T00:00:00Z' }));
+    const trip = (id: string, listId: string, over: Row) => put(t, 'shopping_trips', id, { id, group_id: 'gf', list_id: listId, planned_date: null, done_at: '2026-10-07T18:00:00Z', deleted_at: null, ...over });
+    trip('t2', 'a', { planned_date: '2026-10-06', done_at: '2026-10-07T18:00:00Z' });
+    trip('t1', 'a', { done_at: '2026-10-07T23:30:00Z' });
+    trip('t0', 'a', { planned_date: '2026-10-06', done_at: '2026-10-06T09:00:00Z' });
+    // Ta sama chwila — kolejność po id.
+    trip('t00', 'a', { planned_date: '2026-10-06', done_at: '2026-10-06T09:00:00Z' });
+    trip('tx', 'a', { deleted_at: '2026-10-07T19:00:00Z' });
+    trip('ty', 'c', {});
+    trip('tz', 'nie-ma', {});
+    const local = (iso: string) => (iso === '2026-10-07T23:30:00Z' ? '2026-10-08' : iso.slice(0, 10));
+    const r = doneTrips(t, groups(t), local);
+    expect(r.map((x) => [x.id, x.trip.listId, x.due, x.completed_at, x.assignee_member_id])).toEqual([
+      ['t0', 'a', { date: '2026-10-06', time: null }, '2026-10-06T09:00:00Z', null],
+      ['t00', 'a', { date: '2026-10-06', time: null }, '2026-10-06T09:00:00Z', null],
+      ['t2', 'a', { date: '2026-10-06', time: null }, '2026-10-07T18:00:00Z', null],
+      ['t1', 'a', { date: '2026-10-08', time: null }, '2026-10-07T23:30:00Z', null],
+    ]);
+    const cal = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
+    expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.doneOn])).toEqual([['t0', null], ['t00', null], ['t2', '2026-10-07']]);
+    // M-129: niezrobione zakupy po terminie — „zaległe” jak zadanie; dzisiejsze — nie.
+    put(t, 'lists', 'e', list('e', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));
+    put(t, 'lists', 'f', list('f', 'gf', { name: 'Rossmann', due_date: '2026-10-07', responsible_member_id: 'mf' }));
+    const again = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
+    expect(again.flatMap((d) => d.items.filter((x) => x.id === 'e' || x.id === 'f').map((x) => [x.id, x.overdueDays]))).toEqual([['e', 2], ['f', 0]]);
   });
 });

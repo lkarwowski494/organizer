@@ -7,29 +7,24 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { config } from '../../config';
 import { quickAddOps } from '../../app/quickadd';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
-import { routineStreak, taskStreak } from '../../domain/views/routines';
 import { splitDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
-import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
+import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
-import { formatTime, localNow } from '../../app/clock';
-import { useTravel } from '../../app/travel';
+import { localNow } from '../../app/clock';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
-import { groupsView, type TodayItem } from '../../domain/views';
+import { groupsView } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';
 import { daySpan, isContinuation } from '../../domain/span';
 import { occurrenceRow } from '../../ui/when';
-import { personOf } from '../../domain/views/who';
 import { rejectedCreateIds } from '../../domain/sync-engine/client';
 import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
-import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
@@ -46,21 +41,25 @@ import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
-import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
+import { type MyEntry, myDays, onlyGroups, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, indicatorLabel, LineChip, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { Body, Button, Collapsible, EventRow, GapRow, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { TabHeader, usePullRefresh } from '../../app/TabHeader';
+import { GroupFilterBar, useGroupFilter } from '../../app/group-filter';
+import { useMyScope } from '../../app/my-scope';
+import { type RowTask, useRowMeta } from '../../app/row-meta';
 import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
-import { announce, spoken } from '../../ui/a11y';
+import { announce } from '../../ui/a11y';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
 
 export function TodayScreen() {
-  const { userId, store, now, nowMs, newId, prefs, needsName } = useServices();
+  const { userId, store, now, newId, prefs, needsName } = useServices();
   const actions = useTaskActions();
   const events = useEventActions();
-  const { tables, today, indicator, state } = useAppData();
+  const { tables, today, state } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
@@ -111,7 +110,17 @@ export function TodayScreen() {
       live = false;
     };
   }, [prefs, nav, askName]);
-  const view = useMemo(() => myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso)))), [tables, userId, today, mode, at]);
+  // PW-2: zakres Moich spraw w grupach; PW-38: filtr grup chipami (oba pamiętane na tym telefonie).
+  const { scopeOf } = useMyScope();
+  const filterGroups = useMemo(() => groups.map((g) => ({ id: g.id, name: g.kind === 'personal' ? strings['groups.personal'] : g.name, line: g.line })), [groups]);
+  const filter = useGroupFilter(filterGroups);
+  const view = useMemo(
+    () => onlyGroups(myDays(tables, userId, today, mode, at, (iso) => formatIsoDate(localNow(Date.parse(iso))), scopeOf), filter.active, mode),
+    [tables, userId, today, mode, at, scopeOf, filter.active],
+  );
+  const refresh = usePullRefresh();
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [doneOpen, setDoneOpen] = useState(false);
   const incoming = useMemo(() => incomingHandoffs(tables, userId), [tables, userId]);
   const declined = useMemo(() => declinedHandoffs(tables, userId), [tables, userId]);
   // D99: zakres godzin („17–18”) też jest chipem — odklikany zostaje zwykłym tekstem zadania. Podgląd mówi też, że powstanie
@@ -201,10 +210,14 @@ export function TodayScreen() {
   };
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
   const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
-  const pinned = mode === 'day' && showsToday ? view.pinned : [];
-  // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie) — w każdym dniu zakresu, po sprawach grup.
+  // PWD-13 A: „Bez terminu” w każdym zakresie, który obejmuje dziś (w tygodniu i miesiącu — zwinięte na górze).
+  const pinned = showsToday ? view.pinned : [];
+  const doneToday = showsToday ? view.doneToday : [];
+  // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie) — w każdym dniu zakresu, po sprawach grup; przy filtrze
+  // grup (PW-38) schowane, bo nie należą do żadnej grupy.
   // D173: bez dubli wpisów aplikacji z tego samego dnia; ukryte — w wierszu „Ukryto N” pod dniem.
-  const allDevice = useDeviceCalendar().days;
+  const deviceAll = useDeviceCalendar().days;
+  const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (d: (typeof view.days)[number]) =>
     splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
@@ -228,69 +241,54 @@ export function TodayScreen() {
       />
     );
   };
-  const empty = pinned.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0);
+  const empty = pinned.length === 0 && doneToday.length === 0 && view.days.every((d) => d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0);
 
-  // D119: kto w każdym wierszu („Ty”, gdy to ja).
-  const whoTask = (memberId: string | null) => {
-    const p = personOf(tables, userId, memberId);
-    return p ? [strings['who.task'](p)] : [];
-  };
-  // D124: ile osób potwierdziło obecność.
-  const rsvpOf = (eventId: string, date: string) => {
-    const v = rsvpView(tables, userId, eventId, date);
-    // D129: w wierszu tylko, gdy ktoś nie będzie (reszta w szczegółach).
-    return v && v.counts.no ? [strings['rsvp.short'](v.counts)] : [];
-  };
-  const whoEvent = (memberId: string | null) => {
-    const p = personOf(tables, userId, memberId);
-    return p ? [strings['who.event'](p)] : [];
-  };
-  const tripRow = (task: TodayItem & { trip: { open: number } }, key: string, alert?: string) => (
+  // M-128, M-129: opis wiersza wspólny z Kalendarzem (src/app/row-meta.ts).
+  const meta = useRowMeta();
+  const tripRow = (task: RowTask, key: string, day: string | null) => {
+    const m = meta.task(task, day);
     // Zakupy z listy zakupów (D73): odhaczenie z potwierdzeniem i pytaniem o niekupione, dotknięcie otwiera listę.
-    <StationRow
-      key={key}
-      testID={`today-trip-${task.id}`}
-      title={strings['trip.title'](task.title)}
-      line={task.line}
-      group={groupLabel(task.group_id, task.groupName)}
-      meta={[task.due ? formatDue(task.due, today) : strings['today.noDue'], strings['trip.open'](task.trip.open), ...whoTask(task.assignee_member_id)]}
-      alert={alert}
-      checked={false}
-      // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
-      onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
-      onOpen={() => nav.navigate('List', { listId: task.id })}
-    />
-  );
-  // D104: podzadanie pod rodzicem (wcięcie), licznik u rodzica, dopisek rodzica, gdy go nie ma w tym dniu.
-  // D117: „Wyjdź o …” przy dzisiejszym wydarzeniu z miejscem.
-  const travel = useTravel();
-  const leaveOf = (eventId: string, occ: string) => {
-    const i = travel.info(eventId, occ);
-    return i ? [strings['travel.leave'](formatTime(i.leaveMs), i.minutes, strings[`travel.mode.${i.mode}`])] : [];
-  };
-  // D114: seria (od 2 z rzędu) przy rutynie i zadaniu powtarzanym.
-  const streakOf = (k: number) => (k >= config.streak.MIN_SHOWN ? [strings['streak'](k)] : []);
-  const nestMeta = (n?: Nesting) => [
-    ...(n?.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []),
-    ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []),
-  ];
-  const taskRow = (task: TodayItem, key: string, alert?: string, n?: Nesting) => task.trip ? tripRow({ ...task, trip: task.trip }, key, alert) : (
-    // Audyt 2 (M-124): zrobione też można usunąć — jak na liście i w Kalendarzu (kosz i „Cofnij” chronią).
-    <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id)} onDelete={() => actions.remove(task)} testID={`swipe-today-${task.id}`}>
+    return (
       <StationRow
-        testID={`today-${task.id}`}
-        title={task.title}
+        key={key}
+        testID={`today-trip-${task.id}`}
+        title={strings['trip.title'](task.title)}
         line={task.line}
         group={groupLabel(task.group_id, task.groupName)}
-        meta={[...nestMeta(n), task.due ? formatDue(task.due, today) : strings['today.noDue'], ...whoTask(task.assignee_member_id), ...streakOf(taskStreak(tables, task.id, (iso) => formatIsoDate(localNow(Date.parse(iso)))))]}
-        depth={n?.depth}
-        alert={alert}
-        checked={task.completed_at !== null}
-        onToggle={() => actions.toggle(task)}
-        onOpen={() => nav.navigate('Task', { taskId: task.id })}
+        when={m.when}
+        meta={m.meta}
+        alert={m.alert}
+        checked={false}
+        // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
+        onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
+        onOpen={() => nav.navigate('List', { listId: task.id })}
       />
-    </SwipeRow>
-  );
+    );
+  };
+  // D104: podzadanie pod rodzicem (wcięcie), licznik u rodzica, dopisek rodzica, gdy go nie ma w tym dniu.
+  // `day` — dzień listy (przy zadaniu z terminem tego dnia sama godzina, M-128); null — sekcje bez dnia.
+  const taskRow = (task: RowTask, key: string, day: string | null, n?: Nesting) => {
+    if (task.trip) return tripRow(task, key, day);
+    const m = meta.task(task, day, n);
+    return (
+      // Audyt 2 (M-124): zrobione też można usunąć — jak na liście i w Kalendarzu (kosz i „Cofnij” chronią).
+      <SwipeRow key={key} title={task.title} enabled={canDelete(task.group_id)} onDelete={() => actions.remove(task)} testID={`swipe-today-${task.id}`}>
+        <StationRow
+          testID={`today-${task.id}`}
+          title={task.title}
+          line={task.line}
+          group={groupLabel(task.group_id, task.groupName)}
+          when={m.when}
+          meta={m.meta}
+          depth={n?.depth}
+          alert={m.alert}
+          checked={task.completed_at !== null}
+          onToggle={() => actions.toggle(task)}
+          onOpen={() => nav.navigate('Task', { taskId: task.id })}
+        />
+      </SwipeRow>
+    );
+  };
   const lessonsRow = (x: Extract<MyEntry, { kind: 'lessons' }>, past: boolean) => {
     const open = openLessons.includes(x.key);
     const b = x.block;
@@ -308,52 +306,44 @@ export function TodayScreen() {
           faded={past}
           onPress={() => (setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key]), open || announce(strings['lessons.shown'](b.lessons.length)))}
         />
-        {open ? b.lessons.map((l) => entryRow({ kind: 'event', key: `${x.key}-${l.eventId}`, event: l }, past)) : null}
+        {open ? b.lessons.map((l) => entryRow({ kind: 'event', key: `${x.key}-${l.eventId}`, event: l }, past, b.lessons[0]!.date)) : null}
       </Fragment>
     );
   };
-  const entryRow = (x: MyEntry, past: boolean, n?: Nesting): React.JSX.Element =>
-    x.kind === 'lessons' ? (
-      lessonsRow(x, past)
-    ) : x.kind === 'event' ? (
+  const entryRow = (x: MyEntry, past: boolean, day: string, n?: Nesting): React.JSX.Element => {
+    if (x.kind === 'lessons') return lessonsRow(x, past);
+    if (x.kind !== 'event') return taskRow(x.task, x.key, day, n);
+    const m = meta.event(x.event, n);
+    // PWD-32 B: wydarzenie dziecka, za które odpowiada ktoś inny — wyszarzone „Kuba: Basen”, z osobą odpowiedzialną.
+    const info = !x.event.concernsMe && x.event.childInfo;
+    return (
       // Audyt 2 (M-239): termin przesuwa się jak zadanie — jednorazowe „Usuń”, termin serii „Odwołaj” (tylko ten, D57).
       <SwipeRow key={x.key} title={x.event.title} enabled={canDelete(x.event.groupId)} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => events.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-today-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
       <EventRow
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
-        title={x.event.title}
+        title={info ? strings['event.childInfo'](info.join(', '), x.event.title) : x.event.title}
         // D199: wielodniowe w każdym dniu — „dzień 2 z 5”, kolejny dzień nocnego dyżuru „do 06:00”.
         {...occurrenceRow(x.event)}
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
-        alert={leaveOf(x.event.eventId, x.event.occurrenceDate)[0]}
-        extra={[...whoEvent(x.event.responsibleId), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
-        faded={past}
+        alert={info ? undefined : m.alert}
+        extra={m.extra}
+        faded={past || !!info}
         onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })}
       />
       </SwipeRow>
-    ) : x.kind === 'overdue' ? (
-      taskRow(x.task, x.key, strings['today.overdueDays'](x.task.overdueDays), n)
-    ) : (
-      taskRow(x.task, x.key, undefined, n)
     );
+  };
+  const pinnedRows = nestEntries(pinned.map((p) => ({ kind: 'task' as const, key: `p-${p.id}`, task: p })), tables).map((n) => taskRow(n.entry.task, n.entry.key, null, n));
   const spanOf = ({ entry: x }: { entry: MyEntry }): Span =>
     x.kind === 'event' ? daySpan(x.event.startTime, x.event.endTime, x.event.part) : x.kind === 'lessons' ? { start: x.block.start, end: x.block.end } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
   const nowMin = now().hh * 60 + now().mm;
 
   return (
-    <Screen testID="screen-today">
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
-        {/* Przycisk przykrywa chip dla VoiceOvera — stan synchronizacji jako jego wartość (audyt 2, M-264). */}
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['settings.title']} accessibilityValue={{ text: strings['sync.a11y'](spoken(indicatorLabel(indicator, nowMs()))) }} onPress={() => nav.navigate('Settings')} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <SyncChip indicator={indicator} nowMs={nowMs()} />
-        </Pressable>
-      </View>
-      <Title>{strings['today.title']}</Title>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        {groups.map((g) => (
-          <LineChip key={g.id} name={g.kind === 'personal' ? strings['groups.personal'] : g.name} line={g.line} />
-        ))}
-      </View>
+    <Screen testID="screen-today" refresh={refresh}>
+      <TabHeader />
+      <Title>{strings['tabs.today']}</Title>
+      <GroupFilterBar groups={filterGroups} testID="today-filter" />
       <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {(addGroups.length > 1 && shownGroup) || shopList ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -443,15 +433,20 @@ export function TodayScreen() {
           <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
         </Pressable>
       </View>
+      {/* PWD-31 A: „Do potwierdzenia” (pilne) nad kartami informacyjnymi. */}
+      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       <WhatsNew />
       <PushPrompt />
-      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}
-      {pinned.length ? (
+      {pinned.length && mode === 'day' ? (
         <View>
-          <SectionTitle>{strings['today.pinned']}</SectionTitle>
-          {nestEntries(pinned.map((p) => ({ kind: 'task' as const, key: `p-${p.id}`, task: p })), tables).map((n) => taskRow(n.entry.task, n.entry.key, undefined, n))}
+          <SectionTitle>{strings['form.noDate']}</SectionTitle>
+          {pinnedRows}
         </View>
+      ) : pinned.length ? (
+        <Collapsible title={strings['today.pinnedCount'](pinned.length)} open={pinnedOpen} onToggle={() => setPinnedOpen(!pinnedOpen)} testID="today-pinned">
+          {pinnedRows}
+        </Collapsible>
       ) : null}
       {view.days.map((d) =>
         !shownDay(d) ? null : (
@@ -462,12 +457,18 @@ export function TodayScreen() {
             {d.isToday ? moveOverdueButton(d) : null}
             {/* D122: wydarzenia z iPhone'a według godziny; w widoku dnia przerwy „wolne …” (dziś od teraz). */}
             {dayPlan(nestEntries(d.entries, tables), deviceOf(d), spanOf, { nowMin: d.isToday ? nowMin : null, gaps: mode === 'day' && !d.past }).map((r) =>
-              r.kind === 'entry' ? entryRow(r.item.entry, d.past, r.item) : r.kind === 'device' ? <DeviceEventRow key={r.item.key} e={r.item} /> : <GapRow key={r.key} testID={`today-${r.key}`} length={formatMinutes(r.minutes)} />,
+              r.kind === 'entry' ? entryRow(r.item.entry, d.past, d.date, r.item) : r.kind === 'device' ? <DeviceEventRow key={r.item.key} e={r.item} /> : <GapRow key={r.key} testID={`today-${r.key}`} length={formatMinutes(r.minutes)} />,
             )}
             <HiddenDuplicates entries={deviceSplit(d).hidden} testID={`today-hidden-${d.date}`} />
           </View>
         ),
       )}
+      {/* PWD-7 A: odhaczone dziś — zwinięte, z możliwością odznaczenia. */}
+      {doneToday.length ? (
+        <Collapsible title={strings['today.doneToday'](doneToday.length)} open={doneOpen} onToggle={() => setDoneOpen(!doneOpen)} testID="today-done">
+          {doneToday.map((x) => taskRow(x, `d-${x.id}`, null))}
+        </Collapsible>
+      ) : null}
     </Screen>
   );
 }

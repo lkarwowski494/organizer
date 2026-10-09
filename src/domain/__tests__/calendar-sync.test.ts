@@ -1,3 +1,4 @@
+import { config } from '../../config';
 import type { Row } from '../sync-engine/client';
 import { calendarLook, type DeviceEntry, deviceCalendars, type DeviceEvent, deviceDays, isDuplicate, isMirrorCalendar, normalizeTitle, splitDuplicates, emptyMirror, type MirrorItem, mirrorCalendarTitle, mirrorGroups, mirrorCalendarOf, mirrorHash, mirrorItems, mirrorReady, PERSONAL_NAME, planMirror } from '../views/calendar-sync';
 
@@ -224,6 +225,34 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     expect(mirrorCalendarOf(t, ME, 'e1', '2026-09-28', '2026-09-28', today, none)).toBeNull(); // poza oknem (−7 dni)
     put(t, 'event_participants', 'p1', { ...t.event_participants!.p1!, deleted_at: '2026-10-01T00:00:00Z' });
     expect(mirrorCalendarOf(t, ME, 'e1', '2026-10-19', '2026-10-19', today, none)).toBeNull(); // zawozi Ala, mnie nie dotyczy
+  });
+
+  it('audyt 2 (P8): „Jest w kalendarzu” tylko dla wpisów, które lustro naprawdę trzyma (limit MIRROR_MAX)', () => {
+    const t = base();
+    // Codzienne serie w osobistej: razem więcej wystąpień w oknie (−7…+90 dni) niż config.calendar.MIRROR_MAX.
+    const series = Math.ceil(config.calendar.MIRROR_MAX / (config.calendar.MIRROR_DAYS_BACK + config.calendar.MIRROR_DAYS_AHEAD + 1)) + 1;
+    for (let i = 0; i < series; i++) put(t, 'events', `d${i}`, { id: `d${i}`, group_id: ME, title: `Seria ${i}`, start_date: '2026-09-01', start_time: '07:00:00', end_time: null, rrule: 'FREQ=DAILY', audience: 'group', responsible_member_id: null, deleted_at: null });
+    const none = new Set<string>();
+    expect(mirrorCalendarOf(t, ME, 'd0', '2026-10-09', '2026-10-09', today, none)).toBe('Organizer – Osobiste');
+    // Ostatni dzień okna jest najdalej od dziś — poza limitem, więc nie ma go w iPhonie.
+    expect(mirrorCalendarOf(t, ME, 'd0', '2027-01-06', '2027-01-06', today, none)).toBeNull();
+    expect(mirrorCalendarOf(t, ME, 'nie-ma', '2026-10-09', '2026-10-09', today, none)).toBeNull();
+  });
+
+  it('PW-2: lustro i „Jest w kalendarzu” w zakresie grupy; lekcje dziecka — w bloku dnia', () => {
+    const t = base();
+    // „Tylko przypisane do mnie”: Basen (jestem uczestnikiem) zostaje, zebranie całej grupy — nie.
+    put(t, 'events', 'e3', { id: 'e3', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
+    const mine = (g: string) => (g === 'gf' ? ('mine' as const) : ('all' as const));
+    const keys = mirrorItems(t, ME, today, 7, 14, NO_SKIP, LESSONS, mine).map((i) => i.key);
+    expect(keys).toEqual(['e1|2026-10-05', 'e2|2026-10-09', 'e1|2026-10-19']);
+    expect(mirrorItems(t, ME, today, 7, 14, NO_SKIP, LESSONS, () => 'mineAndEvents').map((i) => i.key)).toContain('e3|2026-10-10');
+    expect(mirrorCalendarOf(t, ME, 'e3', '2026-10-10', '2026-10-10', today, new Set(), mine)).toBeNull();
+    expect(mirrorCalendarOf(t, ME, 'e3', '2026-10-10', '2026-10-10', today, new Set())).toBe('Organizer – Rodzina');
+    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'events', 'l1', { id: 'l1', group_id: 'gf', kind: 'lesson', title: 'Matematyka', start_date: '2026-10-12', start_time: '08:00:00', end_time: '08:45:00', rrule: null, audience: 'members', responsible_member_id: null, deleted_at: null });
+    put(t, 'event_participants', 'pl1', { id: 'pl1', event_id: 'l1', group_id: 'gf', member_id: 'kuba', deleted_at: null });
+    expect(mirrorCalendarOf(t, ME, 'l1', '2026-10-12', '2026-10-12', today, new Set())).toBe('Organizer – Rodzina');
   });
 
   it('wystąpienie bez godziny końca i bez osoby odpowiedzialnej', () => {

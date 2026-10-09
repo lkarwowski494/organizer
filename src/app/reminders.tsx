@@ -16,6 +16,8 @@ import { strings } from '../i18n/strings.pl';
 import { localNow, localToMs } from './clock';
 import type { LocalStore } from './calendar-mirror';
 import { type Prefs, useAppData, useServices } from './context';
+import { storedScopes, useMyScope } from './my-scope';
+import { type ScopeOf, scopeAll } from '../domain/views/my-scope';
 import { appVersion, toClientError } from './diagnostics';
 import { REMINDER_SETTINGS } from './account-prefs';
 import { type PushStatus, registerIfAllowed } from './push';
@@ -40,7 +42,7 @@ export function parseReminderSettings(raw: string | null): ReminderSettings | nu
  * Plan przypomnień z danych telefonu — jedno wejście bez Reacta (dostawca niżej i planowanie w tle, D159).
  * `travel` — policzony dojazd do wystąpienia albo null.
  */
-export function reminderPlan(tables: Tables, userId: string, today: CivilDate, nowMs: number, settings: ReminderSettings, travel: (eventId: string, occurrenceDate: string) => TravelInfo | null): Reminder[] {
+export function reminderPlan(tables: Tables, userId: string, today: CivilDate, nowMs: number, settings: ReminderSettings, travel: (eventId: string, occurrenceDate: string) => TravelInfo | null, scopeOf: ScopeOf = scopeAll): Reminder[] {
   return planReminders(tables, userId, today, nowMs, settings, {
     days: config.reminders.DAYS_AHEAD,
     max: config.reminders.MAX_SCHEDULED,
@@ -52,6 +54,7 @@ export function reminderPlan(tables: Tables, userId: string, today: CivilDate, n
       const i = travel(id, occ);
       return i ? { at: i.leaveMs, body: strings['travel.leaveBody'](i.minutes, strings[`travel.mode.${i.mode}`]) } : null;
     },
+    scopeOf,
   });
 }
 
@@ -64,7 +67,7 @@ export async function storedReminderPlan(tables: Tables, userId: string, nowMs: 
   const settings = { ...DEFAULTS, ...parseReminderSettings(await prefs.get(REMINDER_SETTINGS).catch(() => null)) };
   const { y, m, d } = localNow(nowMs);
   const today = { y, m, d };
-  return reminderPlan(tables, userId, today, nowMs, settings, await savedTravel(prefs, local, tables, userId, today, nowMs));
+  return reminderPlan(tables, userId, today, nowMs, settings, await savedTravel(prefs, local, tables, userId, today, nowMs), storedScopes(tables, userId));
 }
 
 type Api = {
@@ -85,6 +88,7 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
   const { push, prefs, account, userId, nowMs } = useServices();
   const { tables, today } = useAppData();
   const travel = useTravel();
+  const { scopeOf } = useMyScope();
   const [settings, setState] = useState<ReminderSettings>(DEFAULTS);
   const [version, setVersion] = useState(0);
   const [status, setStatus] = useState<PushStatus | null>(null);
@@ -122,14 +126,14 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!push || status !== 'granted') return;
     const timer = setTimeout(() => {
-      push.replaceReminders(reminderPlan(tables, userId, today, nowMs(), settings, travel.info)).catch((e: unknown) => {
+      push.replaceReminders(reminderPlan(tables, userId, today, nowMs(), settings, travel.info, scopeOf)).catch((e: unknown) => {
         if (reported.current) return;
         reported.current = true;
         account.reportError(toClientError(e, 'error', 'reminders', appVersion())).catch(() => {});
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [push, account, status, tables, userId, today, nowMs, settings, version, travel]);
+  }, [push, account, status, tables, userId, today, nowMs, settings, version, travel, scopeOf]);
   const enable = useCallback(async () => {
     if (!push) return;
     const ok = await push.request().catch(() => false);
