@@ -181,8 +181,6 @@ export const strings = {
   'travel.lateBody': (min: number) => `Masz ${formatMinutes(min)} spóźnienia — wyjdź teraz`,
   'travel.section': 'Dojazd',
   'travel.enabled': 'Czas dojazdu do najbliższych wydarzeń',
-  'travel.on': 'Włączony',
-  'travel.off': 'Wyłączony',
   'travel.defaultMode': 'Domyślny dojazd',
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
@@ -353,7 +351,9 @@ export const strings = {
 
   'calendar.dayA11y': (date: string, n: number, holiday: string | null, events = 0, device = 0) =>
     `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}${device ? `, ${device} z kalendarza iPhone’a` : ''}`,
-  'calendar.empty': 'Brak spraw tego dnia.',
+  /** Dzisiejszy dzień w siatce Kalendarza i mini kalendarza — VoiceOver mówi „dziś” (audyt 2, M-140). */
+  'calendar.todayA11y': (label: string) => `Dziś, ${label}`,
+  'calendar.empty': 'Tego dnia nic nie ma.',
   // PWD-1 C (M-173): zrobione zadanie stoi w dniu terminu, z dniem odhaczenia, gdy był inny.
   'calendar.doneOn': (day: string) => `zrobione ${day}`,
   // PWD-15 A (M-284): blady przyszły termin zadania powtarzanego — policzony, zadanie powstanie po odhaczeniu poprzedniego.
@@ -831,7 +831,6 @@ export const strings = {
   // PWD-18 (decyzja właściciela 8.10.2026): wyciszenie dotyczy tylko przypisań — nazwa i dopisek mówią to wprost.
   'mutes.section': 'Powiadomienia o przypisaniach',
   'mutes.info': 'Gdy ktoś przypisze Ci zadanie, zakupy albo wydarzenie, dostaniesz powiadomienie. Możesz to wyciszyć dla wybranej grupy. Przypomnienia i przekazania (do przyjęcia) przychodzą zawsze.',
-  'mutes.off': 'Wyciszone',
   'mutes.error': 'Nie udało się zmienić ustawień — sprawdź internet.',
   // Audyt 2 (P-75): bez „Zakupy: Zakupy”, gdy nazwa listy już mówi, że to zakupy.
   'trip.title': (list: string) => (/^zakupy(?![\p{L}\p{N}_])/iu.test(list) ? list : `Zakupy: ${list}`),
@@ -945,7 +944,6 @@ export const strings = {
   'common.timeOptional': 'Godzina (opcjonalnie)',
   'common.done': 'Zrobione',
   'common.allDay': 'cały dzień',
-  'common.on': 'Włączone',
   'common.off': 'Wyłączone',
   'common.ok': 'OK',
   'common.cancel': 'Anuluj',

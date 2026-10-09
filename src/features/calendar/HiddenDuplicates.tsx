@@ -8,7 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import type { DeviceEntry } from '../../domain/views/calendar-sync';
 import { strings } from '../../i18n/strings.pl';
-import { Body } from '../../ui/components';
+import { Body, Glyph } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { DeviceEventRow } from './DeviceEventRow';
 
@@ -27,7 +27,7 @@ export function HiddenDuplicates({ entries, testID }: { entries: readonly Device
           <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{title}</Text>
         </View>
         {/* Audyt 2 (M-141): jak wiersz lekcji — ˅/˄ zamiast „dotknij, by…”, czynność w podpowiedzi VoiceOvera. */}
-        <Text style={{ fontSize: 22, color: c.inkMuted }}>{open ? '˄' : '˅'}</Text>
+        <Glyph name={open ? 'less' : 'more'} color={c.inkMuted} />
       </Pressable>
       {open ? (
         <View testID={`${testID}-list`}>

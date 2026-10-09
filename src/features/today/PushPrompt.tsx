@@ -5,19 +5,16 @@
  * w jednym miejscu: RemindersProvider.enable — ten sam przycisk w Ustawieniach robi to samo.
  */
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
 
 import { PUSH_DISMISSED } from '../../app/account-prefs';
 import { useServices } from '../../app/context';
 import { useReminderSettings } from '../../app/reminders';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { Body, Button, Card, CardTitle } from '../../ui/components';
 
 export function PushPrompt() {
   const { push, prefs } = useServices();
   const { status, enable } = useReminderSettings();
-  const { c, font } = useTheme();
   // Bez pamięci ustawień (np. testy) nic nie odłożono.
   const [dismissed, setDismissed] = useState<boolean | null>(prefs ? null : false);
   const [hidden, setHidden] = useState(false);
@@ -34,10 +31,10 @@ export function PushPrompt() {
   }, [prefs]);
   if (!push || hidden || dismissed !== false || status !== 'undetermined') return null;
   return (
-    <View testID="push-prompt" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-      <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+    <Card testID="push-prompt">
+      <CardTitle>
         {strings['push.title']}
-      </Text>
+      </CardTitle>
       <Body muted>{strings['push.why']}</Body>
       <Button
         label={strings['push.enable']}
@@ -56,6 +53,6 @@ export function PushPrompt() {
           prefs?.set(PUSH_DISMISSED, '1').catch(() => {});
         }}
       />
-    </View>
+    </Card>
   );
 }

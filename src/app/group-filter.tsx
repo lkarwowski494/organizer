@@ -9,7 +9,8 @@ import { createContext, type ReactNode, useContext, useMemo, useState } from 're
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '../i18n/strings.pl';
-import { Button } from '../ui/components';
+import { Button, GroupMark } from '../ui/components';
+import { Glyph } from '../ui/glyph';
 import { useTheme } from '../ui/theme';
 import { useServices } from './context';
 
@@ -58,7 +59,7 @@ export function useGroupFilter(groups: readonly FilterGroup[]) {
 
 /** Chipy grup (przełączniki) i znak włączonego filtra z „Pokaż wszystkie”. Przy jednej grupie filtr nie ma sensu. */
 export function GroupFilterBar({ groups, testID }: { groups: readonly FilterGroup[]; testID: string }) {
-  const { c, font, size, line } = useTheme();
+  const { c, font, size, radius } = useTheme();
   const f = useGroupFilter(groups);
   if (groups.length < 2) return null;
   const names = groups.filter((g) => f.active.has(g.id)).map((g) => g.name);
@@ -75,17 +76,19 @@ export function GroupFilterBar({ groups, testID }: { groups: readonly FilterGrou
               accessibilityLabel={strings['filter.chipA11y'](g.name)}
               accessibilityState={{ selected: on }}
               onPress={() => f.toggle(g.id)}
-              // PW-52: zaznaczenie — ciemne tło i ✓ (wybór wielu), jak w pozostałych wyborach.
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: size.TOUCH_TARGET, paddingLeft: 8, paddingRight: 12, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.border, backgroundColor: on ? c.inverseBg : c.surface }}
+              // PW-52 A (D198): jeden wzór zaznaczenia jak w Toggles — ciemne wypełnienie, jasny napis i ✓ (wybór wielu);
+              // znacznik grupy ten sam co w wierszach (M-252), rozmiar napisu chipu z motywu (size.CONTROL, M-152).
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: size.TOUCH_TARGET, paddingLeft: 8, paddingRight: 12, borderRadius: radius.PILL, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
-              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: line(g.line).line }} />
-              <Text style={{ fontFamily: font.text600, fontSize: 13, color: on ? c.inverseInk : c.ink }}>{on ? `✓ ${g.name}` : g.name}</Text>
+              <GroupMark line={g.line} size={14} />
+              {on ? <Glyph name="check" color={c.surface} place="inline" /> : null}
+              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{g.name}</Text>
             </Pressable>
           );
         })}
       </View>
       {names.length ? (
-        <View testID={`${testID}-on`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: c.warnBorder, backgroundColor: c.warnBg }}>
+        <View testID={`${testID}-on`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.PANEL, borderWidth: 1, borderColor: c.warnBorder, backgroundColor: c.warnBg }}>
           <Text accessibilityRole="text" style={{ flex: 1, fontFamily: font.text700, fontSize: size.META, color: c.warnInk }}>
             {strings['filter.on'](names.join(', '))}
           </Text>

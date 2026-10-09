@@ -7,11 +7,12 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { config } from '../config';
 import { strings } from '../i18n/strings.pl';
 import { SyncChip } from '../ui/components';
+import { Glyph } from '../ui/glyph';
 import { useTheme } from '../ui/theme';
 import { useAppData, useServices } from './context';
 import type { RootStackParams } from './routes';
@@ -33,8 +34,8 @@ export function TabHeader() {
         onPress={() => nav.navigate('Settings')}
         style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', borderRadius: size.TOUCH_TARGET / 2, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}
       >
-        {/* U+2699 z selektorem tekstowym U+FE0E — znak, nie emoji (kolor tekstu motywu). */}
-        <Text style={{ fontSize: 22, lineHeight: 26, color: c.ink }}>{'⚙︎'}</Text>
+        {/* SF Symbol „gearshape” (PWD-24 A); zapas U+2699 z selektorem tekstowym U+FE0E — znak, nie emoji. */}
+        <Glyph name="settings" color={c.ink} place="period" />
       </Pressable>
     </View>
   );

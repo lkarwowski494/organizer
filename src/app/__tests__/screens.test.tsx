@@ -203,7 +203,7 @@ describe('Kalendarz', () => {
     await press(screen.getByTestId('day-2026-10-08'));
     expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
     await press(screen.getByTestId('day-2026-10-09'));
-    expect(screen.getByText('Brak spraw tego dnia.')).toBeTruthy();
+    expect(screen.getByText('Tego dnia nic nie ma.')).toBeTruthy();
     await press(screen.getByLabelText('Następny miesiąc'));
     expect(screen.getByText('Listopad 2026')).toBeTruthy();
     expect(screen.getByLabelText('Niedziela, 1 listopada, Wszystkich Świętych')).toBeTruthy();
