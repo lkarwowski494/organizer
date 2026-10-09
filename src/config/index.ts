@@ -14,9 +14,11 @@ export const config = {
   /**
    * VoiceOver (audyt 2: M-44, M-269; src/ui/a11y.ts): po ilu ms przenosimy fokus na nowo pokazany element (widok musi być
    * już na ekranie) i jak długo po pokazaniu paska „Cofnij” ma on pierwszeństwo przed tytułem nowego ekranu (przejście
-   * na stosie trwa ok. 0,35 s). Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
+   * na stosie trwa ok. 0,35 s). SYNC_CALM_MS (audyt 3, N-198): powrót synchronizacji do normy po problemie (offline,
+   * błąd) ogłaszamy dopiero, gdy trwa tyle ms bez nowego problemu — przy „migającej” sieci (metro) bez ogłoszenia
+   * każdego przejścia. Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
    */
-  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500 },
+  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500, SYNC_CALM_MS: 10_000 },
 
   /**
    * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej

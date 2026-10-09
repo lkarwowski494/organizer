@@ -69,16 +69,17 @@ export const strings = {
   'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
   // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
   'quick.groupChip': (group: string) => `Do: ${group}`,
-  'quick.group': (group: string) => `Dodasz do grupy: ${group}`,
-  'quick.groupHint': 'Dotknij, żeby wybrać inną grupę',
+  // Audyt 3 (N-66, WCAG 2.5.3 „Label in Name”): etykieta = widoczny napis, czynność w podpowiedzi bez nazwy gestu.
+  'quick.group': (group: string) => strings['quick.groupChip'](group),
+  'quick.groupHint': 'Zmienia grupę, do której trafi wpis',
   'quick.groupFromText': 'Grupę wskazuje tekst — zmienisz ją w tekście',
   'quick.groupPick': 'Dodaj do grupy',
   // D68 po PW-18 b: zapis bez pytania, ale mówimy przed dodaniem, że nikt tego nie zobaczy w Moich sprawach.
   'quick.unseen': 'Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.',
   // PW-3 wariant D: cały wpis to produkt — podpowiedź listy zakupów (bez dotknięcia zostaje zadanie).
   'quick.toShopping': (list: string) => `Na listę: ${list}`,
-  'quick.toShoppingA11y': (item: string, list: string) => `Dodaj „${item}” do listy zakupów „${list}”`,
-  'quick.toShoppingHint': 'Bez dotknięcia dodasz zadanie',
+  'quick.toShoppingA11y': (item: string, list: string) => `${strings['quick.toShopping'](list)}, ${item}`,
+  'quick.toShoppingHint': 'Dodaje wpis do listy zakupów zamiast zadania',
   'quick.noShoppingList': (item: string, group: string) => `„${item}” to produkt? W grupie „${group}” nie ma listy zakupów, więc dodasz zadanie.`,
   'tag.ask': (name: string) => `Którą grupę masz na myśli: #${name}?`,
   'tag.unknown': (name: string) => `Nie ma grupy #${name}`,
@@ -265,6 +266,9 @@ export const strings = {
   'spoken.progress': (done: number, total: number) => `${done} z ${total} zrobione`,
   'spoken.hours': (n: number) => `${n} ${plural(n, { one: 'godzina', few: 'godziny', many: 'godzin' })}`,
   'spoken.minutes': (n: number) => `${n} ${plural(n, { one: 'minuta', few: 'minuty', many: 'minut' })}`,
+  // Audyt 3 (N-9): stany elementów po polsku (src/ui/a11y.ts `buttonA11y`) zamiast angielskich słów React Native.
+  'a11y.expanded': 'rozwinięte',
+  'a11y.busy': 'w toku',
   'name.askTitle': 'Jak masz na imię?',
   'name.title': 'Twoje imię',
   'name.info': 'Tak zobaczą Cię inni w grupach. Imię ustawione w konkretnej grupie (np. „Tata”) zostaje — zmienisz je w grupie, dotykając siebie na liście osób.',
@@ -365,6 +369,8 @@ export const strings = {
   'common.finish': 'Gotowe',
   'shop.stapleName': 'Nowa stała pozycja, np. „mleko”',
   'shop.stapleRemove': (name: string) => `Usuń ze stałych: ${name}`,
+  // Audyt 3 (N-196): drugi „Dodaj” na ekranie (pole szybkiego dodawania) — ten dodaje wpisaną nazwę do stałych.
+  'shop.stapleSaveA11y': 'Dodaj stałą pozycję',
   'shop.stapleError.empty': 'Wpisz nazwę.',
   'shop.stapleError.duplicate': 'Ta pozycja już jest na liście stałych.',
   'shop.stapleError.full': (n: number) => `Lista stałych jest pełna (${n} ${plural(n, { one: 'pozycja', few: 'pozycje', many: 'pozycji' })}).`,
@@ -426,7 +432,8 @@ export const strings = {
   'event.interval': (unit: 'daily' | 'weekly' | 'monthly' | 'yearly') =>
     ({ daily: 'Co ile dni', weekly: 'Co ile tygodni', monthly: 'Co ile miesięcy', yearly: 'Co ile lat' })[unit],
   'event.days': 'Dni tygodnia',
-  'event.dayA11y': (day: string) => `W ${day}`,
+  // Audyt 3 (N-64, WCAG 2.5.3): etykieta zaczyna się od widocznego skrótu („wt.”), potem dzień z przyimkiem (WEEKDAYS_ON).
+  'event.dayA11y': (short: string, on: string) => `${short}, ${on}`,
   'event.slot': (n: number) => `Wariant ${n}`,
   'event.addSlot': 'Dodaj wariant (inne dni albo godzina)',
   'event.addSlotHint': 'Np. poniedziałki 18:00 i soboty 12:00 — każdy wariant to osobna seria.',

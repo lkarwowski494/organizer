@@ -443,47 +443,80 @@ function run(cmds: Cmd[]) {
   return { server, phones, allOps, lostWithPhone, beforeRestore };
 }
 
+/** Własności po ciszy (zbieżność, nic nie ginie, idempotencja, utrata dostępu) dla jednego przebiegu poleceń. */
+function check(cmds: Cmd[]) {
+  const { server, phones, allOps, lostWithPhone, beforeRestore } = run(cmds);
+  for (const p of phones) {
+    const view = materialize(p.state);
+    const visible = server.visibleRows(p.user);
+    // Zbieżność: po ciszy w kolejce nic nie czeka, a widok = to, co serwer pokazuje.
+    expect(p.state.pending).toHaveLength(0);
+    expectSameAsServer(p.state, visible, view);
+    // Utrata dostępu: telefon osoby usuniętej z grupy nie ma już żadnych jej wierszy.
+    const gone = !server.groups.get(GROUP)!.members.get(p.user) || server.groups.get(GROUP)!.members.get(p.user)!.deleted;
+    const ofGroup = (t: { readonly [id: string]: Row } | undefined) => Object.values(t ?? {}).filter((r) => r.group_id === GROUP);
+    expect(gone ? [ofGroup(view.lists), ofGroup(view.tasks), ofGroup(view.group_members)].map((x) => x.length) : [0, 0, 0]).toEqual([0, 0, 0]);
+    const count = (t: { readonly [id: string]: Row } | undefined) => Object.keys(t ?? {}).length;
+    expect(visible.groups === 0 ? [count(view.lists), count(view.tasks), count(view.group_members)] : [0, 0, 0]).toEqual([0, 0, 0]);
+  }
+  for (const [id, i] of allOps) {
+    // Nic nie ginie: każda operacja zastosowana albo odrzucona — i nigdy dwa razy (także operacja z kopii, którą
+    // stary telefon zdążył wysłać). Wolno zginąć tylko temu, co nie opuściło starego telefonu przed odtworzeniem.
+    const applied = server.applied.get(id) ?? 0;
+    expect(applied <= 1).toBe(true);
+    expect(applied === 1 || server.rejectedOps.has(id) || lostWithPhone.has(id)).toBe(true);
+    // M-56: odrzucenie dociera do „Odrzuconych zmian” telefonu, także gdy pierwsza odpowiedź zginęła.
+    if (beforeRestore.has(id)) continue;
+    const rejected = phones[i]!.state.rejected.find((r) => r.op.op_id === id);
+    expect(rejected?.code).toBe(server.rejectedOps.get(id));
+  }
+  // Identyfikatory pochodne (kopie powtórzeń): telefon nie ponawia utworzenia, które serwer już odrzucił.
+  for (const p of phones) {
+    const ids = p.state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []));
+    expect(ids.filter((x) => x === nextId('r1') || x === nextId('r1s'))).toEqual([...new Set(ids.filter((x) => x === nextId('r1') || x === nextId('r1s')))]);
+  }
+}
+
 describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
   it('zbieżność, nic nie ginie, bez podwójnego zastosowania, czyszczenie po utracie dostępu, koniec pętli', () => {
     fc.assert(
-      fc.property(fc.array(cmdArb, { minLength: 20, maxLength: 80 }), (cmds) => {
-        const { server, phones, allOps, lostWithPhone, beforeRestore } = run(cmds);
-        for (const p of phones) {
-          const view = materialize(p.state);
-          const visible = server.visibleRows(p.user);
-          // Zbieżność: po ciszy w kolejce nic nie czeka, a widok = to, co serwer pokazuje.
-          expect(p.state.pending).toHaveLength(0);
-          expectSameAsServer(p.state, visible, view);
-          // Utrata dostępu: telefon osoby usuniętej z grupy nie ma już żadnych jej wierszy.
-          const gone = !server.groups.get(GROUP)!.members.get(p.user) || server.groups.get(GROUP)!.members.get(p.user)!.deleted;
-          const ofGroup = (t: { readonly [id: string]: Row } | undefined) => Object.values(t ?? {}).filter((r) => r.group_id === GROUP);
-          expect(gone ? [ofGroup(view.lists), ofGroup(view.tasks), ofGroup(view.group_members)].map((x) => x.length) : [0, 0, 0]).toEqual([0, 0, 0]);
-          const count = (t: { readonly [id: string]: Row } | undefined) => Object.keys(t ?? {}).length;
-          expect(visible.groups === 0 ? [count(view.lists), count(view.tasks), count(view.group_members)] : [0, 0, 0]).toEqual([0, 0, 0]);
-        }
-        for (const [id, i] of allOps) {
-          // Nic nie ginie: każda operacja zastosowana albo odrzucona — i nigdy dwa razy (także operacja z kopii, którą
-          // stary telefon zdążył wysłać). Wolno zginąć tylko temu, co nie opuściło starego telefonu przed odtworzeniem.
-          const applied = server.applied.get(id) ?? 0;
-          expect(applied <= 1).toBe(true);
-          expect(applied === 1 || server.rejectedOps.has(id) || lostWithPhone.has(id)).toBe(true);
-          // M-56: odrzucenie dociera do „Odrzuconych zmian” telefonu, także gdy pierwsza odpowiedź zginęła.
-          if (beforeRestore.has(id)) continue;
-          const rejected = phones[i]!.state.rejected.find((r) => r.op.op_id === id);
-          expect(rejected?.code).toBe(server.rejectedOps.get(id));
-        }
-        // Identyfikatory pochodne (kopie powtórzeń): telefon nie ponawia utworzenia, które serwer już odrzucił.
-        for (const p of phones) {
-          const ids = p.state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : []));
-          expect(ids.filter((x) => x === nextId('r1') || x === nextId('r1s'))).toEqual([...new Set(ids.filter((x) => x === nextId('r1') || x === nextId('r1s')))]);
-        }
-      }),
+      fc.property(fc.array(cmdArb, { minLength: 20, maxLength: 80 }), check),
       { numRuns: 800 },
     );
     // Każda badana sytuacja zdarzyła się wiele razy (próg z zapasem; przebiegi są losowe).
     for (const [k, v] of Object.entries(seen)) expect([k, v > 10]).toEqual([k, true]);
     // Kopie bywają odrzucane (lista zawężona albo usunięta, zanim telefon się dowiedział) — własność wyżej nie jest pusta.
     expect(derivedRejected > 10).toBe(true);
+  });
+
+  // Przeniesienie zadania, za którym kursor przeszedł w porcji bez nowego wiersza zadania (seed -1942913170). Ala
+  // przenosi t2 z l2 do ukrytej l3 i z powrotem do l1; Bartek pobiera porcję o jednym wierszu (zmiana roli między
+  // przeniesieniami), więc kursor mija ślad przeniesienia z l2, a nowy wiersz t2 czeka na następną porcję. Zanim ją
+  // pobierze, Ala zawęża l1 — t2 nie przychodzi już nigdy, a stara kopia w l2 zostawała u Bartka na zawsze.
+  it('regresja: przeniesione zadanie nie zostaje na telefonie, gdy jego nowy wiersz był w następnej porcji', () => {
+    const cmds: Cmd[] = [
+      { t: 'hide', task: 't2' },
+      { t: 'setRole', who: 1, role: 'admin' },
+      { t: 'mutate', who: 0, op: { kind: 'cmd', cmd: 'move_task', args: { id: 't2', list_id: 'l1' } } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'pull', who: 1, lim: 1, fate: 'ok', failScope: false },
+      { t: 'narrow', list: 'l1', to: 'restricted' },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  it('regresja: kontrprzykład fast-check (seed -1942913170, po zmniejszeniu)', () => {
+    const cmds: Cmd[] = [
+      { t: 'hide', task: 't2' }, { t: 'mutate', who: 0, op: { kind: 'patch', entity: 'tasks', id: 'mt', set: { title: 'x' } } },
+      { t: 'restart', who: 0, resetCursors: false }, { t: 'derive', who: 0 }, { t: 'share', who: 0, other: 1, list: 's1', grant: false },
+      { t: 'setRole', who: 1, role: 'admin' }, { t: 'mutate', who: 0, op: { kind: 'cmd', cmd: 'move_task', args: { id: 't2', list_id: 'l1' } } },
+      { t: 'hide', task: 't1' }, { t: 'mutate', who: 0, op: { kind: 'create', entity: 'tasks', id: 'mt', group_id: 'g2', set: { list_id: 'm1', title: 'a' } } },
+      { t: 'pull', who: 1, lim: 1, fate: 'ok', failScope: false }, { t: 'push', who: 0, fate: 'ok' }, { t: 'rejoin', who: 1 }, { t: 'rejoin', who: 1 },
+      { t: 'purge', keep: 0 }, { t: 'hide', task: 't1' }, { t: 'narrow', list: 'l1', to: 'restricted' }, { t: 'restart', who: 0, resetCursors: false },
+      { t: 'derive', who: 0 }, { t: 'restart', who: 0, resetCursors: false }, { t: 'hide', task: 't1' },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 'mt' } },
+    ];
+    expect(() => check(cmds)).not.toThrow();
   });
 
   it('granica obrotów zgłasza nieskończone pobieranie (serwer z błędem M-1: resync w każdej porcji)', () => {
