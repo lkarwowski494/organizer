@@ -488,6 +488,8 @@ describe('kolejność zadań (Q37 B, N-130)', () => {
     const hidden = { includeHiddenElements: true };
     const handle = screen.getByTestId('order-handle-p1', hidden);
     const at = (pageY: number) => ({ nativeEvent: { pageY } });
+    // Uchwyt bierze dotyk od razu i nie oddaje go przewijaniu w trakcie gestu.
+    expect([handle.props.onStartShouldSetResponder(), handle.props.onMoveShouldSetResponder(), handle.props.onResponderTerminationRequest()]).toEqual([true, true, false]);
     await fireEvent(handle, 'responderGrant', at(100));
     expect(screen.getByTestId('screen-list').props.scrollEnabled).toBe(false);
     await fireEvent(handle, 'responderMove', at(150));

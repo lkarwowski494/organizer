@@ -414,7 +414,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     const { store } = await openIn('u-me');
     await write('masło');
     await press(shop()!);
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'masło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'masło', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(within(screen.getByTestId('undo-bar')).getByText('Dodano produkt: masło · Zakupy na weekend (Rodzina)')).toBeTruthy();
   });
 
@@ -429,7 +429,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(within(panel).getByText('Zadania i wydarzenia dodaje tam dorosły. Produkt możesz dopisać do listy zakupów:')).toBeTruthy();
     expect(screen.queryByTestId('tag-unknown')).toBeNull();
     await press(within(panel).getByLabelText('Na listę: Zakupy na weekend (Rodzina)'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'szampon', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'szampon', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.queryByTestId('tag-child')).toBeNull();
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     // Bez listy zakupów — tylko wyjaśnienie i „Anuluj”.

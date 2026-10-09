@@ -217,7 +217,7 @@ describe('telefon dziecka z kontem', () => {
     await press(await screen.findByTestId('list-lks'));
     await act(async () => fireEvent.changeText(screen.getByTestId('quick-add'), 'szampon'));
     await act(async () => fireEvent(screen.getByTestId('quick-add'), 'submitEditing'));
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gk', set: { list_id: 'lks', parent_id: null, title: 'szampon', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gk', set: { list_id: 'lks', parent_id: null, title: 'szampon', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(await screen.findByLabelText(/^szampon/)).toBeTruthy();
   });
 

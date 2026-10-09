@@ -1,7 +1,7 @@
 /**
  * Zadania na spotkaniu (D13), przepinanie przy odwołaniu (D14), podgląd skutków zmiany serii, „Dodaj do kalendarza” (D7).
  */
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { splitId } from '../../domain/event-split';
 import { materialize, type NewOp, type Row } from '../../domain/sync-engine/client';
@@ -67,6 +67,25 @@ describe('zadania na spotkaniu (D13)', () => {
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
     expectOps(store, []);
+  });
+
+  it('audyt 3 (N-51): kilka osób o tym imieniu — wybór; „Anuluj” zamyka pytanie bez zapisu', async () => {
+    const b = base();
+    put(b, 'group_members', 'alek', { ...b.group_members!.ala!, member_id: 'alek', user_id: 'u-alek', display_name: 'Alek' });
+    const { store } = await open(b);
+    await openEvent();
+    await type(screen.getByTestId('quick-add'), 'woda @Al');
+    await press(screen.getByLabelText('Dodaj'));
+    await press(within(screen.getByTestId('mention-choices')).getByLabelText('Anuluj'));
+    expect(screen.queryByTestId('mention-choices')).toBeNull();
+    expectOps(store, []);
+    await press(screen.getByLabelText('Dodaj'));
+    await press(within(screen.getByTestId('mention-choices')).getByLabelText('Alek'));
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'woda', sort_key: 'a1', assignee_member_id: 'alek', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } }]);
+    await type(screen.getByTestId('quick-add'), 'woda @Zosia');
+    await press(screen.getByLabelText('Dodaj'));
+    await press(within(screen.getByTestId('mention-unknown')).getByLabelText('Anuluj'));
+    expect(screen.queryByTestId('mention-unknown')).toBeNull();
   });
 
   it('audyt 3 (N-51): zadanie na każdy termin serii nie ma osoby — napis pod polem, „@imię” zostaje w nazwie', async () => {

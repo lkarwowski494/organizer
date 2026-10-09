@@ -17,7 +17,7 @@ import { groupsView, listsView } from './index';
 import type { MentionTarget } from './mention';
 import type { Tables } from './model';
 import type { MyScope } from './my-scope';
-import { appendKey } from './sort-keys';
+import { appendKey, compareKeys } from './sort-keys';
 import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
 import { parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
@@ -49,7 +49,7 @@ export function generalList(t: Tables, userId: string, groupId: string, newId: (
   // Audyt 2 (R-6): tylko lista całej grupy — na prywatną „Zadania” zadanie z @imię innej osoby serwer by odrzucił.
   const lists = listsView(t, userId, groupId).filter((l) => l.kind === 'tasks' && l.visibility === 'group');
   const personal = groupsView(t, userId).find((g) => g.id === groupId)?.kind === 'personal';
-  const oldest = () => [...lists].sort((a, b) => (a.id < b.id ? -1 : 1))[0];
+  const oldest = () => [...lists].sort((a, b) => compareKeys(a.id, b.id))[0];
   const found = personal ? (lists.find((l) => l.name === PERSONAL_LIST_NAME) ?? oldest()) : lists.find((l) => l.name === NEW_LIST_NAME);
   if (found) return { listId: found.id, ops: [] };
   const listId = newId();
