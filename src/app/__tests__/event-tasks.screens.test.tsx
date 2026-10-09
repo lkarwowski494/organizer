@@ -142,8 +142,9 @@ describe('odwołanie spotkania z zadaniami (D14)', () => {
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('relink-other'));
     await press(screen.getByTestId('pick-ev2-2026-10-09'));
+    // Audyt 3 (N-3): seria kończy się jednym poleceniem end_series (od pierwszego terminu — cała seria).
     expect(s.store.dispatched).toEqual([
-      { kind: 'delete', entity: 'events', id: 'ev' },
+      { kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev', date: '2026-10-07', title: 'Tańce' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } },
     ]);
   });
@@ -157,7 +158,7 @@ describe('odwołanie spotkania z zadaniami (D14)', () => {
     await press(screen.getByTestId('event-cancel'));
     await press(screen.getByTestId('scope-all'));
     await press(screen.getByTestId(id));
-    expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev' }, op]);
+    expect(store.dispatched).toEqual([{ kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev', date: null, title: 'Tańce' } }, op]);
   });
 
   it('zadanie na innym wystąpieniu nie blokuje odwołania tylko tego', async () => {
