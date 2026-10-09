@@ -167,6 +167,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await setTime('event-start-0', '16:00');
     await setTime('event-end-0', '17:00');
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     const oid = overrideId('ev-tance', '2026-10-07');
     expect(store.dispatched).toEqual([
@@ -183,6 +186,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-event-edit');
     await press(screen.getByLabelText('Cały dzień'));
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(store.dispatched[0]).toEqual(expect.objectContaining({ kind: 'create', entity: 'event_overrides', set: expect.objectContaining({ start_time: null, end_time: null, all_day: true }) }));
     expect(screen.getByLabelText(/^Tańce, cały dzień, Rodzina/)).toBeTruthy();
@@ -206,6 +212,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('event-date');
     await pickDate('event-date', '2026-10-08');
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
@@ -230,6 +239,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(await screen.findByText('Najbliższe terminy po zmianie: dziś, śr. 14 paź, śr. 21 paź.')).toBeTruthy();
     expect(store.dispatched).toHaveLength(0);
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     // Audyt 2 (M-3): jedno polecenie split_event — serwer wykonuje je w całości albo wcale, telefon od razu u siebie.
     const sid = splitId('ev-tance', '2026-10-07');
@@ -265,6 +277,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByLabelText('Wróć do edycji'));
     await press(await screen.findByTestId('event-save'));
     await press(await screen.findByTestId('event-preview-save'));
+    // Audyt 2 (M-246): tego terminu po zmianie nie ma — powrót o ekran dalej.
     await screen.findByTestId('screen-today');
     expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=TH', audience: 'members', responsible_member_id: null } });
     await press(screen.getByLabelText('Następny dzień'));
@@ -356,6 +369,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     // Audyt 2 (E-20): podgląd mówi, ile zmienionych pojedynczo terminów przepada.
     expect(screen.getByText('Zmienione pojedynczo terminy, których po zmianie nie będzie: 1. Ich zmiany przepadną.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     expect(store.dispatched[0]).toMatchObject({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-07', rrule: null } });
     expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'event_overrides', id: 'ov1' });
@@ -478,7 +494,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
     expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Logopeda', responsible_member_id: 'ala' });
-    await press(screen.getByLabelText('Dziś'));
+    await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Logopeda')).toBeNull(); // odpowiada Ala — nie u mnie
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByLabelText(/^Logopeda, 18:00/));

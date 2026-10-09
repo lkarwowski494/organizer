@@ -135,7 +135,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; local?: ReturnType<typeof memoryLocal>; clock?: { at: LocalDateTime; ms: number }; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const base = opts.base ?? sampleBase();
   // Dane jak po pobraniu: każda grupa ma kursor (bez tego lustro kalendarza czeka, mirrorReady).
@@ -152,14 +152,15 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     travel: opts.travel,
     resetLocal: opts.resetLocal,
     prefs: opts.prefs,
-    local: memoryLocal(),
+    local: opts.local ?? memoryLocal(),
     userId: ME,
     displayName: 'Łukasz',
     ...opts.session,
     newId: () => `new-${++id}`,
-    now: () => NOW,
-    nowIso: () => '2026-10-07T08:00:00.000Z',
-    nowMs: () => Date.UTC(2026, 9, 7, 8, 0),
+    // `clock` — zegar do przestawiania w teście (np. przez północ, M-203); bez niego czas stoi na NOW.
+    now: () => opts.clock?.at ?? NOW,
+    nowIso: () => (opts.clock ? new Date(opts.clock.ms).toISOString() : '2026-10-07T08:00:00.000Z'),
+    nowMs: () => opts.clock?.ms ?? Date.UTC(2026, 9, 7, 8, 0),
   };
   const wrap = (ui: ReactElement) => (
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } }}>

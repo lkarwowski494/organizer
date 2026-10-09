@@ -1,6 +1,7 @@
 /** Nowa grupa (RPC create_group — wymaga internetu): nazwa i moje imię w tej grupie. */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { TextInput } from 'react-native';
 
 import { useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
@@ -19,6 +20,7 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const [me, setMe] = useState(displayName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const myField = useRef<TextInput>(null);
   // Audyt 2 (R-27): te same identyfikatory przy ponowieniu — gdy odpowiedź serwera zginęła, druga próba nie tworzy
   // drugiej grupy, a serwer potwierdza istniejącą (create_group_with_owner, migracja 20261008360000).
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Utwórz” zostawia wpisane pola (app/form-draft); nazwa
@@ -26,18 +28,20 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const draft = useFormDraft('group:new', { name, me }, { name: setName, me: setMe }, { restore: route.params?.name === undefined });
   const [ids] = useState(() => ({ groupId: newId(), ownerMemberId: newId() }));
 
+  // PWD-5 A (M-274): przycisk zawsze aktywny — po naciśnięciu komunikat, czego brakuje.
   const create = async () => {
+    if (name.trim() === '') return setError(strings['groups.error.nameEmpty']);
+    if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
     setBusy(true);
     setError(null);
     try {
       await account.createGroup({ ...ids, name: name.trim(), displayName: me.trim() });
       draft.saved();
       // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków dostaje od razu „Zakupy” i „Zadania”
-      // (kolejka, jak każda nowa lista) i kartę „Następne kroki” na ekranie grupy (pamiętaną na tym telefonie).
-      if (route.params?.starter) {
-        store.dispatch(starterListsOps(ids.groupId, newId));
-        prefs?.set(nextStepsKey(ids.groupId), '1').catch(() => {});
-      }
+      // (kolejka, jak każda nowa lista). Kartę „Następne kroki” (pamiętaną na tym telefonie) dostaje każda nowa grupa,
+      // także z ekranu Grupy (audyt 2, M-117, zasada właściciela A).
+      if (route.params?.starter) store.dispatch(starterListsOps(ids.groupId, newId));
+      prefs?.set(nextStepsKey(ids.groupId), '1').catch(() => {});
       store.refresh();
       navigation.replace('Group', { groupId: ids.groupId, fresh: true });
     } catch (e) {
@@ -51,10 +55,11 @@ export function NewGroupScreen({ navigation, route }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['groups.new']}</Title>
       <DraftNote draft={draft} />
-      <Field label={strings['groups.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.GROUP_NAME} testID="group-name" />
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" testID="group-my-name" />
+      {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
+      <Field label={strings['groups.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.GROUP_NAME} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => myField.current?.focus()} testID="group-name" />
+      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button label={strings['groups.create']} onPress={create} disabled={name.trim() === '' || me.trim() === ''} busy={busy} testID="create-group" />
+      <Button label={strings['groups.create']} onPress={create} busy={busy} testID="create-group" />
     </Screen>
   );
 }

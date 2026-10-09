@@ -24,7 +24,7 @@ import { useAppData, useServices } from './context';
 type Item = Pick<Task, 'id' | 'title' | 'completed_at'>;
 
 export function useTaskActions() {
-  const { store, nowIso, userId } = useServices();
+  const { store, nowIso, userId, newId } = useServices();
   const { tables, today } = useAppData();
   const undo = useUndo();
   return {
@@ -82,7 +82,7 @@ export function useTaskActions() {
     finishTrip(listId: string, name: string) {
       const left = tripItems(tables, listId).open.length;
       const done = (all: boolean) => {
-        const ops = finishTripOps(tables, userId, listId, all, nowIso());
+        const ops = finishTripOps(tables, userId, listId, all, nowIso(), newId);
         const back = finishTripUndoOps(tables, ops);
         store.dispatch(ops);
         undo.show(strings['undo.tripDone'](name), { ops: back }, { changed: ops });

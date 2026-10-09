@@ -17,6 +17,8 @@ import { silencedForMe } from '../domain/views/rsvp';
 import { localToMs } from './clock';
 import type { LocalStore } from './calendar-mirror';
 import { type Prefs, useAppData, useServices } from './context';
+import { storedScopes, useMyScope } from './my-scope';
+import { type ScopeOf, scopeAll } from '../domain/views/my-scope';
 import { appVersion, toClientError } from './diagnostics';
 
 export const TRAVEL_ON = 'travelEnabled';
@@ -68,8 +70,8 @@ const savedModes = (local: LocalStore): Record<string, TravelMode> =>
   Object.fromEntries(Object.entries(parse(local.load(MODES_KEY), isRecord) ?? {}).filter((e): e is [string, TravelMode] => isTravelMode(e[1])));
 
 /** Cele dojazdu: dziś i jutro (okno AHEAD_HOURS sięga po północy, audyt 2, M-211), bez terminów wyciszonych. */
-function targetsFor(tables: Tables, userId: string, today: CivilDate, nowMs: number, modeFor: (eventId: string) => TravelMode): TravelTarget[] {
-  return travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs, (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, silencedForMe(tables, userId));
+function targetsFor(tables: Tables, userId: string, today: CivilDate, nowMs: number, modeFor: (eventId: string) => TravelMode, scopeOf: ScopeOf = scopeAll): TravelTarget[] {
+  return travelTargets(expandEvents(tables, userId, today, addDays(today, 1)), nowMs, (d, t) => localToMs({ ...parseIsoDate(d), hh: Number(t.slice(0, 2)), mm: Number(t.slice(3, 5)) }), modeFor, silencedForMe(tables, userId), scopeOf);
 }
 
 /**
@@ -82,13 +84,14 @@ export async function savedTravel(prefs: Prefs, local: LocalStore, tables: Table
   const mode: TravelMode = isTravelMode(m) ? m : 'driving';
   const overrides = savedModes(local);
   const results = readTravelResults(parse(local.load(RESULTS_KEY), isRecord));
-  const targets = targetsFor(tables, userId, today, nowMs, (id) => overrides[id] ?? mode);
+  const targets = targetsFor(tables, userId, today, nowMs, (id) => overrides[id] ?? mode, storedScopes(tables, userId));
   return (eventId, occurrenceDate) => travelInfoFor(targets, results, `${eventId}|${occurrenceDate}`);
 }
 
 export function TravelProvider({ children }: { children: ReactNode }) {
   const { travel, prefs, local, account, userId, nowMs } = useServices();
   const { tables, today } = useAppData();
+  const { scopeOf } = useMyScope();
   const available = !!travel && !!prefs && !!local;
   const [enabled, setEnabledState] = useState(false);
   const [status, setStatus] = useState<Api['status']>(null);
@@ -134,8 +137,8 @@ export function TravelProvider({ children }: { children: ReactNode }) {
 
   const modeFor = useCallback((eventId: string) => overrides[eventId] ?? mode, [overrides, mode]);
   const targets = useMemo(
-    () => targetsFor(tables, userId, today, nowMs(), modeFor),
-    [tables, userId, today, nowMs, modeFor, tick], // eslint-disable-line react-hooks/exhaustive-deps
+    () => targetsFor(tables, userId, today, nowMs(), modeFor, scopeOf),
+    [tables, userId, today, nowMs, modeFor, tick, scopeOf], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const signature = targets.map((t) => `${t.key}:${t.location}:${t.mode}:${t.startMs}`).join('|');
 

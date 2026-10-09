@@ -2,7 +2,8 @@
  * Kontekst aplikacji dla ekranów: stan z pętli synchronizacji (useSyncExternalStore), operacje
  * offline (`dispatch`) i operacje serwerowe (`account`). Ekrany nie znają Supabase ani SQLite.
  */
-import { createContext, type ReactNode, useContext, useMemo, useSyncExternalStore } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 
 import type { CivilDate, LocalDateTime } from '../domain/civil-date';
 import { materialize, type NewOp } from '../domain/sync-engine/client';
@@ -78,6 +79,44 @@ export type AppServices = {
 
 const AppContext = createContext<AppServices | null>(null);
 
+/**
+ * Zegar dnia (audyt 2, M-203): „dziś” przelicza się o północy w Warszawie i po powrocie aplikacji na pierwszy plan, a nie
+ * dopiero przy zmianie danych — ekran otwarty przez północ nie pokazuje wczorajszych „minęło”, „zaległe” i godzin.
+ * Odstęp do północy liczony z czasu lokalnego (now(), config.TIME_ZONE przez Intl), ale timer czeka najwyżej
+ * DAY_CLOCK_MAX_MS i po każdym przebiegu liczy od nowa — nie zakładamy, kiedy w nocy przestawia się czas (zmiana czasu
+ * między wyliczeniem a północą przesunęłaby jedno długie czekanie o godzinę).
+ */
+const DayContext = createContext(0);
+const DAY_CLOCK_MAX_MS = 60 * 60_000;
+
+function DayClock({ services, children }: { services: AppServices; children: ReactNode }) {
+  const [tick, setTick] = useState(0);
+  const { now, nowMs } = services;
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let day = now().d;
+    const schedule = () => {
+      const l = now();
+      const left = ((24 * 60 - (l.hh * 60 + l.mm)) * 60 - (Math.floor(nowMs() / 1000) % 60)) * 1000 + 1000;
+      timer = setTimeout(() => {
+        // Nowy dzień — ekrany przeliczają „dziś”; inaczej tylko kolejne czekanie.
+        if (now().d !== day) {
+          day = now().d;
+          setTick((k) => k + 1);
+        }
+        schedule();
+      }, Math.min(left, DAY_CLOCK_MAX_MS));
+    };
+    schedule();
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && setTick((k) => k + 1));
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [now, nowMs]);
+  return <DayContext.Provider value={tick}>{children}</DayContext.Provider>;
+}
+
 export function AppProvider({ services, children }: { services: AppServices; children: ReactNode }) {
   // D194: odcisk po zmianie i sprawdzenie przed cofnięciem — na stanie z oczekującymi zmianami (jak ekrany); lista
   // w bazie konta (D194 b), cofnięcie rutyny liczone w chwili cofnięcia (kopie kroków z międzyczasu, audyt 2 E-3).
@@ -94,9 +133,11 @@ export function AppProvider({ services, children }: { services: AppServices; chi
   );
   return (
     <AppContext.Provider value={services}>
-      <UndoProvider nowMs={services.nowMs} backend={backend}>
-        {children}
-      </UndoProvider>
+      <DayClock services={services}>
+        <UndoProvider nowMs={services.nowMs} backend={backend}>
+          {children}
+        </UndoProvider>
+      </DayClock>
     </AppContext.Provider>
   );
 }
@@ -112,6 +153,8 @@ export function useAppData(): Snapshot & { tables: Tables; today: CivilDate } {
   const { store, now } = useServices();
   const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const tables = useMemo(() => materialize(snap.state), [snap.state]);
+  // Zegar dnia (DayClock) odświeża ekran o północy — wtedy now() daje już nowy dzień.
+  useContext(DayContext);
   const { y, m, d } = now();
   // Ta sama data → ten sam obiekt, żeby widoki liczone w useMemo nie przeliczały się przy każdym renderze.
   const today = useMemo(() => ({ y, m, d }), [y, m, d]);

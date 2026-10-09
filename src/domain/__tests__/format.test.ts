@@ -20,8 +20,8 @@ describe('daty na ekranach', () => {
 
   it('termin względny i bezwzględny', () => {
     expect(formatDue({ date: '2026-10-07', time: null }, TODAY)).toBe('dziś');
-    expect(formatDue({ date: '2026-10-07', time: '17:30:00' }, TODAY)).toBe('dziś · 17:30');
-    expect(formatDue({ date: '2026-10-08', time: '07:05' }, TODAY)).toBe('jutro · 07:05');
+    expect(formatDue({ date: '2026-10-07', time: '17:30:00' }, TODAY)).toBe('dziś, 17:30');
+    expect(formatDue({ date: '2026-10-08', time: '07:05' }, TODAY)).toBe('jutro, 07:05');
     expect(formatDue({ date: '2026-10-06', time: null }, TODAY)).toBe('wczoraj');
     expect(formatDue({ date: '2026-10-09', time: null }, TODAY)).toBe('pt. 9 paź');
     expect(formatDue({ date: '2026-10-11', time: null }, TODAY)).toBe('niedz. 11 paź');

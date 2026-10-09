@@ -45,6 +45,7 @@ export function SettingsScreen({ navigation, route }: Props) {
   const defaultValue = addGroups.some((g) => g.id === defaultGroup.setting) ? defaultGroup.setting : LAST_USED;
   const [deleting, setDeleting] = useState(false);
   const [word, setWord] = useState('');
+  const [wordError, setWordError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
@@ -257,9 +258,10 @@ export function SettingsScreen({ navigation, route }: Props) {
           {deleting ? (
             <View style={{ gap: 8 }}>
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
-              <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" a11yFocus />
+              <Field label={strings['settings.deleteType']} value={word} onChangeText={(v) => (setWord(v), setWordError(false))} autoCapitalize="characters" testID="delete-word" a11yFocus />
+              {wordError ? <ErrorText testID="delete-word-error">{strings['settings.deleteWordError']}</ErrorText> : null}
               {error ? <ErrorText>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</ErrorText> : null}
-              <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} busy={busy} onPress={del} testID="delete-confirm" />
+              <Button kind="danger" label={strings['settings.deleteConfirm']} busy={busy} onPress={() => (word.trim().toLocaleUpperCase('pl') === strings['settings.deleteWord'] ? void del() : setWordError(true))} testID="delete-confirm" />
               <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
             </View>
           ) : (
