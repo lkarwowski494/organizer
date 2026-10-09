@@ -163,6 +163,11 @@ export const linking: LinkingOptions<RootStackParams> = {
   // D94: link https ze strony zaproszeń (Universal Links, ścieżka /j/?g=…&c=…) i ten sam w schemacie aplikacji (…://join?g=…&c=…).
   prefixes: [`${config.URL_SCHEME}://`, new URL(config.invites.JOIN_LINK).origin],
   config: {
+    // Audyt 3 (N-37): ekran z linku ląduje na zakładkach, nie sam — inaczej przy starcie z linku „Wróć” nic nie robi,
+    // a po dołączeniu do grupy nie ma drogi do „Moich spraw”. React Navigation, „Configuring links → Rendering an
+    // initial route”: „use the `initialRouteName` property to specify the screen to use for the initial screen”
+    // (https://reactnavigation.org/docs/configuring-links/).
+    initialRouteName: 'Tabs',
     screens: {
       Tabs: { screens: { Today: 'today', Lists: 'lists', Calendar: 'calendar', Groups: 'groups' } },
       Invite: { path: 'invite/:token', alias: ['join', 'j'] },

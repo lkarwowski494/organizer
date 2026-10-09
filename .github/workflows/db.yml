@@ -4,16 +4,17 @@
 #              z „otwartymi” uprawnieniami domyślnymi starszych projektów — sprawdza, że migracje same się zamykają;
 #  - supabase: prawdziwy stos Supabase CLI (Postgres 17, auth, realtime) — sprawdza zgodność z oryginałem.
 # Kiedy: zmiana bazy, testów tests/db albo kodu, który te testy importują (silnik synchronizacji, config — pilnuje tego
-# .github/scripts/ci-scripts.test.mjs), co noc na main i ręcznie (audyt 2, M-155). Zielony przebieg dla commitu to
+# .github/scripts/ci-scripts.test.mjs), zależności npm (pg, fast-check, jest — audyt 3, N-241), co noc na main i ręcznie
+# (audyt 2, M-155). Zielony przebieg dla commitu to
 # warunek wdrożenia (supabase-deploy.yml) i wydania (ios-release.yml): .github/scripts/require-green-runs.sh.
 name: db
 
 on:
   push:
     branches: [main]
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', 'package.json', 'package-lock.json', '.github/workflows/db.yml', '.github/scripts/install-supabase-cli.sh']
   pull_request:
-    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', '.github/workflows/db.yml']
+    paths: ['supabase/**', 'scripts/db/**', 'tests/db/**', 'src/domain/**', 'src/config/**', 'package.json', 'package-lock.json', '.github/workflows/db.yml', '.github/scripts/install-supabase-cli.sh']
   schedule:
     - cron: '47 0 * * *' # 2:47 czasu polskiego latem: także bez zmian w ścieżkach (cron GitHuba działa w UTC)
   workflow_dispatch:
@@ -23,7 +24,9 @@ permissions:
 
 concurrency:
   group: db-${{ github.ref }}
-  cancel-in-progress: true
+  # Na main każdy przebieg dobiega końca — zielony db.yml dla commitu to warunek wdrożenia i wydania (audyt 3, N-84);
+  # w PR nowszy commit przerywa starszy przebieg.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   local:
@@ -55,12 +58,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      # CLI z npm, wersja przypięta (bez dodatkowej akcji spoza GitHuba na liście dozwolonych).
+      # CLI z wydania GitHuba w przypiętej wersji z sumą SHA-256 (audyt 3, N-255; bez paczki npm i jej zależności).
+      - run: .github/scripts/install-supabase-cli.sh
       - name: Supabase (tylko baza, auth i realtime)
-        run: npx --yes supabase@2.119.0 start -x studio,imgproxy,storage-api,mailpit,logflare,vector,supavisor,edge-runtime,postgres-meta,kong,postgrest
-      - run: npx --yes supabase@2.119.0 test db
+        run: supabase start -x studio,imgproxy,storage-api,mailpit,logflare,vector,supavisor,edge-runtime,postgres-meta,kong,postgrest
+      - run: supabase test db
       - if: always()
-        run: npx --yes supabase@2.119.0 stop --no-backup
+        run: supabase stop --no-backup
