@@ -106,14 +106,14 @@ export function CalendarScreen() {
 
   return (
     <Screen testID="screen-calendar">
-      <Title>{strings['calendar.title']}</Title>
+      <Title>{strings['tabs.calendar']}</Title>
       <DeviceCalendarCard />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.prev']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.prev.month']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 26, color: c.ink }}>‹</Text>
         </Pressable>
         <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: 20, color: c.ink }}>{formatMonth(ym.y, ym.m)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.next']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.next.month']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 26, color: c.ink }}>›</Text>
         </Pressable>
       </View>
