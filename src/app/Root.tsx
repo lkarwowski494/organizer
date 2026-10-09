@@ -20,7 +20,7 @@ import { wakeGroups } from '../domain/reminder-wake';
 import type { SyncTransport } from '../sync/transport';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { announce } from '../ui/a11y';
-import { Body, Button, Screen, syncAnnouncement, Title } from '../ui/components';
+import { Body, Button, Screen, syncAnnouncer, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
@@ -233,14 +233,11 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   );
 
   // Audyt 2 (M-37): przejście w offline, błąd, wygasłą sesję albo „zaktualizuj” i powrót do normy ogłaszamy VoiceOverem
-  // (chip zmienia się po cichu; zwykłe „zsynchronizowano X min temu” — bez ogłoszeń).
+  // (chip zmienia się po cichu; zwykłe „zsynchronizowano X min temu” — bez ogłoszeń); powrót — po chwili spokoju (N-198).
   useEffect(() => {
-    let last = runtime.getSnapshot().indicator.state;
-    return runtime.subscribe(() => {
-      const r = syncAnnouncement(last, runtime.getSnapshot().indicator, nowMs());
-      last = r.last;
-      announce(r.text);
-    });
+    const a = syncAnnouncer(() => runtime.getSnapshot().indicator, nowMs, announce);
+    const unsub = runtime.subscribe(a.update);
+    return () => (unsub(), a.stop());
   }, [runtime, nowMs]);
 
   // Kanały: mój (zmiana dostępu) + każdej mojej grupy (nowa wersja). Odnawiane, gdy zmienia się zbiór grup.

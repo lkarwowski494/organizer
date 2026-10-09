@@ -62,10 +62,12 @@ describe('zaznaczenie (PW-52 A, D198)', () => {
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-routine'));
-    const wed = screen.getAllByRole('checkbox').find((e) => e.props.accessibilityState?.checked)!;
+    const wed = screen.getByLabelText('śr., w środę');
+    expect(wed.props.accessibilityState).toMatchObject({ selected: true });
     expect(flat(wed)).toMatchObject({ backgroundColor: c.ink });
     expect(within(wed).getByTestId('glyph-check', { includeHiddenElements: true }).props).toMatchObject({ name: 'checkmark', tintColor: c.surface });
-    const off = screen.getAllByRole('checkbox').find((e) => !e.props.accessibilityState?.checked)!;
+    const off = screen.getByLabelText('sob., w sobotę');
+    expect(off.props.accessibilityState).toMatchObject({ selected: false });
     expect(flat(off).backgroundColor).toBe(c.surface);
     expect(within(off).queryByTestId('glyph-check', { includeHiddenElements: true })).toBeNull();
   });
@@ -113,7 +115,7 @@ describe('układ ekranu', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Dom, Rodzina · Zadania · 3 otwarte'));
+    await press(await screen.findByLabelText('Dom, Rodzina, Zadania, 3 otwarte'));
     const list = await screen.findByTestId(/^screen-list/);
     const pad = () => flat({ props: { style: list.props.contentContainerStyle } }).paddingBottom as number;
     expect(pad()).toBe(space.SCREEN_BOTTOM + HOME);

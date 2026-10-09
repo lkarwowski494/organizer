@@ -177,8 +177,8 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await openEvent();
     await press(screen.getByTestId('event-edit'));
     await press(screen.getByTestId('scope-all'));
-    await press(await screen.findByLabelText('W środę'));
-    await press(screen.getByLabelText('W czwartek'));
+    await press(await screen.findByLabelText('śr., w środę'));
+    await press(screen.getByLabelText('czw., w czwartek'));
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByText('1 zadanie traci wydarzenie (ten termin znika).')).toBeTruthy();
     expect(screen.getByText('Spakować strój')).toBeTruthy();
