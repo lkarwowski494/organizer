@@ -1,6 +1,11 @@
 /**
  * Wspólne środowisko testów ekranów: motyw (jasny lub ciemny), bezpieczne marginesy, usługi aplikacji
  * ze stanem w pamięci (ta sama logika co w aplikacji: mutate + materialize) i atrapą konta.
+ *
+ * Serwer reguł (audyt 2, M-50): każda operacja z ekranu przechodzi przez model reguł serwera
+ * (src/domain/server-rules.ts, zgodny z SQL — tests/db/rules-vs-sql.test.ts) na kopii danych serwera. Operacja, którą
+ * serwer by odrzucił, oblewa test (afterEach), chyba że test ją zapowie: `store.expectRejected('kod')`. Odrzucone
+ * operacje zostają w kolejce telefonu (jak w aplikacji — o odrzuceniu telefon dowie się z odpowiedzi serwera).
  */
 import { NavigationContainer } from '@react-navigation/native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
@@ -12,6 +17,7 @@ import { MONTHS_NOMINATIVE } from '../../config/calendar.pl';
 import type { Scheme } from '../../config/theme';
 import type { LocalDateTime } from '../../domain/civil-date';
 import { parseIsoDate } from '../../domain/format';
+import { applyOnServer, serverVerdict } from '../../domain/server-rules';
 import { type ClientState, initialState, mutate, type NewOp, type Row } from '../../domain/sync-engine/client';
 import type { Indicator } from '../../domain/sync-engine/scheduler';
 import type { AccountApi } from '../../sync/account';
@@ -65,22 +71,79 @@ export function sampleBase(): T {
   return t;
 }
 
-export function memoryStore(initial: ClientState, indicator: Indicator = { state: 'synced', since: null }) {
+type Tables = { [e: string]: { [id: string]: Row } };
+const cloneTables = (t: ClientState['base']): Tables => Object.fromEntries(Object.entries(t).map(([e, rows]) => [e, { ...rows }]));
+
+/** Magazyny z bieżącego testu — po teście nie może zostać niezapowiedziane odrzucenie (afterEach niżej). */
+const live = new Set<{ unexpected(): string[]; dispatched: NewOp[]; opsMark: number; opsChecked: boolean }>();
+afterEach(() => {
+  const stores = [...live];
+  live.clear();
+  const found = stores.flatMap((s) => s.unexpected());
+  if (found.length) throw new Error(`Serwer odrzuciłby operacje z ekranu (M-50):\n${found.join('\n')}`);
+  // M-156: test, który sprawdza operacje (expectOps), sprawdza je wszystkie — także te po ostatniej asercji (np. przy
+  // wyjściu z ekranu albo z pętli w tle).
+  const left = stores.filter((s) => s.opsChecked && s.dispatched.length > s.opsMark).map((s) => JSON.stringify(s.dispatched.slice(s.opsMark)));
+  if (left.length) throw new Error(`Operacje bez sprawdzenia po ostatnim expectOps (M-156):\n${left.join('\n')}`);
+});
+
+/**
+ * Dokładnie te operacje od poprzedniego sprawdzenia (audyt 2, M-156): pełne operacje (toEqual — także zbędne pole
+ * w łatce, które przy synchronizacji per pole nadpisałoby czyjąś zmianę) i ich kolejność; po teście nie może zostać
+ * żadna niesprawdzona operacja. Zamiast `expect(store.dispatched…).toMatchObject(…)` (zabronione regułą ESLint).
+ */
+export function expectOps(store: { dispatched: NewOp[]; opsMark: number; opsChecked: boolean }, ops: readonly unknown[]) {
+  const since = store.dispatched.slice(store.opsMark);
+  store.opsMark = store.dispatched.length;
+  store.opsChecked = true;
+  expect(since).toEqual(ops);
+}
+
+export function memoryStore(initial: ClientState, indicator: Indicator = { state: 'synced', since: null }, userId = ME) {
   let n = 0;
   let snap: Snapshot = { state: initial, indicator };
   const listeners = new Set<() => void>();
   const dispatched: NewOp[] = [];
-  return {
+  /** Dane serwera: wiersze bazowe + operacje przyjęte (z polami, które nadaje serwer). */
+  let server = cloneTables(initial.base);
+  const rejected: { op: NewOp; code: string }[] = [];
+  const expected: string[] = [];
+  const store = {
     dispatched,
+    /** Ile operacji już sprawdził expectOps (znacznik) i czy test w ogóle sprawdza operacje. */
+    opsMark: 0,
+    opsChecked: false,
+    /** Operacje odrzucone przez model reguł serwera (z kodem). */
+    rejected,
+    /** Test zapowiada odrzucenie z tym kodem (np. sprawdza zachowanie ekranu po odrzuceniu). */
+    expectRejected: (code: string) => void expected.push(code),
+    unexpected: () => {
+      const left = [...expected];
+      return rejected
+        .filter(({ code }) => {
+          const i = left.indexOf(code);
+          if (i < 0) return true;
+          left.splice(i, 1);
+          return false;
+        })
+        .map(({ op, code }) => `${code}: ${JSON.stringify(op)}`);
+    },
     getSnapshot: () => snap,
     subscribe: (fn: () => void) => (listeners.add(fn), () => listeners.delete(fn)),
     dispatch: (op: NewOp | readonly NewOp[]) => {
       const ops: readonly NewOp[] = Array.isArray(op) ? op : [op as NewOp];
       dispatched.push(...ops);
+      for (const o of ops) {
+        const code = serverVerdict(server, userId, o);
+        if (code === null) applyOnServer(server, userId, o, '2026-10-07T08:00:00.000Z');
+        else rejected.push({ op: o, code });
+      }
       snap = { ...snap, state: ops.reduce((st, o) => mutate(st, o, () => `op-${++n}`), snap.state) };
       listeners.forEach((f) => f());
     },
     refresh: jest.fn(),
+    /** Zmiana danych serwera przez RPC konta (np. nowa grupa z właścicielem) — bez operacji telefonu. */
+    serverPut: (entity: string, key: string, row: Row) => void ((server[entity] ??= {})[key] = row),
     clearRejected: () => {
       snap = { ...snap, state: { ...snap.state, rejected: [] } };
       listeners.forEach((f) => f());
@@ -88,6 +151,7 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
     /** Pobranie z serwera (zmiana drugiego telefonu): podmienia wiersze bazowe bez operacji tego telefonu. */
     pull: (fn: (base: ClientState['base']) => ClientState['base']) => {
       snap = { ...snap, state: { ...snap.state, base: fn(snap.state.base) } };
+      server = cloneTables(fn(server));
       listeners.forEach((f) => f());
     },
     setIndicator: (i: Indicator) => {
@@ -95,6 +159,8 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
       listeners.forEach((f) => f());
     },
   };
+  live.add(store);
+  return store;
 }
 
 /** Lokalny magazyn telefonu (stan lustra kalendarza, D95) w pamięci. */
@@ -142,6 +208,13 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
   const state: ClientState = { ...initialState('c-test'), base, cursors: Object.fromEntries(Object.keys(base.groups ?? {}).map((g) => [g, 1])) };
   const store = memoryStore(state, opts.indicator);
   const account = opts.account ?? fakeAccount();
+  // create_group (RPC) zakłada grupę i członkostwo właściciela na serwerze — dalsze operacje w nowej grupie są dozwolone.
+  const createGroup = account.createGroup.getMockImplementation();
+  account.createGroup.mockImplementation(async (a) => {
+    store.serverPut('groups', a.groupId, { id: a.groupId, name: a.name, kind: 'shared', deleted_at: null });
+    store.serverPut('group_members', a.ownerMemberId, { member_id: a.ownerMemberId, group_id: a.groupId, user_id: ME, display_name: a.displayName, role: 'owner', deleted_at: null });
+    return createGroup?.(a);
+  });
   const calendar = opts.calendar ?? { add: jest.fn(async () => 'saved' as const) };
   let id = 0;
   const services: AppServices = {

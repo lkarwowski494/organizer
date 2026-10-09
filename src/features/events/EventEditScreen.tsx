@@ -66,6 +66,8 @@ export function EventEditScreen({ route, navigation }: Props) {
     const auto = !allDay && start && end && endsNextDay(start, end) ? formatIsoDate(addDays(parseIsoDate(occurrence), 1)) : occurrence;
     return { ...f, title: title ?? '', allDay: allDay ?? false, endDate: endDate && endDate !== auto ? endDate : '', location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
   });
+  // Formularz z chwili otwarcia — zapis zmiany wysyła tylko pola, które zmieniłem (editEvent, synchronizacja per pole).
+  const [loadedForm] = useState<EventForm | null>(() => (detail ? formOf(fieldsOf(detail, occurrence, scope)) : null));
   const [error, setError] = useState<string | null>(null);
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
@@ -120,7 +122,8 @@ export function EventEditScreen({ route, navigation }: Props) {
   const save = () => {
     // W grupie osobistej „kogo dotyczy” nie ma (P-53) — zawsze cała grupa, czyli ja.
     // D199: koniec nie później niż początek = następnego dnia (plan lekcji i rutyny tego nie mają).
-    const r = validateForm({ ...form, ...(only ? { repeat: 'none' as const } : {}), ...(personal ? { audience: 'group' as const, participantIds: [] } : {}) }, { overnight: true });
+    const normalized = (x: EventForm) => validateForm({ ...x, ...(only ? { repeat: 'none' as const } : {}), ...(personal ? { audience: 'group' as const, participantIds: [] } : {}) }, { overnight: true });
+    const r = normalized(form);
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
     setError(null);
@@ -132,7 +135,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       defaultGroup.remember(groupId);
       navigation.goBack();
     } else {
-      const ops = editEvent(detail, occurrence, scope, r.fields[0]!);
+      const was = loadedForm ? normalized(loadedForm) : null;
+      const ops = editEvent(detail, occurrence, scope, r.fields[0]!, was && !('error' in was) ? was.fields[0] : undefined);
       if (scope !== 'this' && detail.rule) return setPreview({ ops, effects: seriesEditEffects(tables, detail, occurrence, scope, ops) });
       commit(ops);
     }

@@ -28,8 +28,10 @@ export const config = {
   /**
    * Zgłaszanie błędów i opinii (D80). Serwer egzekwuje te same liczby (private.client_errors_per_day,
    * feedback_per_day, feedback_retention_days; test kontraktowy). Wybory projektowe, bez źródła.
+   * Długości pól zgłoszenia błędu (ERROR_*; ograniczenia kolumn client_errors i obcięcie w report_client_error, także
+   * screen i app_version opinii — audyt 2, M-154, D-23; kontrakt z bazą: tests/db/config-sql.test.ts).
    */
-  feedback: { ERRORS_PER_DAY: 50, PER_DAY: 20, RETENTION_DAYS: 90, MAX_LENGTH: 2000 },
+  feedback: { ERRORS_PER_DAY: 50, PER_DAY: 20, RETENTION_DAYS: 90, MAX_LENGTH: 2000, ERROR_MESSAGE_MAX: 500, ERROR_STACK_MAX: 4000, SCREEN_MAX: 100, VERSION_MAX: 40 },
 
   /**
    * Zakupy (D85, D86): ile podpowiedzi przy wpisywaniu, ile stałych pozycji na liście i ich długość
@@ -47,8 +49,18 @@ export const config = {
    * Najdłuższe nazwy (audyt 2, M-228): z ograniczeń kolumn w SQL — groups.name i lists.name do 200 znaków, tasks.title
    * do 500 (test kontraktowy). Pole nie przyjmie więcej (maxLength) i mówi o tym, zamiast odrzucenia zmiany po
    * synchronizacji. Wartości z pierwszych migracji, wybór projektowy bez źródła.
+   * Także (audyt 2, M-154; kontrakt z bazą: tests/db/config-sql.test.ts): EVENT_TITLE — tytuł wydarzenia i wyjątku
+   * (events, event_overrides), NOTE — notatka zadania i wydarzenia; tytuł serii zadań przy wydarzeniu to TASK_TITLE (z serii
+   * powstają zadania); PUSH_TOKEN_MIN/MAX — token APNs (cyfry szesnastkowe, push_tokens_token_check).
    */
-  lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500 },
+  lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500, EVENT_TITLE: 200, NOTE: 10_000, PUSH_TOKEN_MIN: 64, PUSH_TOKEN_MAX: 200 },
+
+  /**
+   * Reguła powtarzania wydarzenia (RRULE, D57): najdłuższy zapis, największy odstęp (INTERVAL) i liczba wystąpień
+   * (COUNT) — telefon (src/domain/rrule.ts) i serwer (private.rrule_ok) te same (audyt 2, M-154; kontrakt z bazą:
+   * tests/db/config-sql.test.ts, zgodność reguł: tests/db/rrule-contract.test.ts). Wybory projektowe, bez źródła.
+   */
+  rrule: { MAX_LENGTH: 200, INTERVAL_MAX: 99, COUNT_MAX: 1000 },
 
   /**
    * Wydarzenia. LOCATION_MAX_LENGTH (miejsce wydarzenia, ADR 0029): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
@@ -320,9 +332,12 @@ export const config = {
    *    po powrocie z trybu offline;
    *  - JOIN_ATTEMPT_DAYS — nieudane próby dołączenia (limity liczą godzinę i czas życia kodu, 24 h);
    *  - MAINTENANCE_RUN_DAYS — dziennik przebiegów sprzątania (private.maintenance_runs, M-194);
+   *  - PUSH_LOG_DAYS — dziennik wysłanych powiadomień (private.push_log_retention_days; musi być dłuższy niż
+   *    PUSH_MAX_AGE_H, test kontraktowy); CRON_HISTORY_DAYS — historia zadań pg_cron (private.cron_history_days)
+   *    — audyt 2, M-154, D-23; wybory projektowe, bez źródła.
    *  - TRIP_DAYS — zrobione zakupy w Kalendarzu (PWD-11 A, public.shopping_trips), jak historia zmian.
    */
-  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, TRIP_DAYS: 90 },
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90 },
 
   /**
    * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy

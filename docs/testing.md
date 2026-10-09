@@ -11,10 +11,10 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 ## Kiedy co się uruchamia (D46 — hybryda)
 | Moment | Co | Gdzie | Czas |
 |---|---|---|---|
-| Każda zmiana (push, PR) | typy, lint (0 ostrzeżeń), testy jednostkowe + własności + korpusy, pokrycie z progami, testy kontraktowe, Deno check/lint funkcji, aktualność korpusów parsera dat i kontrastu (`check:corpus`; korpusy RRULE, następnego terminu zadania (`gen-nextdue-corpus.py`) i świąt generuje się ręcznie, wymagają python-dateutil), skrypty CI i kontrakty workflow (`node --test ".github/scripts/*.test.mjs"`), skan sekretów z testem reguł | `ci.yml`, Linux | ~2–5 min |
+| Każda zmiana (push, PR) | typy, lint (0 ostrzeżeń), testy jednostkowe + własności + korpusy, pokrycie z progami, testy kontraktowe, Deno check/lint funkcji, aktualność korpusów parsera dat i kontrastu (`check:corpus`; korpusy RRULE, następnego terminu zadania (`gen-nextdue-corpus.py`) i świąt generuje się ręcznie, wymagają python-dateutil), skrypty CI i kontrakty workflow (`node --test ".github/scripts/*.test.mjs"`), skan sekretów z testem reguł i skanem całego zakresu pusha albo PR ze scaleniami (`.github/scripts/gitleaks-range.sh` — gitleaks-action skanuje tylko pierwszego rodzica) | `ci.yml`, Linux | ~2–5 min |
 | Zmiana w `supabase/**`, `scripts/db/**`, `tests/db/**` albo w kodzie, który te testy importują (`src/domain/**`, `src/config/**` — testy reguł i podziału serii importują widoki domeny; pilnuje tego kontrakt w `.github/scripts/ci-scripts.test.mjs`); co noc; ręcznie | migracje od zera, pgTAP (RLS, sync, triggery), kontrakt config ↔ SQL, telefony i FakeServer na prawdziwym SQL (`tests/db`) | `db.yml`, Linux | ~5–25 min |
-| Każdy push na `main`, PR z tego repozytorium i ręcznie (D143; PR z forka — tylko składnia scenariuszy, decyzja właściciela 8.10.2026, M-79) | E2E Maestro na symulatorze iOS (build z `EXPO_PUBLIC_E2E=1`, scenariusze `.maestro/`), zrzuty ekranu porównane z wzorcami — różnica tylko w podsumowaniu przebiegu; wcześniej składnia scenariuszy na Linuksie | `e2e.yml`, macOS (standardowy runner, w repo publicznym bez opłat) | ~30–50 min |
-| Co noc | testy mutacyjne w 8 równoległych częściach z progiem liczonym na całości, pełny skan historii, audyt zależności (`nightly.yml`); testy bazy (`db.yml`); E2E z porównaniem zrzutów, które **oblewa** przebieg przy różnicy (`e2e.yml`, harmonogram); wydajność, długie symulacje synchronizacji, E2E na najmniejszym iPhonie, w ciemnym wyglądzie i przy dużej czcionce — **planowane, niezaimplementowane** | `nightly.yml`, `db.yml`, `e2e.yml` | ~30–60 min |
+| Każdy push na `main`, PR z tego repozytorium i ręcznie (D143; PR z forka — tylko składnia scenariuszy, decyzja właściciela 8.10.2026, M-79) | E2E Maestro na symulatorze iOS (build z `EXPO_PUBLIC_E2E=1`, scenariusze `.maestro/`) w wariancie bazowym (iPhone 17e, jasny, domyślny tekst), zrzuty ekranu porównane z wzorcami i audyt dostępności XCUITest (D186) — różnice i problemy tylko w podsumowaniu przebiegu; wcześniej składnia scenariuszy na Linuksie | `e2e.yml`, macOS (standardowy runner, w repo publicznym bez opłat) | ~30–50 min |
+| Co noc | testy mutacyjne w 8 równoległych częściach z progiem liczonym na całości, pełny skan historii, audyt zależności (`nightly.yml`); testy bazy (`db.yml`); E2E w 8 wariantach zrzutów (PWD-38 B: iPhone 17e i 17 Pro Max × jasny i ciemny × tekst domyślny i największy AX5) z porównaniem, które **oblewa** przebieg przy różnicy, porażce scenariuszy w dowolnym wariancie albo problemie audytu dostępności XCUITest (`e2e.yml`, harmonogram); pomiar darmowych limitów i podtrzymanie projektu Supabase (`free-limits`, D185, `docs/limits.md`); wydajność i długie symulacje synchronizacji — **planowane, niezaimplementowane** | `nightly.yml`, `db.yml`, `e2e.yml` | ~30–60 min |
 | Przed wdrożeniem bazy i funkcji | zadanie `gate` bez sekretów i bez środowiska: zielone `ci.yml` i `db.yml` dla tego samego commitu na `main` (`.github/scripts/require-green-runs.sh`; trwający przebieg poczeka); sekrety tylko w krokach CLI, hasło bazy przez `SUPABASE_DB_PASSWORD` (audyt 2, M-155) | `supabase-deploy.yml` (bramka) | do 30 min czekania |
 | Przed wydaniem do TestFlight | zadanie `gate` na Linuksie, bez sekretów: commit z `main` (tag `v*` na commicie spoza `main` odrzucony, M-193) i zielony `db.yml` dla tego commitu (decyzja właściciela 8.10.2026, PWD-40 A); potem `npm run check` na tym commicie. E2E na razie tylko informacyjnie; **następny krok, jeszcze niewdrożony:** po tygodniu zielonych przebiegów `e2e.yml` także on będzie warunkiem wydania | `ios-release.yml` (bramka) | do 30 min czekania |
 
@@ -22,8 +22,11 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Obszar | Próg | Narzędzie |
 |---|---|---|
 | `src/domain`, `src/config`, `src/sync`, `src/data` | 100% linii, gałęzi, funkcji, instrukcji | Jest `coverageThreshold` (`npm run test:coverage`) |
+| Czysta logika w `src/app` i `src/features` (bez Reacta, modułów natywnych i nawigacji — także pośrednio) | 100% (wpis dla każdego pliku; pilnuje `src/config/__tests__/coverage.contract.test.ts`); nowa logika — od razu w `src/domain` (zegar `local-time.ts`, operacje szybkiego dodawania `views/quick-add-ops.ts` przeniesione w audycie 2, M-51) | Jest `coverageThreshold` |
+| Ekrany, adaptery natywne, warstwa aplikacji (`src/app`, `src/features`, `src/ui`) | progi zapadkowe z 9.10.2026 (app 85/74/72/82, features 97/95/94/97, ui 98/95/94/98 — linie/gałęzie/funkcje/instrukcje; ui po scaleniu P13b/P18 ustawione na zmierzony poziom, bo nowy kod przyszedł z gałęziami bez testu); podnosić przy zmianie, nie obniżać | Jest `coverageThreshold` |
+| Funkcje Edge (`supabase/functions`, bez `index.ts` z `Deno.serve`) | linie i funkcje 100%, gałęzie ≥ 98% (zapadkowo) | `deno test --coverage` + `scripts/deno-coverage-check.mjs` (`npm run check:functions`) |
 | `src/domain`, `src/config`, `src/sync`, `src/data` | ≥ 90% wykrytych celowych usterek (mutation score) | Stryker (`npm run test:mutation`; nocą w częściach, próg na scalonym wyniku: `.github/scripts/mutation-merge.mjs`) |
-| SQL | każda tabela × rola × operacja w macierzy RLS; każda funkcja RPC z testem sukcesu i każdego kodu odrzucenia | pgTAP |
+| SQL | każda tabela × rola × operacja w macierzy RLS (`role_matrix_all.test.sql`: 18 tabel × 5 ról × 4 operacje, meta-asercja kompletności); każda funkcja RPC z testem sukcesu i każdego kodu odrzucenia (test statyczny `src/config/__tests__/pgtap-coverage.contract.test.ts` na ostatnich definicjach funkcji) | pgTAP |
 | Ekrany | każdy ekran ma test RNTL (`src/app/__tests__/*.screens.test.tsx`); każda funkcja ma scenariusz E2E — na razie 8 scenariuszy (lista niżej), pozostałe funkcje do uzupełnienia | RNTL, Maestro |
 | Lint | 0 ostrzeżeń | ESLint `--max-warnings 0` |
 | Zależności | 0 nowych zgłoszeń high/critical względem `scripts/audit-baseline.json` | `npm run check:audit` (nocą) |
@@ -34,15 +37,15 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Logika domeny | testy przykładów + własności (fast-check) | ✅ |
 | Wiedza dziedzinowa (język, kalendarz) | korpusy z **niezależną** implementacją oczekiwań (`scripts/gen-quickadd-corpus.py`, `gen-rrule-corpus.py` i `gen-nextdue-corpus.py` — python-dateutil, `gen-holidays-corpus.py`, `gen-contrast-corpus.py`) — test różnicowy | ✅ parser dat, RRULE, święta, kontrast |
 | Jakość samych testów | testy mutacyjne (Stryker, tylko z testami logiki — `jest.mutation.config.js`); nocą 8 części (`.github/scripts/mutation-shards.mjs`, `stryker.shard.config.mjs`), wynik i próg ze scalonych raportów (ta sama funkcja wyniku co w Strykerze) | częściowo: od 8.10.2026 nocny pomiar się nie kończył (audyt 2, M-47); pierwszy przebieg w częściach do sprawdzenia |
-| Pokrycie | progi 100% w logice | ✅ |
+| Pokrycie | progi 100% w logice i w czystej logice warstw aplikacji; progi zapadkowe ekranów i adapterów; funkcje Edge (audyt 2, M-51) | ✅ |
 | Jedno źródło prawdy | testy kontraktowe w `src/config/__tests__`: `app.json` ↔ `src/config`, `src/config` ↔ funkcje `private.*` w SQL, strona `site/` ↔ config | ✅ |
 | Synchronizacja | symulator wielu klientów (fast-check, model-based): zbieżność, brak zgubionych operacji, idempotencja, utrata dostępu, zerwana / zduplikowana / opóźniona sieć; od audytu 2 także czyszczenie kosza z resync porcjami, role i ich zmiana (dziecko), zawężenie widoczności listy i przeniesienie zadania do ukrytej listy, powrót do grupy, ponowne uruchomienie telefonu (stan z SQLite, także z wyzerowanymi kursorami), odrzucenie po zgubionej odpowiedzi, odtworzenie telefonu z kopii iCloud, nieudane pobranie udostępnionej listy, generatory kopii powtórzeń na widoku telefonu (kopia odrzucona nie wraca); każda pętla „do ciszy” ma górną granicę obrotów, a statystyka pilnuje, że te sytuacje naprawdę zachodzą (`sync-sim.test.ts`; model = SQL: `tests/db/fake-vs-sql.test.ts`; telefony na prawdziwym SQL z czyszczeniem kosza i zmianą roli: `tests/db/phones-vs-sql.test.ts`; protokół 2 w pgTAP: `supabase/tests/sync_protocol_v2.test.sql`) | ✅ |
-| Uprawnienia (RLS) | pgTAP: macierz ról (owner/admin/member/child/obcy) × tabela × odczyt/zapis/usunięcie; przecieki list `restricted` przez pull, aktywność i treść pusha (`supabase/tests/*.test.sql`, w tym `role_matrix`) | ✅ (`db.yml`) |
+| Uprawnienia (RLS) | pgTAP: macierz ról (owner/admin/member/child/obcy) × każda tabela z RLS × odczyt/wstawienie/zmiana/usunięcie — encje synchronizacji przez `sync_push`, pozostałe wprost w SQL (`role_matrix_all`, tabela oczekiwań i meta-asercja, że żadnej tabeli nie brakuje); kontrakty schematu (`schema_contracts`: GRANT kolumn = `sync_entities`, `anon` bez uprawnień, każda tabela grupy w usuwaniu grupy, pobieraniu i czyszczeniu kosza, lista funkcji tylko dla serwera); liczby z ograniczeń SQL = `src/config` (`tests/db/config-sql.test.ts`); przecieki list `restricted` przez pull, aktywność i treść pusha (`supabase/tests/*.test.sql`, w tym `role_matrix`) | ✅ (`db.yml`) |
 | Migracje | SQL: od zera i z danymi sprzed migracji (`scripts/db/upgrade-*.sql`); SQLite na telefonie: kolejne wersje w `src/data/db/migrations.ts` (`store.test.ts`) | ✅ |
 | Funkcje serwerowe (Edge) | `deno check` + `deno lint` + `deno test` (`*_test.ts`, z udawanym APNs i API Apple) | ✅ |
-| Ekrany | RNTL: zachowanie przez role i etykiety (wymusza dostępność) | ✅ |
-| Dostępność | etykiety VoiceOver w RNTL ✅; ogłoszenia i przenoszenie fokusu VoiceOvera — wywołania atrapy `AccessibilityInfo` (`voiceover.screens.test.tsx`) ✅; kontrast kolorów w testach motywu, także paleta „Zwiększ kontrast” ✅; audyt ekranów (`a11y.test.tsx`): każdy tekst ma kolor i rozmiar z motywu, zaznaczenie nigdy w kolorze przycisku głównego, przełącznik ma etykietę ✅; literał `fontSize` poza `src/config` zabroniony regułą ESLint ✅; E2E przy największej czcionce Dynamic Type, „Pogrubionym tekście”, „Zwiększ kontrast” i na iPadzie — planowane, niezaimplementowane (do sprawdzenia na urządzeniu) | częściowo |
-| Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | **jeszcze nie działa**: wzorców brak, a żaden przebieg E2E na macOS się nie skończył (8.10.2026); najpierw iPhone 17 w jasnym wyglądzie, warianty — decyzja właściciela |
+| Ekrany | RNTL: zachowanie przez role i etykiety (wymusza dostępność); udawany serwer w `harness.tsx`, w teście głównym i w lustrze E2E stosuje reguły serwera z `src/domain/server-rules.ts` (zgodność z SQL sprawdza `tests/db/rules-vs-sql.test.ts`, M-50) — niezapowiedziane odrzucenie oblewa test (`store.expectRejected(kod)` przy teście ścieżki błędu); operacje wysłane z ekranu sprawdza `expectOps(store, [...])` — dokładnie i wszystkie, także po ostatniej asercji (M-156; `toMatchObject` na `dispatched` blokuje ESLint); ostrzeżenia `act()` oblewają test (`jest.app-after-env.js`, M-196) | ✅ |
+| Dostępność | audyt drzewa każdego scenariusza w RNTL (`a11y.test.tsx`, M-46: cechy iOS ról, etykiety i widoczne słowa, stany, rozmiary, kontrast par z ekranu z korpusem, nagłówki, Dynamic Type); etykiety VoiceOver w RNTL ✅; ogłoszenia i przenoszenie fokusu VoiceOvera — wywołania atrapy `AccessibilityInfo` (`voiceover.screens.test.tsx`) ✅; kontrast kolorów w testach motywu, także paleta „Zwiększ kontrast” ✅; audyt ekranów (`a11y.test.tsx`): każdy tekst ma kolor i rozmiar z motywu, zaznaczenie nigdy w kolorze przycisku głównego, przełącznik ma etykietę ✅; literał `fontSize` poza `src/config` zabroniony regułą ESLint ✅; audyt XCUITest `performAccessibilityAudit` jednego scenariusza na ekran na symulatorze (`e2e/a11y/`, D186) i zrzuty przy największym tekście AX5 (PWD-38 B) — zaimplementowane, pierwszy przebieg na macOS do sprawdzenia; „Pogrubiony tekst”, „Zwiększ kontrast” i iPad na urządzeniu — planowane | częściowo |
+| Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | **jeszcze nie działa**: wzorców brak, a żaden przebieg E2E na macOS się nie skończył (8.10.2026); 8 wariantów (2 telefony × 2 tryby kolorów × 2 rozmiary tekstu, decyzja PWD-38 B) — wzorce do przyjęcia po pierwszym zielonym nocnym przebiegu |
 | Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia, pole nad klawiaturą, wydarzenie przez kilka dni | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
 | Teksty | wszystkie teksty w `strings.pl.ts`, odmiana przez `plural()` — pilnowane przeglądem kodu; reguły lint na teksty poza `strings.pl.ts` nie ma | częściowo |
 | Wydajność | czas startu, rozwijanie 50 serii RRULE × 5 lat, lista 1 000 pozycji — progi w `src/config` (jeszcze ich nie ma) | planowane, niezaimplementowane |
@@ -75,7 +78,7 @@ kontraktowy `src/app/__tests__/e2e-flag.test.ts` oblewa CI, jeśli flaga pojawi 
 akcje przypięte do SHA, `contents: read`). (2) Nawet z flagą sesja demo powstaje tylko na symulatorze
 (`Application.getIosApplicationReleaseTypeAsync() === SIMULATOR`); na telefonie zostaje ekran logowania bez działającego
 logowania. Artefakt `e2e.yml` (decyzja właściciela 8.10.2026, M-79): zrzuty scenariuszy, obrazy różnic, zrzuty z chwili
-błędu Maestro, opis symulatora i 200 ostatnich wierszy logu xcodebuild bez wierszy `export` — bez pełnego logu, raportu
+błędu Maestro (w podkatalogach wariantów), opisy symulatorów (`devices/`) i 200 ostatnich wierszy logu xcodebuild bez wierszy `export` — bez pełnego logu, raportu
 i logów Maestro, nigdy plik `.app`; 7 dni. Zadanie macOS nie rusza dla PR z forka (tylko składnia scenariuszy).
 
 **Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
@@ -89,20 +92,35 @@ bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teśc
 **Uruchomienie lokalnie** (Mac z Xcode 26.4+, Java 17+):
 ```bash
 scripts/e2e/install-maestro.sh                          # Maestro w przypiętej wersji (suma SHA-256), potem PATH: ~/.maestro-cli/maestro/bin
-udid=$(scripts/e2e/boot-simulator.sh "iPhone 17")       # symulator: pasek stanu 9:41, jasny wygląd, bez autokorekty
+udid=$(scripts/e2e/boot-simulator.sh "iPhone 17e")      # symulator: pasek stanu 9:41, jasny wygląd, bez autokorekty
 npm run e2e:build -- "$udid"                            # expo prebuild + xcodebuild Release dla symulatora z EXPO_PUBLIC_E2E=1
 npm run e2e:run -- "$udid" ios/build/e2e/Build/Products/Release-iphonesimulator/Organizer.app
-npm run e2e:compare                                     # porównanie z .maestro/baselines (wyniki w e2e-artifacts/)
+npm run e2e:compare                                     # porównanie z wzorcami wariantu bazowego (wyniki w e2e-artifacts/)
+scripts/e2e/a11y-audit.sh "$udid" e2e-work/a11y           # audyt dostępności XCUITest (gem xcodeproj)
 npm run e2e:check                                       # sama składnia scenariuszy (działa też na Linuksie)
 ```
 
-**Wzorce zrzutów** (`.maestro/baselines/NN-opis.png`). Porównanie liczy piksele różniące się ponad próg koloru
+**Warianty zrzutów** (PWD-38 B, `scripts/e2e/run-matrix.sh`; `--list` wypisuje nazwy): iPhone 17e i iPhone 17 Pro Max
+(najmniejszy i największy iPhone zainstalowany na obrazie `macos-26`) × jasny i ciemny wygląd × tekst domyślny i największy
+z ustawień dostępności (AX5). Jeden build instalowany na obu symulatorach; przy push i PR tylko wariant bazowy
+`iphone-17e-light-default`, nocą i ręcznie wszystkie 8 (porażka scenariuszy w wariancie innym niż bazowy oblewa przebieg
+tylko wtedy). Wzorce i zrzuty każdego wariantu w osobnym katalogu: `.maestro/baselines/<wariant>/NN-opis.png`.
+
+**Audyt dostępności na symulatorze** (D186, `scripts/e2e/a11y-audit.sh`): XCUITest
+`performAccessibilityAudit()` (wszystkie rodzaje: kontrast, Dynamic Type, wykrywanie elementów, obszar dotyku, opis,
+ucięty tekst, cechy, akcje, rodzic–dziecko) na każdym ekranie z `e2e/a11y/AccessibilityAuditTests.swift` (jeden test na
+ekran), na zainstalowanym buildzie E2E uruchamianym po identyfikatorze pakietu. Projekt Xcode z pakietem testów tworzy w CI
+`e2e/a11y/make-project.rb` (gem xcodeproj z CocoaPods). Wynik w podsumowaniu; nocą i ręcznie problem oblewa przebieg.
+Nowy ekran: test w `AccessibilityAuditTests.swift` (kontrakt w `.github/scripts/ops-scripts.test.mjs`).
+
+**Wzorce zrzutów** (`.maestro/baselines/<wariant>/NN-opis.png`). Porównanie liczy piksele różniące się ponad próg koloru
 pixelmatch (0,1) i oblewa zrzut, gdy jest ich więcej niż 0,1% (`--max-ratio`); inny rozmiar (inny symulator) też jest
 błędem, a zrzut bez wzorca — tylko „new”. Przy push i PR wynik jest w podsumowaniu przebiegu (z obrazami różnic
 `*.diff.png` w artefakcie), w nocy różnica oblewa przebieg. Dopóki wzorców nie ma, przebieg tylko zapisuje zrzuty.
 Przyjęcie wzorców (pierwsze albo po zamierzonej zmianie wyglądu): pobierz artefakt `e2e-<numer>-<próba>` zielonego
-przebiegu na `main`, obejrzyj zrzuty, `npm run e2e:accept -- <rozpakowany artefakt>/screenshots` i zatwierdź
-`.maestro/baselines/` osobnym commitem (z `device.txt` — urządzenie i wersja iOS, na których powstały). Zmiana obrazu
+przebiegu na `main` (wszystkie warianty — nocny albo ręczny), obejrzyj zrzuty, `npm run e2e:accept -- <rozpakowany artefakt>/screenshots`
+(kopiuje każdy wariant z `screenshots/<wariant>/`) i zatwierdź `.maestro/baselines/` osobnym commitem (z `device.txt` w katalogu
+wariantu — urządzenie i wersja iOS, na których powstały). Zmiana obrazu
 symulatora albo Xcode na runnerze może wymagać przyjęcia wzorców od nowa.
 
 **Bramki wdrożenia i wydania.** `db.yml` rusza tylko przy zmianie swoich ścieżek; gdy commit, który chcesz wdrożyć albo
@@ -116,7 +134,7 @@ maszyny, nie błąd testów: uruchom `e2e.yml` ponownie (ręcznie). 8.10.2026 ta
 
 ## Stan na 8.10.2026
 `npm run check`: 2207 testów Jest (2203 przechodzi, 4 pominięte — testy na prawdziwym Postgresie bez `PGHOST`; uruchamia je
-`npm run test:db` i `db.yml`) plus 11 testów Deno; pokrycie logiki 100%. Mutation score: ostatni pełny pomiar 95,38%
+`npm run test:db` i `db.yml` z `CI_DB=1`, przy którym brak `PGHOST` oblewa przebieg zamiast pomijać testy — `tests/db/db-gate.ts`) plus 11 testów Deno; pokrycie logiki 100%. Mutation score: ostatni pełny pomiar 95,38%
 (7.10.2026, próg 90%; wtedy 7 plików). 8.10.2026 zakres to 64 pliki i 8537 mutantów (1512 statycznych) — kilka godzin na
 jednym runnerze; nocny przebieg z 8.10 przerwany po 60 min (1113 z 5207 mutantów), a zadanie przerwane po limicie GitHub
 oznacza jako „cancelled”, więc próg nie był egzekwowany. Od 9.10.2026 nocą 8 części i próg na całości (audyt 2, M-47) —

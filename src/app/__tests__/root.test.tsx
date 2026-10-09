@@ -13,6 +13,7 @@ import { initialState, mutate, type PullResponse, type PushResponse } from '../.
 import { type SyncTransport, TransportError } from '../../sync/transport';
 import { refreshInBackground } from '../background';
 import { type RootDeps, Root, type Session } from '../Root';
+import { type ServerTables, serverVerdict } from '../../domain/server-rules';
 import { e2eLegacyPrefs } from '../e2e';
 import { fakeAccount } from './harness';
 
@@ -40,16 +41,33 @@ function makeDeps(over: Partial<RootDeps> = {}) {
   // Serwer w pamięci: tworzenia z kolejki dostają kolejne wersje grupy i wracają przy pobraniu.
   const server: { e: 'lists' | 'tasks'; v: number; row: Record<string, unknown> }[] = [];
   let version = 2;
+  // Serwer reguł (audyt 2, M-50): operację, której SQL by nie przyjął, ten serwer też odrzuca (src/domain/server-rules.ts).
+  // Zalogowana osoba: ME (sesja z deps.session.current w większości testów), zmienia ją signIn.
+  let user: string | null = ME;
+  const tables = (): ServerTables => {
+    const t: { [e: string]: { [k: string]: Record<string, unknown> } } = {};
+    for (const r of [personal, member, ...server]) (t[r.e] ??= {})[String(r.e === 'group_members' ? r.row.member_id : r.row.id)] = r.row;
+    return t;
+  };
+  const rejected: string[] = [];
   const transport: SyncTransport = {
     push: async (req) => {
       pushes.push(req);
+      const results: PushResponse['results'] = [];
       for (const op of req.ops) {
+        const code = serverVerdict(tables(), user ?? '', op);
+        if (code) {
+          rejected.push(code);
+          results.push({ seq: op.seq, status: 'rejected', code });
+          continue;
+        }
         if (op.kind === 'create' && (op.entity === 'lists' || op.entity === 'tasks')) {
           version++;
           server.push({ e: op.entity, v: version, row: { ...op.set, id: op.id, group_id: op.group_id, deleted_at: null, version } });
         }
+        results.push({ seq: op.seq, status: 'ok' });
       }
-      return { last_seq: req.ops.at(-1)!.seq, results: req.ops.map((o) => ({ seq: o.seq, status: 'ok' as const })) } satisfies PushResponse;
+      return { last_seq: req.ops.at(-1)!.seq, results } satisfies PushResponse;
     },
     pull: async (req) => {
       pulls++;
@@ -95,7 +113,9 @@ function makeDeps(over: Partial<RootDeps> = {}) {
     topics,
     pushes,
     pulls: () => pulls,
-    signIn: (s: Session | null) => act(() => sessionListeners.forEach((fn) => fn(s))),
+    /** Kody odrzuceń serwera reguł (testy, które ich nie zapowiadają, sprawdzają pustą listę). */
+    rejected,
+    signIn: (s: Session | null) => act(() => ((user = s?.userId ?? null), sessionListeners.forEach((fn) => fn(s)))),
     openUrl: (u: string) => act(() => urlListener(u)),
     poke: (topic: string, v: number | null) => act(() => pokes?.(topic, v)),
   };
@@ -138,7 +158,9 @@ describe('wylogowanie a kalendarze „Organizer – …” (D172, audyt 2 M-27)'
       if (id === 'cal-b') throw new Error('już nie ma');
     });
     const status = jest.fn(async () => 'granted' as const);
-    const sync = { status, deleteCalendar } as unknown as NonNullable<RootDeps['calendar']['sync']>;
+    // cal-b: błąd usunięcia, bo kalendarza już nie ma — znika z listy (nieudane usunięcie istniejącego zostaje: calendar-mirror.test.ts).
+    const hasCalendar = jest.fn(async (id: string) => id !== 'cal-b');
+    const sync = { status, deleteCalendar, hasCalendar } as unknown as NonNullable<RootDeps['calendar']['sync']>;
     const t = makeDeps({ prefs, calendar: { add: jest.fn(async () => 'saved' as const), sync } });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji (np. po wylogowaniu w poprzednim uruchomieniu) — pozostałości znikają.

@@ -26,7 +26,7 @@ import { addDays, type CivilDate } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
 import { endDayOffset, lengthMinutes } from '../domain/span';
 import { strings } from '../i18n/strings.pl';
-import { localToMs } from './clock';
+import { localToMs } from '../domain/local-time';
 
 export type CalendarDraft = { title: string; start: Date; end: Date; allDay: boolean; notes?: string; location?: string | null };
 /**

@@ -6,7 +6,7 @@
  */
 import { View } from 'react-native';
 
-import { formatTime } from '../../app/clock';
+import { formatTime } from '../../domain/local-time';
 import { useTravel } from '../../app/travel';
 import { TRAVEL_MODES } from '../../domain/travel';
 import { strings } from '../../i18n/strings.pl';

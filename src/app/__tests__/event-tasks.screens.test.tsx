@@ -1,13 +1,13 @@
 /**
  * Zadania na spotkaniu (D13), przepinanie przy odwołaniu (D14), podgląd skutków zmiany serii, „Dodaj do kalendarza” (D7).
  */
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { splitId } from '../../domain/event-split';
 import { materialize, type NewOp, type Row } from '../../domain/sync-engine/client';
 import { overrideId } from '../../domain/views/events';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup , pickDate, setTime } from './harness';
+import { expectOps, put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -60,14 +60,14 @@ describe('zadania na spotkaniu (D13)', () => {
     await type(screen.getByTestId('quick-add'), 'Baletki');
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched[0]).toEqual({ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } });
-    expect(store.dispatched[1]).toMatchObject({ entity: 'tasks', set: { list_id: 'new-1' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'Baletki', sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } }]);
     // Druga lista zadań w grupie → wybór.
-    store.dispatch({ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } });
+    await act(async () => store.dispatch({ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } }));
     expect(await screen.findByLabelText('Na liście')).toBeTruthy();
     await press(screen.getByLabelText('Szkoła'));
     await type(screen.getByTestId('quick-add'), 'Zeszyt');
     await press(screen.getByLabelText('Dodaj'));
-    expect(store.dispatched.at(-1)).toMatchObject({ entity: 'tasks', set: { list_id: 'l2', title: 'Zeszyt' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'l2', group_id: 'gf', set: { kind: 'tasks', name: 'Szkoła' } }, { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'l2', parent_id: null, title: 'Zeszyt', sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } }]);
   });
 
   it('ekran zadania: spotkanie, otwarcie, własny termin i powrót do terminu spotkania, odpięcie, podpięcie', async () => {
@@ -76,20 +76,20 @@ describe('zadania na spotkaniu (D13)', () => {
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Wydarzenie: Tańce, dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-07', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-07', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } }]);
     expect(screen.getByText('Jak wydarzenie: dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-relink'));
     await press(screen.getByTestId('pick-ev2-2026-10-09'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } }]);
     expect(screen.getByText(/Wydarzenie: Wywiadówka/)).toBeTruthy();
     await press(screen.getByTestId('task-detach'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
     await press(screen.getByTestId('task-attach'));
     expect(screen.getByText('Wybierz termin')).toBeTruthy();
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('task-attach'));
     await press(screen.getByTestId('pick-ev-2026-10-14'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { event_id: 'ev', occurrence_date: '2026-10-14', deadline_mode: 'event' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-14', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } }]);
     await press(screen.getByTestId('task-open-event'));
     expect(await screen.findByText('Środa, 14 października · 17:00–18:00 · 1 h')).toBeTruthy();
   });
@@ -185,7 +185,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByTestId('event-preview-save'));
     // Audyt 2 (M-246): tego terminu po zmianie nie ma — powrót o ekran dalej.
     await screen.findByTestId('screen-today');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev', set: { start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH' } }, { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
   });
 
   it('„to i następne” bez zmiany dni: zadanie przechodzi do nowej serii', async () => {

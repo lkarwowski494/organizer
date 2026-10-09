@@ -5,7 +5,7 @@
  * zadaniami (także zrobionymi), stałym zadaniem i uczestnikami; czasem już podzielona wcześniej (łańcuch); losowy podział
  * zbudowany tak jak w aplikacji (editEvent → podgląd skutków → seriesEditOps), także ze „starego” widoku (seria, która
  * kończy się przed tym dniem). Stan telefonu tuż po poleceniu (przed wysłaniem) = stan serwera po poleceniu.
- * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany.
+ * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany (z CI_DB=1 — błąd, db-gate.ts).
  */
 import * as fc from 'fast-check';
 import { Client } from 'pg';
@@ -15,9 +15,9 @@ import { parseRule } from '../../src/domain/rrule';
 import { type ClientState, initialState, materialize, mutate, type NewOp, onPullResponse, onPushResponse, type PullResponse, type PushResponse, pullRequest, pushRequest, type Row } from '../../src/domain/sync-engine/client';
 import { seriesEditEffects, seriesEditOps } from '../../src/domain/views/event-tasks';
 import { cancelEvent, editEvent, eventDetail, fieldsOf } from '../../src/domain/views/events';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 
 const U = { a: '00000000-0000-7000-8000-0000000008a1', b: '00000000-0000-7000-8000-0000000008b1', r: '00000000-0000-7000-8000-0000000008c1' } as const;
 type User = 'a' | 'b';

@@ -52,7 +52,7 @@ describe('motyw — reszta', () => {
 
   it('role rozmiarów: jeden opis 13 pt (PWD-23 A), żadna rola poniżej minimum HIG, tytuł do 60 pt (AX5 Large Title)', () => {
     expect(sizes.META).toBe(13);
-    for (const [k, v] of Object.entries(sizes)) if (k !== 'TOUCH_TARGET') expect([k, v >= sizes.MIN_TEXT]).toEqual([k, true]);
+    expect(Object.entries(sizes).filter(([k, v]) => k !== 'TOUCH_TARGET' && v < sizes.MIN_TEXT)).toEqual([]);
     expect(fontScale).toEqual({ FIXED_MAX: 2, TITLE_MAX_PT: 60, TITLE_LEADING: 1.2 });
     expect(sizes.TITLE * (fontScale.TITLE_MAX_PT / sizes.TITLE)).toBe(60);
   });

@@ -18,7 +18,7 @@ import { rsvpView } from '../domain/views/rsvp';
 import { personOf } from '../domain/views/who';
 import { strings } from '../i18n/strings.pl';
 import { META_SEP } from '../ui/components';
-import { formatTime as clockTime, localNow } from './clock';
+import { formatTime as clockTime, localNow } from '../domain/local-time';
 import { useAppData, useServices } from './context';
 import { useTravel } from './travel';
 

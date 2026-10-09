@@ -9,7 +9,7 @@ import { Alert } from 'react-native';
 import { config } from '../../config';
 import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, lastAlert, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -47,7 +47,7 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     await press(await screen.findByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     expect(lastAlert()).toMatchObject({ title: 'Zrobione?', message: 'Odebrać paczkę' });
     await answerAlert('Zrobione');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } }]);
     await press(screen.getByTestId('tab-Today'));
     await press(await screen.findByLabelText('Następny dzień'));
     await press(await screen.findByLabelText(/^Kupić\ kwiaty(,|$)/));
@@ -58,11 +58,11 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     // Z niezrobionym podzadaniem — pytanie z wyborem (decyzja właściciela z 8.10.2026).
     expect(lastAlert().message).toBe('Kupić kwiaty: zostało 1 niezrobione podzadanie.');
     await answerAlert('Zostaw podzadania');
-    expect(store.dispatched.at(-1)).toMatchObject({ id: 't-kwiaty', set: { completed_at: expect.any(String) } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } }]);
     const n = (Alert.alert as unknown as jest.Mock).mock.calls.length;
     await press(screen.getByLabelText('Oznacz jako niezrobione: Kupić kwiaty'));
     expect((Alert.alert as unknown as jest.Mock).mock.calls).toHaveLength(n); // cofnięcie bez okna
-    expect(store.dispatched.at(-1)).toMatchObject({ id: 't-kwiaty', set: { completed_at: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: null } }]);
   });
 });
 
@@ -74,11 +74,11 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     await screen.findByTestId('screen-list');
     expect(screen.getByTestId('swipe-t-kwiaty').props.horizontal).toBe(true);
     await press(screen.getByLabelText('Usuń: Kupić kwiaty'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 't-kwiaty' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.queryByTestId('task-t-kwiaty')).toBeNull();
     expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-kwiaty' });
+    expectOps(store, [{ kind: 'restore', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.getByTestId('task-t-kwiaty')).toBeTruthy();
     expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
@@ -110,7 +110,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     await answerAlert('Usuń listę');
     expect(await screen.findByText('Usunięto listę: Dom')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'lists', id: 'lf' });
+    expectOps(store, [{ kind: 'delete', entity: 'lists', id: 'lf' }, { kind: 'restore', entity: 'lists', id: 'lf' }]);
   });
 
   it('dziecko w grupie nie dostaje usuwania (D34); kalendarz ma usuwanie', async () => {
@@ -172,7 +172,7 @@ describe('rolowanie (D61) i miniony dzień', () => {
     // Audyt 2 (M-124): zrobione też przesuwa się do usunięcia — jak na liście i w Kalendarzu.
     expect(screen.getByLabelText('Usuń: Wynieść śmieci')).toBeTruthy();
     await press(screen.getByLabelText('Oznacz jako niezrobione: Wynieść śmieci'));
-    expect(store.dispatched.at(-1)).toMatchObject({ id: 'zrobione', set: { completed_at: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'zrobione', set: { completed_at: null } }]);
   });
 
   it('zadanie: „Tylko tego dnia” / „Przechodzi na kolejne dni”; bez terminu i na spotkaniu — brak wyboru', async () => {
@@ -181,7 +181,7 @@ describe('rolowanie (D61) i miniony dzień', () => {
     await screen.findByTestId('screen-task');
     expect(screen.getByLabelText('Przechodzi na kolejne dni').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Tylko tego dnia'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { rollover: false } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { rollover: false } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText(/^Oddać\ książki\ do\ biblioteki(,|$)/));
     await screen.findByTestId('screen-task');
@@ -244,12 +244,13 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'masło');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'masło' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'masło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lp'));
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'książka');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'książka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 });
 

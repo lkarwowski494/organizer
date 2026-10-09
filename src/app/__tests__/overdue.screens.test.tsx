@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { put, sampleBase, setup, expectOps } from './harness';
 
 describe('zaległe na dziś (D111)', () => {
   it('przycisk z liczbą, przeniesienie z godziną, cofnięcie; bez zaległych — brak przycisku', async () => {
@@ -17,7 +17,7 @@ describe('zaległe na dziś (D111)', () => {
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Przeniesiono na dziś: 1 zadanie')).toBeTruthy();
     await fireEvent.press(within(bar).getByLabelText('Cofnij'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-04', due_time: '09:00:00' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: '09:00:00' } }, { kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-04', due_time: '09:00:00' } }]);
   });
 
   it('audyt 2 (T-11, P-56): „co miesiąc” liczy się raz; zaległe zakupy też się przenoszą; cofnięcie wszystkiego', async () => {
@@ -59,7 +59,7 @@ describe('zaległe na dziś (D111)', () => {
     expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
     expect(screen.getAllByText(/zaległe od 2 dni/)).toHaveLength(2);
     await fireEvent.press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: null } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }, { kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: null } }]);
   });
 
   it('audyt 2 (T-11): zaległe z grupy, w której jestem dzieckiem, zostają (serwer by odrzucił) — bez przycisku', async () => {

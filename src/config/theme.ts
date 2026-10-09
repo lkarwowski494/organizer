@@ -149,6 +149,7 @@ export function contrastPairs(c: Palette): ContrastPair[] {
     { fg: c.ink, bg: c.surface, kind: 'NON_TEXT', use: 'zaznaczony wybór na karcie' },
     { fg: c.ink, bg: c.ground, kind: 'NON_TEXT', use: 'zaznaczony wybór na tle, obwódka „dziś”' },
     { fg: c.danger, bg: c.surface, kind: 'NON_TEXT', use: 'znacznik święta pod liczbą' },
+    { fg: c.surface, bg: c.ok, kind: 'TEXT', use: '✓ na odhaczonym polu (audyt 2, M-147)' },
   ];
 }
 

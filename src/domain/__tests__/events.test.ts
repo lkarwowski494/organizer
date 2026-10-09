@@ -782,3 +782,57 @@ describe('audyt 2: zmiany pojedynczych terminów i serii', () => {
     expect(occurrenceOwner(t, 'chor', '2026-11-09')).toBe('chor');
   });
 });
+
+describe('zmiana tylko pól, które zmieniłem (pola z chwili otwarcia — synchronizacja per pole)', () => {
+  const setup = () => {
+    const t = world();
+    const e = createEvent('gf', fields({ audience: 'members', participantIds: ['kuba'] }), ids());
+    run(t, e.ops);
+    return { t, id: e.id };
+  };
+
+  it('„wszystkie”: sama nazwa — tylko title; bez zmian — nic; godzina — para godzin z długością', () => {
+    const { t, id } = setup();
+    const d = detail(t, id);
+    const loaded = fieldsOf(d, '2026-10-05', 'all');
+    expect(editEvent(d, '2026-10-05', 'all', { ...loaded, title: 'Nowe' }, loaded)).toEqual([{ kind: 'patch', entity: 'events', id, set: { title: 'Nowe' } }]);
+    expect(editEvent(d, '2026-10-05', 'all', loaded, loaded)).toEqual([]);
+    expect(editEvent(d, '2026-10-05', 'all', { ...loaded, endTime: '20:00' }, loaded)).toEqual([{ kind: 'patch', entity: 'events', id, set: { start_time: loaded.startTime, end_time: '20:00', duration_min: null } }]);
+  });
+
+  it('drugi telefon zmienił osobę i dopisał uczestnika w trakcie — moja zmiana nazwy ich nie cofa; skreślony przeze mnie znika', () => {
+    const { t, id } = setup();
+    const loaded = fieldsOf(detail(t, id), '2026-10-05', 'all');
+    run(t, [
+      { kind: 'patch', entity: 'events', id, set: { responsible_member_id: 'ala' } },
+      { kind: 'create', entity: 'event_participants', id: participantId(id, 'ala'), group_id: 'gf', set: { event_id: id, member_id: 'ala' } },
+    ]);
+    const d = detail(t, id);
+    expect(editEvent(d, '2026-10-05', 'all', { ...loaded, title: 'Nowe' }, loaded)).toEqual([{ kind: 'patch', entity: 'events', id, set: { title: 'Nowe' } }]);
+    // Skreślam Kubę (był przy otwarciu), Ala (dopisana gdzie indziej) zostaje; dopisuję siebie.
+    const ops = editEvent(d, '2026-10-05', 'all', { ...loaded, participantIds: ['mf'] }, loaded);
+    expect(ops.map((o) => [o.kind, (o as { id: string }).id])).toEqual([
+      ['create', participantId(id, 'mf')],
+      ['restore', participantId(id, 'mf')],
+      ['delete', d.participants.find((p) => p.member_id === 'kuba')!.id],
+    ]);
+    // Cała grupa zamiast wybranych: uczestnicy zbędni (także dopisani gdzie indziej).
+    expect(editEvent(d, '2026-10-05', 'all', { ...loaded, audience: 'group' }, loaded).filter((o) => o.kind === 'delete')).toHaveLength(2);
+    // Z wybranych osób, gdy przy otwarciu była cała grupa: obecni zostają, dochodzą wybrani.
+    expect(editEvent(d, '2026-10-05', 'all', { ...loaded, participantIds: ['ala', 'mf'] }, { ...loaded, audience: 'group' }).map((o) => o.kind)).toEqual(['patch', 'create', 'restore']);
+  });
+
+  it('„tylko to”: sama nazwa — wyjątek tylko z nazwą; istniejący wyjątek z osobą z drugiego telefonu ją zachowuje; odwołany wraca', () => {
+    const { t, id } = setup();
+    const d0 = detail(t, id);
+    const loaded = fieldsOf(d0, '2026-10-12', 'this');
+    const oid = overrideId(id, '2026-10-12');
+    expect(editEvent(d0, '2026-10-12', 'this', { ...loaded, title: 'Inaczej' }, loaded)).toEqual([
+      { kind: 'create', entity: 'event_overrides', id: oid, group_id: 'gf', set: { event_id: id, occurrence_date: '2026-10-12', start_date: null, start_time: null, end_time: null, title: 'Inaczej', responsible_member_id: null, cancelled: false } },
+      { kind: 'patch', entity: 'event_overrides', id: oid, set: { title: 'Inaczej' } },
+    ]);
+    expect(editEvent(d0, '2026-10-12', 'this', loaded, loaded)).toEqual([]);
+    run(t, [{ kind: 'create', entity: 'event_overrides', id: oid, group_id: 'gf', set: { event_id: id, occurrence_date: '2026-10-12', start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: 'ala', all_day: false, responsible_cleared: false, cancelled: true, days: null, duration_min: null } }]);
+    expect(editEvent(detail(t, id), '2026-10-12', 'this', { ...loaded, title: 'Inaczej' }, loaded)).toEqual([{ kind: 'patch', entity: 'event_overrides', id: oid, set: { title: 'Inaczej', cancelled: false } }]);
+  });
+});

@@ -7,7 +7,7 @@ import { Alert, Share } from 'react-native';
 
 import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
-import { answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate, setTime } from './harness';
+import { expectOps, answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate, setTime } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
   const s = setup(opts);
@@ -61,14 +61,14 @@ describe('Moje sprawy', () => {
     expect(screen.getByLabelText(/jutro, rozpoznane/)).toBeTruthy();
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.map((o) => o.kind)).toEqual(['create', 'create']);
-    expect(store.dispatched[0]).toMatchObject({ entity: 'lists', group_id: ME, set: { name: 'Moje zadania' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'u-me', set: { kind: 'tasks', name: 'Moje zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'new-1', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await press(screen.getByLabelText('Następny dzień'));
     expect(await screen.findByText('mleko')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'wtorek jutro');
     await press(screen.getByLabelText(/jutro, rozpoznane/));
     expect(screen.queryByLabelText(/jutro, rozpoznane/)).toBeNull();
     await press(screen.getByLabelText('Dodaj'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'wtorek jutro', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'new-1', parent_id: null, title: 'wtorek jutro', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 
   it('pusty tekst nic nie dodaje; odhaczenie znika z widoku', async () => {
@@ -84,7 +84,7 @@ describe('Moje sprawy', () => {
     expect(screen.getByText('Kupić kwiaty')).toBeTruthy();
     await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
     await answerAlert('Zrobione');
-    expect(store.dispatched[0]).toMatchObject({ kind: 'patch', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } }]);
     expect(screen.queryByText('Kupić kwiaty')).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe('Listy i zadania', () => {
     expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'jabłka');
     await press(screen.getByLabelText('Dodaj'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'jabłka' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jabłka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(within(screen.getByTestId(`task-${(store.dispatched.at(-1) as { id: string }).id}`)).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 
@@ -127,21 +127,21 @@ describe('Listy i zadania', () => {
     expect(screen.queryByTestId('task-save')).toBeNull(); // D130: bez „Zapisz”
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
     await fireEvent(screen.getByTestId('task-title'), 'blur');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-kwiaty', set: { title: 'Kupić kwiaty dla babci' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić kwiaty dla babci' } }]);
     await pickDate('task-date', '2026-10-09');
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'own', due_date: '2026-10-09' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: null } }]);
     const sent = store.dispatched.length;
     await setTime('task-time', '25:00');
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     expect(store.dispatched).toHaveLength(sent);
     await press(screen.getByLabelText('Ala'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: 'ala' } }]);
     await press(screen.getByLabelText('Nikt konkretny'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } }]);
     // Audyt 2 (M-244): podzadanie dodaje się jak w polu szybkiego dodawania.
     await type(screen.getByTestId('quick-add'), 'wstążka');
     await press(screen.getByLabelText('Dodaj'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'wstążka', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } }]);
     expect(await screen.findByText('wstążka')).toBeTruthy();
     await setTime('task-time', '17:30');
     expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
@@ -166,12 +166,12 @@ describe('Listy i zadania', () => {
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
     await press(screen.getByLabelText('Bez terminu'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { note: 'tulipany' } }, { kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-kwiaty' }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
     await press(screen.getByLabelText('Nikt konkretny'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: 'ala' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } }]);
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
   });
 
@@ -187,10 +187,10 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Rodzina'));
     await press(screen.getByLabelText('Tylko ja'));
     await press(screen.getByTestId('create-list'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'lists', group_id: 'gf', set: { name: 'Prezenty', kind: 'tasks', visibility: 'private' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Prezenty', visibility: 'private' } }]);
     expect(await screen.findByText(/^Lista jest pusta./)).toBeTruthy();
     await press(screen.getByLabelText('Usuń listę'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'delete', entity: 'lists' });
+    expectOps(store, [{ kind: 'delete', entity: 'lists', id: 'new-1' }]);
   });
 });
 
@@ -247,12 +247,12 @@ describe('Grupy', () => {
     expect(account.revokeInvite).toHaveBeenCalledWith('inv-2');
     await type(screen.getByTestId('child-name'), 'Zosia');
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', group_id: 'gf', set: { display_name: 'Zosia', role: 'child' } });
+    expectOps(store, [{ kind: 'create', entity: 'group_members', id: 'new-1', group_id: 'gf', set: { member_id: 'new-1', display_name: 'Zosia', role: 'child' } }]);
     expect(await screen.findByLabelText('Zosia, dziecko')).toBeTruthy();
     // D130 (audyt 2): nazwa zapisuje się po wyjściu z pola, bez przycisku.
     await type(screen.getByTestId('group-rename'), 'Rodzina K.');
     await fireEvent(screen.getByTestId('group-rename'), 'blur');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } });
+    expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } }]);
     share.mockRestore();
   });
 
@@ -268,7 +268,7 @@ describe('Grupy', () => {
     expect(store.dispatched.some((o) => 'entity' in o && o.entity === 'group_members')).toBe(false);
     await press(screen.getByTestId('leave'));
     await answerAlert('Wyjdź z grupy');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'mf' });
+    expectOps(store, [{ kind: 'delete', entity: 'group_members', id: 'mf' }]);
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
     expect(screen.queryByTestId('group-gf')).toBeNull();
   });
@@ -370,10 +370,10 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByLabelText('Kolor: morski'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: 'teal' } });
+    expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { color: 'teal' } }]);
     expect(screen.getByLabelText('Kolor: morski').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Automatyczny'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } }]);
     await press(screen.getByTestId('delete-group'));
     expect(account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(store.refresh).toHaveBeenCalled();
@@ -424,7 +424,7 @@ describe('Edycja grup (D54–D56)', () => {
     await press(await screen.findByTestId('member-ala'));
     expect(await screen.findByTestId('screen-member')).toBeTruthy();
     await press(screen.getByLabelText('Członek'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } });
+    expectOps(store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } }]);
     await press(screen.getByTestId('make-owner'));
     expect(screen.getByText(/Ala zostanie właścicielem grupy/)).toBeTruthy();
     await press(screen.getByLabelText('Anuluj'));
@@ -441,10 +441,10 @@ describe('Edycja grup (D54–D56)', () => {
     expect(screen.queryByLabelText('Członek')).toBeNull();
     await type(screen.getByTestId('member-name'), 'Jakub');
     await fireEvent(screen.getByTestId('member-name'), 'blur');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } });
+    expectOps(store, [{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } }]);
     // PW-35 A, PW-16 A (decyzje właściciela z 8.10.2026): usunięcie bez pytania, z paskiem „Cofnij”.
     await press(screen.getByTestId('remove-member'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'kuba' });
+    expectOps(store, [{ kind: 'delete', entity: 'group_members', id: 'kuba' }]);
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
     expect(screen.getByText('Usunięto z grupy: Jakub')).toBeTruthy();
   });

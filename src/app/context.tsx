@@ -6,7 +6,7 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useState
 import { AppState } from 'react-native';
 
 import type { CivilDate, LocalDateTime } from '../domain/civil-date';
-import { materialize, type NewOp } from '../domain/sync-engine/client';
+import { type ClientState, materialize, type NewOp } from '../domain/sync-engine/client';
 import type { Tables } from '../domain/views';
 import { fingerprint, isStale } from '../domain/views/recent';
 import type { AccountApi } from '../sync/account';
@@ -123,9 +123,9 @@ export function AppProvider({ services, children }: { services: AppServices; chi
   const { store, local } = services;
   const backend = useMemo<UndoBackend>(
     () => ({
-      fingerprint: (ops) => fingerprint(materialize(store.getSnapshot().state), ops),
-      isStale: (fp) => isStale(materialize(store.getSnapshot().state), fp),
-      run: (u) => store.dispatch(u.recipe === 'routine' ? routineUndoOps(materialize(store.getSnapshot().state), u.ops) : u.ops),
+      fingerprint: (ops) => fingerprint(tablesOf(store.getSnapshot().state), ops),
+      isStale: (fp) => isStale(tablesOf(store.getSnapshot().state), fp),
+      run: (u) => store.dispatch(u.recipe === 'routine' ? routineUndoOps(tablesOf(store.getSnapshot().state), u.ops) : u.ops),
       load: () => local?.load(RECENT_KEY) ?? null,
       save: (json) => local?.save(RECENT_KEY, json),
     }),
@@ -148,11 +148,24 @@ export function useServices(): AppServices {
   return s;
 }
 
+/**
+ * Tabele jednego stanu liczone raz: każdy komponent z useAppData (pasek zakładek, przypomnienia, lustro kalendarza,
+ * ekrany…) dostaje ten sam obiekt, zamiast liczyć materialize osobno przy każdej zmianie — i widoki w useMemo nie liczą
+ * się od nowa dla różnych kopii tych samych danych (audyt 2: testy ekranów blisko limitu 5 s). Stan jest niezmienny
+ * (każda zmiana to nowy obiekt), a tabele tylko do odczytu, więc WeakMap po obiekcie stanu.
+ */
+const materialized = new WeakMap<ClientState, Tables>();
+export function tablesOf(state: ClientState): Tables {
+  let t = materialized.get(state);
+  if (!t) materialized.set(state, (t = materialize(state)));
+  return t;
+}
+
 /** Stan do ekranu: tabele po nałożeniu oczekujących zmian (materialize) + wskaźnik synchronizacji. */
 export function useAppData(): Snapshot & { tables: Tables; today: CivilDate } {
   const { store, now } = useServices();
   const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const tables = useMemo(() => materialize(snap.state), [snap.state]);
+  const tables = tablesOf(snap.state);
   // Zegar dnia (DayClock) odświeża ekran o północy — wtedy now() daje już nowy dzień.
   useContext(DayContext);
   const { y, m, d } = now();

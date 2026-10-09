@@ -2,11 +2,11 @@
 # Uruchamia symulator iPhone'a do E2E i ustawia go powtarzalnie (zrzuty ekranu porównywane pikselami):
 # stały pasek stanu (9:41, pełna bateria), jasny wygląd, bez autokorekty i podpowiedzi klawiatury (inputText wpisuje
 # dokładnie podany tekst). Polecenia: `xcrun simctl help status_bar`, `xcrun simctl help ui`.
-# Użycie: scripts/e2e/boot-simulator.sh [nazwa urządzenia]   (domyślnie E2E_DEVICE albo „iPhone 17”)
+# Użycie: scripts/e2e/boot-simulator.sh [nazwa urządzenia]   (domyślnie E2E_DEVICE albo „iPhone 17e” — telefon wariantu bazowego, run-matrix.sh)
 # Wypisuje UDID; w GitHub Actions zapisuje też udid i device do GITHUB_OUTPUT.
 set -euo pipefail
 
-want="${1:-${E2E_DEVICE:-iPhone 17}}"
+want="${1:-${E2E_DEVICE:-iPhone 17e}}"
 # Najnowszy dostępny runtime iOS z urządzeniem o tej nazwie (format `xcrun simctl list devices available -j`).
 read -r udid name runtime < <(xcrun simctl list devices available -j | WANT="$want" node -e '
   const all = JSON.parse(require("fs").readFileSync(0, "utf8")).devices;

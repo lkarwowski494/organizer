@@ -7,7 +7,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, View } from 'react-native';
 
-import { localNow } from '../../app/clock';
+import { localNow } from '../../domain/local-time';
 import { useAppData } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';

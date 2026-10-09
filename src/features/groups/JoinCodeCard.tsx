@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Share, Text, View } from 'react-native';
 
-import { localNow } from '../../app/clock';
+import { localNow } from '../../domain/local-time';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { formatDue } from '../../domain/format';
 import { groupDigits } from '../../domain/invite-link';

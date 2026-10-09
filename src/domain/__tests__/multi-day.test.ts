@@ -76,7 +76,8 @@ describe('span.ts: model', () => {
         // Dzień końca = dzień startu + 1, gdy start + długość przekracza północ (koniec wyłączny).
         const mins = (x: string) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3));
         expect(n).toBe(mins(s) + len > 1440 ? 2 : 1);
-        if (n === 2) expect(daySpan(s, e, { day: 2, days: 2 })).toEqual({ start: '00:00', end: e });
+        // Drugi dzień (gdy jest) od północy do końca; przy jednym dniu sprawdzenie bez znaczenia (ten sam warunek po obu stronach).
+        expect(n === 2 ? daySpan(s, e, { day: 2, days: 2 }) : { start: '00:00', end: e }).toEqual({ start: '00:00', end: e });
       }),
     );
   });

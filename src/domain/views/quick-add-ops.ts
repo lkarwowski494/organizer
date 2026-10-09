@@ -5,12 +5,12 @@
  * Na liście zakupów tytuł zostaje taki, jak go wpisano (audyt 2, M-20): „mąka 1.5 kg” to produkt z ilością (D77,
  * parseQuantity), a nie termin 1 maja — termin i osobę ma cała lista (D73).
  */
-import type { LocalDateTime } from '../domain/civil-date';
-import { parseQuickAdd, type QuickAddResult } from '../domain/quickadd';
-import type { NewOp } from '../domain/sync-engine/client';
-import { createTask } from '../domain/views/commands';
-import { groupsView, listsView, type Tables } from '../domain/views';
-import { generalList, PERSONAL_LIST_NAME } from '../domain/views/task-form';
+import type { LocalDateTime } from '../civil-date';
+import { parseQuickAdd, type QuickAddResult } from '../quickadd';
+import type { NewOp } from '../sync-engine/client';
+import { createTask } from './commands';
+import { groupsView, listsView, type Tables } from '.';
+import { generalList, PERSONAL_LIST_NAME } from './task-form';
 
 export const DEFAULT_LIST_NAME = PERSONAL_LIST_NAME;
 

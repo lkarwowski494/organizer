@@ -247,9 +247,19 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
   const fields = { title: f.title, start_date: f.date, start_time: f.startTime, end_time: f.endTime, rrule: formatRule({ ...f.rule!, until: f.until }) };
   const back = { title: e.title, start_time: e.start_time, end_time: e.end_time };
   if (e.start_date >= isoTomorrow) {
-    // Nierozpoczęta: zmiana w miejscu; wyjątki z dni, których nowa reguła nie ma, do kosza (jak „wszystkie”).
+    // Nierozpoczęta: zmiana w miejscu; wyjątki z dni, których nowa reguła nie ma, do kosza (jak „wszystkie”). Tylko pola,
+    // które zmieniłem względem planu z chwili otwarcia (x) — zmiany są per pole, więc to, czego nie ruszałem, a co w tym
+    // czasie zmienił drugi telefon, zostaje (jak editEvent z polami z chwili otwarcia). Godziny parą.
+    const changed: { [k: string]: unknown } = {
+      ...(f.title !== x.spec.title ? { title: f.title } : {}),
+      ...(f.startTime !== x.spec.start || (f.endTime ?? '') !== x.spec.end ? { start_time: f.startTime, end_time: f.endTime } : {}),
+      ...(f.date !== x.start_date ? { start_date: f.date } : {}),
+      ...(fields.rrule !== x.rrule ? { rrule: fields.rrule } : {}),
+    };
+    const restore: { [k: string]: unknown } = Object.fromEntries(Object.keys(changed).map((k) => [k, k === 'start_date' ? e.start_date : k === 'rrule' ? x.rrule : back[k as keyof typeof back]]));
     const lost = d.overrides.filter((o) => !kept(o.occurrence_date));
-    const base: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: fields }, ...lost.map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id }))];
+    // Para z inną specyfikacją (sameSpec) zawsze zmienia któreś pole.
+    const base: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: changed }, ...lost.map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id }))];
     const effects = seriesEditEffects(t, d, e.start_date, 'all', base);
     const ops = seriesEditOps(d, base, effects, choice);
     const tasks = taskUndo(t, decisionsOf(ops), e.id);
@@ -257,7 +267,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
       ops,
       effects,
       undo: (now) => [
-        { kind: 'patch', entity: 'events', id: e.id, set: { ...back, start_date: e.start_date, rrule: x.rrule } },
+        { kind: 'patch', entity: 'events', id: e.id, set: restore },
         ...lost.map((o): NewOp => ({ kind: 'restore', entity: 'event_overrides', id: o.id })),
         ...tasks,
         ...strayCopies(now, e.id, oldStart, oldRule, e.start_date),

@@ -8,7 +8,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { NewOp } from '../../domain/sync-engine/client';
-import { quickAddOps } from '../../app/quickadd';
+import { quickAddOps } from '../../domain/views/quick-add-ops';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { formatDue } from '../../domain/format';

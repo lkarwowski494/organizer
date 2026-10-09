@@ -14,7 +14,7 @@ import { departureMs, type GeoCache, geoLookup, geoStore, isTravelMode, type Nav
 import type { Tables } from '../domain/views/model';
 import { expandEvents } from '../domain/views/events';
 import { silencedForMe } from '../domain/views/rsvp';
-import { localToMs } from './clock';
+import { localToMs } from '../domain/local-time';
 import type { LocalStore } from './calendar-mirror';
 import { type Prefs, useAppData, useServices } from './context';
 import { storedScopes, useMyScope } from './my-scope';

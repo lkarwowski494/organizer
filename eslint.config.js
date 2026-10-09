@@ -1,6 +1,8 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
+const jestPlugin = require('eslint-plugin-jest');
+const testingLibrary = require('eslint-plugin-testing-library');
 
 module.exports = defineConfig([
   expoConfig,
@@ -49,5 +51,44 @@ module.exports = defineConfig([
     // W testach domeny dozwolone są moduły Node (np. node:crypto jako źródło losowości).
     files: ['src/domain/**/__tests__/**'],
     rules: { 'import/no-nodejs-modules': 'off' },
+  },
+  {
+    // Linter testów (audyt 2, M-196): zapomniane it.only / describe.skip, expect bez asercji albo w warunku, zła
+    // składnia expect — zalecany zestaw eslint-plugin-jest (https://github.com/jest-community/eslint-plugin-jest).
+    // Testy bazy pomija tylko bramka tests/db/db-gate.ts (dbDescribe), nie pojedyncze pliki.
+    files: ['src/**/__tests__/**', 'tests/**', '**/*.test.ts', '**/*.test.tsx'],
+    plugins: { jest: jestPlugin },
+    rules: {
+      ...Object.fromEntries(Object.keys(jestPlugin.configs['flat/recommended'].rules).map((r) => [r, 'error'])),
+      // Własności fast-check sprawdzają wynik przez fc.assert (właściwość zwraca prawdę albo rzuca).
+      'jest/expect-expect': ['error', { assertFunctionNames: ['expect', 'fc.assert', 'expectOps', 'expectFocusOn'] }],
+    },
+  },
+  {
+    // Testy ekranów (RNTL): zalecany zestaw eslint-plugin-testing-library dla Reacta, bez dwóch reguł niezgodnych
+    // z RNTL 14 — tam fireEvent zwraca obietnicę (await jest potrzebny: no-await-sync-events), a puste
+    // `await act(async () => {})` czeka na efekty (no-unnecessary-act); bez reguły nazewnictwa wyniku render.
+    files: ['src/**/*.test.tsx', 'src/app/__tests__/**'],
+    plugins: { 'testing-library': testingLibrary },
+    rules: {
+      ...Object.fromEntries(Object.keys(testingLibrary.configs['flat/react'].rules).map((r) => [r, 'error'])),
+      'testing-library/no-await-sync-events': 'off',
+      'testing-library/no-unnecessary-act': 'off',
+      'testing-library/render-result-naming-convention': 'off',
+    },
+  },
+  {
+    // M-156: operacje z ekranu sprawdzamy w całości (harness.expectOps: toEqual od poprzedniego sprawdzenia, nic po teście),
+    // nie częściowym toMatchObject na jednej operacji.
+    files: ['src/app/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='toMatchObject'] > MemberExpression.callee > CallExpression.object[callee.name='expect']:has(MemberExpression[property.name='dispatched'])",
+          message: 'Operacje sprawdzaj przez expectOps(store, [...]) z harness.tsx (dokładnie i wszystkie — audyt 2, M-156).',
+        },
+      ],
+    },
   },
 ]);

@@ -13,9 +13,9 @@ import { Client } from 'pg';
 import { formEventRules } from '../../src/domain/__tests__/support/form-rules';
 import { formatRule, parseRule } from '../../src/domain/rrule';
 import { formatRepeat, parseRepeat, type Repeat } from '../../src/domain/views/task-repeat';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 const DB = process.env.PGDATABASE ?? 'organizer_test';
 
 const fixtures = join(__dirname, '../../src/domain/__tests__/fixtures');

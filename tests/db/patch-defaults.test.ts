@@ -2,14 +2,14 @@
  * Test kontraktowy (audyt 2, M-59): config.sync.PATCH_DEFAULTS = wartości domyślne kolumn, które telefon może zmieniać
  * (private.sync_entities.patch_cols), odczytane z prawdziwej bazy po migracjach. „Cofnij” zmiany pola, którego wiersz
  * utworzony na telefonie jeszcze nie ma, wpisuje tę wartość — rozjazd z bazą znów dawałby odrzucenia albo zły stan.
- * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany.
+ * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany (z CI_DB=1 — błąd, db-gate.ts).
  */
 import { Client } from 'pg';
 
 import { config } from '../../src/config';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 
 d('PATCH_DEFAULTS zgodne z bazą', () => {
   const db = new Client({ database: process.env.PGDATABASE ?? 'organizer_test' });
