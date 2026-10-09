@@ -1,7 +1,8 @@
 /**
  * Schemat lokalnej bazy telefonu. Pliki migracji (tu: lista SQL) są źródłem prawdy (D25); numer wersji
  * w PRAGMA user_version. Każda migracja to osobny krok — nigdy nie edytujemy wydanej migracji, tylko
- * dopisujemy następną (test migracji ze wszystkich wersji: src/data/__tests__/migrations.test.ts).
+ * dopisujemy następną (test aktualizacji z każdej wcześniejszej wersji: src/data/__tests__/store.test.ts, „lokalna baza:
+ * migracje”).
  *
  * Tabele lustrzane serwera trzymają cały wiersz w `data` (JSON jako tekst) plus kolumny potrzebne do
  * zapytań i czyszczenia (group_id, scope_id), liczone w kodzie przy zapisie.

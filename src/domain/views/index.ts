@@ -382,7 +382,8 @@ export function todayView(t: Tables, userId: string, today: CivilDate): TodayVie
 export type CalendarDay = { date: string; inMonth: boolean; holiday: string | null; items: TodayItem[] };
 
 /**
- * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek).
+ * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek; źródło — CLDR
+ * firstDay dla PL, opis w src/domain/month-grid.ts).
  * Dni z zadaniami z terminem z moich grup i polskimi dniami wolnymi (src/domain/holidays.ts).
  * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`.
  */
