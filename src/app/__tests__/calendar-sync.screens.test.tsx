@@ -347,7 +347,7 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
     expect(await screen.findByLabelText('Wyjazd, od 18:00, dzień 1 z 3, Kalendarz: Praca')).toBeTruthy();
     await press(screen.getByTestId('device-copy-d|trip'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { start_time: '18:00', end_time: '16:00', duration_min: 46 * 60 } });

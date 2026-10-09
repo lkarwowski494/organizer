@@ -137,10 +137,10 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc', () => {
   it('formularz: „Kończy się” także z godziną — domyślnie następny dzień przy końcu przed początkiem; wyjazd na 46 h', async () => {
     const { store } = await open();
     await newEvent('Wyjazd');
-    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toEqual({ text: '2026-10-07' });
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toMatchObject({ text: 'Środa, 7 października' });
     await setTime('event-start-0', '18:00');
     await setTime('event-end-0', '16:00');
-    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toEqual({ text: '2026-10-08' });
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toMatchObject({ text: 'Czwartek, 8 października' });
     expect(screen.getByText('Kończy się następnego dnia.')).toBeTruthy();
     await pickDate('event-end-date', '2026-10-09');
     expect(screen.queryByText('Kończy się następnego dnia.')).toBeNull();
@@ -166,6 +166,6 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc', () => {
     expect(await screen.findByText('Środa, 7 października · od 18:00 · 46 h')).toBeTruthy();
     expect(screen.getByText('Kończy się: piątek, 9 października, 16:00')).toBeTruthy();
     await press(screen.getByLabelText('Zmień'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
   });
 });
