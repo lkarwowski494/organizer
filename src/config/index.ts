@@ -310,7 +310,7 @@ export const config = {
    */
   invites: {
     /**
-     * Dołączanie jak w Zoom (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
+     * Dołączanie jak do spotkania online: ID i kod (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
      * limit nieudanych prób osoby na godzinę. D140 odwrócona (8.10.2026): zamiast limitu na ID grupy (cudze próby
      * blokowały poprawny kod) kod przestaje działać po JOIN_FAILS_PER_CODE nieudanych próbach na swoje ID grupy — szansa
      * odgadnięcia ≤ 100 / 10^6 na kod (rachunek w migracji 20261008362000_join_codes_v2). SQL: private.join_* (test

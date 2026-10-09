@@ -137,6 +137,24 @@ describe('Supabase: konto', () => {
     for (const c of calls) for (const k of Object.keys(c.args)) expect(params.get(c.fn)).toContain(k);
   });
 
+  it('już jestem w grupie (audyt 3, N-157): moja rola i rola kodu; imię null zostawia imię po stronie serwera (N-164)', async () => {
+    const replies: RpcResult<unknown>[] = [
+      { data: { group_id: 'gf', member_id: 'm', already_member: true, role: 'member', invite_role: 'admin' }, error: null, status: 200 },
+      // Serwer sprzed migracji 20261010100000: bez ról.
+      { data: { group_id: 'gf', member_id: 'm', already_member: true }, error: null, status: 200 },
+      { data: { group_id: 'gf', member_id: 'm', already_member: false, role: 'member', invite_role: 'member' }, error: null, status: 200 },
+      { data: { group_id: 'gt', already_member: true, role: 'admin', invite_role: 'member' }, error: null, status: 200 },
+    ];
+    const { client, calls } = fakeClient(() => replies.shift()!);
+    const a = supabaseAccount(client, async () => ({ identityToken: null }));
+    expect(await a.joinGroup('482913507', '731064', null)).toEqual({ groupId: 'gf', alreadyMember: { role: 'member', inviteRole: 'admin' } });
+    expect(calls[0]).toEqual({ fn: 'join_group', args: { join_id: '482913507', code: '731064', display_name: null } });
+    expect(await a.joinGroup('482913507', '731064', 'Ala')).toEqual({ groupId: 'gf', alreadyMember: { role: null, inviteRole: null } });
+    expect(await a.joinGroup('482913507', '731064', 'Ala')).toEqual({ groupId: 'gf' });
+    expect(await a.acceptInvite('tok', null)).toEqual({ groupId: 'gt', alreadyMember: { role: 'admin', inviteRole: 'member' } });
+    expect(calls[3]).toEqual({ fn: 'accept_invite', args: { token: 'tok', display_name: null } });
+  });
+
   it('kod profilu dziecka (PW-14 B): bieżący albo nowy, z linkiem jak kod grupy', async () => {
     const replies: RpcResult<unknown>[] = [
       { data: { invite_id: 'c1', join_id: '482913507', code: '615290', expires_at: 'x', max_uses: 1, member_id: 'tymek' }, error: null, status: 200 },

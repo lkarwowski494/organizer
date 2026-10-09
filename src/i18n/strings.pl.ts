@@ -550,6 +550,8 @@ export const strings = {
   'groups.new': 'Nowa grupa',
   'groups.name': 'Nazwa grupy',
   'groups.myName': 'Twoje imię w grupie',
+  // Audyt 3 (N-164): konto bez imienia nie podpowiada imienia zastępczego („Ja”, początek adresu) — pole puste z przykładem.
+  'groups.myName.placeholder': 'np. „Ala” albo „Mama”',
   'groups.create': 'Utwórz grupę',
   'groups.join': 'Dołącz do grupy',
   'groups.role.owner': 'właściciel',
@@ -564,7 +566,8 @@ export const strings = {
   'groups.inviteAdmin': 'Zaproś jako administratora',
   'groups.inviteReady': 'Zaproszenie gotowe',
   // Decyzja właściciela z 8.10.2026 (PW-34 A): czym różnią się role przy zapraszaniu.
-  'groups.rolesInfo': 'Administrator zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.',
+  // Audyt 3 (N-163): administrator nie zmienia ról ani nie usuwa innych administratorów (memberActions) — bez „zarządza osobami”.
+  'groups.rolesInfo': 'Administrator zaprasza, dodaje dzieci i usuwa z grupy członków i dzieci. Role zmienia właściciel. Członek korzysta z list, zadań i wydarzeń.',
   // PW-41 A: jeden aktywny kod na rolę; „Nowy kod” unieważnia poprzedni.
   'groups.newCode': 'Nowy kod',
   'groups.inviteAs': (role: string) => `Dołączy jako: ${role}`,
@@ -594,9 +597,11 @@ export const strings = {
   // Audyt 3 (N-47, Q27): też co zostaje — zadania bez osoby (D132), plan lekcji i historia dzieci w grupie.
   'groups.leaveConfirm': (days: number) =>
     `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).`,
-  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
+  // Audyt 3 (N-163): gdy nie ma komu przekazać własności (brak innego dorosłego z kontem), zostaje „Usuń grupę”.
+  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia) albo usuń grupę.',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
-  'groups.childCannotLeave': 'Z tej grupy wypisuje Cię właściciel albo administrator.',
+  // Audyt 3 (N-163): to samo słowo co przycisk „Usuń z grupy” (docs/glossary.md).
+  'groups.childCannotLeave': 'Z tej grupy usuwa Cię właściciel albo administrator.',
   'groups.lists': 'Listy grupy',
   'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
@@ -640,7 +645,10 @@ export const strings = {
   // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
   'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
   'groups.error.groupFull': 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.',
-  'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
+  // Audyt 3 (N-163): ID grupy zmienia tylko właściciel — administrator dostaje radę, o co poprosić.
+  'groups.error.limitInvites': (n: number, owner: boolean) =>
+    `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo ${owner ? 'zmień ID grupy — stare kody przestaną działać' : 'poproś właściciela o zmianę ID grupy'}.`,
+  'groups.childAdded': (name: string, group: string) => `Dodano dziecko: ${name} · ${group}`,
   'member.name': 'Imię w grupie',
   // Audyt 2 (P-67): dwa miejsca zmiany imienia odsyłają do siebie (tu i 'name.info').
   'member.nameHere': 'To imię widać tylko w tej grupie. Imię we wszystkich grupach zmienisz w Ustawieniach → Konto i dane → Twoje imię.',
@@ -665,11 +673,18 @@ export const strings = {
   // Audyt 3 (N-42, Q6b A): dlaczego przy dorosłym nie ma wyboru „Dziecko”.
   'member.childRoleLinkedOnly': 'Rolę „Dziecko” dostaje tylko konto połączone z profilem dziecka („Połącz z kontem dziecka” przy profilu).',
   // Audyt 3 (Q6d A): dziecko dopisuje też produkty do list zakupów.
-  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania, dopisuje produkty do list zakupów i odpowiada o obecności za siebie. Z grupy wypisuje je właściciel albo administrator.',
+  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania, dopisuje produkty do list zakupów i odpowiada o obecności za siebie. Z grupy usuwa je właściciel albo administrator.',
 
   'invite.title': 'Zaproszenie do grupy',
   'invite.body': 'Wpisz ID grupy i kod z zaproszenia albo wklej całą wiadomość.',
   'invite.accept': 'Dołącz',
+  /**
+   * Audyt 3 (N-157): kod przy koncie, które już jest w tej grupie, nie zmienia roli (serwer: accept_invite). `role` — moja
+   * rola (groups.role.*), gdy kod jest na wyższą; inaczej null.
+   */
+  'invite.alreadyMember': (role: string | null) =>
+    role ? `Już jesteś w tej grupie (rola: ${role}). Ten kod nie zmienia roli — zmienia ją właściciel grupy.` : 'Już jesteś w tej grupie.',
+  'invite.openGroup': 'Otwórz grupę',
   'invite.invalid': 'Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.',
   'invite.expired': 'Ten kod wygasł. Poproś o nowe zaproszenie.',
   'invite.revoked': 'Ten kod został unieważniony (przez osobę zapraszającą albo po zbyt wielu błędnych próbach). Poproś o nowe zaproszenie.',
