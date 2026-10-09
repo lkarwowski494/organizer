@@ -5,10 +5,17 @@
  * długości, żeby pozycje odklikanych fragmentów się nie przesunęły).
  *
  * Reguły (D99):
- *  - godziny liczone jak na zegarze 24-godzinnym (bez zgadywania rano/po południu — D43 dotyczy jednej godziny);
+ *  - godziny liczone jak na zegarze 24-godzinnym (bez zgadywania rano/po południu — D43 dotyczy jednej godziny); polski
+ *    zapis godzin jest 24-godzinny, a przedział pisze się z półpauzą — CLDR dla pl
+ *    (https://github.com/unicode-org/cldr-json/blob/main/cldr-json/cldr-dates-full/main/pl/ca-gregorian.json):
+ *    `timeFormats.short` „HH:mm”, `intervalFormats.Hm.H` „HH:mm–HH:mm”, `intervalFormats.H.H` „HH–HH”; półpauza
+ *    w zakresie „od – do” bez spacji: zasada [408] 93.12 Słownika ortograficznego PWN w omówieniu NCK
+ *    (https://nck.pl/projekty-kulturalne/projekty/ojczysty-dodaj-do-ulubionych/ciekawostki-jezykowe/polpauza: „półpauzy
+ *    możemy używać zamiast myślnika, wyznaczając zakres od – do, np.: … 14–19”). Rozpoznajemy też dywiz i pauzę, bo
+ *    tak się pisze na klawiaturze telefonu (wybór projektowy);
  *  - koniec musi być późniejszy niż początek („22–1” to nie zakres, wydarzenie przez północ ustawia się w formularzu);
  *  - minuty po kropce tylko 00 albo większe niż 12 — jak w parserze terminów, żeby „15.10–16.10” nie było godzinami
- *    (to raczej daty);
+ *    (to raczej daty); kropka jako separator godzin i minut — Poradnia PWN, src/domain/quickadd.ts;
  *  - pierwszy zakres w tekście wygrywa; zakres nachodzący na odklikany fragment jest pomijany.
  */
 export type TimeRange = {

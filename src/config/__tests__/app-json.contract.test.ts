@@ -19,6 +19,14 @@ describe('app.json zgodny z src/config', () => {
   it('schemat linków głębokich (D40)', () => {
     expect(expo.scheme).toBe(config.URL_SCHEME);
   });
+
+  it('najniższy iOS (D35) = config.IOS_MIN = minimum Expo SDK 57', () => {
+    expect(expo.ios.deploymentTarget).toBe(config.IOS_MIN);
+    // Po zmianie SDK: minimum z podspeca Expo musi się zgadzać (inaczej D35 i config są nieaktualne).
+    const { readFileSync } = jest.requireActual<typeof import('fs')>('fs');
+    const podspec = readFileSync(require.resolve('expo/Expo.podspec'), 'utf8');
+    expect(/:ios => '([\d.]+)'/.exec(podspec)?.[1]).toBe(config.IOS_MIN);
+  });
 });
 
 /**

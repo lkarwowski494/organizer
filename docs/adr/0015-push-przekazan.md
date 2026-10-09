@@ -39,4 +39,4 @@ Decyzja właściciela D70: przekazanie to „push + w aplikacji”. Ten dokument
 
    Odrzucone: okno systemowe zaraz po zalogowaniu. Apple zaleca pytać w kontekście, a odmowy w oknie nie da się potem cofnąć z aplikacji.
 
-Koszt: APNs jest bezpłatne. Funkcje Supabase w planie Free mają limit 500 tys. wywołań miesięcznie, a jedno przekazanie to 1–2 wywołania.
+Koszt: APNs jest bezpłatne. Funkcje Supabase w planie Free mają limit 500 tys. wywołań miesięcznie (stan 7.10.2026; aktualne liczby i progi: docs/limits.md, `config.limits`), a jedno przekazanie to 1–2 wywołania.

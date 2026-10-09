@@ -1,23 +1,25 @@
 # Limity darmowych planów i progi ostrzeżeń
 
-Wartości progów: `src/config/index.ts` → `config.limits` (jedno źródło prawdy). Ta tabela opisuje źródła.
-Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
+Wartości progów: `src/config/index.ts` → `config.limits` (jedno źródło prawdy; kolumna „Próg” podaje klucz, nie liczbę).
+Ta tabela opisuje źródła limitów. Progi sprawdza dziś człowiek: nocny skrypt, który porówna zużycie z `config.limits`
+(D185), jeszcze nie działa. Limity sprawdzone 5–6.10.2026 (Supabase ponownie 8.10.2026, GitHub i TestFlight 9.10.2026);
+przed każdą zmianą planu sprawdź ponownie.
 
 | Zasób | Limit | Próg | Źródło |
 |---|---|---|---|
-| Baza Supabase | 500 MB | 350 MB | https://supabase.com/pricing |
-| Transfer Supabase | 5 GB/mies. | 3,5 GB | https://supabase.com/pricing |
-| Wiadomości Realtime | 2 mln/mies. | 1,4 mln | https://supabase.com/pricing |
-| Połączenia Realtime | 200 | 140 | https://supabase.com/pricing |
-| Wywołania Edge Functions | 500 tys./mies. | 350 tys. | https://supabase.com/pricing; https://supabase.com/docs/guides/functions/pricing. Szacunek D159: prośba o ciche powiadomienia to jedno wywołanie na serię zmian (30 s ciszy albo wyjście z aplikacji) i ewentualne ponowienie; rodzina 4 osób po ~20 serii dziennie ≈ 80–160/dzień ≈ 2,5–5 tys./mies. (≤ 1% limitu), 50 rodzin ≈ 250 tys. |
-| Pauza projektu | po 1 tygodniu bezczynności | 5 dni bez ruchu | https://supabase.com/pricing |
+| Baza Supabase | 500 MB | `supabaseDbBytesWarn` | https://supabase.com/pricing |
+| Transfer Supabase | 5 GB/mies. | `supabaseEgressBytesPerMonthWarn` | https://supabase.com/pricing |
+| Wiadomości Realtime | 2 mln/mies. | `realtimeMessagesPerMonthWarn` | https://supabase.com/pricing |
+| Połączenia Realtime | 200 | `realtimeConcurrentConnectionsWarn` | https://supabase.com/pricing |
+| Wywołania Edge Functions | 500 tys./mies. | `edgeFunctionInvocationsPerMonthWarn` | https://supabase.com/pricing; https://supabase.com/docs/guides/functions/pricing. Szacunek D159: prośba o ciche powiadomienia to jedno wywołanie na serię zmian (30 s ciszy albo wyjście z aplikacji) i ewentualne ponowienie; rodzina 4 osób po ~20 serii dziennie ≈ 80–160/dzień ≈ 2,5–5 tys./mies. (≤ 1% limitu), 50 rodzin ≈ 250 tys. |
+| Pauza projektu | po 1 tygodniu bezczynności | `supabaseIdleDaysWarn` | https://supabase.com/pricing |
 | E-maile logowania | 2/h (wbudowany SMTP) | nie dotyczy w becie: logowanie e-mailem wyłączone (D177), dostawca Email do wyłączenia w Supabase (O-110) | https://supabase.com/docs/guides/auth/rate-limits |
-| GitHub Actions — repo prywatne | 2000 min/mies., macOS ×10 | każdy job macOS w repo prywatnym | https://docs.github.com/en/billing/concepts/product-billing/github-actions |
-| GitHub Actions — repo publiczne | standardowe runnery bez opłat | — | jw. |
-| Cache Actions | 10 GB/repo | 8 GB | https://docs.github.com/en/actions/reference/limits |
-| Build TestFlight | wygasa po 90 dniach | 80 dni | https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers |
+| GitHub Actions — repo prywatne | 2000 min/mies. (GitHub Free: „Minutes (per month) … 2,000”); strona nie podaje już mnożnika dla macOS, tylko stawkę za minutę | każdy job macOS w repo prywatnym (repo jest publiczne od 6.10.2026 — wiersz historyczny) | https://docs.github.com/en/billing/concepts/product-billing/github-actions |
+| GitHub Actions — repo publiczne | standardowe runnery bez opłat: „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners” | — | jw. |
+| Cache Actions | 10 GB/repo | `actionsCacheBytesWarn` | https://docs.github.com/en/actions/reference/limits |
+| Build TestFlight | wygasa po 90 dniach: „Internal testers can download and test all builds for 90 days” | `testflightBuildAgeDaysWarn` | https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers |
 | Token `organizer-match` (fine-grained PAT) | wygasa po 1 roku od utworzenia (6.10.2026) | 30 dni przed wygaśnięciem | ustawienie właściciela |
-| Ciche pushe | 2–3/h zalecane | > 2/h na urządzenie | https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app |
+| Ciche pushe | 2–3/h zalecane | serwer wysyła do urządzenia najwyżej jedno na `config.wake.MIN_GAP_MIN` minut (D159) — bez osobnego progu | https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app |
 
 ## Limity na konto i retencja (audyt 2, D183, D184, 8.10.2026)
 Żeby jedno konto nie zapełniło bazy Free ani nie wyczerpało Realtime i Edge Functions, serwer egzekwuje twarde limity
