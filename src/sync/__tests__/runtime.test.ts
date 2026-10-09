@@ -100,6 +100,23 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(rt.getSnapshot().indicator).toMatchObject({ pending: 2 });
   });
 
+  it('audyt 3, N-15: pobranie bez zmian nie zapisuje stanu i nie zmienia tabel ekranów', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const persist = jest.fn();
+    const tr = serverTransport(server, 'ala');
+    const { rt, flush } = harness(tr, { persist });
+    rt.start();
+    await flush();
+    const writes = persist.mock.calls.length;
+    const state = rt.getSnapshot().state;
+    rt.event({ t: 'foreground' });
+    await flush();
+    expect(tr.calls).toEqual(['pull', 'pull']);
+    expect(rt.getSnapshot().state).toBe(state);
+    expect(persist).toHaveBeenCalledTimes(writes);
+  });
+
   it('brak sieci (wyjątek fetch): błąd, ponowienie z opóźnieniem, zmiana nie ginie', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);

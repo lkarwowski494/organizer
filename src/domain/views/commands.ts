@@ -4,6 +4,7 @@
  * (owner_member_id, created_by, completed_by, depth) nie są tu wysyłane.
  */
 import { config } from '../../config';
+import { type EndArgs, endSeriesEffects } from '../event-chain';
 import type { QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import type { Tables, Task } from './model';
@@ -100,14 +101,16 @@ export function renameMember(memberId: string, name: string): NewOp {
 /**
  * Operacje odwrotne do `ops` względem stanu `t` sprzed nich — do paska „Cofnij” (audyt 8.10.2026: odwołanie albo
  * usunięcie wydarzenia było bez cofnięcia). Od końca: utworzenie → usunięcie, usunięcie ↔ przywrócenie, zmiana →
- * poprzednie wartości pól (brak pola = wartość domyślna serwera albo null). Polecenia serwera (cmd) nie mają odwrotności — wtedy `null`.
+ * poprzednie wartości pól (brak pola = wartość domyślna serwera albo null). Polecenia serwera (cmd) nie mają odwrotności — wtedy `null`
+ * — poza końcem serii (end_series): cofa go restore_series (audyt 3, src/domain/event-chain.ts).
  */
 export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
-  if (ops.some((o) => o.kind === 'cmd')) return null;
+  if (ops.some((o) => o.kind === 'cmd' && o.cmd !== 'end_series')) return null;
   // Zmiana wiersza utworzonego w tej samej paczce (np. wyjątek terminu: utworzenie i zmiana, audyt 2 S-8) nie ma
   // odwrotności — usunięcie wiersza wystarczy (inaczej „Cofnij” wpisywałby null w kolumny NOT NULL).
   const created = new Set(ops.flatMap((o) => (o.kind === 'create' && !t[o.entity]?.[o.id] ? [`${o.entity}|${o.id}`] : [])));
   return [...ops].reverse().flatMap((o): NewOp[] => {
+    if (o.kind === 'cmd') return [endSeriesEffects(t, o.args as unknown as EndArgs).undo].filter((x): x is NewOp => x !== null);
     if (o.kind === 'create') return [{ kind: 'delete', entity: o.entity, id: o.id }];
     if (o.kind === 'delete') return [{ kind: 'restore', entity: o.entity, id: o.id }];
     if (o.kind === 'restore') return [{ kind: 'delete', entity: o.entity, id: o.id }];
@@ -119,4 +122,12 @@ export function inverseOps(t: Tables, ops: readonly NewOp[]): NewOp[] | null {
     const defaults = config.sync.PATCH_DEFAULTS[p.entity] ?? {};
     return [{ kind: 'patch', entity: p.entity, id: p.id, set: Object.fromEntries(Object.keys(p.set).map((k) => [k, k in before ? (before[k] ?? null) : (defaults[k] ?? null)])) }];
   });
+}
+
+/**
+ * Zmiany `ops` jako zwykłe operacje — do odcisku „Ostatnich zmian” (src/domain/views/recent.ts): koniec serii
+ * (end_series) to usunięcia i zmiany reguł części, wyjątków i odpowiedzi, które wykona na tym telefonie.
+ */
+export function plainChanges(t: Tables, ops: readonly NewOp[]): NewOp[] {
+  return ops.flatMap((o) => (o.kind === 'cmd' && o.cmd === 'end_series' ? endSeriesEffects(t, o.args as unknown as EndArgs).changed : [o]));
 }

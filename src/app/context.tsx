@@ -157,12 +157,15 @@ export function useServices(): AppServices {
  * Tabele jednego stanu liczone raz: każdy komponent z useAppData (pasek zakładek, przypomnienia, lustro kalendarza,
  * ekrany…) dostaje ten sam obiekt, zamiast liczyć materialize osobno przy każdej zmianie — i widoki w useMemo nie liczą
  * się od nowa dla różnych kopii tych samych danych (audyt 2: testy ekranów blisko limitu 5 s). Stan jest niezmienny
- * (każda zmiana to nowy obiekt), a tabele tylko do odczytu, więc WeakMap po obiekcie stanu.
+ * (każda zmiana to nowy obiekt), a tabele tylko do odczytu. Klucz to `base` i `pending`, nie cały stan (audyt 3, N-15):
+ * pobranie bez zmian daje nowy stan z nowymi kursorami, ale tymi samymi tabelami — widoki się nie przeliczają.
  */
-const materialized = new WeakMap<ClientState, Tables>();
+const materialized = new WeakMap<ClientState['base'], WeakMap<ClientState['pending'], Tables>>();
 export function tablesOf(state: ClientState): Tables {
-  let t = materialized.get(state);
-  if (!t) materialized.set(state, (t = materialize(state)));
+  let byPending = materialized.get(state.base);
+  if (!byPending) materialized.set(state.base, (byPending = new WeakMap()));
+  let t = byPending.get(state.pending);
+  if (!t) byPending.set(state.pending, (t = materialize(state)));
   return t;
 }
 

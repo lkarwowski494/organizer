@@ -13,6 +13,7 @@
  * przeniesione poza wzrok, filtr encji): 20261008310000_sync_protocol_v2.sql.
  */
 import { config } from '../../config';
+import { applyEndSeries, applyRestoreSeries, repointLate } from '../event-chain';
 import { applySplit } from '../event-split';
 import { badField } from './row-check';
 
@@ -53,7 +54,7 @@ export type PullResponse = {
     purged?: number;
     /** Protokół 2: wszystkie listy grupy, które widzę; lokalne spoza zbioru znikają z zawartością (M-54). */
     lists?: string[];
-    /** Protokół 2: zadania przeniesione do listy, której nie widzę (M-54). */
+    /** Protokół 2: zadania przeniesione do listy, której nie widzę (M-54), albo te, których nowy wiersz przyjdzie dopiero w dalszej porcji. */
     gone?: string[];
   }[];
   scopes: string[];
@@ -175,10 +176,13 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
   switch (op.kind) {
     case 'create':
       if (!current) table[op.id] = { ...op.set, id: op.id, group_id: op.group_id, deleted_at: null };
+      // Audyt 3 (N-23): termin z części serii, która go już nie ma po „to i następne” — do następczyni (jak serwer).
+      if (!current) repointLate(tables, op.entity, op.id);
       return;
     case 'patch':
       // Usunięcie wygrywa z edycją — tak samo jak na serwerze.
       if (current && current.deleted_at == null) table[op.id] = { ...current, ...op.set };
+      if (op.entity === 'tasks' && ('event_id' in op.set || 'occurrence_date' in op.set)) repointLate(tables, op.entity, op.id);
       return;
     case 'delete':
       // Idempotentne: usunięty zostaje usunięty (z pierwotnym znacznikiem). Znacznik z numerem operacji odróżnia dwa
@@ -209,10 +213,14 @@ export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): str
 
 /**
  * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
- * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split) i stałe zakupy.
+ * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split), koniec serii i jego cofnięcie
+ * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain) i stałe zakupy.
  */
 function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
   if (op.cmd === 'split_event') return applySplit(tables, op.args);
+  // Audyt 3 (N-3, N-117): koniec całej serii (łańcucha) i jego cofnięcie (src/domain/event-chain.ts).
+  if (op.cmd === 'end_series') return applyEndSeries(tables, op.args, `pending:${op.seq}`);
+  if (op.cmd === 'restore_series') return applyRestoreSeries(tables, op.args);
   const id = String(op.args.list_id);
   const list = tables.lists?.[id];
   // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.
@@ -293,9 +301,47 @@ export type PullOutcome = {
 
 type Tables = { [e: string]: { [id: string]: Row } };
 
+/**
+ * Tabele kopiowane dopiero przy pierwszej zmianie (audyt 3, N-15): pobranie, które nic nie przyniosło (każdy powrót do
+ * aplikacji), zostawia te same obiekty tabel, więc ekrany, plan przypomnień i lustro nie liczą się od nowa (tablesOf
+ * w src/app/context.tsx po `base` i `pending`), a zapis (store.ts diffRows) nie przegląda całej bazy. Tabela źródłowa
+ * nigdy nie jest zmieniana w miejscu — należy do poprzedniego stanu.
+ */
+class CowTables {
+  readonly tables: Tables;
+  private readonly own = new Set<string>();
+  constructor(private readonly src: { readonly [e: string]: { readonly [id: string]: Row } }) {
+    this.tables = { ...src } as Tables;
+  }
+  /** Tabela do zapisu (kopia przy pierwszym dotknięciu). */
+  write(e: string): { [id: string]: Row } {
+    if (!this.own.has(e)) {
+      this.tables[e] = { ...this.tables[e] };
+      this.own.add(e);
+    }
+    return this.tables[e]!;
+  }
+  set(e: string, id: string, row: Row): void {
+    this.write(e)[id] = row;
+  }
+  delete(e: string, id: string): void {
+    if (this.tables[e] && id in this.tables[e]) delete this.write(e)[id];
+  }
+  /** Wynik: źródło, gdy nic się nie zmieniło. */
+  result(): { readonly [e: string]: { readonly [id: string]: Row } } {
+    return this.own.size === 0 ? this.src : this.tables;
+  }
+}
+
+const sameList = <T>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+const sameMap = <T>(a: { readonly [k: string]: T }, b: { readonly [k: string]: T }) => {
+  const keys = Object.keys(b);
+  return keys.length === Object.keys(a).length && keys.every((k) => k in a && a[k] === b[k]);
+};
+
 export function onPullResponse(state: ClientState, res: PullResponse, req: PullRequest & { ackedAtStart: number }): PullOutcome {
-  const base = cloneTables(state.base);
-  const staged: { [g: string]: Tables } = {};
+  const base = new CowTables(state.base);
+  const staged: { [g: string]: CowTables } = {};
   const visibleGroups = new Set(res.groups.map((g) => g.group_id));
   const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s)));
   // Grupa przychodzi w całości przy resync i przy pobraniu od zera (bez kursora w zapytaniu). Jej porcje odkładamy obok
@@ -307,9 +353,9 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
     const scope = rowScope(e, row);
     return scope !== undefined && (lostScopes.has(scope) || listsOf.get(groupOf(e, row))?.has(scope) === false);
   };
-  const forget = (tables: Tables) => {
-    for (const [e, rows] of Object.entries(tables)) {
-      for (const [id, row] of Object.entries(rows)) if (!visibleGroups.has(groupOf(e as Entity, row)) || hidden(e as Entity, row)) delete rows[id];
+  const forget = (tables: CowTables) => {
+    for (const [e, rows] of Object.entries(tables.tables)) {
+      for (const [id, row] of Object.entries(rows)) if (!visibleGroups.has(groupOf(e as Entity, row)) || hidden(e as Entity, row)) tables.delete(e, id);
     }
   };
 
@@ -317,7 +363,7 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   forget(base);
   for (const [g, tables] of Object.entries(state.staged)) {
     if (!visibleGroups.has(g) || fromScratch.has(g)) continue;
-    staged[g] = cloneTables(tables);
+    staged[g] = new CowTables(tables);
     forget(staged[g]);
   }
 
@@ -326,13 +372,13 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   const invalid = new Set<string>();
   for (const g of res.groups) {
     const gid = g.group_id;
-    if (fromScratch.has(gid)) staged[gid] = {};
+    if (fromScratch.has(gid)) staged[gid] = new CowTables({});
     const target = staged[gid] ?? base;
     // Zadania przeniesione do listy, której nie widzę: przed wierszami tej odpowiedzi (wiersz z nowszą wersją wraca);
     // znikają od razu także z widocznych jeszcze starych wierszy.
     for (const id of g.gone ?? []) {
-      delete base.tasks?.[id];
-      delete target.tasks?.[id];
+      base.delete('tasks', id);
+      target.delete('tasks', id);
     }
     for (const r of g.rows) {
       const key = rowKey(r.e, r.row);
@@ -340,14 +386,15 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
       const bad = badField(r.e, r.row);
       if (bad) {
         invalid.add(bad);
-        delete base[r.e]?.[key];
-        delete target[r.e]?.[key];
-      } else (target[r.e] ??= {})[key] = r.row;
+        base.delete(r.e, key);
+        target.delete(r.e, key);
+      } else target.set(r.e, key, r.row);
     }
-    if (staged[gid] && !g.has_more) {
+    const done = staged[gid];
+    if (done && !g.has_more) {
       // Komplet: stare wiersze grupy znikają, nowe wchodzą — w jednym przejściu stanu.
-      for (const [e, rows] of Object.entries(base)) for (const [id, row] of Object.entries(rows)) if (groupOf(e as Entity, row) === gid) delete rows[id];
-      for (const [e, rows] of Object.entries(staged[gid])) Object.assign((base[e] ??= {}), rows);
+      for (const [e, rows] of Object.entries(base.tables)) for (const [id, row] of Object.entries(rows)) if (groupOf(e as Entity, row) === gid) base.delete(e, id);
+      for (const [e, rows] of Object.entries(done.tables)) Object.assign(base.write(e), rows);
       delete staged[gid];
     }
     cursors[gid] = g.cursor;
@@ -366,12 +413,21 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   const whole = new Set(res.groups.flatMap((g) => (fromScratch.has(g.group_id) ? (g.lists ?? []) : [])));
   const mine = new Set(state.pending.flatMap((op) => (op.kind === 'create' && op.entity === 'lists' ? [op.id] : [])));
   const scopesToFetch = res.scopes.filter((s) => (!state.scopes.includes(s) && !whole.has(s) && !mine.has(s)) || state.scopesToFetch.includes(s));
-  return {
-    state: { ...state, base, staged, cursors, purged, entities: [...req.entities], scopes: [...res.scopes], scopesToFetch, pending },
-    needMore,
-    fetchScopes: scopesToFetch,
-    invalid: [...invalid],
+  const stagedOut = Object.fromEntries(Object.entries(staged).map(([g, t]) => [g, t.result()]));
+  // N-15: niezmienione części zostają tymi samymi obiektami; nic się nie zmieniło — ten sam stan.
+  const next: ClientState = {
+    ...state,
+    base: base.result(),
+    staged: sameMap(state.staged, stagedOut) ? state.staged : stagedOut,
+    cursors: sameMap(state.cursors, cursors) ? state.cursors : cursors,
+    purged: sameMap(state.purged, purged) ? state.purged : purged,
+    entities: sameList(state.entities, req.entities) ? state.entities : [...req.entities],
+    scopes: sameList(state.scopes, res.scopes) ? state.scopes : [...res.scopes],
+    scopesToFetch: sameList(state.scopesToFetch, scopesToFetch) ? state.scopesToFetch : scopesToFetch,
+    pending: pending.length === state.pending.length ? state.pending : pending,
   };
+  const same = (Object.keys(next) as (keyof ClientState)[]).every((k) => next[k] === state[k]);
+  return { state: same ? state : next, needMore, fetchScopes: scopesToFetch, invalid: [...invalid] };
 }
 
 /**

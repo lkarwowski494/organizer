@@ -17,7 +17,8 @@ import { formatRange } from '../../domain/format';
 import { materialize } from '../../domain/sync-engine/client';
 import { groupDetail } from '../../domain/views';
 import type { SeriesEffects } from '../../domain/views/event-tasks';
-import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import { copyTargets, type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import { AskPanel } from '../../ui/AskPanel';
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
@@ -40,21 +41,25 @@ export function TimetableScreen({ route, navigation }: Props) {
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
   // D128: obecny plan (stan z chwili otwarcia — zapis kończy dokładnie te serie).
   const [plan] = useState(() => memberTimetable(tables, route.params.groupId, route.params.memberId, today));
-  const [lessons, setLessons] = useState<Lesson[]>(plan.lessons);
-  const [thisWeek, setThisWeek] = useState<'A' | 'B'>(plan.thisWeek);
-  const [until, setUntil] = useState(plan.until);
+  // Audyt 3 (Q27 B): plan skopiowany z innej grupy zastępuje na ekranie obecny (zapis — jak edycja, z podglądem i „Cofnij”).
+  const copy = route.params.copy;
+  const [lessons, setLessons] = useState<Lesson[]>(copy?.lessons ?? plan.lessons);
+  const [thisWeek, setThisWeek] = useState<'A' | 'B'>(copy?.thisWeek ?? plan.thisWeek);
+  const [until, setUntil] = useState(copy?.until ?? plan.until);
+  const [copying, setCopying] = useState(false);
   const [error, setError] = useState<{ text: string; index: number } | null>(null);
   const [preview, setPreview] = useState<SeriesEffects | null>(null);
   const [lostChoice, setLostChoice] = useState<LostChoice>('nearest');
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisany plan (app/form-draft); nakłada się
   // na plan z chwili ponownego otwarcia tylko w polach, które zmieniłem.
-  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil });
+  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil }, { restore: !copy });
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
       <MissingScreen testID="screen-timetable-missing" text={strings['groups.error.member']} onBack={() => navigation.goBack()} />
     );
   }
+  const targets = copyTargets(tables, userId, d.group.id);
   const monday = addDays(today, -isoWeekday(today));
   // Audyt 2 (E-26): sobota i niedziela, gdy mają lekcje (np. lekcja przeniesiona na sobotę „to i następne”).
   const days = [...SCHOOL_DAYS, ...WEEKEND.filter((x) => lessons.some((l) => l.day === x))];
@@ -92,6 +97,7 @@ export function TimetableScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['timetable.title'](m.display_name)}</Title>
       <DraftNote draft={draft} />
+      {copy ? <Body testID="timetable-copied">{strings['timetable.copied'](copy.from)}</Body> : null}
       <Body muted>{strings['timetable.info']}</Body>
       <Segmented
         label={strings['timetable.thisWeek'](formatRange(monday, addDays(monday, 6), today))}
@@ -147,6 +153,27 @@ export function TimetableScreen({ route, navigation }: Props) {
       <DateField label={strings['timetable.until']} value={until} onChange={setUntil} today={today} testID="timetable-until" optional />
       {error ? <ErrorText>{error.index >= 0 ? strings['timetable.fixLesson'](lessonNo(error.index), WEEKDAYS_NOMINATIVE[lessons[error.index]!.day]!, error.text) : error.text}</ErrorText> : null}
       <Button label={strings['timetable.save']} onPress={() => save()} testID="timetable-save" />
+      {/* Audyt 3 (N-47, Q27 B): profil dziecka należy do jednej grupy — plan do drugiego domu kopiuje się stąd. */}
+      {targets.length && lessons.length ? (
+        copying ? (
+          <AskPanel
+            testID="timetable-copy-choices"
+            title={strings['timetable.copyTo']}
+            body={strings['timetable.copyInfo']}
+            options={targets.map((x) => ({
+              key: `${x.groupId}-${x.memberId}`,
+              label: strings['mention.pick'](x.name, x.groupName),
+              onPress: () => {
+                setCopying(false);
+                navigation.push('Timetable', { groupId: x.groupId, memberId: x.memberId, copy: { lessons, thisWeek, until, from: strings['mention.pick'](m.display_name, d.group.name) } });
+              },
+            }))}
+            onCancel={() => setCopying(false)}
+          />
+        ) : (
+          <Button kind="secondary" label={strings['timetable.copyTo']} testID="timetable-copy" onPress={() => setCopying(true)} />
+        )
+      ) : null}
     </Screen>
   );
 }

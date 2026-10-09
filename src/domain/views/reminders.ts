@@ -16,9 +16,10 @@ import { addDays, type CivilDate, formatIsoDate, type LocalDateTime } from '../c
 import { parseIsoDate } from '../format';
 import type { Target } from '../notification-target';
 import { isContinuation } from '../span';
-import { type MyEntry, myDays } from './my-days';
+import { expandEventDays, type Occurrence } from './events';
+import { type MyEntry, myDaysBase, myDaysOf } from './my-days';
 import type { ScopeOf } from './my-scope';
-import { nestEntries } from './nesting';
+import { nestEntries, nestIndex } from './nesting';
 import type { Tables } from './model';
 import { silencedForMe } from './rsvp';
 import { type Person, personOf } from './who';
@@ -50,13 +51,22 @@ export function planReminders(
   // wyjść” i miejsca w porannym podsumowaniu (wiersz w „Moich sprawach” zostaje, D129). Jego zadania przypominają same.
   // D160: tak samo termin, który dotyczy mnie tylko przez dzieci, a żadne z nich nie będzie (silencedForMe).
   const declined = silencedForMe(t, userId);
+  // Audyt 3 (N-6): część stała Moich spraw i rozwinięcie wydarzeń liczone raz na cały plan, nie za każdym dniem.
+  const base = myDaysBase(t, userId, opts.localDate, opts.scopeOf);
+  const nest = nestIndex(t, base.byId.values());
+  const eventsOn = new Map<string, Occurrence[]>();
+  for (const e of expandEventDays(t, userId, today, addDays(today, opts.days - 1))) {
+    const list = eventsOn.get(e.date);
+    if (list) list.push(e);
+    else eventsOn.set(e.date, [e]);
+  }
   for (let k = 0; k < opts.days; k++) {
     const day = addDays(today, k);
     const iso = formatIsoDate(day);
     // Audyt 2 (T-21, N-12): dzień liczony tak, jak aplikacja pokaże go tego dnia — z zaległymi (niezrobione z „przenoś
     // na kolejne dni” sprzed tego dnia), bez wygasłych. Plan zakłada, że do tego dnia nic się nie zmieni; zmiana
     // danych i tak przelicza plan.
-    const view = myDays(t, userId, day, 'day', day, opts.localDate, opts.scopeOf);
+    const view = myDaysOf(base, day, 'day', day, eventsOn.get(iso) ?? []);
     // Chwila własnego przypomnienia wpisu („Czas wyjść” albo `leadMin` przed) albo `null`.
     type Fire = { at: number; leave: { at: number; body: string } | null };
     const fires = new Map<string, Fire | null>();
@@ -77,7 +87,7 @@ export function planReminders(
     // PWD-32 B: wydarzenie dziecka, które prowadzi ktoś inny, stoi w Moich sprawach tylko informacyjnie — bez przypomnień.
     // D199: kolejne dni wielodniowego (obóz, koniec nocnego dyżuru) — bez przypomnień i poza porannym podsumowaniem:
     // wydarzenie przypomina się raz, przed startem. Wiersz w „Moich sprawach” zostaje.
-    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || (e.event.concernsMe && !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`) && !isContinuation(e.event.part))), t);
+    const nested = nestEntries(view.days[0]!.entries.filter((e) => e.kind !== 'event' || (e.event.concernsMe && !declined.has(`${e.event.eventId}|${e.event.occurrenceDate}`) && !isContinuation(e.event.part))), t, nest);
     const under = new Map<string, string[]>();
     const parentOf = new Map<string, MyEntry>();
     const holder: MyEntry[] = [];

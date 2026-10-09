@@ -31,8 +31,8 @@ export interface DevicePush {
    */
   onOpen(fn: (path: string) => void): () => void;
   /**
-   * Przypomnienia (D75): podmienia wszystkie zaplanowane powiadomienia lokalne na nową listę. Błąd pojedynczej
-   * pozycji nie zatrzymuje pozostałych — obietnica odrzuca się pierwszym z nich po zaplanowaniu reszty.
+   * Przypomnienia (D75): zaplanowane powiadomienia lokalne mają odtąd odpowiadać nowej liście (różnica planów, audyt 3
+   * N-105). Błąd pojedynczej pozycji nie zatrzymuje pozostałych — obietnica odrzuca się pierwszym z nich po reszcie.
    */
   replaceReminders(list: Reminder[]): Promise<void>;
 }
@@ -70,23 +70,37 @@ export async function apnsEnv(read: () => Promise<'development' | 'production' |
   return (await read()) === 'development' ? 'sandbox' : 'production';
 }
 
-type Scheduling = Pick<typeof Notifications, 'cancelAllScheduledNotificationsAsync' | 'scheduleNotificationAsync'>;
+type Scheduling = Pick<typeof Notifications, 'getAllScheduledNotificationsAsync' | 'cancelScheduledNotificationAsync' | 'scheduleNotificationAsync'>;
 
 /** Pamięć planowania na telefonie (pęk kluczy) — przeżywa ponowne uruchomienie aplikacji. */
 export type SchedulerMemory = { load(): Promise<string | null>; save(value: string): Promise<void> };
 const NO_MEMORY: SchedulerMemory = { load: async () => null, save: async () => {} };
-/** `leave` — zaplanowane „Czas wyjść” (id → chwila), `late` — pokazane „spóźnienia” (id → kiedy). */
+/** `leave` — zaplanowane „Czas wyjść” (id → chwila), `late` — pokazane od razu: „spóźnienia” i pozycje z marginesu (id → kiedy). */
 type SchedulerState = { leave: Record<string, number>; late: Record<string, number> };
 const DAY_MS = 86_400_000;
 const isTimes = (v: unknown): v is Record<string, number> => typeof v === 'object' && v !== null && !Array.isArray(v) && Object.values(v).every((x) => typeof x === 'number');
 
+type Content = { title: string; body: string; sound: 'default'; data: { path: string; at: number } };
+/** Czy zaplanowane powiadomienie ma już tę treść i chwilę (iOS zwraca pusty tekst jako brak — NotificationRecords.swift). */
+const sameContent = (c: Notifications.NotificationContent | undefined, want: Content) =>
+  !!c && (c.title ?? '') === want.title && (c.body ?? '') === want.body && c.data?.path === want.data.path && c.data?.at === want.data.at;
+
 /**
  * Planowanie przypomnień po kolei (audyt 2, N-7, N-34): nowsza lista zastępuje starszą w całości, a przebieg, który
- * w trakcie dostał następcę, kończy się (następca i tak kasuje wszystko i planuje od nowa) — dwa przebiegi naraz nie
- * zostawią przypomnienia usuniętej sprawy. Pozycja bliżej niż config.reminders.SCHEDULE_MARGIN_MS od „teraz” jest
- * pomijana: wyzwalacz DATE to UNTimeIntervalNotificationTrigger(timeInterval: data − teraz) z datą uciętą do sekundy
- * (expo-notifications 57, ios/…/TriggerRecords.swift), a Apple wymaga „This value must be greater than zero.”
+ * w trakcie dostał następcę, kończy się (następca i tak porównuje plan z tym, co iOS ma zaplanowane) — dwa przebiegi naraz
+ * nie zostawią przypomnienia usuniętej sprawy.
+ * Audyt 3 (N-105): zamiast kasować wszystko i planować do 64 pozycji od nowa (w tym czasie, a przy błędzie lub wstrzymaniu
+ * aplikacji w połowie także po nim, części przypomnień nie było), różnica planów: getAllScheduledNotificationsAsync
+ * (SDK 57: „Fetches information about all scheduled notifications”), odwołanie tylko identyfikatorów spoza nowej listy
+ * (cancelScheduledNotificationAsync), zaplanowanie nowych i zmienionych (treść albo chwila w `data.at`). Zmieniona pozycja
+ * z tym samym identyfikatorem zastępuje zaplanowaną bez przerwy: „If the identifier matches a pending request, the new
+ * request replaces the pending request”
+ * (https://developer.apple.com/documentation/usernotifications/unnotificationrequest/init(identifier:content:trigger:)).
+ * Pozycja bliżej niż config.reminders.SCHEDULE_MARGIN_MS od „teraz” nie dostaje wyzwalacza czasu: wyzwalacz DATE to
+ * UNTimeIntervalNotificationTrigger(timeInterval: data − teraz) z datą uciętą do sekundy (expo-notifications 57,
+ * ios/…/TriggerRecords.swift), a Apple wymaga „This value must be greater than zero.”
  * (https://developer.apple.com/documentation/usernotifications/untimeintervalnotificationtrigger/init(timeinterval:repeats:)).
+ * Audyt 3 (N-112): taka pozycja — jeśli iOS nie ma jej już zaplanowanej — idzie od razu (dawniej przepadała), raz.
  * Pozycja `now` (spóźnienie, PW-24) — od razu (SDK 57: „A null trigger means that the notification should be scheduled
  * for delivery immediately”), raz na termin i tylko wtedy, gdy „Czas wyjść” tego terminu nie przyszedł już wcześniej
  * (zaplanowany na chwilę, która minęła) — kto wyszedł o czasie i otwiera aplikację w drodze, nie dostaje „spóźniony”.
@@ -113,13 +127,24 @@ export function reminderScheduler(n: Scheduling, now: () => number = Date.now, m
       const start = now();
       // „Czas wyjść”, których chwila minęła, iOS już pokazał — zostają w pamięci na dobę.
       const shown = Object.fromEntries(Object.entries(s.leave).filter(([, at]) => at <= start && at > start - DAY_MS));
-      await n.cancelAllScheduledNotificationsAsync();
+      const scheduled = new Map((await n.getAllScheduledNotificationsAsync()).map((q) => [q.identifier, q.content]));
+      const wanted = new Set(list.filter((r) => !r.now).map((r) => r.id));
       const leave: Record<string, number> = { ...shown };
       let failure: { e: unknown } | null = null;
+      // Najpierw znikają przypomnienia spraw, których już nie ma w planie.
+      for (const id of scheduled.keys()) {
+        if (mine !== generation) return;
+        if (wanted.has(id)) continue;
+        try {
+          await n.cancelScheduledNotificationAsync(id);
+        } catch (e) {
+          failure ??= { e };
+        }
+      }
       for (const r of list) {
         if (mine !== generation) return;
         // PWD-16: dotknięcie otwiera sprawę — ścieżka jak link głęboki (notification-target.ts).
-        const content = { title: r.title, body: r.body, sound: 'default', data: { path: targetPath(r.target) } };
+        const content: Content = { title: r.title, body: r.body, sound: 'default', data: { path: targetPath(r.target), at: r.at } };
         try {
           if (r.now) {
             if (shown[r.id.replace(/\|late$/, '')] !== undefined || s.late[r.id] !== undefined) continue;
@@ -127,8 +152,15 @@ export function reminderScheduler(n: Scheduling, now: () => number = Date.now, m
             s.late[r.id] = start;
             continue;
           }
-          if (r.at < now() + config.reminders.SCHEDULE_MARGIN_MS) continue;
-          await n.scheduleNotificationAsync({ identifier: r.id, content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.at } });
+          const pending = scheduled.get(r.id);
+          if (r.at < now() + config.reminders.SCHEDULE_MARGIN_MS) {
+            // Zaplanowana wcześniej z tą treścią przyjdzie sama (zmieniona — zastępujemy ją od razu); minioną iOS już
+            // pokazał albo minęła przed planem; pokazaną od razu — nie drugi raz.
+            if (pending !== undefined ? !sameContent(pending, content) : r.at > now() && s.late[r.id] === undefined) {
+              await n.scheduleNotificationAsync({ identifier: r.id, content, trigger: null });
+              s.late[r.id] = start;
+            }
+          } else if (!sameContent(pending, content)) await n.scheduleNotificationAsync({ identifier: r.id, content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: r.at } });
           if (r.id.startsWith('l|')) leave[r.id] = r.at;
         } catch (e) {
           failure ??= { e };
