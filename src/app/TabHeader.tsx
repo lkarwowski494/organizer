@@ -28,7 +28,7 @@ export function TabHeader() {
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={strings['settings.open']}
+        accessibilityLabel={strings['settings.title']}
         testID="open-settings"
         onPress={() => nav.navigate('Settings')}
         style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', borderRadius: size.TOUCH_TARGET / 2, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}

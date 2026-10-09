@@ -52,7 +52,7 @@ export function TimetableScreen({ route, navigation }: Props) {
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
-      <MissingScreen testID="screen-timetable-missing" text={strings['missing.member']} onBack={() => navigation.goBack()} />
+      <MissingScreen testID="screen-timetable-missing" text={strings['groups.error.member']} onBack={() => navigation.goBack()} />
     );
   }
   const monday = addDays(today, -isoWeekday(today));

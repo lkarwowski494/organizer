@@ -124,13 +124,13 @@ export function GroupScreen({ route, navigation }: Props) {
           <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
           {shopping ? (
-            <Button kind="secondary" label={strings['groups.nextSteps.shopping']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
+            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
           ) : (
             <Button kind="secondary" label={strings['groups.nextSteps.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
           )}
           <Button
             kind="secondary"
-            label={strings['groups.nextSteps.later']}
+            label={strings['common.later']}
             testID="next-later"
             onPress={() => {
               setNextSteps(false);
