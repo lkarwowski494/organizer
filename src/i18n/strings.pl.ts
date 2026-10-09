@@ -66,6 +66,8 @@ export const strings = {
   // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
   'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
   // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
+  // Audyt 3 (N-28): „1/2 kostki masła” to dla parsera 1 lutego — pełna data i jak to zdjąć (dotknięcie chipu).
+  'quick.farDate': (fragment: string, date: string) => `„${fragment}” to termin: ${date}. Jeśli to nie data, dotknij „${fragment}” wyżej.`,
   'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
   // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
   'quick.groupChip': (group: string) => `Do: ${group}`,
