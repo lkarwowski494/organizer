@@ -7,6 +7,7 @@
  *  - We wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw (D68) — od decyzji właściciela
  *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
+import { config } from '../../config';
 import { LIST_NAMES } from '../../config/names.pl';
 import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
@@ -28,7 +29,7 @@ export type TaskForm = {
   repeat: Repeat | null;
 };
 
-export type FormError = 'title' | 'date' | 'time' | 'repeatNeedsDate' | 'group';
+export type FormError = 'title' | 'titleLong' | 'date' | 'time' | 'repeatNeedsDate' | 'group' | 'assignee';
 
 /** Grupy, do których mogę dodawać (nie jako dziecko), osobista pierwsza. */
 export const formGroups = (t: Tables, userId: string) => groupsView(t, userId).filter((g) => g.me.role !== 'child');
@@ -105,10 +106,17 @@ export function pickCandidate(f: TaskForm, mention: string, c: MentionTarget): T
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/**
+ * Sprawdzenie przed zapisem. Audyt 3: nazwa najwyżej config.lengths.TASK_TITLE znaków (CHECK w SQL liczy znaki —
+ * char_length, nie jednostki UTF-16; N-134), osoba z „Dla kogo” nadal w grupie (usunięta w trakcie wypełniania — serwer
+ * odrzuciłby zadanie: invalid_assignee; N-32).
+ */
 export function validateForm(t: Tables, userId: string, f: TaskForm): FormError | null {
   if (f.title.trim() === '') return 'title';
+  if ([...f.title.trim()].length > config.lengths.TASK_TITLE) return 'titleLong';
   const group = formGroups(t, userId).find((g) => g.id === f.groupId);
   if (!group) return 'group';
+  if (f.assigneeId !== null && !formMembers(t, f.groupId).some((m) => m.member_id === f.assigneeId)) return 'assignee';
   const d = f.date.trim();
   const m = DATE.exec(d);
   if (d !== '' && (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3])))) return 'date';

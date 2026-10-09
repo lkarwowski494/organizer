@@ -138,6 +138,22 @@ describe('model reguł serwera', () => {
     expect(v(U.admin, create('tasks', { list_id: 'l-r', title: 'x' }), w)).toBe('forbidden');
   });
 
+  it('długości tekstów (audyt 3, N-134): CHECK char_length — znaki, nie jednostki UTF-16; null przechodzi', () => {
+    const x = (n: number) => 'x'.repeat(n);
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: x(500) }))).toBe('ok');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: '😀'.repeat(500) }))).toBe('ok');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: x(501) }))).toBe('invalid:23514');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: '' }))).toBe('invalid:23514');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: 'x', note: null }))).toBe('ok');
+    expect(v(U.owner, patch('tasks', 't', { note: x(10_001) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('tasks', 't', { note: '' }))).toBe('ok');
+    expect(v(U.owner, patch('events', 'ev', { title: x(201) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('events', 'ev', { location: x(301) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('events', 'ev', { location: null }))).toBe('ok');
+    expect(v(U.owner, patch('event_task_series', 's', { title: x(501) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('lists', 'l', { name: x(201) }))).toBe('invalid:23514');
+  });
+
   it('powtórzone utworzenie: widoczne — przyjęte, niewidoczne — konflikt klucza', () => {
     expect(v(U.owner, create('tasks', { list_id: 'l', title: 'x' }, 'g', 't'))).toBe('ok');
     expect(v(U.member, create('tasks', { list_id: 'l', title: 'x' }, 'g', 't2'))).toBe('invalid:23505');

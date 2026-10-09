@@ -155,6 +155,9 @@ export const strings = {
   // Audyt 2 (T-33): kopia w innej grupie nie ma podzadań — mówimy, ile pójdzie do kosza razem z oryginałem.
   'form.error.title': 'Wpisz, co jest do zrobienia.',
   'form.error.group': 'Wybierz grupę.',
+  // Audyt 3 (N-32): zmiana z serwera w trakcie wypełniania formularza.
+  'form.error.groupGone': 'Tej grupy już nie masz — wybierz inną.',
+  'form.error.peopleGone': (names: string[]) => (names.length > 1 ? `${names.join(', ')} nie należą już do grupy — wybierz inaczej.` : `${names[0] ?? 'Wybrana osoba'} nie należy już do grupy — wybierz inaczej.`),
   'form.error.repeatNeedsDate': 'Ustaw termin, żeby zadanie mogło się powtarzać.',
   // Audyt 2 (U-57): z rodzajem, jak „Dodano wydarzenie” i „Dodano listę”.
   'form.added': (title: string, group: string) => `Dodano zadanie: ${title} · ${group}`,
@@ -258,6 +261,11 @@ export const strings = {
   'timetable.error.title': 'Wpisz nazwę lekcji.',
   'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
   'timetable.saved': (n: number) => `Dodano plan lekcji: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })} w tygodniu`,
+  // Audyt 3 (N-31): plan zmieniony w międzyczasie przez kogoś innego (albo na innym telefonie).
+  'timetable.changedTitle': 'Ktoś zmienił plan w międzyczasie',
+  'timetable.changedInfo': 'Twoja wersja nie zawiera tych zmian — zapisanie jej zakończy lekcje dodane albo zmienione w tym czasie.',
+  'timetable.showCurrent': 'Pokaż obecny plan',
+  'timetable.saveMine': 'Zapisz mój plan',
   'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie o tej samej nazwie co wpis z aplikacji (ten sam dzień, podobna godzina) albo dodane przez Organizer jest ukrywane jako dubel — pod listą dnia widać, ile ukryto.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
   'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
@@ -463,6 +471,7 @@ export const strings = {
   'event.moveTooFar': (n: number) => `Jeden termin można przenieść najwyżej o ${n} ${plural(n, { one: 'dzień', few: 'dni', many: 'dni' })}. Dalej — zmień całą serię albo dodaj osobne wydarzenie.`,
   'event.error.title': 'Wpisz nazwę wydarzenia.',
   'event.error.date': 'Wybierz dzień w kalendarzu.',
+  'event.error.titleLong': `Nazwa może mieć najwyżej ${config.lengths.EVENT_TITLE} ${plural(config.lengths.EVENT_TITLE, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
   'event.error.time': 'Sprawdź godzinę (GG:MM).',
   'event.error.endBeforeStart': 'Koniec musi być po początku.',
   'event.error.endDate': 'Ostatni dzień wydarzenia nie może być przed pierwszym.',
@@ -636,6 +645,10 @@ export const strings = {
   'draft.restored': 'Przywrócono niezapisane zmiany.',
   'draft.discard': 'Odrzuć',
   'draft.discardA11y': 'Odrzuć niezapisane zmiany',
+  // Audyt 3 (N-32, N-144): przywrócony szkic z wyborem, którego już nie ma.
+  'draft.groupGone': (name: string | null) => (name ? `Grupy „${name}” ze szkicu już nie masz — sprawdź wybraną grupę.` : 'Grupy ze szkicu już nie masz — sprawdź wybraną grupę.'),
+  'draft.peopleGone': (names: string[]) => (names.length > 1 ? `${names.join(', ')} nie należą już do grupy — wybór usunięto.` : `${names[0] ?? 'Wybrana osoba'} nie należy już do grupy — wybór usunięto.`),
+  'draft.dateGone': 'Dzień ze szkicu minął — wybierz nowy.',
   'groups.error.trashed': 'Ta grupa jest w koszu.',
   'groups.error.expired': (days: number) => `Grupa była w koszu dłużej niż ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} — nie da się jej już przywrócić.`,
   'groups.error.member': 'Tej osoby nie ma już w grupie.',
