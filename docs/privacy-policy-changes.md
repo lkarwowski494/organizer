@@ -130,6 +130,11 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    listę, trzymane 90 dni (`config.retention.TRIP_DAYS`); zakres Moich spraw w grupie — ustawienie konta, widoczne tylko
    dla tego konta, znika po wyjściu z grupy: `supabase/migrations/20261008570000_my_scopes_trips.sql`.
 
+## Zmiana z audytu 3 — retencja na telefonie (9.10.2026), do akceptu
+1. **Telefon trzyma najwyżej tyle co serwer** (N-89): rzeczy wyczyszczone z kosza (po 30 dniach) i zrobione zakupy po
+   90 dniach znikają także z bazy na telefonie przy pobraniu, dzień po terminie serwera (`src/domain/sync-engine/retention.ts`).
+   Dotąd zostawały na telefonie, który je wcześniej pobrał.
+
 ## Zmiany z audytu 2 — przypomnienia bez otwierania aplikacji (D159, 8.10.2026), do akceptu
 1. **Ciche powiadomienia bez treści** do urządzeń członków grupy po zmianie, która może zmienić przypomnienia
    (`supabase/functions/notify-handoff/handler.ts`, `sendBackground` w `supabase/functions/_shared/apns.ts`: tylko

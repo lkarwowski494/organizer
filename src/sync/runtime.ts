@@ -19,6 +19,7 @@ import {
   pushRequest,
 } from '../domain/sync-engine/client';
 import { pruneExpired } from '../domain/sync-engine/retention';
+import { badField } from '../domain/sync-engine/row-check';
 import { decide, type Indicator, indicator, initialScheduler, onEvent, pendingTimer, type SchedulerEvent, type SchedulerState } from '../domain/sync-engine/scheduler';
 import { errorKind, type SyncTransport } from './transport';
 
@@ -37,6 +38,8 @@ export type RuntimeDeps = {
    * Błąd tutaj nie psuje synchronizacji (zmiany już są na serwerze).
    */
   onPushed?: (ops: readonly Op[], res: PushResponse, state: ClientState) => void;
+  /** Pominięte wiersze z datą spoza zakresu (audyt 3, N-1): nazwy pól do zgłoszenia błędu. */
+  onInvalidRows?: (fields: string[]) => void;
 };
 
 /**
@@ -44,20 +47,35 @@ export type RuntimeDeps = {
  * w trakcie zapytania), `set` — zapis kroku. Zwraca, czy któraś grupa ma jeszcze wiersze (has_more). Wspólne dla pętli
  * synchronizacji i odświeżenia w tle (D159, src/app/background.ts). `live` — fałsz po stop() silnika: odpowiedź przepada (M-55).
  */
-export async function pullStep(get: () => ClientState, set: (next: ClientState) => void, transport: SyncTransport, now: () => number, live: () => boolean = () => true): Promise<boolean> {
+export async function pullStep(
+  get: () => ClientState,
+  set: (next: ClientState) => void,
+  transport: SyncTransport,
+  now: () => number,
+  live: () => boolean = () => true,
+  onInvalid: (fields: string[]) => void = () => {},
+): Promise<boolean> {
   const req = pullRequest(get());
   const res = await transport.pull(req, config.sync.PULL_LIMIT_MAX);
   if (!live()) return false;
   const out = onPullResponse(get(), res, req);
+  // N-1: wiersze z datą spoza zakresu pominięte — zgłoszenie z nazwami pól, bez treści.
+  if (out.invalid.length) onInvalid(out.invalid);
   // Historia i rozstrzygnięte przekazania po terminie znikają też z telefonu (audyt 2, M-62) — w tym samym zapisie.
   set(pruneExpired(out.state, now()));
   // Nowe ukryte listy (dostęp nadany): ich wiersze mogą mieć stare wersje, więc pobieramy je w całości. Lista trafia do
   // pobranych dopiero po udanym pobraniu — błąd przerywa pętlę, a następne pobranie spróbuje jeszcze raz (M-53).
+  // Dopiero po ostatniej porcji (N-94): trwały błąd jednej listy nie blokuje porcji dużej grupy (ponowienie z opóźnieniem
+  // dotyczy wtedy tylko listy), a lista czeka w scopesToFetch.
+  if (out.needMore) return true;
   for (const listId of out.fetchScopes) {
     const rows = await transport.fetchScope(listId);
-    if (live()) set(onFetchScope(get(), rows, listId));
+    if (!live()) continue;
+    const bad = [...new Set(rows.flatMap((r) => badField(r.e, r.row) ?? []))];
+    if (bad.length) onInvalid(bad);
+    set(onFetchScope(get(), rows, listId));
   }
-  return out.needMore;
+  return false;
 }
 
 export type Snapshot = { state: ClientState; indicator: Indicator };
@@ -80,6 +98,8 @@ export class SyncRuntime {
    * która przyszła po „Wyczyść dane”, wpisywała stary identyfikator, kursory i różnicę do wyczyszczonej bazy.
    */
   private generation = 0;
+  /** Wersje grup po moich wysyłkach (sync_push → versions): sygnał Realtime z taką wersją to moja zmiana (N-100). */
+  private readonly written = new Map<string, number>();
 
   constructor(private readonly deps: RuntimeDeps) {
     this.state = deps.initial;
@@ -108,6 +128,15 @@ export class SyncRuntime {
   clearRejected(): void {
     this.setState(clearRejected(this.state));
     this.emit();
+  }
+
+  /**
+   * Czy sygnał Realtime grupy niesie coś nowego (audyt 3, N-100): wersja ponad kursor i ponad wersję po mojej ostatniej
+   * wysyłce. Własny sygnał po wysyłce nie każe pobierać drugi raz — pobranie po wysyłce i tak obejmuje tę wersję.
+   * Brak wersji (kanał użytkownika: zmiana dostępu) — zawsze nowe.
+   */
+  isFresh(groupId: string, version: number | null): boolean {
+    return version === null || version > Math.max(this.state.cursors[groupId] ?? 0, this.written.get(groupId) ?? 0);
   }
 
   /** Zdarzenia z zewnątrz: pierwszy plan, sieć, poke z Realtime, odświeżona sesja. */
@@ -213,6 +242,7 @@ export class SyncRuntime {
   private async push(gen: number): Promise<SchedulerEvent> {
     const req = pushRequest(this.state);
     const res = await this.deps.transport.push(req);
+    for (const [g, v] of Object.entries(res.versions ?? {})) this.written.set(g, Math.max(v, this.written.get(g) ?? 0));
     const before = this.state;
     this.settle(gen, (s) => onPushResponse(s, res, req));
     try {
@@ -232,6 +262,13 @@ export class SyncRuntime {
       this.deps.transport,
       this.deps.now,
       () => gen === this.generation,
+      (fields) => {
+        try {
+          this.deps.onInvalidRows?.(fields);
+        } catch {
+          // Zgłoszenie to dodatek; błąd nie psuje synchronizacji.
+        }
+      },
     );
     return { t: 'pull_ok', needMore, pending: pendingCount(this.state) };
   }
