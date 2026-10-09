@@ -798,6 +798,9 @@ export const strings = {
   'recent.empty': 'Nie ma jeszcze zmian do cofnięcia.',
   'recent.undoA11y': (message: string) => `Cofnij: ${message}`,
   'recent.undone': 'Cofnięto',
+  // Audyt 3 (N-34): cofnięcie przez serwer (grupa) czeka na odpowiedź; po błędzie pasek z ponowieniem.
+  'recent.pending': 'Cofanie…',
+  'undo.failed': (message: string, reason: string) => `Nie cofnięto: ${message}. ${reason}`,
   'recent.stale': 'Nie cofnięto: to zmieniło się od tamtej chwili (u Ciebie albo u kogoś w grupie). Popraw ręcznie, jeśli trzeba.',
   'recent.staleBar': (message: string) => `Nie cofnięto: ${message} — to się w międzyczasie zmieniło`,
   'recent.lost.server': 'Tej zmiany nie cofniesz już stąd: szła przez serwer, a aplikacja była od tego czasu zamknięta. Usuniętą grupę przywrócisz z Kosza (Grupy), a przywróconą usuniesz na jej ekranie.',
@@ -879,7 +882,7 @@ export const strings = {
   'crash.title': 'Coś poszło nie tak',
   // Audyt 2 (D-14): zgłoszenie idzie bez kolejki — bez sieci albo ponad limit nie dotrze.
   'crash.body': 'Spróbujemy zgłosić, co się stało, żeby to naprawić. Twoje dane są bezpieczne na telefonie.',
-  'crash.retry': 'Spróbuj ponownie',
+  'common.retry': 'Spróbuj ponownie',
   'feedback.open': 'Wyślij uwagę',
   'feedback.title': 'Twoja uwaga',
   // Audyt 8.10.2026: zgodnie z tym, co faktycznie wysyłamy (send_feedback: treść, ekran, wersja; zgłoszenie przypisane do konta).
