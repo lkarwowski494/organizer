@@ -96,7 +96,7 @@ describe('przypomnienia (D75)', () => {
       await press(screen.getByLabelText('Ustawienia'));
       await press(await screen.findByTestId('settings-notifications'));
       await screen.findByTestId('screen-settings-notifications');
-      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
+      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText(/^Wyłączone(,|$)/));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '08:00', leave: true });
       await act(async () => {
         jest.advanceTimersByTime(2000);
@@ -106,9 +106,9 @@ describe('przypomnienia (D75)', () => {
       await press(screen.getByLabelText('09:00'));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: true });
       // PWD-17 (decyzja właściciela): „Czas wyjść” osobno.
-      await press(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone'));
+      await press(within(screen.getByLabelText('Czas wyjść')).getByLabelText(/^Wyłączone(,|$)/));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '09:00', leave: false });
-      expect(within(screen.getByLabelText('Czas wyjść')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
+      expect(within(screen.getByLabelText('Czas wyjść')).getByLabelText(/^Wyłączone(,|$)/).props.accessibilityState.selected).toBe(true);
     } finally {
       jest.useRealTimers();
     }
@@ -162,13 +162,13 @@ describe('przypisania (D81)', () => {
     // PWD-18 (decyzja właściciela): sekcja mówi, czego dotyczy wyciszenie, a czego nie.
     expect(within(box).getByText('Powiadomienia o przypisaniach')).toBeTruthy();
     expect(within(box).getByText(/Przypomnienia i przekazania \(do przyjęcia\) przychodzą zawsze\.$/)).toBeTruthy();
-    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
-    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyciszone'));
+    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Wyciszone(,|$)/).props.accessibilityState.selected).toBe(true);
+    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText(/^Wyciszone(,|$)/));
     expect(account.setPushMute).toHaveBeenLastCalledWith('gf', true);
     account.setPushMute.mockRejectedValueOnce(new Error('offline'));
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Włączone(,|$)/));
     await flush();
-    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyciszone').props.accessibilityState.selected).toBe(true);
+    expect(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Wyciszone(,|$)/).props.accessibilityState.selected).toBe(true);
     expect(screen.getByText('Nie udało się zmienić ustawień — sprawdź internet.')).toBeTruthy();
   });
 

@@ -17,17 +17,17 @@ export function HiddenDuplicates({ entries, testID }: { entries: readonly Device
   const [open, setOpen] = useState(false);
   if (!entries.length) return null;
   const title = strings['device.hidden'](entries.length);
-  const meta = open ? strings['common.collapseHint'] : strings['lists.runShow'];
   return (
     <View>
-      <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta}`} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+      <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={title} accessibilityHint={strings[open ? 'device.hiddenHideHint' : 'device.hiddenShowHint']} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
         <View style={{ width: 30, alignItems: 'center' }}>
           <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: c.control }} />
         </View>
         <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
           <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{title}</Text>
-          <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{meta}</Text>
         </View>
+        {/* Audyt 2 (M-141): jak wiersz lekcji — ˅/˄ zamiast „dotknij, by…”, czynność w podpowiedzi VoiceOvera. */}
+        <Text style={{ fontSize: 22, color: c.inkMuted }}>{open ? '˄' : '˅'}</Text>
       </Pressable>
       {open ? (
         <View testID={`${testID}-list`}>

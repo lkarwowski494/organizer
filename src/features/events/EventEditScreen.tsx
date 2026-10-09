@@ -23,7 +23,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
@@ -184,7 +184,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
       {detail?.rule && (scope === 'following' || (scope === 'all' && form.repeat !== 'none')) ? null : (
         // D199: przesunięcie startu przesuwa ostatni dzień (długość zostaje).
-        <DateField label={series ? strings['event.firstDate'] : strings['event.date']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
+        <DateField label={series ? strings['event.firstDate'] : strings['due.day']} value={form.date} onChange={(date) => set(moveStart(form, date))} today={today} testID="event-date" />
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
@@ -286,7 +286,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>
   );
