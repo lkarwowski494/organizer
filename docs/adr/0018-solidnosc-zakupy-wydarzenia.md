@@ -33,6 +33,13 @@ opcja („jak zadania”) jest więc stanem obecnym; nowe w D88 jest tylko powia
      (migracja i nowa encja synchronizacji) — do zaległości.
    - Audyt 2 (M-230): „masło orzechowe” → Spiżarnia (źródła w `src/config/shopping.pl.ts`); tofu i napoje roślinne
      zostają w O-059.
+   - Audyt 3 (N-168): pełniejsze wyrazy przed krótkimi rdzeniami („nektarynk*” przed „nektar*”), określenie wygrywa
+     z pierwszym słowem („szpinak mrożony”, „woda micelarna”); korpus 360 typowych nazw z oczekiwanym działem jest
+     testem z asercjami (zero pomyłek). Bez nazw marek. Pamięć działu bierze też pozycje usuniętych list (N-175).
+   - Audyt 3 (N-48): jeden produkt w wielu formach („2 mleka”, „10 jajek”, „1 kg pomidorów”) — formy z Wikisłownika
+     w `SHOPPING_FORMS` sprowadzone do jednej przy stałych, podpowiedziach (w formie wpisywanej bez liczby), pamięci
+     działu i dublach. Odrzucone: słownik odmian (Morfeusz/SGJP) — duża zależność; obcinanie końcówek — łączy różne
+     produkty.
 5. **D86 Stałe zakupy:** kolumna `lists.staples` (tekst[], najwyżej 50 pozycji po 200 znaków; wybór projektowy). Podpowiedzi z list zakupów grupy, najwyżej 5.
    - Audyt 2 (M-111): dodanie i usunięcie stałej pozycji to polecenia `staple_add` / `staple_remove`
      (migracja 20261008370000) — zmieniają jedną nazwę pod blokadą wiersza, więc zmiany z dwóch telefonów się sumują;

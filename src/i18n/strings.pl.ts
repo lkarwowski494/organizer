@@ -313,8 +313,19 @@ export const strings = {
   'lists.visibility.private': 'Tylko ja',
   'lists.create': 'Utwórz listę',
   'lists.open': (n: number) => `${n} ${plural(n, { one: 'otwarte', few: 'otwarte', many: 'otwartych' })}`,
-  'lists.done': 'Zrobione',
   'lists.inCart': 'W koszyku',
+  // Audyt 3 (N-52): zrobione zwinięte jak na ekranie wydarzenia (event.tasksDone); starsze na życzenie.
+  'lists.doneCount': (n: number) => `Zrobione (${n})`,
+  'lists.showOlder': (n: number) => `Pokaż starsze (${n})`,
+  // Decyzja właściciela (audyt 3: Q9 B, N-49): kupione wracają z listy, nie z Kosza.
+  'shop.bought': (n: number) => `Kupione w ostatnich zakupach (${n})`,
+  'shop.buyAgain': 'Kup jeszcze raz',
+  'shop.buyAgainA11y': (name: string) => `Kup jeszcze raz: ${name}`,
+  // Decyzja właściciela (audyt 3: Q8 A, N-7): ten sam produkt dopisany drugi raz.
+  'shop.dupWaiting': (name: string) => `„${name}” już jest na liście`,
+  'shop.dupInCart': (name: string) => `„${name}” jest już w koszyku`,
+  'shop.addAgain': 'Dodaj jeszcze raz',
+  'shop.takeOutAgain': 'Wyjmij z koszyka',
   // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
   'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
@@ -626,6 +637,7 @@ export const strings = {
   'groups.error.session': 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
   // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
   'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
+  'groups.error.groupFull': 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.',
   'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
   'member.name': 'Imię w grupie',
   // Audyt 2 (P-67): dwa miejsca zmiany imienia odsyłają do siebie (tu i 'name.info').
@@ -720,6 +732,9 @@ export const strings = {
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
+  // Audyt 3 (N-2, decyzja Q12 część 3 A): limit grupy (config.quotas.GROUP_ROWS, GROUP_BYTES).
+  'rejected.code.groupRows': 'Grupa ma już najwięcej spraw, ile może mieć — usuń niepotrzebne i wprowadź zmianę jeszcze raz',
+  'rejected.code.groupSize': 'Sprawy grupy zajmują już najwięcej miejsca, ile mogą — usuń niepotrzebne albo skróć długie notatki i wprowadź zmianę jeszcze raz',
   'rejected.op.create': 'Dodanie',
   'rejected.op.patch': 'Zmiana',
   'rejected.op.delete': 'Usunięcie',

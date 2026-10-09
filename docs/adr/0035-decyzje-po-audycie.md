@@ -71,7 +71,8 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   (admin / członek / dziecko) zmienia tylko owner (admin: `forbidden:role`); w Moich sprawach, przypomnieniach,
   Kalendarzu i na liście wydarzeń grupy — tylko swoje sprawy (przypisane do niego, ich podzadania, zadania przy
   wydarzeniach, które go dotyczą) i wydarzenia, w których uczestniczy (albo całej grupy); zakupy grupy widzi bez pola
-  odhaczenia; swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
+  odhaczenia — od audytu 3 (decyzja właściciela Q6c A, 9.10.2026) tylko w Kalendarzu, bez Moich spraw, przypomnień
+  i porannego podsumowania (zakupy robi dorosły); swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
   (i cofa odhaczenie) tylko swoje sprawy i pozycje przypisane do niego albo z zakupów, za które odpowiada — serwer
   `forbidden:not_own` (`private.child_owns_task`, migracja `20261008441000_child_check_off.sql`), ekrany bez pola
   odhaczenia przy cudzych (decyzja koordynatora z 8.10.2026, zasada właściciela; odrzucone: odhacza wszystko, D34). Migracja

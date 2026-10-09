@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 import { formatRule, parseRule } from '../../domain/rrule';
 import { formEventRules } from '../../domain/__tests__/support/form-rules';
-import { OVERRIDE_NAMESPACE } from '../../domain/views/events';
+import { OVERRIDE_NAMESPACE, PARTICIPANT_NAMESPACE, participantId } from '../../domain/views/events';
 import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
 import { SCOPE_NAMESPACE, scopeRowId } from '../../domain/views/my-scope';
 import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
@@ -74,6 +74,10 @@ describe('src/config zgodny z SQL', () => {
     ['max_sync_clients', config.quotas.SYNC_CLIENTS],
     ['sync_push_per_minute', config.quotas.SYNC_PUSH_PER_MINUTE],
     ['notify_per_hour', config.quotas.NOTIFY_PER_HOUR],
+    // Audyt 3 (N-2, Q12 część 3 A): limit grupy i zapisów konta.
+    ['max_group_rows', config.quotas.GROUP_ROWS],
+    ['max_group_bytes', config.quotas.GROUP_BYTES],
+    ['write_bytes_per_day', config.quotas.WRITE_BYTES_PER_DAY],
     ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
     ['wake_max_groups', config.wake.MAX_GROUPS],
   ])('private.%s() = %d', (name, value) => {
@@ -164,6 +168,10 @@ describe('src/config zgodny z SQL', () => {
     expect(body('event_rsvps_id_guard')).toContain(`'${RSVP_NAMESPACE}'::uuid`);
     expect(body('event_overrides_id_guard')).toContain(`'${OVERRIDE_NAMESPACE}'::uuid`);
     expect(body('tasks_id_guard')).toContain(`'${COPY_NAMESPACE}'::uuid`);
+    // Audyt 3 (N-13): uczestnik wydarzenia — id z event|member jak participantId(); wektor niezależny (Python uuid.uuid5).
+    expect(body('event_participants_id_guard')).toContain(`'${PARTICIPANT_NAMESPACE}'::uuid`);
+    expect(body('event_participants_id_guard')).toContain(`new.event_id::text || '|' || new.member_id::text`);
+    expect(participantId('01010000-0000-7000-8000-0000000001e1', '01010000-0000-7000-8000-0000000000a1')).toBe('61f31122-3de0-5e11-ab35-a2e58e30f34b');
     // PW-2 (zakres Moich spraw na koncie): id wiersza z member_id jak scopeRowId() na telefonie.
     expect(body('my_day_scopes_guard')).toContain(`'${SCOPE_NAMESPACE}'::uuid`);
     // Wektor policzony niezależnie (Python uuid.uuid5).
@@ -175,6 +183,14 @@ describe('src/config zgodny z SQL', () => {
   it('historia trzymana dłużej niż okno powiadomień o przypisaniu i kosz (M-62)', () => {
     expect(config.retention.ACTIVITY_DAYS * 24).toBeGreaterThan(config.PUSH_MAX_AGE_H);
     expect(config.retention.ACTIVITY_DAYS).toBeGreaterThanOrEqual(config.sync.TOMBSTONE_DAYS);
+  });
+
+  // Audyt 3 (N-95): schemat private nie jest wystawiony w API (PostgREST i GraphQL widzą tylko te schematy). Uprawnienia
+  // w private (lista funkcji dla authenticated) sprawdza pgTAP supabase/tests/server_limits.test.sql.
+  it('API wystawia tylko schematy public i graphql_public', () => {
+    const toml = readFileSync(join(__dirname, '../../../supabase/config.toml'), 'utf8');
+    const api = /\n\[api\]\n([\s\S]*?)\n\[/.exec(toml)?.[1] ?? '';
+    expect([...api.matchAll(/^schemas = (.*)$/gm)].map((m) => m[1])).toEqual(['["public", "graphql_public"]']);
   });
 
   it('brak definicji zgłaszany wprost', () => {

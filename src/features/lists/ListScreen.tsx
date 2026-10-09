@@ -1,6 +1,8 @@
 /**
  * Lista zadań albo zakupów: drzewo zadań (podzadania pod rodzicem), szybkie dodawanie na tę listę,
- * zrobione na dole („W koszyku” dla zakupów). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
+ * zrobione na dole („W koszyku” dla zakupów; na liście zadań zwinięte „Zrobione (N)”, starsze niż
+ * config.lists.DONE_RECENT_DAYS dni na życzenie — audyt 3, N-52), na liście zakupów „Kupione w ostatnich zakupach”
+ * (Q9 B, N-49). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
@@ -19,10 +21,10 @@ import { memberCanSeeList } from '../../domain/views/visibility';
 import { usePullRefresh } from '../../app/TabHeader';
 import { useTaskActions } from '../../app/task-actions';
 import { patchTask, renameList } from '../../domain/views/commands';
-import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDoneRows, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -31,11 +33,11 @@ import { extractTag, type ListResolution, type QuickAnswers, resolveListQuick } 
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
-import { asTrip, hasTrip, planTrip, tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
+import { asTrip, boughtItems, buyAgainOps, hasTrip, planTrip, tripAdults, tripItems, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
-import { addStaple, addStaplesOps, categoryMemory, categoryOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
+import { addStaple, addStaplesOps, categoryMemory, categoryOf, duplicateOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
 import { listMarks } from './ListsScreen';
-import { ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
+import { BoughtSection, ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type ListAnswers = Pick<QuickAnswers, 'person' | 'skipMention'>;
@@ -80,6 +82,12 @@ export function ListScreen({ route, navigation }: Props) {
   const [picking, setPicking] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
   const [openRuns, setOpenRuns] = useState<string[]>([]);
+  // Audyt 3 (N-52): „Zrobione (N)” zwinięte, starsze niż config.lists.DONE_RECENT_DAYS — dopiero na życzenie.
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [olderOpen, setOlderOpen] = useState(false);
+  const [boughtOpen, setBoughtOpen] = useState(false);
+  // Q8 A (N-7): ten sam produkt już na liście — pytanie pod polem zamiast cichego dubla.
+  const [dup, setDup] = useState<{ value: string; hit: NonNullable<ReturnType<typeof duplicateOf>> } | null>(null);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
@@ -118,7 +126,11 @@ export function ListScreen({ route, navigation }: Props) {
   const planError = planned && 'error' in planned ? planned.error : null;
   const tripNeeds = tripRequired(groupKind, list.visibility);
   const planMissing = !!planned && 'trip' in planned && tripLacksAddressee(tripNeeds, planned.trip);
-  const add = (value = text, assigneeId: string | null = null, ign = value === text ? ignore : []) => {
+  const add = (value = text, assigneeId: string | null = null, ign = value === text ? ignore : [], again = false) => {
+    // Decyzja właściciela (audyt 3: Q8 A, N-7): produkt, który już czeka albo leży w koszyku, nie dubluje się po cichu.
+    const hit = shopping && !again ? duplicateOf(tables, list.id, value) : null;
+    if (hit) return setDup({ value, hit });
+    setDup(null);
     const ops = quickAddOps({ tables, userId, text: value, now: now(), ignore: ign, newId, listId: list.id, assigneeId });
     store.dispatch(ops);
     // D189 (audyt 2: PW-29 A, M-126): po szybkim dodaniu zadania „Dodano … · Zmień” — jak w Moich sprawach. Pozycje
@@ -151,6 +163,8 @@ export function ListScreen({ route, navigation }: Props) {
   };
   // D85, D86: działy, pamięć grupy, stałe zakupy (tylko dorośli zmieniają listę i działy; dziecko odhacza).
   const listRow = tables.lists?.[list.id] ?? {};
+  const inCart = shopping ? tripItems(tables, list.id).inCart.length : 0;
+  const handoffTo = tripMine && !waiting ? handoffTargets(tables, userId, list.group_id, list.id) : [];
   const staples = staplesOf(listRow);
   const memory = shopping ? categoryMemory(tables, list.group_id) : new Map();
   const editable = shopping && canDelete;
@@ -185,13 +199,14 @@ export function ListScreen({ route, navigation }: Props) {
             pending={pendingIds.has(t.id)}
             alert={!done && t.completed_at === null && lacksAddressee(tables, userId, t) ? strings['lists.noAddressee'] : undefined}
             shopping={shopping}
-            onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
+            // Audyt 3 (N-174): panel pozycji zamyka się, gdy pozycja idzie do koszyka (albo z niego wraca).
+            onToggle={canCheck(t) ? () => (picking === t.id && pick(null), actions.toggle(t, shopping)) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
             openHint={shopping ? strings['shop.editHint'] : undefined}
             expanded={shopping && editable && !done ? picking === t.id : undefined}
           />
         </SwipeRow>,
-        ...(picking === t.id
+        ...(picking === t.id && !done
           ? [
               <ItemPanel
                 key={`pick-${t.id}`}
@@ -219,6 +234,7 @@ export function ListScreen({ route, navigation }: Props) {
         ...rows(t.children, done, level + 1),
       ]);
 
+  const doneSplit = splitDoneRows(detail.doneRows, today);
   const doneRow = (r: DoneRow): React.ReactNode[] => {
     if (r.kind === 'task') return rows([r.node], true);
     const open = openRuns.includes(r.key);
@@ -261,7 +277,8 @@ export function ListScreen({ route, navigation }: Props) {
               <Body>{strings['trip.summary'](trip.date ? formatDue({ date: trip.date, time: trip.time }, today) : null, who)}</Body>
               <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} />
               <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: tripPerson })} />
-              {tripMine ? (
+              {/* Audyt 3 (N-172): bez osoby, która widzi listę („Tylko ja”) — nie ma komu przekazać, więc bez przycisku. */}
+              {tripMine && (waiting || handoffTo.length > 0) ? (
                 waiting ? (
                   <>
                     <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
@@ -269,7 +286,7 @@ export function ListScreen({ route, navigation }: Props) {
                   </>
                 ) : handing ? (
                   <HandoffPicker
-                    targets={handoffTargets(tables, userId, list.group_id, list.id)}
+                    targets={handoffTo}
                     onPick={(m) => {
                       store.dispatch(createHandoff({ id: newId(), groupId: list.group_id, entity: 'lists', entityId: list.id, toMember: m.member_id }));
                       setHanding(false);
@@ -284,6 +301,8 @@ export function ListScreen({ route, navigation }: Props) {
           ) : (
             <>
               <Body muted>{strings['trip.none']}</Body>
+              {/* Q8 A (N-7): zakupy bez planu też się kończą — kupione schodzą z listy, historia dostaje dzień zrobienia. */}
+              {inCart > 0 ? <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} /> : null}
               <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => setPlanning({ date: '', time: '', responsibleId: null })} />
             </>
           )}
@@ -293,7 +312,7 @@ export function ListScreen({ route, navigation }: Props) {
       {/* Dziecko (D34) tylko odhacza — bez usuwania listy; dopisuje tylko produkty na listę zakupów (audyt 3, Q6d A;
           serwer: tasks_guard z migracji 20261010120000). */}
       {canDelete || shopping ? (
-        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null), setDup(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (
             <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
@@ -301,6 +320,18 @@ export function ListScreen({ route, navigation }: Props) {
             <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} />
           )}
         </QuickAddField>
+      ) : null}
+      {dup ? (
+        <AskPanel
+          testID="shop-duplicate"
+          title={strings[dup.hit.inCart ? 'shop.dupInCart' : 'shop.dupWaiting'](parseQuantity(dup.hit.title).name)}
+          options={[
+            // Pole dodawania ma tylko dorosły, a dorosły odhacza każdą pozycję (PW-14 B dotyczy dziecka).
+            ...(dup.hit.inCart ? [{ key: 'out', label: strings['shop.takeOutAgain'], onPress: () => (actions.toggle({ id: dup.hit.id, title: dup.hit.title, completed_at: 'x' }, true), setDup(null), setText('')) }] : []),
+            { key: 'again', label: strings['shop.addAgain'], onPress: () => add(dup.value, null, [], true) },
+          ]}
+          onCancel={() => setDup(null)}
+        />
       ) : null}
       {ask?.r.kind === 'many' ? (
         <AskPanel
@@ -329,12 +360,20 @@ export function ListScreen({ route, navigation }: Props) {
       ) : (
         <View>{rows(detail.open, false)}</View>
       )}
-      {detail.done.length ? (
+      {detail.done.length && shopping ? (
         <View>
-          <SectionTitle>{shopping ? strings['lists.inCart'] : strings['lists.done']}</SectionTitle>
+          <SectionTitle>{strings['lists.inCart']}</SectionTitle>
           {detail.doneRows.flatMap(doneRow)}
         </View>
       ) : null}
+      {detail.done.length && !shopping ? (
+        <Collapsible title={strings['lists.doneCount'](detail.done.length)} open={doneOpen} onToggle={() => setDoneOpen(!doneOpen)} testID="list-done">
+          {doneSplit.recent.flatMap(doneRow)}
+          {doneSplit.older.length && !olderOpen ? <Button kind="secondary" label={strings['lists.showOlder'](doneSplit.older.length)} testID="list-done-older" onPress={() => setOlderOpen(true)} /> : null}
+          {olderOpen ? doneSplit.older.flatMap(doneRow) : null}
+        </Collapsible>
+      ) : null}
+      {editable ? <BoughtSection items={boughtItems(tables, list.id)} open={boughtOpen} onToggle={() => setBoughtOpen(!boughtOpen)} onBuyAgain={(b) => store.dispatch(buyAgainOps(b.id))} /> : null}
       {canDelete ? <Field label={strings['lists.name']} {...rename.field} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
       {rename.error ? <ErrorText>{rename.error}</ErrorText> : null}
       {canDelete ? (
