@@ -34,6 +34,10 @@ użyciem, bez źródła zewnętrznego. Codzienne sprzątanie (`call private.run_
 dane w granicach z `config.retention` (historia 90 dni, zrobione zakupy 90, rozstrzygnięte przekazania 90, zaproszenia 30 po wygaśnięciu,
 dziennik dostępu 30, instalacje 180). Wynik każdego przebiegu: `private.maintenance_runs`; problem (pominięta grupa,
 przebieg niedokończony) — wpis `kind = 'diagnostic'`, `screen = 'daily_maintenance'` w `public.client_errors`.
+Telefon usuwa u siebie to samo co sprzątanie serwera (audyt 3, N-89; `src/domain/sync-engine/retention.ts`, kontrakt
+z `private.purge_group` w testach): historię, przekazania, zrobione zakupy i rzeczy z kosza po 30 dniach — te dwie ostatnie
+z dniem zapasu (`retention.PURGE_LAG_DAYS`), bo serwer sprząta raz na dobę. „Teraz” telefonu to najwyżej najnowszy wpis
+historii z serwera + 7 dni (`retention.CLOCK_SLACK_DAYS`, N-93): zegar przestawiony w przód nie kasuje danych wcześniej.
 
 ## Limit grupy, zapisów konta i walidacja danych (audyt 3, PK-01, decyzja Q12 część 3 A, 9.10.2026)
 Migracje `20261010010000`–`20261010014000`. Grupa ma najwyżej 20 000 żywych (nieusuniętych) wierszy wszystkich spraw i 25 MB

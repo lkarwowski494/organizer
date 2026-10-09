@@ -6,7 +6,7 @@
 import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -38,6 +38,7 @@ import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
+import { appVersion, ErrorBoundary } from './diagnostics';
 import { GroupLossNotice } from './GroupLossNotice';
 import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
@@ -53,6 +54,22 @@ import type { RootStackParams, TabParams } from './routes';
 
 const Stack = createNativeStackNavigator<RootStackParams>();
 const Tab = createBottomTabNavigator<TabParams>();
+
+/**
+ * Granica błędów jednego ekranu (audyt 3, N-1): błąd renderowania pokazuje „Coś poszło nie tak” tylko w tym ekranie —
+ * zakładki i powrót (gest) działają dalej, a nie cała aplikacja przy każdym starcie. Zgłoszenie z nazwą ekranu (D80).
+ */
+function ScreenGuard({ name, children }: { name: string; children: ReactNode }) {
+  const { account } = useServices();
+  const { c } = useTheme();
+  const report = useCallback((e: Parameters<typeof account.reportError>[0]) => void account.reportError(e).catch(() => {}), [account]);
+  return (
+    <ErrorBoundary report={report} version={appVersion()} colors={c} screen={name}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+const screenLayout = ({ route, children }: { route: { name: string }; children: ReactNode }) => <ScreenGuard name={route.name}>{children}</ScreenGuard>;
 
 const TAB_LABELS: Record<keyof TabParams, string> = {
   Today: strings['tabs.today'],
@@ -115,7 +132,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
 
 function Tabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={(p) => <TabBar {...p} />}>
+    <Tab.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout} tabBar={(p) => <TabBar {...p} />}>
       <Tab.Screen name="Today" component={TodayScreen} />
       <Tab.Screen name="Lists" component={ListsScreen} />
       <Tab.Screen name="Calendar" component={CalendarScreen} />
@@ -138,7 +155,7 @@ export function RootStack() {
       <RemindersProvider>
       <CalendarSyncProvider>
       <DefaultGroupProvider>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }} screenLayout={screenLayout}>
       <Stack.Screen name="Tabs" component={Tabs} />
       <Stack.Screen name="List" component={ListScreen} />
       <Stack.Screen name="Task" component={TaskScreen} />
