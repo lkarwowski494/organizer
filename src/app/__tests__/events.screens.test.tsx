@@ -266,7 +266,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(await screen.findByTestId('event-save'));
     await press(await screen.findByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=TH', audience: 'members', responsible_member_id: null } });
+    expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH' } });
     await press(screen.getByLabelText('Następny dzień'));
     expect(screen.getByTestId('today-event-ev-tance-2026-10-08')).toBeTruthy();
   });
@@ -357,7 +357,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByText('Zmienione pojedynczo terminy, których po zmianie nie będzie: 1. Ich zmiany przepadną.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
-    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-07', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'members', responsible_member_id: null } }, { kind: 'delete', entity: 'event_overrides', id: 'ov1' }]);
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-07', rrule: null } }, { kind: 'delete', entity: 'event_overrides', id: 'ov1' }]);
     expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'event_overrides', id: 'ov1' });
     expect(screen.getByTestId('today-event-ev-tance-2026-10-07')).toBeTruthy();
   });
@@ -400,6 +400,36 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-today');
     expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-1' }]);
     expect(screen.queryByTestId('today-event-ev-1-2026-10-07')).toBeNull();
+  });
+});
+
+describe('zmiana wysyła tylko pola, które zmieniłem (synchronizacja per pole)', () => {
+  it('jednorazowe: sama nazwa — tylko title; zmiana osoby z drugiego telefonu w trakcie zostaje', async () => {
+    const base = sampleBase();
+    event(base, 'ev-1', { rrule: null, audience: 'group', title: 'Wywiadówka', start_time: '18:00:00', end_time: null, responsible_member_id: null, location: null, days: 1, duration_min: null });
+    const { store } = await open(base);
+    await press(screen.getByTestId('today-event-ev-1-2026-10-07'));
+    await press(await screen.findByTestId('event-edit'));
+    await screen.findByTestId('screen-event-edit');
+    // W tym czasie drugi telefon ustawił osobę odpowiedzialną (pobranie z serwera).
+    await act(async () => store.pull((b) => ({ ...b, events: { ...b.events, 'ev-1': { ...b.events!['ev-1']!, responsible_member_id: 'ala' } } })));
+    await type(screen.getByTestId('event-title'), 'Wywiadówka w szkole');
+    await press(screen.getByTestId('event-save'));
+    await screen.findByTestId('screen-today');
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-1', set: { title: 'Wywiadówka w szkole' } }]);
+    expect(store.getSnapshot().state.base.events!['ev-1']!.responsible_member_id).toBe('ala');
+  });
+
+  it('„wszystkie”: sama nazwa serii — tylko title', async () => {
+    const { store } = await open();
+    await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
+    await press(await screen.findByTestId('event-edit'));
+    await press(screen.getByTestId('scope-all'));
+    await type(await screen.findByTestId('event-title'), 'Tańce towarzyskie');
+    await press(screen.getByTestId('event-save'));
+    await press(await screen.findByTestId('event-preview-save'));
+    await screen.findByTestId('screen-today');
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce towarzyskie' } }]);
   });
 });
 
