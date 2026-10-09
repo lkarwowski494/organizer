@@ -49,7 +49,8 @@ describe('raporty błędów (N-74)', () => {
 
 describe('polityka prywatności (N-75)', () => {
   it('Ustawienia → Konto i dane: „Polityka prywatności” otwiera stronę polityki', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    // Bez przeglądarki (odrzucone otwarcie) — bez błędu na ekranie.
+    const open = jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('no handler'));
     await openSettings();
     await press(await screen.findByTestId('settings-account'));
     await press(screen.getByRole('button', { name: 'Polityka prywatności' }));
@@ -57,7 +58,7 @@ describe('polityka prywatności (N-75)', () => {
   });
 
   it('ekran logowania: zdanie o raportach błędów i link do polityki', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const open = jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('no handler'));
     await render(setup().wrap(<SignInScreen account={fakeAccount()} />));
     expect(screen.getByText('Gdy coś pójdzie nie tak, aplikacja wysyła nam raport błędu — bez treści Twoich spraw. Wyłączysz to w Ustawieniach → Konto i dane.')).toBeTruthy();
     await press(screen.getByRole('button', { name: 'Polityka prywatności' }));
