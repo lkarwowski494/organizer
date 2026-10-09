@@ -712,12 +712,23 @@ export const strings = {
   'settings.section.account': 'Konto i dane',
   'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',
+  // Audyt 3, N-71 (Apple: „let people know what information will and won't be retained”,
+  // https://developer.apple.com/support/offering-account-deletion-in-your-app/). Usunięcie jest natychmiastowe.
   'settings.deleteInfo': (trashDays: number) =>
-    `Usuniemy Twoje konto i grupę osobistą. Grupy wspólne przejmie dorosły z najdłuższym stażem (najpierw administrator); jeśli takiej osoby nie ma, grupa trafi do kosza na ${trashDays} ${plural(trashDays, { one: 'dzień', few: 'dni', many: 'dni' })}. W historii zmian zostanie podpis „Usunięty użytkownik”.`,
+    `Konto i grupę osobistą usuniemy od razu. Grupy wspólne przejmie dorosły z najdłuższym stażem (najpierw administrator); jeśli takiej osoby nie ma, grupa trafi do kosza na ${trashDays} ${plural(trashDays, { one: 'dzień', few: 'dni', many: 'dni' })}. Zadania, wydarzenia, odpowiedzi o obecności i rzeczy na listach zakupów, które dodano z tego konta w grupach wspólnych, zostaną tam z podpisem „Usunięty użytkownik” — jak historia zmian — chyba że niżej wybierzesz ich usunięcie.`,
+  // Q5 C (decyzja 9.10.2026): wybór przy usuwaniu konta.
+  'settings.deleteEntries': 'Usuń też moje wpisy w grupach',
+  'settings.deleteEntriesInfo': (trashDays: number) =>
+    `Twoje zadania, wydarzenia, stałe zadania, odpowiedzi o obecności i rzeczy na listach zakupów przestaną być widoczne u wszystkich: trafią do kosza grup, a po ${trashDays} ${plural(trashDays, { one: 'dniu', few: 'dniach', many: 'dniach' })} zostaną usunięte na stałe. Listy i wpisy innych osób zostaną.`,
   'settings.deleteConfirm': 'Usuń konto na zawsze',
-  'settings.deleteType': 'Wpisz USUŃ, żeby potwierdzić',
+  // N-142 (Q45 A): także bez polskiej klawiatury.
+  'settings.deleteType': 'Wpisz USUŃ (albo USUN), żeby potwierdzić',
   'settings.deleteWord': 'USUŃ',
-  'settings.deleteWordError': 'Wpisz USUŃ, żeby potwierdzić.',
+  'settings.deleteWordAscii': 'USUN',
+  'settings.deleteWordError': 'Wpisz USUŃ (albo USUN), żeby potwierdzić.',
+  // N-72: potwierdzenie innym Apple ID niż to, którym założono konto (apple_code_invalid z delete-account).
+  'settings.deleteAppleMismatch': 'To nie jest Apple ID tego konta. Potwierdź usunięcie tym Apple ID, którym logujesz się do Organizera.',
+  'settings.deleteAppleUnavailable': 'Apple teraz nie odpowiada, więc konto zostało bez zmian. Spróbuj za kilka minut.',
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
   'settings.appearance.dark': 'Ciemny',
@@ -764,6 +775,8 @@ export const strings = {
   'auth.info': 'Konto łączy Twoje grupy na wszystkich Twoich urządzeniach. Przy pierwszym logowaniu powstaje grupa osobista — jej sprawy widzisz tylko Ty.',
   // D177: w becie tylko Apple.
   'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
+  // N-72: potwierdzenie po usunięciu konta (Apple: „provide a confirmation when the deletion is complete”).
+  'auth.deleted': 'Konto zostało usunięte.',
 
   'confirm.doneTitle': 'Zrobione?',
   // Decyzja właściciela z 8.10.2026: odhaczenie zadania z niezrobionymi podzadaniami — razem albo samo zadanie (jak zakupy).

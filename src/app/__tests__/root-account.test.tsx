@@ -77,8 +77,8 @@ describe('koniec sesji na tym telefonie', () => {
 
   it('usunięcie konta (M-64): po udanym usunięciu na serwerze sprzątanie, a po końcu sesji plik bazy konta znika', async () => {
     const t = makeDeps();
-    t.account.deleteAccount.mockImplementation(async (before) => {
-      await before?.();
+    t.account.deleteAccount.mockImplementation(async (o) => {
+      await o?.beforeSignOut?.();
       t.emit(null);
     });
     await render(<Root deps={t.deps} fontsLoaded />);
@@ -86,10 +86,17 @@ describe('koniec sesji na tym telefonie', () => {
     await screen.findByText('sonda');
     const hook = jest.fn(async () => {});
     mockSeen.services!.onSignOut!(hook);
-    await act(() => mockSeen.services!.account.deleteAccount());
+    await act(() => mockSeen.services!.account.deleteAccount({ deleteEntries: true }));
     expect(hook).toHaveBeenCalled();
+    expect(t.account.deleteAccount).toHaveBeenCalledWith(expect.objectContaining({ deleteEntries: true }));
     await screen.findByTestId('screen-sign-in');
     expect(t.removeDb).toHaveBeenCalledWith(ME);
+    // Audyt 3, N-72: potwierdzenie na ekranie logowania — jednorazowe (po kolejnym zalogowaniu i wylogowaniu już nie).
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    await t.signIn({ userId: 'u-2', displayName: 'Ola' });
+    await t.signIn(null);
+    await screen.findByTestId('screen-sign-in');
+    expect(screen.queryByText('Konto zostało usunięte.')).toBeNull();
   });
 
   it('nieudane usunięcie konta nic nie sprząta; bez removeDb w zależnościach — bez błędu', async () => {
