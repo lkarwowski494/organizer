@@ -106,6 +106,12 @@ export const config = {
   repeat: {
     NEXT_SEARCH_DAYS: 400,
     /**
+     * Audyt 3 (N-27): najpierw szukamy w krótszym oknie (codziennie, co tydzień i prawie każde „co miesiąc” trafiają w nim),
+     * dopiero potem w całym — plan przypomnień liczy następne dla wielu przewidywanych kopii. Wynik ten sam (pierwszy dzień
+     * reguły w krótszym oknie jest pierwszym w dłuższym). Wybór projektowy, bez źródła; mniejszy niż NEXT_SEARCH_DAYS.
+     */
+    NEXT_QUICK_DAYS: 35,
+    /**
      * Audyt 2 (T-12): ile dni wstecz telefon dorosłego dokłada brakujące następne zadanie po odhaczeniu przez dziecko.
      * Wybór projektowy, bez źródła; musi być mniejszy niż sync.TOMBSTONE_DAYS (pilnuje test), żeby kopia usunięta
      * celowo i wyczyszczona z kosza nie wróciła.

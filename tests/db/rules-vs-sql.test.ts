@@ -15,6 +15,7 @@ import { Client } from 'pg';
 
 import { applyOnServer, SYNC_ENTITIES, serverVerdict } from '../../src/domain/server-rules';
 import { scopeRowId } from '../../src/domain/views/my-scope';
+import { nextId } from '../../src/domain/views/task-repeat';
 import { type Entity, type NewOp, type Row, rowKey } from '../../src/domain/sync-engine/client';
 import { dbDescribe } from './db-gate';
 
@@ -127,6 +128,66 @@ d('model reguł serwera = sync_push', () => {
   it('kolumny modelu = private.sync_entities', async () => {
     const rows = (await db.query<{ entity: string; pk: string; insert_cols: string[]; patch_cols: string[]; soft_delete: boolean }>('select * from private.sync_entities')).rows;
     expect(Object.fromEntries(rows.map((r) => [r.entity, { pk: r.pk, insert: r.insert_cols, patch: r.patch_cols, softDelete: r.soft_delete }]))).toEqual(SYNC_ENTITIES);
+  });
+
+  it('audyt 3 (Q16 A, N-123): dziecko i następny termin swojego zadania powtarzanego — ten sam wynik po kolei', async () => {
+    // Zadanie powtarzane dziecka z podzadaniem i cudze; operacje telefonu dziecka po kolei (bez wycofywania między nimi).
+    const L = id('e1');
+    const own = id('c7');
+    const sub = id('c8');
+    const other = id('c9');
+    await db.query('savepoint chain');
+    try {
+      await db.query(`insert into public.tasks (id, group_id, list_id, title, assignee_member_id, deadline_mode, due_date, repeat) values
+        ('${own}', '${G}', '${L}', 'Łóżko', '${MEMBERS.child}', 'own', '2026-10-12', 'FREQ=DAILY'),
+        ('${other}', '${G}', '${L}', 'Rachunki', '${MEMBERS.owner}', 'own', '2026-10-12', 'FREQ=DAILY')`);
+      await db.query(`insert into public.tasks (id, group_id, list_id, parent_id, title, deadline_mode) values ('${sub}', '${G}', '${L}', '${own}', 'Pościel', 'inherit')`);
+      const model: { [e: string]: { [k: string]: Row } } = Object.fromEntries(Object.entries(tables).map(([e, rows]) => [e, { ...rows }]));
+      for (const { r } of (await db.query<{ r: Row }>(`select to_jsonb(t) as r from public.tasks t where id in ('${own}', '${sub}', '${other}')`)).rows) model.tasks![String(r.id)] = r;
+      const copy = (src: string, title: string, assignee: string | null, opId = nextId(src)): NewOp => ({
+        kind: 'create', entity: 'tasks', id: opId, group_id: G,
+        set: { list_id: L, parent_id: null, title, note: null, sort_key: 'a0', assignee_member_id: assignee, deadline_mode: 'own', due_date: '2026-10-13', due_time: null, rollover: true, repeat: 'FREQ=DAILY' },
+      });
+      const ops: NewOp[] = [
+        { kind: 'patch', entity: 'tasks', id: own, set: { completed_at: '2026-10-12T08:00:00Z' } },
+        copy(other, 'Rachunki', MEMBERS.owner),
+        copy(own, 'Inne', MEMBERS.child),
+        copy(own, 'Łóżko', MEMBERS.owner),
+        copy(own, 'Łóżko', MEMBERS.child, id('fd')),
+        copy(own, 'Łóżko', MEMBERS.child),
+        { kind: 'create', entity: 'tasks', id: nextId(sub), group_id: G, set: { list_id: L, parent_id: nextId(own), title: 'Pościel', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
+        { kind: 'patch', entity: 'tasks', id: nextId(own), set: { title: 'Zmiana' } },
+        { kind: 'patch', entity: 'tasks', id: own, set: { completed_at: null } },
+        { kind: 'delete', entity: 'tasks', id: own },
+        { kind: 'delete', entity: 'tasks', id: nextId(own) },
+        { kind: 'restore', entity: 'tasks', id: nextId(own) },
+        { kind: 'restore', entity: 'tasks', id: nextId(sub) },
+        { kind: 'patch', entity: 'tasks', id: nextId(own), set: { due_date: '2026-10-14', due_time: null, cycle_date: null } },
+        { kind: 'patch', entity: 'tasks', id: nextId(own), set: { completed_at: '2026-10-14T08:00:00Z' } },
+        { kind: 'delete', entity: 'tasks', id: nextId(own) },
+      ];
+      const got: string[] = [];
+      const want: string[] = [];
+      for (const [i, o] of ops.entries()) {
+        await db.query("select set_config('request.jwt.claim.sub', $1, true)", [USERS.child]);
+        await db.query('set local role authenticated');
+        const full = { ...o, seq: 100 + i, op_id: `88888888-0000-7000-8000-0000000003${String(i).padStart(2, '0')}` };
+        const r = (await db.query<{ r: { results: { status: string; code?: string }[] } }>('select public.sync_push($1, 2, $2::jsonb) as r', [clients[USERS.child], JSON.stringify([full])])).rows[0]!.r;
+        await db.query('reset role');
+        const code = r.results[0]!.code ?? r.results[0]!.status;
+        const m = serverVerdict(model, USERS.child, o) ?? 'ok';
+        want.push(`${i} ${code}`);
+        got.push(`${i} ${m}`);
+        if (code === 'ok') applyOnServer(model, USERS.child, o, '2026-10-12T12:00:00Z');
+      }
+      expect(got).toEqual(want);
+      // Generator trafia w obie strony: przyjęte i odrzucone.
+      expect(want.filter((x) => x.endsWith(' ok')).length).toBeGreaterThanOrEqual(7);
+      expect(want.filter((x) => x.endsWith('forbidden:child')).length).toBeGreaterThanOrEqual(5);
+    } finally {
+      await db.query('reset role');
+      await db.query('rollback to savepoint chain');
+    }
   });
 
   it('losowe operacje wszystkich ról: ten sam wynik w modelu i w SQL', async () => {
@@ -262,6 +323,14 @@ d('model reguł serwera = sync_push', () => {
       // Stałe ziarno na stałych danych (tylko grupy tego testu, ownRows): ten sam ciąg operacji w każdym przebiegu.
       { numRuns: 2500, seed: 20261008 },
     );
+    // Rzadkie odrzucenia, w które losowanie trafia raz na kilka tysięcy (zależnie od kolejności wierszy w bazie, którą
+    // dzielą równoległe testy) — sprawdzane też wprost, żeby test nie zależał od szczęścia.
+    for (const [user, o] of [[USERS.owner, { kind: 'restore', entity: 'tasks', id: id('d7') }]] as [string, NewOp][]) {
+      const want = (await sql(user, o)).code;
+      const got = serverVerdict(tables, user, o) ?? 'ok';
+      seen.set(want, (seen.get(want) ?? 0) + 1);
+      if (want !== got) mismatches.push(`${JSON.stringify(o)}: SQL ${want}, model ${got}`);
+    }
     expect(mismatches.slice(0, 15)).toEqual([]);
     // Losowanie też trafia w każdą z tych reguł (przy tym ziarnie i tych danych zawsze tak samo; pomiar 9.10.2026:
     // najrzadsze deleted:list 5 razy na 2500). Zmiana generatora albo danych, po której przestaje, oblewa test — wtedy

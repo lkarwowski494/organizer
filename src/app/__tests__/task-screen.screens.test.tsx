@@ -165,8 +165,18 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     expect(screen.getByText('Zmienić też kolejne terminy?')).toBeTruthy();
     expect(s.store.dispatched).toEqual([]);
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } }]);
+    // Audyt 3 (N-25): na wcześniej — z pierwotnym dniem terminu, żeby następny nie wrócił na pn. 12.10.
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { cycle_date: '2026-10-12' } },
+    ]);
     expect(screen.queryByTestId('cycle-ask')).toBeNull();
+    await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
+    await answerAlert('Zrobione');
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: expect.any(String) } },
+      expect.objectContaining({ kind: 'create', set: expect.objectContaining({ due_date: '2026-10-19', repeat: 'FREQ=WEEKLY;BYDAY=MO' }) }),
+    ]);
   });
 
   it('„Też kolejne” przestawia cykl; „Anuluj” nic nie zmienia; ten sam dzień tygodnia — bez pytania', async () => {
@@ -186,7 +196,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     const s = await openTask('Kupić kwiaty', repeating('FREQ=MONTHLY', '2026-10-15'));
     await press(radio('Kiedy', 'Jutro'));
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { cycle_date: '2026-10-15' } }]);
   });
 
   it('co miesiąc 31.: „ostatniego dnia miesiąca” albo napis o pominiętych miesiącach', async () => {

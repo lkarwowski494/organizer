@@ -29,7 +29,8 @@
    wydarzenia: czas pierwszy (w liście dnia przy zadaniu z terminem tego dnia sama godzina), grupa, osoba, seria,
    „zaległe od …”, „minęło”, „Wyjdź o …”; jeden separator `META_SEP`; dzień i godzina terminu przecinkiem („jutro, 17:00”).
    Świadome różnice Kalendarza: zrobione w dniu terminu z „zrobione <dzień>” (PWD-1 C), blade kolejne terminy zadań
-   powtarzanych według kalendarza — od wykonania się nie da przewidzieć (PWD-15 A), zrobione zakupy przekreślone
+   powtarzanych według kalendarza — od wykonania się nie da przewidzieć (PWD-15 A; audyt 3, N-24: tylko te, które
+   powstaną — od jutra albo od dnia po terminie, minione „Tylko tego dnia” jak jego następne, bez dubli), zrobione zakupy przekreślone
    (PWD-11 A: tabela `shopping_trips`, wiersz na każde zakupy, retencja `config.retention.TRIP_DAYS` = 90 dni jak historia
    zmian; „Cofnij” usuwa wiersz).
 4. **Wydarzenie dziecka u drugiego rodzica (PWD-32 B):** wyszarzone „Tymek: Basen” z „odpowiada: Ala” (to samo słowo

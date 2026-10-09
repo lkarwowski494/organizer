@@ -18,6 +18,9 @@
  *  - T-2, T-12: kopie robi tylko telefon, któremu serwer na to pozwoli (żywa grupa i lista, nie dziecko); kopię po
  *    odhaczeniu przez dziecko dokłada telefon dorosłego (`missingRepeatOps`); operacji raz odrzuconej telefon nie ponawia;
  *  - T-19: D133 przy „od wykonania” — następne na dziś (nikt nie wykonał, więc nie ma od czego liczyć interwału).
+ * Audyt 3: N-24 (przewidywane terminy w Kalendarzu: upcomingDues), N-25 (pierwotny dzień przeniesionego terminu:
+ * cycle_date), N-27 (plan przypomnień z następnymi, których jeszcze nie ma: withUpcomingCopies), Q16 A / N-123 (dziecko
+ * z kontem robi i zdejmuje następne swojej sprawy; to, co zostało po starszej wersji, sprząta orphanRepeatOps).
  */
 import { config } from '../../config';
 import { addDays, type CivilDate, compareDates, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
@@ -25,9 +28,9 @@ import { nextAfterCompletion } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { uuidv5 } from '../ids';
 import { occurrences, parseRule, WEEKDAY_CODES } from '../rrule';
-import type { NewOp, Row } from '../sync-engine/client';
+import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { asTask, type Tables, type Task } from './model';
-import { descendants, subtasksOf } from './nesting';
+import { childIndex, type ChildIndex, descendants, subtasksOf } from './nesting';
 import { memberCanSeeList } from './visibility';
 
 export const REPEAT_NAMESPACE = 'e21c312a-9090-47c5-9490-c54305c7ddd1';
@@ -72,26 +75,30 @@ export function parseRepeat(s: string | null | undefined): Repeat | null {
 }
 
 /**
- * Następny termin po odhaczeniu w dniu `done`: według kalendarza — pierwszy dzień reguły po późniejszym z (termin,
- * dzień wykonania), więc zrobione wcześniej nie przeskakuje terminu, a zaległe nie wraca w przeszłość; od wykonania —
- * dzień wykonania + interwał.
+ * Następny termin po odhaczeniu w dniu `done`: według kalendarza — pierwszy dzień reguły po najpóźniejszym z (termin,
+ * pierwotny dzień terminu `cycle`, dzień wykonania), więc zrobione wcześniej nie przeskakuje terminu, a zaległe nie wraca
+ * w przeszłość; od wykonania — dzień wykonania + interwał.
+ * Audyt 3 (N-25): termin przeniesiony „Tylko ten raz” na wcześniej zastępuje swój dzień cyklu, nie dokłada nowego —
+ * RFC 5545 §3.8.4.4 (https://www.rfc-editor.org/rfc/rfc5545#section-3.8.4.4): „The "RECURRENCE-ID" property allows the
+ * reference to an individual instance within the recurrence set”; bez `cycle` zrobione 15.10 zamiast pn. 19.10 wracało 19.10.
  */
-export function nextDue(r: Repeat, due: CivilDate, done: CivilDate): CivilDate {
+export function nextDue(r: Repeat, due: CivilDate, done: CivilDate, cycle: CivilDate | null = null): CivilDate {
   if (r.kind === 'after') return parseIsoDate(nextAfterCompletion(formatIsoDate(due), [formatIsoDate(done)], { freq: r.unit, interval: r.interval }));
-  const from = addDays(compareDates(done, due) > 0 ? done : due, 1);
+  const latest = [done, ...(cycle ? [cycle] : [])].reduce((a, b) => (compareDates(b, a) > 0 ? b : a), due);
+  const from = addDays(latest, 1);
   const rule = parseRule(formatRepeat(r));
   // Reguła tygodniowa liczy tygodnie od startu; start = termin (dzień z reguły albo poza nią — wtedy pierwsze trafienie później).
-  return occurrences(due, rule, from, addDays(from, config.repeat.NEXT_SEARCH_DAYS))[0]!;
+  return occurrences(due, rule, from, addDays(from, config.repeat.NEXT_QUICK_DAYS))[0] ?? occurrences(due, rule, from, addDays(from, config.repeat.NEXT_SEARCH_DAYS))[0]!;
 }
 
 /**
  * Odhaczenie (albo cofnięcie) zadania z powtarzaniem: operacje razem z samym odhaczeniem. `canCreate` — czy ten telefon
- * może tworzyć zadania w tej grupie (dziecko nie może, D34; kopię dołoży wtedy telefon dorosłego).
+ * może dołożyć następne (CanCreate; dziecko — tylko swojej sprawy, Q16 A; inaczej dołoży je telefon dorosłego).
  */
 export function repeatOps(t: Tables, task: Task, doneDate: CivilDate, canCreate = true): NewOp[] {
   const r = repeatOf(t, task.id);
   if (!r || task.due_date === null || task.deadline_mode !== 'own' || !canCreate) return [];
-  if (task.completed_at === null) return copyOps(t, task, r, formatIsoDate(nextDue(r, parseIsoDate(task.due_date), doneDate)));
+  if (task.completed_at === null) return copyOps(t, task, r, formatIsoDate(nextDue(r, parseIsoDate(task.due_date), doneDate, cycleOf(task))));
   // T-4: minione „Tylko tego dnia” i tak dostaje następne (D133) — cofnięcie go nie zdejmuje.
   if (!task.rollover && task.due_date < formatIsoDate(doneDate)) return [];
   // Cofnięcie: kopia jeszcze nietknięta — znika razem ze swoimi podzadaniami (serwer robi to kaskadą, tasks_cascade;
@@ -114,7 +121,7 @@ const visibleAssignee = (t: Tables, x: Task) => (x.assignee_member_id !== null &
  * aplikacji); odhaczona — nic; w koszu (cofnięte odhaczenie, T-1) wraca z nowym terminem i z podzadaniami usuniętymi
  * razem z nią (jak kaskada przywrócenia na serwerze).
  */
-function copyOps(t: Tables, task: Task, r: Repeat, due: string): NewOp[] {
+function copyOps(t: Tables, task: Task, r: Repeat, due: string, index: ChildIndex = childIndex(t)): NewOp[] {
   const id = nextId(task.id);
   const copy = t.tasks?.[id] ? asTask(t.tasks[id]!) : null;
   if (copy && copy.completed_at !== null) return [];
@@ -129,13 +136,14 @@ function copyOps(t: Tables, task: Task, r: Repeat, due: string): NewOp[] {
       set: { list_id: task.list_id, parent_id: task.parent_id, title: task.title, note: task.note, sort_key: task.sort_key, assignee_member_id: visibleAssignee(t, task), deadline_mode: 'own', due_date: due, due_time: task.due_time, rollover: task.rollover, repeat: formatRepeat(r) },
     });
   else if (mark !== null) {
-    ops.push({ kind: 'restore', entity: 'tasks', id }, { kind: 'patch', entity: 'tasks', id, set: { due_date: due, due_time: task.due_time } });
-    for (const x of descendants(t, id, (x) => x.deleted_at === mark)) ops.push({ kind: 'restore', entity: 'tasks', id: x.id });
+    // Kopia z kosza zaczyna jak nowa — bez pierwotnego dnia z dawnego przeniesienia (N-25).
+    ops.push({ kind: 'restore', entity: 'tasks', id }, { kind: 'patch', entity: 'tasks', id, set: { due_date: due, due_time: task.due_time, ...(copy!.cycle_date !== null ? { cycle_date: null } : {}) } });
+    for (const x of descendants(t, id, (x) => x.deleted_at === mark, index)) ops.push({ kind: 'restore', entity: 'tasks', id: x.id });
   }
   // Żywe po tych operacjach: kopia i jej podzadania (obecne albo wracające z nią) — pod nimi mogą powstać brakujące.
-  const alive = new Set([id, ...descendants(t, id, (x) => x.deleted_at === null || x.deleted_at === mark).map((x) => x.id)]);
+  const alive = new Set([id, ...descendants(t, id, (x) => x.deleted_at === null || x.deleted_at === mark, index).map((x) => x.id)]);
   const shift = toDayNumber(parseIsoDate(due)) - toDayNumber(parseIsoDate(task.due_date!));
-  for (const s of subtasksOf(t, task.id)) {
+  for (const s of subtasksOf(t, task.id, index)) {
     const sid = nextId(s.id);
     const parent = nextId(s.parent_id!);
     if (t.tasks?.[sid] || !alive.has(parent)) continue;
@@ -164,12 +172,35 @@ function copyOps(t: Tables, task: Task, r: Repeat, due: string): NewOp[] {
 }
 
 /** D133: pierwszy termin od dziś — według kalendarza pierwszy dzień reguły, od wykonania dziś (audyt 2, T-19). */
-function firstDueFrom(r: Repeat, due: CivilDate, today: CivilDate): CivilDate {
-  return r.kind === 'after' ? today : nextDue(r, due, addDays(today, -1));
+function firstDueFrom(r: Repeat, due: CivilDate, today: CivilDate, cycle: CivilDate | null): CivilDate {
+  return r.kind === 'after' ? today : nextDue(r, due, addDays(today, -1), cycle);
 }
 
-/** Zadanie z powtarzaniem, któremu ten telefon może dołożyć kopię (żywa lista, grupa, w której nie jestem dzieckiem). */
-const copyable = (t: Tables, x: Task, canCreate: (groupId: string) => boolean, skip: ReadonlySet<string>) =>
+/** Pierwotny dzień terminu przeniesionego „Tylko ten raz” (N-25) albo null. */
+const cycleOf = (x: Task) => (x.cycle_date === null ? null : parseIsoDate(x.cycle_date));
+
+/**
+ * Audyt 3 (N-24): kolejne terminy otwartego zadania powtarzanego według kalendarza w oknie do `last` — te, które naprawdę
+ * powstaną: pierwszy jak przy odhaczeniu dziś (nextDue: od jutra albo od dnia po terminie), minione „Tylko tego dnia” —
+ * jak jego następne (D133, od dziś), dalej co dzień reguły. Od wykonania — nie da się przewidzieć. Zadanie, które ma już
+ * następne, nie przewiduje nic — przewiduje to następne (bez dubli).
+ */
+export function upcomingDues(t: Tables, x: Task, today: CivilDate, last: CivilDate): CivilDate[] {
+  const r = x.deadline_mode === 'own' && x.parent_id === null && x.completed_at === null ? repeatOf(t, x.id) : null;
+  if (!r || r.kind === 'after' || x.due_date === null || t.tasks?.[nextId(x.id)]) return [];
+  const due = parseIsoDate(x.due_date);
+  const first = !x.rollover && compareDates(due, today) < 0 ? firstDueFrom(r, due, today, cycleOf(x)) : nextDue(r, due, today, cycleOf(x));
+  return occurrences(due, parseRule(formatRepeat(r)), first, last);
+}
+
+/**
+ * Czy ten telefon może dołożyć (albo zdjąć) następne zadania `x`: żywa grupa, w której nie jestem dzieckiem, albo — Q16 A
+ * (audyt 3, N-123) — moje własne zadanie, gdy jestem dzieckiem (serwer: wyjątek w tasks_guard). Inaczej serwer odrzuci.
+ */
+export type CanCreate = (x: Task) => boolean;
+
+/** Zadanie z powtarzaniem, któremu ten telefon może dołożyć kopię (żywa lista, `canCreate`). */
+const copyable = (t: Tables, x: Task, canCreate: CanCreate, skip: ReadonlySet<string>) =>
   x.deleted_at === null &&
   x.deadline_mode === 'own' &&
   x.due_date !== null &&
@@ -178,22 +209,23 @@ const copyable = (t: Tables, x: Task, canCreate: (groupId: string) => boolean, s
   !skip.has(nextId(x.id)) &&
   t.lists?.[x.list_id] !== undefined &&
   t.lists[x.list_id]!.deleted_at == null &&
-  canCreate(x.group_id);
+  canCreate(x);
 
 /**
  * D133: zadanie powtarzane z „Tylko tego dnia”, które minęło niezrobione, i tak dostaje następne — z pierwszym terminem
  * od dziś (opuszczone dni przepadają). Ten sam identyfikator co przy odhaczeniu (nextId), więc dwa telefony nie zrobią
- * dwóch kopii, a późniejsze odhaczenie starego nic nie dokłada. `canCreate` — grupa żywa i nie jestem w niej dzieckiem
- * (inaczej serwer odrzuci); `skip` — kopie już odrzucone przez serwer (bez ponawiania w kółko, T-2).
+ * dwóch kopii, a późniejsze odhaczenie starego nic nie dokłada. `canCreate` — jak w CanCreate (inaczej serwer odrzuci);
+ * `skip` — kopie już odrzucone przez serwer (bez ponawiania w kółko, T-2).
  */
-export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: (groupId: string) => boolean, skip: ReadonlySet<string> = new Set()): NewOp[] {
+export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreate, skip: ReadonlySet<string> = new Set()): NewOp[] {
   const isoToday = formatIsoDate(today);
   const out: NewOp[] = [];
   for (const row of Object.values(t.tasks ?? {})) {
+    if (row.completed_at != null || row.rollover !== false || row.repeat == null) continue;
     const x = asTask(row);
-    if (x.completed_at !== null || x.rollover || !copyable(t, x, canCreate, skip) || x.due_date! >= isoToday) continue;
+    if (x.due_date === null || x.due_date >= isoToday || !copyable(t, x, canCreate, skip)) continue;
     const r = repeatOf(t, x.id)!;
-    out.push(...copyOps(t, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), today))));
+    out.push(...copyOps(t, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), today, cycleOf(x)))));
   }
   return out;
 }
@@ -203,15 +235,80 @@ export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: (groupI
  * dorosłego — liczone od dnia odhaczenia. Tylko odhaczenia z ostatnich `config.repeat.MISSING_COPY_DAYS` dni: kopia
  * usunięta i wyczyszczona z kosza (po `config.sync.TOMBSTONE_DAYS`) nie może wrócić.
  */
-export function missingRepeatOps(t: Tables, today: CivilDate, canCreate: (groupId: string) => boolean, localDate: (iso: string) => string, skip: ReadonlySet<string> = new Set()): NewOp[] {
+export function missingRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreate, localDate: (iso: string) => string, skip: ReadonlySet<string> = new Set()): NewOp[] {
   const since = formatIsoDate(addDays(today, -config.repeat.MISSING_COPY_DAYS));
+  // Dzień w Warszawie to dzień UTC albo następny (UTC+1, UTC+2) — starsze odhaczenia odpadają bez liczenia dnia i SHA-1
+  // (plan przypomnień woła to przy każdej zmianie danych, a historia ma tysiące zrobionych).
+  const sinceUtc = formatIsoDate(addDays(today, -config.repeat.MISSING_COPY_DAYS - 1));
+  const out: NewOp[] = [];
+  for (const row of Object.values(t.tasks ?? {})) {
+    if (row.completed_at == null || String(row.completed_at).slice(0, 10) < sinceUtc) continue;
+    const x = asTask(row);
+    const done = localDate(x.completed_at!);
+    if (done < since || !copyable(t, x, canCreate, skip)) continue;
+    out.push(...repeatOps(t, { ...x, completed_at: null }, parseIsoDate(done)));
+  }
+  return out;
+}
+
+/**
+ * Audyt 3 (N-123, Q16 A): następne, które zostało po cofnięciu odhaczenia na telefonie, który nie mógł go zdjąć (dziecko
+ * na starszej wersji aplikacji) — dwa otwarte terminy. Zdejmuje je telefon, który może (jak cofnięcie: nietknięte, razem
+ * z podzadaniami). Nie dotyczy minionego „Tylko tego dnia” — jego następne zostaje (D133, T-4). `skip` — usunięcia już
+ * odrzucone przez serwer.
+ */
+export function orphanRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreate, skip: ReadonlySet<string> = new Set()): NewOp[] {
+  const isoToday = formatIsoDate(today);
   const out: NewOp[] = [];
   for (const row of Object.values(t.tasks ?? {})) {
     const x = asTask(row);
-    if (x.completed_at === null || !copyable(t, x, canCreate, skip)) continue;
-    const done = localDate(x.completed_at);
-    if (done < since) continue;
-    out.push(...repeatOps(t, { ...x, completed_at: null }, parseIsoDate(done)));
+    if (x.deleted_at !== null || x.completed_at !== null || x.parent_id !== null || (!x.rollover && x.due_date !== null && x.due_date < isoToday) || !canCreate(x)) continue;
+    const id = nextId(x.id);
+    if (skip.has(id) || !t.tasks?.[id]) continue;
+    out.push(...repeatOps(t, { ...x, completed_at: 'x' }, today));
+  }
+  return out;
+}
+
+/**
+ * Audyt 3 (N-27): dane z następnymi, które dołoży telefon przy otwarciu Moich spraw — D133 (minione „Tylko tego dnia”,
+ * także te, które miną w ciągu `days` dni) i po odhaczeniu przez kogoś, kto nie mógł (missingRepeatOps). Do planu
+ * przypomnień: następne o 8:00 ma przypomnienie, zanim ktokolwiek otworzy aplikację. Te same id (nextId) co później
+ * prawdziwe kopie, więc plan się nie zmienia, gdy powstaną. Dokłada też to, czego ten telefon nie może zrobić sam
+ * (dziecko na starszej wersji) — zrobi to inny telefon.
+ */
+export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, localDate: (iso: string) => string): Tables {
+  const tasks = { ...(t.tasks ?? {}) };
+  const out: Tables = { ...t, tasks };
+  const all = () => true;
+  const index = childIndex(out);
+  const put = (ops: NewOp[]) => {
+    let seq = 0;
+    for (const op of ops) {
+      applyOp(out as { [e: string]: { [id: string]: Row } }, { ...op, seq: ++seq, op_id: '' } as Op);
+      // Tu same utworzenia: kopię dokładamy tylko, gdy następnego nie ma (copyable).
+      const row = tasks[(op as Extract<NewOp, { kind: 'create' }>).id]!;
+      if (row.parent_id != null) index.set(String(row.parent_id), [...(index.get(String(row.parent_id)) ?? []), row]);
+    }
+  };
+  put(missingRepeatOps(out, today, all, localDate));
+  // D133 dzień po dniu jak expiredRepeatOps w każdym z tych dni: otwarte „Tylko tego dnia” bez następnego, a gdy miną —
+  // ich następne. Kandydaci wybrani raz (historia ma tysiące zadań), dalej tylko powstające kopie.
+  const none = new Set<string>();
+  const pending = (rows: (Row | undefined)[]) =>
+    rows.flatMap((row) => (row && row.completed_at == null && row.rollover === false && row.repeat != null ? [asTask(row)] : [])).filter((x) => copyable(out, x, all, none));
+  let open = pending(Object.values(tasks));
+  for (let k = 0; k < days; k++) {
+    const day = addDays(today, k);
+    const iso = formatIsoDate(day);
+    open = open.flatMap((x) => {
+      if (x.due_date! >= iso) return [x];
+      // Następne mogło już powstać z innym (kopia podzadania razem z zadaniem nadrzędnym) — wtedy nic, jak w expiredRepeatOps.
+      if (!copyable(out, x, all, none)) return [];
+      const r = repeatOf(out, x.id)!;
+      put(copyOps(out, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), day, cycleOf(x))), index));
+      return pending([tasks[nextId(x.id)]]);
+    });
   }
   return out;
 }
@@ -250,6 +347,20 @@ export function cycleChange(r: Repeat | null, oldDate: string, newDate: string):
   if (!onCycle) return null;
   const day = r.day === -1 && lastDay(to) ? -1 : to.d;
   return day === (r.day ?? from.d) ? null : { kind: 'monthly', day };
+}
+
+/**
+ * Audyt 3 (N-25): pierwotny dzień terminu przy zmianie terminu zadania powtarzanego według kalendarza (co tydzień, co
+ * miesiąc; codziennie i „od wykonania” cyklu w kalendarzu nie mają). Cykl zostaje („Tylko ten raz” albo zmiana bez
+ * pytania, `keep`) i nowy termin jest przed dniem cyklu — zapamiętany dzień: dotychczasowy albo stary termin (drugie
+ * przeniesienie nie przesuwa cyklu). Na później albo „Też kolejne” (nowy cykl) — bez pierwotnego dnia.
+ */
+export function cycleDateOps(task: Task, r: Repeat | null, newDate: string, keep: boolean): NewOp[] {
+  if (r?.kind !== 'weekly' && r?.kind !== 'monthly') return [];
+  if (task.deadline_mode !== 'own' || task.due_date === null) return [];
+  const origin = task.cycle_date ?? task.due_date;
+  const want = keep && newDate < origin ? origin : null;
+  return want === task.cycle_date ? [] : [{ kind: 'patch', entity: 'tasks', id: task.id, set: { cycle_date: want } }];
 }
 
 /**

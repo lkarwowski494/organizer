@@ -78,6 +78,8 @@ export function moveTaskOps(t: Tables, userId: string, taskId: string, groupId: 
         due_time: mode === 'own' ? due!.time : null,
         rollover: x.rollover,
         ...(repeat ? { repeat } : {}),
+        // Audyt 3 (N-25): pierwotny dzień przeniesionego terminu idzie z nim — inaczej następny wróciłby na ten dzień.
+        ...(repeat && x.cycle_date ? { cycle_date: x.cycle_date } : {}),
         ...(x.start_date ? { start_date: x.start_date } : {}),
         ...(x.completed_at ? { completed_at: x.completed_at } : {}),
       },
