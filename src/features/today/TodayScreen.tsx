@@ -207,6 +207,8 @@ export function TodayScreen() {
   const deviceSplit = (d: (typeof view.days)[number]) =>
     splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
+  const shownDay = (d: (typeof view.days)[number]) => d.entries.length > 0 || deviceOf(d).length > 0 || deviceSplit(d).hidden.length > 0;
+  const firstPast = view.days.find((d) => d.past && shownDay(d))?.date;
   // D111: moje zaległe z własnym terminem i moje zaległe zakupy jednym dotknięciem na dziś (z cofnięciem); liczba spraw,
   // nie operacji (audyt 2: T-11, P-56; które są moje — decyzja właściciela z 8.10.2026, overdue.ts).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
@@ -458,10 +460,11 @@ export function TodayScreen() {
         </View>
       ) : null}
       {view.days.map((d) =>
-        d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0 ? null : (
+        !shownDay(d) ? null : (
           <View key={d.date} testID={`today-day-${d.date}`}>
             {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
-            {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
+            {/* Audyt 2 (U-63): wyjaśnienie minionych dni raz — pod pierwszym pokazanym minionym dniem, nie pod każdym. */}
+            {d.past && d.date === firstPast ? <Body muted>{strings['today.pastInfo']}</Body> : null}
             {d.isToday ? moveOverdueButton(d) : null}
             {/* D122: wydarzenia z iPhone'a według godziny; w widoku dnia przerwy „wolne …” (dziś od teraz). */}
             {dayPlan(nestEntries(d.entries, tables), deviceOf(d), spanOf, { nowMin: d.isToday ? nowMin : null, gaps: mode === 'day' && !d.past }).map((r) =>
