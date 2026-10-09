@@ -412,12 +412,16 @@ describe('model reguł serwera', () => {
       expect(run(U.member, patch('events', 'new', { start_time: '09:00' }), t).events!.new).toMatchObject({ days: 1 });
     });
 
-    it('zrobione zakupy: kto zrobił nadaje serwer; wyjście z grupy zdejmuje zakres Moich spraw tej osoby', () => {
+    it('zrobione zakupy: kto zrobił nadaje serwer; wyjście z grupy zdejmuje zakres Moich spraw tej osoby (do kosza, N-87)', () => {
       expect(run(U.member, create('shopping_trips', { list_id: 'l-shop', done_at: AT })).shopping_trips!.new).toMatchObject({ done_by: M.member });
       const t = world();
       (t.my_day_scopes ??= {}).a = { id: 'a', group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: null };
       t.my_day_scopes.b = { id: 'b', group_id: 'g', member_id: M.admin, scope: 'all', deleted_at: null };
-      expect(Object.keys(run(U.member, del('group_members', M.member), t).my_day_scopes!)).toEqual(['b']);
+      t.my_day_scopes.c = { id: 'c', group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: '2026-10-01T00:00:00Z' };
+      const s = run(U.member, del('group_members', M.member), t).my_day_scopes!;
+      expect([s.a!.deleted_at, s.b!.deleted_at, s.c!.deleted_at]).toEqual([AT, null, '2026-10-01T00:00:00Z']);
+      applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+      expect([t.my_day_scopes!.a!.deleted_at, t.my_day_scopes!.c!.deleted_at]).toEqual([null, '2026-10-01T00:00:00Z']); // wcześniej usunięty zostaje
     });
 
     it('utworzenie: wartości domyślne, klucz główny, twórca listy, nadawca i stan przekazania', () => {
@@ -492,6 +496,59 @@ describe('model reguł serwera', () => {
       delete bare.handoffs;
       delete bare.object_members;
       delete bare.lists;
+      applyOnServer(bare, U.owner, del('group_members', M.member), AT);
+      applyOnServer(bare, U.owner, del('group_members', M.member, 'restore'), AT);
+      expect(bare.group_members![M.member]!.deleted_at).toBeNull();
+    });
+
+    it('audyt 3 (N-40, N-87): „Cofnij” po usunięciu przywraca przekazania, które nadal mają sens, udostępnienia i zakres Moich spraw', () => {
+      const t = world();
+      const h = (id: string, from: string, to: string, entity: string, entityId: string, extra: Row = {}) =>
+        (t.handoffs![id] = { id, group_id: 'g', entity, entity_id: entityId, occurrence_date: null, from_member: from, to_member: to, status: 'pending', closed: false, decided_at: null, ...extra });
+      const task = (id: string, list: string, assignee: string, extra: Row = {}) =>
+        (t.tasks![id] = { id, group_id: 'g', list_id: list, parent_id: null, title: id, assignee_member_id: assignee, completed_at: null, deleted_at: null, ...extra });
+      task('t-m1', 'l', M.member);
+      task('t-m2', 'l', M.member);
+      task('t-m3', 'l', M.member);
+      task('t-m4', 'l', M.member);
+      task('t-mr', 'l-r', M.member);
+      task('t-mdel', 'l', M.member, { deleted_at: '2026-10-01T00:00:00Z' });
+      t.events!['ev-mem'] = { id: 'ev-mem', group_id: 'g', title: 'x', audience: 'group', responsible_member_id: M.member, deleted_at: null };
+      t.event_overrides!.o2 = { ...t.event_overrides!.o2!, responsible_member_id: M.member };
+      h('h-task', M.member, M.admin, 'tasks', 't-m1'); // od niej
+      h('h-list', M.member, M.admin, 'lists', 'l-shop2'); // zakupy, za które odpowiada
+      h('h-series', M.member, M.admin, 'events', 'ev-mem');
+      h('h-day', M.member, M.admin, 'events', 'ev-resp', { occurrence_date: '2026-10-21' }); // termin z wyjątkiem: ona
+      h('h-r', M.owner, M.member, 'tasks', 't-r'); // do niej, na liście „Wybrane osoby” (dostęp wraca wcześniej)
+      h('h-r-no', M.member, M.admin, 'tasks', 't-mr'); // admin nie widzi listy „Wybrane osoby”
+      h('h-moved', M.member, M.admin, 'tasks', 't-m2'); // zadanie zmieni osobę w czasie usunięcia
+      h('h-gone', 'm-gone', M.member, 'tasks', 't-gone'); // nadawcy już nie ma
+      h('h-child', M.member, M.child, 'tasks', 't-m3'); // odbiorca to dziecko
+      h('h-profile', M.member, M.profile, 'tasks', 't-m3', { status: 'declined' }); // odbiorca bez konta (niżej: anulowane z usunięciem)
+      h('h-busy', M.member, M.admin, 'tasks', 't-m4'); // w czasie usunięcia ktoś inny przekazał tę rzecz
+      h('h-del', M.member, M.admin, 'tasks', 't-mdel'); // zadanie w koszu
+      h('h-old', M.member, M.admin, 'tasks', 't-m1', { status: 'cancelled', decided_at: '2026-10-01T00:00:00Z' }); // anulowane wcześniej
+      const sid = scopeRowId(M.member);
+      t.my_day_scopes = { [sid]: { id: sid, group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: null }, x: { id: 'x', group_id: 'g', member_id: M.admin, scope: 'mine', deleted_at: null } };
+      applyOnServer(t, U.owner, del('group_members', M.member), AT);
+      // N-87: zakres do kosza (nagrobek), nie skasowany; cudzy bez zmian.
+      expect(t.my_day_scopes[sid]).toMatchObject({ scope: 'mine', deleted_at: AT });
+      expect(t.my_day_scopes.x!.deleted_at).toBeNull();
+      t.tasks!['t-m2'] = { ...t.tasks!['t-m2']!, assignee_member_id: M.owner };
+      h('h-busy2', M.owner, M.admin, 'tasks', 't-m4');
+      t.handoffs!['h-profile'] = { ...t.handoffs!['h-profile']!, status: 'cancelled', decided_at: AT };
+      applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+      const st = Object.fromEntries(Object.entries(t.handoffs!).map(([k, x]) => [k, x.status]));
+      expect(st).toMatchObject({ h: 'pending', 'h-task': 'pending', 'h-list': 'pending', 'h-series': 'pending', 'h-day': 'pending', 'h-r': 'pending', 'h-busy2': 'pending' });
+      expect(st).toMatchObject({ 'h-r-no': 'cancelled', 'h-moved': 'cancelled', 'h-gone': 'cancelled', 'h-child': 'cancelled', 'h-profile': 'cancelled', 'h-busy': 'cancelled', 'h-del': 'cancelled', 'h-old': 'cancelled' });
+      expect(t.handoffs!['h-task']!.decided_at).toBeNull();
+      expect(t.object_members!['l-r:m-m']!.deleted_at).toBeNull();
+      expect(t.object_members!['l-r:m-a']!.deleted_at).toBe('2026-10-01T00:00:00Z');
+      expect(t.my_day_scopes[sid]!.deleted_at).toBeNull();
+      // Bez tabel przekazań i zakresów (świeży serwer) — nic do zrobienia.
+      const bare = world();
+      delete bare.handoffs;
+      delete bare.object_members;
       applyOnServer(bare, U.owner, del('group_members', M.member), AT);
       applyOnServer(bare, U.owner, del('group_members', M.member, 'restore'), AT);
       expect(bare.group_members![M.member]!.deleted_at).toBeNull();
