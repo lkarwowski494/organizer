@@ -136,7 +136,7 @@ export type ButtonState = { selected?: boolean; disabled?: boolean; expanded?: b
  *  - zaznaczenie i wybór (jedna albo wiele opcji, odhaczone zadanie) — cechą `selected`;
  *  - rozwinięcie i „w toku” — polską wartością (accessibilityValue), dopisaną po wartości pola; zwinięte i wolne nic
  *    nie dodają, jak w RN (expanded: false i busy: false nie dają słowa).
- * Aplikacja jest tylko na iOS (CLAUDE.md), więc bez osobnej gałęzi dla Androida. Audyt drzewa (a11y-audit.ts, reguła 17)
+ * Aplikacja jest tylko na iOS (CLAUDE.md), więc bez osobnej gałęzi dla innych platform. Audyt drzewa (a11y-audit.ts, reguła 17)
  * oblewa `checked` (poza systemowym przełącznikiem), `expanded` i `busy` w accessibilityState.
  * Jak brzmi to na iPhonie z polskim VoiceOverem — do sprawdzenia na urządzeniu.
  */
