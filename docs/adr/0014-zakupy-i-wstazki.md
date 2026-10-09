@@ -21,6 +21,10 @@ Zgłoszenie właściciela:
    - Osoba: aktywny dorosły, który widzi listę.
 2. **Zakupy zrobione:**
    - kupione pozycje idą do kosza (30 dni), a dzień i osoba się czyszczą;
+   - audyt 3 (decyzje właściciela Q8 A, Q9 B, 9.10.2026): przycisk jest też bez planu, gdy w koszyku coś leży (historia
+     dostaje dzień zrobienia); kupione nie stoją w Koszu, tylko na liście w zwiniętej sekcji „Kupione w ostatnich
+     zakupach” z „Kup jeszcze raz” (wraca jako niekupiona); dopisanie produktu, który już czeka albo leży w koszyku,
+     pyta „już jest na liście” / „jest już w koszyku” („Dodaj jeszcze raz”, „Wyjmij z koszyka”);
    - lista zostaje, gotowa na następne zakupy („Zaplanuj zakupy”);
    - oczekujące przekazanie zakupów jest anulowane;
    - potem pasek „Cofnij” (D60; audyt 2, M-225): pozycje, dzień i osoba wracają, anulowane przekazanie zostaje anulowane.

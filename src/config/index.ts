@@ -40,6 +40,12 @@ export const config = {
   shopping: { SUGGESTIONS: 5, STAPLES_MAX: 50, STAPLE_MAX_LENGTH: 200 },
 
   /**
+   * Ekran listy (audyt 3, N-52): zrobione z ostatnich DONE_RECENT_DAYS dni po rozwinięciu „Zrobione (N)”, starsze dopiero
+   * po „Pokaż starsze”. Tyle co kosz (sync.TOMBSTONE_DAYS) — wybór projektowy, bez źródła.
+   */
+  lists: { DONE_RECENT_DAYS: 30 },
+
+  /**
    * Imię (D100): najdłuższe imię w profilu i w grupach — z ograniczeń kolumn display_name w SQL (profiles,
    * group_members; test kontraktowy). Wartość z pierwszej migracji, wybór projektowy bez źródła.
    */

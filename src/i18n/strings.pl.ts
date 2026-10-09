@@ -302,8 +302,19 @@ export const strings = {
   'lists.visibility.private': 'Tylko ja',
   'lists.create': 'Utwórz listę',
   'lists.open': (n: number) => `${n} ${plural(n, { one: 'otwarte', few: 'otwarte', many: 'otwartych' })}`,
-  'lists.done': 'Zrobione',
   'lists.inCart': 'W koszyku',
+  // Audyt 3 (N-52): zrobione zwinięte jak na ekranie wydarzenia (event.tasksDone); starsze na życzenie.
+  'lists.doneCount': (n: number) => `Zrobione (${n})`,
+  'lists.showOlder': (n: number) => `Pokaż starsze (${n})`,
+  // Decyzja właściciela (audyt 3: Q9 B, N-49): kupione wracają z listy, nie z Kosza.
+  'shop.bought': (n: number) => `Kupione w ostatnich zakupach (${n})`,
+  'shop.buyAgain': 'Kup jeszcze raz',
+  'shop.buyAgainA11y': (name: string) => `Kup jeszcze raz: ${name}`,
+  // Decyzja właściciela (audyt 3: Q8 A, N-7): ten sam produkt dopisany drugi raz.
+  'shop.dupWaiting': (name: string) => `„${name}” już jest na liście`,
+  'shop.dupInCart': (name: string) => `„${name}” jest już w koszyku`,
+  'shop.addAgain': 'Dodaj jeszcze raz',
+  'shop.takeOutAgain': 'Wyjmij z koszyka',
   // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
   'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
