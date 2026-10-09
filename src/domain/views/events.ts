@@ -91,6 +91,25 @@ export function moveTooFar(occurrenceDate: string, newDate: string): boolean {
 
 const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at === null;
 
+/**
+ * Daty wystąpień (rosnąco), które mogą stać w [from, to]: według reguły w tym zakresie i te przeniesione do niego wyjątkiem
+ * z najwyżej MOVE_WINDOW_DAYS dni dalej (audyt 3, N-16). Dawniej rozwijane było całe okno ±MOVE_WINDOW_DAYS — przy
+ * codziennej serii ok. 190 dat na każde wywołanie, choć poza zakresem zostają tylko przeniesione.
+ */
+function occurrenceDates(e: EventRow, rule: Rule | null, byDate: ReadonlyMap<string, Override>, from: CivilDate, to: CivilDate, isoFrom: string, isoTo: string): string[] {
+  const start = parseIsoDate(e.start_date);
+  const dates = new Set(occurrences(start, rule, from, to).map(formatIsoDate));
+  const lo = formatIsoDate(addDays(from, -MOVE_WINDOW_DAYS));
+  const hi = formatIsoDate(addDays(to, MOVE_WINDOW_DAYS));
+  for (const [occ, o] of byDate) {
+    if (dates.has(occ) || o.start_date === null || o.start_date < isoFrom || o.start_date > isoTo || occ < lo || occ > hi) continue;
+    // Wyjątek tylko dla daty, która jest wystąpieniem serii (jak przy rozwijaniu całego okna).
+    const d = parseIsoDate(occ);
+    if (occurrences(start, rule, d, d).length) dates.add(occ);
+  }
+  return [...dates].sort();
+}
+
 /** Wiersze po `event_id`, w kolejności tabeli. */
 function byEvent<T extends { event_id: string }>(xs: readonly T[]): Map<string, T[]> {
   const out = new Map<string, T[]>();
@@ -136,8 +155,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map((overridesOf.get(e.id) ?? []).map((o) => [o.occurrence_date, o]));
-    for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
-      const occ = formatIsoDate(d);
+    for (const occ of occurrenceDates(e, rule, byDate, from, to, isoFrom, isoTo)) {
       const o = byDate.get(occ);
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
