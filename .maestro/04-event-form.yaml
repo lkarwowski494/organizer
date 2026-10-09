@@ -21,9 +21,11 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
       id: "screen-event-edit"
     timeout: 10000
 - tapOn: "Rodzina"
-- tapOn:
-    id: "event-title"
-- inputText: "Wywiadówka"
+- runFlow:
+    file: common/type.yaml
+    env:
+      FIELD: "event-title"
+      TEXT: "Wywiadówka"
 - hideKeyboard
 - scrollUntilVisible:
     element:

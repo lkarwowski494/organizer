@@ -19,9 +19,11 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
       id: "screen-event-edit"
     timeout: 10000
 - tapOn: "Rodzina"
-- tapOn:
-    id: "event-title"
-- inputText: "Obóz"
+- runFlow:
+    file: common/type.yaml
+    env:
+      FIELD: "event-title"
+      TEXT: "Obóz"
 - hideKeyboard
 - tapOn: "Cały dzień"
 - scrollUntilVisible:
@@ -49,6 +51,9 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     visible:
       id: "screen-calendar"
     timeout: 10000
+# Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj wydarzenie”).
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     id: "day-2026-10-08"
 - scrollUntilVisible:
