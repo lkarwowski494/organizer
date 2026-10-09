@@ -1,4 +1,4 @@
-import { occurrenceInScope, parseScopes, scopeAll, scopeLookup, scopeRowId, scopesOf, setScopeOps } from '../views/my-scope';
+import { adoptScopeOps, occurrenceInScope, parseScopes, scopeAll, scopeLookup, scopeRowId, scopesOf, setScopeOps } from '../views/my-scope';
 import { planReminders } from '../views/reminders';
 import type { Row } from '../sync-engine/client';
 
@@ -23,8 +23,17 @@ describe('PW-2: zapis i odczyt zakresu Moich spraw', () => {
 describe('PW-2: zapis zakresu na koncie (my_day_scopes)', () => {
   it('nowy wiersz z id z member_id; istniejący — zmiana pola; w koszu — przywrócenie i zmiana; odczyt tylko moich', () => {
     const id = scopeRowId('mk');
-    expect(setScopeOps({}, 'gk', 'mk', 'mine')).toEqual([{ kind: 'create', entity: 'my_day_scopes', id, group_id: 'gk', set: { member_id: 'mk', scope: 'mine' } }]);
+    // Audyt 3 (N-91): telefon bez wiersza (drugi telefon, nowa instalacja) nie wie, czy konto go ma — utworzenie (na
+    // serwerze: powtórzenie, gdy wiersz jest), przywrócenie (gdy w koszu) i zmiana pola, więc wybór nie przepada.
+    expect(setScopeOps({}, 'gk', 'mk', 'mine')).toEqual([
+      { kind: 'create', entity: 'my_day_scopes', id, group_id: 'gk', set: { member_id: 'mk', scope: 'mine' } },
+      { kind: 'restore', entity: 'my_day_scopes', id },
+      { kind: 'patch', entity: 'my_day_scopes', id, set: { scope: 'mine' } },
+    ]);
+    // Przeniesienie dawnego zapisu telefonu: tylko utworzenie — ustawienie konta (z innego telefonu) wygrywa.
+    expect(adoptScopeOps({}, 'gk', 'mk', 'mine')).toEqual([{ kind: 'create', entity: 'my_day_scopes', id, group_id: 'gk', set: { member_id: 'mk', scope: 'mine' } }]);
     const t = { my_day_scopes: { [id]: { id, group_id: 'gk', member_id: 'mk', scope: 'mine', deleted_at: null } } };
+    expect(adoptScopeOps(t, 'gk', 'mk', 'mineAndEvents')).toEqual([]);
     expect(setScopeOps(t, 'gk', 'mk', 'all')).toEqual([{ kind: 'patch', entity: 'my_day_scopes', id, set: { scope: 'all' } }]);
     const gone = { my_day_scopes: { [id]: { ...t.my_day_scopes[id]!, deleted_at: 'x' } } };
     expect(setScopeOps(gone, 'gk', 'mk', 'mine')).toEqual([{ kind: 'restore', entity: 'my_day_scopes', id }, { kind: 'patch', entity: 'my_day_scopes', id, set: { scope: 'mine' } }]);

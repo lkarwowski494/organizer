@@ -13,7 +13,9 @@
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 1. **Zakres (D149) — gdzie zapisany:** na koncie (decyzja koordynatora 9.10.2026): tabela `my_day_scopes`, wiersz przy moim
    członkostwie, widoczny tylko dla mojego konta (RLS po `my_member_id`), synchronizowany jak inne zmiany — drugi telefon
-   konta ma to samo. Id = UUIDv5 z member_id (`scopeRowId`), więc dwa telefony piszą ten sam wiersz. Build 21 tej encji
+   konta ma to samo. Id = UUIDv5 z member_id (`scopeRowId`), więc dwa telefony piszą ten sam wiersz; telefon, który
+   wiersza jeszcze nie zna, wysyła utworzenie, przywrócenie i zmianę pola (audyt 3, N-91 — samo utworzenie serwer brał za
+   powtórzenie). Odejście z grupy wkłada wiersz do kosza, powrót go przywraca (N-87, N-40). Build 21 tej encji
    nie zna i jej nie dostaje. Dawny zapis telefonu (`local:myDaysScope`) przechodzi na konto raz. Odrzucone: kolumna
    w `group_members` (widziałaby ją cała grupa); tylko telefon (drugie urządzenie bez ustawienia). Jedna reguła
    (`domain/views/my-scope.ts`, `concernsMe`, `Occurrence.assignedToMe`) dla Moich spraw, przypomnień, porannego
