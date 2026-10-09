@@ -76,10 +76,10 @@ domena — zasada kosztów), D180, D184 i pozostałe. Właściciel może każdą
 | D192 | Chipy grup | Filtrują Moje sprawy i Kalendarz (pamiętane na telefonie), z widocznym znakiem filtra | Sama legenda | — |
 | D193 | Pierwsza zakładka | „Moje sprawy”, przycisk „Dziś” zostaje | Zakładka „Dziś”; tylko etykieta VoiceOvera | — |
 | D194 | Cofanie przy VoiceOverze (po zasadzie) | Lista „Ostatnie zmiany” z „Cofnij” bez limitu czasu (ze sprawdzeniem, czy rzecz się nie zmieniła), w bazie konta; pasek jako skrót; przy VoiceOverze pasek nie znika sam, dostaje fokus i ma „Zamknij” | Dłuższy pasek dla wszystkich | ADR 0040, ADR 0039 |
-| D195 | Kafelki godzin | Panel na pełną szerokość pod parą pól | Pola jedno pod drugim; kolumny według ekranu | — |
-| D196 | Dziś w Kalendarzu | Liczba w kółku z obwódką, VoiceOver mówi „dziś” | Pogrubienie i kreska | — |
-| D197 | „Zwiększ kontrast” w iOS | Wyraźniejsze obwódki | Ciemniejsze zawsze | — |
-| D198 | Zaznaczenie | Jeden wzór (ciemne tło, ✓ przy wyborze wielu), terakota tylko dla głównego przycisku | Terakota dla zaznaczeń | — |
+| D195 | Kafelki godzin | Panel na pełną szerokość pod parą pól | Pola jedno pod drugim; kolumny według ekranu | kod: `src/ui/TimeField.tsx` (`TimeFieldPair`) |
+| D196 | Dziś w Kalendarzu | Liczba w kółku z obwódką, VoiceOver mówi „dziś” | Pogrubienie i kreska | kod: `src/ui/DateField.tsx` |
+| D197 | „Zwiększ kontrast” w iOS | Wyraźniejsze obwódki | Ciemniejsze zawsze | kod: `src/config/theme.ts`, `src/ui/theme.tsx` |
+| D198 | Zaznaczenie | Jeden wzór (ciemne tło, ✓ przy wyborze wielu), terakota tylko dla głównego przycisku | Terakota dla zaznaczeń | kod: `src/config/theme.ts`, `Segmented` w `src/ui/components.tsx` |
 | D199 | Wydarzenia przez kilka dni i przez północ (po zasadzie) | Teraz, bez rozbijania na osobne wpisy | Do zaległości; tylko podpowiedź | ADR 0037 |
 | D200 | 40 drobnych decyzji (PWD-1…PWD-40) | Według rekomendacji, z zasadą właściciela; zamiast rekomendacji: PWD-11 A (data zakupów zapisana, zrobione przekreślone w Kalendarzu), PWD-22 A (kreska i pogrubienie dla świąt), PWD-25 B (iPad od razu, ograniczona szerokość), PWD-38 B (pełna macierz zrzutów E2E 2×2×2); po zasadzie także PWD-33 („Dodaj do grupy” dla wydarzenia z iPhone'a — teraz) | Rekomendacje tańsze w pracy | ADR 0001 (iPad), ADR 0021 (PWD-33), ADR 0036 (PWD-6, PWD-37), ADR 0035 (PWD-14, PWD-19, PWD-34) |
 
