@@ -211,10 +211,14 @@ lokalizacja) decydują tylko o tym, z czego aplikacja może korzystać na Twoim 
 - **Dane techniczne synchronizacji** (identyfikator kopii danych na telefonie): 180 dni od ostatniego użycia tej kopii.
 - **Dzienniki serwera:** 1 dzień, dziennik logowań 1 godzinę.
 - **Wyjście albo usunięcie z grupy:** Twoje listy „Tylko ja” w tej grupie trafiają do kosza na 30 dni i wracają, jeśli
-  w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo administrator grupy może przywrócić w ciągu
-  30 dni. Przestają działać zaproszenia, które były tylko tej osoby (kody łączące profil dziecka z kontem, dawne linki);
-  wspólny kod zaproszenia grupy działa dalej, aż wygaśnie. To samo z zaproszeniami przy utracie roli administratora.
-  Twoje ustawienie „W Moich sprawach” dla tej grupy znika.
+  w tym czasie wrócisz do grupy. Twoje ustawienie „W Moich sprawach” dla tej grupy przestaje działać i wraca, gdy wrócisz
+  do grupy. Przestają działać zaproszenia, które były tylko tej osoby (kody łączące profil dziecka z kontem, dawne
+  linki); wspólny kod zaproszenia grupy działa dalej, aż wygaśnie. Osobę usuniętą przez kogoś właściciel albo
+  administrator grupy może przywrócić w ciągu 30 dni („Cofnij” albo przywrócenie osoby w grupie): wraca wtedy to, co
+  zabrało usunięcie — także dostęp do list udostępnionych wybranym osobom, zaproszenia osobiste i przekazania, które
+  nadal mają sens. Przy utracie roli administratora zaproszenia osobiste tej osoby też przestają działać; „Cofnij” zmiany
+  roli w ciągu 3 minut je przywraca. Dlatego przy członkostwie zapisujemy czas utraty roli; zapis znika, gdy osoba
+  odzyska rolę, albo razem z członkostwem.
 - **Dziennik wysyłki powiadomień:** 7 dni.
 - **Token powiadomień:** dopóki działa. Usuwamy go przy wylogowaniu (bez internetu — gdy telefon znów połączy się
   z siecią), gdy Apple zgłosi, że jest nieaktualny, i przy usunięciu konta. Gdy na tym iPhonie zaloguje się inne konto,

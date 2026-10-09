@@ -62,10 +62,24 @@ export function scopesOf(t: Tables, myMembers: ReadonlyMap<string, { member_id: 
   return out;
 }
 
-/** Zmiana zakresu w grupie: utworzenie wiersza albo zmiana pola (także z powrotem na „Wszystko”). */
+/**
+ * Zmiana zakresu w grupie (wybór osoby — wygrywa): zmiana pola istniejącego wiersza (z kosza — najpierw przywrócenie).
+ * Audyt 3 (N-91): telefon bez wiersza (drugi telefon, nowa instalacja, przed pobraniem) nie wie, czy konto go ma, więc
+ * wysyła utworzenie, przywrócenie i zmianę pola. Na serwerze utworzenie istniejącego id to powtórzenie (bez zmiany —
+ * dotąd wybór z tego telefonu cicho przepadał), przywrócenie żywego wiersza nic nie robi, a zmiana pola zawsze zapisuje
+ * wybór. Bez zmiany protokołu (stary serwer i stare telefony rozumieją te same operacje).
+ */
 export function setScopeOps(t: Tables, groupId: string, memberId: string, scope: MyScope): NewOp[] {
   const id = scopeRowId(memberId);
   const row = t.my_day_scopes?.[id];
-  if (!row) return [{ kind: 'create', entity: 'my_day_scopes', id, group_id: groupId, set: { member_id: memberId, scope } }];
-  return [...(row.deleted_at != null ? [{ kind: 'restore', entity: 'my_day_scopes', id } as const] : []), { kind: 'patch', entity: 'my_day_scopes', id, set: { scope } }];
+  const restore = { kind: 'restore', entity: 'my_day_scopes', id } as const;
+  const patch = { kind: 'patch', entity: 'my_day_scopes', id, set: { scope } } as const;
+  if (!row) return [{ kind: 'create', entity: 'my_day_scopes', id, group_id: groupId, set: { member_id: memberId, scope } }, restore, patch];
+  return [...(row.deleted_at != null ? [restore] : []), patch];
+}
+
+/** Przeniesienie dawnego zapisu telefonu na konto: tylko gdy konto nie ma wiersza (ustawienie z innego telefonu wygrywa). */
+export function adoptScopeOps(t: Tables, groupId: string, memberId: string, scope: MyScope): NewOp[] {
+  const id = scopeRowId(memberId);
+  return t.my_day_scopes?.[id] ? [] : [{ kind: 'create', entity: 'my_day_scopes', id, group_id: groupId, set: { member_id: memberId, scope } }];
 }

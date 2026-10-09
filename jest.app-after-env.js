@@ -22,11 +22,14 @@ afterEach(() => {
   if (seen.length) throw new Error(`Ostrzeżenia act(...) w teście (M-196):\n${[...new Set(seen)].join('\n')}`);
 });
 
-// Limit czasu testu ekranów: 15 s zamiast domyślnych 5 s (audyt 2, decyzja koordynatora z 9.10.2026). Test ekranu
-// wyświetla całą aplikację (RootStack) i trwa samodzielnie 0,2–2,6 s (pomiar --verbose 9.10.2026, najdłuższe:
-// „pamięta najwyżej config.RECENT_MAX zmian” 1,5–2,6 s, pierwszy test pliku 1,2–2,5 s przez leniwe ładowanie modułów).
-// Na współdzielonej maszynie (4 procesory, kilka przebiegów Jest naraz) ten sam test „Moje sprawy: tydzień” (0,3 s)
-// przekraczał 5 s — to przestój maszyny, nie błąd. Testy zależne od czasu używają zegara symulowanego albo jawnych
-// limitów w waitFor, więc dłuższy limit nie ukrywa czekania na timery. Przyspieszenia: workerIdleMemoryLimit
-// (jest.config.js) i jedne tabele na stan (app/context.tsx: tablesOf).
-jest.setTimeout(15_000);
+// Limit czasu testu ekranów: 30 s (audyt 2: 15 s zamiast domyślnych 5 s; podniesiony 9.10.2026 na podstawie pomiaru).
+// Limit łapie zawieszenie, nie mierzy szybkości: testy zależne od czasu używają zegara symulowanego albo jawnych limitów
+// w waitFor. Pomiar 9.10.2026 (--json, 4 procesory, obciążenie ~20 od innych przebiegów):
+//  - sam plik (--runInBand): najdłuższe testy 1,5–4,9 s („rok zrobionych” w shopping-basket 4,9 s), większość < 1 s;
+//  - dwa pełne przebiegi Jest naraz (--maxWorkers=2 każdy, jak przy równoległej pracy kilku sesji): 4 z 707 testów
+//    trwały 15,4–18,2 s (3 przekroczyły dawny limit), reszta < 11 s; wśród nich testy, które same trwają < 1 s (25×
+//    dłużej) — przestój maszyny (presja CPU 97%, przestoje pamięci w /proc/pressure/memory), a nie wolny test, więc
+//    przyspieszanie pojedynczych testów nie pomaga. 30 s to ~1,6× najgorszy pomiar i ~6× najdłuższy test solo.
+// Przyspieszenia: workerIdleMemoryLimit (jest.config.js) i jedne tabele na stan (app/context.tsx: tablesOf).
+// Własny limit w teście tylko powyżej wspólnego (dawne 15–20 s w calendar-sync, root-calendar i undo-trash usunięte).
+jest.setTimeout(30_000);

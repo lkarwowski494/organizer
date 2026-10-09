@@ -94,10 +94,10 @@ set local role authenticated;
 select is((select count(*)::int from public.shopping_trips), 0, '23: obcy nie widzi zakupów');
 reset role;
 
--- Wyjście z grupy: zakres tej osoby znika.
+-- Wyjście z grupy: zakres tej osoby do kosza (audyt 3, N-87: nagrobek zamiast twardego usunięcia — 20261010110000).
 select pg_temp.as_user('');
 update public.group_members set deleted_at = now() where member_id = '57570000-0000-7000-8000-0000000000f2';
-select is(pg_temp.scope_of('57570000-0000-7000-8000-0000000000f2'), '-', '24: po wyjściu bez zakresu');
+select ok((select deleted_at is not null from public.my_day_scopes where member_id = '57570000-0000-7000-8000-0000000000f2'), '24: po wyjściu zakres w koszu');
 
 -- Retencja: zakupy starsze niż trip_days() sprzątane, nowsze zostają.
 insert into public.shopping_trips (id, group_id, list_id, done_at) values

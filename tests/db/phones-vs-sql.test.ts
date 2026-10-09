@@ -90,7 +90,7 @@ type Cmd =
   | { t: 'mutate'; who: User; op: NewOp }
   | { t: 'push'; who: User; fate: 'ok' | 'lostRequest' | 'lostResponse' | 'twice' }
   | { t: 'pull'; who: User; lim: number; fate: 'ok' | 'lost' }
-  // Nocne czyszczenie: wszystko z kosza „sprzed 40 dni”, potem private.purge_tombstones() (M-1, M-4).
+  // Nocne czyszczenie: wszystko z kosza „sprzed 40 dni”, potem sprzątanie jak private.purge_tombstones() (M-1, M-4).
   | { t: 'purge' }
   | { t: 'role'; role: 'member' | 'child' };
 const who = fc.constantFrom<User>('ala', 'bartek');
@@ -149,9 +149,13 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
   beforeAll(() => db.connect());
   afterAll(() => db.end());
 
+  // Osoba i rola jednym zapytaniem i tylko przy zmianie osoby — jak w fake-vs-sql (tam pomiar: dwa zapytania przy każdym
+  // wywołaniu to ~30% czasu przebiegu przy obciążonej maszynie); po wycofaniu transakcji — od nowa.
+  let current: User | null | undefined;
   const as = async (user: User | null) => {
-    await db.query(`select set_config('request.jwt.claim.sub', $1, true)`, [user ? U[user] : '']);
-    await db.query(user ? 'set local role authenticated' : 'reset role');
+    if (user === current) return;
+    current = user;
+    await db.query(`select set_config('request.jwt.claim.sub', $1, true), set_config('role', $2, true)`, [user ? U[user] : '', user ? 'authenticated' : 'none']);
   };
   const push = async (user: User, req: ReturnType<typeof pushRequest>): Promise<PushResponse> => {
     await as(user);
@@ -203,6 +207,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     await fc.assert(
       fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }).map((c) => [...PREFIX, ...c, ...SUFFIX]), async (cmds) => {
         await db.query('begin');
+        current = undefined;
         try {
           await as(null);
           await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test')`, [U.ala, U.bartek]);
@@ -255,7 +260,13 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
               await as(null);
               await db.query(`update public.tasks set deleted_at = now() - interval '40 days' where group_id = $1 and deleted_at is not null`, [G]);
               await db.query(`update public.events set deleted_at = now() - interval '40 days' where group_id = $1 and deleted_at is not null`, [G]);
-              seen.purged += (await db.query('select private.purge_tombstones() n')).rows[0].n;
+              // To samo co private.purge_tombstones() (pętla po purge_candidates z purge_group_safe), ale tylko dla grupy
+              // tego testu: purge_tombstones() sprząta każdą grupę w bazie, także zatwierdzone dane innych plików
+              // tests/db (maintenance), i trzymało ich wiersze do końca naszej transakcji — zapis w maintenance czekał
+              // na nas, a nasza statystyka liczyła cudze nagrobki (pomiar 9.10.2026, pg_stat_activity).
+              seen.purged += (
+                await db.query(`select coalesce(sum((private.purge_group_safe(g) ->> 'tombstones')::int), 0)::int n from private.purge_candidates() g where g = $1`, [G])
+              ).rows[0].n;
             } else {
               // Zmiana roli Bartka przez serwer (jak owner w aplikacji): operacje dziecka w kolejce są odrzucane.
               await as(null);

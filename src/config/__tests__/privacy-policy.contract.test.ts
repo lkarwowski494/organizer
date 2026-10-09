@@ -125,7 +125,13 @@ describe('liczby w polityce z src/config (N-77)', () => {
     `do ${config.travel.AHEAD_HOURS} godzin naprzód`,
     `najwyżej ${config.travel.GEO_MAX} adresów`,
     `kod ważny ${hours(config.invites.CODE_TTL_HOURS)}`,
+    // „w ciągu N minut” — dopełniacz liczby mnogiej dla każdego N > 1 (pilnuje tego warunek obok).
+    `roli w ciągu ${config.invites.ROLE_UNDO_WINDOW_SEC / 60} minut`,
   ])('%s', (phrase) => expect(text).toContain(phrase));
+  it('okno „Cofnij” zmiany roli to pełne minuty, więcej niż jedna', () => {
+    expect(config.invites.ROLE_UNDO_WINDOW_SEC % 60).toBe(0);
+    expect(config.invites.ROLE_UNDO_WINDOW_SEC / 60).toBeGreaterThan(1);
+  });
 });
 
 describe('każda tabela z danymi opisana w polityce (N-77)', () => {
@@ -156,6 +162,7 @@ describe('każda tabela z danymi opisana w polityce (N-77)', () => {
     'private.join_attempts': 'zapisujemy każdą nieudaną próbę',
     'private.push_log': '**Dziennik wysyłki:**',
     'private.rate_counters': '**Liczniki limitów:**',
+    'private.role_invite_marks': 'przy członkostwie zapisujemy czas utraty roli',
     'private.sync_clients': 'Losowy identyfikator kopii danych',
     'private.sync_rejections': 'kody odrzuconych zmian',
     'private.wake_state': 'Przy tokenie zapisujemy tylko, kiedy poszło ostatnie takie powiadomienie',

@@ -1,0 +1,19 @@
+# Wpisanie tekstu w pole ze sprawdzeniem, że pole ma cały tekst (FIELD = testID pola, TEXT = tekst; wyrażenie
+# regularne w całości, więc tylko litery i spacje). Maestro 2.11.0 wpisuje pierwszy znak osobno, a resztę po 0,5 s,
+# bo „characters after the first one are often skipped” (TextInputHelper.swift,
+# https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-ios-xctest-runner/maestro-driver-iosUITests/Routes/Helpers/TextInputHelper.swift)
+# — w przebiegu e2e 57 (9.10.2026) scenariusz 08 zapisał wydarzenie „O” zamiast „Obóz” i oblał dopiero w Kalendarzu.
+# Pole z niepełnym tekstem: wyczyszczenie i ponowne wpisanie (najwyżej 2 razy); przy trzeciej porażce scenariusz oblewa
+# tutaj, z nazwą pola. Wartość pola Maestro czyta jako jego tekst (IOSDriver.kt: text = title, a pusty — value).
+appId: io.github.lkarwowski494.organizer
+---
+- retry:
+    maxRetries: 2
+    commands:
+      - tapOn:
+          id: ${FIELD}
+      - eraseText
+      - inputText: ${TEXT}
+      - assertVisible:
+          id: ${FIELD}
+          text: ${TEXT}

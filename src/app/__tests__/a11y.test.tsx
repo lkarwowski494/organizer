@@ -243,9 +243,29 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     ['stan „rozwinięte” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Dzień" accessibilityState={{ expanded: true }} style={{ minHeight: 44 }} onPress={() => {}}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Dzień</RN.Text></RN.Pressable>, /^x: button „Dzień”: stan „expanded” — RN dopisuje angielskie słowo/],
     ['stan „zajęty” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Wyślij" accessibilityState={{ busy: false }} style={{ minHeight: 44 }} onPress={() => {}} />, /^x: button „Wyślij”: stan „busy”/],
     ['N-202: obwódka przycisku ze stanem „wybrane” sprawdzana bez roli „checkbox”', () => <RN.View style={{ backgroundColor: P.ground }}><RN.Pressable accessibilityRole="button" accessibilityLabel="Pole" accessibilityState={{ selected: false }} style={{ minHeight: 44, width: 44, borderWidth: 2, borderColor: P.border }} onPress={() => {}} /></RN.View>, /^x: button „Pole”: kontrast pola 1\.\d\d:1 \(< 3\)$/],
+    // Z audytu XCUITest (D186, 9.10.2026): Kalendarz — „Potentially inaccessible text” na ukrytych skrótach dni tygodnia.
+    ['ukryty widoczny tekst bez elementu z tym opisem', () => <RN.View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><RN.Text style={{ color: P.ink, fontSize: 13 }}>pon.</RN.Text></RN.View>, /^x: tekst „pon\.” widoczny, a ukryty przed VoiceOverem bez elementu z tym opisem \(XCUITest: Potentially inaccessible text\)$/],
+    ['element dostępności bez opisu', () => <RN.View accessible style={{ width: 6, height: 6, backgroundColor: P.ink }} />, /^x: element dostępności bez opisu \(XCUITest: Element has no description\)$/],
+    ['obraz bez opisu', () => <RN.View accessibilityRole="image" />, /^x: image dostępności bez opisu/],
   ])('reguła audytu 3: %s', async (_name, ui, expected) => {
     await render(ui());
     expect(audit(screen.root!, P, 'x').problems).toEqual([expect.stringMatching(expected)]);
+  });
+
+  it('reguła 18: ukryty podpis pola z tą samą etykietą pola i ukryty napis z nazwą czynności nie są błędem; element z tekstem ma opis', async () => {
+    await render(
+      <RN.View>
+        <RN.Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ color: P.ink, fontSize: 13 }}>Kończy się</RN.Text>
+        <RN.TextInput accessibilityLabel="Kończy się" style={{ minHeight: 44, color: P.ink, fontSize: 17 }} />
+        <RN.View accessible accessibilityLabel="Odebrać paczkę" accessibilityActions={[{ name: 'delete', label: 'Usuń' }]}>
+          <RN.Text style={{ color: P.ink, fontSize: 17 }}>Odebrać paczkę</RN.Text>
+        </RN.View>
+        <RN.Text accessibilityElementsHidden style={{ color: P.ink, fontSize: 17 }}>Usuń</RN.Text>
+        <RN.View accessible><RN.Text style={{ color: P.ink, fontSize: 17 }}>wolne 2 h</RN.Text></RN.View>
+        <RN.View accessibilityElementsHidden><RN.Text style={{ color: P.ink, fontSize: 17 }}>›</RN.Text></RN.View>
+      </RN.View>,
+    );
+    expect(audit(screen.root!, P, 'x').problems).toEqual([]);
   });
 
   it('procent szerokości liczony od treści przewijanego ekranu; ukryte i accessible={false} nie liczą się do powtórzeń etykiet', async () => {
