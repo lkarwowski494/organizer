@@ -9,7 +9,9 @@
 // Aplikację uruchamiamy po identyfikatorze pakietu — test nie ma własnej aplikacji docelowej; dokumentacja
 // init(bundleIdentifier:): „If the system can’t find the matching app build, it launches the existing installed app
 // for the requested bundle ID” (build E2E zainstalował wcześniej scripts/e2e/run-flows.sh).
-// Selektory: identyfikator = testID z ekranów, etykieta = accessibilityLabel (jak w .maestro/).
+// Selektory: identyfikator = testID z ekranów, etykieta = accessibilityLabel (jak w .maestro/). Etykieta wiersza zaczyna się
+// od tytułu, czynność jest w podpowiedzi (audyt 2, M-263) — te same początki co w .maestro/common/launch.yaml; zgodność
+// z ekranami sprawdza src/app/__tests__/e2e.screens.test.tsx.
 import XCTest
 
 final class AccessibilityAuditTests: XCTestCase {
@@ -21,7 +23,7 @@ final class AccessibilityAuditTests: XCTestCase {
     app.terminate()
     app.launch() // tryb E2E: świeża baza i „serwer” w pamięci przy każdym starcie
     XCTAssertTrue(element("screen-today").waitForExistence(timeout: 60), "„Moje sprawy” nie pojawiły się")
-    XCTAssertTrue(label(beginsWith: "Otwórz: Oddać książki do biblioteki").waitForExistence(timeout: 20), "brak danych demo")
+    XCTAssertTrue(label(beginsWith: "Oddać książki do biblioteki,").waitForExistence(timeout: 20), "brak danych demo")
   }
 
   private func element(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id] }
@@ -49,7 +51,7 @@ final class AccessibilityAuditTests: XCTestCase {
   }
 
   func testZadanie() throws {
-    label(beginsWith: "Otwórz: Odebrać paczkę").tap()
+    label(beginsWith: "Odebrać paczkę,").tap()
     try audit("screen-task")
   }
 
