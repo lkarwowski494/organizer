@@ -30,7 +30,12 @@ na osobne wpisy.
 - Moje sprawy, Kalendarz (także kropki w siatce) i iPhone: wydarzenie w każdym swoim dniu — „dzień 2 z 5”, pierwszy dzień
   dłuższego „od 18:00”, ostatni „do 16:00” (nocnego: „22:00–06:00”, potem „do 06:00”), środkowe „cały dzień”; ekran
   wydarzenia: „od 18:00 · 46 h” i „Kończy się: …, 16:00”; to samo dla wydarzeń z iPhone'a zamiast „cd.” (M-253). Kolejny dzień jest
-  dublem wpisu iPhone'a tylko z kolejnym dniem wpisu aplikacji o tej samej nazwie.
+  dublem wpisu iPhone'a tylko z kolejnym dniem wpisu aplikacji o tej samej nazwie. Koniec o północy po kilku dniach
+  (pt. 18:00 – nd. 00:00): piątek „od 18:00”, sobota „cały dzień” i zajęta do 24:00 w planie dnia (audyt 3, N-118).
+- Napis długości to rzeczywisty czas danego wystąpienia (audyt 3, N-114; RFC 5545 §3.3.6: godziny i minuty to
+  „accurate durations”): dyżur 22:00–06:00 w noc 24/25.10.2026 — „9 h”, wyjazd 23–25.10 — „47 h”. Zapis
+  (`duration_min`) i podział na dni zostają na zegarze (R2). Oczekiwania testu liczy Python zoneinfo
+  (`scripts/gen-dst-corpus.py`).
 - Przypomnienie i „Czas wyjść” raz, przed startem; kolejne dni bez przypomnień i poza porannym podsumowaniem.
 - Lustro i „Dodaj do kalendarza”: jedno wydarzenie przez wszystkie dni. „Dodaj do grupy” z iPhone'a przenosi ostatni dzień
   całodniowego i koniec następnego dnia (krócej niż doba).

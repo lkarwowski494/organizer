@@ -12,9 +12,11 @@ describe('napisy „kiedy” wydarzeń', () => {
   });
 
   it('wiersz: długość tylko przy godzinach od–do; dzień wielodniowego', () => {
-    expect(occurrenceRow({ startTime: '22:00:00', endTime: '06:00:00', part: { day: 1, days: 2 } })).toEqual({ time: '22:00–06:00', length: '8 h', part: 'dzień 1 z 2' });
-    expect(occurrenceRow({ startTime: '22:00:00', endTime: '06:00:00', part: { day: 2, days: 2 } })).toEqual({ time: 'do 06:00', length: null, part: 'dzień 2 z 2' });
-    expect(occurrenceRow({ startTime: '10:00', endTime: null, part: { day: 1, days: 3 } })).toEqual({ time: 'od 10:00', length: null, part: 'dzień 1 z 3' });
-    expect(occurrenceRow({ startTime: null, endTime: null, part: null })).toEqual({ time: null, length: null, part: null });
+    expect(occurrenceRow({ startDate: '2026-10-07', startTime: '22:00:00', endTime: '06:00:00', part: { day: 1, days: 2 } })).toEqual({ time: '22:00–06:00', length: '8 h', part: 'dzień 1 z 2' });
+    expect(occurrenceRow({ startDate: '2026-10-07', startTime: '22:00:00', endTime: '06:00:00', part: { day: 2, days: 2 } })).toEqual({ time: 'do 06:00', length: null, part: 'dzień 2 z 2' });
+    expect(occurrenceRow({ startDate: '2026-10-07', startTime: '10:00', endTime: null, part: { day: 1, days: 3 } })).toEqual({ time: 'od 10:00', length: null, part: 'dzień 1 z 3' });
+    expect(occurrenceRow({ startDate: '2026-10-07', startTime: null, endTime: null, part: null })).toEqual({ time: null, length: null, part: null });
+    // Audyt 3 (N-114): noc zmiany czasu 24/25.10.2026 — rzeczywiste 9 h.
+    expect(occurrenceRow({ startDate: '2026-10-24', startTime: '22:00:00', endTime: '06:00:00', part: { day: 1, days: 2 } })).toEqual({ time: '22:00–06:00', length: '9 h', part: 'dzień 1 z 2' });
   });
 });

@@ -23,8 +23,11 @@ export function whenText(w: DayWhen): string | null {
 
 export const partText = (p: DayPart | null) => (p === null ? null : strings['event.dayOf'](p.day, p.days));
 
-/** Pola wiersza wydarzenia: kiedy, długość (tylko przy godzinach od–do) i który to dzień wielodniowego. */
-export function occurrenceRow(o: { startTime: string | null; endTime: string | null; part: DayPart | null }): { time: string | null; length: string | null; part: string | null } {
+/**
+ * Pola wiersza wydarzenia: kiedy, długość (tylko przy godzinach od–do; rzeczywisty czas od dnia startu — audyt 3, N-114)
+ * i który to dzień wielodniowego.
+ */
+export function occurrenceRow(o: { startDate: string; startTime: string | null; endTime: string | null; part: DayPart | null }): { time: string | null; length: string | null; part: string | null } {
   const w = dayWhen(o.startTime, o.endTime, o.part);
-  return { time: whenText(w), length: w.kind === 'time' ? lengthLabel(o.startTime, o.endTime) : null, part: partText(o.part) };
+  return { time: whenText(w), length: w.kind === 'time' ? lengthLabel(o.startTime, o.endTime, null, o.startDate) : null, part: partText(o.part) };
 }

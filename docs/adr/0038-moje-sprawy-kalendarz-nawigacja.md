@@ -23,7 +23,8 @@
    dziecka bez konta tylko w „Wszystko”. W wydarzeniach „Tylko przypisane do mnie” = odpowiadam albo jestem imiennie
    uczestnikiem.
 2. **Filtr grup (D192):** jeden dla obu ekranów (te same chipy), kilka grup naraz, wydarzenia z iPhone'a przy filtrze
-   schowane (nie należą do grupy). Grupa, której już nie mam, wypada sama.
+   schowane (nie należą do grupy). Grupa, której już nie mam, wypada sama; gdy zostaje jedna grupa (bez paska filtra),
+   filtr nie działa, a zapis znika (audyt 3, N-179).
 3. **Opis wiersza (M-128, M-129):** jeden budowniczy `app/row-meta.ts` dla Moich spraw, Kalendarza i zadań na ekranie
    wydarzenia: czas pierwszy (w liście dnia przy zadaniu z terminem tego dnia sama godzina), grupa, osoba, seria,
    „zaległe od …”, „minęło”, „Wyjdź o …”; jeden separator `META_SEP`; dzień i godzina terminu przecinkiem („jutro, 17:00”).
