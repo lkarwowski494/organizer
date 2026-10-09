@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -33,12 +33,21 @@ const FALLBACK = [[/^@react-native\//, 'react-native']];
 
 const LICENSE_FILE = /^(licen[cs]e|copying)([-_.](md|txt|mit|font))?$/i;
 
-function packageDir(source) {
+/**
+ * Katalog pakietu ze ścieżki z mapy źródeł. Metro zapisuje pliki z katalogu projektu względem niego, z wiodącym „/”
+ * („/index.ts”, a w CI po `npm ci` także „/node_modules/expo/…”), a pliki spoza projektu ścieżką bezwzględną (u nas
+ * lokalnie node_modules jest dowiązaniem do innego katalogu: „/home/…/node_modules/…”). Dlatego najpierw katalog
+ * względem projektu, potem ścieżka bezwzględna — wybrana ta, w której naprawdę jest package.json pakietu.
+ */
+export function packageDir(source, base = root) {
   const i = source.lastIndexOf('node_modules/');
   if (i < 0) return null;
   const rest = source.slice(i + 'node_modules/'.length).split('/');
   const name = rest[0].startsWith('@') ? `${rest[0]}/${rest[1]}` : rest[0];
-  return { name, dir: source.slice(0, i) + 'node_modules/' + name };
+  const tail = source.slice(0, i) + 'node_modules/' + name;
+  const dir = [join(base, tail), tail].find((d) => isAbsolute(d) && existsSync(join(d, 'package.json')));
+  if (!dir) throw new Error(`${source}: nie znaleziono package.json pakietu ${name} (ani względem ${base}, ani jako ścieżki bezwzględnej)`);
+  return { name, dir };
 }
 
 function licenseText(dir) {
@@ -52,10 +61,10 @@ function spdx(pkg) {
 }
 
 /** Wpisy pakietów JS z listy ścieżek mapy źródeł. */
-export function jsEntries(sources) {
+export function jsEntries(sources, base = root) {
   const dirs = new Map();
   for (const s of sources) {
-    const p = packageDir(s);
+    const p = packageDir(s, base);
     if (p) dirs.set(p.dir, p.name);
   }
   const out = new Map();
@@ -64,7 +73,7 @@ export function jsEntries(sources) {
     let text = licenseText(dir);
     if (!text) {
       const fb = FALLBACK.find(([re]) => re.test(name));
-      if (fb) text = licenseText(join(NM, fb[1]));
+      if (fb) text = licenseText(join(base, 'node_modules', fb[1]));
     }
     const license = spdx(pkg);
     if (!text) throw new Error(`${name}@${pkg.version}: brak pliku licencji`);

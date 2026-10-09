@@ -216,3 +216,28 @@ describe('kontrakty workflow (audyt 2)', () => {
     assert.equal(upload.with.path, 'e2e-artifacts/');
   });
 });
+
+describe('licencje: ścieżki pakietów z mapy źródeł (audyt 3, N-78; CI po `npm ci`)', async () => {
+  const { jsEntries, packageDir } = await import(join(ROOT, 'scripts/licenses/gen-licenses.mjs'));
+  // Projekt jak w CI: node_modules w katalogu projektu, pakiet zagnieżdżony (expo/node_modules/@expo/cli).
+  const project = mkdtempSync(join(tmpdir(), 'licenses-fixture-'));
+  const nested = join(project, 'node_modules/expo/node_modules/@expo/cli');
+  mkdirSync(join(nested, 'build'), { recursive: true });
+  writeFileSync(join(nested, 'package.json'), JSON.stringify({ name: '@expo/cli', version: '9.9.9', license: 'MIT' }));
+  writeFileSync(join(nested, 'LICENSE'), 'The MIT License\r\nCopyright (c) Ala\r\n');
+  const expected = [{ name: '@expo/cli', version: '9.9.9', license: 'MIT', kind: 'js', text: 'The MIT License\nCopyright (c) Ala' }];
+
+  it('ścieżka względem projektu z wiodącym „/” (tak zapisuje Metro w CI) wskazuje katalog w projekcie, nie w katalogu głównym dysku', () => {
+    assert.deepEqual(packageDir('/node_modules/expo/node_modules/@expo/cli/build/metro-require/require.js', project), { name: '@expo/cli', dir: nested });
+    assert.deepEqual(jsEntries(['/node_modules/expo/node_modules/@expo/cli/build/a.js', '/index.ts', '\0polyfill:x'], project), expected);
+  });
+
+  it('ścieżka bezwzględna (node_modules poza projektem, np. dowiązanie) daje ten sam wpis', () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'licenses-other-root-'));
+    assert.deepEqual(jsEntries([join(nested, 'build/a.js')], elsewhere), expected);
+  });
+
+  it('pakiet, którego nie ma ani w projekcie, ani pod ścieżką bezwzględną: błąd z nazwą pakietu, nie ENOENT z „/node_modules”', () => {
+    assert.throws(() => packageDir('/node_modules/brak-pakietu/index.js', project), /nie znaleziono package\.json pakietu brak-pakietu/);
+  });
+});

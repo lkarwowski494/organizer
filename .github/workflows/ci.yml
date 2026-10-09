@@ -42,15 +42,16 @@ jobs:
 
   workflows-lint:
     # Składnia i typowe błędy w plikach workflow (także tych, które nie uruchamiają się przy każdej zmianie,
-    # np. ios-release). Go jest na obrazie ubuntu; wersja actionlint przypięta.
+    # np. ios-release). actionlint z instalatora: przypięta wersja z wydania i suma SHA-256 (bez instalacji przez Go,
+    # która ściągała nowszy toolchain Go z proxy.golang.org).
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - run: '"$(go env GOPATH)/bin/actionlint"'
+      - run: .github/scripts/install-actionlint.sh
+      - run: actionlint
 
   secrets-scan:
     runs-on: ubuntu-24.04

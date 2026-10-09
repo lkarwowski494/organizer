@@ -33,7 +33,7 @@ function syncChecksBelowTop(text: string): number[] {
   steps(text).forEach((step, i) => {
     if (/^- scrollUntilVisible/.test(step)) scrolledDown = !/direction: UP/.test(step);
     // Wspólny start (launch.yaml) otwiera ekran od góry; wpisanie tekstu (type.yaml) nie przewija w górę.
-    else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|tapOn:\s*\n\s+id: "tab-)/.test(step)) scrolledDown = false;
+    else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|runFlow:\s*\n\s+file: common\/open-tab\.yaml)/.test(step)) scrolledDown = false;
     else if (scrolledDown && checksSyncChip(step)) bad.push(i);
   });
   return bad;
@@ -131,5 +131,93 @@ describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () =>
 
   it('scenariusze z wpisywaniem: 02, 04, 05, 07, 08', () => {
     expect(flows.filter((f) => typedFields(readFileSync(join(DIR, f), 'utf8')).length)).toEqual(['02-quick-add.yaml', '04-event-form.yaml', '05-shopping.yaml', '07-keyboard.yaml', '08-multi-day.yaml']);
+  });
+});
+
+/**
+ * Ekran Licencje (audyt 3, N-78): lista ma ponad 80 pozycji w kolejności alfabetycznej. Maestro 2.11.0 przewija
+ * `scrollUntilVisible` krokami z czekaniem na uspokojenie ekranu; w E2E 65 (ca23c8a) przez 20 s doszedł do ok. 20. pozycji
+ * i nie znalazł „react-native” (69. pozycja). Scenariusz otwiera więc pozycję z początku listy — ta sama ścieżka
+ * (lista → tekst licencji), bez zależności od szybkości runnera.
+ */
+const LICENSES = JSON.parse(readFileSync(join(__dirname, '../../licenses/third-party.json'), 'utf8')) as { packages: { name: string; kind: string }[] };
+const licenseRows = (text: string) => [...text.matchAll(/id: "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
+const NEAR_TOP = 3;
+
+describe('scenariusze Maestro — pozycje ekranu Licencje z początku listy', () => {
+  it('wykrywa pozycję daleko na liście (wersja 06 z ca23c8a: react-native)', () => {
+    const at = LICENSES.packages.findIndex((p) => p.name === 'react-native');
+    expect(at).toBeGreaterThanOrEqual(NEAR_TOP);
+    expect(licenseRows('- tapOn:\n    id: "license-react-native"')).toEqual(['react-native']);
+  });
+
+  it('06 otwiera pozycję z pierwszych na liście, która jest w pliku licencji', () => {
+    const rows = licenseRows(readFileSync(join(DIR, '06-settings.yaml'), 'utf8'));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const name of new Set(rows)) {
+      const at = LICENSES.packages.findIndex((p) => p.name === name);
+      expect(at >= 0 && at < NEAR_TOP ? name : `${name}: pozycja ${at}`).toBe(name);
+    }
+  });
+
+  it.each(flows)('%s: każda pozycja ekranu Licencje z początku listy', (f) => {
+    for (const name of licenseRows(readFileSync(join(DIR, f), 'utf8'))) expect(LICENSES.packages.findIndex((p) => p.name === name)).toBeLessThan(NEAR_TOP);
+  });
+});
+
+/**
+ * Przejście na zakładkę (E2E 65, ca23c8a: 08 dotknęło „Kalendarz”, aplikacja została na „Moich sprawach”, bo Kalendarz
+ * i plan przypomnień były wtedy poza budżetem czasu — naprawione w 0f2412e). Gołe dotknięcie zakładki przepuszczało to
+ * do kolejnego kroku (przewijanie niewłaściwego ekranu, „No visible element found: calendar-add-event”). Każde przejście
+ * idzie przez common/open-tab.yaml: dotknięcie i czekanie na ekran zakładki (bez ponawiania — zakładka, która się nie
+ * otwiera, to błąd aplikacji). Pary zakładka → ekran sprawdzone z kodem (navigation.tsx: testID `tab-<nazwa>`).
+ */
+const OPEN_TAB = readFileSync(join(DIR, 'common/open-tab.yaml'), 'utf8');
+const rawTabTaps = (text: string) => steps(text).flatMap((step, i) => (/^- tapOn:\s*\n\s+id: "tab-/.test(step) ? [i] : []));
+const openedTabs = (text: string) => steps(text).flatMap((step) => (/^- runFlow:\s*\n\s+file: common\/open-tab\.yaml/.test(step) ? [[/TAB: "([^"]+)"/.exec(step)?.[1], /SCREEN: "([^"]+)"/.exec(step)?.[1]]] : []));
+const SRC = join(__dirname, '../..');
+const NAV = readFileSync(join(SRC, 'app/navigation.tsx'), 'utf8');
+/** Ekran każdej zakładki: <Tab.Screen name="X" component={Y} /> i testID ekranu z pliku komponentu Y. */
+const tabScreens = new Map(
+  [...NAV.matchAll(/<Tab\.Screen name="(\w+)" component=\{(\w+)\}/g)].map(([, name, comp]) => {
+    const file = new RegExp(`import \\{ ${comp} \\} from '\\.\\./([^']+)'`).exec(NAV)![1]!;
+    const src = readFileSync(join(SRC, `${file}.tsx`), 'utf8');
+    return [`tab-${name}`, /<Screen testID="(screen-[\w-]+)"/.exec(src)?.[1]];
+  }),
+);
+
+describe('scenariusze Maestro — przejście na zakładkę ze sprawdzeniem ekranu', () => {
+  it('wykrywa gołe dotknięcie zakładki (wersja 08 z ca23c8a)', () => {
+    const before = ['appId: x', '---', '- runFlow: common/launch.yaml', '- tapOn:', '    id: "tab-Calendar"', '- scrollUntilVisible:', '    element:', '      id: "calendar-add-event"'].join('\n');
+    expect(rawTabTaps(before)).toEqual([1]);
+    const after = before.replace('- tapOn:\n    id: "tab-Calendar"', '- runFlow:\n    file: common/open-tab.yaml\n    env:\n      TAB: "tab-Calendar"\n      SCREEN: "screen-calendar"');
+    expect(rawTabTaps(after)).toEqual([]);
+    expect(openedTabs(after)).toEqual([['tab-Calendar', 'screen-calendar']]);
+  });
+
+  it('zakładki i ich ekrany z kodu aplikacji', () => {
+    expect([...tabScreens]).toEqual([
+      ['tab-Today', 'screen-today'],
+      ['tab-Lists', 'screen-lists'],
+      ['tab-Calendar', 'screen-calendar'],
+      ['tab-Groups', 'screen-groups'],
+    ]);
+  });
+
+  it.each(flows)('%s przechodzi na zakładkę tylko przez common/open-tab.yaml, z ekranem tej zakładki', (f) => {
+    const text = readFileSync(join(DIR, f), 'utf8');
+    expect(rawTabTaps(text)).toEqual([]);
+    for (const [tab, screenId] of openedTabs(text)) expect([tab, screenId]).toEqual([tab, tabScreens.get(tab!)]);
+  });
+
+  it('common/open-tab.yaml: dotknięcie, potem czekanie na ekran zakładki, bez retry', () => {
+    const s = steps(OPEN_TAB);
+    expect(s[0]).toBe('- tapOn:\n    id: ${TAB}');
+    expect(s[1]).toMatch(/^- extendedWaitUntil:\s*\n\s+visible:\s*\n\s+id: \$\{SCREEN\}\s*\n\s+timeout: \d+$/);
+    expect(OPEN_TAB).not.toMatch(/^- retry:/m);
+  });
+
+  it('scenariusze z przejściem na zakładkę: 04, 05, 08', () => {
+    expect(flows.filter((f) => openedTabs(readFileSync(join(DIR, f), 'utf8')).length)).toEqual(['04-event-form.yaml', '05-shopping.yaml', '08-multi-day.yaml']);
   });
 });

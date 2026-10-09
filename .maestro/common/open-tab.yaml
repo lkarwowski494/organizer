@@ -1,0 +1,16 @@
+# Przejście na zakładkę ze sprawdzeniem, że jej ekran się otworzył (TAB = testID zakładki, SCREEN = testID ekranu).
+# W E2E 65 (ca23c8a) scenariusz 08 dotknął „Kalendarz”, a aplikacja przez cały krok została na „Moich sprawach”
+# (zrzut z kroku 10): Kalendarz i plan przypomnień nie mieściły się wtedy w budżecie czasu (naprawione w 0f2412e;
+# E2E 66 na 3ccb3a7 przechodzi 08). Scenariusz przewijał dalej niewłaściwy ekran i zgłaszał brak „Dodaj wydarzenie”.
+# Teraz czeka na ekran zakładki i oblewa tutaj, z nazwą ekranu. Bez ponawiania dotknięcia: zakładka, która nie
+# otwiera się w 10 s, to błąd aplikacji (wolny ekran), nie scenariusza.
+appId: io.github.lkarwowski494.organizer
+---
+- tapOn:
+    id: ${TAB}
+- extendedWaitUntil:
+    visible:
+      id: ${SCREEN}
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000

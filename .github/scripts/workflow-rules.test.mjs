@@ -144,6 +144,7 @@ describe('instalatory narzędzi z sumą SHA-256 (N-255, N-258)', () => {
   for (const [script, version] of [
     ['install-gitleaks.sh', /GITLEAKS_VERSION="\d+\.\d+\.\d+"/],
     ['install-supabase-cli.sh', /SUPABASE_CLI_VERSION="\d+\.\d+\.\d+"/],
+    ['install-actionlint.sh', /ACTIONLINT_VERSION="\d+\.\d+\.\d+"/],
   ]) {
     it(`${script}: przypięta wersja, suma 64 znaki hex, sprawdzenie przed rozpakowaniem`, () => {
       const s = readFileSync(join(ROOT, '.github/scripts', script), 'utf8');
@@ -154,6 +155,14 @@ describe('instalatory narzędzi z sumą SHA-256 (N-255, N-258)', () => {
       assert.match(s, /^set -euo pipefail$/m);
     });
   }
+
+  it('workflows-lint w ci.yml: actionlint z instalatora, bez `go install` (toolchain Go z sieci bez naszej sumy)', () => {
+    const steps = stepsOf(wf('ci.yml').jobs['workflows-lint']);
+    const install = steps.findIndex((s) => s.run === '.github/scripts/install-actionlint.sh');
+    const lint = steps.findIndex((s) => s.run === 'actionlint');
+    assert.ok(install >= 0 && lint > install);
+    for (const f of readdirSync(join(ROOT, '.github/workflows'))) assert.doesNotMatch(readFileSync(join(ROOT, '.github/workflows', f), 'utf8'), /\bgo install\b/, f);
+  });
 
   it('skan sekretów w ci.yml i nightly.yml: gitleaks z instalatora, potem skrypt zakresu ze scaleniami', () => {
     for (const [f, job, call] of [
