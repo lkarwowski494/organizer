@@ -2,7 +2,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, lastAlert, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -26,7 +26,7 @@ describe('dziecko w grupie (D34)', () => {
     for (const label of ['Usuń zadanie', 'Bez terminu', 'Dla kogo', 'Przenieś do grupy']) expect(screen.queryByLabelText(label)).toBeNull();
     await press(screen.getByLabelText('Oznacz jako zrobione: Przynieść korki na trening'));
     await answerAlert(lastAlert().buttons.at(-1)!.text!); // D59: potwierdzenie odhaczenia
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'tasks', id: 't-korki' });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-korki', set: { completed_at: '2026-10-07T08:00:00.000Z' } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lk'));
@@ -50,7 +50,7 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1)', 
     expect(screen.getByLabelText('Otwórz: Posprzątać pokój, Rodzina, bez terminu, dla: Kuba')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'spakować plecak dziś 20:00 @Kuba');
     await press(screen.getByLabelText('Dodaj'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'spakować plecak', assignee_member_id: 'kuba', due_time: '20:00' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'spakować plecak', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-07', due_time: '20:00', assignee_member_id: 'kuba' } }]);
     expect(await screen.findByLabelText('Otwórz: spakować plecak, Rodzina, dziś · 20:00, dla: Kuba')).toBeTruthy();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));

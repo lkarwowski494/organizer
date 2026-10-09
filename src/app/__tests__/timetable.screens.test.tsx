@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup, setTime } from './harness';
+import { expectOps, put, sampleBase, setup, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
@@ -27,7 +27,7 @@ describe('plan lekcji (D112)', () => {
     await setTime('lesson-end-0', '09:00');
     await press(radio('Kiedy, lekcja 1, piątek', 'Tydzień B'));
     await press(screen.getByTestId('timetable-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Basen', start_date: '2026-10-09' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Basen', start_date: '2026-10-09', start_time: '08:00', end_time: '09:00', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR', audience: 'members', responsible_member_id: null, kind: 'lesson' } }, { kind: 'create', entity: 'event_participants', id: 'new-2', group_id: 'gf', set: { event_id: 'new-1', member_id: 'kuba' } }, { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-09-28' } }]);
   });
 
   it('lekcje co tydzień i w tygodniu B; zapis jako serie z Kubą; cofnięcie usuwa serie', async () => {
@@ -60,7 +60,16 @@ describe('plan lekcji (D112)', () => {
     expect(within(bar).getByText('Dodano plan: 2 serie wydarzeń')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Serie do kosza; kotwica tygodnia A (zapisana przy lekcji z tygodnia B, D171) wraca do pustej.
-    expect(store.dispatched.slice(-3)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: null } }]);
+    expectOps(store, [
+      { kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Matematyka', start_date: '2026-10-05', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, kind: 'lesson' } },
+      { kind: 'create', entity: 'event_participants', id: 'new-2', group_id: 'gf', set: { event_id: 'new-1', member_id: 'kuba' } },
+      { kind: 'create', entity: 'events', id: 'new-3', group_id: 'gf', set: { title: 'Plastyka', start_date: '2026-10-12', start_time: '08:45', end_time: '09:30', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO', audience: 'members', responsible_member_id: null, kind: 'lesson' } },
+      { kind: 'create', entity: 'event_participants', id: 'new-4', group_id: 'gf', set: { event_id: 'new-3', member_id: 'kuba' } },
+      { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-10-05' } },
+      { kind: 'delete', entity: 'events', id: 'new-1' },
+      { kind: 'delete', entity: 'events', id: 'new-3' },
+      { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: null } },
+    ]);
   });
 
   it('D128, M-14: ekran z obecnym planem; zmieniona lekcja od jutra tym samym poleceniem co „to i następne”; cofnięcie', async () => {
@@ -78,7 +87,7 @@ describe('plan lekcji (D112)', () => {
     const bar = await screen.findByTestId('undo-bar');
     expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od jutra)')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'events', set: { title: 'Matematyka', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', event_id: 'mat', date: '2026-10-08', set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, location: null }, participants: [{ id: '47871a90-951a-58a8-af61-a0695de712c6', member_id: 'kuba' }], drop_overrides: [], tasks: [] } }, { kind: 'patch', entity: 'events', id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', set: { title: 'Matematyka', start_time: '08:00:00', end_time: '08:45:00', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
   });
 
   it('M-14: zapis, który zmienia zadania i odwołania — ten sam podgląd co „to i następne”, z wyborem dla zadań', async () => {

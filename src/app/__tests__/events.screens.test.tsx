@@ -8,7 +8,7 @@ import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { splitId } from '../../domain/event-split';
 import { overrideId, participantId } from '../../domain/views/events';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup , pickDate, setTime } from './harness';
+import { expectOps, put, sampleBase, setup , pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -104,7 +104,7 @@ describe('Wydarzenia: dodawanie', () => {
     await pickDate('event-until', '2026-12-31');
     await type(screen.getByTestId('event-interval'), '2');
     await press(screen.getByTestId('event-save'));
-    expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Basen', start_date: '2026-10-07', start_time: null, rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=WE;UNTIL=20261231', audience: 'group' });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'u-me', set: { title: 'Basen', start_date: '2026-10-07', start_time: null, end_time: null, rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=WE;UNTIL=20261231', audience: 'group', responsible_member_id: null } }]);
     expect(created(store.dispatched, 'events')[0]!.group_id).toBe('u-me'); // domyślnie pierwsza grupa: osobista
   });
 
@@ -132,7 +132,7 @@ describe('Wydarzenia: dodawanie', () => {
     expect(screen.getByText('Ten wariant nie pasuje do wybranego dnia.')).toBeTruthy();
     await press(screen.getByLabelText('1. poniedziałek'));
     await press(screen.getByTestId('event-save'));
-    expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ rrule: 'FREQ=MONTHLY;BYDAY=1MO', start_date: '2026-10-05' });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Zebranie', start_date: '2026-10-05', start_time: '19:00', end_time: null, rrule: 'FREQ=MONTHLY;BYDAY=1MO', audience: 'group', responsible_member_id: null } }]);
     expect(await screen.findByTestId('series-new-1')).toBeTruthy();
     expect(screen.getByLabelText(/Zebranie, Co miesiąc, w 1. poniedziałek · 19:00 · najbliżej: pon. 2 lis/i)).toBeTruthy();
   });
@@ -331,7 +331,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.getByText('Zmienione pojedynczo terminy, których po zmianie nie będzie: 1. Ich zmiany przepadną.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched[0]).toMatchObject({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-07', rrule: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce', start_date: '2026-10-07', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'members', responsible_member_id: null } }, { kind: 'delete', entity: 'event_overrides', id: 'ov1' }]);
     expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'event_overrides', id: 'ov1' });
     expect(screen.getByTestId('today-event-ev-tance-2026-10-07')).toBeTruthy();
   });
@@ -355,7 +355,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-today');
     expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-tance' }]);
     await press(screen.getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'events', id: 'ev-tance' });
+    expectOps(store, [{ kind: 'delete', entity: 'events', id: 'ev-tance' }, { kind: 'restore', entity: 'events', id: 'ev-tance' }]);
   });
 
   it('jednorazowe: zmiana bez pytania o zakres, usunięcie bez pytania (D187)', async () => {
@@ -451,7 +451,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     expect(within(screen.getByLabelText('Osoba odpowiedzialna')).queryByLabelText('Kuba')).toBeNull();
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
-    expect(created(store.dispatched, 'events')[0]!.set).toMatchObject({ title: 'Logopeda', responsible_member_id: 'ala' });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Logopeda', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: 'ala' } }]);
     await press(screen.getByLabelText('Dziś'));
     expect(screen.queryByText('Logopeda')).toBeNull(); // odpowiada Ala — nie u mnie
     await press(screen.getByLabelText('Kalendarz'));

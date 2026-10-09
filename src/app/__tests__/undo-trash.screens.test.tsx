@@ -13,7 +13,7 @@ import { config } from '../../config';
 import { palettes } from '../../config/theme';
 import type { Row } from '../../domain/sync-engine/client';
 import { RootStack } from '../navigation';
-import { answerAlert, pickDate, put, sampleBase, setTime, setup } from './harness';
+import { expectOps, answerAlert, pickDate, put, sampleBase, setTime, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const ago = (days: number) => new Date(Date.UTC(2026, 9, 7, 8, 0) - days * 86_400_000).toISOString();
@@ -59,15 +59,15 @@ describe('kosz na ekranie Grupy (M-34, D151)', () => {
     expect(within(screen.getByTestId('trash-member')).getByText('Kasia')).toBeTruthy();
     expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(expect.arrayContaining(['Listy', 'Zadania', 'Pozycje zakupów', 'Wydarzenia', 'Osoby']));
     await press(screen.getByLabelText('Przywróć: Usunięte zadanie'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 'del' });
+    expectOps(store, [{ kind: 'restore', entity: 'tasks', id: 'del' }]);
     expect(screen.queryByTestId('trash-del')).toBeNull();
     expect(within(bar()).getByText('Przywrócono: Usunięte zadanie')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'del' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'del' }]);
     await press(screen.getByLabelText('Przywróć: Kasia'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'group_members', id: 'kasia' });
+    expectOps(store, [{ kind: 'restore', entity: 'group_members', id: 'kasia' }]);
     await press(screen.getByLabelText('Przywróć: Wizyta'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'events', id: 'ev-del' });
+    expectOps(store, [{ kind: 'restore', entity: 'events', id: 'ev-del' }]);
   });
 
   it('długa sekcja: najnowsze config.TRASH_PREVIEW, „Pokaż wszystkie (N)” i „Pokaż mniej”; lista zakupów liczy pozycje', async () => {
@@ -109,7 +109,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     expect(within(entries[1]!).getByText('Usunięto: Przynieść korki na trening')).toBeTruthy();
     expect(within(entries[1]!).getByText('dziś, 10:00')).toBeTruthy();
     await press(within(entries[1]!).getByLabelText('Cofnij: Usunięto: Przynieść korki na trening'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-korki' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-korki' }, { kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-korki' }]);
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Cofnięto');
   });
@@ -142,7 +142,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
     await press(await screen.findByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-paczka' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
   });
 
   it('„Zmień” po szybkim dodaniu i „Zobacz” to nie zmiany do cofnięcia — nie trafiają na listę', async () => {
@@ -195,7 +195,7 @@ describe('Ostatnie zmiany w bazie konta (D194 b)', () => {
     expect(within(entries[0]!).queryByLabelText(/^Cofnij: /)).toBeNull();
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
     await press(within(entries[2]!).getByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-paczka' });
+    expectOps(s.store, [{ kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'delete', entity: 'tasks', id: 't-korki' }, { kind: 'restore', entity: 'tasks', id: 't-korki' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
     expect(within(entries[2]!).getByText('Cofnięto')).toBeTruthy();
   });
 
@@ -289,16 +289,16 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     const { store } = await open(base);
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Usuń: Pusta'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'lists', id: 'pusta' });
+    expectOps(store, [{ kind: 'delete', entity: 'lists', id: 'pusta' }]);
     expect(within(bar()).getByText('Usunięto listę: Pusta')).toBeTruthy();
     await press(screen.getByLabelText('Usuń: Dom'));
     await answerAlert('Anuluj');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'lists', id: 'pusta' });
+    expectOps(store, []);
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gk'));
     await press(await screen.findByLabelText('Usuń: Szkoła'));
     await answerAlert('Usuń listę');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'lists', id: 'lk' });
+    expectOps(store, [{ kind: 'delete', entity: 'lists', id: 'lk' }]);
   });
 
   it('osoba i seria w grupie, grupa na liście grup (właściciel) — przesunięciem, z „Cofnij”', async () => {
@@ -312,11 +312,11 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(screen.queryByLabelText('Usuń: Klasa 2b')).toBeNull();
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByLabelText('Usuń: Kuba'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'group_members', id: 'kuba' });
+    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'kuba' }]);
     expect(within(bar()).getByText('Usunięto z grupy: Kuba')).toBeTruthy();
     expect(screen.queryByLabelText('Usuń: Łukasz')).toBeNull(); // siebie nie
     await press(screen.getByLabelText('Usuń: Basen'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'events', id: 'ev-co' });
+    expectOps(s.store, [{ kind: 'delete', entity: 'events', id: 'ev-co' }]);
     expect(within(bar()).getByText('Usunięto: Basen')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Usuń: Rodzina'));
@@ -343,14 +343,14 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     event(base, 'ev-co', { title: 'Tańce', start_date: '2026-09-30', start_time: '19:00:00', end_time: '20:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE' });
     const { store } = await open(base);
     await press(screen.getByLabelText('Usuń: Wizyta'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'events', id: 'ev-raz' });
+    expectOps(store, [{ kind: 'delete', entity: 'events', id: 'ev-raz' }]);
     expect(within(bar()).getByText('Usunięto: Wizyta')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'events', id: 'ev-raz' });
+    expectOps(store, [{ kind: 'restore', entity: 'events', id: 'ev-raz' }]);
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByLabelText('Odwołaj: Tańce'));
     expect(store.dispatched).toContainEqual(expect.objectContaining({ kind: 'create', entity: 'event_overrides', set: expect.objectContaining({ event_id: 'ev-co', occurrence_date: '2026-10-07' }) }));
-    expect(store.dispatched.at(-1)).toMatchObject({ entity: 'event_overrides', set: { cancelled: true } });
+    expectOps(store, [{ kind: 'create', entity: 'event_overrides', id: '385b2af4-eed5-5f85-9941-1fa1176e78b7', group_id: 'gf', set: { event_id: 'ev-co', occurrence_date: '2026-10-07', start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, cancelled: true } }, { kind: 'patch', entity: 'event_overrides', id: '385b2af4-eed5-5f85-9941-1fa1176e78b7', set: { cancelled: true } }]);
     expect(within(bar()).getByText('Odwołano: Tańce')).toBeTruthy();
   });
 
@@ -366,7 +366,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(screen.getByText(/1 zadanie jest podpięte do odwoływanych wydarzeń/)).toBeTruthy();
     // Zadanie terminu też przesuwa się do usunięcia (M-124).
     await press(screen.getByLabelText('Usuń: Wziąć skierowanie'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'zad' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'zad' }]);
   });
 
   it('dziecko: wydarzeń i list nie przesuwa', async () => {
@@ -391,7 +391,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await press(await screen.findByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Usuń: Wybrać tulipany'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'sub' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'sub' }]);
     await press(screen.getByTestId('task-delete'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     expect(within(bar()).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
@@ -401,7 +401,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, deleted_at: ago(0) } } })));
     expect(screen.getByTestId('screen-task-deleted')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij usunięcie'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-paczka' });
+    expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
   });
 
   it('stała pozycja zakupów: usunięcie z „Cofnij” (wraca tym samym poleceniem co dodanie)', async () => {
@@ -414,7 +414,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await press(screen.getByLabelText('Usuń ze stałych: Mydło'));
     expect(within(bar()).getByText('Usunięto ze stałych: Mydło')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } }, { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } }]);
   });
 });
 
@@ -449,7 +449,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks')!;
     expect(within(bar()).getByText('Dodano: Zadzwonić do mamy · Osobiste')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zadzwonić do mamy', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }, { kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' }]);
   });
 
   it('nowa lista i nowe wydarzenie z formularza — „Cofnij”; szybkie dodanie na liście zadań — „Zmień” otwiera zadanie', async () => {

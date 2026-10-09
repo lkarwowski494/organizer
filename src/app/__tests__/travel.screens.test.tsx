@@ -4,7 +4,7 @@ import { Linking } from 'react-native';
 
 import type { TravelService } from '../travel-service';
 import { RootStack } from '../navigation';
-import { appStateEvents, put, sampleBase, setTime, setup } from './harness';
+import { expectOps, appStateEvents, put, sampleBase, setTime, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
@@ -170,7 +170,7 @@ describe('dojazd (D115–D117)', () => {
     await setTime('event-start-0', '15:00');
     await fireEvent.changeText(screen.getByTestId('event-location'), ' Przychodnia, ul. Zdrowa 2 ');
     await press(screen.getByTestId('event-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Dentysta', location: 'Przychodnia, ul. Zdrowa 2' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'u-me', set: { title: 'Dentysta', start_date: '2026-10-07', start_time: '15:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, location: 'Przychodnia, ul. Zdrowa 2' } }]);
   });
 
   it('audyt 2 (M-106): odjazd o porze wyjścia, nie „teraz”; nieznany adres — komunikat, zapamiętany z datą', async () => {

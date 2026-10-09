@@ -6,7 +6,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { expectOps, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
@@ -54,12 +54,12 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     expect(screen.getByText('Nie rozpoznano dnia „przyszły wtorek”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.')).toBeTruthy();
     expect(screen.queryByLabelText(/Rozpoznano: o 15/)).toBeNull();
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'u-me', set: { title: 'dentysta w przyszły wtorek o 15', deadline_mode: 'none', due_date: null, due_time: null } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta w przyszły wtorek o 15', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Z zakresem godzin też bez zgadywania: zadanie, nie wydarzenie na dziś.
     await write('basen w następną sobotę 17–18');
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', set: { title: 'basen w następną sobotę 17–18', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen w następną sobotę 17–18', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Dzień rozpoznany — bez podpowiedzi.
     await write('dentysta we wtorek o 15');
     expect(screen.queryByText(/Nie rozpoznano dnia/)).toBeNull();
@@ -97,10 +97,10 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     expect(screen.getByTestId('quick-add').props.placeholder).toBe('np. „dentysta jutro o 17”');
     await write('rachunek za prąd w piątek');
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'rachunek za prąd', due_date: '2026-10-09', due_time: null } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'rachunek za prąd', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: null } }]);
     await write('dentysta jutro o 17');
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'dentysta', due_date: '2026-10-08', due_time: '17:00' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: '17:00' } }]);
   });
 });
 
@@ -124,7 +124,7 @@ describe('„Więcej” z niejednoznacznym „@imię” (M-170)', () => {
     expect(radio('Grupa', 'Klasa 2b').props.accessibilityState.selected).toBe(true);
     expect(radio('Dla kogo', 'Alicja').props.accessibilityState.selected).toBe(true);
     await press(screen.getByTestId('form-save'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gk', set: { title: 'Zebranie', due_date: '2026-10-08', assignee_member_id: 'kala' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gk', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gk', set: { list_id: 'new-1', parent_id: null, title: 'Zebranie', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'kala' } }]);
   });
 
   it('„Anuluj” chowa pytanie, „@al” zostaje w nazwie — nic nie znika po cichu', async () => {
@@ -150,11 +150,11 @@ describe('dodawanie na liście', () => {
 
   it('zakupy: „mąka 1.5 kg” zostaje nazwą z ilością, bez terminu i bez chipów (M-20)', async () => {
     const { store } = await openList('lz');
-    for (const text of ['mąka 1.5 kg', 'pizza 18.00', 'sok na sobotę']) {
+    for (const [i, text] of ['mąka 1.5 kg', 'pizza 18.00', 'sok na sobotę'].entries()) {
       await write(text);
       expect(screen.queryByLabelText(/^Rozpoznano/)).toBeNull();
       await add();
-      expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: text, deadline_mode: 'none', due_date: null } });
+      expectOps(store, [{ kind: 'create', entity: 'tasks', id: `new-${i + 1}`, group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: text, sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     }
     // Ilość czyta wyświetlanie (D77): nazwa „mąka”, obok „1,5 kg”.
     expect(within(screen.getByTestId(`task-${(store.dispatched.at(-3) as { id: string }).id}`)).getByText(/1,5 kg/)).toBeTruthy();
@@ -175,7 +175,7 @@ describe('dodawanie na liście', () => {
     // „2.5” czytane jako 2 maja — chip pozwala to odkliknąć (ADR 0003).
     await press(screen.getByLabelText(/Rozpoznano: 2\.5/));
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lp', title: 'kupić 2.5 kg mąki', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'kupić 2.5 kg mąki', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await write('pranie piątek o 18');
     expect(screen.getByText(/Nie rozpoznano dnia „piątek”/)).toBeTruthy();
     await write('jutro');
@@ -185,7 +185,7 @@ describe('dodawanie na liście', () => {
     await write('pranie w sobotę');
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'pranie', due_date: '2026-10-10' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'pranie', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-10', due_time: null } }]);
   });
 });
 
@@ -231,7 +231,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     await pickGroup('Osobiste');
     await write('basen jutro');
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'basen' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
   });
 
@@ -241,18 +241,18 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
     expect(chip().props.accessibilityState).toMatchObject({ disabled: true });
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'basen', due_date: '2026-10-08' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     expect(chip().props.accessibilityState).toMatchObject({ disabled: false });
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
     await write('pranie @ja');
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { title: 'pranie', assignee_member_id: 'mf', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'pranie', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
     // „@Ala” z innej grupy niż chip — grupa Ali, ale nie zostaje ostatnio użytą.
     await pickGroup('Osobiste');
     await write('basen jutro @ala');
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
     await add();
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { assignee_member_id: 'ala' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
     expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
   });
 
@@ -263,7 +263,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(screen.getByText(unseen)).toBeTruthy();
     await add();
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'kupić chleb', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'kupić chleb', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(store.dispatched.at(-1)).not.toHaveProperty('set.assignee_member_id');
     // Z osobą albo terminem — bez napisu; w osobistej też.
     for (const text of ['kupić chleb @ja', 'kupić chleb jutro', 'jutro']) {
@@ -287,12 +287,12 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(within(unknown).getByText('Nie ma grupy #kino')).toBeTruthy();
     expect(within(unknown).getByText('Popraw nazwę albo dodaj do grupy „Osobiste” („#kino” zostanie w nazwie).')).toBeTruthy();
     await press(within(unknown).getByText('Dodaj do: Osobiste'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'bilety #kino' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'bilety #kino', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await write('zebranie jutro #rodz');
     await add();
     expect(screen.getByText('Którą grupę masz na myśli: #rodz?')).toBeTruthy();
     await press(within(screen.getByTestId('tag-choices')).getByText('Rodzice'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gr', set: { title: 'zebranie' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gr', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gr', set: { list_id: 'new-2', parent_id: null, title: 'zebranie', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await write('zebranie jutro #rodz');
     await add();
     await press(within(screen.getByTestId('tag-choices')).getByText('Anuluj'));
@@ -366,7 +366,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
     expect(shop()!.props.accessibilityLabel).toBe('Dodaj „mleko” do listy zakupów „Zakupy na weekend”');
     await press(shop()!);
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'mleko', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano: mleko · Zakupy na weekend')).toBeTruthy();
@@ -378,7 +378,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     const { store } = await openIn('gf');
     await write('mąka 1.5 kg');
     await press(shop()!);
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lz', title: 'mąka 1.5 kg' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mąka 1.5 kg', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await write('mleko jutro');
     expect(shop()).toBeTruthy();
     await add();
@@ -387,7 +387,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(task).toMatchObject({ entity: 'tasks', group_id: 'gf', set: { title: 'mleko', due_date: '2026-10-08' } });
     await write('chleb 2 szt. na jutro');
     await press(shop()!);
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { list_id: 'lz', title: 'chleb 2 szt.', due_date: null } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }, { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'chleb 2 szt.', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 
   it('zdanie, osoba albo zakres godzin — bez podpowiedzi; grupa bez listy zakupów — informacja, zostaje zadanie', async () => {

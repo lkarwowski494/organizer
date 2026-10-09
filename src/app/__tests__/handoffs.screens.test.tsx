@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { answerAlert, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, put, sampleBase, setup } from './harness';
 import { strings } from '../../i18n/strings.pl';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
@@ -32,11 +32,11 @@ describe('przekazanie zadania', () => {
     expect(screen.queryByTestId('handoff-picker')).toBeNull();
     await press(screen.getByTestId('handoff-start'));
     await press(screen.getByLabelText('Przekaż: Ala'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'tasks', entity_id: 't-paczka', occurrence_date: null, to_member: 'ala' } });
+    expectOps(store, [{ kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'tasks', entity_id: 't-paczka', occurrence_date: null, to_member: 'ala' } }]);
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
     expect(screen.queryByTestId('handoff-start')).toBeNull();
     await press(screen.getByTestId('handoff-cancel'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'new-1', set: { status: 'cancelled' } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'new-1', set: { status: 'cancelled' } }]);
     expect(screen.getByTestId('handoff-start')).toBeTruthy();
   });
 
@@ -70,13 +70,13 @@ describe('przekazanie wydarzenia', () => {
     await screen.findByTestId('screen-event');
     await press(screen.getByTestId('handoff-start'));
     await press(screen.getByLabelText('Przekaż: Ala'));
-    expect(store.dispatched.at(-1)).toMatchObject({ entity: 'handoffs', set: { entity: 'events', entity_id: 'ev', occurrence_date: '2026-10-07', to_member: 'ala' } });
+    expectOps(store, [{ kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'events', entity_id: 'ev', occurrence_date: '2026-10-07', to_member: 'ala' } }]);
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
     await press(screen.getByTestId('handoff-cancel'));
     await press(screen.getByTestId('handoff-start'));
     await press(screen.getByLabelText('Całą serię'));
     await press(screen.getByLabelText('Przekaż: Ala'));
-    expect(store.dispatched.at(-1)).toMatchObject({ entity: 'handoffs', set: { entity: 'events', entity_id: 'ev', occurrence_date: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'new-1', set: { status: 'cancelled' } }, { kind: 'create', entity: 'handoffs', id: 'new-2', group_id: 'gf', set: { entity: 'events', entity_id: 'ev', occurrence_date: null, to_member: 'ala' } }]);
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
   });
 
@@ -89,7 +89,7 @@ describe('przekazanie wydarzenia', () => {
     await press(await screen.findByTestId('handoff-start'));
     expect(screen.queryByLabelText('Całą serię')).toBeNull();
     await press(screen.getByLabelText('Przekaż: Ala'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { entity_id: 'ev', occurrence_date: null } });
+    expectOps(store, [{ kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'events', entity_id: 'ev', occurrence_date: null, to_member: 'ala' } }]);
     await press(screen.getByLabelText(strings['common.back']));
     // Cudze wydarzenie nie jest na „Moje sprawy” (D66) — otwieram z kalendarza.
     await press(await screen.findByTestId('tab-Calendar'));
@@ -112,11 +112,11 @@ describe('„Do potwierdzenia” i plakietka', () => {
     expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś, 2 do potwierdzenia');
     expect(within(screen.getByTestId('tab-badge')).getByText('2')).toBeTruthy();
     await press(screen.getByTestId('handoff-accept-h1'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } }]);
     expect(screen.queryByTestId('handoff-h1')).toBeNull();
     expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś, 1 do potwierdzenia');
     await press(screen.getByTestId('handoff-decline-h2'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h2', set: { status: 'declined' } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'h2', set: { status: 'declined' } }]);
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
     expect(screen.queryByTestId('tab-badge')).toBeNull();
     expect(screen.getByTestId('tab-Today').props.accessibilityLabel).toBe('Dziś');
@@ -143,7 +143,7 @@ describe('„Do potwierdzenia” i plakietka', () => {
     const { store } = await open(base);
     expect(within(screen.getByTestId('handoff-inbox')).getByText('Ala przekazuje Ci: Śmieci')).toBeTruthy();
     await press(screen.getByTestId('handoff-accept-h1'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'h1', set: { status: 'accepted' } }]);
   });
 
   it('nadawca (PW-31): po odhaczeniu „czeka na przyjęcie” jest przy następnym terminie; zrobionego nie przekazuje się', async () => {
@@ -173,7 +173,7 @@ describe('„Do potwierdzenia” i plakietka', () => {
     expect(screen.getByText('Nie przyjęto przekazania: Odebrać paczkę (Ala). Odpowiedzialność została u Ciebie.')).toBeTruthy();
     expect(screen.queryByTestId('tab-badge')).toBeNull();
     await press(screen.getByTestId('handoff-ok-h3'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'handoffs', id: 'h3', set: { closed: true } });
+    expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'h3', set: { closed: true } }]);
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
   });
 });
