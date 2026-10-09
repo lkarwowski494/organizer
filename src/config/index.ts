@@ -203,7 +203,8 @@ export const config = {
     /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
     MORNING_LIST_MAX: 4,
     /**
-     * Przypomnienia bliższe niż tyle od chwili planowania pomijamy (audyt 2, N-7): iOS odrzuca wyzwalacz z odstępem ≤ 0
+     * Przypomnienia bliższe niż tyle od chwili planowania nie dostają wyzwalacza czasu (audyt 2, N-7) — idą od razu, jeśli
+     * nie są już zaplanowane (audyt 3, N-112; src/app/push.ts): iOS odrzuca wyzwalacz z odstępem ≤ 0
      * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger,
      * https://developer.apple.com/documentation/usernotifications/untimeintervalnotificationtrigger/init(timeinterval:repeats:)),
      * a datę ucina do sekundy.
@@ -427,6 +428,21 @@ export const config = {
     // jest mierzone ani podtrzymywane. Wybór projektowy: tydzień od wdrożenia skryptu (9.10.2026) na dodanie sekretu.
     monitorSecretRequiredFrom: '2026-10-16',
     testflightBuildAgeDaysWarn: 80, // build wygasa po 90 dniach
+  },
+
+  /**
+   * Budżety czasu widoków w CI (audyt 3, N-6, N-16; test src/domain/__tests__/perf-budget.test.ts): rodzina po
+   * `FAMILY_YEARS` latach używania (support/family-data.ts), czas procesora w Node, mediana 5 przebiegów. Przed
+   * optymalizacją (9.10.2026, ten sam test na wspólnej maszynie): plan ok. 3,5 s, Moje sprawy (miesiąc) ok. 220 ms,
+   * Kalendarz (miesiąc + 6 tygodni wydarzeń) ok. 250 ms; po niej ok. 90 / 55 / 60 ms. Budżet ok. 2,5× wyniku po, żeby
+   * obciążony automat CI nie dawał fałszywych alarmów, a powrót kosztu rosnącego z historią oblewał test. Na iPhonie
+   * (Hermes, bez JIT) czasy będą dłuższe — do sprawdzenia na urządzeniu.
+   */
+  perf: {
+    FAMILY_YEARS: 3,
+    PLAN_REMINDERS_MS: 250,
+    MY_DAYS_MONTH_MS: 150,
+    CALENDAR_MONTH_MS: 150,
   },
 } as const;
 
