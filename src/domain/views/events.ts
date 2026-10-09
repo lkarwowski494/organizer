@@ -342,65 +342,123 @@ function overrideOps(d: EventDetail, occurrenceDate: string, to: OverrideFields)
   return [{ kind: 'create', entity: 'event_overrides', id, group_id: e.group_id, set: { event_id: e.id, occurrence_date: occurrenceDate, ...columns, ...fresh } }, ...patch(id, fresh)];
 }
 
-/** Zmiana wydarzenia w wybranym zakresie (D57). Dla jednorazowego zakres nie ma znaczenia (= „all”). */
-export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields): NewOp[] {
+/**
+ * Zmiana wydarzenia w wybranym zakresie (D57). Dla jednorazowego zakres nie ma znaczenia (= „all”).
+ * `loaded` — pola formularza z chwili otwarcia (fieldsOf). Z nimi zapis „tylko to” i „wszystkie” wysyła tylko pola, które
+ * zmieniłem — zmiany wiersza są per pole (sync_push), więc pole, którego nie ruszałem, a które w tym czasie zmienił
+ * drugi telefon, zostaje (audyt 2: formularz wysyłał wszystkie pola i nadpisywał cudzą zmianę). Tak jak szkic formularza
+ * (src/domain/drafts.ts, changedFields: tylko pola różne od wartości z chwili otwarcia). Uczestnicy: dopisani i skreśleni
+ * względem chwili otwarcia, na obecnej liście. „To i następne” zakłada nową serię (split_event) — z pełnymi polami.
+ */
+export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields, loaded?: EventFields): NewOp[] {
   const e = d.event;
   const effective: Scope = d.rule === null || (scope === 'following' && occurrenceDate === e.start_date) ? 'all' : scope;
   if (effective === 'this') {
-    // PW-33 (decyzja właściciela z 8.10.2026, wariant A): własne godziny tylko wtedy, gdy różnią się od godzin serii —
-    // termin ze zmienioną samą nazwą, osobą albo dniem dalej idzie za godziną serii (także po jej późniejszej zmianie).
-    const sameClock = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
-    // D199: ta sama godzina, ale inna długość (pt. 18:00 – sob. 16:00 w serii do niedzieli) — własne godziny z długością
-    // zapisaną wprost (z godzin wyszłaby długość serii, a serwer uznałby godziny za „jak w serii”).
-    const length = lengthMinutes(f.startTime, f.endTime, f.durationMin ?? null);
-    const seriesTime = sameClock && length === lengthMinutes(e.start_time, e.end_time, e.duration_min);
-    // D199: własna długość całodniowego terminu tylko, gdy inna niż w serii (całodniowy termin serii z godziną — 1 dzień).
-    const seriesDays = e.start_time === null ? e.days : 1;
-    return overrideOps(d, occurrenceDate, {
-      days: f.startTime === null && daysOf(f) !== seriesDays ? daysOf(f) : null,
-      duration_min: seriesTime || f.startTime === null ? null : sameClock ? length : durationOf(f),
-      start_date: f.date === occurrenceDate ? null : f.date,
-      start_time: seriesTime ? null : f.startTime,
-      end_time: seriesTime ? null : f.endTime,
-      title: f.title === e.title ? null : f.title,
-      responsible_member_id: f.responsibleId === e.responsible_member_id ? null : f.responsibleId,
-      // D136: bez godziny w serii z godziną — znacznik całodniowy.
-      all_day: f.startTime === null && e.start_time !== null,
-      // Audyt 2 (E-8): „nikt konkretny” w terminie serii, która ma osobę odpowiedzialną (pusta osoba = jak w serii).
-      responsible_cleared: f.responsibleId === null && e.responsible_member_id !== null,
-      // Zmiana odwołanego terminu przywraca go.
-      cancelled: false,
-    });
+    if (loaded) {
+      const live = d.overrides.find((x) => x.occurrence_date === occurrenceDate) ?? AS_SERIES;
+      // Obecny stan terminu z tym, co zmieniłem (różnica formularza od chwili otwarcia); zmiana przywraca odwołany termin.
+      return overrideOps(d, occurrenceDate, { ...pick(live), ...overrideDiff(overrideTarget(e, occurrenceDate, loaded), overrideTarget(e, occurrenceDate, f)), cancelled: false } as OverrideFields);
+    }
+    return overrideOps(d, occurrenceDate, overrideTarget(e, occurrenceDate, f));
   }
   const rule = f.rule === null ? null : { ...f.rule, count: null, until: f.until };
   if (effective === 'all') {
     const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : e.start_date), f.rule) : parseIsoDate(f.date);
     const kept = (date: string) => occurrences(start, rule, parseIsoDate(date), parseIsoDate(date)).length > 0;
     return [
-      {
-        kind: 'patch',
-        entity: 'events',
-        id: e.id,
-        set: {
-          title: f.title,
-          start_date: formatIsoDate(start),
-          start_time: f.startTime,
-          end_time: f.endTime,
-          rrule: ruleText(f.rule, f.until),
-          audience: f.audience,
-          responsible_member_id: f.responsibleId,
-          ...(f.location !== undefined && (f.location || null) !== e.location ? { location: f.location || null } : {}),
-          // D199: długość tylko, gdy się zmienia (jak miejsce) — zapis bez niej nie rusza kolumny.
-          ...(daysOf(f) !== e.days ? { days: daysOf(f) } : {}),
-          ...(durationOf(f) !== e.duration_min ? { duration_min: durationOf(f) } : {}),
-        },
-      },
-      ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], (m) => participantId(e.id, m), true),
+      ...(loaded ? changedColumns(d, loaded, f) : [fullPatch(d, f)]),
+      ...participantOps(e.id, e.group_id, d.participants, wantedParticipants(d, f, loaded), (m) => participantId(e.id, m), true),
       // Audyt 2 (E-20, E-7): zmienione pojedynczo terminy, których nowa reguła nie ma (a przy zmianie serii na jednorazowe —
       // wszystkie), do kosza — inaczej przepadają po cichu, a odwołany dzień „ożywa” po powrocie do starej reguły.
       ...d.overrides.filter((o) => (d.rule !== null && f.rule === null) || !kept(o.occurrence_date)).map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id })),
     ];
   }
+  return splitOps(d, occurrenceDate, f, rule);
+}
+
+const OVERRIDE_KEYS = ['start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'cancelled', 'days', 'duration_min'] as const;
+const pick = (o: OverrideFields): OverrideFields => Object.fromEntries(OVERRIDE_KEYS.map((k) => [k, o[k]])) as OverrideFields;
+
+/** Wyjątek terminu, jaki daje formularz (pełny, względem serii). */
+function overrideTarget(e: EventRow, occurrenceDate: string, f: EventFields): OverrideFields {
+  // PW-33 (decyzja właściciela z 8.10.2026, wariant A): własne godziny tylko wtedy, gdy różnią się od godzin serii —
+  // termin ze zmienioną samą nazwą, osobą albo dniem dalej idzie za godziną serii (także po jej późniejszej zmianie).
+  const sameClock = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
+  // D199: ta sama godzina, ale inna długość (pt. 18:00 – sob. 16:00 w serii do niedzieli) — własne godziny z długością
+  // zapisaną wprost (z godzin wyszłaby długość serii, a serwer uznałby godziny za „jak w serii”).
+  const length = lengthMinutes(f.startTime, f.endTime, f.durationMin ?? null);
+  const seriesTime = sameClock && length === lengthMinutes(e.start_time, e.end_time, e.duration_min);
+  // D199: własna długość całodniowego terminu tylko, gdy inna niż w serii (całodniowy termin serii z godziną — 1 dzień).
+  const seriesDays = e.start_time === null ? e.days : 1;
+  return {
+    days: f.startTime === null && daysOf(f) !== seriesDays ? daysOf(f) : null,
+    duration_min: seriesTime || f.startTime === null ? null : sameClock ? length : durationOf(f),
+    start_date: f.date === occurrenceDate ? null : f.date,
+    start_time: seriesTime ? null : f.startTime,
+    end_time: seriesTime ? null : f.endTime,
+    title: f.title === e.title ? null : f.title,
+    responsible_member_id: f.responsibleId === e.responsible_member_id ? null : f.responsibleId,
+    // D136: bez godziny w serii z godziną — znacznik całodniowy.
+    all_day: f.startTime === null && e.start_time !== null,
+    // Audyt 2 (E-8): „nikt konkretny” w terminie serii, która ma osobę odpowiedzialną (pusta osoba = jak w serii).
+    responsible_cleared: f.responsibleId === null && e.responsible_member_id !== null,
+    // Zmiana odwołanego terminu przywraca go.
+    cancelled: false,
+  };
+}
+
+/** Kolumny serii, jakie daje formularz („wszystkie”); miejsce tylko, gdy formularz je zna. */
+function seriesColumns(d: EventDetail, f: EventFields): { [k: string]: unknown } {
+  const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : d.event.start_date), f.rule) : parseIsoDate(f.date);
+  return {
+    title: f.title,
+    start_date: formatIsoDate(start),
+    start_time: f.startTime,
+    end_time: f.endTime,
+    rrule: ruleText(f.rule, f.until),
+    audience: f.audience,
+    responsible_member_id: f.responsibleId,
+    ...(f.location !== undefined ? { location: f.location || null } : {}),
+    days: daysOf(f),
+    duration_min: durationOf(f),
+  };
+}
+
+/** Bez pól z chwili otwarcia: wszystkie kolumny formularza; miejsce i długość tylko, gdy różne od wiersza (D199). */
+function fullPatch(d: EventDetail, f: EventFields): NewOp {
+  const e = d.event;
+  const { location, days, duration_min, ...set } = seriesColumns(d, f);
+  return {
+    kind: 'patch',
+    entity: 'events',
+    id: e.id,
+    set: { ...set, ...(location !== undefined && location !== e.location ? { location } : {}), ...(days !== e.days ? { days } : {}), ...(duration_min !== e.duration_min ? { duration_min } : {}) },
+  };
+}
+
+/** Tylko kolumny, które zmieniłem od otwarcia formularza; godziny parą z długością (koniec przed początkiem = następny dzień, D199). */
+function changedColumns(d: EventDetail, loaded: EventFields, f: EventFields): NewOp[] {
+  const was = seriesColumns(d, loaded);
+  const now = seriesColumns(d, f);
+  const set: { [k: string]: unknown } = {};
+  for (const k of Object.keys(now)) if (JSON.stringify(was[k]) !== JSON.stringify(now[k])) set[k] = now[k];
+  if (['start_time', 'end_time', 'duration_min'].some((k) => k in set)) Object.assign(set, { start_time: now.start_time, end_time: now.end_time, duration_min: now.duration_min });
+  return Object.keys(set).length ? [{ kind: 'patch', entity: 'events', id: d.event.id, set }] : [];
+}
+
+/** Uczestnicy po zapisie: bez pól z chwili otwarcia — lista z formularza; z nimi — obecni plus dopisani minus skreśleni. */
+function wantedParticipants(d: EventDetail, f: EventFields, loaded?: EventFields): string[] {
+  if (f.audience !== 'members') return [];
+  if (!loaded) return f.participantIds;
+  const live = d.participants.filter(alive).map((p) => p.member_id);
+  const before = loaded.audience === 'members' ? loaded.participantIds : [];
+  const added = f.participantIds.filter((m) => !before.includes(m));
+  return [...live.filter((m) => !before.includes(m) || f.participantIds.includes(m)), ...added.filter((m) => !live.includes(m))];
+}
+
+/** „To i następne”: polecenie split_event. */
+function splitOps(d: EventDetail, occurrenceDate: string, f: EventFields, rule: Rule | null): NewOp[] {
+  const e = d.event;
   // „To i następne” (audyt 2, M-3): jedno polecenie split_event (opis w src/domain/event-split.ts). Nowa seria zaczyna się
   // od tego wystąpienia i zostaje tym samym rodzajem (lekcja zostaje lekcją — rodzaj bierze serwer z dzielonej serii).
   const start = f.rule ? alignStart(parseIsoDate(occurrenceDate), f.rule) : parseIsoDate(occurrenceDate);

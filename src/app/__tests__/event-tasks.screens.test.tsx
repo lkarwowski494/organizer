@@ -184,7 +184,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByLabelText('Odepnij'));
     await press(screen.getByTestId('event-preview-save'));
     await screen.findByTestId('screen-today');
-    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev', set: { title: 'Tańce', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=TH', audience: 'group', responsible_member_id: null } }, { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev', set: { start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH' } }, { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
   });
 
   it('„to i następne” bez zmiany dni: zadanie przechodzi do nowej serii', async () => {
