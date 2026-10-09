@@ -67,7 +67,7 @@ export async function storedReminderPlan(tables: Tables, userId: string, nowMs: 
   const settings = { ...DEFAULTS, ...parseReminderSettings(await prefs.get(REMINDER_SETTINGS).catch(() => null)) };
   const { y, m, d } = localNow(nowMs);
   const today = { y, m, d };
-  return reminderPlan(tables, userId, today, nowMs, settings, await savedTravel(prefs, local, tables, userId, today, nowMs), storedScopes(local));
+  return reminderPlan(tables, userId, today, nowMs, settings, await savedTravel(prefs, local, tables, userId, today, nowMs), storedScopes(tables, userId));
 }
 
 type Api = {

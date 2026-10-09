@@ -89,7 +89,7 @@ export function CalendarScreen() {
       return (
         <StationRow
           key={x.key}
-          testID={`cal-trip-${task.id}${task.completed_at ? '-done' : ''}`}
+          testID={task.completed_at ? `cal-trip-done-${task.id}` : `cal-trip-${task.id}`}
           title={strings['trip.title'](task.title)}
           line={task.line}
           group={groupLabel(task.group_id, task.groupName)}
@@ -101,7 +101,7 @@ export function CalendarScreen() {
           checked={task.completed_at !== null}
           // PW-14 B (audyt 2, R-11): dziecko z kontem — zakupy bez pola odhaczenia.
           onToggle={roles.get(task.group_id)?.role !== 'child' ? () => actions.finishTrip(task.id, task.title) : undefined}
-          onOpen={() => nav.navigate('List', { listId: task.id })}
+          onOpen={() => nav.navigate('List', { listId: task.trip!.listId })}
         />
       );
     return (

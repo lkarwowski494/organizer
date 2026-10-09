@@ -20,7 +20,7 @@ import { applySplit } from '../event-split';
  * Telefon wysyła je w sync_pull, a serwer pomija resztę (audyt 2, M-58): kursor nie przechodzi nad wierszami, których
  * telefon nie umie zapisać. Nowa encja w kolejnej wersji = pobranie wszystkiego od zera (`entities` w stanie).
  */
-export const ENTITIES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity', 'events', 'event_participants', 'event_overrides', 'event_task_series', 'handoffs', 'event_rsvps'] as const;
+export const ENTITIES = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'activity', 'events', 'event_participants', 'event_overrides', 'event_task_series', 'handoffs', 'event_rsvps', 'my_day_scopes', 'shopping_trips'] as const;
 export type Entity = (typeof ENTITIES)[number];
 export type Row = { readonly [k: string]: unknown };
 

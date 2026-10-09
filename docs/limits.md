@@ -25,6 +25,6 @@ Sprawdzone 5–6.10.2026; przed każdą zmianą planu sprawdź ponownie.
 w koszu), 20 aktywnych zaproszeń na grupę, 10 tokenów push (nadmiarowy najstarszy wypada), 20 instalacji (jw.),
 120 wywołań `sync_push` na minutę, 120 próśb o powiadomienie na godzinę. Wartości to wybory projektowe z zapasem nad zwykłym
 użyciem, bez źródła zewnętrznego. Codzienne sprzątanie (`call private.run_daily_maintenance()`, pg_cron 03:17 UTC) trzyma
-dane w granicach z `config.retention` (historia 90 dni, rozstrzygnięte przekazania 90, zaproszenia 30 po wygaśnięciu,
+dane w granicach z `config.retention` (historia 90 dni, zrobione zakupy 90, rozstrzygnięte przekazania 90, zaproszenia 30 po wygaśnięciu,
 dziennik dostępu 30, instalacje 180). Wynik każdego przebiegu: `private.maintenance_runs`; problem (pominięta grupa,
 przebieg niedokończony) — wpis `kind = 'diagnostic'`, `screen = 'daily_maintenance'` w `public.client_errors`.

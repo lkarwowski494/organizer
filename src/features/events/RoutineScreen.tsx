@@ -18,6 +18,7 @@ import { groupDetail, groupsView } from '../../domain/views';
 import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
+import { PeopleToggles } from '../../ui/PersonPicker';
 import { TimeField } from '../../ui/TimeField';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
@@ -97,7 +98,7 @@ export function RoutineScreen({ route, navigation }: Props) {
         </View>
       </View>
       {members.length > 1 ? (
-        <Toggles label={strings['routine.who']} values={who} onChange={setWho} options={members.map((m) => ({ value: m.member_id, label: m.display_name, a11y: strings['event.participantA11y'](m.display_name) }))} />
+        <PeopleToggles label={strings['routine.who']} values={who} onChange={setWho} options={members.map((m) => ({ value: m.member_id, label: m.display_name, a11y: strings['event.participantA11y'](m.display_name) }))} />
       ) : null}
       <SectionTitle>{strings['routine.steps']}</SectionTitle>
       {steps.map((s, i) => (

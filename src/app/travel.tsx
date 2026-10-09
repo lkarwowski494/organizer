@@ -84,7 +84,7 @@ export async function savedTravel(prefs: Prefs, local: LocalStore, tables: Table
   const mode: TravelMode = isTravelMode(m) ? m : 'driving';
   const overrides = savedModes(local);
   const results = readTravelResults(parse(local.load(RESULTS_KEY), isRecord));
-  const targets = targetsFor(tables, userId, today, nowMs, (id) => overrides[id] ?? mode, storedScopes(local));
+  const targets = targetsFor(tables, userId, today, nowMs, (id) => overrides[id] ?? mode, storedScopes(tables, userId));
   return (eventId, occurrenceDate) => travelInfoFor(targets, results, `${eventId}|${occurrenceDate}`);
 }
 

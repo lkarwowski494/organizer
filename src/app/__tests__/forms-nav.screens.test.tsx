@@ -129,6 +129,51 @@ describe('PWD-30 A (M-299): wybór osoby w dużej grupie z wyszukiwaniem', () =>
   });
 });
 
+describe('PWD-30 A: wyszukiwanie także przy wielu osobach i przy przekazaniu; M-252: linia grupy na ekranie osoby', () => {
+  const crowd = () => {
+    const base = sampleBase();
+    ['Żaneta', 'Łucja', 'Marek', 'Ewa', 'Ola', 'Piotr'].forEach((n, i) => put(base, 'group_members', `p${i}`, { member_id: `p${i}`, group_id: 'gk', user_id: `u-p${i}`, display_name: n, role: 'member', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 }));
+    return base;
+  };
+  it('uczestnicy wydarzenia: szukanie zawęża, zaznaczeni zostają widoczni', async () => {
+    await open(crowd(), { [DEFAULT_GROUP_KEY]: 'gk' });
+    await press(screen.getByTestId('tab-Calendar'));
+    await press(await screen.findByTestId('calendar-add-event'));
+    await press(within(screen.getByLabelText('Kogo dotyczy')).getByLabelText('Wybrane osoby'));
+    await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'ewa');
+    const who = () => screen.getByLabelText('Kto');
+    const labels = () => within(who()).getAllByRole('checkbox').map((x) => x.props.accessibilityLabel);
+    expect(labels()).toEqual(['Uczestnik: Pani Ewa', 'Uczestnik: Ewa']);
+    await press(within(who()).getByLabelText('Uczestnik: Ewa'));
+    await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'marek');
+    expect([...labels()].sort()).toEqual(['Uczestnik: Ewa', 'Uczestnik: Marek']);
+    await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'xyz');
+    expect(within(who()).getAllByRole('checkbox')).toHaveLength(1);
+  });
+
+  it('przekazanie zadania: szukanie w dużej grupie', async () => {
+    const base = crowd();
+    put(base, 'tasks', 't-korki', { ...base.tasks!['t-korki']!, assignee_member_id: 'mk' });
+    await open(base);
+    await press(screen.getByLabelText(/^Otwórz: Przynieść korki na trening/));
+    await press(await screen.findByTestId('handoff-start'));
+    await fireEvent.changeText(screen.getByTestId('handoff-search'), 'luc');
+    const picker = screen.getByTestId('handoff-picker');
+    expect(within(picker).getByLabelText('Przekaż: Łucja')).toBeTruthy();
+    expect(within(picker).queryByLabelText('Przekaż: Marek')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('handoff-search'), 'xyz');
+    expect(within(picker).getByText('Nikt o takim imieniu.')).toBeTruthy();
+  });
+
+  it('ekran osoby: grupa w jej kolorze z rolą nad imieniem', async () => {
+    await open();
+    await press(screen.getByTestId('tab-Groups'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('member-ala'));
+    expect(await screen.findByText('Rodzina')).toBeTruthy();
+  });
+});
+
 describe('M-242: ekran imienia', () => {
   it('z Ustawień ma „Wróć”', async () => {
     await open();

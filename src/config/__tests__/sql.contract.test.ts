@@ -9,6 +9,7 @@ import { formatRule, parseRule } from '../../domain/rrule';
 import { formEventRules } from '../../domain/__tests__/support/form-rules';
 import { OVERRIDE_NAMESPACE } from '../../domain/views/events';
 import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
+import { SCOPE_NAMESPACE, scopeRowId } from '../../domain/views/my-scope';
 import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
 import { formatRepeat, nextId, parseRepeat, REPEAT_NAMESPACE, type Repeat } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
@@ -65,6 +66,7 @@ describe('src/config zgodny z SQL', () => {
     ['sync_client_days', config.retention.SYNC_CLIENT_DAYS],
     ['join_attempt_days', config.retention.JOIN_ATTEMPT_DAYS],
     ['maintenance_run_days', config.retention.MAINTENANCE_RUN_DAYS],
+    ['trip_days', config.retention.TRIP_DAYS],
     ['max_shared_groups', config.quotas.SHARED_GROUPS],
     ['max_active_invites', config.quotas.ACTIVE_INVITES],
     ['max_push_tokens', config.quotas.PUSH_TOKENS],
@@ -151,6 +153,10 @@ describe('src/config zgodny z SQL', () => {
     expect(body('event_rsvps_id_guard')).toContain(`'${RSVP_NAMESPACE}'::uuid`);
     expect(body('event_overrides_id_guard')).toContain(`'${OVERRIDE_NAMESPACE}'::uuid`);
     expect(body('tasks_id_guard')).toContain(`'${COPY_NAMESPACE}'::uuid`);
+    // PW-2 (zakres Moich spraw na koncie): id wiersza z member_id jak scopeRowId() na telefonie.
+    expect(body('my_day_scopes_guard')).toContain(`'${SCOPE_NAMESPACE}'::uuid`);
+    // Wektor policzony niezależnie (Python uuid.uuid5).
+    expect(scopeRowId('57570000-0000-7000-8000-0000000000f2')).toBe('62e05622-9a72-5112-96e1-178316cdaedd');
     // Przyjęcie przekazania terminu zakłada wyjątek z tym samym id co telefon (overrideId).
     expect(body('handoffs_guard')).toContain(`private.uuid_v5('${OVERRIDE_NAMESPACE}'::uuid`);
   });

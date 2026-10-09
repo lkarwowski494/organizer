@@ -15,7 +15,7 @@ import { remove, renameMember, restore, setRole } from '../../domain/views/comma
 import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, MissingScreen } from '../../ui/components';
+import { BackButton, GroupLine, META_SEP, Body, Button, ErrorText, Field, Screen, Segmented, Title, MissingScreen } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
@@ -77,8 +77,9 @@ export function MemberScreen({ route, navigation }: Props) {
   return (
     <Screen testID="screen-member">
       <BackButton onPress={() => navigation.goBack()} />
+      {/* M-252: linia grupy jak na ekranach listy, zadania i wydarzenia (grupa w jej kolorze, rola osoby). */}
+      <GroupLine name={d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name} line={d.group.line} detail={[strings[`groups.role.${m.role}`], ...(m.role === 'child' && m.user_id !== null ? [strings['member.hasAccount']] : [])].join(META_SEP)} />
       <Title>{m.display_name}</Title>
-      <Body muted>{[d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name, strings[`groups.role.${m.role}`], ...(m.role === 'child' && m.user_id !== null ? [strings['member.hasAccount']] : [])].join(' · ')}</Body>
       {/* D128: plan lekcji tylko przy dziecku. */}
       {d.group.kind === 'shared' && d.group.me.role !== 'child' && m.role === 'child' ? (
         <Button kind="secondary" label={strings['timetable.open']} testID="open-timetable" onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />

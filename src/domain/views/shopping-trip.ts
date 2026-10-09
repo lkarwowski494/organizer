@@ -5,9 +5,9 @@
  * zrobić), albo bez osoby w grupie osobistej; osoba usunięta z grupy to „nikt konkretny” (D132). We wspólnej grupie
  * osoba albo termin są obowiązkowe (jak D68).
  * Odhaczenie „Zakupy” (ręcznie, z potwierdzeniem): kupione pozycje schodzą do kosza, termin i osoba się czyszczą;
- * niekupione zostają na następne zakupy albo — na życzenie — też są oznaczane jako kupione. Lista zapamiętuje ostatnie
- * zrobione zakupy (kiedy i na kiedy były, migracja 20261008510000_trip_done) — Kalendarz pokazuje je przekreślone, jak
- * zrobione zadania (PWD-11 A, audyt 2 M-280; D135).
+ * niekupione zostają na następne zakupy albo — na życzenie — też są oznaczane jako kupione. Każde zrobione zakupy to
+ * wiersz `shopping_trips` (kiedy i na kiedy były, migracja 20261008570000_my_scopes_trips) — Kalendarz pokazuje każde
+ * przekreślone w ich dniu, jak zrobione zadania (PWD-11 A, audyt 2 M-280; D135).
  */
 import type { NewOp } from '../sync-engine/client';
 import { inverseOps, toggleDone } from './commands';
@@ -54,14 +54,15 @@ export function tripItems(t: Tables, listId: string) {
  * Zakupy zrobione. `all` — niekupione też oznaczam jako kupione; inaczej zostają na następne zakupy.
  * Oczekujące przekazanie zakupów (D70) traci sens, więc je anuluję.
  */
-export function finishTripOps(t: Tables, userId: string, listId: string, all: boolean, nowIso: string): NewOp[] {
+export function finishTripOps(t: Tables, userId: string, listId: string, all: boolean, nowIso: string, newId: () => string): NewOp[] {
   const { open, inCart } = tripItems(t, listId);
   const bought = all ? [...inCart, ...open] : inCart;
   const ops: NewOp[] = [];
   if (all) for (const x of open) ops.push(toggleDone(x, nowIso));
   for (const x of bought) ops.push({ kind: 'delete', entity: 'tasks', id: x.id });
-  const planned = asTrip(t.lists![listId]!).date;
-  ops.push({ kind: 'patch', entity: 'lists', id: listId, set: { ...tripSet({ date: null, time: null, responsibleId: null }), trip_done_at: nowIso, trip_done_date: planned } });
+  const list = t.lists![listId]!;
+  ops.push(planTrip(listId, { date: null, time: null, responsibleId: null }));
+  ops.push({ kind: 'create', entity: 'shopping_trips', id: newId(), group_id: String(list.group_id), set: { list_id: listId, planned_date: asTrip(list).date, done_at: nowIso } });
   const pending = outgoingPending(t, userId).get(handoffKey('lists', listId, null));
   if (pending) ops.push(cancelHandoff(pending.id));
   return ops;
@@ -134,24 +135,29 @@ function tripItem(t: Tables, id: string, l: List, g: GroupItem, trip: Trip): Tri
   };
 }
 
-/** Zrobione zakupy w Kalendarzu: lista zakupów (kształt jak wpis zakupów) z dniem i chwilą zrobienia. */
+/**
+ * Zrobione zakupy w Kalendarzu: wpis w kształcie zakupów listy, `id` — wiersz zakupów (kilka zakupów jednej listy
+ * w jednym dniu ma osobne wiersze), lista w `trip.listId`; `completed_at` — chwila zrobienia.
+ */
 export type DoneTrip = TripItem & { completed_at: string };
 
 /**
- * Ostatnie zrobione zakupy list moich grup (PWD-11 A): w dniu planu, a zakupy bez dnia — w dniu zrobienia (`localDate`
- * zamienia chwilę na dzień w Warszawie). `due` — ten dzień (bez godziny), żeby Kalendarz ustawił wpis jak zadanie.
+ * Zrobione zakupy list moich grup (PWD-11 A): każde w dniu planu, a zakupy bez dnia — w dniu zrobienia (`localDate`
+ * zamienia chwilę na dzień w Warszawie). Cofnięte (usunięte) i z usuniętej listy — nie. Serwer trzyma je
+ * config.retention.TRIP_DAYS dni.
  */
 export function doneTrips(t: Tables, groups: Map<string, GroupItem>, localDate: (iso: string) => string): DoneTrip[] {
   const out: DoneTrip[] = [];
-  for (const [id, raw] of Object.entries(t.lists ?? {})) {
-    const l = asList(raw);
-    const g = groups.get(l.group_id);
-    if (l.deleted_at !== null || l.kind !== 'shopping' || !g || raw.trip_done_at == null) continue;
-    const at = String(raw.trip_done_at);
-    const date = raw.trip_done_date == null ? localDate(at) : String(raw.trip_done_date);
-    out.push({ ...tripItem(t, id, l, g, { date, time: null, responsibleId: null }), completed_at: at });
+  for (const raw of Object.values(t.shopping_trips ?? {})) {
+    const lr = t.lists?.[String(raw.list_id)];
+    const l = lr ? asList(lr) : null;
+    const g = l ? groups.get(l.group_id) : undefined;
+    if (raw.deleted_at != null || !l || !g || l.deleted_at !== null) continue;
+    const at = String(raw.done_at);
+    const date = raw.planned_date == null ? localDate(at) : String(raw.planned_date);
+    out.push({ ...tripItem(t, l.id, l, g, { date, time: null, responsibleId: null }), id: String(raw.id), completed_at: at });
   }
-  return out;
+  return out.sort((a, b) => a.completed_at.localeCompare(b.completed_at) || a.id.localeCompare(b.id));
 }
 
 /**

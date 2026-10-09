@@ -9,6 +9,7 @@ import * as Application from 'expo-application';
 
 import { WHATS_NEW_SEEN } from '../../features/today/WhatsNew';
 import { whatsNewEntries } from '../../i18n/whats-new.pl';
+import { scopeRowId } from '../../domain/views/my-scope';
 import { MY_SCOPE_KEY } from '../my-scope';
 import { GROUP_FILTER_KEY } from '../group-filter';
 import { RootStack } from '../navigation';
@@ -68,7 +69,8 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     const scope = await screen.findByLabelText('W Moich sprawach');
     expect(within(scope).getByLabelText('Wszystko').props.accessibilityState.selected).toBe(true);
     await press(within(scope).getByLabelText('Przypisane do mnie i wydarzenia'));
-    expect(s.services.local!.load(MY_SCOPE_KEY)).toBe('{"gk":"mineAndEvents"}');
+    // Zapis na koncie: wiersz zakresu przy moim członkostwie (widzi go tylko to konto).
+    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } });
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
@@ -78,6 +80,17 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     await press(screen.getByTestId(`group-u-me`));
     await screen.findByTestId('screen-group');
     expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
+  });
+
+  it('zakres z konta (drugi telefon): wiersz pobrany z serwera działa od razu; dawny zapis telefonu przechodzi na konto raz', async () => {
+    const base = sampleBase();
+    put(base, 'my_day_scopes', scopeRowId('mk'), { id: scopeRowId('mk'), group_id: 'gk', member_id: 'mk', scope: 'mine', deleted_at: null, version: 2 });
+    await open(base);
+    expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
+    const s = await open(sampleBase(), { [MY_SCOPE_KEY]: '{"gk":"mineAndEvents","stara":"mine"}' });
+    expect(s.store.dispatched).toEqual([{ kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } }]);
+    expect(s.services.local!.load(MY_SCOPE_KEY)).toBeNull();
+    expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
   });
 
   it('po dołączeniu do dużej grupy — podpowiedź; znika po wybraniu zakresu', async () => {
@@ -233,10 +246,10 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
 
   it('PWD-11 A (M-280): zrobione zakupy przekreślone w dniu planu, bez pola odhaczania', async () => {
     const base = sampleBase();
-    put(base, 'lists', 'lz', { ...base.lists!.lz!, trip_done_at: '2026-10-07T07:00:00Z', trip_done_date: '2026-10-06' });
+    put(base, 'shopping_trips', 'tr1', { id: 'tr1', group_id: 'gf', list_id: 'lz', planned_date: '2026-10-06', done_at: '2026-10-07T07:00:00Z', deleted_at: null, version: 1 });
     await calendar(base);
     await press(screen.getByTestId('day-2026-10-06'));
-    const row = screen.getByTestId('cal-trip-lz-done');
+    const row = screen.getByTestId('cal-trip-done-tr1');
     expect(within(row).queryByRole('checkbox')).toBeNull();
     expect(within(row).getByText('Zakupy: Zakupy na weekend').props.style.textDecorationLine).toBe('line-through');
     expect(within(row).getByText(/zrobione dziś/)).toBeTruthy();
@@ -255,6 +268,21 @@ describe('M-203: zegar dnia', () => {
     clock.at = { y: 2026, m: 10, d: 8, hh: 0, mm: 1 };
     clock.ms = Date.UTC(2026, 9, 7, 22, 1);
     await act(async () => jest.advanceTimersByTime(2 * 60_000));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Czwartek, 8 października');
+  });
+
+  it('czekanie najwyżej godzinę i liczenie od nowa (bez założeń o zmianie czasu): wieczorem bez zmiany, po północy — nowy dzień', async () => {
+    jest.useFakeTimers();
+    const clock = { at: { ...NOW, hh: 21, mm: 0 }, ms: Date.UTC(2026, 9, 7, 19, 0) };
+    const s = setup({ clock });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    clock.at = { ...NOW, hh: 22, mm: 1 };
+    clock.ms += 61 * 60_000;
+    await act(async () => jest.advanceTimersByTime(61 * 60_000));
+    expect(screen.getByTestId('today-range-label').props.children).toBe('Środa, 7 października');
+    clock.at = { y: 2026, m: 10, d: 8, hh: 0, mm: 30 };
+    await act(async () => jest.advanceTimersByTime(61 * 60_000));
     expect(screen.getByTestId('today-range-label').props.children).toBe('Czwartek, 8 października');
   });
 });

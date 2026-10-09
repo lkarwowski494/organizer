@@ -932,7 +932,7 @@ export const strings = {
   'myScope.all': 'Wszystko',
   'myScope.mineAndEvents': 'Przypisane do mnie i wydarzenia',
   'myScope.mine': 'Tylko przypisane do mnie',
-  'myScope.info': 'Co z tej grupy pokazywać w Moich sprawach, przypomnieniach, porannym podsumowaniu i kalendarzu iPhone’a. Ustawienie tego telefonu — nikt z grupy go nie widzi.',
+  'myScope.info': 'Co z tej grupy pokazywać w Moich sprawach, przypomnieniach, porannym podsumowaniu i kalendarzu iPhone’a. Ustawienie Twojego konta (także na innych urządzeniach) — nikt z grupy go nie widzi.',
   'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz niżej „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
   // PW-38 A (M-119, D192): chipy grup filtrują Moje sprawy i Kalendarz.
   'filter.label': 'Pokaż grupy',
