@@ -396,13 +396,53 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
       await write(text);
       expect(shop()).toBeNull();
     }
+    // Audyt 3 (N-45, Q14 B): grupa z chipa bez listy zakupów — lista innej grupy, z jej nazwą.
     await pickGroup('Osobiste');
     await write('mleko');
+    expect(within(shop()!).getByText('Na listę: Zakupy na weekend (Rodzina)')).toBeTruthy();
+    // Grupa wskazana tekstem zostaje — wtedy informacja, że listy nie ma, i zadanie.
+    await write('#Osobiste mleko');
     expect(shop()).toBeNull();
     expect(screen.getByText('„mleko” to produkt? W grupie „Osobiste” nie ma listy zakupów, więc dodasz zadanie.')).toBeTruthy();
     // „#Rodzina” — podpowiedź listy tej grupy, jak chip.
     await write('#Rodzina mleko');
     expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
+  });
+
+  it('Q14 B: z „Osobistych” produkt trafia na listę zakupów innej grupy; pasek mówi, na którą', async () => {
+    const { store } = await openIn('u-me');
+    await write('masło');
+    await press(shop()!);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'masło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expect(within(screen.getByTestId('undo-bar')).getByText('Dodano produkt: masło · Zakupy na weekend (Rodzina)')).toBeTruthy();
+  });
+
+  it('N-44 (Q6d A): dziecko z kontem — „#Rodzina szampon” to nie „Nie ma grupy”; produkt na listę zakupów tej grupy', async () => {
+    const base = sampleBase();
+    put(base, 'group_members', 'mf', { ...base.group_members!.mf!, role: 'child' });
+    const { store } = await openIn('u-me', base);
+    await write('#Rodzina szampon');
+    await add();
+    const panel = screen.getByTestId('tag-child');
+    expect(within(panel).getByText('W grupie „Rodzina” dopisujesz tylko zakupy')).toBeTruthy();
+    expect(within(panel).getByText('Zadania i wydarzenia dodaje tam dorosły. Produkt możesz dopisać do listy zakupów:')).toBeTruthy();
+    expect(screen.queryByTestId('tag-unknown')).toBeNull();
+    await press(within(panel).getByLabelText('Na listę: Zakupy na weekend (Rodzina)'));
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'szampon', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expect(screen.queryByTestId('tag-child')).toBeNull();
+    expect(screen.getByTestId('quick-add').props.value).toBe('');
+    // Bez listy zakupów — tylko wyjaśnienie i „Anuluj”.
+    delete base.lists!.lz;
+    delete base.tasks!['s-chleb'];
+    delete base.tasks!['s-maslo'];
+    await openIn('u-me', base);
+    await write('#Rodzina szampon');
+    await add();
+    const none = screen.getByTestId('tag-child');
+    expect(within(none).getByText('Zadania i wydarzenia dodaje tam dorosły — poproś go o to. Listy zakupów w tej grupie nie ma.')).toBeTruthy();
+    expect(within(none).getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual(['Anuluj']);
+    await press(within(none).getByLabelText('Anuluj'));
+    expect(screen.queryByTestId('tag-child')).toBeNull();
   });
 
   it('kilka list zakupów — ta, której ostatnio używano', async () => {

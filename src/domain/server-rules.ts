@@ -123,8 +123,10 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
     if (m.role === 'child' && changed) reject('forbidden:child');
     if (m.role === 'child' && !same(row.completed_at, old.completed_at) && !childOwnsTask(t, String(old.id), m.member_id)) reject('forbidden:not_own');
     if (old.deleted_at != null && row.deleted_at == null && row.parent_id != null && t.tasks?.[String(row.parent_id)]?.deleted_at != null) reject('deleted:parent');
-  } else if (m.role === 'child') reject('forbidden:child');
+  }
   const l = t.lists?.[String(row.list_id)];
+  // D34 z wyjątkiem Q6d A (audyt 3, 20261010120000): dziecko dopisuje tylko produkt — pozycję główną listy zakupów.
+  if (!old && m.role === 'child' && !(l?.kind === 'shopping' && childItem(row))) reject('forbidden:child');
   if (!l || l.group_id !== row.group_id) return reject('invalid_list');
   if (l.deleted_at != null && row.deleted_at == null) reject('deleted:list');
   if (!memberCanSeeList(t, m.member_id, l)) reject('forbidden');
@@ -136,6 +138,10 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
   const assigneeChanged = !old || !same(row.assignee_member_id, old.assignee_member_id);
   if (assigneeChanged && row.assignee_member_id != null && !memberCanSeeList(t, row.assignee_member_id, l)) reject('invalid_assignee');
 }
+
+/** Pozycja dopisana przez dziecko: bez osoby, terminu, wydarzenia, serii, powtarzania, notatki i odhaczenia. */
+const CHILD_ITEM_EMPTY = ['parent_id', 'assignee_member_id', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'series_id', 'repeat', 'note'];
+const childItem = (row: Row) => (row.deadline_mode ?? 'none') === 'none' && CHILD_ITEM_EMPTY.every((k) => row[k] == null);
 
 function tasksEventGuard(t: ServerTables, row: Row, old: Row | null) {
   // Seria tylko przy utworzeniu (series_id nie ma wśród kolumn do zmiany).
@@ -274,6 +280,8 @@ function groupMembersGuard(me: Me | null, user: string, row: Row, old: Row | nul
   if (!same(row.role, old.role) && row.user_id == null && row.role !== 'child') reject('forbidden:role');
   const named = !same(row.display_name, old.display_name) || !same(row.color, old.color);
   if (named && !self && actor !== 'owner' && !(actor === 'admin' && old.user_id == null)) reject('forbidden');
+  // group_members_child_link (20261010120000, Q6b A): na dziecko tylko konto połączone kiedyś z profilem dziecka.
+  if (row.role === 'child' && old.role !== 'child' && row.user_id != null && old.child_linked_at == null) reject('forbidden:role');
   // group_members_week_a_guard (BEFORE UPDATE OF week_a … WHEN zmiana): tydzień A ustawia dorosły.
   if (!same(row.week_a, old.week_a) && (actor === '' || actor === 'child')) reject('forbidden');
 }
