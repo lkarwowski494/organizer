@@ -698,6 +698,9 @@ export const strings = {
   // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
   'rejected.cmd.move_task': 'Przeniesienie zadania',
   'rejected.cmd.split_event': (title: string) => `Zmiana „to i następne”: „${title}”`,
+  // Audyt 3 (N-3): koniec serii na całym łańcuchu i jego cofnięcie.
+  'rejected.cmd.end_series': (title: string) => `Odwołanie serii: „${title}”`,
+  'rejected.cmd.restore_series': (title: string) => `Cofnięcie odwołania serii: „${title}”`,
   'rejected.cmd.staple_add': 'Dodanie do stałych zakupów',
   'rejected.cmd.staple_remove': 'Usunięcie ze stałych zakupów',
   'rejected.entity': (e: string) =>
@@ -716,7 +719,10 @@ export const strings = {
   'confirm.keepSubtasks': 'Zostaw podzadania',
   'confirm.allDone': 'Oznacz wszystko jako zrobione',
   'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
-  'undo.deleted': (title: string) => `Usunięto: ${title}`,
+  // Audyt 3 (N-150): z rodzajem, jak „Dodano zadanie/produkt/wydarzenie” i „Usunięto listę/grupę/serię”.
+  'undo.taskDeleted': (title: string) => `Usunięto zadanie: ${title}`,
+  'undo.itemDeleted': (item: string) => `Usunięto produkt: ${item}`,
+  'undo.eventDeleted': (title: string) => `Usunięto wydarzenie: ${title}`,
   'undo.doneWithSubtasks': (title: string, n: number) => `Zrobione: ${title} i ${n} ${plural(n, { one: 'podzadanie', few: 'podzadania', many: 'podzadań' })}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,

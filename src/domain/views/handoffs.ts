@@ -5,8 +5,11 @@
  * Zadanie powtarzane przekazuje się jako obowiązek, nie jeden termin (decyzja właściciela z 8.10.2026; migracja
  * 20261008330000_handoff_obligation): przekazanie dotyczy niezrobionych terminów łańcucha (`handoffSubjects`).
  */
+import { chainParts } from '../event-chain';
+import { parseIsoDate } from '../format';
+import { occurrences } from '../rrule';
 import type { NewOp, Row } from '../sync-engine/client';
-import { asEvent, asOverride } from './event-rows';
+import { asEvent, asOverride, ruleOf } from './event-rows';
 import { groupsView } from './index';
 import { asList, asMember, asTask, type Member, rows, type Tables } from './model';
 import { nextId } from './task-repeat';
@@ -48,19 +51,36 @@ export const handoffKey = (entity: string, entityId: string, occurrenceDate: str
 
 /**
  * Czego przekazanie dotyczy teraz. Zadanie: niezrobione terminy łańcucha od przekazanego — ten i kolejne kopie (nextId) —
- * tak jak przyjęcie na serwerze (private.handoffs_guard); zrobione zostają w historii nadawcy. Wydarzenie i zakupy: sam
- * przedmiot, jeśli nie jest w koszu. Pusto — nie ma czego przyjmować (zrobione jednorazowe, w koszu, nieznane; audyt 2,
- * T-5: „Przyjmij” przy zrobionym zadaniu przepisywało historię).
+ * tak jak przyjęcie na serwerze (private.handoffs_guard); zrobione zostają w historii nadawcy. Zakupy: sam przedmiot,
+ * jeśli nie jest w koszu. Wydarzenie: cała seria — każda żywa część łańcucha po „to i następne” (audyt 3, N-113; serwer
+ * przy przyjęciu zmienia osobę we wszystkich trwających częściach), najpierw przekazana; jeden termin — tylko gdy się
+ * odbywa (nie odwołany i jest w regule, N-115). Pusto — nie ma czego przyjmować (zrobione jednorazowe, w koszu, nieznane;
+ * audyt 2, T-5: „Przyjmij” przy zrobionym zadaniu przepisywało historię). Przekazanie zostaje oczekujące: przywrócenie
+ * terminu albo „Cofnij” przywraca je do skrzynki.
  */
-export function handoffSubjects(t: Tables, h: Pick<Handoff, 'entity' | 'entity_id'>): string[] {
-  if (h.entity !== 'tasks') {
-    const raw = t[h.entity]?.[h.entity_id];
+export function handoffSubjects(t: Tables, h: Pick<Handoff, 'entity' | 'entity_id' | 'occurrence_date'>): string[] {
+  if (h.entity === 'lists') {
+    const raw = t.lists?.[h.entity_id];
     return raw && raw.deleted_at == null ? [h.entity_id] : [];
+  }
+  if (h.entity === 'events') {
+    const raw = t.events?.[h.entity_id];
+    if (h.occurrence_date !== null) return raw && raw.deleted_at == null && occurrenceActive(t, raw, h.occurrence_date) ? [h.entity_id] : [];
+    const parts = raw ? chainParts(t.events!, h.entity_id).map((e) => String(e.id)) : [];
+    return parts.sort((a, b) => Number(b === h.entity_id) - Number(a === h.entity_id));
   }
   const out: string[] = [];
   // Łańcuch kończy się na pierwszym id, którego nie ma; kolejne id wynika z poprzedniego, więc cyklu nie ma.
   for (let id = h.entity_id, raw = t.tasks?.[id]; raw; id = nextId(id), raw = t.tasks?.[id]) if (raw.deleted_at == null && raw.completed_at == null) out.push(id);
   return out;
+}
+
+/** Termin się odbywa: jest w regule serii i nie jest odwołany (jak occurrenceState na ekranie wydarzenia). */
+function occurrenceActive(t: Tables, raw: Row, date: string): boolean {
+  const e = asEvent(raw);
+  const day = parseIsoDate(date);
+  if (occurrences(parseIsoDate(e.start_date), ruleOf(e), day, day).length === 0) return false;
+  return !Object.values(t.event_overrides ?? {}).some((o) => o.event_id === e.id && o.occurrence_date === date && o.deleted_at == null && o.cancelled === true);
 }
 
 function enrich(t: Tables, userId: string, pick: (h: Handoff, me: string) => boolean, other: (h: Handoff) => string): HandoffItem[] {

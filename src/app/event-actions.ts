@@ -1,13 +1,14 @@
 /**
  * Usuwanie wydarzeń przesunięciem wiersza (audyt 2, M-239 — jak zadania; D187): bez pytania, z paskiem „Cofnij”
  * i koszem. Wiersz to jeden termin: jednorazowe wydarzenie się usuwa, termin serii — odwołuje (tylko ten, D57; resztę
- * serii zmienia się na ekranie wydarzenia); wiersz serii na ekranie grupy usuwa całą serię. Gdy do terminu są podpięte
+ * serii zmienia się na ekranie wydarzenia); wiersz serii na ekranie grupy usuwa całą serię — wszystkie jej części po
+ * „to i następne” (audyt 3, N-3: polecenie end_series). Gdy do terminu są podpięte
  * zadania, najpierw pytanie, co z nimi (D14) — na ekranie wydarzenia, od razu otwarte.
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { inverseOps } from '../domain/views/commands';
+import { inverseOps, plainChanges } from '../domain/views/commands';
 import { affectedByCancel, seriesCopiesCancelOps } from '../domain/views/event-tasks';
 import { cancelEvent, eventDetail, fieldsOf } from '../domain/views/events';
 import { strings } from '../i18n/strings.pl';
@@ -31,10 +32,12 @@ export function useEventActions() {
       const scope = d.rule === null || series ? 'all' : 'this';
       if (affectedByCancel(tables, d, date, scope).length) return nav.navigate('Event', { eventId, date, cancel: scope });
       const ops = [...cancelEvent(d, date, scope), ...seriesCopiesCancelOps(tables, d, date, scope)];
-      // Same usunięcia i zmiany wierszy, bez poleceń serwera — odwrotność zawsze istnieje.
+      // Usunięcia, zmiany wierszy i koniec serii (end_series, cofa go restore_series) — odwrotność zawsze istnieje.
       const back = inverseOps(tables, ops)!;
       store.dispatch(ops);
-      undo.show(strings[scope === 'all' ? 'undo.deleted' : 'undo.eventCancelled'](fieldsOf(d, date, 'this').title), { ops: back }, { changed: ops });
+      // Audyt 3 (N-150): ten sam napis co na ekranie wydarzenia — „Usunięto wydarzenie / serię”, „Odwołano”.
+      const title = fieldsOf(d, date, 'this').title;
+      undo.show(strings[d.rule === null ? 'undo.eventDeleted' : scope === 'all' ? 'undo.seriesDeleted' : 'undo.eventCancelled'](title), { ops: back }, { changed: plainChanges(tables, ops) });
     },
   };
 }
