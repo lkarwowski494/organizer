@@ -4,11 +4,14 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
 - runFlow: common/launch.yaml
 - tapOn:
     id: "tab-Calendar"
+# Jak w 04: koniec ruchu przed dotknięciem przycisku na końcu treści.
 - scrollUntilVisible:
     element:
       id: "calendar-add-event"
     direction: DOWN
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     id: "calendar-add-event"
 - extendedWaitUntil:

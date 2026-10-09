@@ -75,10 +75,10 @@ describe('powtarzanie zadania', () => {
     // Termin 7.10.2026 to środa.
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } }]);
     expect(screen.getByText('Po odhaczeniu pojawi się następne z kolejnym terminem.')).toBeTruthy();
-    await press(screen.getByLabelText('W poniedziałek'));
+    await press(screen.getByLabelText('pon., w poniedziałek'));
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=MO,WE' } }]);
-    await press(screen.getByLabelText('W poniedziałek'));
-    await press(screen.getByLabelText('W środę'));
+    await press(screen.getByLabelText('pon., w poniedziałek'));
+    await press(screen.getByLabelText('śr., w środę'));
     // Ostatniego dnia nie da się odznaczyć.
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } }]);
     await press(within(ed).getByLabelText('Co miesiąc'));
