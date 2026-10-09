@@ -10,17 +10,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { loadLocal, readState, rebuildNewer, saveLocal, wipeSynced, writeState } from '../data/store';
 import type { DbAdapter } from '../data/db/adapter';
 import { isNewerSchema, migrate } from '../data/db/migrations';
-import { adoptDevice } from '../domain/sync-engine/client';
+import { adoptDevice, materialize } from '../domain/sync-engine/client';
 import { strings } from '../i18n/strings.pl';
 import type { AccountApi, ClientError } from '../sync/account';
-import { SyncRuntime } from '../sync/runtime';
+import { SyncRuntime, type Timer } from '../sync/runtime';
+import { groupWaker } from '../sync/wake';
+import { addDays, formatIsoDate } from '../domain/civil-date';
+import { wakeGroups } from '../domain/reminder-wake';
 import type { SyncTransport } from '../sync/transport';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { Body, Button, Screen, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
+import { setLiveSession } from './background';
 import { localNow } from './clock';
+import { storedReminderPlan } from './reminders';
 import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
 import { reportSelfCheck } from './self-check';
@@ -77,6 +82,11 @@ export type RootDeps = {
   setTimer?: (fn: () => void, ms: number) => () => void;
 };
 
+const defaultTimer: Timer = (fn, ms) => {
+  const t = setTimeout(fn, ms);
+  return () => clearTimeout(t);
+};
+
 /** Bez globalnego ErrorUtils (np. środowisko testów) — nic nie podmieniamy. */
 const NO_ERROR_UTILS = { getGlobalHandler: () => () => {}, setGlobalHandler: () => {} };
 
@@ -125,6 +135,9 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
   const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
+  // D159: po moich zmianach, które mogą zmienić czyjeś przypomnienia — ciche powiadomienia dla członków grup.
+  const waker = useMemo(() => groupWaker((r) => deps.account.notifyGroups(r), deps.setTimer ?? defaultTimer), [deps]);
+  useEffect(() => () => waker.stop(), [waker]);
   // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
   const [epoch, setEpoch] = useState(0);
   const runtime = useMemo(() => {
@@ -138,15 +151,14 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       transport: deps.transport,
       now: nowMs,
       newId: deps.newId,
-      setTimer:
-        deps.setTimer ??
-        ((fn, ms) => {
-          const t = setTimeout(fn, ms);
-          return () => clearTimeout(t);
-        }),
+      setTimer: deps.setTimer ?? defaultTimer,
       persist: (prev, next, now) => writeState(db, prev, next, now),
+      onPushed: (ops, res, st) => {
+        const { y, m, d } = localNow(nowMs());
+        waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))));
+      },
     });
-  }, [db, deps, epoch, session.userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [db, deps, epoch, session.userId, waker]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
   useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
@@ -158,12 +170,28 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') asked.current = false;
       runtime.event(s === 'active' ? { t: 'foreground' } : { t: 'background' });
+      // Wyjście z aplikacji: prośba o ciche powiadomienia od razu (iOS zaraz uśpi aplikację).
+      if (s === 'background') void waker.flush();
     });
     return () => {
       sub.remove();
       runtime.stop();
     };
-  }, [runtime]);
+  }, [runtime, waker]);
+
+  // D159: ciche powiadomienie przy działającej aplikacji — pobiera jej pętla (jeden pisarz bazy), potem plan przypomnień.
+  useEffect(
+    () =>
+      setLiveSession({
+        userId: session.userId,
+        refresh: async () => {
+          await runtime.refreshNow();
+          if (!deps.push || (await deps.push.status()) !== 'granted') return;
+          await deps.push.replaceReminders(await storedReminderPlan(materialize(runtime.getSnapshot().state), session.userId, nowMs(), prefs, local));
+        },
+      }),
+    [runtime, deps, session.userId, nowMs, prefs, local],
+  );
 
   // M-10: sieć z NetInfo — „Offline · N zmian czeka” i natychmiastowa próba po powrocie sieci.
   useEffect(() => deps.network?.subscribe((online) => runtime.event({ t: 'network', online })), [deps, runtime]);
@@ -238,7 +266,7 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
 
   const services: AppServices = useMemo(
     () => ({
-      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }) },
+      store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }), clearRejected: () => runtime.clearRejected() },
       account,
       calendar: deps.calendar,
       travel: deps.travel,

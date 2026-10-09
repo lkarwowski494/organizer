@@ -2,6 +2,7 @@
  * Scenariusze klienta synchronizacji krok po kroku (uzupełnienie symulacji losowej).
  */
 import {
+  clearRejected,
   ENTITIES,
   initialState,
   materialize,
@@ -107,6 +108,10 @@ describe('klient synchronizacji — scenariusze', () => {
     expect(a.rejected).toHaveLength(1); // seq 99 nie jest z tej kolejki
     a = onPushResponse(mutate(a, { kind: 'patch', entity: 'tasks', id: 'n2', set: {} }, newId), { last_seq: 2, results: [{ seq: 2, status: 'rejected' }] });
     expect(a.rejected[1]!.code).toBe('unknown');
+    // „Wyczyść listę” (D190): lista pusta; pusta zostaje tym samym stanem.
+    const cleared = clearRejected(a);
+    expect(cleared.rejected).toEqual([]);
+    expect(clearRejected(cleared)).toBe(cleared);
   });
 
   it('paczka ograniczona do PUSH_BATCH_MAX i bez potwierdzonych operacji', () => {

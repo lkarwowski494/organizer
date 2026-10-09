@@ -108,6 +108,27 @@ describe('dojazd (D115–D117)', () => {
     await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
   });
 
+  it('D160 (koordynator): wydarzenie tylko przez dziecko, dziecko „nie będzie” — bez „Wyjdź o” i bez liczenia dojazdu', async () => {
+    const b = base();
+    b.events!.basen = { ...b.events!.basen!, audience: 'members' };
+    put(b, 'event_participants', 'p-kuba', { id: 'p-kuba', event_id: 'basen', member_id: 'kuba', deleted_at: null, version: 1 });
+    const travel = fakeTravel();
+    const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
+    await s.renderApp(<RootStack />);
+    await flush();
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    const calls = travel.eta.mock.calls.length;
+    s.store.pull((x) => ({ ...x, event_rsvps: { r: { id: 'r', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'kuba', answer: 'no', deleted_at: null, version: 1 } } }));
+    await waitFor(() => expect(screen.queryByText(/Wyjdź o/)).toBeNull());
+    expect(travel.eta.mock.calls.length).toBe(calls);
+  });
+
+  it('D159: ostatni wynik dojazdu zapisany na telefonie — z niego „Czas wyjść” w tle (to samo miejsce i środek)', async () => {
+    const { services } = await open();
+    await waitFor(() => expect(screen.getByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy());
+    expect(JSON.parse(services.local!.load('travelResults')!)).toEqual({ 'basen|2026-10-07': { seconds: 25 * 60, mode: 'driving', location: 'Basen Delfin, ul. Wodna 1' } });
+  });
+
   it('audyt 2 (N-21): zgoda na lokalizację włączona w Ustawieniach iPhone’a — po powrocie do aplikacji dojazd się liczy', async () => {
     const app = appStateEvents();
     try {

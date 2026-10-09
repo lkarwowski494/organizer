@@ -61,7 +61,7 @@ select is_empty($$ select t from pg_temp.grouped() t
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p
            where p.pronamespace = 'public'::regnamespace and not has_function_privilege('authenticated', p.oid, 'execute')
              and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')),
-  array['assignment_push_claim', 'drop_push_token', 'handoff_push_claim', 'notify_rate_hit', 'push_claim_release'],
+  array['assignment_push_claim', 'drop_push_token', 'handoff_push_claim', 'notify_rate_hit', 'push_claim_release', 'wake_push_claim', 'wake_push_release'],
   'funkcje public tylko dla service_role: dokładnie te (telefon ich nie wywoła — każda nowa otwarta funkcja potrzebuje testu RLS)');
 
 select * from finish();

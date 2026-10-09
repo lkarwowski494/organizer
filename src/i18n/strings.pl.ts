@@ -240,6 +240,7 @@ export const strings = {
   'name.error.empty': 'Wpisz imię.',
   'name.error.tooLong': (max: number) => `Imię może mieć najwyżej ${max} ${plural(max, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
   'form.addedEvent': (title: string, group: string) => `Dodano wydarzenie: ${title} · ${group}`,
+  'form.addedList': (name: string, group: string) => `Dodano listę: ${name} · ${group}`,
   'mention.ask': (name: string) => `Kogo masz na myśli: @${name}?`,
   'mention.pick': (person: string, group: string) => `${person} · ${group}`,
   // Audyt 2 (M-169): nieznane „@imię” — pytanie zamiast cichego dodania do Osobistych.
@@ -291,6 +292,9 @@ export const strings = {
   // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
   'lists.emptyShopping': 'Lista jest pusta. Dopisz pierwszy produkt polem powyżej.',
   'lists.delete': 'Usuń listę',
+  // D187 (audyt 2: PW-16 A, M-121): jedyne pytanie przy usuwaniu rzeczy, która wraca z kosza — lista razem z zadaniami.
+  'lists.deleteConfirm': (name: string, n: number, shopping: boolean) =>
+    `Usunąć listę „${name}” i ${n} ${shopping ? plural(n, { one: 'pozycję', few: 'pozycje', many: 'pozycji' }) : plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}? Wrócą razem z listą, jeśli przywrócisz ją z kosza.`,
   'lists.expired': 'minęło',
   'lists.expiredRun': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} minęło`,
   'lists.runShow': 'dotknij, by zobaczyć',
@@ -399,7 +403,6 @@ export const strings = {
   'event.change': 'Zmień',
   'event.cancel': 'Odwołaj',
   'event.delete': 'Usuń wydarzenie',
-  'event.deleteConfirm': 'Usunąć to wydarzenie u wszystkich w grupie?',
   'event.scopeQuestionEdit': 'Co zmienić?',
   'event.scopeQuestionCancel': 'Co odwołać?',
   'event.scope.this': 'Tylko to wydarzenie',
@@ -493,6 +496,7 @@ export const strings = {
   'groups.rotate': 'Zmień ID grupy',
   'groups.rotateConfirm': 'Zmienić ID grupy? Wszystkie wysłane kody przestaną działać. Członkowie grupy zostają.',
   'groups.revoke': 'Unieważnij kod',
+  'groups.revokeConfirm': 'Unieważnić kod? Kto go jeszcze nie użył, już z nim nie dołączy — tego nie da się cofnąć. Nowy kod utworzysz w każdej chwili.',
   'groups.addChild': 'Dodaj dziecko (bez konta)',
   'groups.childName': 'Imię dziecka',
   'groups.leave': 'Wyjdź z grupy',
@@ -508,9 +512,6 @@ export const strings = {
   // Audyt 2 (A-9): nazwa koloru po polsku (VoiceOver czytał klucz, np. „teal”); klucze z config/theme.ts (groupLines).
   'groups.colorA11y': (key: string) => `Kolor: ${({ blue: 'niebieski', orange: 'pomarańczowy', green: 'zielony', violet: 'fioletowy', teal: 'morski', pink: 'różowy', cyan: 'turkusowy', red: 'czerwony' } as Record<string, string>)[key] ?? key}`,
   'groups.delete': 'Usuń grupę',
-  'groups.deleteConfirm': (days: number) =>
-    `Grupa zniknie u wszystkich. Przez ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} możesz ją przywrócić z kosza, potem zostanie usunięta na zawsze.`,
-  'groups.deleteYes': 'Usuń do kosza',
   'groups.trash': 'Kosz',
   'groups.trashLeft': (days: number) => `usunięcie za ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}`,
   'groups.restore': (name: string) => `Przywróć: ${name}`,
@@ -615,6 +616,10 @@ export const strings = {
   'settings.rejectedCount': (n: number) => `${n} ${plural(n, { one: 'zmiana', few: 'zmiany', many: 'zmian' })}`,
 
   'rejected.title': 'Odrzucone zmiany',
+  // Decyzja właściciela z 8.10.2026 (audyt 2: PW-30 A, M-137; D190): jednorazowy pasek i czyszczenie listy.
+  'rejected.bar': (n: number) => `Serwer nie przyjął ${n} ${plural(n, { one: 'zmiany', few: 'zmian', many: 'zmian' })}`,
+  'rejected.see': 'Zobacz',
+  'rejected.clear': 'Wyczyść listę',
   'rejected.empty': 'Serwer przyjął wszystkie Twoje zmiany.',
   'rejected.info': 'Serwer ma ostatnie słowo. Te zmiany nie weszły — możesz je wprowadzić jeszcze raz.',
   'rejected.code.forbidden': 'Brak uprawnień',
@@ -661,6 +666,36 @@ export const strings = {
   // Decyzja właściciela z 8.10.2026 (PW-35 A, PW-16 A): usunięcie osoby z grupy bez pytania, z paskiem „Cofnij”.
   'undo.memberRemoved': (name: string) => `Usunięto z grupy: ${name}`,
   'undo.action': 'Cofnij',
+  'undo.groupDeleted': (name: string) => `Usunięto grupę: ${name}`,
+  'undo.stapleRemoved': (name: string) => `Usunięto ze stałych: ${name}`,
+  'swipe.cancel': 'Odwołaj',
+  'swipe.cancelA11y': (title: string) => `Odwołaj: ${title}`,
+
+  // Ostatnie zmiany (decyzja właściciela z 8.10.2026, audyt 2: PW-10 C+A, M-38; D194).
+  'recent.title': 'Ostatnie zmiany',
+  'recent.openHint': 'Otwiera ostatnie zmiany',
+  'recent.info': (n: number) => `Twoje ostatnie zmiany na tym telefonie, najwyżej ${n}. „Cofnij” działa bez limitu czasu, ale nie nadpisze rzeczy, która od tamtej chwili się zmieniła.`,
+  'recent.empty': 'Nie ma jeszcze zmian do cofnięcia.',
+  'recent.undoA11y': (message: string) => `Cofnij: ${message}`,
+  'recent.undone': 'Cofnięto',
+  'recent.stale': 'Nie cofnięto: to zmieniło się od tamtej chwili (u Ciebie albo u kogoś w grupie). Popraw ręcznie, jeśli trzeba.',
+  'recent.staleBar': (message: string) => `Nie cofnięto: ${message} — to się w międzyczasie zmieniło`,
+  'recent.at': (time: string) => `o ${time}`,
+  'recent.lost.server': 'Tej zmiany nie cofniesz już stąd: szła przez serwer, a aplikacja była od tego czasu zamknięta. Usuniętą grupę przywrócisz z Kosza (Grupy), a przywróconą usuniesz na jej ekranie.',
+  'recent.lost.plan': 'Tej zmiany nie cofniesz już stąd: plan lekcji cofa się tylko do zamknięcia aplikacji. Popraw plan na jego ekranie.',
+
+  // Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151).
+  'trash.info': (days: number) => `Usunięte rzeczy czekają tu ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}, potem znikają na dobre. Przywrócić może ten, kto ma prawo je zmieniać.`,
+  'trash.kind.group': 'Grupy',
+  'trash.kind.list': 'Listy',
+  'trash.kind.task': 'Zadania',
+  'trash.kind.item': 'Pozycje zakupów',
+  'trash.kind.event': 'Wydarzenia',
+  'trash.kind.member': 'Osoby',
+  'trash.withTasks': (n: number, shopping: boolean) =>
+    shopping ? `z ${n} ${plural(n, { one: 'pozycją', few: 'pozycjami', many: 'pozycjami' })}` : `z ${n} ${plural(n, { one: 'zadaniem', few: 'zadaniami', many: 'zadaniami' })}`,
+  'trash.showAll': (n: number) => `Pokaż wszystkie (${n})`,
+  'trash.showLess': 'Pokaż mniej',
 
   'task.noAddressee': 'Nikt nie widzi tego zadania w „Moich sprawach”. Wybierz osobę („Dla kogo”) albo ustaw termin.',
 
@@ -848,6 +883,7 @@ export const strings = {
 
   'common.cancel': 'Anuluj',
   'common.back': 'Wróć',
+  'common.close': 'Zamknij',
   'common.error': 'Coś poszło nie tak. Spróbuj jeszcze raz.',
   'common.offlineOnly': 'Ta czynność wymaga internetu.',
   'common.maxLength': (n: number) => `Najwyżej ${n} ${plural(n, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,

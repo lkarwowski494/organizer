@@ -272,3 +272,41 @@ describe('odporność pętli (audyt 2, P2)', () => {
     );
   });
 });
+
+describe('prośba o pobranie w trakcie pobierania nie ginie', () => {
+  const asks: SchedulerEvent[] = [{ t: 'poke', fresh: true }, { t: 'refresh' }, { t: 'foreground' }, { t: 'network', online: true }, { t: 'auth_refreshed' }];
+
+  it.each(asks.map((e) => [e.t, e] as const))('%s w trakcie pobierania — po nim jeszcze jedno', (_t, ask) => {
+    let s = run([[{ t: 'started', what: 'pull' }, T0]]);
+    s = onEvent(s, ask, T0 + 1);
+    s = onEvent(s, { t: 'pull_ok', needMore: false, pending: 0 }, T0 + 2);
+    expect(decide(s, T0 + 2)).toEqual({ do: 'pull' });
+    // To kolejne pobranie zdejmuje prośbę.
+    s = onEvent(onEvent(s, { t: 'started', what: 'pull' }, T0 + 3), { t: 'pull_ok', needMore: false, pending: 0 }, T0 + 4);
+    expect(decide(s, T0 + 4)).toEqual({ do: 'idle' });
+  });
+
+  it('poke bez nowej wersji — bez dodatkowego pobrania; błąd pobrania zdejmuje znacznik (i tak pobierze ponownie)', () => {
+    let s = run([[{ t: 'started', what: 'pull' }, T0], [{ t: 'poke', fresh: false }, T0], [{ t: 'pull_ok', needMore: false, pending: 0 }, T0]]);
+    expect(decide(s, T0)).toEqual({ do: 'idle' });
+    s = run([[{ t: 'started', what: 'pull' }, T0], [{ t: 'poke', fresh: true }, T0], [{ t: 'failed', what: 'pull', error: 'server' }, T0]]);
+    expect(s.repull).toBe(false);
+  });
+
+  it('własność: prośba o pobranie w trakcie pobierania zostawia potrzebę pobrania po jego końcu, po dowolnej historii', () => {
+    fc.assert(
+      fc.property(fc.array(evArb, { maxLength: 30 }), fc.constantFrom(...asks), (before, ask) => {
+        let s = initialScheduler(T0);
+        let t = T0;
+        for (const e of before) s = onEvent(s, e, ++t);
+        s = onEvent(s, { t: 'foreground' }, ++t);
+        s = onEvent(s, { t: 'network', online: true }, ++t);
+        s = onEvent(s, { t: 'started', what: 'pull' }, ++t);
+        s = onEvent(s, ask, ++t);
+        s = onEvent(s, { t: 'pull_ok', needMore: false, pending: 0 }, ++t);
+        return s.needPull;
+      }),
+    );
+  });
+});
+

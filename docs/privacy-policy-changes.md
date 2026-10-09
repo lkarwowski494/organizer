@@ -116,3 +116,13 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
 4. **Nieudane próby dołączenia** znikają z kontem i „do 2 dni” (sprzątanie raz na dobę): `private.delete_account_trash`.
 5. **Grupa w koszu po usunięciu konta właściciela** przechodzi na dorosłego z najdłuższym stażem (M-183), jak grupa
    poza koszem: ten sam plik.
+
+## Zmiany z audytu 2 — przypomnienia bez otwierania aplikacji (D159, 8.10.2026), do akceptu
+1. **Ciche powiadomienia bez treści** do urządzeń członków grupy po zmianie, która może zmienić przypomnienia
+   (`supabase/functions/notify-handoff/handler.ts`, `sendBackground` w `supabase/functions/_shared/apns.ts`: tylko
+   `content-available`). Przez APNs nie idzie żadna treść spraw.
+2. **Stan budzenia przy tokenie** (`private.wake_state`: token, chwila ostatniego wysłania, „czeka zmiana”),
+   `supabase/migrations/20261008490000_reminder_wake.sql`. Kasowany z tokenem (wylogowanie, token odrzucony przez Apple,
+   usunięcie konta — kaskada).
+3. **Ostatni policzony czas dojazdu** zapisany w bazie konta na telefonie (`travelResults`, `src/app/travel.tsx`), żeby
+   „Czas wyjść” działał przy planowaniu w tle. Nie opuszcza telefonu.

@@ -14,6 +14,7 @@ import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
+import { useEventActions } from '../../app/event-actions';
 import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
@@ -34,6 +35,7 @@ import { HiddenDuplicates } from './HiddenDuplicates';
 export function CalendarScreen() {
   const { userId, now } = useServices();
   const actions = useTaskActions();
+  const eventActions = useEventActions();
   const { tables, today } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size, line } = useTheme();
@@ -62,7 +64,10 @@ export function CalendarScreen() {
   };
   const calRow = ({ entry: x, ...n }: Nested<PlainEntry>) =>
             x.kind === 'event' ? (
-              <EventRow key={x.key} testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              // Audyt 2 (M-239): termin przesuwa się jak w Moich sprawach — jednorazowe „Usuń”, termin serii „Odwołaj”.
+              <SwipeRow key={x.key} title={x.event.title} enabled={roles.get(x.event.groupId)?.role !== 'child'} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => eventActions.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-cal-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
+              <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              </SwipeRow>
             ) : x.task.trip ? (
               <StationRow
                 key={x.key}
@@ -77,7 +82,7 @@ export function CalendarScreen() {
                 onOpen={() => nav.navigate('List', { listId: x.task.id })}
               />
             ) : (
-              <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)}>
+              <SwipeRow key={x.key} title={x.task.title} enabled={roles.get(x.task.group_id)?.role !== 'child'} onDelete={() => actions.remove(x.task)} testID={`swipe-cal-${x.task.id}`}>
                 <StationRow
                   testID={`cal-${x.task.id}`}
                   title={x.task.title}

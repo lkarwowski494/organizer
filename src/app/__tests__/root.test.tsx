@@ -5,11 +5,13 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 
+import { config } from '../../config';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { migrate } from '../../data/db/migrations';
 import { writeState } from '../../data/store';
 import { initialState, mutate, type PullResponse, type PushResponse } from '../../domain/sync-engine/client';
 import { type SyncTransport, TransportError } from '../../sync/transport';
+import { refreshInBackground } from '../background';
 import { type RootDeps, Root, type Session } from '../Root';
 import { type ServerTables, serverVerdict } from '../../domain/server-rules';
 import { e2eLegacyPrefs } from '../e2e';
@@ -307,6 +309,66 @@ describe('korzeń aplikacji', () => {
     await t.signIn({ userId: ME, displayName: 'Ala' });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     await waitFor(() => expect(t.pulls()).toBeGreaterThan(0));
+  });
+});
+
+describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
+  const session = { current: async () => ({ userId: ME, displayName: 'Ala' }), onChange: () => () => {} };
+  const quickAdd = async (text: string) => {
+    await screen.findByText('Osobiste');
+    await fireEvent.changeText(screen.getByTestId('quick-add'), text);
+    await fireEvent.press(screen.getByLabelText('Dodaj'));
+  };
+
+  it('moja zmiana z terminem w oknie planu — prośba o ciche powiadomienia dla grupy po wysłaniu', async () => {
+    const t = makeDeps({ session });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await quickAdd('mleko jutro');
+    await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
+  });
+
+  it('wyjście z aplikacji wysyła prośbę od razu, bez czekania na koniec serii zmian', async () => {
+    const t = makeDeps({ session });
+    const instant = t.deps.setTimer!;
+    // Czas symulowany jak w makeDeps, ale odstęp prośby o ciche powiadomienia nie mija sam.
+    t.deps.setTimer = (fn, ms) => (ms === config.wake.DEBOUNCE_MS ? () => {} : instant(fn, ms));
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await quickAdd('chleb jutro');
+    await waitFor(() => expect(t.pushes.length).toBeGreaterThan(0));
+    await act(async () => {});
+    expect(t.deps.account.notifyGroups).not.toHaveBeenCalled();
+    await act(() => appStateHandlers.forEach((h) => h('background')));
+    await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
+  });
+
+  it('ciche powiadomienie przy działającej aplikacji: pobiera jej pętla, także w tle, potem plan przypomnień', async () => {
+    const replaceReminders = jest.fn(async () => {});
+    const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const t = makeDeps({ session, push });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByText('Osobiste');
+    await act(() => appStateHandlers.forEach((h) => h('background')));
+    const before = t.pulls();
+    replaceReminders.mockClear();
+    let result = '';
+    await act(async () => {
+      result = await refreshInBackground(t.deps);
+    });
+    expect(result).toBe('new');
+    expect(t.pulls()).toBe(before + 1);
+    expect(replaceReminders).toHaveBeenCalledTimes(1);
+  });
+
+  it('bez zgody na powiadomienia — samo pobranie', async () => {
+    const replaceReminders = jest.fn(async () => {});
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const t = makeDeps({ session, push });
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByText('Osobiste');
+    const before = t.pulls();
+    await act(async () => void (await refreshInBackground(t.deps)));
+    expect(t.pulls()).toBe(before + 1);
+    expect(replaceReminders).not.toHaveBeenCalled();
   });
 });
 

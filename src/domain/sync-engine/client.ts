@@ -258,6 +258,11 @@ export function onPushResponse(state: ClientState, res: PushResponse, req?: { cl
   return { ...state, ackedSeq: acked, rejected: [...state.rejected, ...rejectedNow], legacy: state.legacy.filter((r) => r.upTo > acked) };
 }
 
+/** „Wyczyść listę” odrzuconych zmian (decyzja właściciela z 8.10.2026, audyt 2: PW-30 A, M-137; D190). */
+export function clearRejected(state: ClientState): ClientState {
+  return state.rejected.length === 0 ? state : { ...state, rejected: [] };
+}
+
 /**
  * Zapytanie o zmiany. Całe zapytanie (`ackedAtStart`, wysłane kursory) trzeba przekazać do `onPullResponse` tej samej
  * odpowiedzi. Gdy kursory nie obejmują wszystkich znanych encji (aktualizacja aplikacji z nową tabelą, M-58), pobieramy

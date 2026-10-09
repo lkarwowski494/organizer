@@ -43,9 +43,33 @@ export async function sendAlert(a: { env: ApnsEnv; token: string; jwt: string; t
       headers: { authorization: `bearer ${a.jwt}`, 'apns-topic': a.topic, 'apns-push-type': 'alert', 'apns-priority': '10', 'content-type': 'application/json' },
       body: JSON.stringify({ aps: { alert: { title: a.title, body: a.body }, sound: 'default' }, ...(a.data ? { body: a.data } : {}) }),
     });
-    if (res.status === 200) return 'sent';
-    const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;
-    return res.status === 410 || (res.status === 400 && reason === 'BadDeviceToken') ? 'drop' : 'error';
+    return await result(res);
+  } catch {
+    return 'error';
+  }
+}
+
+/** Odpowiedź APNs: 200 wysłane; 410 albo 400 BadDeviceToken — token do usunięcia; reszta — błąd. */
+async function result(res: Response): Promise<SendResult> {
+  if (res.status === 200) return 'sent';
+  const reason = ((await res.json().catch(() => ({}))) as { reason?: string }).reason;
+  return res.status === 410 || (res.status === 400 && reason === 'BadDeviceToken') ? 'drop' : 'error';
+}
+
+/**
+ * Ciche powiadomienie (D159): budzi aplikację w tle bez komunikatu. Apple
+ * (https://developer.apple.com/documentation/usernotifications/pushing-background-updates-to-your-app): „create a remote
+ * notification with an aps dictionary that includes only the content-available key”, nagłówki „apns-push-type … background,
+ * and the apns-priority field with a value of 5”. Bez treści spraw — telefon sam pobiera zmiany.
+ */
+export async function sendBackground(a: { env: ApnsEnv; token: string; jwt: string; topic: string }, fetchFn: typeof fetch = fetch): Promise<SendResult> {
+  try {
+    const res = await fetchFn(`https://${APNS_HOSTS[a.env]}/3/device/${a.token}`, {
+      method: 'POST',
+      headers: { authorization: `bearer ${a.jwt}`, 'apns-topic': a.topic, 'apns-push-type': 'background', 'apns-priority': '5', 'content-type': 'application/json' },
+      body: JSON.stringify({ aps: { 'content-available': 1 } }),
+    });
+    return await result(res);
   } catch {
     return 'error';
   }
