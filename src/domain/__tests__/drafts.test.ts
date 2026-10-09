@@ -33,6 +33,12 @@ describe('szkic formularza (D179, audyt 2 M-123)', () => {
     (raw) => expect(decodeDraft<F>(raw, FIELDS, 1)).toBeNull(),
   );
 
+  it('znacznik danych, na których szkic powstał (audyt 3, N-31) — zapisany i odczytany; obcy typ pomijany', () => {
+    const raw = encodeDraft<F>({ title: 'X' }, 1, 'plan-1')!;
+    expect(decodeDraft<F>(raw, FIELDS, 1)).toEqual({ at: 1, changes: { title: 'X' }, stamp: 'plan-1' });
+    expect(decodeDraft<F>('{"at":1,"changes":{"title":"x"},"stamp":5}', FIELDS, 1)).toEqual({ at: 1, changes: { title: 'x' } });
+  });
+
   it('nieznane pola (np. ze starszej wersji formularza) są pomijane', () => {
     expect(decodeDraft<F>('{"at":1,"changes":{"title":"x","old":2}}', FIELDS, 1)).toEqual({ at: 1, changes: { title: 'x' } });
   });

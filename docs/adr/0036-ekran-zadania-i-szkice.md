@@ -22,10 +22,16 @@
    zmiany), rutyny, planu lekcji, nowej listy i nowej grupy. Szkic to tylko pola zmienione względem chwili otwarcia,
    w lokalnej bazie telefonu, osobno dla konta; przy zmianie istniejącej rzeczy nakłada się na jej obecne dane.
    Przepada po `config.forms.DRAFT_MAX_DAYS` (7 dni, wybór projektowy). Formularz otwarty z wpisanym tekstem
-   („Więcej”, przełącznik rodzaju) startuje z tego tekstu.
+   („Więcej”, przełącznik rodzaju) startuje z tego tekstu; stary szkic zastępuje dopiero pierwsza zmiana, a pola
+   przeniesione przełącznikiem rodzaju są od razu szkicem formularza docelowego (audyt 3, N-138).
+   Audyt 3: przywrócony szkic traci wybory, których już nie ma — grupę (wraca domyślna), osobę spoza grupy („nikt
+   konkretny”, D132) i miniony dzień (pusty; w wydarzeniu dzień z otwarcia) — z napisem; ta sama reguła przy „Zapisz”
+   daje komunikat zamiast odrzucenia przez serwer (N-32, N-144; `domain/views/form-choices.ts`). Szkic planu lekcji
+   pamięta znacznik planu, na którym powstał: plan zmieniony w międzyczasie (przy przywróceniu albo przy otwartym
+   ekranie) daje pytanie „Pokaż obecny plan / Zapisz mój plan” (N-31).
 3. **Pola zapisywane od razu:** jeden mechanizm `ui/live-text.ts` (tytuł i notatka zadania, nazwa listy, pozycja zakupów,
    nazwa grupy, imię osoby): niepoprawny tekst (np. pusty) się nie zapisuje — pole wraca do zapisanej wartości
-   i pokazuje komunikat (audyt 2, M-202).
+   i pokazuje komunikat (audyt 2, M-202). Zapis także przy przejściu do innej aplikacji (audyt 3, N-139).
 4. **Termin w jednym kształcie** (M-245): „Kiedy” — Dziś · Jutro · Inny dzień · Bez terminu (w podzadaniu na początku
    „Jak zadanie nadrzędne”, M-204) i pole „Inny dzień”; godzina bez dnia jest nieaktywna z napisem (M-89), ręcznie
    wpisywana sprawdza się dopiero w pełnym kształcie albo po wyjściu z pola (M-206) — `ui/DueFields.tsx`.

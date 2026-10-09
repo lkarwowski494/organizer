@@ -1,3 +1,4 @@
+import { config } from '../../config';
 import { splitId } from '../event-split';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { seriesEditEffects, seriesEditOps } from '../views/event-tasks';
@@ -51,6 +52,18 @@ describe('rutyny (D113)', () => {
     expect(make({ start: '7' })).toEqual({ error: 'time' });
     expect(make({ days: [] })).toEqual({ error: 'days' });
     expect(make({ steps: ['', ' '] })).toEqual({ error: 'steps' });
+    // Audyt 3 (N-134): krok do config.lengths.TASK_TITLE znaków, nazwa do EVENT_TITLE.
+    expect(make({ steps: ['x'.repeat(config.lengths.TASK_TITLE + 1)] })).toEqual({ error: 'stepLong' });
+    expect(make({ title: 'x'.repeat(config.lengths.EVENT_TITLE + 1) })).toEqual({ error: 'titleLong' });
+  });
+
+  it('audyt 3 (N-32): grupa, której już nie mam, i osoba usunięta z grupy', () => {
+    const t = base();
+    put(t, 'group_members', 'mf', { ...t.group_members!.mf!, deleted_at: '2026-10-07T09:00:00Z' });
+    expect(make({ tables: t })).toEqual({ error: 'group' });
+    const u = base();
+    put(u, 'group_members', 'tymek', { ...u.group_members!.tymek!, deleted_at: '2026-10-07T09:00:00Z' });
+    expect(make({ tables: u })).toEqual({ error: 'people', names: ['Tymek'] });
   });
 
   it('seria rutyny: wystąpienia z rzędu ze wszystkimi krokami; dziś niezrobione nie przerywa', () => {

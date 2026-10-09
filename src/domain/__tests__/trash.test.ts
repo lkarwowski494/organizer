@@ -145,6 +145,21 @@ describe('ostatnie zmiany: sprawdzenie, czy rzecz się nie zmieniła (D194)', ()
   });
 });
 
+describe('odcisk podziału serii (audyt 3, N-35)', () => {
+  it('split_event: nazwa i godziny nowej części; zmiana godziny na innym telefonie = zmienione', () => {
+    const t = world();
+    put(t, 'events', 'nowa', { id: 'nowa', group_id: 'g', title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: null, rrule: 'FREQ=WEEKLY', deleted_at: null });
+    const fp = fingerprint(t, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'nowa', event_id: 'stara' } }]);
+    expect(fp).toEqual([{ entity: 'events', id: 'nowa', alive: true, fields: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: null } }]);
+    // Z serwera godzina wraca z sekundami, reguła z inną datą końca — to nie zmiana.
+    put(t, 'events', 'nowa', { ...t.events!.nowa!, start_time: '17:00:00', rrule: 'FREQ=WEEKLY;UNTIL=20270101' });
+    expect(isStale(t, fp)).toBe(false);
+    put(t, 'events', 'nowa', { ...t.events!.nowa!, start_time: '18:00:00' });
+    expect(isStale(t, fp)).toBe(true);
+    expect(fingerprint(t, [{ kind: 'cmd', cmd: 'move_task', args: {} }])).toEqual([]);
+  });
+});
+
 describe('zapis ostatnich zmian w bazie konta (D194 b)', () => {
   const op = { kind: 'restore', entity: 'tasks', id: 't' } as const;
   it('wpisy wracają; otwarte bez zapisanego cofnięcia — „lost” z powodem; przepis rutyny zostaje', () => {

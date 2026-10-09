@@ -352,6 +352,30 @@ function trashed(t: ServerTables, group: unknown) {
   if (t.groups?.[String(group)]?.deleted_at != null) reject('deleted:group');
 }
 
+/**
+ * Długości tekstów (audyt 3, N-134): CHECK char_length(…) w SQL (23514 → invalid:23514) — liczba znaków (code points),
+ * nie jednostek UTF-16. [najmniej, najwięcej]; null w kolumnie dopuszczającej null przechodzi. Źródła: migracje
+ * 20261006120000_core, 20261006120100_lists_tasks, 20261008100000_events, 20261008130000_event_task_series,
+ * 20261008260000_event_location (kontrakt liczb z config: tests/db/config-sql.test.ts).
+ */
+const L = config.lengths;
+const LENGTHS: { readonly [entity: string]: { readonly [col: string]: readonly [number, number] } } = {
+  groups: { name: [1, L.GROUP_NAME] },
+  group_members: { display_name: [1, config.profile.NAME_MAX_LENGTH] },
+  lists: { name: [1, L.LIST_NAME] },
+  tasks: { title: [1, L.TASK_TITLE], note: [0, L.NOTE] },
+  events: { title: [1, L.EVENT_TITLE], note: [0, L.NOTE], location: [1, config.events.LOCATION_MAX_LENGTH] },
+  event_overrides: { title: [1, L.EVENT_TITLE] },
+  event_task_series: { title: [1, L.TASK_TITLE] },
+};
+
+function lengths(entity: string, row: Row) {
+  for (const [col, [min, max]] of Object.entries(LENGTHS[entity] ?? {})) {
+    const v = row[col];
+    if (typeof v === 'string' && ([...v].length < min || [...v].length > max)) reject('invalid:23514');
+  }
+}
+
 /** Indeksy unikalne (23505 → invalid:23505): jeden wyjątek na dzień, jeden udział i jedna odpowiedź osoby, jedno oczekujące przekazanie. */
 const UNIQUE: { readonly [entity: string]: readonly string[] } = {
   event_overrides: ['event_id', 'occurrence_date'],
@@ -393,6 +417,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     guards(t, user, op.entity, row, null);
     trashed(t, op.group_id);
     if (!insertAllowed(t, user, op.entity, row)) reject('forbidden'); // RLS WITH CHECK: 42501 → forbidden (sync_push)
+    lengths(op.entity, row);
     unique(t, op.entity, row);
     // lists_guard: twórca listy to ja (owner_member_id nadaje serwer).
     return afterGuards(t, op.entity, { ...row, owner_member_id: member(t, op.group_id, user)?.member_id }, null);
@@ -408,6 +433,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     if (!canUpdate(t, user, op.entity, current)) reject('forbidden');
     guards(t, user, op.entity, { ...current, ...op.set }, current);
     trashed(t, op.entity === 'groups' ? op.id : current.group_id);
+    lengths(op.entity, op.set);
     return afterGuards(t, op.entity, { ...current, ...op.set }, current);
   } else {
     const deleting = op.kind === 'delete';
