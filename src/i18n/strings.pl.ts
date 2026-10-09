@@ -710,6 +710,13 @@ export const strings = {
   'defaultGroup.last': 'Ostatnio użyta',
   'defaultGroup.info': 'Od tej grupy zaczyna chip przy polu dodawania w Moich sprawach. „Ostatnio użyta” to ta, którą ostatnio wybrano chipem albo przez #nazwę grupy. W tekście „#Rodzina” wybiera grupę, a „@ja” przypisuje sprawę Tobie.',
   'settings.section.account': 'Konto i dane',
+  'settings.errorReports': 'Wysyłaj raporty błędów',
+  'settings.errorReportsInfo': 'Raport to opis techniczny błędu: komunikat, miejsce w kodzie, nazwa ekranu i wersja aplikacji, a po każdej aktualizacji także wynik samosprawdzenia telefonu. Jest przypisany do Twojego konta. Bez treści list, zadań, wydarzeń i imion. Dotyczy tego iPhone’a.',
+  // Audyt 3 (N-78, Q22 A): licencje bibliotek i krojów pisma z paczki aplikacji.
+  'licenses.title': 'Licencje',
+  'licenses.info': 'Organizer korzysta z bibliotek i krojów pisma o otwartym kodzie. Dotknij nazwy, żeby przeczytać licencję i informację o prawach autorów.',
+  'licenses.meta': (version: string, license: string) => `wersja ${version} · ${license}`,
+  'licenses.publicDomain': 'domena publiczna',
   'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',
   'settings.deleteInfo': (trashDays: number) =>
@@ -764,6 +771,10 @@ export const strings = {
   'auth.info': 'Konto łączy Twoje grupy na wszystkich Twoich urządzeniach. Przy pierwszym logowaniu powstaje grupa osobista — jej sprawy widzisz tylko Ty.',
   // D177: w becie tylko Apple.
   'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
+  // Audyt 3 (N-74, Q3 A): raporty błędów włączone domyślnie — informacja przed logowaniem, wyłączenie w Ustawieniach.
+  'auth.errorReports': 'Gdy coś pójdzie nie tak, aplikacja wysyła nam raport błędu — bez treści Twoich spraw. Wyłączysz to w Ustawieniach → Konto i dane.',
+  // Audyt 3 (N-75): link do polityki prywatności (strona config.privacy.POLICY_URL).
+  'privacy.open': 'Polityka prywatności',
 
   'confirm.doneTitle': 'Zrobione?',
   // Decyzja właściciela z 8.10.2026: odhaczenie zadania z niezrobionymi podzadaniami — razem albo samo zadanie (jak zakupy).
@@ -878,7 +889,8 @@ export const strings = {
   'welcome.again': 'Pokaż wprowadzenie',
   'crash.title': 'Coś poszło nie tak',
   // Audyt 2 (D-14): zgłoszenie idzie bez kolejki — bez sieci albo ponad limit nie dotrze.
-  'crash.body': 'Spróbujemy zgłosić, co się stało, żeby to naprawić. Twoje dane są bezpieczne na telefonie.',
+  'crash.report': 'Spróbujemy zgłosić, co się stało, żeby to naprawić.',
+  'crash.body': 'Twoje dane są bezpieczne na telefonie.',
   'crash.retry': 'Spróbuj ponownie',
   'feedback.open': 'Wyślij uwagę',
   'feedback.title': 'Twoja uwaga',

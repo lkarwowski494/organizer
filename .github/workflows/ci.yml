@@ -35,6 +35,8 @@ jobs:
       - run: npm run test:coverage -- --ci
       - run: npm run check:functions
       - run: npm run check:corpus
+      # Licencje bibliotek na ekranie Ustawienia → Licencje zgodne z prawdziwą paczką iOS (audyt 3, N-78).
+      - run: npm run check:licenses
       # Skrypty CI (np. podział i próg testów mutacyjnych) i kontrakty workflow (audyt 2).
       - run: node --test ".github/scripts/*.test.mjs"
 

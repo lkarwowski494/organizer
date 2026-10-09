@@ -1,14 +1,16 @@
 /**
  * Ustawienia (D131): strona główna z podstronami — Powiadomienia, Kalendarz i dojazd, Wygląd, Dodawanie (grupa domyślna,
  * audyt 2 M-24), Konto i dane.
- * Konto i dane: imię, odrzucone zmiany, wylogowanie (z potwierdzeniem), wyczyszczenie danych offline, usunięcie konta
- * (wymóg App Store 5.1.1(v), D5, D49) z potwierdzeniem wpisaniem słowa — operacji nie da się cofnąć.
+ * Konto i dane: imię, odrzucone zmiany, raporty błędów i polityka prywatności (audyt 3, N-74, N-75), wylogowanie
+ * (z potwierdzeniem), wyczyszczenie danych offline, usunięcie konta (wymóg App Store 5.1.1(v), D5, D49) z potwierdzeniem
+ * wpisaniem słowa — operacji nie da się cofnąć. Na stronie głównej także Licencje (N-78).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { useErrorReports } from '../../app/diagnostics';
 import type { RootStackParams, SettingsSection } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
@@ -36,6 +38,7 @@ export function SettingsScreen({ navigation, route }: Props) {
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
   const travel = useTravel();
+  const errorReports = useErrorReports();
   const { state, indicator, tables } = useAppData();
   // Audyt 2 (M-166): zmiany naprawdę czekające na serwer (bez wysłanych, które czekają już tylko na pobranie).
   const pending = pendingCount(state);
@@ -101,6 +104,7 @@ export function SettingsScreen({ navigation, route }: Props) {
           <NavRow key={s} title={strings[`settings.section.${s}`]} onPress={() => open(s)} testID={`settings-${s}`} />
         ))}
         <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
+        <NavRow title={strings['licenses.title']} onPress={() => navigation.navigate('Licenses')} testID="open-licenses" />
         <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />
       </Screen>
     );
@@ -245,6 +249,10 @@ export function SettingsScreen({ navigation, route }: Props) {
         <>
           <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
           <NavRow title={strings['rejected.title']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
+          {/* Audyt 3: zgoda na raporty błędów (N-74, Q3 A) i polityka prywatności (N-75, Q4 A). */}
+          <SwitchRow label={strings['settings.errorReports']} value={errorReports.on} onChange={errorReports.setOn} testID="switch-error-reports" />
+          <Body muted>{strings['settings.errorReportsInfo']}</Body>
+          <NavRow title={strings['privacy.open']} onPress={() => void Linking.openURL(config.privacy.POLICY_URL).catch(() => {})} testID="open-privacy" />
           <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>
