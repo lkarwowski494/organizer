@@ -59,7 +59,7 @@ describe('M-131: rzeczy, której nie ma — powód zamiast „Spróbuj jeszcze r
       delete tasks['t-paczka'];
       return { ...b, tasks };
     });
-    expect(await screen.findByText('Tego zadania już nie ma — ktoś je usunął albo straciłeś do niego dostęp.')).toBeTruthy();
+    expect(await screen.findByText('Tego zadania już nie ma — ktoś je usunął albo nie masz już do niego dostępu.')).toBeTruthy();
     expect(screen.queryByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Lists'));
@@ -69,7 +69,7 @@ describe('M-131: rzeczy, której nie ma — powód zamiast „Spróbuj jeszcze r
       delete lists.lf;
       return { ...b, lists };
     });
-    expect(await screen.findByText('Tej listy już nie ma — ktoś ją usunął albo straciłeś do niej dostęp.')).toBeTruthy();
+    expect(await screen.findByText('Tej listy już nie ma — ktoś ją usunął albo nie masz już do niej dostępu.')).toBeTruthy();
   });
 });
 

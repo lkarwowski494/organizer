@@ -251,7 +251,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     await press(screen.getByTestId('day-2026-10-06'));
     const row = screen.getByTestId('cal-trip-done-tr1');
     expect(within(row).queryByRole('checkbox')).toBeNull();
-    expect(within(row).getByText('Zakupy: Zakupy na weekend').props.style.textDecorationLine).toBe('line-through');
+    expect(within(row).getByText('Zakupy na weekend').props.style.textDecorationLine).toBe('line-through');
     expect(within(row).getByText(/zrobione dziś/)).toBeTruthy();
   });
 });
