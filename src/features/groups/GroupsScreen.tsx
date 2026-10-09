@@ -47,7 +47,7 @@ export function GroupsScreen() {
   return (
     <Screen testID="screen-groups" refresh={refresh}>
       <TabHeader />
-      <Title>{strings['groups.title']}</Title>
+      <Title>{strings['tabs.groups']}</Title>
       <View style={{ gap: 10 }}>
         {groups.map((g) => (
           <SwipeRow key={g.id} title={g.name} enabled={groupDetail(tables, userId, g.id)?.canDelete === true} onDelete={() => deleteGroup(g)} testID={`swipe-${g.id}`}>

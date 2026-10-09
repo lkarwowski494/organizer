@@ -31,7 +31,7 @@ export function ListsScreen() {
   return (
     <Screen testID="screen-lists" refresh={refresh}>
       <TabHeader />
-      <Title>{strings['lists.title']}</Title>
+      <Title>{strings['tabs.lists']}</Title>
       {lists.length === 0 ? <Body muted>{strings['lists.empty']}</Body> : null}
       <View style={{ gap: 10 }}>
         {/* Audyt 2 (M-239): listę usuwa się przesunięciem jak zadanie (dorośli, D34); z zadaniami — pytanie z liczbą (D187). */}

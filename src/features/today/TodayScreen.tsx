@@ -159,14 +159,14 @@ export function TodayScreen() {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
       // D189 (audyt 2: PW-29 A, M-126): „Zmień” otwiera od razu edycję wydarzenia, jak „Zmień” zadania — formularz.
-      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('EventEdit', { eventId: event.id, date: q.form.date, scope: 'all' }), strings['form.change']);
+      undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('EventEdit', { eventId: event.id, date: q.form.date, scope: 'all' }), strings['common.change']);
       return done(t);
     }
     const ops = quickAddOps({ tables, userId, text: t.body, now: now(), ignore, newId, groupId: t.groupId, assigneeId: t.memberId });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
-    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('Task', { taskId: created.id }), strings['form.change']);
+    undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('Task', { taskId: created.id }), strings['common.change']);
     done(t);
   };
   // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.
@@ -175,7 +175,7 @@ export function TodayScreen() {
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
-    undo.show(strings['form.addedItem'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['form.change']);
+    undo.show(strings['form.addedItem'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['common.change']);
     done(t);
   };
   // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
@@ -221,6 +221,8 @@ export function TodayScreen() {
   const deviceSplit = (d: (typeof view.days)[number]) =>
     splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
+  const shownDay = (d: (typeof view.days)[number]) => d.entries.length > 0 || deviceOf(d).length > 0 || deviceSplit(d).hidden.length > 0;
+  const firstPast = view.days.find((d) => d.past && shownDay(d))?.date;
   // D111: moje zaległe z własnym terminem i moje zaległe zakupy jednym dotknięciem na dziś (z cofnięciem); liczba spraw,
   // nie operacji (audyt 2: T-11, P-56; które są moje — decyzja właściciela z 8.10.2026, overdue.ts).
   const moveOverdueButton = (d: (typeof view.days)[number]) => {
@@ -345,7 +347,7 @@ export function TodayScreen() {
   return (
     <Screen testID="screen-today" refresh={refresh}>
       <TabHeader />
-      <Title>{strings['today.title']}</Title>
+      <Title>{strings['tabs.today']}</Title>
       <GroupFilterBar groups={filterGroups} testID="today-filter" />
       <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {(addGroups.length > 1 && shownGroup) || shopList ? (
@@ -428,14 +430,14 @@ export function TodayScreen() {
         {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={strings['today.goToday']}
+          accessibilityLabel={strings['common.today']}
           accessibilityState={{ disabled: showsToday }}
           disabled={showsToday}
           testID="go-today"
           onPress={() => setAnchor(null)}
           style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['today.goToday']}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['common.today']}</Text>
         </Pressable>
       </View>
       {/* PWD-31 A: „Do potwierdzenia” (pilne) nad kartami informacyjnymi. */}
@@ -445,7 +447,7 @@ export function TodayScreen() {
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}
       {pinned.length && mode === 'day' ? (
         <View>
-          <SectionTitle>{strings['today.pinned']}</SectionTitle>
+          <SectionTitle>{strings['form.noDate']}</SectionTitle>
           {pinnedRows}
         </View>
       ) : pinned.length ? (
@@ -454,10 +456,11 @@ export function TodayScreen() {
         </Collapsible>
       ) : null}
       {view.days.map((d) =>
-        d.entries.length === 0 && deviceOf(d).length === 0 && deviceSplit(d).hidden.length === 0 ? null : (
+        !shownDay(d) ? null : (
           <View key={d.date} testID={`today-day-${d.date}`}>
-            {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['today.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
-            {d.past ? <Body muted>{strings['today.pastInfo']}</Body> : null}
+            {mode === 'day' ? null : <SectionTitle>{d.isToday ? `${strings['common.today']} · ${formatLongDate(parseIsoDate(d.date), today)}` : formatLongDate(parseIsoDate(d.date), today)}</SectionTitle>}
+            {/* Audyt 2 (U-63): wyjaśnienie minionych dni raz — pod pierwszym pokazanym minionym dniem, nie pod każdym. */}
+            {d.past && d.date === firstPast ? <Body muted>{strings['today.pastInfo']}</Body> : null}
             {d.isToday ? moveOverdueButton(d) : null}
             {/* D122: wydarzenia z iPhone'a według godziny; w widoku dnia przerwy „wolne …” (dziś od teraz). */}
             {dayPlan(nestEntries(d.entries, tables), deviceOf(d), spanOf, { nowMin: d.isToday ? nowMin : null, gaps: mode === 'day' && !d.past }).map((r) =>

@@ -125,7 +125,7 @@ export function ListScreen({ route, navigation }: Props) {
     // D189 (audyt 2: PW-29 A, M-126): po szybkim dodaniu zadania „Dodano … · Zmień” — jak w Moich sprawach. Pozycje
     // zakupów dodaje się seriami, a dotknięcie pozycji już ją edytuje — bez paska.
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
-    if (!shopping && created?.kind === 'create') undo.show(strings['form.added'](String(created.set.title), list.name), () => navigation.navigate('Task', { taskId: created.id }), strings['form.change']);
+    if (!shopping && created?.kind === 'create') undo.show(strings['form.added'](String(created.set.title), list.name), () => navigation.navigate('Task', { taskId: created.id }), strings['common.change']);
     setText('');
     setIgnore([]);
     setError(null);

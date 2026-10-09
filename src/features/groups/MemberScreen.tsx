@@ -60,7 +60,7 @@ export function MemberScreen({ route, navigation }: Props) {
 
   if (!d || !m) {
     return (
-      <MissingScreen testID="screen-member-missing" text={strings['missing.member']} onBack={() => navigation.goBack()} />
+      <MissingScreen testID="screen-member-missing" text={strings['groups.error.member']} onBack={() => navigation.goBack()} />
     );
   }
   const can = transferred ? NONE : memberActions(d, m);

@@ -126,21 +126,21 @@ export function CalendarScreen() {
   return (
     <Screen testID="screen-calendar" refresh={refresh}>
       <TabHeader />
-      <Title>{strings['calendar.title']}</Title>
+      <Title>{strings['tabs.calendar']}</Title>
       <GroupFilterBar groups={groups} testID="calendar-filter" />
       <DeviceCalendarCard />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.prev']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.prev.month']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 26, color: c.ink }}>‹</Text>
         </Pressable>
         <Text accessibilityRole="header" testID="calendar-month" style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: 20, color: c.ink }}>{formatMonth(ym.y, ym.m)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.next']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.next.month']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 26, color: c.ink }}>›</Text>
         </Pressable>
         {/* PWD-8 A: „Dziś” jak w Moich sprawach — stałe miejsce, na bieżącym miesiącu z wybranym dziś wyszarzony. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={strings['today.goToday']}
+          accessibilityLabel={strings['common.today']}
           accessibilityState={{ disabled: atToday }}
           disabled={atToday}
           testID="calendar-go-today"
@@ -150,7 +150,7 @@ export function CalendarScreen() {
           }}
           style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: atToday ? 0.35 : 1 }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['today.goToday']}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['common.today']}</Text>
         </Pressable>
       </View>
       {/* Skróty dni tygodnia tylko dla oka — każdy dzień podaje pełną nazwę (audyt 2, M-263, A-46). */}

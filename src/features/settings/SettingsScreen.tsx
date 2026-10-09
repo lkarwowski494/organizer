@@ -111,7 +111,7 @@ export function SettingsScreen({ navigation, route }: Props) {
       <Title>{strings[`settings.section.${section}`]}</Title>
       {section === 'appearance' ? (
         <Segmented
-          label={strings['settings.appearance']}
+          label={strings['settings.section.appearance']}
           value={appearance}
           onChange={setAppearance}
           options={[
@@ -158,15 +158,15 @@ export function SettingsScreen({ navigation, route }: Props) {
               label={strings['reminders.morning']}
               value={reminders.settings.morning}
               onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
-              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m }))}
+              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['common.off'] : m }))}
             />
             <Segmented
               label={strings['reminders.leave']}
               value={reminders.settings.leave === false ? 'off' : 'on'}
               onChange={(v) => reminders.setSettings({ ...reminders.settings, leave: v === 'on' })}
               options={[
-                { value: 'on', label: strings['reminders.leave.on'] },
-                { value: 'off', label: strings['reminders.leave.off'] },
+                { value: 'on', label: strings['common.on'] },
+                { value: 'off', label: strings['common.off'] },
               ]}
             />
             <Body muted>{strings['reminders.leaveInfo']}</Body>
@@ -194,15 +194,15 @@ export function SettingsScreen({ navigation, route }: Props) {
           {calendar.available && calendar.status === 'granted' ? (
             <View testID="device-settings" style={{ gap: 10 }}>
               <SectionTitle>{strings['device.title']}</SectionTitle>
-              <Segmented contextual label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
-              <Segmented contextual label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+              <Segmented contextual label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['common.on'] }, { value: 'off', label: strings['common.off'] }]} />
+              <Segmented contextual label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['common.on'] }, { value: 'off', label: strings['common.off'] }]} />
               <Body muted>{strings['device.mirrorInfo']}</Body>
               {/* D174: wybór grup w lustrze (w bazie konta). */}
               {calendar.mirror && calendar.groups.length ? (
                 <View testID="device-mirror-groups" style={{ gap: 10 }}>
                   <Body muted>{strings['device.mirrorGroups']}</Body>
                   {calendar.groups.map((g) => (
-                    <Segmented contextual key={g.id} label={g.name} value={g.mirrored ? 'on' : 'off'} onChange={(v) => calendar.setGroupMirrored(g.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+                    <Segmented contextual key={g.id} label={g.name} value={g.mirrored ? 'on' : 'off'} onChange={(v) => calendar.setGroupMirrored(g.id, v === 'on')} options={[{ value: 'on', label: strings['common.on'] }, { value: 'off', label: strings['common.off'] }]} />
                   ))}
                 </View>
               ) : null}
@@ -210,7 +210,7 @@ export function SettingsScreen({ navigation, route }: Props) {
                 <View testID="device-calendars" style={{ gap: 10 }}>
                   <Body muted>{strings['device.calendarsInfo']}</Body>
                   {calendar.calendars.map((cal) => (
-                    <Segmented contextual key={cal.id} label={cal.title} value={cal.read ? 'on' : 'off'} onChange={(v) => calendar.setCalendarRead(cal.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+                    <Segmented contextual key={cal.id} label={cal.title} value={cal.read ? 'on' : 'off'} onChange={(v) => calendar.setCalendarRead(cal.id, v === 'on')} options={[{ value: 'on', label: strings['common.on'] }, { value: 'off', label: strings['common.off'] }]} />
                   ))}
                 </View>
               ) : null}
@@ -240,7 +240,7 @@ export function SettingsScreen({ navigation, route }: Props) {
       {section === 'account' ? (
         <>
           <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
-          <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
+          <NavRow title={strings['rejected.title']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
           <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>

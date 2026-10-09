@@ -49,9 +49,9 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** Walidacja pól terminu; zwraca błąd do pokazania albo termin. */
 export function parseDueFields(date: string, time: string): { error: string } | { due: { date: string; time: string | null } } {
   const m = DATE.exec(date.trim());
-  if (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3]))) return { error: strings['task.invalidDate'] };
+  if (!m || !isValidDate(Number(m[1]), Number(m[2]), Number(m[3]))) return { error: strings['event.error.date'] };
   const t = time.trim();
-  if (t !== '' && !TIME.test(t)) return { error: strings['task.invalidTime'] };
+  if (t !== '' && !TIME.test(t)) return { error: strings['event.error.time'] };
   return { due: { date: date.trim(), time: t === '' ? null : t } };
 }
 
@@ -256,7 +256,7 @@ export function TaskScreen({ route, navigation }: Props) {
             {repeat ? <Body muted>{strings['repeat.info']}</Body> : null}
           </>
         ) : (
-          <Body muted>{strings['repeat.needsDue']}</Body>
+          <Body muted>{strings['form.error.repeatNeedsDate']}</Body>
         )
       ) : null}
       {canEdit ? (
@@ -294,7 +294,7 @@ export function TaskScreen({ route, navigation }: Props) {
               setError(null);
               store.dispatch(patchTask(task.id, { assignee_member_id: v === '' ? null : v }));
             }}
-            options={[{ value: '', label: strings['task.assigneeNone'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+            options={[{ value: '', label: strings['common.nobody'] }, ...detail.members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
           />
           {/* D180 (PW-21 B): obie drogi zostają — opis różnicy przy polu. */}
           <Body muted>{strings['task.assigneeHint']}</Body>
