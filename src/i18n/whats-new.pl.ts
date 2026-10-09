@@ -8,10 +8,12 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
-    // Build 23: poprawki audytu 3 (9.10.2026). „Nawiguj” tylko w Mapach Apple — ADR 0043.
+    // Build 23: poprawki audytu 3 (9.10.2026). „Nawiguj” tylko w Mapach Apple — ADR 0043; prywatność — ADR 0044.
     fromBuild: 23,
     items: [
       '„Nawiguj” przy wydarzeniu otwiera zawsze Mapy Apple, więc wybór aplikacji map zniknął z Ustawień.',
+      // Audyt 3, PK-25 (ADR 0044): raporty błędów z przełącznikiem, polityka prywatności i licencje w Ustawieniach.
+      'Raporty błędów (bez treści Twoich spraw) wyłączysz w Ustawienia → Konto i dane, gdzie jest też polityka prywatności. Licencje bibliotek i krojów pisma: Ustawienia → Licencje.',
     ],
   },
   {
