@@ -4,8 +4,9 @@ Wartości progów: `src/config/index.ts` → `config.limits` (jedno źródło pr
 Ta tabela opisuje źródła limitów. Nocny pomiar (D185, sekcja niżej) działa od 9.10.2026, ale mierzy dopiero po dodaniu
 sekretu `SUPABASE_MONITOR_TOKEN`; bez sekretu niczego nie mierzy ani nie podtrzymuje projektu (od
 `config.limits.monitorSecretRequiredFrom` nocny przebieg jest wtedy czerwony). Egress i Realtime API nie podaje — te
-zasoby sprawdza człowiek raz w miesiącu. Limity sprawdzone 5–6.10.2026 (Supabase ponownie 8.10.2026, GitHub
-i TestFlight 9.10.2026); przed każdą zmianą planu sprawdź ponownie.
+zasoby sprawdza człowiek raz w miesiącu; wiek buildu TestFlight i token `organizer-match` też sprawdza człowiek. Limity
+sprawdzone 5–6.10.2026 (Supabase ponownie 8.10.2026, GitHub i TestFlight 9.10.2026); przed każdą zmianą planu sprawdź
+ponownie.
 
 | Zasób | Limit | Próg | Źródło |
 |---|---|---|---|
