@@ -26,7 +26,7 @@ Wybór właściciela z listy kierunków: „Kalendarz w obie strony”.
    - Przebieg uruchamia się 3 s po zmianie danych i przy powrocie do aplikacji.
    - Wszystkie liczby to wybory projektowe w `config.calendar`, bez źródła.
 4. **Konto dla nowych kalendarzy:** takie jak w kalendarzu domyślnym (zwykle iCloud). Dokumentacja expo-calendar nie mówi, czy na iOS konto jest wymagane, więc pierwszy błąd idzie do zgłoszeń (D80). Otwarte pytanie O-074: sprawdzić na iPhonie.
-5. **API:** klasy expo-calendar SDK 57 (`getCalendars`, `createCalendar`, `listEvents`, `ExpoCalendar.get`, `ExpoCalendarEvent.get`, `update`, `delete`), https://docs.expo.dev/versions/v57.0.0/sdk/calendar/.
+5. **API:** klasy expo-calendar SDK 57 (`getCalendars`, `createCalendar`, `listEvents`, `ExpoCalendar.get`, `createEvent`, `update`, `delete`), https://docs.expo.dev/versions/v57.0.0/sdk/calendar/; zmiana, usunięcie i sprawdzenie wydarzenia — `expo-calendar/legacy` (audyt 3, niżej).
 
 ## Audyt 2 (8.10.2026): decyzje właściciela i wykonanie
 | ID | Pytanie | Decyzja | Odrzucone |
@@ -57,3 +57,20 @@ Wykonanie (Claude; właściciel może zawetować):
 - **Całodniowe** zapisujemy od północy telefonu (w podróży nie przesuwają się o dzień); z godziną — według Warszawy (R2),
   koniec nigdy przed początkiem (godzina nieistniejąca wiosną). Zachowanie EventKit w innej strefie — do sprawdzenia na iPhonie.
 - **Błędy** kalendarza zgłaszamy bez komunikatu (tylko nazwa, kod i ramki stosu), bo mógłby zawierać nazwę kalendarza albo tytuł.
+
+## Audyt 3 (9.10.2026): wykonanie (Claude; właściciel może zawetować)
+- **Lista kalendarzy tego telefonu** jest naprawdę w pęku kluczy (`AppServices.devicePrefs`): build 22 zapisywał ją w bazie
+  konta, a wylogowanie czytało pęk kluczy, więc kalendarze „Organizer – …” zostawały. Przy starcie raz przenosimy listę
+  z bazy konta (suma list). Wylogowanie i usunięcie konta czekają na koniec przebiegu lustra; wyłączenie lustra też
+  (kalendarz założony w trakcie znika razem z resztą).
+- **Identyfikator wydarzenia:** `id` z expo-calendar 57.0.5 to `calendarItemIdentifier`, a `ExpoCalendarEvent.get` szuka
+  przez `event(withIdentifier:)` (czyli `eventIdentifier` według Apple). Zmiana, usunięcie i sprawdzenie idą przez
+  `expo-calendar/legacy` (`calendarItem(withIdentifier:)`, ten sam magazyn EventKit). Nieudana zmiana albo usunięcie
+  wydarzenia, które nadal jest, zostaje do ponowienia; nowe tworzymy tylko, gdy starego na pewno nie ma. Na urządzeniu do
+  sprawdzenia (W-1).
+- **Konto kalendarza lustra:** domyślne, a gdy się nie da — iCloud, potem „Na moim iPhonie”; nieudany przebieg —
+  komunikat w Ustawieniach. „Jest w kalendarzu” tylko dla wpisów, które lustro zapisało.
+- **„Połącz z kalendarzem”** nie włącza lustra wyłączonego świadomie; karta zachęty tylko bez pełnej zgody. Na iPadzie
+  lustro domyślnie wyłączone z dopiskiem (Q21 cz. 1 A). Po zmianie zgody z pełnej — komunikat, że kalendarze „Organizer”
+  się nie aktualizują (Q21 cz. 2 A).
+- **Nazwa wpisu z osobą odpowiedzialną:** „Basen · odpowiada: Ala” (słownik), gdy odpowiadam ja — sama nazwa.

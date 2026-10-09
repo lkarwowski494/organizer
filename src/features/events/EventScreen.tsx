@@ -10,6 +10,7 @@ import { Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { draftOf, withMark } from '../../app/device-calendar';
+import { eventLink } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
@@ -158,8 +159,9 @@ export function EventScreen({ route, navigation }: Props) {
   const inMirror = deviceCalendar.mirrorCalendar(eventId, date, occ.date);
   const addToCalendar = async () => {
     setCalendarMsg(null);
-    // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
-    const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
+    // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału; adres
+    // terminu (audyt 3, N-183) — dubel tylko, gdy ten termin jest tego dnia w aplikacji.
+    const r = await calendar.add({ ...draftOf(occ, withMark(d.groupName)), url: eventLink(eventId, date) });
     setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 

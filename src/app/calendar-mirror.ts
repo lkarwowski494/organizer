@@ -7,6 +7,10 @@
  *    telefonu (`MirrorOwned`, przeżywa wylogowanie i zwykle reinstalację). Kalendarz z tej listy, którego nie zna stan
  *    zalogowanego konta (drugie konto, reinstalacja), jest pozostałością — usuwamy go zamiast tworzyć drugi o tej samej
  *    nazwie. Cudzych kalendarzy (np. iPada z tym samym iCloud) nie ruszamy — nie ma ich na liście tego telefonu.
+ *    Audyt 3 (N-4): lista jest w ustawieniach telefonu (AppServices.devicePrefs), nie konta — build 22 zapisywał ją
+ *    w bazie konta, a wylogowanie czytało pęk kluczy, więc kalendarze zostawały; przenosi ją adoptMirrorOwned.
+ *  - Audyt 3 (N-5): nieudana zmiana albo usunięcie wydarzenia, które nadal jest w iPhonie, zostaje w stanie do
+ *    ponowienia; nowe wydarzenie tworzymy tylko wtedy, gdy starego naprawdę nie ma (inaczej byłyby dwa).
  */
 import { config } from '../config';
 import { type CivilDate, formatIsoDate } from '../domain/civil-date';
@@ -41,6 +45,21 @@ export const ownedIn = (prefs: Prefs): MirrorOwned => ({
   set: (ids) => prefs.set(MIRROR_OWNED, JSON.stringify([...new Set(ids)])),
 });
 
+/** Klucz listy w bazie konta, pod którym zapisywał ją build 22 (accountPrefs: `pref.<klucz>`). */
+export const ACCOUNT_OWNED_KEY = `pref.${MIRROR_OWNED}`;
+
+/**
+ * Audyt 3 (N-4): jednorazowe przeniesienie listy kalendarzy lustra z bazy konta (build 22) do pęku kluczy telefonu —
+ * suma obu list. Wpis w bazie konta znika dopiero po zapisie w pęku kluczy; błąd zostawia go na następny start.
+ */
+export async function adoptMirrorOwned(local: LocalStore, device: Prefs): Promise<void> {
+  const old = local.load(ACCOUNT_OWNED_KEY);
+  if (old === null) return;
+  const owned = ownedIn(device);
+  await owned.set([...(await owned.get()), ...parseIds(old)]);
+  local.save(ACCOUNT_OWNED_KEY, null);
+}
+
 export function loadMirror(local: LocalStore): MirrorState {
   try {
     const s = JSON.parse(local.load(MIRROR_KEY) ?? 'null') as MirrorState | null;
@@ -67,6 +86,18 @@ async function dropCalendar(sync: Pick<DeviceCalendarSync, 'deleteCalendar' | 'h
     } catch {
       return false;
     }
+  }
+}
+
+/**
+ * Audyt 3 (N-5): czy wydarzenia na pewno już nie ma w iPhonie (usunięte ręcznie albo razem z kalendarzem). Błąd
+ * sprawdzenia = „może jest” — wtedy nic nie tworzymy ani nie zapominamy, następny przebieg spróbuje znowu.
+ */
+async function eventGone(sync: Pick<DeviceCalendarSync, 'hasEvent'>, id: string): Promise<boolean> {
+  try {
+    return !(await sync.hasEvent(id));
+  } catch {
+    return false;
   }
 }
 
@@ -115,7 +146,7 @@ export async function runMirror(
     if (owned.some((x) => !wanted.includes(x)) || wanted.some((x) => !owned.includes(x))) await keep(wanted);
     const skip = new Set(loadSkip(local));
     const groups = mirrorGroups(t, userId, skip);
-    const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, strings['lessons.title'], opts.scopeOf);
+    const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, { lessons: strings['lessons.title'], responsible: strings['device.mirrorResponsible'] }, opts.scopeOf);
     const todayIso = formatIsoDate(today);
     const first = planMirror(items, state, groups, todayIso, config.calendar.MIRROR_MAX);
     for (const c of first.removeCalendars) {
@@ -146,7 +177,12 @@ export async function runMirror(
     const plan = planMirror(items, state, groups, todayIso, config.calendar.MIRROR_MAX);
     for (const r of plan.remove) {
       step();
-      await sync.deleteEvent(r.deviceId).catch(() => {});
+      // Nieudane usunięcie wydarzenia, które nadal jest — zostaje w stanie, następny przebieg zaplanuje je znowu.
+      const gone = await sync.deleteEvent(r.deviceId).then(
+        () => true,
+        () => eventGone(sync, r.deviceId),
+      );
+      if (!gone) continue;
       delete state.events[r.key];
       save();
     }
@@ -162,7 +198,8 @@ export async function runMirror(
         state.events[u.item.key] = { ...state.events[u.item.key]!, hash: mirrorHash(u.item) };
         save();
       } catch {
-        await put(u.item);
+        // Tylko gdy wydarzenia już nie ma (usunięte ręcznie) — nowe; inny błąd: stary skrót zostaje, zmiana do ponowienia.
+        if (await eventGone(sync, u.deviceId)) await put(u.item);
       }
     }
     for (const c of plan.create) {

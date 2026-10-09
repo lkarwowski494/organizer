@@ -226,7 +226,7 @@ describe('lustro w iPhonie', () => {
     const t = world();
     event(t, 'oboz', { start_date: '2026-10-08', days: 3 });
     event(t, 'dyzur', { start_date: '2026-10-08', start_time: '22:00', end_time: '06:00' });
-    const items = mirrorItems(t, ME, TODAY, 0, 7, new Set(), (n) => n);
+    const items = mirrorItems(t, ME, TODAY, 0, 7, new Set(), { lessons: (n) => n, responsible: (title) => title });
     expect(items.map((i) => [i.key, i.days])).toEqual([
       ['oboz|2026-10-08', 3],
       ['dyzur|2026-10-08', 1],
@@ -338,7 +338,7 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc (pt. 18:00 – nd
   it('lustro: jedno wydarzenie z długością w skrócie', () => {
     const t = world();
     event(t, 'trip', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP });
-    const [i] = mirrorItems(t, ME, TODAY, 0, 7, new Set(), (n) => n);
+    const [i] = mirrorItems(t, ME, TODAY, 0, 7, new Set(), { lessons: (n) => n, responsible: (title) => title });
     expect(i).toMatchObject({ startTime: '18:00', endTime: '16:00', days: 1, durationMin: TRIP });
     expect(mirrorHash(i!)).not.toBe(mirrorHash({ ...i!, durationMin: null }));
     expect(groupSeries(t, ME, 'gf', TODAY, {} as RuleLabels)[0]!.time).toBe('18:00');

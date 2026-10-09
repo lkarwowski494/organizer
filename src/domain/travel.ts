@@ -40,22 +40,31 @@ export const isTravelMode = (v: unknown): v is TravelMode => v === 'driving' || 
 export type TravelTarget = { key: string; eventId: string; title: string; location: string; startMs: number; mode: TravelMode };
 
 /**
- * Wydarzenia, dla których liczymy dojazd (D116): te, które mnie dotyczą, z miejscem i godziną, zaczynające się od teraz
+ * Wydarzenia, dla których liczymy dojazd (D116): te, które mnie dotyczą, z miejscem i godziną (lekcje dziecka — tylko
+ * pierwsza w dniu), zaczynające się od teraz
  * do config.travel.AHEAD_HOURS naprzód — także jutro po północy (audyt 2, M-211: wieczorem „Czas wyjść” na 0:30);
  * najbliższe config.travel.MAX_EVENTS (MapKit dławi zbyt wiele zapytań).
  * `skip` — terminy wyciszone (`<id wydarzenia>|<data wystąpienia>`): moje „nie będę” (PW-23) i dzieci, które nie będą (D160);
  * `scopeOf` — zakres Moich spraw w grupach (PW-2): dojazd tylko do tego, co stoi w Moich sprawach.
  */
 export function travelTargets(
-  occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string }[],
+  occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string; lessonFor?: readonly { memberId: string }[] | null }[],
   nowMs: number,
   toMs: (date: string, time: string) => number,
   modeFor: (eventId: string) => TravelMode,
   skip: ReadonlySet<string> = new Set(),
   scopeOf: ScopeOf = scopeAll,
 ): TravelTarget[] {
-  return occ
-    .filter((o) => occurrenceInScope(o, scopeOf) && o.startTime !== null && o.location !== null && o.location.trim() !== '' && !skip.has(`${o.eventId}|${o.occurrenceDate}`))
+  const usable = occ.filter((o) => occurrenceInScope(o, scopeOf) && o.startTime !== null && o.location !== null && o.location.trim() !== '' && !skip.has(`${o.eventId}|${o.occurrenceDate}`));
+  // Audyt 3 (N-189): lekcje dziecka (D127) to w Moich sprawach i w lustrze jeden blok dnia, więc dojazd — jeden cel na
+  // dziecko i dzień: pierwsza lekcja z miejscem (wybrana przed oknem czasu — po jej początku następna lekcja nie dostaje
+  // „Wyjdź o”, bo dziecko jest już na miejscu).
+  const first = new Map<string, (typeof usable)[number]>();
+  for (const o of [...usable].sort((a, b) => a.startTime!.localeCompare(b.startTime!) || a.eventId.localeCompare(b.eventId)))
+    for (const c of o.lessonFor ?? []) if (!first.has(`${c.memberId}|${o.date}`)) first.set(`${c.memberId}|${o.date}`, o);
+  const firstLessons = new Set(first.values());
+  return usable
+    .filter((o) => !o.lessonFor || firstLessons.has(o))
     .map((o) => ({ key: `${o.eventId}|${o.occurrenceDate}`, eventId: o.eventId, title: o.title, location: o.location!.trim(), startMs: toMs(o.date, o.startTime!.slice(0, 5)), mode: modeFor(o.eventId) }))
     .filter((t) => t.startMs > nowMs && t.startMs <= nowMs + config.travel.AHEAD_HOURS * 3_600_000)
     .sort((a, b) => a.startMs - b.startMs || a.key.localeCompare(b.key))
