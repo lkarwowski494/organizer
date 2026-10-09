@@ -405,6 +405,7 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
   const isoToday = formatIsoDate(opts.today ?? { y: 1970, m: 1, d: 1 });
   const localDate = opts.localDate ?? ((iso: string) => iso.slice(0, 10));
   const grid = monthGrid(year, month);
+  const first = grid[0]!.date;
   const last = grid.at(-1)!.date;
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter(alive).map((l) => [l.id, l]));
@@ -430,7 +431,8 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const expired = isExpired(x, due, isoToday, byId);
     const overdue = x.completed_at === null && !expired && due.date < isoToday;
     const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: null };
-    add(due.date, { ...item, doneOn: doneOn(due.date, x.completed_at), projected: false, expired, overdueDays: overdue ? dayDiff(isoToday, due.date) : 0 });
+    // Audyt 3 (N-16): termin poza siatką nie trafia do widoku — bez dnia odhaczenia (Intl) dla całej historii.
+    if (due.date >= first && due.date <= last) add(due.date, { ...item, doneOn: doneOn(due.date, x.completed_at), projected: false, expired, overdueDays: overdue ? dayDiff(isoToday, due.date) : 0 });
     // PWD-15 A: kolejne terminy otwartego zadania powtarzanego według kalendarza (od wykonania — nie da się ich
     // przewidzieć), tylko w oknie siatki; zadanie powstanie dopiero po odhaczeniu poprzedniego (task-repeat.ts).
     for (const date of x.completed_at === null && x.parent_id === null ? futureRepeats(t, x, due, last) : []) add(date, { ...item, due: { date, time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });

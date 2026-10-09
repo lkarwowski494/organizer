@@ -397,6 +397,21 @@ export const config = {
     actionsCacheBytesWarn: 8 * 1024 ** 3, // limit 10 GB
     testflightBuildAgeDaysWarn: 80, // build wygasa po 90 dniach
   },
+
+  /**
+   * Budżety czasu widoków w CI (audyt 3, N-6, N-16; test src/domain/__tests__/perf-budget.test.ts): rodzina po
+   * `FAMILY_YEARS` latach używania (support/family-data.ts), czas procesora w Node, mediana 5 przebiegów. Przed
+   * optymalizacją (9.10.2026, ten sam test na wspólnej maszynie): plan ok. 3,5 s, Moje sprawy (miesiąc) ok. 220 ms,
+   * Kalendarz (miesiąc + 6 tygodni wydarzeń) ok. 250 ms; po niej ok. 90 / 55 / 60 ms. Budżet ok. 2,5× wyniku po, żeby
+   * obciążony automat CI nie dawał fałszywych alarmów, a powrót kosztu rosnącego z historią oblewał test. Na iPhonie
+   * (Hermes, bez JIT) czasy będą dłuższe — do sprawdzenia na urządzeniu.
+   */
+  perf: {
+    FAMILY_YEARS: 3,
+    PLAN_REMINDERS_MS: 250,
+    MY_DAYS_MONTH_MS: 150,
+    CALENDAR_MONTH_MS: 150,
+  },
 } as const;
 
 export type AppConfig = typeof config;
