@@ -7,8 +7,8 @@
 --    usunięcie albo utrata roli admina nie unieważnia kodów ról, tylko zaproszenia osobiste tej osoby: kody profili dzieci,
 --    które wystawiła, i dawne linki z tokenem (każdy był tylko jej). Wcześniej usunięcie admina unieważniało kod rozesłany
 --    przez właściciela, a admin, który sam wyszedł albo stracił rolę, zostawiał działające kody dzieci i linki.
---    Usunięcie konta nadal unieważnia wszystkie zaproszenia, które ta osoba wystawiła (polityka prywatności;
---    private.delete_account_data i private.delete_account_trash bez zmian).
+--    Usunięcie konta — tak samo, z przepisaniem wystawiającego na właściciela (decyzja Q1 B, następna migracja
+--    20261010101000_account_deletion_invites).
 --  * N-157 (A3-08-7): odpowiedź „już jesteś w tej grupie” podaje moją rolę i rolę kodu (role, invite_role), żeby telefon
 --    powiedział, że kod administratora nie zmienia roli członka.
 --  * N-158 (A3-08-8): aktywny członek, który wpisze stary (unieważniony albo wygasły) kod swojej grupy, dostaje

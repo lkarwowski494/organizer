@@ -61,7 +61,9 @@ Migracja `20261008362000_join_codes_v2.sql`, testy `supabase/tests/join_codes_v2
 Migracja `20261010100000_invites_membership.sql`, testy `supabase/tests/invites_membership.test.sql`.
 - **Kod roli należy do grupy (decyzja Q7 A).** Odejście, usunięcie albo utrata roli administratora nie unieważnia kodów ról
   (wspólnych — widzą je owner i admin). Unieważnia tylko zaproszenia osobiste tej osoby: kody profili dzieci, które
-  wystawiła, i dawne linki z tokenem. Usunięcie konta nadal unieważnia wszystkie zaproszenia, które ta osoba wystawiła.
+  wystawiła, i dawne linki z tokenem (zastępuje „jej zaproszenia przestają działać przy usunięciu” z audytu 2). Usunięcie
+  konta tak samo (decyzja Q1 B, `20261010101000_account_deletion_invites.sql`): kod roli zostaje, a wystawiającym
+  zaproszeń usuniętej osoby staje się właściciel grupy — żadne zaproszenie nie wskazuje już jej członkostwa.
 - **„Zaproś” po usunięciu osoby daje nowy kod** (N-38): bieżący kod roli tylko, gdy powstał po ostatnim usunięciu kogoś
   z grupy; starszy ważny kod działa dalej dla innych do wygaśnięcia (≤ 24 h), więc przez dobę po usunięciu w grupie mogą
   działać dwa kody tej roli (szansa odgadnięcia rośnie liniowo: ≤ k × 0,01%). „Nowy kod” unieważnia wszystkie kody roli.
