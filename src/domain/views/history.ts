@@ -7,7 +7,8 @@ import type { Tables } from './model';
 
 export type HistoryEntry = { id: string; who: string | null; at: string; verb: 'create' | 'delete' | 'restore' | 'done' | 'undone' | 'update'; fields: string[] };
 
-const TECHNICAL = new Set(['id', 'group_id', 'version', 'created_at', 'deleted_at', 'completed_at', 'sort_key', 'parent_id', 'depth', 'event_id', 'occurrence_date', 'series_id']);
+// moved_to — znacznik przeniesienia do innej grupy (audyt 3, N-131) ustawiany przez serwer, nie zmiana treści.
+const TECHNICAL = new Set(['id', 'group_id', 'version', 'created_at', 'deleted_at', 'completed_at', 'sort_key', 'parent_id', 'depth', 'event_id', 'occurrence_date', 'series_id', 'moved_to']);
 
 export function taskHistory(t: Tables, taskId: string, limit: number): HistoryEntry[] {
   const out: HistoryEntry[] = [];

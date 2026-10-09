@@ -80,6 +80,25 @@ describe('kosz (M-34, D151)', () => {
   it('pusto bez grup', () => {
     expect(trashView({}, ME, NOW)).toEqual([]);
   });
+
+  it('audyt 3 (N-171): niewysłane usunięcie („pending:N”) liczy się od teraz — w V8 Date.parse dawał rok 2001 albo 2500', () => {
+    const t = world();
+    // Warunek błędu: w Node 'pending:5' i 'pending:2500' to prawidłowe daty (Hermes: NaN).
+    expect(Number.isFinite(Date.parse('pending:5'))).toBe(true);
+    put(t, 'tasks', 'p5', { id: 'p5', group_id: 'gf', list_id: 'dom', parent_id: null, title: 'Offline', deleted_at: 'pending:5' });
+    put(t, 'tasks', 'p2500', { id: 'p2500', group_id: 'gf', list_id: 'dom', parent_id: null, title: 'Offline 2', deleted_at: 'pending:2500' });
+    // Admin widzi usuniętego członka grupy; usunięcie niewysłane.
+    put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: 'u-ola', display_name: 'Ola', role: 'member', deleted_at: 'pending:13', removed_at: 'pending:13' });
+    const v = trashView(t, ME, NOW);
+    expect(['p5', 'p2500', 'ola'].map((id) => v.find((e) => e.id === id)?.daysLeft)).toEqual([30, 30, 30]);
+    expect(v.find((e) => e.id === 'p5')?.deletedMs).toBe(NOW);
+  });
+
+  it('audyt 3 (N-131): zadanie przeniesione do innej grupy (znacznik moved_to) — nie w koszu', () => {
+    const t = world();
+    put(t, 'tasks', 't1', { ...t.tasks!.t1!, moved_to: 'kopia' });
+    expect(trashView(t, ME, NOW).some((e) => e.id === 't1')).toBe(false);
+  });
 });
 
 describe('ostatnie zmiany: sprawdzenie, czy rzecz się nie zmieniła (D194)', () => {

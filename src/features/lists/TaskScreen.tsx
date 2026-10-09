@@ -16,7 +16,7 @@ import { config } from '../../config';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { createTask, inheritDue, patchTask, restore, setDue } from '../../domain/views/commands';
+import { createTask, inheritDue, patchTask, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, checkOff, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
@@ -24,7 +24,8 @@ import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { cycleChange, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
-import { moveTargets, moveTaskOps } from '../../domain/views/task-move';
+import { movedTo, moveTargets, moveTaskOps } from '../../domain/views/task-move';
+import { InTrashScreen } from '../groups/TrashSection';
 import { taskHistory } from '../../domain/views/history';
 import { personOf } from '../../domain/views/who';
 import { RepeatEditor } from './RepeatEditor';
@@ -67,6 +68,8 @@ function find(nodes: TaskNode[], id: string): TaskNode | undefined {
   return undefined;
 }
 
+const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
+
 export function TaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
   const actions = useTaskActions();
@@ -101,12 +104,16 @@ export function TaskScreen({ route, navigation }: Props) {
     );
   }
   // Usunięte gdzie indziej albo otwarte z linku do usuniętego (z tego ekranu usunięcie wraca z paskiem „Cofnij”, M-254).
+  // Audyt 3 (N-36, N-131): przeniesione do innej grupy — dokąd (z przejściem do kopii); inaczej jak kosz (InTrashScreen).
   if (task.deleted_at !== null) {
+    const moved = movedTo(tables, userId, task.id);
+    if (!moved) return <InTrashScreen entity="tasks" id={task.id} missing={strings['missing.task']} testID="screen-task" onBack={() => navigation.goBack()} />;
     return (
-      <Screen testID="screen-task-deleted">
+      <Screen testID="screen-task-moved">
         <BackButton onPress={() => navigation.goBack()} />
-        <Title>{strings['task.deleted']}</Title>
-        <Button label={strings['task.restore']} onPress={() => store.dispatch(restore('tasks', task.id))} />
+        <Title>{task.title}</Title>
+        <Body muted>{strings['task.movedAway'](moved.group ? groupName(moved.group) : null)}</Body>
+        {moved.taskId ? <Button label={strings['task.openMoved']} testID="task-open-moved" onPress={() => navigation.replace('Task', { taskId: moved.taskId! })} /> : null}
       </Screen>
     );
   }
@@ -126,7 +133,8 @@ export function TaskScreen({ route, navigation }: Props) {
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
   const repeat = task.parent_id === null ? repeatOf(tables, task.id) : null;
   // D178: przeniesienie zadania głównego do innej grupy (z podzadaniami); w trakcie przekazania — po jego zakończeniu.
-  const targets = canEdit && task.parent_id === null && !waiting ? moveTargets(tables, userId, task) : [];
+  // Audyt 3 (N-121): zrobione nie przenosi się (zadanie powtarzane ma już następny termin w swojej grupie).
+  const targets = canEdit && task.parent_id === null && task.completed_at === null && !waiting ? moveTargets(tables, userId, task) : [];
 
   const writeDue = (due: { date: string; time: string | null }, r: Repeat | null) => {
     store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
@@ -175,7 +183,6 @@ export function TaskScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const groupLine = [detail.list.name, ...(node?.due ? [formatDue(node.due, today)] : [])].join(META_SEP);
-  const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
 
   return (
     <Screen testID="screen-task">
@@ -336,7 +343,7 @@ export function TaskScreen({ route, navigation }: Props) {
                 store.dispatch(r.ops);
                 // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
                 navigation.goBack();
-                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.ops });
+                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.changed });
               },
             }))}
             onCancel={() => setMoving(false)}
