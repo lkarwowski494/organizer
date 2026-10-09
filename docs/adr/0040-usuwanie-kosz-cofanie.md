@@ -21,11 +21,16 @@ zawetować.
   sprawdza serwer — odrzuconą pokaże D190), grupy — RPC jak dotąd (D54). Po przywróceniu „Przywrócono: … · Cofnij”.
   Odrzucone: osobny ekran kosza (decyzja mówi o sekcji na ekranie Grupy; podgląd 5 wpisów trzyma ekran krótkim).
 - **Usuwanie (D187).** Wydarzenie jednorazowe — bez pytania (wcześniej „Usunąć to wydarzenie u wszystkich?”); grupa —
-  bez pytania, z „Cofnij” (przywrócenie przez serwer, więc wymaga internetu); osoba — bez pytania (D165); stała pozycja
+  bez pytania, z „Cofnij” (przywrócenie przez serwer, więc wymaga internetu); od audytu 3 (N-156, decyzja Q19 A) grupa,
+  w której są inni, najpierw pyta oknem systemowym z liczbą pozostałych osób („Usunąć grupę „Rodzina” także dla
+  pozostałych osób (3)?”), bo zabiera grupę także im — ten sam kod z przycisku i z przesunięcia
+  (`src/features/groups/delete-group.ts`); osoba — bez pytania (D165); stała pozycja
   zakupów — z „Cofnij” (wraca poleceniem `staple_add`, na koniec listy stałych); „Usuń zadanie” na ekranie zadania —
   pasek „Cofnij” i powrót, jak przesunięcie (M-254). Pytanie przy liście z zadaniami to okno systemowe (to samo z ekranu
   listy i z przesunięcia wiersza); pusta lista — bez pytania. Unieważnienie kodu zaproszenia pyta, bo serwer nie umie
-  go przywrócić (a „Nowy kod” daje inny kod) — to rzecz nieodwracalna w rozumieniu D187.
+  go przywrócić (a „Nowy kod” daje inny kod) — to rzecz nieodwracalna w rozumieniu D187; od audytu 3 (N-153, Q32 A)
+  oknem systemowym jak „Zmień ID grupy” (wcześniej panel w karcie kodu). Przekazanie własności zostaje panelem (dłuższe
+  wyjaśnienie). Zmiana roli osoby — bez pytania, z paskiem „Cofnij” (audyt 3, Q6b A).
 - **Przesuwanie (M-124, M-239, M-249).** Ten sam wiersz przesuwa się tak samo wszędzie: zadania (także zrobione, także
   w Moich sprawach), podzadania na ekranie zadania, zadania terminu na ekranie wydarzenia, listy (Listy, ekran grupy),
   osoby (ekran grupy, z prawami jak na ekranie osoby), grupy (lista grup, tylko właściciel grupy wspólnej), wydarzenia

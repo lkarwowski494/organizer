@@ -2,6 +2,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 import type { Scope } from '../domain/views/events';
+import type { Lesson } from '../domain/views/timetable';
 
 export type RootStackParams = {
   /** Z zakładką — np. „Moje sprawy” po dotknięciu powiadomienia o przekazaniu (PWD-16). */
@@ -45,7 +46,8 @@ export type RootStackParams = {
   Welcome: undefined;
   Feedback: undefined;
   /** Plan lekcji osoby z tygodniami A/B (D112). */
-  Timetable: { groupId: string; memberId: string };
+  /** `copy` — plan skopiowany z innej grupy do sprawdzenia przed zapisem (audyt 3, Q27 B); `from` — „Tymek · Rodzina”. */
+  Timetable: { groupId: string; memberId: string; copy?: { lessons: Lesson[]; thisWeek: 'A' | 'B'; until: string; from: string } };
   /** Nowa rutyna z krokami (D113); `groupId` — podpowiedź grupy, `title` — nazwa z pełnego formularza (PWD-26). */
   Routine: { groupId?: string; title?: string; kindSwitch?: boolean } | undefined;
   /** „Jak masz na imię?” (D100): przy starcie albo z Ustawień (`from: 'settings'`). */

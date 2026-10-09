@@ -13,7 +13,7 @@
  * Wynik sprawdzany korpusem z niezależnej implementacji (python-dateutil, scripts/gen-rrule-corpus.py).
  */
 import { config } from '../config';
-import { addDays, type CivilDate, compareDates, daysInMonth, formatIsoDate, isoWeekday, isValidDate } from './civil-date';
+import { addDays, type CivilDate, compareDates, daysInMonth, formatIsoDate, isoWeekday, isValidDate, toDayNumber } from './civil-date';
 
 export type Freq = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 export const WEEKDAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
@@ -135,6 +135,29 @@ function periodDays(r: Rule, start: CivilDate, k: number): CivilDate[] {
 const MAX_PERIODS = 20_000;
 
 /**
+ * Pierwszy okres, który może mieć dzień ≥ `from` (audyt 3, N-16): wcześniejsze okresy kończą się przed `from`, więc
+ * bez COUNT (liczonego od początku serii) nie trzeba ich przeglądać — codzienna rutyna sprzed 3 lat to ok. 1100 kroków
+ * przy każdym wywołaniu. Okres k zaczyna się w dniu startu + k·INTERVAL dni / tygodni (od poniedziałku) / miesięcy / lat.
+ */
+function firstPeriod(r: Rule, start: CivilDate, from: CivilDate): number {
+  let units: number;
+  switch (r.freq) {
+    case 'DAILY':
+      units = toDayNumber(from) - toDayNumber(start);
+      break;
+    case 'WEEKLY':
+      units = Math.floor((toDayNumber(from) - isoWeekday(from) - (toDayNumber(start) - isoWeekday(start))) / 7);
+      break;
+    case 'MONTHLY':
+      units = from.y * 12 + from.m - (start.y * 12 + start.m);
+      break;
+    case 'YEARLY':
+      units = from.y - start.y;
+  }
+  return Math.max(0, Math.floor(units / r.interval));
+}
+
+/**
  * Wystąpienia od `start` (pierwsze wystąpienie, zgodne z regułą) w zakresie [from, to], z COUNT i UNTIL liczonymi
  * od początku serii. Bez reguły — tylko `start`.
  */
@@ -143,7 +166,7 @@ export function occurrences(start: CivilDate, rule: Rule | null, from: CivilDate
   const until = rule.until === null ? null : toDate(rule.until);
   const out: CivilDate[] = [];
   let n = 0;
-  for (let k = 0; k < MAX_PERIODS; k++) {
+  for (let k = rule.count === null ? firstPeriod(rule, start, from) : 0; k < MAX_PERIODS; k++) {
     for (const d of periodDays(rule, start, k)) {
       if (compareDates(d, start) < 0) continue;
       if (until && compareDates(d, until) > 0) return out;

@@ -160,7 +160,7 @@ describe('Listy i zadania', () => {
     // Audyt 2 (M-254): usunięcie z ekranu zadania jak przesunięcie na liście — powrót i pasek „Cofnij”.
     await press(await screen.findByLabelText('Usuń zadanie'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
-    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty dla babci')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto zadanie: Kupić kwiaty dla babci')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
     await press(await screen.findByLabelText(/^Kupić\ kwiaty\ dla\ babci(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
@@ -237,13 +237,15 @@ describe('Grupy', () => {
     expect(msg).toContain('Grupy → „Dołącz do grupy”');
     expect(msg).toContain('Kod: 731 064 (ważny do: czwartek, 8 października, 10:00)');
     expect(parseJoin(msg)).toEqual({ joinId: '482913507', code: '731064' });
-    // D187: unieważnienia nie da się cofnąć — jedno pytanie; „Anuluj” nic nie robi.
+    // D187: unieważnienia nie da się cofnąć — jedno pytanie, oknem systemowym jak „Zmień ID grupy” (audyt 3, N-153,
+    // Q32 A); „Anuluj” nic nie robi.
     await press(screen.getByLabelText('Unieważnij kod'));
-    expect(screen.getByText(/tego nie da się cofnąć/)).toBeTruthy();
-    await press(screen.getAllByLabelText('Anuluj').at(-1)!);
+    expect(lastAlert()).toMatchObject({ title: 'Unieważnij kod', message: expect.stringMatching(/tego nie da się cofnąć/) });
+    expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Unieważnij kod', 'destructive']]);
+    await answerAlert('Anuluj');
     expect(account.revokeInvite).not.toHaveBeenCalled();
     await press(screen.getByTestId('revoke'));
-    await press(screen.getByTestId('revoke-confirm'));
+    await answerAlert('Unieważnij kod');
     expect(account.revokeInvite).toHaveBeenCalledWith('inv-2');
     await type(screen.getByTestId('child-name'), 'Zosia');
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
@@ -365,7 +367,7 @@ describe('Edycja grup (D54–D56)', () => {
     return base;
   };
 
-  it('właściciel: kolor linii, automatyczny, usunięcie do kosza bez pytania, z „Cofnij” (D187)', async () => {
+  it('właściciel: kolor linii, automatyczny, usunięcie do kosza z pytaniem o pozostałe osoby i „Cofnij” (D187, Q19 A)', async () => {
     const { store, account } = await open({ base: asOwner() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
@@ -375,6 +377,11 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Automatyczny'));
     expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { color: null } }]);
     await press(screen.getByTestId('delete-group'));
+    // Audyt 3 (N-156, Q19 A): w grupie są Ala i Tymek — najpierw pytanie z ich liczbą; „Anuluj” nic nie wysyła.
+    expect(lastAlert()).toMatchObject({ title: 'Usunąć grupę „Rodzina” także dla pozostałych osób (2)? Przez 30 dni przywrócisz ją z kosza.' });
+    expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Usuń grupę', 'destructive']]);
+    expect(account.deleteGroup).not.toHaveBeenCalled();
+    await answerAlert('Usuń grupę');
     expect(account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(store.refresh).toHaveBeenCalled();
     expect(await screen.findByTestId('screen-groups')).toBeTruthy();
@@ -389,6 +396,7 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByTestId('delete-group'));
+    await answerAlert('Usuń grupę');
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.queryByTestId('undo-bar')).toBeNull();
   });

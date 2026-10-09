@@ -17,6 +17,7 @@ import {
   stapleCmdResult,
   type ClientState,
   type PullResponse,
+  type Row,
 } from '../sync-engine/client';
 import { FakeServer } from './support/fake-server';
 
@@ -372,5 +373,90 @@ describe('protokół 2 (audyt 2): epoka kursora, pobranie od zera, listy widoczn
     expect(b.base.tasks ?? {}).toEqual({});
     expect(Object.keys(b.base.lists ?? {})).toEqual(['dom']);
     expect(Object.keys(a.base.tasks ?? {}).sort()).toEqual(['rower', 'test']);
+  });
+});
+
+describe('audyt 3, N-15: pobranie bez zmian nie kopiuje tabel', () => {
+  const G = 'g';
+  const row = (id: string, version: number, extra: Row = {}) => ({ e: 'tasks' as const, v: version, row: { id, group_id: G, list_id: 'l1', title: id, version, ...extra } });
+  const group = (over: Partial<PullResponse['groups'][number]> = {}): PullResponse['groups'][number] => ({ group_id: G, cursor: 3, has_more: false, resync: false, rows: [], purged: 0, lists: ['l1'], gone: [], ...over });
+  /** Telefon po pierwszym pobraniu: grupa, lista i dwa zadania. */
+  function synced(): ClientState {
+    const s0 = initialState('c');
+    const req = pullRequest(s0);
+    const first = { groups: [group({ rows: [{ e: 'groups', v: 1, row: { id: G, name: 'Rodzina', kind: 'shared', version: 1 } }, { e: 'lists', v: 1, row: { id: 'l1', group_id: G, kind: 'tasks', name: 'Dom', version: 1 } }, row('t1', 2), row('t2', 3)] })], scopes: [] };
+    return onPullResponse(s0, first, req).state;
+  }
+
+  it('pusta odpowiedź z tymi samymi kursorami → ten sam stan (bez przeliczenia ekranów i zapisu)', () => {
+    const s = synced();
+    const out = onPullResponse(s, { groups: [group()], scopes: [] }, pullRequest(s));
+    expect(out.state).toBe(s);
+    expect(out.needMore).toBe(false);
+  });
+
+  it('nowy kursor bez wierszy → nowy stan, ale te same tabele i kolejka', () => {
+    const s = synced();
+    const next = onPullResponse(s, { groups: [group({ cursor: 9, purged: 4 })], scopes: [] }, pullRequest(s)).state;
+    expect(next).not.toBe(s);
+    expect(next.cursors).toEqual({ [G]: 9 });
+    expect(next.purged).toEqual({ [G]: 4 });
+    expect(next.base).toBe(s.base);
+    expect(next.pending).toBe(s.pending);
+    expect(next.staged).toBe(s.staged);
+  });
+
+  it('jeden zmieniony wiersz → kopia tylko jego tabeli; poprzedni stan nietknięty', () => {
+    const s = synced();
+    const before = JSON.stringify(s.base);
+    const next = onPullResponse(s, { groups: [group({ cursor: 4, rows: [row('t1', 4, { title: 'nowy' })] })], scopes: [] }, pullRequest(s)).state;
+    expect(next.base.tasks).not.toBe(s.base.tasks);
+    expect(next.base.tasks!.t2).toBe(s.base.tasks!.t2);
+    expect(next.base.lists).toBe(s.base.lists);
+    expect(next.base.groups).toBe(s.base.groups);
+    expect(next.base.tasks!.t1).toMatchObject({ title: 'nowy' });
+    expect(JSON.stringify(s.base)).toBe(before);
+  });
+
+  it('usunięcie (gone, utracona lista) kopiuje tabelę; nieznany identyfikator — nie', () => {
+    const s = synced();
+    expect(onPullResponse(s, { groups: [group({ gone: ['nieznane'] })], scopes: [] }, pullRequest(s)).state).toBe(s);
+    const gone = onPullResponse(s, { groups: [group({ cursor: 4, gone: ['t1'] })], scopes: [] }, pullRequest(s)).state;
+    expect(Object.keys(gone.base.tasks!)).toEqual(['t2']);
+    expect(Object.keys(s.base.tasks!)).toEqual(['t1', 't2']);
+    const hidden = onPullResponse(s, { groups: [group({ lists: [] })], scopes: [] }, pullRequest(s)).state;
+    expect(hidden.base.tasks).toEqual({});
+    expect(hidden.base.groups).toBe(s.base.groups);
+  });
+
+  it('porcje w toku (resync): niezmieniona porcja zostaje tym samym obiektem', () => {
+    const s = synced();
+    const partial = onPullResponse(s, { groups: [group({ resync: true, has_more: true, cursor: 1, rows: [row('t1', 1)] })], scopes: [] }, pullRequest(s)).state;
+    expect(partial.staged[G]!.tasks).toEqual({ t1: expect.objectContaining({ id: 't1' }) });
+    // Następna porcja bez wierszy i bez zmiany kursora: porcja w toku bez kopii.
+    const again = onPullResponse(partial, { groups: [group({ has_more: true, cursor: 1 })], scopes: [] }, pullRequest(partial)).state;
+    expect(again).toBe(partial);
+    const done = onPullResponse(again, { groups: [group({ cursor: 5, rows: [row('t3', 5)] })], scopes: [] }, pullRequest(again)).state;
+    expect(done.staged).toEqual({});
+    expect(Object.keys(done.base.tasks!).sort()).toEqual(['t1', 't3']);
+  });
+
+  it('kolejka: potwierdzone operacje schodzą, a bez potwierdzonych zostaje ta sama tablica', () => {
+    let s = synced();
+    s = mutate(s, { kind: 'patch', entity: 'tasks', id: 't1', set: { title: 'x' } }, newId);
+    const kept = onPullResponse(s, { groups: [group({ cursor: 4 })], scopes: [] }, pullRequest(s)).state;
+    expect(kept.pending).toBe(s.pending);
+    const acked = { ...s, ackedSeq: 1 };
+    expect(onPullResponse(acked, { groups: [group({ cursor: 4 })], scopes: [] }, pullRequest(acked)).state.pending).toEqual([]);
+  });
+
+  it('zmienione zakresy i encje dają nowe tablice', () => {
+    const s = synced();
+    const next = onPullResponse(s, { groups: [group()], scopes: ['l9'] }, pullRequest(s));
+    expect(next.state.scopes).toEqual(['l9']);
+    expect(next.state.scopesToFetch).toEqual(['l9']);
+    expect(next.fetchScopes).toEqual(['l9']);
+    const old = { ...s, entities: ['tasks'] };
+    expect(onPullResponse(old, { groups: [group()], scopes: [] }, pullRequest(old)).state.entities).toEqual([...ENTITIES]);
   });
 });

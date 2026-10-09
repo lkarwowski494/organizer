@@ -98,7 +98,7 @@ describe('rutyny (D113)', () => {
     expect(routineStreak(t, 'rano', today)).toBe(6);
     const d = eventDetail(t, ME, 'rano')!;
     const ops = editEvent(d, '2026-10-08', 'following', { ...fieldsOf(d, '2026-10-08', 'following'), startTime: '07:30' });
-    for (const op of seriesEditOps(d, ops, seriesEditEffects(t, d, '2026-10-08', 'following', ops), 'nearest')) applyOp(t, { ...op, seq: 1, op_id: 'x' } as Op);
+    for (const op of seriesEditOps(ops, seriesEditEffects(t, d, '2026-10-08', 'following', ops), 'nearest')) applyOp(t, { ...op, seq: 1, op_id: 'x' } as Op);
     const next = splitId('rano', '2026-10-08');
     expect(t.events![next]!.split_from).toBe('rano');
     expect(routineStreak(t, next, today)).toBe(6);

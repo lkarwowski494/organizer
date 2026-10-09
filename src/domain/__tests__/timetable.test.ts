@@ -3,7 +3,7 @@ import { parseIsoDate } from '../format';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { occurrenceResolver } from '../views/event-rows';
 import { expandEvents } from '../views/events';
-import { type Lesson, memberTimetable, swapWeeks, timetableOps } from '../views/timetable';
+import { copyTargets, type Lesson, memberTimetable, swapWeeks, timetableOps } from '../views/timetable';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -451,5 +451,34 @@ describe('lekcja z rodzeństwem (audyt 2, E-26)', () => {
     expect(q.undo(later)).toEqual([{ kind: 'restore', entity: 'event_participants', id: 'p-basen' }]);
     const done = twins({ start_date: '2026-09-03', rrule: 'FREQ=WEEKLY;BYDAY=TH;COUNT=2' });
     expect(save(done, () => []).ops).toEqual([{ kind: 'delete', entity: 'event_participants', id: 'p-basen' }]);
+  });
+});
+
+describe('dokąd skopiować plan lekcji (audyt 3, N-47, Q27 B)', () => {
+  it('dzieci w moich innych grupach wspólnych, w których jestem dorosłym; kolejność grup i imion', () => {
+    const t: { [e: string]: { [id: string]: Row } } = {
+      groups: {
+        me: { id: 'me', name: 'Osobiste', kind: 'personal', created_at: '2026-01-01T00:00:00Z', deleted_at: null },
+        g1: { id: 'g1', name: 'Rodzina', kind: 'shared', created_at: '2026-01-02T00:00:00Z', deleted_at: null },
+        g2: { id: 'g2', name: 'Dom taty', kind: 'shared', created_at: '2026-01-03T00:00:00Z', deleted_at: null },
+        g3: { id: 'g3', name: 'Klasa', kind: 'shared', created_at: '2026-01-04T00:00:00Z', deleted_at: null },
+      },
+      group_members: {
+        me: { member_id: 'me', group_id: 'me', user_id: 'u', display_name: 'Ja', role: 'owner', deleted_at: null },
+        a1: { member_id: 'a1', group_id: 'g1', user_id: 'u', display_name: 'Ja', role: 'owner', deleted_at: null },
+        k1: { member_id: 'k1', group_id: 'g1', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null },
+        a2: { member_id: 'a2', group_id: 'g2', user_id: 'u', display_name: 'Ja', role: 'member', deleted_at: null },
+        k2: { member_id: 'k2', group_id: 'g2', user_id: null, display_name: 'Zosia', role: 'child', deleted_at: null },
+        k3: { member_id: 'k3', group_id: 'g2', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null },
+        k4: { member_id: 'k4', group_id: 'g2', user_id: null, display_name: 'Ala', role: 'child', deleted_at: '2026-10-01T00:00:00Z' },
+        a3: { member_id: 'a3', group_id: 'g3', user_id: 'u', display_name: 'Ja', role: 'child', deleted_at: null },
+        k5: { member_id: 'k5', group_id: 'g3', user_id: null, display_name: 'Jan', role: 'child', deleted_at: null },
+      },
+    };
+    expect(copyTargets(t, 'u', 'g1')).toEqual([
+      { groupId: 'g2', groupName: 'Dom taty', memberId: 'k3', name: 'Tymek' },
+      { groupId: 'g2', groupName: 'Dom taty', memberId: 'k2', name: 'Zosia' },
+    ]);
+    expect(copyTargets(t, 'u', 'g2')).toEqual([{ groupId: 'g1', groupName: 'Rodzina', memberId: 'k1', name: 'Tymek' }]);
   });
 });

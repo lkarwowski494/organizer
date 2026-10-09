@@ -40,6 +40,7 @@ import { emptyForm, type FormError, validateForm } from './event-form';
 import { asEvent, asParticipant, ruleOf } from './event-rows';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from './event-tasks';
 import { createEvent, eventDetail, type EventFields, participantId } from './events';
+import { groupsView } from './index';
 import { asMember, asTask, rows, type Tables } from './model';
 
 export type Week = 'both' | 'A' | 'B';
@@ -261,7 +262,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
     // Para z inną specyfikacją (sameSpec) zawsze zmienia któreś pole.
     const base: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: changed }, ...lost.map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id }))];
     const effects = seriesEditEffects(t, d, e.start_date, 'all', base);
-    const ops = seriesEditOps(d, base, effects, choice);
+    const ops = seriesEditOps(base, effects, choice);
     const tasks = taskUndo(t, decisionsOf(ops), e.id);
     return {
       ops,
@@ -286,7 +287,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
   };
   const cmd: NewOp[] = [{ kind: 'cmd', cmd: 'split_event', args }];
   const effects = seriesEditEffects(t, d, isoTomorrow, 'following', cmd);
-  const ops = seriesEditOps(d, cmd, effects, choice);
+  const ops = seriesEditOps(cmd, effects, choice);
   const tasks = taskUndo(t, (ops[0] as unknown as { args: SplitArgs }).args.tasks, id);
   const [first] = occurrences(oldStart, oldRule, tomorrow, addDays(tomorrow, LOOKAHEAD));
   return {
@@ -346,4 +347,24 @@ function leaveSeries(t: Tables, x: PlanSeries, memberId: string, tomorrow: Civil
       { kind: 'restore', entity: 'event_participants', id: pid },
     ],
   };
+}
+
+/** Dokąd skopiować plan lekcji (audyt 3, N-47, decyzja Q27 B): profil dziecka w innej grupie wspólnej, w której jestem dorosłym. */
+export type CopyTarget = { groupId: string; groupName: string; memberId: string; name: string };
+
+/**
+ * „Skopiuj plan lekcji do…” (Q27 B): dzieci w moich innych grupach wspólnych (np. ten sam Tymek w „Rodzinie” i w „Domu
+ * taty” — profil dziecka jest wierszem jednej grupy, więc plan nie przechodzi sam). Kolejność grup jak na ekranie Grupy,
+ * w grupie — imiona alfabetycznie. Kopia otwiera ekran planu tamtego dziecka z planem do sprawdzenia; zapis — jak zawsze.
+ */
+export function copyTargets(t: Tables, userId: string, fromGroupId: string): CopyTarget[] {
+  const kids = rows(t, 'group_members', asMember).filter((m) => m.deleted_at === null && m.role === 'child');
+  return groupsView(t, userId)
+    .filter((g) => g.kind === 'shared' && g.id !== fromGroupId && g.me.role !== 'child')
+    .flatMap((g) =>
+      kids
+        .filter((m) => m.group_id === g.id)
+        .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'))
+        .map((m) => ({ groupId: g.id, groupName: g.name, memberId: m.member_id, name: m.display_name })),
+    );
 }

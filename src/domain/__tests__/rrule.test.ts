@@ -1,6 +1,6 @@
 import * as fc from 'fast-check';
 
-import { formatIsoDate } from '../civil-date';
+import { addDays, compareDates, formatIsoDate } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { alignStart, endBefore, formatRule, occurrences, parseRule, RuleError } from '../rrule';
 import corpus from './fixtures/rrule.json';
@@ -87,5 +87,51 @@ describe('reguły — przypadki i błędy', () => {
         expect([...left, ...right]).toEqual(whole);
       }),
     );
+  });
+});
+
+describe('audyt 3, N-16: skok do okresu zawierającego „od”', () => {
+  // Wzorzec: ta sama funkcja od dnia startu (skok k = 0, czyli dawny algorytm przeglądający serię od początku),
+  // przycięta do [od, do]. Bez COUNT wynik nie zależy od okresów sprzed „od”.
+  const arbFreq = fc.constantFrom('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY');
+  const arbRule = fc
+    .record({
+      freq: arbFreq,
+      interval: fc.integer({ min: 1, max: 14 }),
+      byday: fc.subarray(['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'], { maxLength: 3 }),
+      nth: fc.constantFrom(null, 1, 2, -1),
+      bymonthday: fc.constantFrom(null, 1, 15, 29, 31, -1),
+      until: fc.option(fc.integer({ min: 0, max: 4000 })),
+      count: fc.option(fc.integer({ min: 1, max: 40 })),
+    })
+    .map(({ freq, interval, byday, nth, bymonthday, until, count }) => {
+      const parts = [`FREQ=${freq}`, `INTERVAL=${interval}`];
+      if (freq === 'WEEKLY' && byday.length) parts.push(`BYDAY=${byday.join(',')}`);
+      if (freq === 'MONTHLY' && byday.length) parts.push(`BYDAY=${byday.map((d) => `${nth ?? ''}${d}`).join(',')}`);
+      else if (freq === 'MONTHLY' && bymonthday !== null) parts.push(`BYMONTHDAY=${bymonthday}`);
+      if (count !== null) parts.push(`COUNT=${count}`);
+      else if (until !== null) parts.push(`UNTIL=${formatIsoDate(addDays(D('2020-01-01'), until)).replaceAll('-', '')}`);
+      return parseRule(parts.join(';'));
+    });
+
+  it('wynik jak przy przeglądaniu od początku serii (losowe reguły, start i zakres)', () => {
+    fc.assert(
+      fc.property(arbRule, fc.integer({ min: 0, max: 3000 }), fc.integer({ min: -400, max: 4000 }), fc.integer({ min: 0, max: 120 }), (rule, s, f, len) => {
+        const start = alignStart(addDays(D('2020-01-01'), s), rule);
+        const from = addDays(start, f);
+        const to = addDays(from, len);
+        const all = occurrences(start, rule, start, to).filter((d) => compareDates(d, from) >= 0);
+        expect(iso(occurrences(start, rule, from, to))).toEqual(iso(all));
+      }),
+      { numRuns: 3000 },
+    );
+  });
+
+  it('codzienna seria sprzed lat: zakres jednego dnia bez przeglądania lat', () => {
+    const daily = parseRule('FREQ=DAILY');
+    expect(iso(occurrences(D('2000-01-01'), daily, D('2026-10-09'), D('2026-10-09')))).toEqual(['2026-10-09']);
+    // Co 10 dni od 1.01: 9.10 nie pasuje, 18.10 — tak.
+    expect(iso(occurrences(D('2026-01-01'), parseRule('FREQ=DAILY;INTERVAL=10'), D('2026-10-09'), D('2026-10-20')))).toEqual(['2026-10-18']);
+    expect(iso(occurrences(D('2020-02-29'), parseRule('FREQ=YEARLY'), D('2026-01-01'), D('2028-12-31')))).toEqual(['2028-02-29']);
   });
 });
