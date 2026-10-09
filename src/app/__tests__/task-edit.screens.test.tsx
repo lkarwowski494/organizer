@@ -5,7 +5,7 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { sampleBase, setTime, setup } from './harness';
+import { pickDate, sampleBase, setTime, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -36,7 +36,15 @@ describe('ekran zadania a zmiany z drugiego telefonu (audyt 2, T-22)', () => {
     const { s, remote } = await openPackage();
     await remote({ due_date: '2026-10-09' });
     await setTime('task-time', '19:30');
-    expect(s.store.dispatched).toEqual([expect.objectContaining({ kind: 'patch', id: 't-paczka', set: expect.objectContaining({ due_date: '2026-10-09', due_time: '19:30' }) })]);
+    // Audyt 3 (N-126): wysyłana jest sama godzina — dzień z drugiego telefonu zostaje też wtedy, gdy jego zmiana
+    // dojdzie do serwera później niż moja.
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { due_time: '19:30' } }]);
+  });
+
+  it('audyt 3 (N-126): zmiana samego dnia nie wysyła godziny — godzina zmieniona na drugim telefonie zostaje', async () => {
+    const { s } = await openPackage();
+    await pickDate('task-date', '2026-10-09');
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { deadline_mode: 'own', due_date: '2026-10-09' } }]);
   });
 
   it('moja edycja wygrywa przy wyjściu z pola; po zapisie wyjście z ekranu nie wysyła jej drugi raz', async () => {

@@ -130,7 +130,7 @@ describe('Listy i zadania', () => {
     await fireEvent(screen.getByTestId('task-title'), 'blur');
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić kwiaty dla babci' } }]);
     await pickDate('task-date', '2026-10-09');
-    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: null } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09' } }]);
     const sent = store.dispatched.length;
     await setTime('task-time', '25:00');
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
@@ -150,7 +150,7 @@ describe('Listy i zadania', () => {
     await type(screen.getByTestId('task-note'), 'tulipany');
     await press(screen.getByLabelText('Wróć'));
     const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));
-    expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' }]));
+    expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { due_time: '17:30' }]));
     // Termin 9.10 to inny dzień niż oglądany (jutro), więc zadanie znika z widoku — otwieramy je z listy.
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(screen.queryByText('Kupić kwiaty dla babci')).toBeNull();
@@ -167,7 +167,7 @@ describe('Listy i zadania', () => {
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
     await press(screen.getByLabelText('Bez terminu'));
-    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { note: 'tulipany' } }, { kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-kwiaty' }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { due_time: '17:30' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { note: 'tulipany' } }, { kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-kwiaty' }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
