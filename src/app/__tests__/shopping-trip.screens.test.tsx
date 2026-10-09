@@ -95,7 +95,9 @@ describe('zakupy na „Moje sprawy”', () => {
     await answerAlert('Zostaw na następne zakupy');
     expect(store.dispatched).toEqual([
       { kind: 'delete', entity: 'tasks', id: 's-maslo' },
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null, trip_done_at: '2026-10-07T08:00:00.000Z', trip_done_date: '2026-10-07' } },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null } },
+      // PWD-11 A: zrobione zakupy do Kalendarza.
+      { kind: 'create', entity: 'shopping_trips', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', planned_date: '2026-10-07', done_at: '2026-10-07T08:00:00.000Z' } },
     ]);
     expect(screen.queryByTestId('today-trip-lz')).toBeNull();
   });
@@ -105,7 +107,7 @@ describe('zakupy na „Moje sprawy”', () => {
     const { store } = await open(base);
     await press(screen.getByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend'));
     await answerAlert('Oznacz wszystko jako kupione');
-    expect(store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['patch:s-chleb', 'delete:s-maslo', 'delete:s-chleb', 'patch:lz']);
+    expect(store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['patch:s-chleb', 'delete:s-maslo', 'delete:s-chleb', 'patch:lz', 'create:new-1']);
 
     const empty = planned();
     delete empty.tasks!['s-chleb'];
@@ -113,7 +115,7 @@ describe('zakupy na „Moje sprawy”', () => {
     await press(screen.getAllByLabelText('Oznacz jako zrobione: Zakupy: Zakupy na weekend').at(-1)!);
     expect(lastAlert()).toMatchObject({ message: 'Zakupy: Zakupy na weekend' });
     await answerAlert('Zrobione');
-    expect(s2.store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['delete:s-maslo', 'patch:lz']);
+    expect(s2.store.dispatched.map((o) => `${o.kind}:${(o as { id: string }).id}`)).toEqual(['delete:s-maslo', 'patch:lz', 'create:new-1']);
   });
 
   it('dotknięcie wpisu otwiera listę', async () => {

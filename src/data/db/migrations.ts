@@ -17,7 +17,9 @@ const V3_TABLES = ['event_task_series'] as const;
 const V4_TABLES = ['handoffs'] as const;
 /** Potwierdzanie obecności (migracja serwera 20261008270000_event_rsvps). */
 const V5_TABLES = ['event_rsvps'] as const;
-export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES, ...V3_TABLES, ...V4_TABLES, ...V5_TABLES] as const;
+/** Zakres Moich spraw na koncie i zrobione zakupy (migracja serwera 20261008570000_my_scopes_trips). */
+const V7_TABLES = ['my_day_scopes', 'shopping_trips'] as const;
+export const ENTITY_TABLES = [...V1_TABLES, ...V2_TABLES, ...V3_TABLES, ...V4_TABLES, ...V5_TABLES, ...V7_TABLES] as const;
 
 const mirror = (t: string) => `
 create table ${t} (
@@ -72,6 +74,8 @@ create table staged_rows (
   primary key (group_id, entity, key)
 );`,
   },
+  // Nowe encje — telefon sam pobierze wszystko od zera (ClientState.entities, M-58).
+  { version: 7, sql: V7_TABLES.map(mirror).join('\n') },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

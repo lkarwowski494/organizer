@@ -82,23 +82,30 @@ const AppContext = createContext<AppServices | null>(null);
 /**
  * Zegar dnia (audyt 2, M-203): „dziś” przelicza się o północy w Warszawie i po powrocie aplikacji na pierwszy plan, a nie
  * dopiero przy zmianie danych — ekran otwarty przez północ nie pokazuje wczorajszych „minęło”, „zaległe” i godzin.
- * Timer do najbliższej północy liczony z lokalnego czasu (config.TIME_ZONE); zmiana czasu w Polsce jest w nocy z soboty
- * na niedzielę o 2:00/3:00, czyli po północy, więc do północy czas zegarowy i upływający są równe.
+ * Odstęp do północy liczony z czasu lokalnego (now(), config.TIME_ZONE przez Intl), ale timer czeka najwyżej
+ * DAY_CLOCK_MAX_MS i po każdym przebiegu liczy od nowa — nie zakładamy, kiedy w nocy przestawia się czas (zmiana czasu
+ * między wyliczeniem a północą przesunęłaby jedno długie czekanie o godzinę).
  */
 const DayContext = createContext(0);
+const DAY_CLOCK_MAX_MS = 60 * 60_000;
 
 function DayClock({ services, children }: { services: AppServices; children: ReactNode }) {
   const [tick, setTick] = useState(0);
   const { now, nowMs } = services;
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
+    let day = now().d;
     const schedule = () => {
       const l = now();
-      const left = ((24 * 60 - (l.hh * 60 + l.mm)) * 60 - Math.floor(nowMs() / 1000) % 60) * 1000;
+      const left = ((24 * 60 - (l.hh * 60 + l.mm)) * 60 - (Math.floor(nowMs() / 1000) % 60)) * 1000 + 1000;
       timer = setTimeout(() => {
-        setTick((k) => k + 1);
+        // Nowy dzień — ekrany przeliczają „dziś”; inaczej tylko kolejne czekanie.
+        if (now().d !== day) {
+          day = now().d;
+          setTick((k) => k + 1);
+        }
         schedule();
-      }, left + 1000);
+      }, Math.min(left, DAY_CLOCK_MAX_MS));
     };
     schedule();
     const sub = AppState.addEventListener('change', (st) => st === 'active' && setTick((k) => k + 1));

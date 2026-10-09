@@ -17,7 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
+import { BackButton, GroupMark, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
 import { useUndo } from '../../ui/undo';
@@ -112,7 +112,7 @@ export function GroupScreen({ route, navigation }: Props) {
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 6, borderColor: line(d.group.line).line, backgroundColor: c.surface }} />
+        <GroupMark line={d.group.line} size={22} />
         <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
       </View>
       {nextSteps && d.canInvite ? (

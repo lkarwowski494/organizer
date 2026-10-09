@@ -448,7 +448,7 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
  * na inny ekran (strzałka „›” obiecuje przejście, audyt 2: G-14, U-14).
  */
 export function NavRow({ title, subtitle, line, onPress, testID, chevron = true }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string; chevron?: boolean }) {
-  const { c, font, size, line: lineOf } = useTheme();
+  const { c, font, size } = useTheme();
   return (
     <Pressable
       testID={testID}
@@ -457,7 +457,7 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
     >
-      {line === undefined ? null : <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: lineOf(line).line, backgroundColor: c.surface }} />}
+      {line === undefined ? null : <GroupMark line={line} />}
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{title}</Text>
         {subtitle ? <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{subtitle}</Text> : null}
@@ -574,6 +574,12 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
  * Ekran rzeczy, której nie ma (usunięta, stary link, powiadomienie; audyt 2, M-131): „Wróć” i powód zamiast „Coś poszło nie
  * tak. Spróbuj jeszcze raz.” — nie ma czego ponawiać.
  */
+/** Znacznik grupy (audyt 2, M-252): jeden kształt — pierścień w kolorze linii — w wierszach, liniach grupy i na ekranie grupy. */
+export function GroupMark({ line, size: px = 18 }: { line: number; size?: number }) {
+  const { c, line: lineOf } = useTheme();
+  return <View style={{ width: px, height: px, borderRadius: px / 2, borderWidth: Math.round(px * 0.28), borderColor: lineOf(line).line, backgroundColor: c.surface }} />;
+}
+
 /**
  * Linia grupy nad tytułem na ekranach szczegółów (audyt 2, M-252): jeden znacznik grupy (pierścień w kolorze linii, jak
  * w wierszach nawigacji i na ekranie grupy), nazwa grupy w jej kolorze i jedna linia opisu. `header` — etykieta nagłówka
@@ -583,7 +589,7 @@ export function GroupLine({ name, line, detail, header, flex }: { name: string; 
   const { c, font, size, line: lineOf } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: flex ? 1 : undefined }}>
-      <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: lineOf(line).line, backgroundColor: c.surface }} />
+      <GroupMark line={line} />
       <Text accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header} style={{ flex: 1, fontFamily: font.text400, fontSize: size.META + 1, color: c.inkMuted }}>
         <Text style={{ fontFamily: font.text700, color: lineOf(line).ink }}>{name}</Text>
         {detail ? `${META_SEP}${detail}` : ''}

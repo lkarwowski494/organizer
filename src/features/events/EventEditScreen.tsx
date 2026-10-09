@@ -31,7 +31,7 @@ import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles, MissingScreen } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
-import { PersonPicker } from '../../ui/PersonPicker';
+import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
 import { SeriesPreview } from './SeriesPreview';
 
@@ -293,7 +293,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         <>
           <Segmented label={strings['event.audience']} value={form.audience} onChange={(audience) => set({ audience })} options={[{ value: 'group', label: strings['event.audience.group'] }, { value: 'members', label: strings['event.audience.members'] }]} />
           {form.audience === 'members' ? (
-            <Toggles
+            <PeopleToggles
               label={strings['event.who']}
               values={form.participantIds}
               onChange={(participantIds) => set({ participantIds })}

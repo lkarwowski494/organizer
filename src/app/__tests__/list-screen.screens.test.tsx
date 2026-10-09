@@ -160,8 +160,10 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     expect(screen.getByTestId('trip-plan')).toBeTruthy();
     expect(screen.queryByText('Masło')).toBeNull();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.slice(-2)).toEqual([
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf', trip_done_at: null, trip_done_date: null } },
+    expect(store.dispatched.slice(-3)).toEqual([
+      // PWD-11 A: wiersz zrobionych zakupów wraca do kosza (nie ma go w Kalendarzu).
+      { kind: 'delete', entity: 'shopping_trips', id: 'new-1' },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } },
       { kind: 'restore', entity: 'tasks', id: 's-maslo' },
     ]);
     expect(screen.getByTestId('trip-done')).toBeTruthy();

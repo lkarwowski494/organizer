@@ -116,6 +116,9 @@ Zmieniony plik: `docs/privacy-policy.md` (wersja 7.10.2026 → 8.10.2026). Każd
 4. **Nieudane próby dołączenia** znikają z kontem i „do 2 dni” (sprzątanie raz na dobę): `private.delete_account_trash`.
 5. **Grupa w koszu po usunięciu konta właściciela** przechodzi na dorosłego z najdłuższym stażem (M-183), jak grupa
    poza koszem: ten sam plik.
+6. **Nowe dane (audyt 2, P13, 9.10.2026):** zrobione zakupy (lista, kiedy, na kiedy, kto) widoczne dla osób widzących
+   listę, trzymane 90 dni (`config.retention.TRIP_DAYS`); zakres Moich spraw w grupie — ustawienie konta, widoczne tylko
+   dla tego konta, znika po wyjściu z grupy: `supabase/migrations/20261008570000_my_scopes_trips.sql`.
 
 ## Zmiany z audytu 2 — przypomnienia bez otwierania aplikacji (D159, 8.10.2026), do akceptu
 1. **Ciche powiadomienia bez treści** do urządzeń członków grupy po zmianie, która może zmienić przypomnienia
