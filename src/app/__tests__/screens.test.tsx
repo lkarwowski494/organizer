@@ -160,7 +160,7 @@ describe('Listy i zadania', () => {
     // Audyt 2 (M-254): usunięcie z ekranu zadania jak przesunięcie na liście — powrót i pasek „Cofnij”.
     await press(await screen.findByLabelText('Usuń zadanie'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
-    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty dla babci')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto zadanie: Kupić kwiaty dla babci')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
     await press(await screen.findByLabelText(/^Kupić\ kwiaty\ dla\ babci(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();

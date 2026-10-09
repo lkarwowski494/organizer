@@ -105,10 +105,10 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await screen.findByTestId('screen-recent');
     expect(screen.queryByTestId('undo-bar')).toBeNull();
     const entries = screen.getAllByTestId(/^recent-\d+$/);
-    expect(within(entries[0]!).getByText('Usunięto: Odebrać paczkę')).toBeTruthy();
-    expect(within(entries[1]!).getByText('Usunięto: Przynieść korki na trening')).toBeTruthy();
+    expect(within(entries[0]!).getByText('Usunięto zadanie: Odebrać paczkę')).toBeTruthy();
+    expect(within(entries[1]!).getByText('Usunięto zadanie: Przynieść korki na trening')).toBeTruthy();
     expect(within(entries[1]!).getByText('dziś, 10:00')).toBeTruthy();
-    await press(within(entries[1]!).getByLabelText('Cofnij: Usunięto: Przynieść korki na trening'));
+    await press(within(entries[1]!).getByLabelText('Cofnij: Usunięto zadanie: Przynieść korki na trening'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-korki' }, { kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-korki' }]);
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
     expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Cofnięto', { queue: true });
@@ -125,7 +125,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     const n = store.dispatched.length;
     await press(within(bar()).getByLabelText('Cofnij'));
     expect(store.dispatched).toHaveLength(n);
-    expect(within(bar()).getByText('Nie cofnięto: Usunięto: Odebrać paczkę — to się w międzyczasie zmieniło')).toBeTruthy();
+    expect(within(bar()).getByText('Nie cofnięto: Usunięto zadanie: Odebrać paczkę — to się w międzyczasie zmieniło')).toBeTruthy();
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
     expect(await screen.findByText(/Nie cofnięto: to zmieniło się od tamtej chwili/)).toBeTruthy();
@@ -141,7 +141,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
-    await press(await screen.findByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
+    await press(await screen.findByLabelText('Cofnij: Usunięto zadanie: Odebrać paczkę'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
   });
 
@@ -164,7 +164,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
     expect(screen.getAllByTestId(/^recent-\d+$/)).toHaveLength(config.RECENT_MAX);
-    expect(screen.queryByText('Usunięto: Zadanie 0')).toBeNull();
+    expect(screen.queryByText('Usunięto zadanie: Zadanie 0')).toBeNull();
     // 31 usunięć na pełnym ekranie Moich spraw — przy obciążonej maszynie CI dłużej niż domyślne 5 s.
   }, 20_000);
 });
@@ -195,7 +195,7 @@ describe('Ostatnie zmiany w bazie konta (D194 b)', () => {
     expect(within(entries[0]!).getByText(/szła przez serwer/)).toBeTruthy();
     expect(within(entries[0]!).queryByLabelText(/^Cofnij: /)).toBeNull();
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
-    await press(within(entries[2]!).getByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
+    await press(within(entries[2]!).getByLabelText('Cofnij: Usunięto zadanie: Odebrać paczkę'));
     expectOps(s.store, [{ kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'delete', entity: 'tasks', id: 't-korki' }, { kind: 'restore', entity: 'tasks', id: 't-korki' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
     expect(within(entries[2]!).getByText('Cofnięto')).toBeTruthy();
   });
@@ -213,7 +213,7 @@ describe('Ostatnie zmiany w bazie konta (D194 b)', () => {
     await press(await screen.findByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
     const n = s.store.dispatched.length;
-    await press(await screen.findByLabelText('Cofnij: Usunięto: Odebrać paczkę'));
+    await press(await screen.findByLabelText('Cofnij: Usunięto zadanie: Odebrać paczkę'));
     expect(s.store.dispatched).toHaveLength(n);
     expect(await screen.findByText(/Nie cofnięto: to zmieniło się od tamtej chwili/)).toBeTruthy();
   });
@@ -317,8 +317,9 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(within(bar()).getByText('Usunięto z grupy: Tymek')).toBeTruthy();
     expect(screen.queryByLabelText('Usuń: Łukasz')).toBeNull(); // siebie nie
     await press(screen.getByLabelText('Usuń: Basen'));
-    expectOps(s.store, [{ kind: 'delete', entity: 'events', id: 'ev-co' }]);
-    expect(within(bar()).getByText('Usunięto: Basen')).toBeTruthy();
+    // Audyt 3 (N-3, N-150): cała seria jednym poleceniem i ten sam napis co na ekranie wydarzenia.
+    expectOps(s.store, [{ kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev-co', date: null, title: 'Basen' } }]);
+    expect(within(bar()).getByText('Usunięto serię: Basen')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Usuń: Rodzina'));
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
@@ -345,7 +346,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     const { store } = await open(base);
     await press(screen.getByLabelText('Usuń: Wizyta'));
     expectOps(store, [{ kind: 'delete', entity: 'events', id: 'ev-raz' }]);
-    expect(within(bar()).getByText('Usunięto: Wizyta')).toBeTruthy();
+    expect(within(bar()).getByText('Usunięto wydarzenie: Wizyta')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'restore', entity: 'events', id: 'ev-raz' }]);
     await press(screen.getByLabelText('Kalendarz'));
@@ -395,7 +396,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 'sub' }]);
     await press(screen.getByTestId('task-delete'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
-    expect(within(bar()).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
+    expect(within(bar()).getByText('Usunięto zadanie: Kupić kwiaty')).toBeTruthy();
     // Zadanie usunięte na drugim telefonie, gdy mam je otwarte (albo link do usuniętego): ekran „Zadanie usunięte”.
     await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     await screen.findByTestId('screen-task');
