@@ -11,7 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MONTHS_NOMINATIVE } from '../../config/calendar.pl';
 import type { Scheme } from '../../config/theme';
 import type { LocalDateTime } from '../../domain/civil-date';
-import { formatLongDate, parseIsoDate } from '../../domain/format';
+import { parseIsoDate } from '../../domain/format';
 import { type ClientState, initialState, mutate, type NewOp, type Row } from '../../domain/sync-engine/client';
 import type { Indicator } from '../../domain/sync-engine/scheduler';
 import type { AccountApi } from '../../sync/account';
@@ -208,10 +208,7 @@ export async function pickDate(testID: string, iso: string) {
     const [name, year] = header.split(' ');
     const shown = Number(year) * 12 + MONTHS_NOMINATIVE.findIndex((m) => m.toLowerCase() === name!.toLowerCase());
     const want = target.y * 12 + target.m - 1;
-    if (shown === want) {
-      const label = formatLongDate(target, { y: NOW.y, m: NOW.m, d: NOW.d });
-      return fireEvent.press(within(cal).getAllByLabelText(new RegExp(`^${label}(,|$)`))[0]!);
-    }
+    if (shown === want) return fireEvent.press(within(cal).getByTestId(`${testID}-day-${iso}`));
     await fireEvent.press(screen.getByTestId(`${testID}-${shown < want ? 'next' : 'prev'}`));
   }
   throw new Error(`pickDate: nie znaleziono ${iso}`);

@@ -19,7 +19,7 @@ import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { PeopleToggles } from '../../ui/PersonPicker';
-import { TimeField } from '../../ui/TimeField';
+import { TimeFieldPair } from '../../ui/TimeField';
 import { useUndo } from '../../ui/undo';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
@@ -87,14 +87,10 @@ export function RoutineScreen({ route, navigation }: Props) {
       {/* M-247: kursor w pierwszym polu pustego formularza; M-243: Return przechodzi do pierwszego kroku. */}
       <Field label={strings['common.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} autoFocus={title === ''} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => stepRefs.current[0]?.focus()} testID="routine-title" />
       <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <TimeField label={strings['event.start']} value={start} onChange={(v) => (setStart(v), setError(null))} testID="routine-start" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <TimeField label={strings['event.end']} value={end} onChange={(v) => (setEnd(v), setError(null))} testID="routine-end" optional />
-        </View>
-      </View>
+      <TimeFieldPair
+        start={{ label: strings['event.start'], value: start, onChange: (v) => (setStart(v), setError(null)), testID: 'routine-start' }}
+        end={{ label: strings['event.end'], value: end, onChange: (v) => (setEnd(v), setError(null)), testID: 'routine-end', optional: true }}
+      />
       {members.length > 1 ? (
         <PeopleToggles label={strings['routine.who']} values={who} onChange={setWho} options={members.map((m) => ({ value: m.member_id, label: m.display_name, a11y: strings['event.participantA11y'](m.display_name) }))} />
       ) : null}

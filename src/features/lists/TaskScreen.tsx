@@ -72,7 +72,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, state } = useAppData();
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
   const task = raw ? asTask(raw) : null;
   const detail = useMemo(() => (task ? listDetail(tables, userId, task.list_id, today) : null), [tables, userId, task?.list_id, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,7 +186,7 @@ export function TaskScreen({ route, navigation }: Props) {
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
         <GroupLine flex name={detail.list.groupName} line={detail.list.line} detail={groupLine} header={`${task.title}, ${detail.list.groupName}, ${groupLine.split(META_SEP).join(', ')}`} />
       </View>
-      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
       {canEdit ? (
         <>
@@ -196,7 +196,7 @@ export function TaskScreen({ route, navigation }: Props) {
         </>
       ) : (
         <>
-          <Text style={{ fontFamily: font.text700, fontSize: 22, color: c.ink }}>{task.title}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.DETAIL, color: c.ink }}>{task.title}</Text>
           {task.note ? <Body>{task.note}</Body> : null}
         </>
       )}

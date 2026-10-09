@@ -6,7 +6,7 @@
 import { usePreventRemove } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useRef, useState } from 'react';
-import { Text, type TextInput, View } from 'react-native';
+import { type TextInput, View } from 'react-native';
 
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
@@ -28,8 +28,8 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
@@ -44,7 +44,7 @@ const FEMININE = new Set([2, 5, 6]); // środa, sobota, niedziela
 export function EventEditScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
+  const { c, space, radius } = useTheme();
   const { eventId, scope = 'all' } = route.params;
   const detail = useMemo(() => (eventId ? eventDetail(tables, userId, eventId) : null), [tables, userId, eventId]);
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
@@ -231,8 +231,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       )}
 
       {slots.map((slot, i) => (
-        <View key={i} style={{ gap: 10, ...(multi ? { padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.border } : {}) }}>
-          {multi && form.slots.length > 1 ? <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['event.slot'](i + 1)}</Text> : null}
+        <View key={i} style={{ gap: 10, ...(multi ? { padding: space.PANEL_PAD, borderRadius: radius.PANEL, borderWidth: 1, borderColor: c.border } : {}) }}>
+          {multi && form.slots.length > 1 ? <CardTitle>{strings['event.slot'](i + 1)}</CardTitle> : null}
           {form.repeat === 'weekly' && !only ? (
             <Toggles
               label={strings['event.days']}
@@ -242,14 +242,10 @@ export function EventEditScreen({ route, navigation }: Props) {
             />
           ) : null}
           {form.allDay ? null : (
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <TimeField label={strings['event.start']} value={slot.start} onChange={(start) => setSlot(i, { start })} testID={`event-start-${i}`} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TimeField label={strings['event.end']} value={slot.end} onChange={(end) => setSlot(i, { end })} testID={`event-end-${i}`} optional />
-              </View>
-            </View>
+            <TimeFieldPair
+              start={{ label: strings['event.start'], value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
+              end={{ label: strings['event.end'], value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
+            />
           )}
           {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
           {!form.allDay && /^\d{2}:\d{2}$/.test(slot.start.trim()) && /^\d{2}:\d{2}$/.test(slot.end.trim()) && coveredDays(slot.start.trim(), slot.end.trim(), 1) === 2 ? (

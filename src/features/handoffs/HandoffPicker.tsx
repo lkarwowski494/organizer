@@ -3,20 +3,17 @@
  * (PWD-30 A, jak wybór osoby w formularzach).
  */
 import { useState } from 'react';
-import { View } from 'react-native';
 
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, PanelTitle } from '../../ui/components';
+import { Body, Button, Card, PanelTitle } from '../../ui/components';
 import { matchesPerson, PeopleSearch } from '../../ui/PersonPicker';
-import { useTheme } from '../../ui/theme';
 
 export function HandoffPicker({ targets, onPick, onCancel, children }: { targets: Member[]; onPick: (m: Member) => void; onCancel: () => void; children?: React.ReactNode }) {
-  const { c } = useTheme();
   const [query, setQuery] = useState('');
   const shown = targets.filter((m) => matchesPerson(m.display_name, query));
   return (
-    <View testID="handoff-picker" style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+    <Card kind="panel" testID="handoff-picker">
       <PanelTitle>{strings['handoff.pickTitle']}</PanelTitle>
       <Body muted>{strings['handoff.pickInfo']}</Body>
       {children}
@@ -26,6 +23,6 @@ export function HandoffPicker({ targets, onPick, onCancel, children }: { targets
         <Button key={m.member_id} kind="secondary" label={strings['handoff.to'](m.display_name)} onPress={() => onPick(m)} />
       ))}
       <Button kind="secondary" label={strings['common.cancel']} onPress={onCancel} />
-    </View>
+    </Card>
   );
 }

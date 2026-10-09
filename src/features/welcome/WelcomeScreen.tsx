@@ -12,8 +12,8 @@ import { useAppData, useServices } from '../../app/context';
 import { groupsView } from '../../domain/views';
 import type { RootStackParams } from '../../app/routes';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Screen, Title } from '../../ui/components';
 import { useA11yFocus } from '../../ui/a11y';
+import { Body, Button, Card, Screen, Title, titleScale } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
@@ -23,7 +23,7 @@ const STEPS = 3;
 export function WelcomeScreen({ navigation }: Props) {
   const { prefs, userId } = useServices();
   const { tables } = useAppData();
-  const { c, font, size } = useTheme();
+  const { c, font, size, fontScale } = useTheme();
   const [step, setStep] = useState(0);
   const hasShared = groupsView(tables, userId).some((g) => g.kind === 'shared');
   const pages = hasShared ? STEPS : STEPS + 1;
@@ -47,13 +47,13 @@ export function WelcomeScreen({ navigation }: Props) {
     return (
       <Screen testID="screen-welcome">
         {dots}
-        <Text ref={header} accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: 34, lineHeight: 38, color: c.ink, marginTop: 24 }}>
+        <Text ref={header} accessibilityRole="header" maxFontSizeMultiplier={titleScale(size.INTRO)} style={{ fontFamily: font.display800, fontSize: size.INTRO, lineHeight: size.INTRO * fontScale.TITLE_LEADING, color: c.ink, marginTop: 24 }}>
           {strings[`welcome.${step}.title` as 'welcome.0.title']}
         </Text>
         <Body>{strings[`welcome.${step}.body` as 'welcome.0.body']}</Body>
-        <View style={{ padding: 16, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
+        <Card>
           <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings[`welcome.${step}.example` as 'welcome.0.example']}</Text>
-        </View>
+        </Card>
         {hasShared && step === STEPS - 1 ? (
           <Button label={strings['welcome.done']} testID="welcome-done" onPress={() => finish()} />
         ) : (

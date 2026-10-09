@@ -28,18 +28,21 @@ const INTERACTIVE = new Set(['button', 'checkbox', 'tab', 'radio']);
 
 type Node = { props: Record<string, unknown>; children: unknown[]; type: unknown };
 
-function walk(n: Node | string, out: Node[]) {
+/** `inText` — węzeł leży wewnątrz innego tekstu (dziedziczy krój, rozmiar i kolor). */
+function walk(n: Node | string, out: { n: Node; inText: boolean; selected: boolean }[], inText = false, selected = false) {
   if (typeof n === 'string' || !n) return;
-  out.push(n);
-  for (const c of n.children ?? []) walk(c as Node, out);
+  const state = n.props.accessibilityState as { selected?: boolean; checked?: boolean } | undefined;
+  const sel = selected || (typeof n.type === 'string' && (state?.selected === true || state?.checked === true) && n.props.accessibilityRole !== 'tab');
+  out.push({ n, inText, selected: sel });
+  for (const c of n.children ?? []) walk(c as Node, out, inText || n.type === 'Text', sel);
 }
 
 function audit(root: unknown, scheme: Scheme, where: string) {
-  const all: Node[] = [];
+  const all: { n: Node; inText: boolean; selected: boolean }[] = [];
   walk(root as unknown as Node, all);
   const allowed = new Set([...Object.values(palettes[scheme]), ...groupLines.map((g) => g[scheme].ink)]);
   const problems: string[] = [];
-  for (const n of all) {
+  for (const { n, inText, selected } of all) {
     if (typeof n.type !== 'string') continue;
     const role = n.props.accessibilityRole as string | undefined;
     const style = StyleSheet.flatten(n.props.style as never) as Record<string, unknown> | undefined;
@@ -52,6 +55,13 @@ function audit(root: unknown, scheme: Scheme, where: string) {
     }
     // Tekst tylko w kolorach z palety bieżącego trybu albo z palety linii grup (obie sprawdza test motywu).
     if (n.type === 'Text' && style?.color && !allowed.has(String(style.color))) problems.push(`${where}: tekst w kolorze spoza palety ${String(style.color)}`);
+    // Audyt 2 (M-42, M-152): tekst niezagnieżdżony w innym ma kolor i rozmiar z motywu — bez nich iOS rysuje czarny
+    // systemowy 14 pt (w ciemnym trybie niewidoczny).
+    if (n.type === 'Text' && !inText && (!style?.color || !style?.fontSize)) problems.push(`${where}: tekst bez ${style?.color ? 'rozmiaru' : 'koloru'} „${String(n.children?.[0] ?? '')}”`);
+    // M-151 (PW-52 A, D198): zaznaczenie nigdy w kolorze przycisku głównego.
+    if (selected && style?.backgroundColor === palettes[scheme].inverseBg) problems.push(`${where}: zaznaczenie w kolorze przycisku głównego`);
+    // M-308: przełącznik ma nazwę dla VoiceOvera.
+    if (role === 'switch' && !n.props.accessibilityLabel) problems.push(`${where}: przełącznik bez etykiety`);
   }
   return problems;
 }
@@ -137,7 +147,12 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     await render(
       <View>
         <Pressable accessibilityRole="button" style={{ height: 20, width: 30 }} onPress={() => {}} />
-        <Text style={{ color: '#123456' }}>x</Text>
+        <Text style={{ color: '#123456', fontSize: 17 }}>x</Text>
+        <Text style={{ fontSize: 17 }}>bez koloru</Text>
+        <Text style={{ color: palettes.light.ink }}>
+          bez rozmiaru<Text style={{ color: palettes.light.ink }}>w środku</Text>
+        </Text>
+        <Pressable accessibilityRole="radio" accessibilityLabel="wybrany" accessibilityState={{ selected: true }} style={{ minHeight: 44, backgroundColor: palettes.light.inverseBg }} onPress={() => {}} />
       </View>,
     );
     expect(audit(screen.root!, 'light', 'próba')).toEqual([
@@ -145,6 +160,9 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
       'próba: button „undefined” ma 20 pt wysokości',
       'próba: button „undefined” ma 30 pt szerokości',
       'próba: tekst w kolorze spoza palety #123456',
+      'próba: tekst bez koloru „bez koloru”',
+      'próba: tekst bez rozmiaru „bez rozmiaru”',
+      'próba: zaznaczenie w kolorze przycisku głównego',
     ]);
   });
 });

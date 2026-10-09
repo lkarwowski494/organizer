@@ -13,7 +13,7 @@ import { formatDue } from '../../domain/format';
 import { groupDigits } from '../../domain/invite-link';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { Body, Button } from '../../ui/components';
+import { Body, Button, Card, CardTitle } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { absoluteDay } from './dates';
 
@@ -38,16 +38,16 @@ export function JoinCodeCard(p: {
   onRevoke: () => void;
   testIDs: { card: string; code: string; renew: string };
 }) {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const [confirm, setConfirm] = useState(false);
   const id = groupDigits(p.code.joinId);
   const code = groupDigits(p.code.code);
   return (
-    <View testID={p.testIDs.card} style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-      <Text style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>{p.title}</Text>
+    <Card testID={p.testIDs.card}>
+      <CardTitle>{p.title}</CardTitle>
       <Body muted>{p.note}</Body>
       <Body>{`${strings['groups.joinId']}: ${id}`}</Body>
-      <Text testID={p.testIDs.code} style={{ fontFamily: font.display800, fontSize: 28, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${code}`}</Text>
+      <Text testID={p.testIDs.code} style={{ fontFamily: font.display800, fontSize: size.CODE, letterSpacing: 2, color: c.ink }}>{`${strings['groups.joinCode']}: ${code}`}</Text>
       <Body muted>{p.info(until(p.code.expiresAt, p.today))}</Body>
       <Button label={strings['groups.share']} onPress={() => void Share.share({ message: p.message(id, code, untilAbs(p.code.expiresAt, p.today)) })} />
       <Button kind="secondary" label={strings['groups.newCode']} a11yHint={strings['groups.newCodeInfo']} testID={p.testIDs.renew} onPress={p.onRenew} />
@@ -62,6 +62,6 @@ export function JoinCodeCard(p: {
       ) : (
         <Button kind="danger" label={strings['groups.revoke']} testID="revoke" onPress={() => setConfirm(true)} />
       )}
-    </View>
+    </Card>
   );
 }
