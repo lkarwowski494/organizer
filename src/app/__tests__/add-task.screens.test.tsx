@@ -113,7 +113,10 @@ describe('„Więcej” — pełny formularz', () => {
     await press(radio('Powtarzaj', 'Co tydzień'));
     await pickDate('form-date', '2026-10-16'); // piątek
     await press(screen.getByTestId('form-save'));
-    expect(store.dispatched.slice(-2)).toMatchObject([{ kind: 'create', set: { due_date: '2026-10-16' } }, { kind: 'patch', set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } }]);
+    expectOps(store, [
+      expect.objectContaining({ kind: 'create', entity: 'tasks', set: expect.objectContaining({ title: 'Śmieci', due_date: '2026-10-16' }) }),
+      { kind: 'patch', entity: 'tasks', id: expect.any(String), set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } },
+    ]);
   });
 
   it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; bez „Anuluj”', async () => {

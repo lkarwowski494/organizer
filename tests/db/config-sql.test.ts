@@ -53,7 +53,7 @@ d('src/config ↔ liczby w ograniczeniach i funkcjach SQL', () => {
   // Audyt 3 (N-1): każde ograniczenie zakresu dat i godzin (*_range, migracja 20261010010000) ma granice z config.dates.
   it('zakres dat i godzin = config.dates', async () => {
     const defs = (await db.query<{ name: string; def: string }>("select conname as name, pg_get_constraintdef(oid) as def from pg_constraint where connamespace = 'public'::regnamespace and conname like '%\\_range' and pg_get_constraintdef(oid) ~ '::(date|time)' order by 1")).rows;
-    expect(defs.length).toBe(19);
+    expect(defs.length).toBe(20);
     const { MIN, MAX } = config.dates;
     const next = new Date(Date.parse(`${MAX}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
     for (const { name, def } of defs) {
