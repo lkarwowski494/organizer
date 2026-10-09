@@ -11,12 +11,12 @@ import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-da
 import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../format';
 import { type SplitArgs, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
-import { type DayPart, daySpan, lengthMinutes } from '../span';
+import { type DayPart, daySpan, lengthMinutes, storedDuration } from '../span';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { childEventConcerns } from './child';
 import { groupsView, myMemberships } from './index';
-import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceDays, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
+import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceDays, occurrenceDuration, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
 
 export { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
@@ -45,6 +45,8 @@ export type Occurrence = {
   days: number;
   /** D199: który to dzień wielodniowego (`null` — jednodniowe). */
   part: DayPart | null;
+  /** D199: zapisana długość z godziną w minutach (dłuższa niż z godzin); `null` — z godzin (span.ts). */
+  durationMin: number | null;
   startTime: string | null;
   endTime: string | null;
   title: string;
@@ -128,6 +130,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         endDate: days === 1 ? date : formatIsoDate(addDays(parseIsoDate(date), days - 1)),
         days,
         part: days === 1 ? null : { day: 1, days },
+        durationMin: occurrenceDuration(o, e),
         startTime: occurrenceTimes(o, e).start,
         endTime: occurrenceTimes(o, e).end,
         title: o?.title ?? e.title,
@@ -248,9 +251,14 @@ export type EventFields = {
   location?: string | null;
   /** Rodzaj (D126) — tylko przy utworzeniu; bez = zwykłe. */
   kind?: EventKind;
-  /** D199: ile dni trwa całodniowe (bez = 1; z godziną nie ma znaczenia — przez północ mówią godziny). */
+  /** D199: ile dni trwa całodniowe (bez = 1; z godziną nie ma znaczenia). */
   days?: number;
+  /** D199: długość z godziną w minutach, gdy kończy się później niż wynika z godzin (bez = z godzin, span.ts). */
+  durationMin?: number | null;
 };
+
+/** Długość z godziną do zapisu w wierszu wydarzenia (`null` — z godzin, span.ts storedDuration). */
+const durationOf = (f: Pick<EventFields, 'startTime' | 'endTime' | 'durationMin'>) => storedDuration(f.startTime, f.endTime, f.durationMin ?? null);
 
 /** Długość zapisywana w wierszu: całodniowe — z formularza, z godziną — 1 (span.ts). */
 const daysOf = (f: Pick<EventFields, 'startTime' | 'days'>) => (f.startTime === null ? (f.days ?? 1) : 1);
@@ -287,7 +295,7 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       entity: 'events',
       id,
       group_id: groupId,
-      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}), ...(daysOf(f) > 1 ? { days: daysOf(f) } : {}) },
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}), ...(daysOf(f) > 1 ? { days: daysOf(f) } : {}), ...(durationOf(f) !== null ? { duration_min: durationOf(f) } : {}) },
     },
     ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], () => newId(), false),
   ];
@@ -297,8 +305,8 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
 export type Scope = 'this' | 'following' | 'all';
 
 /** Pola wyjątku jednego terminu; `null` = jak w serii. */
-type OverrideFields = Pick<Override, 'start_date' | 'start_time' | 'end_time' | 'title' | 'responsible_member_id' | 'all_day' | 'responsible_cleared' | 'cancelled' | 'days'>;
-const AS_SERIES: OverrideFields = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, all_day: false, responsible_cleared: false, cancelled: false, days: null };
+type OverrideFields = Pick<Override, 'start_date' | 'start_time' | 'end_time' | 'title' | 'responsible_member_id' | 'all_day' | 'responsible_cleared' | 'cancelled' | 'days' | 'duration_min'>;
+const AS_SERIES: OverrideFields = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, all_day: false, responsible_cleared: false, cancelled: false, days: null, duration_min: null };
 const hhmm = (v: string | null) => (v === null ? null : v.slice(0, 5));
 
 /**
@@ -308,7 +316,7 @@ const hhmm = (v: string | null) => (v === null ? null : v.slice(0, 5));
  */
 function overrideDiff(from: OverrideFields, to: OverrideFields): { [k: string]: unknown } {
   const set: { [k: string]: unknown } = {};
-  for (const k of ['start_date', 'title', 'responsible_member_id', 'cancelled', 'all_day', 'responsible_cleared', 'days'] as const) if (from[k] !== to[k]) set[k] = to[k];
+  for (const k of ['start_date', 'title', 'responsible_member_id', 'cancelled', 'all_day', 'responsible_cleared', 'days', 'duration_min'] as const) if (from[k] !== to[k]) set[k] = to[k];
   if (hhmm(from.start_time) !== hhmm(to.start_time) || hhmm(from.end_time) !== hhmm(to.end_time)) Object.assign(set, { start_time: to.start_time, end_time: to.end_time });
   return set;
 }
@@ -341,11 +349,16 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
   if (effective === 'this') {
     // PW-33 (decyzja właściciela z 8.10.2026, wariant A): własne godziny tylko wtedy, gdy różnią się od godzin serii —
     // termin ze zmienioną samą nazwą, osobą albo dniem dalej idzie za godziną serii (także po jej późniejszej zmianie).
-    const seriesTime = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
+    const sameClock = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
+    // D199: ta sama godzina, ale inna długość (pt. 18:00 – sob. 16:00 w serii do niedzieli) — własne godziny z długością
+    // zapisaną wprost (z godzin wyszłaby długość serii, a serwer uznałby godziny za „jak w serii”).
+    const length = lengthMinutes(f.startTime, f.endTime, f.durationMin ?? null);
+    const seriesTime = sameClock && length === lengthMinutes(e.start_time, e.end_time, e.duration_min);
     // D199: własna długość całodniowego terminu tylko, gdy inna niż w serii (całodniowy termin serii z godziną — 1 dzień).
     const seriesDays = e.start_time === null ? e.days : 1;
     return overrideOps(d, occurrenceDate, {
       days: f.startTime === null && daysOf(f) !== seriesDays ? daysOf(f) : null,
+      duration_min: seriesTime || f.startTime === null ? null : sameClock ? length : durationOf(f),
       start_date: f.date === occurrenceDate ? null : f.date,
       start_time: seriesTime ? null : f.startTime,
       end_time: seriesTime ? null : f.endTime,
@@ -379,6 +392,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
           ...(f.location !== undefined && (f.location || null) !== e.location ? { location: f.location || null } : {}),
           // D199: długość tylko, gdy się zmienia (jak miejsce) — zapis bez niej nie rusza kolumny.
           ...(daysOf(f) !== e.days ? { days: daysOf(f) } : {}),
+          ...(durationOf(f) !== e.duration_min ? { duration_min: durationOf(f) } : {}),
         },
       },
       ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], (m) => participantId(e.id, m), true),
@@ -405,6 +419,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       responsible_member_id: f.responsibleId,
       location: (f.location === undefined ? e.location : f.location) || null,
       days: daysOf(f),
+      duration_min: durationOf(f),
     },
     participants: (f.audience === 'members' ? f.participantIds : []).map((m) => ({ id: participantId(id, m), member_id: m })),
     drop_overrides: d.overrides.filter((o) => o.occurrence_date >= occurrenceDate && occurrences(start, rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length === 0).map((o) => o.id),
@@ -456,6 +471,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     endTime: occurrenceTimes(o, e).end,
     // D199: długość całodniowego (wyjątek albo seria); z godziną 1.
     days: occurrenceTimes(o, e).start === null ? (o?.days ?? e.days) : 1,
+    durationMin: occurrenceDuration(o, e),
     rule: d.rule ? { ...d.rule, count: null, until: null } : null,
     until,
     audience: e.audience,
@@ -488,8 +504,8 @@ export function timeLabel(start: string | null, end: string | null): string | nu
 }
 
 /** Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. */
-export function lengthLabel(start: string | null, end: string | null): string | null {
-  const m = lengthMinutes(start, end);
+export function lengthLabel(start: string | null, end: string | null, duration: number | null = null): string | null {
+  const m = lengthMinutes(start, end, duration);
   return m === null ? null : formatMinutes(m);
 }
 
@@ -533,7 +549,8 @@ export function groupSeries(t: Tables, userId: string, groupId: string, today: C
           : e.start_time === null && e.days > 1
             ? formatRange(parseIsoDate(e.start_date), addDays(parseIsoDate(e.start_date), e.days - 1), today)
             : formatLongDate(parseIsoDate(e.start_date), today),
-        time: timeLabel(e.start_time, e.end_time),
+        // D199: dłuższe niż z godzin — sam początek („18:00–16:00” byłoby mylące; dni pokazuje ekran wydarzenia).
+        time: timeLabel(e.start_time, e.duration_min === null ? e.end_time : null),
         start: e.start_date,
         next: next?.date ?? null,
         nextOccurrence: next?.occurrenceDate ?? null,
