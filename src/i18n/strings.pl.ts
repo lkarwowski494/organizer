@@ -824,7 +824,7 @@ export const strings = {
   'mutes.off': 'Wyciszone',
   'mutes.error': 'Nie udało się zmienić ustawień — sprawdź internet.',
   // Audyt 2 (P-75): bez „Zakupy: Zakupy”, gdy nazwa listy już mówi, że to zakupy.
-  'trip.title': (list: string) => (/^zakupy\b/iu.test(list) ? list : `Zakupy: ${list}`),
+  'trip.title': (list: string) => (/^zakupy(?![\p{L}\p{N}_])/iu.test(list) ? list : `Zakupy: ${list}`),
   'trip.section': 'Zakupy',
   'trip.info': 'Kiedy i kto robi zakupy. Pojawią się w Moich sprawach jak zadanie.',
   'trip.time': 'Godzina (opcjonalnie)',
