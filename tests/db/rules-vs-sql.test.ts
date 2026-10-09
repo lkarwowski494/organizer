@@ -60,6 +60,18 @@ update public.groups set deleted_at = now() where id = '${G3}';
 
 const ENTITIES = [...Object.keys(SYNC_ENTITIES), 'object_members'] as Entity[];
 
+/**
+ * Wiersze tylko z grup tego testu (G, G2, G3 i grupa tworzona przez operację, id('fe')), w stałej kolejności. Dotąd
+ * test czytał całe tabele: także wiersze zatwierdzone przez inne pliki tests/db (concurrency, maintenance — setki grup
+ * i zadań, zależnie od tego, który plik zdążył przed nim) w kolejności bez ORDER BY. Losowanie identyfikatorów z takiej
+ * puli przy stałym ziarnie dawało za każdym razem inne operacje i czasem żadnej z kodem deleted:list.
+ */
+const OWN_GROUPS = [G, G2, G3, id('fe')];
+const ownRows = async (db: Client, e: Entity) =>
+  (await db.query<{ r: Row }>(`select to_jsonb(t) as r from public.${e} t where t.${e === 'groups' ? 'id' : 'group_id'} = any($1::uuid[])`, [OWN_GROUPS])).rows
+    .map((x) => x.r)
+    .sort((a, b) => (rowKey(e, a) < rowKey(e, b) ? -1 : 1));
+
 d('model reguł serwera = sync_push', () => {
   const db = new Client({ database: DB });
   const tables: { [e: string]: { [k: string]: Row } } = {};
@@ -73,8 +85,7 @@ d('model reguł serwera = sync_push', () => {
     await db.query("select set_config('request.jwt.claim.sub', '', true)");
     await db.query('reset role');
     for (const e of ENTITIES) {
-      const rows = (await db.query<{ r: Row }>(`select to_jsonb(t) as r from public.${e} t`)).rows.map((x) => x.r);
-      tables[e] = Object.fromEntries(rows.map((r) => [rowKey(e, r), r]));
+      tables[e] = Object.fromEntries((await ownRows(db, e)).map((r) => [rowKey(e, r), r]));
     }
     Object.values(USERS).forEach((u, i) => (clients[u] = `88888888-0000-7000-8000-0000000001f${i}`));
   });
@@ -96,7 +107,7 @@ d('model reguł serwera = sync_push', () => {
       const changed: { [key: string]: Row } = {};
       if (code === 'ok') {
         for (const e of ENTITIES) {
-          for (const { r: row } of (await db.query<{ r: Row }>(`select to_jsonb(t) as r from public.${e} t`)).rows) {
+          for (const row of await ownRows(db, e)) {
             const before = tables[e]?.[rowKey(e, row)];
             if (!before || before.version !== row.version) changed[`${e}:${rowKey(e, row)}`] = row;
           }
@@ -200,36 +211,61 @@ d('model reguł serwera = sync_push', () => {
     const who = pick(Object.values(USERS));
 
     const mismatches: string[] = [];
+    /** Jedna operacja w SQL i w modelu; niezgodność kodu albo skutków trafia do `mismatches`. Zwraca kod z SQL. */
+    async function check(user: string, o: NewOp): Promise<string> {
+      const { code: want, changed } = await sql(user, o);
+      const got = serverVerdict(tables, user, o) ?? 'ok';
+      const who = Object.entries(USERS).find(([, u]) => u === user)![0];
+      if (want !== got) {
+        mismatches.push(`${who} ${JSON.stringify(o)}: SQL ${want}, model ${got}`);
+        return want;
+      }
+      if (want !== 'ok') return want;
+      // Skutek przyjętej operacji (applyOnServer): te same wiersze zmienione, te same wartości porównywanych kolumn.
+      const model: { [e: string]: { [k: string]: Row } } = Object.fromEntries(Object.entries(tables).map(([e, rows]) => [e, { ...rows }]));
+      applyOnServer(model, user, o, '2026-10-08T12:00:00Z');
+      const touched = new Set(Object.keys(changed));
+      for (const [e, rows] of Object.entries(model)) for (const [k, row] of Object.entries(rows)) if (row !== tables[e]?.[k]) touched.add(`${e}:${k}`);
+      for (const key of touched) {
+        const [e, k] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+        const a = norm(model[e]?.[k]);
+        const b = norm(changed[key] ?? tables[e]?.[k]);
+        const cols = Object.keys(b ?? {}).filter((c) => a && c in a);
+        const pick = (x: { [c: string]: unknown } | undefined) => x && Object.fromEntries(cols.map((c) => [c, x[c]]));
+        if (JSON.stringify(pick(a)) !== JSON.stringify(pick(b))) mismatches.push(`${who} ${JSON.stringify(o)}: ${key} SQL ${JSON.stringify(pick(b))}, model ${JSON.stringify(pick(a))}`);
+      }
+      return want;
+    }
+
+    // Każdy kod ma swój przykład: pokrycie reguł nie zależy od tego, co wylosuje generator (losowe operacje — niżej, na
+    // dokładkę). Kod przykładu sprawdzany wprost: przykład, który przestał trafiać w swoją regułę, oblewa test.
+    const EXAMPLES: [code: string, who: keyof typeof USERS, op: NewOp][] = [
+      ['ok', 'owner', { kind: 'patch', entity: 'tasks', id: id('d1'), set: { title: 'Nowe' } }],
+      ['forbidden', 'stranger', { kind: 'create', entity: 'tasks', id: id('fe'), group_id: G, set: { list_id: id('e1'), title: 'Nowe' } }],
+      ['forbidden:child', 'child', { kind: 'create', entity: 'tasks', id: id('fe'), group_id: G, set: { list_id: id('e1'), title: 'Nowe' } }],
+      ['not_found', 'owner', { kind: 'patch', entity: 'tasks', id: id('ff'), set: { title: 'Nowe' } }],
+      ['deleted', 'owner', { kind: 'patch', entity: 'tasks', id: id('da'), set: { title: 'Nowe' } }],
+      ['deleted:group', 'owner', { kind: 'create', entity: 'tasks', id: id('fe'), group_id: G3, set: { list_id: id('e6'), title: 'Nowe' } }],
+      ['deleted:list', 'owner', { kind: 'create', entity: 'tasks', id: id('fe'), group_id: G, set: { list_id: id('e3'), title: 'Nowe' } }],
+      ['forbidden:role', 'owner', { kind: 'patch', entity: 'group_members', id: MEMBERS.profile, set: { role: 'member' } }],
+      ['invalid_member', 'owner', { kind: 'create', entity: 'handoffs', id: id('fe'), group_id: G, set: { entity: 'tasks', entity_id: id('d3'), to_member: MEMBERS.child } }],
+      ['forbidden:not_self', 'admin', { kind: 'create', entity: 'event_rsvps', id: id('fe'), group_id: G, set: { event_id: id('c1'), occurrence_date: '2026-10-21', member_id: MEMBERS.member, answer: 'yes' } }],
+    ];
+    for (const [code, user, o] of EXAMPLES) expect([code, user, await check(USERS[user], o)]).toEqual([code, user, code]);
+
     const seen = new Map<string, number>();
     await fc.assert(
       fc.asyncProperty(who, op, async (user, o) => {
-        const { code: want, changed } = await sql(user, o);
-        const got = serverVerdict(tables, user, o) ?? 'ok';
+        const want = await check(user, o);
         seen.set(want, (seen.get(want) ?? 0) + 1);
-        const who = Object.entries(USERS).find(([, u]) => u === user)![0];
-        if (want !== got) return void mismatches.push(`${who} ${JSON.stringify(o)}: SQL ${want}, model ${got}`);
-        if (want !== 'ok') return;
-        // Skutek przyjętej operacji (applyOnServer): te same wiersze zmienione, te same wartości porównywanych kolumn.
-        const model: { [e: string]: { [k: string]: Row } } = Object.fromEntries(Object.entries(tables).map(([e, rows]) => [e, { ...rows }]));
-        applyOnServer(model, user, o, '2026-10-08T12:00:00Z');
-        const touched = new Set(Object.keys(changed));
-        for (const [e, rows] of Object.entries(model)) for (const [k, row] of Object.entries(rows)) if (row !== tables[e]?.[k]) touched.add(`${e}:${k}`);
-        for (const key of touched) {
-          const [e, k] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
-          const a = norm(model[e]?.[k]);
-          const b = norm(changed[key] ?? tables[e]?.[k]);
-          const cols = Object.keys(b ?? {}).filter((c) => a && c in a);
-          const pick = (x: { [c: string]: unknown } | undefined) => x && Object.fromEntries(cols.map((c) => [c, x[c]]));
-          if (JSON.stringify(pick(a)) !== JSON.stringify(pick(b))) mismatches.push(`${who} ${JSON.stringify(o)}: ${key} SQL ${JSON.stringify(pick(b))}, model ${JSON.stringify(pick(a))}`);
-        }
       }),
-      // 2500: od P13b dwie encje więcej rozrzedzają losowanie (przy 1500 nie trafiało w deleted:list).
+      // Stałe ziarno na stałych danych (tylko grupy tego testu, ownRows): ten sam ciąg operacji w każdym przebiegu.
       { numRuns: 2500, seed: 20261008 },
     );
     expect(mismatches.slice(0, 15)).toEqual([]);
-    // Generator naprawdę trafia w reguły: przyjęte i różne odrzucenia.
-    for (const code of ['ok', 'forbidden', 'forbidden:child', 'not_found', 'deleted', 'deleted:group', 'deleted:list', 'forbidden:role', 'invalid_member', 'forbidden:not_self']) {
-      expect([code, (seen.get(code) ?? 0) > 0]).toEqual([code, true]);
-    }
+    // Losowanie też trafia w każdą z tych reguł (przy tym ziarnie i tych danych zawsze tak samo; pomiar 9.10.2026:
+    // najrzadsze deleted:list 5 razy na 2500). Zmiana generatora albo danych, po której przestaje, oblewa test — wtedy
+    // poprawić generator, nie ziarno.
+    for (const [code] of EXAMPLES) expect([code, (seen.get(code) ?? 0) > 0]).toEqual([code, true]);
   }, 120_000);
 });

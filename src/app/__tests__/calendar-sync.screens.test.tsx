@@ -78,7 +78,7 @@ describe('kalendarz iPhone’a', () => {
     expect(sync.createCalendar).not.toHaveBeenCalled();
     await waitFor(() => expect(sync.createCalendar).toHaveBeenCalledWith('Organizer – Rodzina', expect.any(String)), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
     await waitFor(() => expect(sync.createEvent).toHaveBeenCalledWith('cal-1', expect.objectContaining({ title: 'Tańce', notes: 'Rodzina\n\nDodane przez aplikację Organizer' })));
-  }, 15000);
+  });
 
   it('odmowa w iOS: wskazówka do Ustawień; „Nie teraz” chowa kartę na stałe', async () => {
     const sync = fakeSync({ request: jest.fn(async () => false) });
@@ -249,7 +249,7 @@ describe('kalendarz iPhone’a', () => {
     services.local!.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
     await toggle(within(box).getByLabelText('Rodzina'), false);
     await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9'), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
-  }, 15000);
+  });
 
   it('PWD-2 (M-174): przy włączonym lustrze ekran wydarzenia mówi, w którym kalendarzu iPhone’a jest wydarzenie', async () => {
     const add = jest.fn(async () => 'saved' as const);
@@ -267,7 +267,7 @@ describe('kalendarz iPhone’a', () => {
     await waitFor(() => expect(sync.createEvent).toHaveBeenCalledWith('cal-1', expect.objectContaining({ title: 'Tańce' })), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
     expect(await screen.findByText('Jest w kalendarzu iPhone’a „Organizer – Rodzina”.')).toBeTruthy();
     expect(screen.queryByTestId('event-calendar')).toBeNull();
-  }, 15000);
+  });
 
   it('audyt 3 (N-58): kalendarza lustra nie da się założyć — „Dodaj do kalendarza” zamiast „Jest w kalendarzu” i komunikat w Ustawieniach', async () => {
     const base = sampleBase();
@@ -288,7 +288,7 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     expect(await screen.findByText('Nie udało się zapisać wydarzeń grup w kalendarzu iPhone’a. Spróbujemy znowu przy następnej zmianie.')).toBeTruthy();
-  }, 15000);
+  });
 
   it('bez lustra „Dodaj do kalendarza” zapisuje kopię ze znacznikiem Organizera i miejscem (D173)', async () => {
     const add = jest.fn(async () => 'saved' as const);
@@ -333,7 +333,7 @@ describe('kalendarz iPhone’a', () => {
     await act(async () => new Promise((r) => setTimeout(r, config.calendar.MIRROR_DEBOUNCE_MS + 200)));
     await act(async () => release());
     await waitFor(() => expect(sync.updateEvent).toHaveBeenCalledWith('ev-1', expect.objectContaining({ title: 'Tańce towarzyskie' })), { timeout: 3000 });
-  }, 20000);
+  });
 });
 
 describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt 2, M-253) i kopia do grupy', () => {
@@ -405,7 +405,7 @@ describe('kalendarz iPhone’a: audyt 3', () => {
     await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-1'));
     expect(sync.createEvent).not.toHaveBeenCalled();
     expect(devicePrefs.m.get('calendarMirrorOwned')).toBe('[]');
-  }, 15000);
+  });
 
   it('N-4: wylogowanie czeka na koniec przebiegu lustra (kalendarz założony w jego trakcie jest na liście do usunięcia)', async () => {
     let release: () => void = () => {};
@@ -430,7 +430,7 @@ describe('kalendarz iPhone’a: audyt 3', () => {
     // Kalendarz z przerwanego przebiegu jest na liście telefonu (usunie go Root po końcu sesji), a dalej nic nie powstało.
     expect(devicePrefs.m.get('calendarMirrorOwned')).toBe('["cal-1"]');
     expect(sync.createEvent).not.toHaveBeenCalled();
-  }, 15000);
+  });
 
   it('N-185: przy pełnej zgodzie i wyłączonym odczycie karta nie wraca; połączenie z Ustawień kończy zaproszenie i nie włącza wyłączonego lustra', async () => {
     const sync = fakeSync({ status: jest.fn(async () => 'granted' as const) });
