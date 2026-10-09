@@ -160,6 +160,8 @@ export class SyncRuntime {
   }
 
   private setState(next: ClientState): void {
+    // Pobranie bez zmian zwraca ten sam stan (audyt 3, N-15) — nie ma czego zapisywać.
+    if (next === this.state) return;
     this.deps.persist?.(this.state, next, this.deps.now());
     this.state = next;
   }

@@ -43,6 +43,15 @@ import {
 } from '../sync-engine/client';
 import { FakeServer } from './support/fake-server';
 
+/** Zamraża kontenery tabel stanu (bez wierszy — te są wspólne z serwerem atrapą): zapis w miejscu rzuci TypeError. */
+function freezeTables(state: ClientState): void {
+  for (const tables of [state.base, ...Object.values(state.staged)]) {
+    for (const rows of Object.values(tables)) Object.freeze(rows);
+    Object.freeze(tables);
+  }
+  Object.freeze(state.staged);
+}
+
 const USERS = ['ala', 'bartek', 'celina'] as const;
 const GROUP = 'g1';
 /** Druga grupa (Bartek — właściciel, Ala; bez Celiny): porcje i czyszczenie w kilku grupach naraz. */
@@ -226,6 +235,8 @@ function run(cmds: Cmd[]) {
   const applyPull = (p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest>, snapshot?: ReturnType<FakeServer['visibleRows']>, failScope = false) => {
     observe(p, res, req);
     const before = p.state;
+    // Audyt 3 (N-15): tabele są kopiowane dopiero przy zmianie — stan sprzed pobrania nie może się zmienić w miejscu.
+    freezeTables(p.state);
     const out = onPullResponse(p.state, res, req);
     p.state = out.state;
     // Nieudane pobranie zawartości listy: telefon nic nie zapisuje, lista czeka na następne pobranie (M-53).
