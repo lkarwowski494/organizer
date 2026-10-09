@@ -81,7 +81,7 @@ i logów Maestro, nigdy plik `.app`; 7 dni. Zadanie macOS nie rusza dla PR z for
 **Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
 `01-today` (dane demo na „Moich sprawach”), `02-quick-add` („Kupić mleko jutro” widać jutro), `03-event-rsvp` („Będę”
 na wydarzeniu cyklicznym), `04-event-form` (nowe wydarzenie, kafelki `event-start-0-h-18` / `-m-30` z `TimeField`),
-`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`, `07-multi-day` (obóz przez 3 dni z „Kończy się”, w Kalendarzu „dzień 2 z 3”, D199). Selektory: `id` = `testID`, tekst =
+`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`, `08-multi-day` (obóz przez 3 dni z „Kończy się”, w Kalendarzu „dzień 2 z 3”, D199). Selektory: `id` = `testID`, tekst =
 etykieta VoiceOver (wyrażenie regularne w całości; na iOS wiersz to jeden element). Te same kroki na RNTL przechodzi
 `src/app/__tests__/e2e.screens.test.tsx` w zwykłym CI — błąd w danych demo, tekstach albo `testID` wychodzi od razu,
 bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teście, `npm run e2e:check`.
