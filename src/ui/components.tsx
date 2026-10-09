@@ -50,8 +50,14 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
       {scroll ? (
         // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
         // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
+        // Pole z fokusem nie chowa się pod klawiaturą (audyt 2, E2E 05: pole szybkiego dodawania na liście zakupów było
+        // pod klawiaturą — wpisywało się na ślepo, a „+” było nieosiągalne). React Native (iOS): automaticallyAdjustKeyboardInsets
+        // — „Controls whether the ScrollView should automatically adjust its contentInset and scrollViewInsets when the
+        // Keyboard changes its size” (https://reactnative.dev/docs/scrollview#automaticallyadjustkeyboardinsets-ios);
+        // przy zmianie klawiatury przewija też pole z fokusem nad klawiaturę (RCTScrollViewComponentView.mm,
+        // _keyboardWillChangeFrame: „Text field active region is below visible area with keyboard”).
         <View style={style}>
-          <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={swipe.closeAll}>
+          <ScrollView testID={testID} style={style} contentContainerStyle={content} automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={swipe.closeAll}>
             {children}
           </ScrollView>
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
