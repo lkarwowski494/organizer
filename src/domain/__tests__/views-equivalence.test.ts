@@ -15,6 +15,7 @@ import { expandEventDays, expandEvents } from '../views/events';
 import { myDays, type RangeMode } from '../views/my-days';
 import { nestEntries } from '../views/nesting';
 import { planReminders } from '../views/reminders';
+import { withUpcomingCopies } from '../views/task-repeat';
 import { refCalendarMonth, refExpandEventDays, refExpandEvents, refMyDays, refNestEntries, refPlanReminders } from './support/views-reference';
 
 const ME = 'u-me';
@@ -350,7 +351,8 @@ describe('audyt 3, N-6 i N-16: wynik jak przed optymalizacją', () => {
     };
     const s = { leadMin, morning };
     const plan = planReminders(t, ME, TODAY, nowMs, s, opts);
-    expect(plan).toEqual(refPlanReminders(t, ME, TODAY, nowMs, s, opts));
+    // Audyt 3 (N-27): plan liczy też następne, których jeszcze nie ma — wzorzec dostaje te same dane wejściowe.
+    expect(plan).toEqual(refPlanReminders(withUpcomingCopies(t, TODAY, opts.days, opts.localDate), ME, TODAY, nowMs, s, opts));
     return plan;
   };
 

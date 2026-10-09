@@ -28,7 +28,7 @@ import { claimAccountDb, setLiveSession } from './background';
 import { localNow } from '../domain/local-time';
 import { storedReminderPlan } from './reminders';
 import { AppProvider, type AppServices, type Prefs } from './context';
-import { appVersion, ErrorBoundary, installGlobalHandler, toClientError } from './diagnostics';
+import { appVersion, ErrorBoundary, gatedReport, installGlobalHandler, reportsOn, toClientError } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
 import { adoptMirrorOwned, removeMirrorCalendars } from './calendar-mirror';
@@ -136,6 +136,8 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
   const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
+  // Audyt 3 (N-74): każde zgłoszenie błędu i samosprawdzenia tylko przy włączonych raportach (Ustawienia → Konto i dane).
+  const reportError = useMemo(() => gatedReport(local, (e) => deps.account.reportError(e)), [local, deps]);
   // Ustawienia telefonu (pęk kluczy). Audyt 3 (N-4): build 22 zapisywał listę kalendarzy lustra w bazie konta, a
   // wylogowanie czyta ją z pęku kluczy — raz przenosimy ją tam; odczyty i zapisy czekają na przeniesienie.
   const devicePrefs = useMemo((): Prefs | undefined => {
@@ -175,7 +177,7 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
       setTimer: deps.setTimer ?? defaultTimer,
       persist: (prev, next, now) => writeState(db, prev, next, now),
       // N-1: wiersz z datą spoza zakresu pominięty przy pobraniu — zgłoszenie z nazwą pola, bez treści (D80).
-      onInvalidRows: (fields) => void deps.account.reportError(toClientError(new Error(`pominięte wiersze: ${fields.join(', ')}`), 'error', 'sync', appVersion())).catch(() => {}),
+      onInvalidRows: (fields) => void reportError(toClientError(new Error(`pominięte wiersze: ${fields.join(', ')}`), 'error', 'sync', appVersion())).catch(() => {}),
       onPushed: (ops, res, st) => {
         const { y, m, d } = localNow(nowMs());
         // N-19 (audyt 3): serwer przyjął zmianę już po wyjściu z aplikacji — prośba od razu, uśpiona nie doczeka odstępu
@@ -188,7 +190,7 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   useEffect(() => claimAccountDb(session.userId), [runtime, session.userId]);
 
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
-  useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
+  useEffect(() => void reportSelfCheck(db, deps.prefs, { reportError }, appVersion()).catch(() => {}), [db, deps, reportError]);
 
   // M-9: prośba o odświeżenie tokenu już wysłana w tym epizodzie „wygasłej sesji”.
   const asked = useRef(false);
@@ -284,6 +286,7 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   const account = useMemo(
     () => ({
       ...deps.account,
+      reportError,
       signOut: async () => {
         await runLeaving();
         await deps.account.signOut();
@@ -301,7 +304,7 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
           },
         }),
     }),
-    [deps, runtime, runLeaving, onDeleted],
+    [deps, runtime, runLeaving, onDeleted, reportError],
   );
 
   const services: AppServices = useMemo(
@@ -339,13 +342,13 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   );
 
   // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).
-  const report = useCallback((e: ClientError) => void deps.account.reportError(e).catch(() => {}), [deps]);
+  const report = useCallback((e: ClientError) => void reportError(e).catch(() => {}), [reportError]);
   useEffect(() => installGlobalHandler((globalThis as unknown as { ErrorUtils: Parameters<typeof installGlobalHandler>[0] }).ErrorUtils ?? NO_ERROR_UTILS, report, appVersion()), [report]);
   const { c } = useTheme();
 
   return (
     <AppProvider services={services}>
-      <ErrorBoundary report={report} version={appVersion()} colors={c}>
+      <ErrorBoundary report={report} reporting={() => reportsOn(local)} version={appVersion()} colors={c}>
         <AppNavigation pendingUrl={pendingUrl} />
       </ErrorBoundary>
     </AppProvider>

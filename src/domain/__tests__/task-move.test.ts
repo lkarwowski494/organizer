@@ -88,6 +88,14 @@ describe('„Przenieś do grupy” (D178, audyt 2 M-122)', () => {
     expect(r.undo).toEqual([{ kind: 'cmd', cmd: 'unmove_task', args: { task_id: 't', copy_id: 'n2', title: 'Prezent' } }]);
   });
 
+  it('audyt 3 (N-25): pierwotny dzień przeniesionego terminu idzie z zadaniem; bez niego — bez pola', () => {
+    const t = base();
+    put(t, 'tasks', 't', { ...t.tasks!.t!, due_date: '2026-10-09', cycle_date: '2026-10-12' });
+    expect(moveTaskOps(t, ME, 't', ME, ids())!.changed.find((o) => o.kind === 'create' && o.set.title === 'Prezent')).toMatchObject({ set: { due_date: '2026-10-09', cycle_date: '2026-10-12' } });
+    const plain = moveTaskOps(base(), ME, 't', ME, ids())!.changed.find((o) => o.kind === 'create' && o.set.title === 'Prezent') as { set: Row };
+    expect('cycle_date' in plain.set).toBe(false);
+  });
+
   it('podpięte do wydarzenia: termin wystąpienia staje się własnym; odwołane — bez terminu (podzadanie — jak nadrzędne)', () => {
     const t = base();
     put(t, 'events', 'e', { id: 'e', group_id: 'gf', title: 'Urodziny', start_date: '2026-10-15', start_time: '17:00:00', end_time: null, rrule: null, deleted_at: null });

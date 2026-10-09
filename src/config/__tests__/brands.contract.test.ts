@@ -41,6 +41,13 @@ const ALLOWED: Record<string, string> = {
   '.gitignore': 'ścieżka katalogu z prebuild',
   // Decyzja o nazwach innych firm wymienia odrzucone warianty i usuniętą opcję z nazwy.
   'docs/adr/0043-nazwy-innych-firm.md': 'zapis decyzji',
+  // Teksty licencji bibliotek (audyt 3, N-78): informację o prawach autorów (firmy, adresy) licencja każe powtórzyć
+  // dosłownie — plik generuje scripts/licenses/gen-licenses.mjs, teksty natywnych bibliotek pobrane z ich repozytoriów.
+  'src/licenses/third-party.json': 'teksty licencji bibliotek',
+  'scripts/licenses/native/double-conversion.txt': 'tekst licencji biblioteki',
+  'scripts/licenses/native/folly.txt': 'tekst licencji biblioteki',
+  'scripts/licenses/native/glog.txt': 'tekst licencji biblioteki',
+  'scripts/licenses/native/socketrocket.txt': 'tekst licencji biblioteki',
   // Ten test.
   'src/config/__tests__/brands.contract.test.ts': 'lista sprawdzanych nazw',
 };

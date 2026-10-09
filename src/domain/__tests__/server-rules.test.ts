@@ -5,6 +5,7 @@
 import { applyOnServer, type ServerTables, serverVerdict } from '../server-rules';
 import { overrideId } from '../views/events';
 import { scopeRowId } from '../views/my-scope';
+import { nextId } from '../views/task-repeat';
 import type { NewOp, Row } from '../sync-engine/client';
 
 const U = { owner: 'u-o', admin: 'u-a', member: 'u-m', child: 'u-c', stranger: 'u-x' };
@@ -136,6 +137,53 @@ describe('model reguł serwera', () => {
     delete w.object_members;
     expect(v(U.member, create('event_rsvps', { event_id: 'ev', occurrence_date: '2026-10-14', member_id: M.member, answer: 'yes' }), w)).toBe('ok');
     expect(v(U.admin, create('tasks', { list_id: 'l-r', title: 'x' }), w)).toBe('forbidden');
+  });
+
+  it('audyt 3 (Q16 A, N-123): dziecko — następny termin swojego zadania powtarzanego i kopie podzadań, jak robi je telefon', () => {
+    const t = world();
+    const put = (k: string, r: Row) => void (t.tasks![k] = { group_id: 'g', list_id: 'l', parent_id: null, assignee_member_id: null, completed_at: null, deleted_at: null, ...r, id: k });
+    put('r', { title: 'Łóżko', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    put('rs', { title: 'Pościel', parent_id: 'r', deadline_mode: 'inherit' });
+    put('rss', { title: 'Poszewka', parent_id: 'rs', deadline_mode: 'own', due_time: '08:00' });
+    put('o', { title: 'Rachunki', assignee_member_id: M.owner, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    const c = nextId('r');
+    const root = (extra: Row = {}, id = c) => create('tasks', { list_id: 'l', parent_id: null, title: 'Łóżko', note: null, sort_key: 'a0', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-13', due_time: null, rollover: true, repeat: 'FREQ=DAILY', ...extra }, 'g', id);
+    expect(v(U.child, root(), t)).toBe('ok');
+    expect(v(U.child, root({ assignee_member_id: null }), t)).toBe('ok');
+    for (const bad of [{ title: 'Inne' }, { assignee_member_id: M.owner }, { repeat: null }, { due_date: null }, { deadline_mode: 'none' }, { cycle_date: '2026-10-12' }, { due_time: '09:00' }, { rollover: false }])
+      expect([bad, v(U.child, root(bad), t)]).toEqual([bad, 'forbidden:child']);
+    expect(v(U.child, root({}, 'zwykle'), t)).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Rachunki', assignee_member_id: M.owner, deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('o')), t)).toBe('forbidden:child');
+    // Kopie podzadań — pod następnym (gdy już jest), bez powtarzania.
+    const sub = (id: string, parent: string, extra: Row = {}) => create('tasks', { list_id: 'l', parent_id: parent, title: 'Pościel', deadline_mode: 'inherit', ...extra }, 'g', id);
+    expect(v(U.child, sub(nextId('rs'), c), t)).toBe('forbidden:child'); // następnego jeszcze nie ma
+    put(c, { title: 'Łóżko', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' });
+    expect(v(U.child, sub(nextId('rs'), c), t)).toBe('ok');
+    expect(v(U.child, sub(nextId('rs'), c, { repeat: 'FREQ=DAILY' }), t)).toBe('forbidden:child');
+    expect(v(U.child, sub(nextId('rs'), c, { deadline_mode: 'event' }), t)).toBe('forbidden:child');
+    expect(v(U.child, sub(nextId('rs'), 'nie-ma'), t)).toBe('forbidden:child');
+    expect(v(U.child, sub('inne-id', c), t)).toBe('forbidden:child');
+    put(nextId('rs'), { title: 'Pościel', parent_id: c, deadline_mode: 'inherit' });
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { title: 'Poszewka', deadline_mode: 'own', due_date: '2026-10-13', due_time: '08:00' }), t)).toBe('ok');
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { title: 'Poszewka', due_time: '09:00' }), t)).toBe('forbidden:child');
+    // Zdjęcie i przywrócenie następnego (z wierszami pod nim), jego termin; reszta — nie.
+    expect(v(U.child, del('tasks', c), t)).toBe('ok');
+    expect(v(U.child, del('tasks', nextId('rs')), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { due_date: '2026-10-14', due_time: null, cycle_date: null }), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { title: 'x' }), t)).toBe('forbidden:child');
+    expect(v(U.child, patch('tasks', nextId('rs'), { due_date: '2026-10-14' }), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 'r'), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 'rs'), t)).toBe('forbidden:child');
+    t.tasks![c] = { ...t.tasks![c]!, completed_at: '2026-10-13T08:00:00Z' };
+    expect(v(U.child, del('tasks', c), t)).toBe('forbidden:child');
+    // Wartości domyślne kolumn (wiersz bez kolejności i „przenoś”), głębokie drzewo bez zadania głównego w 8 krokach.
+    put('m', { title: 'Mycie', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Mycie', deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('m')), t)).toBe('ok');
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Mycie', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('m')), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 't-deep'), t)).toBe('forbidden:child');
+    // Pod następnym podzadanie dodane ręcznie (nie kopia) — pod nim dziecko nic nie zakłada.
+    put('reczne', { title: 'Ręczne', parent_id: c, deadline_mode: 'inherit' });
+    expect(v(U.child, sub(nextId('cokolwiek'), 'reczne'), t)).toBe('forbidden:child');
   });
 
   it('długości tekstów (audyt 3, N-134): CHECK char_length — znaki, nie jednostki UTF-16; null przechodzi', () => {

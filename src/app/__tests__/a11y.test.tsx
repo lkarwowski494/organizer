@@ -60,6 +60,12 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
     hits: 0,
   },
   {
+    re: /^switch „Wysyłaj raporty błędów” ma 0 pt wysokości$/,
+    why: 'Audyt 3 (N-74): systemowy przełącznik iOS w SwitchRow ma stały rozmiar — Apple, UISwitch init(frame:): „The size components of this rectangle are ignored.” (https://developer.apple.com/documentation/uikit/uiswitch/init(frame:)); wiersz ma 52 pt, VoiceOver przełącza dwukrotnym dotknięciem gdziekolwiek; cel dotyku palcem — do sprawdzenia na iPhonie (dotyczy każdego SwitchRow, ten jest pierwszym na ekranie z audytu)',
+    max: 6,
+    hits: 0,
+  },
+  {
     re: /^rola „alert” bez cechy iOS/,
     why: 'M-39: komunikat błędu ogłasza announce() (ErrorText); rola „alert” na iOS nie daje cechy ani słów w wartości (RN dopisuje je tylko dla „checkbox” i „radio”), zostaje dla testów (getByRole("alert"))',
     max: 6,

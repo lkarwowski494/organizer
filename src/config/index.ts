@@ -106,6 +106,12 @@ export const config = {
   repeat: {
     NEXT_SEARCH_DAYS: 400,
     /**
+     * Audyt 3 (N-27): najpierw szukamy w krótszym oknie (codziennie, co tydzień i prawie każde „co miesiąc” trafiają w nim),
+     * dopiero potem w całym — plan przypomnień liczy następne dla wielu przewidywanych kopii. Wynik ten sam (pierwszy dzień
+     * reguły w krótszym oknie jest pierwszym w dłuższym). Wybór projektowy, bez źródła; mniejszy niż NEXT_SEARCH_DAYS.
+     */
+    NEXT_QUICK_DAYS: 35,
+    /**
      * Audyt 2 (T-12): ile dni wstecz telefon dorosłego dokłada brakujące następne zadanie po odhaczeniu przez dziecko.
      * Wybór projektowy, bez źródła; musi być mniejszy niż sync.TOMBSTONE_DAYS (pilnuje test), żeby kopia usunięta
      * celowo i wyczyszczona z kosza nie wróciła.
@@ -351,6 +357,22 @@ export const config = {
     MAX_TTL_HOURS: 720,
     DEFAULT_MAX_USES: 10,
     MAX_USES_LIMIT: 50,
+  },
+
+  /**
+   * Polityka prywatności (audyt 3, N-75 i N-76; decyzja właściciela Q4 A): strona site/privacy/ generowana
+   * z docs/privacy-policy.md, publikowana przez GitHub Pages tego repozytorium (.github/workflows/pages.yml, decyzja
+   * właściciela 9.10.2026 — dlatego /organizer/); link w Ustawieniach → Konto i dane i na ekranie logowania. Apple, App Review 5.1.1(i): „All apps must include a link to their privacy policy in the App Store Connect
+   * metadata field and within the app in an easily accessible manner.”
+   * (https://developer.apple.com/app-store/review/guidelines/). Administrator danych (RODO art. 13 ust. 1 lit. a —
+   * „swoją tożsamość i dane kontaktowe”): właściciel aplikacji. `CONTACT_EMAIL` — osobny adres tylko dla Organizera;
+   * build 23 wychodzi z `null` (świadomy wyjątek właściciela 9.10.2026: polityka wskazuje „Wyślij uwagę”), adres trzeba
+   * dodać przed App Store. Polityka musi podawać dokładnie te dane (test kontraktowy privacy-policy.contract.test.ts).
+   */
+  privacy: {
+    POLICY_URL: 'https://lkarwowski494.github.io/organizer/privacy/',
+    CONTROLLER: 'Łukasz Karwowski',
+    CONTACT_EMAIL: null as string | null,
   },
 
   /**
