@@ -20,7 +20,9 @@ import { useEventActions } from '../../app/event-actions';
 import { localNow } from '../../app/clock';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView } from '../../domain/views';
-import { lengthLabel, timeLabel } from '../../domain/views/events';
+import { timeLabel } from '../../domain/views/events';
+import { daySpan, isContinuation } from '../../domain/span';
+import { occurrenceRow } from '../../ui/when';
 import { rejectedCreateIds } from '../../domain/sync-engine/client';
 import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -216,7 +218,7 @@ export function TodayScreen() {
   const deviceAll = useDeviceCalendar().days;
   const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (d: (typeof view.days)[number]) =>
-    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
+    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
   // D111: moje zaległe z własnym terminem i moje zaległe zakupy jednym dotknięciem na dziś (z cofnięciem); liczba spraw,
   // nie operacji (audyt 2: T-11, P-56; które są moje — decyzja właściciela z 8.10.2026, overdue.ts).
@@ -317,8 +319,8 @@ export function TodayScreen() {
       <EventRow
         testID={`today-event-${x.event.eventId}-${x.event.occurrenceDate}`}
         title={info ? strings['event.childInfo'](info.join(', '), x.event.title) : x.event.title}
-        time={timeLabel(x.event.startTime, x.event.endTime)}
-        length={lengthLabel(x.event.startTime, x.event.endTime)}
+        // D199: wielodniowe w każdym dniu — „dzień 2 z 5”, kolejny dzień nocnego dyżuru „do 06:00”.
+        {...occurrenceRow(x.event)}
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
         recurring={x.event.recurring}
@@ -332,7 +334,7 @@ export function TodayScreen() {
   };
   const pinnedRows = nestEntries(pinned.map((p) => ({ kind: 'task' as const, key: `p-${p.id}`, task: p })), tables).map((n) => taskRow(n.entry.task, n.entry.key, null, n));
   const spanOf = ({ entry: x }: { entry: MyEntry }): Span =>
-    x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : x.kind === 'lessons' ? { start: x.block.start, end: x.block.end } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
+    x.kind === 'event' ? daySpan(x.event.startTime, x.event.endTime, x.event.part) : x.kind === 'lessons' ? { start: x.block.start, end: x.block.end } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
   const nowMin = now().hh * 60 + now().mm;
   const arrow = (k: number, a11y: string, glyph: string) => (
     <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={() => setAnchor(shiftAnchor(mode, at, k))} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>

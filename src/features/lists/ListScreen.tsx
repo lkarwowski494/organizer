@@ -50,7 +50,7 @@ function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string;
   const { c, font, size } = useTheme();
   const meta = `${strings['lists.expiredRun'](count)}  ·  ${open ? strings['lists.runHide'] : strings['lists.runShow']}`;
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta.split('  ·  ').join(', ')}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta.split(META_SEP).join(', ')}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.control }} />
       </View>

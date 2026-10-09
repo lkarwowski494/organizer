@@ -10,15 +10,16 @@ import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
-import { formatLength, formatLongDate, parseIsoDate } from '../format';
+import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../format';
 import { plural } from '../plural';
 import { type SplitArgs, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
+import { type DayPart, daySpan, lengthMinutes } from '../span';
 import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { childEventConcerns } from './child';
 import { groupsView, myMemberships } from './index';
-import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
+import { asEvent, asOverride, asParticipant, type EventKind, type EventRow, occurrenceDays, occurrenceResponsible, occurrenceTimes, type Override, type Participant, ruleOf } from './event-rows';
 import { asMember, type Member, rows, type Tables } from './model';
 
 export { asEvent, asOverride, asParticipant, type EventRow, type Override, type Participant, ruleOf } from './event-rows';
@@ -39,7 +40,14 @@ export type Occurrence = {
   eventId: string;
   /** Data wystąpienia według reguły — klucz wystąpienia (także gdy przeniesione). */
   occurrenceDate: string;
+  /** Dzień, w którym wpis stoi — w widokach dni (expandEventDays) każdy dzień wielodniowego; inaczej dzień startu. */
   date: string;
+  /** D199: dzień startu (po przeniesieniu), ostatni dzień (włącznie) i liczba dni kalendarzowych (span.ts). */
+  startDate: string;
+  endDate: string;
+  days: number;
+  /** D199: który to dzień wielodniowego (`null` — jednodniowe). */
+  part: DayPart | null;
   startTime: string | null;
   endTime: string | null;
   title: string;
@@ -122,6 +130,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
       if (date < isoFrom || date > isoTo) continue;
+      const days = occurrenceDays(o, e);
       const raw = occurrenceResponsible(o, e);
       // D132: osoba usunięta z grupy już nie odpowiada — wydarzenie wraca do reguły „nikt konkretny”.
       const responsibleId = raw !== null && members.get(raw)?.deleted_at === null ? raw : null;
@@ -131,6 +140,10 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         eventId: e.id,
         occurrenceDate: occ,
         date,
+        startDate: date,
+        endDate: days === 1 ? date : formatIsoDate(addDays(parseIsoDate(date), days - 1)),
+        days,
+        part: days === 1 ? null : { day: 1, days },
         startTime: occurrenceTimes(o, e).start,
         endTime: occurrenceTimes(o, e).end,
         title: o?.title ?? e.title,
@@ -152,6 +165,25 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     }
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.title.localeCompare(b.title, 'pl') || a.eventId.localeCompare(b.eventId));
+}
+
+/**
+ * D199: wpisy dni [from, to] — wydarzenie wielodniowe (obóz, nocny dyżur) w każdym swoim dniu, z `part` („dzień 2 z 5”)
+ * i `date` = ten dzień; także takie, które zaczęło się przed `from` (najwyżej config.events.MAX_DAYS dni wcześniej).
+ * Kolejność dnia: według godzin tego dnia (kolejny dzień wydarzenia przez północ — od 00:00).
+ */
+export function expandEventDays(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
+  const isoFrom = formatIsoDate(from);
+  const isoTo = formatIsoDate(to);
+  const out: Occurrence[] = [];
+  for (const o of expandEvents(t, userId, addDays(from, 1 - config.events.MAX_DAYS), to)) {
+    for (let i = 0; i < o.days; i++) {
+      const date = i === 0 ? o.date : formatIsoDate(addDays(parseIsoDate(o.date), i));
+      if (date >= isoFrom && date <= isoTo) out.push(i === 0 ? o : { ...o, date, part: { day: i + 1, days: o.days } });
+    }
+  }
+  const at = (o: Occurrence) => daySpan(o.startTime, o.endTime, o.part).start ?? '';
+  return out.sort((a, b) => a.date.localeCompare(b.date) || at(a).localeCompare(at(b)) || a.title.localeCompare(b.title, 'pl') || a.eventId.localeCompare(b.eventId));
 }
 
 const FEMININE = new Set([2, 5, 6]); // środa, sobota, niedziela
@@ -243,7 +275,12 @@ export type EventFields = {
   location?: string | null;
   /** Rodzaj (D126) — tylko przy utworzeniu; bez = zwykłe. */
   kind?: EventKind;
+  /** D199: ile dni trwa całodniowe (bez = 1; z godziną nie ma znaczenia — przez północ mówią godziny). */
+  days?: number;
 };
+
+/** Długość zapisywana w wierszu: całodniowe — z formularza, z godziną — 1 (span.ts). */
+const daysOf = (f: Pick<EventFields, 'startTime' | 'days'>) => (f.startTime === null ? (f.days ?? 1) : 1);
 
 const ruleText = (r: Rule | null, until: string | null) => (r === null ? null : formatRule({ ...r, count: null, until }));
 
@@ -277,7 +314,7 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
       entity: 'events',
       id,
       group_id: groupId,
-      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}) },
+      set: { title: f.title, start_date: formatIsoDate(start), start_time: f.startTime, end_time: f.endTime, rrule: ruleText(f.rule, f.until), audience: f.audience, responsible_member_id: f.responsibleId, ...(f.location ? { location: f.location } : {}), ...(f.kind && f.kind !== 'event' ? { kind: f.kind } : {}), ...(daysOf(f) > 1 ? { days: daysOf(f) } : {}) },
     },
     ...participantOps(id, groupId, [], f.audience === 'members' ? f.participantIds : [], () => newId(), false),
   ];
@@ -287,18 +324,18 @@ export function createEvent(groupId: string, f: EventFields, newId: () => string
 export type Scope = 'this' | 'following' | 'all';
 
 /** Pola wyjątku jednego terminu; `null` = jak w serii. */
-type OverrideFields = Pick<Override, 'start_date' | 'start_time' | 'end_time' | 'title' | 'responsible_member_id' | 'all_day' | 'responsible_cleared' | 'cancelled'>;
-const AS_SERIES: OverrideFields = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, all_day: false, responsible_cleared: false, cancelled: false };
+type OverrideFields = Pick<Override, 'start_date' | 'start_time' | 'end_time' | 'title' | 'responsible_member_id' | 'all_day' | 'responsible_cleared' | 'cancelled' | 'days'>;
+const AS_SERIES: OverrideFields = { start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, all_day: false, responsible_cleared: false, cancelled: false, days: null };
 const hhmm = (v: string | null) => (v === null ? null : v.slice(0, 5));
 
 /**
  * Pola, które trzeba zapisać, żeby z `from` zrobić `to` — tylko zmienione (audyt 2, S-8: zmiana scala się z równoczesną
- * zmianą innych pól z drugiego telefonu). Godziny parą (ograniczenie: koniec po początku). Znaczniki all_day i
+ * zmianą innych pól z drugiego telefonu). Godziny parą (koniec bez początku nie istnieje, a koniec przed początkiem znaczy następny dzień — D199). Znaczniki all_day i
  * responsible_cleared też tylko, gdy coś zmieniają — starszy serwer ich nie zna (D136).
  */
 function overrideDiff(from: OverrideFields, to: OverrideFields): { [k: string]: unknown } {
   const set: { [k: string]: unknown } = {};
-  for (const k of ['start_date', 'title', 'responsible_member_id', 'cancelled', 'all_day', 'responsible_cleared'] as const) if (from[k] !== to[k]) set[k] = to[k];
+  for (const k of ['start_date', 'title', 'responsible_member_id', 'cancelled', 'all_day', 'responsible_cleared', 'days'] as const) if (from[k] !== to[k]) set[k] = to[k];
   if (hhmm(from.start_time) !== hhmm(to.start_time) || hhmm(from.end_time) !== hhmm(to.end_time)) Object.assign(set, { start_time: to.start_time, end_time: to.end_time });
   return set;
 }
@@ -332,7 +369,10 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
     // PW-33 (decyzja właściciela z 8.10.2026, wariant A): własne godziny tylko wtedy, gdy różnią się od godzin serii —
     // termin ze zmienioną samą nazwą, osobą albo dniem dalej idzie za godziną serii (także po jej późniejszej zmianie).
     const seriesTime = hhmm(f.startTime) === hhmm(e.start_time) && hhmm(f.endTime) === hhmm(e.end_time);
+    // D199: własna długość całodniowego terminu tylko, gdy inna niż w serii (całodniowy termin serii z godziną — 1 dzień).
+    const seriesDays = e.start_time === null ? e.days : 1;
     return overrideOps(d, occurrenceDate, {
+      days: f.startTime === null && daysOf(f) !== seriesDays ? daysOf(f) : null,
       start_date: f.date === occurrenceDate ? null : f.date,
       start_time: seriesTime ? null : f.startTime,
       end_time: seriesTime ? null : f.endTime,
@@ -364,6 +404,8 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
           audience: f.audience,
           responsible_member_id: f.responsibleId,
           ...(f.location !== undefined && (f.location || null) !== e.location ? { location: f.location || null } : {}),
+          // D199: długość tylko, gdy się zmienia (jak miejsce) — zapis bez niej nie rusza kolumny.
+          ...(daysOf(f) !== e.days ? { days: daysOf(f) } : {}),
         },
       },
       ...participantOps(e.id, e.group_id, d.participants, f.audience === 'members' ? f.participantIds : [], (m) => participantId(e.id, m), true),
@@ -389,6 +431,7 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
       audience: f.audience,
       responsible_member_id: f.responsibleId,
       location: (f.location === undefined ? e.location : f.location) || null,
+      days: daysOf(f),
     },
     participants: (f.audience === 'members' ? f.participantIds : []).map((m) => ({ id: participantId(id, m), member_id: m })),
     drop_overrides: d.overrides.filter((o) => o.occurrence_date >= occurrenceDate && occurrences(start, rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length === 0).map((o) => o.id),
@@ -438,6 +481,8 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
     date: scope === 'all' ? e.start_date : (o?.start_date ?? occurrenceDate),
     startTime: occurrenceTimes(o, e).start,
     endTime: occurrenceTimes(o, e).end,
+    // D199: długość całodniowego (wyjątek albo seria); z godziną 1.
+    days: occurrenceTimes(o, e).start === null ? (o?.days ?? e.days) : 1,
     rule: d.rule ? { ...d.rule, count: null, until: null } : null,
     until,
     audience: e.audience,
@@ -451,7 +496,7 @@ export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): 
 
 /** Wydarzenia, które dotyczą mnie dziś i jutro (do widoku „Moje sprawy”). */
 export function todayEvents(t: Tables, userId: string, today: CivilDate): { today: Occurrence[]; tomorrow: Occurrence[] } {
-  const all = expandEvents(t, userId, today, addDays(today, 1)).filter((x) => x.concernsMe);
+  const all = expandEventDays(t, userId, today, addDays(today, 1)).filter((x) => x.concernsMe);
   const iso = formatIsoDate(today);
   return { today: all.filter((x) => x.date === iso), tomorrow: all.filter((x) => x.date !== iso) };
 }
@@ -459,7 +504,7 @@ export function todayEvents(t: Tables, userId: string, today: CivilDate): { toda
 /** Wszystkie wydarzenia z moich grup w [from, to], pogrupowane po dniu (kalendarz). */
 export function eventsByDate(t: Tables, userId: string, from: CivilDate, to: CivilDate): Map<string, Occurrence[]> {
   const out = new Map<string, Occurrence[]>();
-  for (const x of expandEvents(t, userId, from, to)) out.set(x.date, [...(out.get(x.date) ?? []), x]);
+  for (const x of expandEventDays(t, userId, from, to)) out.set(x.date, [...(out.get(x.date) ?? []), x]);
   return out;
 }
 
@@ -469,9 +514,10 @@ export function timeLabel(start: string | null, end: string | null): string | nu
   return end === null ? start.slice(0, 5) : `${start.slice(0, 5)}–${end.slice(0, 5)}`;
 }
 
-/** Długość do wiersza (D120), tylko gdy jest początek i koniec. */
+/** Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. */
 export function lengthLabel(start: string | null, end: string | null): string | null {
-  return start !== null && end !== null ? formatLength(start, end) : null;
+  const m = lengthMinutes(start, end);
+  return m === null ? null : formatMinutes(m);
 }
 
 export type SeriesItem = {
@@ -508,7 +554,12 @@ export function groupSeries(t: Tables, userId: string, groupId: string, today: C
       return {
         id: e.id,
         title: e.title,
-        summary: rule ? describeRule(rule, parseIsoDate(e.start_date)) : formatLongDate(parseIsoDate(e.start_date), today),
+        // D199: jednorazowe przez kilka dni — zakres dni („12–16 października”).
+        summary: rule
+          ? describeRule(rule, parseIsoDate(e.start_date))
+          : e.start_time === null && e.days > 1
+            ? formatRange(parseIsoDate(e.start_date), addDays(parseIsoDate(e.start_date), e.days - 1), today)
+            : formatLongDate(parseIsoDate(e.start_date), today),
         time: timeLabel(e.start_time, e.end_time),
         start: e.start_date,
         next: next?.date ?? null,
