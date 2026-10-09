@@ -77,8 +77,8 @@ describe('koniec sesji na tym telefonie', () => {
 
   it('usunięcie konta (M-64): po udanym usunięciu na serwerze sprzątanie, a po końcu sesji plik bazy konta znika', async () => {
     const t = makeDeps();
-    t.account.deleteAccount.mockImplementation(async (before) => {
-      await before?.();
+    t.account.deleteAccount.mockImplementation(async (o) => {
+      await o?.beforeSignOut?.();
       t.emit(null);
     });
     await render(<Root deps={t.deps} fontsLoaded />);
@@ -86,10 +86,51 @@ describe('koniec sesji na tym telefonie', () => {
     await screen.findByText('sonda');
     const hook = jest.fn(async () => {});
     mockSeen.services!.onSignOut!(hook);
-    await act(() => mockSeen.services!.account.deleteAccount());
+    await act(() => mockSeen.services!.account.deleteAccount({ deleteEntries: true }));
     expect(hook).toHaveBeenCalled();
+    expect(t.account.deleteAccount).toHaveBeenCalledWith(expect.objectContaining({ deleteEntries: true }));
     await screen.findByTestId('screen-sign-in');
     expect(t.removeDb).toHaveBeenCalledWith(ME);
+    // Audyt 3, N-72: potwierdzenie na ekranie logowania — jednorazowe (po kolejnym zalogowaniu i wylogowaniu już nie).
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    await t.signIn({ userId: 'u-2', displayName: 'Ola' });
+    await t.signIn(null);
+    await screen.findByTestId('screen-sign-in');
+    expect(screen.queryByText('Konto zostało usunięte.')).toBeNull();
+  });
+
+  it('N-225: cofnięta zgoda Apple albo brak poświadczenia — wylogowanie; przy starcie, po powrocie i na sygnał cofnięcia', async () => {
+    const states: string[] = ['authorized', 'revoked'];
+    const credentialState = jest.fn(async () => {
+      const s = states.shift();
+      if (!s) throw new Error('symulator');
+      return s as 'authorized';
+    });
+    let revoked: () => void = () => {};
+    const offRevoked = jest.fn();
+    const t = makeDeps();
+    t.deps.apple = { credentialState, onRevoked: (fn) => ((revoked = fn), offRevoked) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    // Bez identyfikatora Apple (dawne konto e-mailowe) — bez sprawdzania.
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    await screen.findByText('sonda');
+    expect(credentialState).not.toHaveBeenCalled();
+    await t.signIn({ userId: 'u-2', displayName: 'Ola', appleUserId: 'apple-2' });
+    await waitFor(() => expect(credentialState).toHaveBeenCalledWith('apple-2'));
+    expect(t.account.signOut).not.toHaveBeenCalled();
+    await act(() => appState.forEach((fn) => fn('active')));
+    await waitFor(() => expect(t.account.signOut).toHaveBeenCalledTimes(1));
+    // Stan nieznany (wyjątek, np. symulator) — bez wylogowania; sygnał cofnięcia — wylogowanie.
+    await act(() => appState.forEach((fn) => fn('active')));
+    expect(t.account.signOut).toHaveBeenCalledTimes(1);
+    await act(async () => revoked());
+    expect(t.account.signOut).toHaveBeenCalledTimes(2);
+    states.push('not_found');
+    await act(() => appState.forEach((fn) => fn('background')));
+    await act(() => appState.forEach((fn) => fn('active')));
+    await waitFor(() => expect(t.account.signOut).toHaveBeenCalledTimes(3));
+    await t.signIn(null);
+    expect(offRevoked).toHaveBeenCalled();
   });
 
   it('nieudane usunięcie konta nic nie sprząta; bez removeDb w zależnościach — bez błędu', async () => {

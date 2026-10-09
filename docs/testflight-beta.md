@@ -45,7 +45,17 @@ EN (dla recenzji Apple):
 - [ ] Logowanie: tylko Apple (D177); imię z Apple w profilu i w grupach (M-186).
 - [ ] Wylogowanie (D176): drugi iPhone/iPad tego konta zostaje zalogowany.
 - [ ] Wylogowanie bez internetu (tryb samolotowy), potem sieć: powiadomienia starego konta przestają przychodzić.
-- [ ] Usunięcie konta: okno Apple (świeży kod), po usunięciu plik bazy konta znika (M-64, M-303).
+- [ ] Usunięcie konta: okno Apple (świeży kod), po usunięciu plik bazy konta znika (M-64, M-303); ekran logowania mówi
+      „Konto zostało usunięte.”, a zamknięcie okna Apple krzyżykiem nie pokazuje błędu (audyt 3, N-72, N-73).
+- [ ] Sekrety Sign in with Apple (audyt 3, N-99): w panelu Supabase → Edge Functions → Secrets są `APPLE_SIWA_KEY_P8`,
+      `APPLE_SIWA_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`; po pierwszym usunięciu konta testowego w logach funkcji
+      `delete-account` nie ma „not_configured”, a w tabeli `client_errors` nie ma wpisu „delete-account: apple not_configured”
+      (wtedy token Apple został unieważniony — odpowiedź `apple: "revoked"`).
+- [ ] Zgoda Apple (audyt 3, N-225, tylko na iPhonie — na symulatorze stanu nie da się sprawdzić): Ustawienia → [Apple ID] →
+      Zaloguj się przez Apple → Organizer → „Przestań używać” i powrót do aplikacji — aplikacja wraca do ekranu logowania.
+- [ ] Usunięcie konta z przerwaniem sieci zaraz po naciśnięciu (audyt 3, N-228): po powrocie sieci ponowna próba kończy
+      się ekranem „Konto zostało usunięte.”, a nie błędem.
+- [ ] Logowanie z nonce (audyt 3, N-226): logowanie działa (Supabase Auth porównuje skrót nonce z tokenem Apple).
 - [ ] Pęk kluczy po usunięciu aplikacji (M-165, W): zainstaluj ponownie — sesja i wygląd mogą zostać (Expo: „will persist
       across app uninstallations … not guaranteed”), ustawienia konta (wprowadzenie, przypomnienia) zaczynają od zera,
       bo są w bazie konta. Zapisz wynik.

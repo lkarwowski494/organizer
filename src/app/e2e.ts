@@ -207,8 +207,8 @@ export function e2eAccount(server: E2eServer, auth: { signIn(): Promise<void>; s
   return {
     signInWithApple: auth.signIn,
     signOut: async () => auth.signOut(),
-    deleteAccount: async (before) => {
-      await before?.();
+    deleteAccount: async (o) => {
+      await o?.beforeSignOut?.();
       auth.signOut();
     },
     finishSignOut: ok,
@@ -246,6 +246,7 @@ export const e2ePush: DevicePush = {
   onOpen: () => () => {},
   env: async () => 'sandbox',
   replaceReminders: ok,
+  dismissShown: ok,
 };
 
 /** Drobne ustawienia telefonu (nie konta) w pamięci. */

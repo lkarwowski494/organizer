@@ -24,6 +24,7 @@ import { useDefaultGroup } from '../../app/default-group';
 import { LAST_USED } from '../../domain/views/default-group';
 import { quickGroups } from '../../domain/views/quick-target';
 import { pendingCount } from '../../domain/sync-engine/client';
+import { accountErrorCode } from '../../sync/account';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'adding', 'account'];
@@ -48,18 +49,35 @@ export function SettingsScreen({ navigation, route }: Props) {
   const [word, setWord] = useState('');
   const [wordError, setWordError] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteEntries, setDeleteEntries] = useState(false);
 
+  // N-72: każdy błąd mówi, co się stało; zamknięte okno Apple to rezygnacja, nie błąd. Po sukcesie ekran logowania
+  // pokazuje „Konto zostało usunięte.” (Root).
   const del = async () => {
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
-      await account.deleteAccount();
-    } catch {
-      setError(true);
+      await account.deleteAccount({ deleteEntries });
+    } catch (e) {
+      const code = accountErrorCode(e);
+      const offline = code === 'network' || indicator.state === 'offline';
+      setError(
+        code === 'canceled'
+          ? null
+          : code === 'apple_mismatch'
+            ? strings['settings.deleteAppleMismatch']
+            : code === 'apple_unavailable'
+              ? strings['settings.deleteAppleUnavailable']
+              : offline
+                ? `${strings['common.error']} ${strings['common.offlineOnly']}`
+                : strings['common.error'],
+      );
       setBusy(false);
     }
   };
+  // N-142 (Q45 A): „USUŃ” albo „USUN” — świadome potwierdzenie także bez polskiej klawiatury.
+  const wordOk = ([strings['settings.deleteWord'], strings['settings.deleteWordAscii']] as string[]).includes(word.trim().toLocaleUpperCase('pl'));
 
   const signOut = () =>
     Alert.alert(
@@ -271,9 +289,11 @@ export function SettingsScreen({ navigation, route }: Props) {
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
               <Field label={strings['settings.deleteType']} value={word} onChangeText={(v) => (setWord(v), setWordError(false))} autoCapitalize="characters" testID="delete-word" a11yFocus />
               {wordError ? <ErrorText testID="delete-word-error">{strings['settings.deleteWordError']}</ErrorText> : null}
-              {error ? <ErrorText>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</ErrorText> : null}
-              <Button kind="danger" label={strings['settings.deleteConfirm']} busy={busy} onPress={() => (word.trim().toLocaleUpperCase('pl') === strings['settings.deleteWord'] ? void del() : setWordError(true))} testID="delete-confirm" />
-              <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
+              <SwitchRow label={strings['settings.deleteEntries']} value={deleteEntries} onChange={setDeleteEntries} testID="delete-entries" />
+              {deleteEntries ? <Body muted>{strings['settings.deleteEntriesInfo'](config.sync.TOMBSTONE_DAYS)}</Body> : null}
+              {error ? <ErrorText testID="delete-error">{error}</ErrorText> : null}
+              <Button kind="danger" label={strings['settings.deleteConfirm']} busy={busy} onPress={() => (wordOk ? void del() : setWordError(true))} testID="delete-confirm" />
+              <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''), setDeleteEntries(false), setError(null))} />
             </View>
           ) : (
             <Button kind="danger" label={strings['settings.delete']} onPress={() => setDeleting(true)} testID="delete-start" />

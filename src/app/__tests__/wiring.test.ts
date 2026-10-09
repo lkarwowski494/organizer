@@ -22,6 +22,14 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
+jest.mock('expo-apple-authentication', () => ({
+  ...jest.requireActual('expo-apple-authentication'),
+  signInAsync: jest.fn(async () => ({ identityToken: null })),
+  getCredentialStateAsync: jest.fn(),
+  addRevokeListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+jest.mock('expo-crypto', () => ({ ...jest.requireActual('expo-crypto'), digestStringAsync: jest.fn(async (_alg: string, data: string) => `ABC${data.length}`) }));
+
 const ORIGINAL = { ...process.env };
 
 /**
@@ -35,6 +43,7 @@ function load(env: { [k: string]: string | undefined }, release: Application.App
   let sqlite!: { openDatabaseSync: jest.Mock; deleteDatabaseSync: jest.Mock };
   let secure!: { setItem: jest.Mock; AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: unknown };
   let netinfo!: { addEventListener: jest.Mock };
+  let apple!: { getCredentialStateAsync: jest.Mock; addRevokeListener: jest.Mock; signInAsync: jest.Mock; AppleAuthenticationCredentialState: Record<string, number> };
   jest.isolateModules(() => {
     /* eslint-disable @typescript-eslint/no-require-imports -- uzasadnienie wyżej */
     (require('expo-application').getIosApplicationReleaseTypeAsync as jest.Mock).mockResolvedValue(release);
@@ -42,9 +51,10 @@ function load(env: { [k: string]: string | undefined }, release: Application.App
     sqlite = require('expo-sqlite');
     secure = require('expo-secure-store');
     netinfo = require('@react-native-community/netinfo');
+    apple = require('expo-apple-authentication');
     /* eslint-enable @typescript-eslint/no-require-imports */
   });
-  return { ...mod, sqlite, secure, netinfo };
+  return { ...mod, sqlite, secure, netinfo, apple };
 }
 
 afterEach(() => {
@@ -89,7 +99,34 @@ describe('appDeps (D143)', () => {
     listener({ isConnected: null }); // stan nieznany = sieć (o braku powie nieudane żądanie)
     expect(seen).toEqual([false, true, true]);
     expect(typeof deps.session.refresh).toBe('function');
-    expect(typeof deps.session.signOutLocal).toBe('function');
+  });
+
+  it('audyt 3: zgoda Apple (N-225), nonce logowania (N-226), identyfikator Apple w sesji', async () => {
+    const w = load({ EXPO_PUBLIC_E2E: undefined, EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test' }, Application.ApplicationReleaseType.SIMULATOR);
+    const deps = w.appDeps();
+    const AA = w.apple;
+    const S = AA.AppleAuthenticationCredentialState;
+    const states = [];
+    for (const v of [S.REVOKED, S.AUTHORIZED, S.NOT_FOUND, S.TRANSFERRED, 99]) {
+      AA.getCredentialStateAsync.mockResolvedValueOnce(v);
+      states.push(await deps.apple!.credentialState('apple-1'));
+    }
+    expect(states).toEqual(['revoked', 'authorized', 'not_found', 'transferred', 'authorized']);
+    expect(AA.getCredentialStateAsync).toHaveBeenCalledWith('apple-1');
+    const fn = jest.fn();
+    const remove = jest.fn();
+    AA.addRevokeListener.mockReturnValueOnce({ remove });
+    deps.apple!.onRevoked(fn)();
+    expect(AA.addRevokeListener).toHaveBeenCalledWith(fn);
+    expect(remove).toHaveBeenCalled();
+    // Logowanie: do Apple skrót (małe litery) losowego nonce, imię i adres; Apple bez tokenu — błąd.
+    await expect(deps.account.signInWithApple()).rejects.toThrow('apple:no_identity_token');
+    const req = AA.signInAsync.mock.calls.at(-1)![0] as { requestedScopes: unknown[]; nonce: string };
+    expect(req.nonce).toBe('abc64');
+    expect(req.requestedScopes).toHaveLength(2);
+    expect(w.toSession({ id: 'u1', identities: [{ provider: 'email', id: 'e' }, { provider: 'apple', id: 'apple-1' }], app_metadata: { provider: 'apple' } })).toMatchObject({ userId: 'u1', appleUserId: 'apple-1' });
+    expect(w.toSession({ id: 'u1', app_metadata: { provider: 'apple' } })).not.toHaveProperty('appleUserId');
+    expect(w.toSession(null)).toBeNull();
   });
 
   it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty; błąd usuwania cichy', async () => {

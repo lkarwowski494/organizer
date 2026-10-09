@@ -134,21 +134,26 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('wylogowanie a przypomnienia (audyt 2, N-4)', () => {
-  it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają', async () => {
+  it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają, a pokazane — z Centrum powiadomień (audyt 3, N-109)', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const dismissShown = jest.fn(async () => Promise.reject(new Error('brak zgody')));
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown };
     const t = makeDeps({ push });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji: przypomnienia z poprzedniego uruchomienia (np. sprzed wylogowania) też idą precz.
     await waitFor(() => expect(replaceReminders).toHaveBeenCalledWith([]));
     replaceReminders.mockClear();
+    dismissShown.mockClear();
     await t.signIn({ userId: ME, displayName: 'Ala' });
     expect(replaceReminders).not.toHaveBeenCalledWith([]);
+    expect(dismissShown).not.toHaveBeenCalled();
     await t.signIn({ userId: 'u-2', displayName: 'Ola' });
     expect(replaceReminders).toHaveBeenCalledWith([]);
+    expect(dismissShown).toHaveBeenCalledTimes(1);
     replaceReminders.mockClear();
     await t.signIn(null);
     expect(replaceReminders).toHaveBeenCalledWith([]);
+    expect(dismissShown).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -369,7 +374,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 
   it('ciche powiadomienie przy działającej aplikacji: pobiera jej pętla, także w tle, potem plan przypomnień', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown: async () => {} };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
@@ -387,7 +392,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 
   it('bez zgody na powiadomienia — samo pobranie', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown: async () => {} };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
@@ -461,8 +466,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
   it('M-9: po 401 jedna prośba o odświeżenie tokenu; nowy token tego konta wznawia synchronizację', async () => {
     let listener: (s: Session | null) => void = () => {};
     const refresh = jest.fn(async () => {});
-    const signOutLocal = jest.fn(async () => {});
-    const t = makeDeps({ session: signedIn({ onChange: (fn) => ((listener = fn), () => {}), refresh, signOutLocal }) });
+    const t = makeDeps({ session: signedIn({ onChange: (fn) => ((listener = fn), () => {}), refresh }) });
     const real = t.deps.transport;
     let expired = true;
     t.deps.transport = { ...real, pull: (r, l) => (expired ? Promise.reject(new TransportError('auth', 'jwt expired')) : real.pull(r, l)) };
@@ -481,17 +485,16 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
 
   it('M-9: sesja, której nie da się odświeżyć — w Ustawieniach „Zaloguj się ponownie” bez czyszczenia danych', async () => {
     const refresh = jest.fn(async () => Promise.reject(new Error('refresh_token_not_found')));
-    const signOutLocal = jest.fn(async () => {});
-    const t = makeDeps({ session: signedIn({ refresh, signOutLocal }), removeDb: jest.fn() });
+    const t = makeDeps({ session: signedIn({ refresh }), removeDb: jest.fn() });
     t.deps.transport = { ...t.deps.transport, pull: () => Promise.reject(new TransportError('auth', 'jwt expired')) };
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByTestId('screen-today');
     await fireEvent.press(screen.getByLabelText('Ustawienia'));
     expect(await screen.findByText(/Sesja wygasła/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('sign-in-again'));
-    expect(signOutLocal).toHaveBeenCalledTimes(1);
-    // Nie „Wyloguj” (sprzątanie konta) i nie usunięcie bazy: kolejka czeka na ponowne zalogowanie.
-    expect(t.deps.account.signOut).not.toHaveBeenCalled();
+    // Audyt 3, N-224: pełne wylogowanie (zdejmuje token powiadomień tego telefonu), ale bez usunięcia bazy: kolejka
+    // czeka na ponowne zalogowanie (D172 b).
+    expect(t.deps.account.signOut).toHaveBeenCalledTimes(1);
     expect(t.deps.removeDb).not.toHaveBeenCalled();
     // Powrót do aplikacji: kolejna próba i kolejna prośba o odświeżenie (nie w kółko w tle).
     await act(() => appStateHandlers.forEach((h) => h('active')));

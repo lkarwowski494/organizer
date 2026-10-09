@@ -162,3 +162,10 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    zmianą dostępu, bez treści spraw (`realtime.send` w migracjach synchronizacji); imię w `public.profiles`.
 6. **„Nawiguj” bez aplikacji Google Maps** otwiera stronę Map Google w przeglądarce (`navigationUrl` w
    `src/domain/travel.ts`: `https://www.google.com/maps/dir/?api=1…`).
+
+## Zmiany z audytu 3 — usunięcie konta (9.10.2026), do akceptu
+1. **„Usuń też moje wpisy w grupach”** (decyzja Q5 C, N-71): nowy punkt w części „Usunięcie konta”. Wybór zapisuje
+   `public.prepare_account_deletion` (wołana przez funkcję `delete-account` z sesją użytkownika), wykonuje
+   `private.delete_account_entries` w wyzwalaczu `on_auth_user_a_entries` przed usunięciem `auth.users`
+   (`20261010240000_account_delete_entries.sql`); testy `supabase/tests/account_delete_entries.test.sql`. Bez wyboru
+   zachowanie jak dotąd (wpisy zostają z podpisem „Usunięty użytkownik”).
