@@ -3,9 +3,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as fc from 'fast-check';
 import { Text } from 'react-native';
 
-import { appVersion, ErrorBoundary, installGlobalHandler, toClientError } from '../diagnostics';
+import { appVersion, ERROR_REPORTS_KEY, ErrorBoundary, gatedReport, installGlobalHandler, reportsOn, toClientError } from '../diagnostics';
 import { RootStack } from '../navigation';
-import { fakeAccount, setup } from './harness';
+import { fakeAccount, memoryLocal, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -80,6 +80,41 @@ describe('zgłoszenie błędu', () => {
     boom = false;
     await act(async () => press(screen.getByLabelText('Spróbuj ponownie')));
     expect(screen.getByText('ok')).toBeTruthy();
+  });
+});
+
+describe('zgoda na raporty błędów (audyt 3, N-74)', () => {
+  const e = { kind: 'error' as const, message: 'm', stack: null, screen: null, appVersion: 'v' };
+  it('domyślnie wysyła; po wyłączeniu w Ustawieniach nic nie idzie na serwer; po włączeniu znowu wysyła', async () => {
+    const local = memoryLocal();
+    const send = jest.fn(async () => {});
+    const report = gatedReport(local, send);
+    await report(e);
+    expect(send).toHaveBeenCalledTimes(1);
+    local.save(ERROR_REPORTS_KEY, 'off');
+    expect(reportsOn(local)).toBe(false);
+    await report(e);
+    expect(send).toHaveBeenCalledTimes(1);
+    local.save(ERROR_REPORTS_KEY, null);
+    await report(e);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('granica błędów przy wyłączonych raportach: bez zgłoszenia i bez obietnicy „spróbujemy zgłosić”', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const Bomb = () => {
+      throw new Error('render');
+    };
+    const report = jest.fn();
+    await render(
+      <ErrorBoundary report={report} reporting={() => false} version="v" colors={{ ground: '#fff', ink: '#000', inkMuted: '#333' }}>
+        <Bomb />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByTestId('screen-crash')).toBeTruthy();
+    expect(report).not.toHaveBeenCalled();
+    expect(screen.queryByText(/zgłosić/)).toBeNull();
+    expect(screen.getByText('Twoje dane są bezpieczne na telefonie.')).toBeTruthy();
   });
 });
 

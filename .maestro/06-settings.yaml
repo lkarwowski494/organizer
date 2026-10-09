@@ -14,10 +14,48 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings-account"
     timeout: 10000
+# Audyt 3 (N-74, N-75): przełącznik raportów błędów i link do polityki prywatności (strony nie otwieramy — sieć).
+- assertVisible:
+    id: "switch-error-reports"
+- assertVisible:
+    id: "open-privacy"
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
+    timeout: 10000
+# Audyt 3 (N-78): Licencje — lista i tekst jednej licencji.
+- tapOn: "Wróć"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "open-licenses"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "open-licenses"
+- extendedWaitUntil:
+    visible:
+      id: "screen-licenses"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "license-react-native"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "license-react-native"
+- extendedWaitUntil:
+    visible:
+      id: "license-text"
+    timeout: 10000
+- tapOn: "Wróć"
+- extendedWaitUntil:
+    visible:
+      id: "screen-licenses"
     timeout: 10000
 # Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
 - tapOn: "Wróć"

@@ -9,7 +9,7 @@ import { AccessibilityInfo, AppState } from 'react-native';
 import { config } from '../../config';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { migrate } from '../../data/db/migrations';
-import { writeState } from '../../data/store';
+import { saveLocal, writeState } from '../../data/store';
 import { initialState, mutate, type PullResponse, type PushResponse } from '../../domain/sync-engine/client';
 import { type SyncTransport, TransportError } from '../../sync/transport';
 import { refreshInBackground } from '../background';
@@ -192,6 +192,52 @@ describe('wylogowanie a kalendarze „Organizer – …” (D172, audyt 2 M-27)'
     await removeMirrorCalendars({ add: jest.fn() }, { get: async () => '["x"]', set: async () => {} });
     await removeMirrorCalendars({ add: jest.fn(), sync: { status } as never }, { get: async () => null, set: async () => {} });
     expect(status).not.toHaveBeenCalled();
+  });
+});
+
+describe('raporty błędów tylko za zgodą (audyt 3, N-74)', () => {
+  const devicePrefs = () => {
+    const m = new Map<string, string>();
+    return { get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) };
+  };
+  const signedIn = () => ({ current: async () => ({ userId: ME, displayName: 'Ala' }) as Session, onChange: () => () => {} });
+
+  it('domyślnie: samosprawdzenie i nieobsłużony wyjątek idą na serwer', async () => {
+    const handlers: ((e: unknown, fatal?: boolean) => void)[] = [];
+    const g = globalThis as unknown as { ErrorUtils?: unknown };
+    const saved = g.ErrorUtils;
+    g.ErrorUtils = { getGlobalHandler: () => () => {}, setGlobalHandler: (h: (e: unknown, f?: boolean) => void) => void handlers.push(h) };
+    try {
+      const t = makeDeps({ session: signedIn(), prefs: devicePrefs() });
+      await render(<Root deps={t.deps} fontsLoaded />);
+      await screen.findByTestId('screen-today');
+      await waitFor(() => expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'diagnostic', screen: 'selfcheck' })));
+      await act(async () => handlers.at(-1)!(new Error('boom'), true));
+      expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'crash', message: 'Error: boom' }));
+    } finally {
+      g.ErrorUtils = saved;
+    }
+  });
+
+  it('wyłączone w Ustawieniach → Konto i dane: ani samosprawdzenie, ani nieobsłużony wyjątek nie wychodzą', async () => {
+    const handlers: ((e: unknown, fatal?: boolean) => void)[] = [];
+    const g = globalThis as unknown as { ErrorUtils?: unknown };
+    const saved = g.ErrorUtils;
+    g.ErrorUtils = { getGlobalHandler: () => () => {}, setGlobalHandler: (h: (e: unknown, f?: boolean) => void) => void handlers.push(h) };
+    try {
+      const t = makeDeps({ session: signedIn(), prefs: devicePrefs() });
+      const db = memoryDb();
+      migrate(db);
+      saveLocal(db, 'errorReports', 'off');
+      t.dbs.set(ME, db);
+      await render(<Root deps={t.deps} fontsLoaded />);
+      await screen.findByTestId('screen-today');
+      await act(async () => {});
+      await act(async () => handlers.at(-1)!(new Error('boom'), true));
+      expect(t.deps.account.reportError).not.toHaveBeenCalled();
+    } finally {
+      g.ErrorUtils = saved;
+    }
   });
 });
 
