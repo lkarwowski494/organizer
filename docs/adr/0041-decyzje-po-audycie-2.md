@@ -1,7 +1,7 @@
 # 0041. Decyzje po audycie 2 (8–9.10.2026)
 
 Rejestr decyzji D144–D200 z audytu 2 i decyzji podjętych potem z upoważnienia właściciela. Pełny rejestr z uzasadnieniami
-jest na Google Drive („Rejestr decyzji”, folder „Organizer grup”); ten plik to jego kopia w repozytorium (jak ADR 0035 dla
+jest w dokumentach projektu właściciela („Rejestr decyzji”, folder „Organizer grup”); ten plik to jego kopia w repozytorium (jak ADR 0035 dla
 D126–D143). Szczegóły wykonania są w ADR wskazanych w ostatniej kolumnie. Stan wdrożenia każdej decyzji prowadzi backlog
 (04) — kolumna „Opis wykonania” mówi tylko, gdzie w repozytorium opisano, jak decyzja działa („—”: opisu w ADR jeszcze nie
 ma; „kod:” — tylko komentarz w kodzie).

@@ -214,11 +214,11 @@ export function SettingsScreen({ navigation, route }: Props) {
               ) : null}
             </View>
           ) : null}
-          <SectionTitle>{strings['travel.section']}</SectionTitle>
-          <View testID="travel-settings" style={{ gap: 10 }}>
-            <Segmented label={strings['travel.navApp']} value={travel.navApp} onChange={travel.setNavApp} options={[{ value: 'apple', label: strings['travel.apple'] }, { value: 'google', label: strings['travel.google'] }]} />
-            {travel.available ? (
-              <>
+          {/* „Nawiguj” otwiera zawsze Mapy Apple (ADR 0043) — bez wyboru aplikacji; sekcja tylko z czasem dojazdu. */}
+          {travel.available ? (
+            <>
+              <SectionTitle>{strings['travel.section']}</SectionTitle>
+              <View testID="travel-settings" style={{ gap: 10 }}>
                 <SwitchRow label={strings['travel.enabled']} value={travel.enabled} onChange={(on) => void travel.setEnabled(on)} testID="switch-travel" />
                 {/* Audyt 3 (N-56): odmowa — iOS nie zapyta drugi raz, więc droga do Ustawień iPhone'a (jak kalendarz i powiadomienia). */}
                 {travel.status === 'denied' ? (
@@ -236,9 +236,9 @@ export function SettingsScreen({ navigation, route }: Props) {
                 ) : null}
                 <Segmented label={strings['travel.defaultMode']} value={travel.mode} onChange={travel.setMode} options={TRAVEL_MODES.map((m) => ({ value: m, label: strings[`travel.option.${m}`] }))} />
                 <Body muted>{strings['travel.info']}</Body>
-              </>
-            ) : null}
-          </View>
+              </View>
+            </>
+          ) : null}
         </>
       ) : null}
       {section === 'account' ? (

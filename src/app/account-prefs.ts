@@ -18,7 +18,7 @@ import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
 import type { LocalStore } from './calendar-mirror';
 import { CAL_MIRROR, CAL_READ, CAL_SKIP } from './calendar-sync';
 import type { Prefs } from './context';
-import { NAV_APP, TRAVEL_MODE, TRAVEL_ON } from './travel';
+import { TRAVEL_MODE, TRAVEL_ON } from './travel';
 
 /** „Nie teraz” przy prośbie o powiadomienia i ustawienia przypomnień (wcześniej w module push, pęk kluczy bez prefiksu). */
 export const PUSH_DISMISSED = 'pushPromptDismissed';
@@ -26,10 +26,16 @@ export const REMINDER_SETTINGS = 'reminderSettings';
 
 /** Ustawienie konta → dawny klucz w pęku kluczy (sprzed D175). */
 export const LEGACY_KEYS: Readonly<Record<string, string>> = Object.fromEntries([
-  ...[NAME_ASKED, WELCOME_SEEN, WHATS_NEW_SEEN, CAL_ASKED, CAL_READ, CAL_MIRROR, CAL_SKIP, TRAVEL_ON, TRAVEL_MODE, NAV_APP].map((k) => [k, `pref.${k}`]),
+  ...[NAME_ASKED, WELCOME_SEEN, WHATS_NEW_SEEN, CAL_ASKED, CAL_READ, CAL_MIRROR, CAL_SKIP, TRAVEL_ON, TRAVEL_MODE].map((k) => [k, `pref.${k}`]),
   [PUSH_DISMISSED, PUSH_DISMISSED],
   [REMINDER_SETTINGS, REMINDER_SETTINGS],
 ]);
+
+/**
+ * Wycofane ustawienia: usuwane z pęku kluczy i z konta, bez przenoszenia. `navApp` — wybór aplikacji map z buildów
+ * 21–22 (Mapy Apple albo inne); od ADR 0043 „Nawiguj” otwiera zawsze Mapy Apple.
+ */
+const RETIRED = ['navApp'];
 
 /** Dawne ustawienia w pęku kluczy: odczyt i usunięcie. */
 export type LegacyStore = { get(key: string): Promise<string | null>; remove(key: string): Promise<void> };
@@ -41,7 +47,9 @@ const KEY = (k: string) => `pref.${k}`;
  * usuwany dopiero po zapisie w bazie; błąd odczytu zostawia go na następny start.
  */
 export async function adoptLegacyPrefs(legacy: LegacyStore | undefined, local: LocalStore): Promise<void> {
+  for (const key of RETIRED) local.save(KEY(key), null);
   if (!legacy) return;
+  for (const key of RETIRED) await legacy.remove(KEY(key)).catch(() => {});
   for (const [key, old] of Object.entries(LEGACY_KEYS)) {
     try {
       const v = await legacy.get(old);

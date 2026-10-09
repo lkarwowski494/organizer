@@ -47,7 +47,7 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    - token powiadomień bez terminu, usuwany przy odrzuceniu przez APNs (`public.drop_push_token`, wołane z
      `supabase/functions/notify-handoff/handler.ts`), przechodzi na nowe konto (`public.register_push_token`).
 9. **Lokalizacja nigdy nie trafia na nasz serwer.** Dopisane wprost, plus geokoder Apple dla adresu i „Nawiguj” do Map Apple
-   albo Google. `expoTravel` w `src/app/travel-service.ts`, `modules/travel-time/ios/TravelTimeModule.swift`,
+   (od 9.10.2026 tylko Map Apple, ADR 0043). `expoTravel` w `src/app/travel-service.ts`, `modules/travel-time/ios/TravelTimeModule.swift`,
    `navigationUrl` w `src/domain/travel.ts`, `src/app/travel.tsx`. Brak innych wywołań lokalizacji ani `fetch` w `src/`.
    Cache współrzędnych na telefonie: klucz `travelGeo` w `src/app/travel.tsx`.
 10. **Opis czujnika ruchu** tylko z powodu biblioteki: `motionUsagePermission` (wtyczka expo-location) w `app.json`, ADR 0032 (D123).
@@ -85,7 +85,7 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
 9. **Adres e-mail przy logowaniu przez Apple** i dzienniki platformy (adresy IP, logi zapytań i logowania) przechowuje
    Supabase Auth i Supabase według własnych zasad. Nasz kod tego nie konfiguruje, więc w polityce nie podałem terminów.
    Do sprawdzenia w dokumentacji Supabase przed publikacją.
-10. **Lustro kalendarza na iCloud / Google:** kalendarze „Organizer” powstają na koncie domyślnego kalendarza
+10. **Lustro kalendarza na iCloud albo innym koncie:** kalendarze „Organizer” powstają na koncie domyślnego kalendarza
     (`getDefaultCalendarSync().source` w `src/app/device-calendar.ts`, komentarz: „zwykle iCloud”). Wydarzenia grup trafiają więc do tego dostawcy.
     Napisałem to wprost. Do akceptu.
 11. **Opis zgody „tylko zapis” w `app.json`** (`NSCalendarsWriteOnlyAccessUsageDescription`, dawniej „Nie odczytuje kalendarza”) jest
@@ -160,5 +160,5 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    `selfcheck`; ponadto `calendar-mirror-off`).
 5. **Połączenie na żywo (Realtime) i profil** w „Danych technicznych synchronizacji”: sygnał z numerem wersji grupy albo
    zmianą dostępu, bez treści spraw (`realtime.send` w migracjach synchronizacji); imię w `public.profiles`.
-6. **„Nawiguj” bez aplikacji Google Maps** otwiera stronę Map Google w przeglądarce (`navigationUrl` w
-   `src/domain/travel.ts`: `https://www.google.com/maps/dir/?api=1…`).
+6. **„Nawiguj”** otwiera Mapy Apple (`navigationUrl` w `src/domain/travel.ts`); wybór map innej firmy i strona map
+   w przeglądarce usunięte 9.10.2026 (ADR 0043).

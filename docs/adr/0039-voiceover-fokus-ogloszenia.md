@@ -4,7 +4,7 @@ Decyzje techniczne Claude'a przy paczce P14a (M-37…M-44, M-125, M-141…M-150,
 właściciel może je zawetować. Numer D nada koordynator przy scaleniu.
 
 Na iOS rola „alert”, `accessibilityLiveRegion` oraz role „tab”/„tablist”/„radiogroup” niczego nie dają (React Native
-0.86, `accessibilityPropsConversions.h` — brak gałęzi; `accessibilityLiveRegion` „Android”), a stan „zwinięte” nie jest
+0.86, `accessibilityPropsConversions.h` — brak gałęzi; `accessibilityLiveRegion` działa tylko poza iOS), a stan „zwinięte” nie jest
 czytany (RN dopisuje tylko „rozwinięte”). Dlatego jeden wspólny mechanizm w `src/ui/a11y.ts` i w klockach
 `src/ui/components.tsx`, bez kodu na poszczególnych ekranach:
 

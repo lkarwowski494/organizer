@@ -51,7 +51,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 16,
     items: [
-      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z Google i Outlooka dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
+      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z innych kont dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
       'Wydarzenia grup same trafiają do osobnych kalendarzy „Organizer – nazwa grupy” w iPhonie i aktualizują się po każdej zmianie.',
       'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz i wyłączysz to w Ustawienia → Kalendarz i dojazd.',
       'Formularz „Więcej”: na górze wybierasz zadanie albo wydarzenie, nie trzeba wybierać listy. Zakres godzin w szybkim dodaniu („basen jutro 17–18”) tworzy wydarzenie.',

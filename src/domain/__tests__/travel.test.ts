@@ -2,13 +2,12 @@ import { config } from '../../config';
 import { departureMs, geoLookup, geoStore, isTravelMode, leaveAt, navigationUrl, readGeoCache, readTravelResults, travelInfoFor, travelMinutes, travelTargets } from '../travel';
 
 describe('nawigacja i „wyjdź o” (D115–D117)', () => {
-  it('Mapy Apple: nowe linki od iOS 18.4, starsze dawne; Google — link uniwersalny', () => {
-    expect(navigationUrl('apple', ' Basen Delfin, ul. Wodna 1 ', 'transit', '18.4')).toBe('https://maps.apple.com/directions?destination=Basen%20Delfin%2C%20ul.%20Wodna%201&mode=transit');
-    expect(navigationUrl('apple', 'Wodna 1', 'driving', '26.0')).toBe('https://maps.apple.com/directions?destination=Wodna%201&mode=driving');
-    expect(navigationUrl('apple', 'Wodna 1', 'walking', '18.3.2')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=w');
-    expect(navigationUrl('apple', 'Wodna 1', 'transit', '17')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=r');
-    expect(navigationUrl('apple', 'Wodna 1', 'driving', '')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=d');
-    expect(navigationUrl('google', 'Wodna 1', 'walking', '18.4')).toBe('https://www.google.com/maps/dir/?api=1&destination=Wodna%201&travelmode=walking');
+  it('Mapy Apple: nowe linki od iOS 18.4, starsze dawne', () => {
+    expect(navigationUrl(' Basen Delfin, ul. Wodna 1 ', 'transit', '18.4')).toBe('https://maps.apple.com/directions?destination=Basen%20Delfin%2C%20ul.%20Wodna%201&mode=transit');
+    expect(navigationUrl('Wodna 1', 'driving', '26.0')).toBe('https://maps.apple.com/directions?destination=Wodna%201&mode=driving');
+    expect(navigationUrl('Wodna 1', 'walking', '18.3.2')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=w');
+    expect(navigationUrl('Wodna 1', 'transit', '17')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=r');
+    expect(navigationUrl('Wodna 1', 'driving', '')).toBe('https://maps.apple.com/?daddr=Wodna%201&dirflg=d');
   });
 
   it('wyjdź o: start − dojazd − zapas, w dół do minuty; minuty dojazdu w górę', () => {

@@ -247,7 +247,7 @@ export function PeriodArrow({ dir, label, onPress, testID }: { dir: -1 | 1; labe
 
 /**
  * Komunikat o błędzie pod polem albo przyciskiem: czerwony i ogłaszany przez VoiceOver, gdy się pojawi albo zmieni
- * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla Androida i testów). Jeden wygląd wszędzie:
+ * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla innych platform i testów). Jeden wygląd wszędzie:
  * rozmiar i krój z motywu (M-152).
  */
 export function ErrorText({ children, testID, silent }: { children: string; testID?: string; silent?: boolean }) {

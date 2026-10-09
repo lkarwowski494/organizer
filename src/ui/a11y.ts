@@ -10,7 +10,7 @@
  *  - „sendAccessibilityEvent … like changing the focused element for a screen reader” (zamiast setAccessibilityFocus,
  *    które wymaga numeru widoku).
  * Na iOS `accessibilityLiveRegion` i rola „alert” niczego nie ogłaszają
- * (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android — „Android”), więc ogłaszamy wprost.
+ * (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android — działa tylko poza iOS), więc ogłaszamy wprost.
  */
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
