@@ -19,10 +19,12 @@
  * - Pamięć podręczna Actions: `GET /repos/{owner}/{repo}/actions/cache/usage`
  *   (https://docs.github.com/en/rest/actions/cache#get-github-actions-cache-usage-for-a-repository).
  *
- * Zmienne: SUPABASE_MONITOR_TOKEN (osobisty token dostępu Supabase; brak → komunikat i kod 0, bo sekret doda
- * właściciel), GITHUB_TOKEN i GITHUB_REPOSITORY (opcjonalnie — pamięć Actions), GITHUB_STEP_SUMMARY.
- * Kod wyjścia: 0 — wszystko poniżej progów (albo brak sekretu); 1 — próg przekroczony albo pomiar się nie udał
- * (nocny przebieg robi się czerwony, GitHub wysyła właścicielowi powiadomienie). Tokenu nigdy nie wypisuje.
+ * Zmienne: SUPABASE_MONITOR_TOKEN (osobisty token dostępu Supabase; brak → nic nie jest mierzone ani podtrzymywane:
+ * ostrzeżenie i kod 0 do dnia `config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM`, od tego dnia błąd i kod 1), GITHUB_TOKEN
+ * i GITHUB_REPOSITORY (opcjonalnie — pamięć Actions), GITHUB_STEP_SUMMARY.
+ * Kod wyjścia: 0 — wszystko poniżej progów (albo brak sekretu przed datą graniczną); 1 — próg przekroczony, pomiar się
+ * nie udał albo brak sekretu po dacie granicznej (nocny przebieg robi się czerwony, GitHub wysyła właścicielowi
+ * powiadomienie). Tokenu nigdy nie wypisuje.
  */
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -142,18 +144,25 @@ export function report(results) {
 }
 
 export async function main({ env = process.env, fetchFn = fetch, now = Date.now(), log = console.log, loadConfig } = {}) {
+  const { config } = await (loadConfig ?? (() => import('../../src/config/index.ts')))();
   const token = env.SUPABASE_MONITOR_TOKEN;
   if (!token) {
-    log('::notice::Brak sekretu SUPABASE_MONITOR_TOKEN — pomiar limitów i podtrzymanie projektu pominięte (docs/limits.md, D185).');
-    return 0;
+    const from = config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM;
+    const late = now >= Date.parse(`${from}T00:00:00Z`);
+    log(
+      `::${late ? 'error' : 'warning'}::Brak sekretu SUPABASE_MONITOR_TOKEN — limity nie są mierzone, a projekt nie jest podtrzymywany przed uśpieniem. ` +
+        `Dodaj sekret (docs/limits.md, D185)${late ? '' : `; od ${from} brak sekretu oblewa to zadanie`}.`,
+    );
+    return late ? 1 : 0;
   }
-  const { config } = await (loadConfig ?? (() => import('../../src/config/index.ts')))();
   const ref = projectRef(config.SUPABASE_URL);
   const measured = await measure({ fetchFn, token, ref, now, github: { token: env.GITHUB_TOKEN, repository: env.GITHUB_REPOSITORY } });
   const results = evaluate(measured, config.limits);
   const md = report(results);
   log(md);
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, md);
+  // Egress i Realtime API nie podaje — raz w miesiącu (1. dnia, UTC) widoczne przypomnienie o ręcznym odczycie.
+  if (new Date(now).getUTCDate() === 1) log('::warning::Początek miesiąca: sprawdź ręcznie egress i wiadomości Realtime na stronie zużycia organizacji Supabase (docs/limits.md).');
   for (const r of results) {
     if (r.status === 'warn') log(`::error::${r.label}: ${r.text} — przekroczony próg ostrzeżenia (70% limitu Free)`);
     if (r.status === 'error') log(`::error::${r.label}: ${r.text}`);
