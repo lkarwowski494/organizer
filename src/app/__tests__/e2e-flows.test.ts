@@ -32,7 +32,8 @@ function syncChecksBelowTop(text: string): number[] {
   const bad: number[] = [];
   steps(text).forEach((step, i) => {
     if (/^- scrollUntilVisible/.test(step)) scrolledDown = !/direction: UP/.test(step);
-    else if (/^- (tapOn: "Wróć"|runFlow|tapOn:\s*\n\s+id: "tab-)/.test(step)) scrolledDown = false;
+    // Wspólny start (launch.yaml) otwiera ekran od góry; wpisanie tekstu (type.yaml) nie przewija w górę.
+    else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|tapOn:\s*\n\s+id: "tab-)/.test(step)) scrolledDown = false;
     else if (scrolledDown && checksSyncChip(step)) bad.push(i);
   });
   return bad;
@@ -88,5 +89,47 @@ describe('scenariusze Maestro — przewijanie bez centerElement', () => {
       expect(s[tap - 1]).toMatch(/^- waitForAnimationToEnd/);
       expect(s[tap - 2]).toMatch(/^- scrollUntilVisible:[\s\S]*id: "calendar-add-event"/);
     }
+  });
+});
+
+/**
+ * Wpisywanie tekstu (przebieg e2e 57, 9.10.2026: 08 zapisało „O” zamiast „Obóz”). Maestro 2.11.0 wpisuje pierwszy znak
+ * osobno, a resztę po 0,5 s, bo „characters after the first one are often skipped” (TextInputHelper.swift,
+ * https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-ios-xctest-runner/maestro-driver-iosUITests/Routes/Helpers/TextInputHelper.swift).
+ * Każde wpisanie idzie przez common/type.yaml: sprawdzenie, że pole ma cały tekst, i ponowienie (retry) — scenariusz
+ * oblewa przy polu, nie trzy kroki dalej, i nie zależy od tego, czy Maestro zgubi znaki.
+ */
+const TYPE = readFileSync(join(DIR, 'common/type.yaml'), 'utf8');
+const rawTyping = (text: string) => steps(text).flatMap((step, i) => (/^- inputText/.test(step) ? [i] : []));
+const typedFields = (text: string) => steps(text).flatMap((step) => (/^- runFlow:\s*\n\s+file: common\/type\.yaml/.test(step) ? [[/FIELD: "([^"]+)"/.exec(step)?.[1], /TEXT: "([^"]+)"/.exec(step)?.[1]]] : []));
+
+describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () => {
+  it('wykrywa gołe inputText (wersja 08 sprzed poprawki)', () => {
+    const before = ['appId: x', '---', '- tapOn:', '    id: "event-title"', '- inputText: "Obóz"', '- hideKeyboard'].join('\n');
+    expect(rawTyping(before)).toEqual([1]);
+    const after = ['appId: x', '---', '- runFlow:', '    file: common/type.yaml', '    env:', '      FIELD: "event-title"', '      TEXT: "Obóz"', '- hideKeyboard'].join('\n');
+    expect(rawTyping(after)).toEqual([]);
+    expect(typedFields(after)).toEqual([['event-title', 'Obóz']]);
+  });
+
+  it.each(flows)('%s wpisuje tekst tylko przez common/type.yaml, z polem i tekstem bez znaków wyrażeń regularnych', (f) => {
+    const text = readFileSync(join(DIR, f), 'utf8');
+    expect(rawTyping(text)).toEqual([]);
+    for (const [field, value] of typedFields(text)) {
+      expect(field).toMatch(/^[\w-]+$/);
+      expect(value).toMatch(/^[\p{L} ]+$/u);
+    }
+  });
+
+  it('common/type.yaml: wyczyszczenie, wpisanie i sprawdzenie wartości pola w retry', () => {
+    const [retry, ...rest] = steps(TYPE);
+    expect(rest).toEqual([]);
+    expect(retry).toMatch(/^- retry:\s*\n\s+maxRetries: 2\s*\n\s+commands:/);
+    const order = ['tapOn:\n          id: ${FIELD}', 'eraseText', 'inputText: ${TEXT}', 'assertVisible:\n          id: ${FIELD}\n          text: ${TEXT}'].map((x) => retry!.indexOf(x));
+    expect(order.every((x, i) => x >= 0 && (i === 0 || x > order[i - 1]!))).toBe(true);
+  });
+
+  it('scenariusze z wpisywaniem: 02, 04, 05, 07, 08', () => {
+    expect(flows.filter((f) => typedFields(readFileSync(join(DIR, f), 'utf8')).length)).toEqual(['02-quick-add.yaml', '04-event-form.yaml', '05-shopping.yaml', '07-keyboard.yaml', '08-multi-day.yaml']);
   });
 });

@@ -2,9 +2,11 @@ appId: io.github.lkarwowski494.organizer
 name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
 ---
 - runFlow: common/launch.yaml
-- tapOn:
-    id: "quick-add"
-- inputText: "Kupić mleko jutro"
+- runFlow:
+    file: common/type.yaml
+    env:
+      FIELD: "quick-add"
+      TEXT: "Kupić mleko jutro"
 - tapOn: "Dodaj"
 - tapOn: "Następny dzień"
 - extendedWaitUntil:
