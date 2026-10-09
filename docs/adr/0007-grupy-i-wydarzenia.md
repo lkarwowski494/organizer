@@ -100,5 +100,9 @@ części, z której otwarto termin. Teraz (migracja `20261010050000_series_chain
   30 dni (ten sam `member_id`, więc wracają plan lekcji, obecność i zadania). Konto, które samo wyszło, wraca tylko
   przez zaproszenie. Listy „Tylko ja” osoby, która wyszła albo została usunięta, idą do kosza na 30 dni i wracają z nią
   (PW-43 A; migracja `20261008361000_member_departure.sql`), a jej oczekujące przekazania są anulowane (R-34).
+  Audyt 3 (N-40, migracja `20261010110000_member_restore.sql`): „Cofnij” i przywrócenie z kosza osób cofają całe
+  usunięcie — przekazania (te, które nadal mają sens: rzecz wciąż u nadawcy, obie osoby w grupie), dostęp do list
+  „Wybrane osoby”, zaproszenia osobiste i zakres Moich spraw. Powrót zaproszeniem przywraca tylko rzeczy samej osoby
+  (listy „Tylko ja”, zakres Moich spraw); dostęp i przekazania nadają ponownie inni.
 - **D54, kosz grupy (PWD-21 A):** członkowie widzą wpis „Grupa X w koszu (właściciel może przywrócić do: …)”;
   przywrócenie to przycisk „Przywróć” w wierszu z paskiem „Przywrócono · Cofnij”.
