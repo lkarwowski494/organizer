@@ -34,8 +34,16 @@ const ENVIRONMENTS = {
   'ios-release.yml': { testflight: 'ios-release' },
   'match-bootstrap.yml': { signing: 'ios-release' },
   'nightly.yml': { 'free-limits': 'monitor' },
+  'pages.yml': { deploy: 'github-pages' },
   'supabase-deploy.yml': { deploy: 'supabase-prod' },
 };
+/**
+ * Wyjątki od „w zadaniach wyłącznie read albo none”: zadanie → zakresy z zapisem. Wdrożenie GitHub Pages
+ * (decyzja właściciela 9.10.2026, polityka prywatności): „The job that executes the deployment must at minimum have the
+ * following permissions: pages: write, id-token: write” (https://github.com/actions/deploy-pages). Tylko zadanie deploy,
+ * bez checkoutu i bez sekretów, w środowisku github-pages.
+ */
+const WRITE_SCOPES = { 'pages.yml': { deploy: { pages: 'write', 'id-token': 'write' } } };
 /** Wyrażenia z danymi spoza repozytorium, których nie wolno wklejać w `run:` (tylko przez env). */
 const UNTRUSTED = /\$\{\{[^}]*\b(inputs\.|github\.event\.|github\.head_ref)/;
 
@@ -58,7 +66,10 @@ describe('zasady bezpieczeństwa workflow (CLAUDE.md, audyt 3 N-258)', () => {
         for (const [name, job] of jobsOf(f)) {
           if (job.permissions === undefined) continue;
           assert.equal(typeof job.permissions, 'object', `${f}/${name}: permissions jako napis (read-all/write-all)`);
-          for (const [scope, level] of Object.entries(job.permissions)) assert.ok(['read', 'none'].includes(level), `${f}/${name}: ${scope}: ${level}`);
+          for (const [scope, level] of Object.entries(job.permissions)) {
+            const allowed = ['read', 'none', ...(WRITE_SCOPES[f]?.[name]?.[scope] ? [WRITE_SCOPES[f][name][scope]] : [])];
+            assert.ok(allowed.includes(level), `${f}/${name}: ${scope}: ${level}`);
+          }
         }
       });
 
@@ -112,6 +123,21 @@ describe('zasady bezpieczeństwa workflow (CLAUDE.md, audyt 3 N-258)', () => {
       });
     });
   }
+});
+
+describe('wdrożenie GitHub Pages (pages.yml)', () => {
+  it('zadanie z zapisem: tylko akcja deploy-pages, bez checkoutu, skryptów i sekretów', () => {
+    const deploy = wf('pages.yml').jobs.deploy;
+    assert.deepEqual(stepsOf(deploy).map((s) => s.uses?.split('@')[0]), ['actions/deploy-pages']);
+    assert.doesNotMatch(JSON.stringify(deploy), /secrets\./);
+  });
+  it('publikuje katalog site/ po sprawdzeniu, że strona polityki jest aktualna', () => {
+    const steps = stepsOf(wf('pages.yml').jobs.build);
+    const check = steps.findIndex((s) => /privacy-html\.cjs --write\ngit diff --exit-code site\/privacy\/index\.html/.test(s.run ?? ''));
+    const upload = steps.findIndex((s) => s.uses?.startsWith('actions/upload-pages-artifact@'));
+    assert.ok(check >= 0 && upload > check);
+    assert.equal(steps[upload].with.path, 'site');
+  });
 });
 
 describe('instalatory narzędzi z sumą SHA-256 (N-255, N-258)', () => {

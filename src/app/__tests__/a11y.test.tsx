@@ -335,7 +335,7 @@ describe('linki głębokie (D40)', () => {
     expect((await screen.findByTestId('invite-join-id')).props.value).toBe('482 913 507');
     expect(screen.getByTestId('invite-code').props.value).toBe('731 064');
     await fireEvent.press(screen.getByTestId('invite-accept'));
-    expect(s.account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Łukasz');
+    expect(s.account.joinGroup).toHaveBeenCalledWith('482913507', '731064', null); // niezmienione imię z konta zostaje po stronie serwera (audyt 3, N-164)
   });
 
   it('zaproszenie z linku otwiera ekran bez pola wklejania', async () => {
@@ -344,7 +344,7 @@ describe('linki głębokie (D40)', () => {
     expect(await screen.findByTestId('screen-invite')).toBeTruthy();
     expect(screen.queryByTestId('invite-input')).toBeNull();
     await fireEvent.press(screen.getByTestId('invite-accept'));
-    expect(s.account.acceptInvite).toHaveBeenCalledWith('ef'.repeat(32), 'Łukasz');
+    expect(s.account.acceptInvite).toHaveBeenCalledWith('ef'.repeat(32), null);
   });
 
   it('brakujące dane w trasie: ekrany pokazują błąd zamiast się wysypać', async () => {

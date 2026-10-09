@@ -10,9 +10,16 @@ Klikalny link `https://lkarwowski494.github.io/j/?g=…&c=…` wymaga dwóch kro
 4. W nowym repozytorium: **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
    gałąź `main`, katalog `/ (root)` → **Save**.
 
-Po tym kroku strona otwiera się z ID, kodem i przyciskiem „Otwórz w aplikacji”. Do wiadomości z zaproszeniem link trafia
-dopiero po przestawieniu `config.invites.LINK_LIVE` na `true` i nowym buildzie (D141 — do tego czasu wiadomość ma tylko
-ID grupy i kod); zrobię to, gdy dasz znać, że strona działa.
+Po tym kroku strona pokazuje ID i kod z instrukcją. Przycisku z linkiem w schemacie aplikacji
+(`io.github.lkarwowski494.organizer://join…`) nie ma (audyt 3, N-259): ten sam schemat może zarejestrować inna aplikacja
+i przejąć kod — Apple: „If multiple apps register the same scheme, the app the system targets is undefined”
+(https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app). Aplikację otwiera sam link
+https po kroku 2.
+
+Do wiadomości z zaproszeniem link trafia dopiero po przestawieniu `config.invites.LINK_LIVE` na `true` i nowym buildzie
+(D141 — do tego czasu wiadomość ma tylko ID grupy i kod), i dopiero **po kroku 2** (decyzja Q23 A, 9.10.2026): bez
+Universal Links link otwiera tylko stronę. Pilnuje tego test `src/config/__tests__/site.contract.test.ts` (`LINK_LIVE`
+wymaga `ios.associatedDomains` z `applinks:lkarwowski494.github.io` w `app.json`).
 Koszt: zero (GitHub Pages dla repozytoriów publicznych).
 
 ## Krok 2. Otwieranie aplikacji prosto z linku (Apple Developer, ~1 min)

@@ -65,9 +65,9 @@ describe('polityka prywatności (N-75)', () => {
     expect(open).toHaveBeenCalledWith(config.privacy.POLICY_URL);
   });
 
-  it('adres polityki to strona /privacy/ tej samej witryny co zaproszenia', () => {
+  it('adres polityki: strona site/privacy/ z GitHub Pages repozytorium organizer (decyzja właściciela 9.10.2026)', () => {
     expect(new URL(config.privacy.POLICY_URL).origin).toBe(new URL(config.invites.JOIN_LINK).origin);
-    expect(new URL(config.privacy.POLICY_URL).pathname).toBe('/privacy/');
+    expect(new URL(config.privacy.POLICY_URL).pathname).toBe('/organizer/privacy/');
   });
 });
 

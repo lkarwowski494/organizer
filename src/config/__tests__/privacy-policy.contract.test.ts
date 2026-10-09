@@ -28,7 +28,8 @@ describe('strona polityki prywatności (N-75)', () => {
     expect(read('site/privacy/index.html')).toBe(site.build());
   });
   it('adres w aplikacji wskazuje tę stronę; strona bez skryptów i bez notatek dla zespołu', () => {
-    expect(new URL(config.privacy.POLICY_URL).pathname).toBe('/privacy/');
+    // GitHub Pages repozytorium organizer (.github/workflows/pages.yml) publikuje katalog site/ pod /organizer/.
+    expect(new URL(config.privacy.POLICY_URL).pathname).toBe('/organizer/privacy/');
     const html = read('site/privacy/index.html');
     expect(html).not.toMatch(/<script/);
     expect(html).not.toContain('Notatka dla zespołu');
@@ -46,11 +47,36 @@ describe('administrator danych i kontakt (N-76)', () => {
   it('polityka podaje administratora z config.privacy.CONTROLLER', () => {
     expect(text).toContain(`Administratorem Twoich danych osobowych jest ${config.privacy.CONTROLLER}`);
   });
-  it('kontakt: do czasu osobnego adresu (CONTACT_EMAIL = null) — „Wyślij uwagę” i adres z TestFlight; potem ten adres', () => {
-    const interim = 'do czasu publikacji aplikacji w App Store napisz przez „Wyślij uwagę”';
-    const email = config.privacy.CONTACT_EMAIL;
-    expect(text.includes(interim)).toBe(email === null);
-    expect(email === null || text.includes(email)).toBe(true);
+  /**
+   * Kontakt (decyzja właściciela 9.10.2026): build 23 wychodzi bez adresu e-mail (świadomy wyjątek) — CONTACT_EMAIL = null
+   * i polityka podaje zdanie przejściowe (kontakt przez „Wyślij uwagę”). Przed App Store adres musi się pojawić; wtedy
+   * zdanie przejściowe znika, a polityka podaje dokładnie ten adres. Dwa stany naraz (zdanie przejściowe i adres albo
+   * żadne z nich) oblewają test.
+   */
+  const interim = `do czasu publikacji aplikacji w App Store napisz przez „${strings['feedback.open']}”`;
+  const contactProblems = (policy: string, email: string | null): string[] => {
+    const addresses: string[] = policy.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    const problems: string[] = [];
+    if (email === null) {
+      if (!policy.includes(interim)) problems.push('brak zdania przejściowego');
+      if (addresses.length) problems.push(`adres w polityce bez CONTACT_EMAIL: ${addresses.join(', ')}`);
+    } else {
+      if (policy.includes(interim)) problems.push('zdanie przejściowe obok adresu');
+      if (!addresses.includes(email)) problems.push('polityka nie podaje CONTACT_EMAIL');
+    }
+    return problems;
+  };
+  it('kontakt: CONTACT_EMAIL = null → zdanie przejściowe z nazwą przycisku z aplikacji i żadnego adresu; potem ten adres', () => {
+    expect(contactProblems(text, config.privacy.CONTACT_EMAIL)).toEqual([]);
+  });
+  it('kontrola testu kontaktu: niespójne stany oblewają', () => {
+    const email = 'kontakt@example.com';
+    expect(contactProblems(`${interim}.`, null)).toEqual([]);
+    expect(contactProblems(`${interim}, ${email}.`, null)).toEqual([`adres w polityce bez CONTACT_EMAIL: ${email}`]);
+    expect(contactProblems('Napisz do nas.', null)).toEqual(['brak zdania przejściowego']);
+    expect(contactProblems(`Napisz na ${email}.`, email)).toEqual([]);
+    expect(contactProblems(`${interim}. Napisz na ${email}.`, email)).toEqual(['zdanie przejściowe obok adresu']);
+    expect(contactProblems('Napisz do nas.', email)).toEqual(['polityka nie podaje CONTACT_EMAIL']);
   });
   it('adres kontaktowy nie jest prywatną skrzynką (ta sama reguła co gitleaks personal-email)', () => {
     const rule = /id = "personal-email"[\s\S]*?regex = '''(.+?)'''/.exec(read('.gitleaks.toml'))![1]!;

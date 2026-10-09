@@ -9,7 +9,11 @@ import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { TransportError } from '../../sync/transport';
 
-export function groupErrorText(e: unknown): string {
+/**
+ * `owner` — czy to ja jestem właścicielem grupy (rada przy limicie zaproszeń: zmianę ID grupy robi tylko on; audyt 3,
+ * N-163). Bez podania — jak u administratora.
+ */
+export function groupErrorText(e: unknown, ctx: { owner?: boolean } = {}): string {
   const m = e instanceof Error ? e.message : '';
   if (m === 'rate_limited') return strings['invite.rateLimited'];
   if (m === 'invite_expired') return strings['invite.expired'];
@@ -19,10 +23,11 @@ export function groupErrorText(e: unknown): string {
   if (m === 'invite_child_account') return strings['invite.childAccount'];
   if (m === 'limit:groups') return strings['groups.error.limitGroups'](config.quotas.SHARED_GROUPS);
   if (m === 'limit:group_rows' || m === 'limit:group_size') return strings['groups.error.groupFull'];
-  if (m === 'limit:invites') return strings['groups.error.limitInvites'](config.quotas.ACTIVE_INVITES);
+  if (m === 'limit:invites') return strings['groups.error.limitInvites'](config.quotas.ACTIVE_INVITES, ctx.owner === true);
   if (m.startsWith('invite_')) return strings['invite.invalid'];
   if (m === 'not_authenticated' || (e instanceof TransportError && e.kind === 'auth')) return strings['groups.error.session'];
-  if (m.startsWith('forbidden')) return strings['groups.error.forbidden'];
+  // revoke_invite zgłasza not_found także wtedy, gdy nie mam już roli owner/admin (np. odebrano mi ją w trakcie; N-163).
+  if (m.startsWith('forbidden') || m === 'not_found') return strings['groups.error.forbidden'];
   if (m === 'deleted:expired') return strings['groups.error.expired'](config.sync.TOMBSTONE_DAYS);
   if (m.startsWith('deleted')) return strings['groups.error.trashed'];
   if (m === 'invalid_member') return strings['groups.error.member'];
