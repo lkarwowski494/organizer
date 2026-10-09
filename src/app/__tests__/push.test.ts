@@ -6,7 +6,7 @@ import { apnsEnv, expoDevicePush, openedPaths, registerIfAllowed, reminderSchedu
 import { fakePush } from './harness';
 import { parseReminderSettings } from '../reminders';
 
-jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), SchedulableTriggerInputTypes: { DATE: 'date' } }));
+jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), getAllScheduledNotificationsAsync: jest.fn(async () => []), cancelScheduledNotificationAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), SchedulableTriggerInputTypes: { DATE: 'date' } }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}), AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'afterFirstUnlockThisDeviceOnly' }));
 jest.mock('expo-application', () => ({ getIosPushNotificationServiceEnvironmentAsync: jest.fn(async () => null) }));
 const m = Notifications as jest.Mocked<typeof Notifications>;
@@ -51,9 +51,9 @@ describe('powiadomienia na iPhonie (D70)', () => {
 
   it('przypomnienia: podmiana zaplanowanych; ustawienia (zły zapis = domyślne)', async () => {
     await expoDevicePush.replaceReminders([{ id: 'm|2026-10-08', at: 1_800_000_000_000, title: 'Dziś', body: 'kwiaty', target: { screen: 'today' } }]);
-    expect(m.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+    expect(m.getAllScheduledNotificationsAsync).toHaveBeenCalled();
     // PWD-16: ścieżka do otwarcia w danych powiadomienia.
-    expect(m.scheduleNotificationAsync).toHaveBeenCalledWith({ identifier: 'm|2026-10-08', content: { title: 'Dziś', body: 'kwiaty', sound: 'default', data: { path: 'today' } }, trigger: { type: 'date', date: 1_800_000_000_000 } });
+    expect(m.scheduleNotificationAsync).toHaveBeenCalledWith({ identifier: 'm|2026-10-08', content: { title: 'Dziś', body: 'kwiaty', sound: 'default', data: { path: 'today', at: 1_800_000_000_000 } }, trigger: { type: 'date', date: 1_800_000_000_000 } });
     expect(parseReminderSettings('{"leadMin":10,"morning":"off"}')).toEqual({ leadMin: 10, morning: 'off' });
     expect(parseReminderSettings(null)).toBeNull();
     expect(parseReminderSettings('{zły')).toBeNull();
@@ -97,59 +97,186 @@ describe('powiadomienia na iPhonie (D70)', () => {
   });
 });
 
-describe('planowanie przypomnień (audyt 2: N-7, N-34)', () => {
-  const r = (id: string, at: number): Reminder => ({ id, at, title: id, body: '', target: { screen: 'task', id } });
-  const NOW = 1_800_000_000_000;
-  const n = () => ({ cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async (_req: Notifications.NotificationRequestInput) => 'id') });
+/**
+ * Centrum powiadomień iOS w pamięci: zaplanowane (z wyzwalaczem czasu) i pokazane od razu (bez wyzwalacza). Pusty tekst
+ * wraca jako brak, jak w expo-notifications 57 (NotificationRecords.swift); ten sam identyfikator zastępuje zaplanowane.
+ */
+function center() {
+  const pending = new Map<string, Notifications.NotificationRequestInput>();
+  const delivered: string[] = [];
+  const x = {
+    pending,
+    delivered,
+    getAllScheduledNotificationsAsync: jest.fn(async () =>
+      [...pending.values()].map((q) => ({ identifier: q.identifier!, content: { ...q.content, body: q.content.body || null }, trigger: q.trigger }) as unknown as Notifications.NotificationRequest),
+    ),
+    cancelScheduledNotificationAsync: jest.fn(async (id: string) => void pending.delete(id)),
+    scheduleNotificationAsync: jest.fn(async (q: Notifications.NotificationRequestInput) => {
+      if (q.trigger === null) {
+        pending.delete(q.identifier!);
+        delivered.push(q.identifier!);
+      } else pending.set(q.identifier!, q);
+      return q.identifier!;
+    }),
+    /** Chwila minęła: iOS pokazuje zaplanowane do `t` i zdejmuje je z zaplanowanych. */
+    fire: (t: number) => {
+      for (const [id, q] of pending)
+        if ((q.trigger as { date: number }).date <= t) {
+          pending.delete(id);
+          delivered.push(id);
+        }
+    },
+  };
+  return x;
+}
 
-  it('pozycja za blisko „teraz” pominięta; błąd jednej nie zatrzymuje reszty — zgłoszony po zaplanowaniu', async () => {
-    const x = n();
+describe('planowanie przypomnień (audyt 2: N-7, N-34; audyt 3: N-105, N-112)', () => {
+  const r = (id: string, at: number, title = id): Reminder => ({ id, at, title, body: '', target: { screen: 'task', id } });
+  const NOW = 1_800_000_000_000;
+  const scheduled = (x: ReturnType<typeof center>) => x.scheduleNotificationAsync.mock.calls.map((c) => c[0]!.identifier);
+
+  it('błąd jednej pozycji nie zatrzymuje reszty — zgłoszony po zaplanowaniu; kolejny plan działa', async () => {
+    const x = center();
     x.scheduleNotificationAsync.mockRejectedValueOnce(new Error('timeInterval must be greater than 0'));
     const plan = reminderScheduler(x, () => NOW);
-    await expect(plan([r('za-blisko', NOW + 4_999), r('zly', NOW + 60_000), r('a', NOW + 120_000), r('b', NOW + 180_000)])).rejects.toThrow('greater than 0');
-    expect(x.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(1);
-    expect(x.scheduleNotificationAsync.mock.calls.map((c) => c[0]!.identifier)).toEqual(['zly', 'a', 'b']);
-    expect(x.scheduleNotificationAsync.mock.calls[1]![0]).toEqual({ identifier: 'a', content: { title: 'a', body: '', sound: 'default', data: { path: 'task/a' } }, trigger: { type: 'date', date: NOW + 120_000 } });
-    // Kolejny plan działa mimo poprzedniego błędu.
+    await expect(plan([r('zly', NOW + 60_000), r('a', NOW + 120_000), r('b', NOW + 180_000)])).rejects.toThrow('greater than 0');
+    expect(scheduled(x)).toEqual(['zly', 'a', 'b']);
+    expect(x.scheduleNotificationAsync.mock.calls[1]![0]).toEqual({ identifier: 'a', content: { title: 'a', body: '', sound: 'default', data: { path: 'task/a', at: NOW + 120_000 } }, trigger: { type: 'date', date: NOW + 120_000 } });
     await plan([r('c', NOW + 60_000)]);
-    expect(x.scheduleNotificationAsync).toHaveBeenLastCalledWith(expect.objectContaining({ identifier: 'c' }));
+    expect([...x.pending.keys()]).toEqual(['c']);
+  });
+
+  it('N-105: przeplanowanie nie kasuje wszystkiego — odwołuje tylko spoza planu, dodaje nowe i zmienione, reszta zostaje', async () => {
+    const x = center();
+    const plan = reminderScheduler(x, () => NOW);
+    await plan([r('a', NOW + 60_000), r('b', NOW + 120_000), r('c', NOW + 180_000)]);
+    x.scheduleNotificationAsync.mockClear();
+    // „b” usunięta, „c” przesunięta, „a” bez zmian, „d” nowa.
+    await plan([r('a', NOW + 60_000), r('c', NOW + 240_000), r('d', NOW + 300_000)]);
+    expect(x.cancelScheduledNotificationAsync.mock.calls).toEqual([['b']]);
+    expect(scheduled(x)).toEqual(['c', 'd']);
+    expect([...x.pending.keys()].sort()).toEqual(['a', 'c', 'd']);
+    expect((x.pending.get('c')!.trigger as { date: number }).date).toBe(NOW + 240_000);
+    // Zmieniona sama treść — zastąpiona; ten sam plan drugi raz — nic do zrobienia.
+    x.scheduleNotificationAsync.mockClear();
+    await plan([r('a', NOW + 60_000, 'Nowy tytuł'), r('c', NOW + 240_000), r('d', NOW + 300_000)]);
+    expect(scheduled(x)).toEqual(['a']);
+    x.scheduleNotificationAsync.mockClear();
+    x.cancelScheduledNotificationAsync.mockClear();
+    await plan([r('a', NOW + 60_000, 'Nowy tytuł'), r('c', NOW + 240_000), r('d', NOW + 300_000)]);
+    expect(x.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(x.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('N-105: zaplanowane przez poprzednią wersję (bez chwili w danych, pusty tytuł jako brak) — zastąpione raz', async () => {
+    const x = center();
+    x.pending.set('a', { identifier: 'a', content: { title: 'a', body: '', data: { path: 'task/a' } }, trigger: { type: 'date', date: NOW + 60_000 } } as never);
+    x.pending.set('b', { identifier: 'b', content: { title: null, body: null }, trigger: { type: 'date', date: NOW + 60_000 } } as never);
+    const plan = reminderScheduler(x, () => NOW);
+    await plan([r('a', NOW + 60_000), r('b', NOW + 60_000, '')]);
+    expect(scheduled(x)).toEqual(['a', 'b']);
+    x.scheduleNotificationAsync.mockClear();
+    await plan([r('a', NOW + 60_000), r('b', NOW + 60_000, '')]);
+    expect(x.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('N-105: błąd odwołania nie zatrzymuje planowania — zgłoszony po nim', async () => {
+    const x = center();
+    const plan = reminderScheduler(x, () => NOW);
+    await plan([r('stare', NOW + 60_000)]);
+    x.cancelScheduledNotificationAsync.mockRejectedValueOnce(new Error('cancel'));
+    await expect(plan([r('nowe', NOW + 60_000)])).rejects.toThrow('cancel');
+    expect(x.pending.has('nowe')).toBe(true);
+  });
+
+  it('N-112: chwila w marginesie — od razu (raz), zamiast przepaść; zaplanowana wcześniej przychodzi sama; minionej nie ma', async () => {
+    const x = center();
+    let t = NOW - 60_000;
+    const plan = reminderScheduler(x, () => t);
+    await plan([r('rano', NOW + 2_000)]);
+    expect(x.pending.has('rano')).toBe(true);
+    // Przeplanowanie 3 s przed chwilą: zaplanowana zostaje (bez drugiego pokazania).
+    t = NOW - 1_000;
+    x.scheduleNotificationAsync.mockClear();
+    await plan([r('rano', NOW + 2_000)]);
+    expect(x.scheduleNotificationAsync).not.toHaveBeenCalled();
+    expect(x.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+    // Nowa pozycja tuż przed chwilą (np. poranne podsumowanie po zmianie o 7:59:57) — od razu, i tylko raz.
+    await plan([r('rano', NOW + 2_000), r('nowa', NOW + 3_000)]);
+    expect(x.scheduleNotificationAsync.mock.calls.map((c) => [c[0]!.identifier, c[0]!.trigger])).toEqual([['nowa', null]]);
+    await plan([r('rano', NOW + 2_000), r('nowa', NOW + 3_000)]);
+    expect(x.delivered).toEqual(['nowa']);
+    // Zmieniona treść tuż przed chwilą — zastąpiona od razu.
+    await plan([r('rano', NOW + 2_000, 'Inne'), r('nowa', NOW + 3_000)]);
+    expect(x.delivered).toEqual(['nowa', 'rano']);
+    // Plan spóźniony: chwila minęła, a iOS już ją pokazał — bez drugiego pokazania.
+    x.pending.clear();
+    t = NOW + 10_000;
+    await plan([r('minione', NOW + 5_000)]);
+    expect(x.delivered).toEqual(['nowa', 'rano']);
+  });
+
+  it('pozycja „za blisko”, która jest już zaplanowana i bez zmian, zostaje; nie trafia do planu — odwołana', async () => {
+    const x = center();
+    let t = NOW - 60_000;
+    const plan = reminderScheduler(x, () => t);
+    await plan([r('a', NOW + 1_000)]);
+    t = NOW;
+    await plan([]);
+    expect(x.pending.size).toBe(0);
   });
 
   it('dwa przebiegi naraz: po kolei, a nowszy zastępuje starszy — nic z nieaktualnej listy nie zostaje', async () => {
-    const x = n();
+    const x = center();
     let release!: () => void;
-    x.cancelAllScheduledNotificationsAsync.mockImplementationOnce(() => new Promise<void>((done) => (release = done)));
+    const real = x.getAllScheduledNotificationsAsync.getMockImplementation()!;
+    x.getAllScheduledNotificationsAsync.mockImplementationOnce(() => new Promise((done) => (release = () => done(real()))));
     const plan = reminderScheduler(x, () => NOW);
     const first = plan([r('stare-1', NOW + 60_000), r('stare-2', NOW + 60_000)]);
-    // Pierwszy przebieg właśnie kasuje, gdy przychodzą dwa nowe plany.
+    // Pierwszy przebieg właśnie czyta zaplanowane, gdy przychodzą dwa nowe plany.
     await new Promise((done) => setImmediate(done));
     const skipped = plan([r('srodkowe', NOW + 60_000)]);
     const last = plan([r('nowe', NOW + 60_000)]);
     release();
     await Promise.all([first, skipped, last]);
-    // Pierwszy po skasowaniu widzi następcę i nic nie planuje; środkowy nie rusza wcale; ostatni kasuje i planuje.
-    expect(x.scheduleNotificationAsync.mock.calls.map((c) => c[0]!.identifier)).toEqual(['nowe']);
-    expect(x.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2);
+    // Pierwszy widzi następcę i nic nie planuje; środkowy nie rusza wcale; ostatni planuje.
+    expect(scheduled(x)).toEqual(['nowe']);
+    expect(x.getAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2);
   });
 
-  it('następca w trakcie pętli przerywa starszy przebieg', async () => {
-    const x = n();
+  it('następca w trakcie pętli przerywa starszy przebieg; jego pozycje odwołuje następca', async () => {
+    const x = center();
     const plan = reminderScheduler(x, () => NOW);
     let next: Promise<void> | null = null;
-    x.scheduleNotificationAsync.mockImplementationOnce(async () => {
+    const real = x.scheduleNotificationAsync.getMockImplementation()!;
+    x.scheduleNotificationAsync.mockImplementationOnce(async (q) => {
       next = plan([r('nowe', NOW + 60_000)]);
-      return 'id';
+      return real(q);
     });
     await plan([r('stare-1', NOW + 60_000), r('stare-2', NOW + 60_000)]);
     await next;
-    expect(x.scheduleNotificationAsync.mock.calls.map((c) => c[0]!.identifier)).toEqual(['stare-1', 'nowe']);
-    expect(x.cancelAllScheduledNotificationsAsync).toHaveBeenCalledTimes(2);
+    expect(scheduled(x)).toEqual(['stare-1', 'nowe']);
+    expect([...x.pending.keys()]).toEqual(['nowe']);
+  });
+
+  it('następca w trakcie odwoływania przerywa starszy przebieg', async () => {
+    const x = center();
+    const plan = reminderScheduler(x, () => NOW);
+    await plan([r('a', NOW + 60_000), r('b', NOW + 60_000)]);
+    let next: Promise<void> | null = null;
+    x.cancelScheduledNotificationAsync.mockImplementationOnce(async (id) => {
+      next = plan([r('c', NOW + 60_000)]);
+      x.pending.delete(id);
+    });
+    await plan([]);
+    await next;
+    expect([...x.pending.keys()]).toEqual(['c']);
+    expect(x.cancelScheduledNotificationAsync.mock.calls).toEqual([['a'], ['b']]);
   });
 });
 
 describe('spóźnienie: od razu, raz, nie po „Czas wyjść” (PW-24, decyzja właściciela 8.10.2026)', () => {
   const NOW = 1_800_000_000_000;
-  const n = () => ({ cancelAllScheduledNotificationsAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async (_req: Notifications.NotificationRequestInput) => 'id') });
   const target = { screen: 'event', id: 'ev', date: '2026-10-07' } as const;
   const leave = (at: number): Reminder => ({ id: 'l|ev|2026-10-07|2026-10-07', at, title: 'Czas wyjść: Tańce', body: '25 min autem — wyjdź teraz', target });
   const late: Reminder = { id: 'l|ev|2026-10-07|2026-10-07|late', at: NOW, now: true, title: 'Czas wyjść: Tańce', body: 'Masz 15 min spóźnienia — wyjdź teraz', target };
@@ -159,14 +286,16 @@ describe('spóźnienie: od razu, raz, nie po „Czas wyjść” (PW-24, decyzja 
   };
 
   it('dojazd się wydłużył, zanim „Czas wyjść” przyszedł — od razu (bez wyzwalacza czasu) i tylko raz', async () => {
-    const x = n();
+    const x = center();
     const mem = memory();
     let t = NOW - 30 * 60_000;
     const plan = reminderScheduler(x, () => t, mem);
     await plan([leave(NOW + 10 * 60_000)]);
     t = NOW;
     await plan([late]);
-    expect(x.scheduleNotificationAsync.mock.calls.at(-1)![0]).toEqual({ identifier: late.id, content: { title: late.title, body: late.body, sound: 'default', data: { path: 'event/ev/2026-10-07' } }, trigger: null });
+    expect(x.scheduleNotificationAsync.mock.calls.at(-1)![0]).toEqual({ identifier: late.id, content: { title: late.title, body: late.body, sound: 'default', data: { path: 'event/ev/2026-10-07', at: NOW } }, trigger: null });
+    // Zaplanowane „Czas wyjść” zastąpił „spóźniony” — odwołane.
+    expect(x.pending.size).toBe(0);
     // Kolejne przeplanowanie (zmiana danych) — bez drugiego „spóźniony”; po ponownym uruchomieniu też (pamięć w pęku kluczy).
     await plan([late]);
     await reminderScheduler(x, () => t + 60_000, mem)([late]);
@@ -174,24 +303,24 @@ describe('spóźnienie: od razu, raz, nie po „Czas wyjść” (PW-24, decyzja 
   });
 
   it('„Czas wyjść” już przyszedł (także przed ponownym uruchomieniem) — bez „spóźniony”', async () => {
-    const x = n();
+    const x = center();
     const mem = memory();
     await reminderScheduler(x, () => NOW - 60 * 60_000, mem)([leave(NOW - 20 * 60_000)]);
+    x.fire(NOW - 20 * 60_000);
     await reminderScheduler(x, () => NOW, mem)([late]);
     expect(x.scheduleNotificationAsync.mock.calls.some((c) => c[0]!.trigger === null)).toBe(false);
     // Doba później pamięć o tym „Czas wyjść” wygasa (nie rośnie bez końca).
-    const later = n();
-    await reminderScheduler(later, () => NOW + 25 * 3_600_000, mem)([]);
+    await reminderScheduler(center(), () => NOW + 25 * 3_600_000, mem)([]);
     expect(JSON.parse(mem.box.v!)).toEqual({ leave: {}, late: {} });
   });
 
   it('zła albo pusta pamięć — jak bez pamięci; błąd zapisu nie przerywa; błąd pokazania zgłoszony i ponowiony', async () => {
     for (const v of ['{zły', '{"leave":[1],"late":{"a":"x"}}', null]) {
-      const x = n();
+      const x = center();
       await reminderScheduler(x, () => NOW, { load: async () => v, save: async () => Promise.reject(new Error('keychain')) })([late]);
       expect(x.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
     }
-    const x = n();
+    const x = center();
     x.scheduleNotificationAsync.mockRejectedValueOnce(new Error('present'));
     const plan = reminderScheduler(x, () => NOW);
     await expect(plan([late])).rejects.toThrow('present');
