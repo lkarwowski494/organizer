@@ -10,7 +10,7 @@ import { SHOPPING_CATEGORIES, type ShoppingCategory } from '../../config/shoppin
 import type { NewOp, Row } from '../../domain/sync-engine/client';
 import { addStaple, itemKey, type StaplesEdit, staplesOf } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, ErrorText, Field, SectionTitle, Segmented } from '../../ui/components';
+import { Body, Button, Card, CardTitle, ErrorText, Field, Glyph, Segmented } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { useTheme } from '../../ui/theme';
 
@@ -25,7 +25,7 @@ function Chip({ label, onPress, testID, a11yLabel }: { label: string; onPress: (
       onPress={onPress}
       style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface }}
     >
-      <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{label}</Text>
+      {label === '✕' ? <Glyph name="close" color={c.ink} place="inline" /> : <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{label}</Text>}
     </Pressable>
   );
 }
@@ -59,10 +59,9 @@ export function ItemPanel({ title, current, isStaple, error, onRename, onPick, o
   onToggleStaple: () => void;
   onClose: () => void;
 }) {
-  const { c } = useTheme();
   const name = useLiveText(title, onRename, { empty: strings['form.error.title'] });
   return (
-    <View testID="item-panel" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+    <Card kind="panel" testID="item-panel" style={{ marginLeft: 30 }}>
       <Field label={strings['shop.itemName']} {...name.field} maxLength={config.lengths.TASK_TITLE} testID="item-name" a11yFocus />
       {name.error ? <ErrorText>{name.error}</ErrorText> : null}
       <Body muted>{strings['shop.categoryHint']}</Body>
@@ -70,7 +69,7 @@ export function ItemPanel({ title, current, isStaple, error, onRename, onPick, o
       <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={title} />
       {error ? <ErrorText>{error}</ErrorText> : null}
       <Button kind="secondary" label={strings['common.finish']} testID="item-done" onPress={onClose} />
-    </View>
+    </Card>
   );
 }
 
@@ -89,7 +88,6 @@ export function Suggestions({ names, onPick }: { names: readonly string[]; onPic
 /** Karta „Stałe zakupy”: dodanie brakujących jednym dotknięciem i edycja listy stałych. */
 /** `onRemove` — usunięcie stałej pozycji (z paskiem „Cofnij”, D187). */
 export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: { list: Row; missing: number; onAddMissing: () => void; onEdit: (op: NewOp) => void; onRemove: (name: string) => void }) {
-  const { c } = useTheme();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -102,8 +100,8 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
     setError(null);
   };
   return (
-    <View testID="staples" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-      <SectionTitle>{strings['shop.staples']}</SectionTitle>
+    <Card testID="staples">
+      <CardTitle>{strings['shop.staples']}</CardTitle>
       {staples.length === 0 && !editing ? <Body muted>{strings['shop.staplesInfo']}</Body> : null}
       {staples.length > 0 && !editing ? <Body>{staples.join(', ')}</Body> : null}
       {!editing && staples.length > 0 ? (
@@ -126,6 +124,6 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
       ) : (
         <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />
       )}
-    </View>
+    </Card>
   );
 }
