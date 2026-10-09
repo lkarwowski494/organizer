@@ -3,16 +3,22 @@
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
-import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { NavigationContext } from '@react-navigation/native';
+import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
+import { fontScale } from '../config/theme';
 import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
 import { announce, focusScreenTitle, spoken, useA11yFocus } from './a11y';
+import { Glyph } from './glyph';
 import { useTheme } from './theme';
+import { useUndoBarHeight } from './undo';
+
+export { Glyph } from './glyph';
 
 /**
  * Wiersze z przesuwaniem na jednym ekranie (audyt 2, M-249; standard iOS): otwarty jest najwyżej jeden — otwarcie
@@ -60,12 +66,24 @@ function useSwipeGroup(): SwipeGroup {
   );
 }
 
+/**
+ * Ekran: przewijana treść na tle motywu. Audyt 2:
+ *  - M-149: pod treścią ekranu stosu jest strefa wskaźnika Home (insets.bottom; na zakładkach zajmuje ją pasek zakładek),
+ *    a przy widocznym pasku „Cofnij” — jeszcze jego wysokość, żeby ostatni przycisk dało się dotknąć;
+ *  - M-294 (PWD-25 B): na iPadzie treść najwyżej layout.CONTENT_MAX_WIDTH szerokości, wyśrodkowana.
+ */
 export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
-  const { c } = useTheme();
+  const { c, space, layout } = useTheme();
   const insets = useSafeAreaInsets();
   const swipe = useSwipeGroup();
+  // Wysokość paska zakładek, gdy ekran jest zakładką (React Navigation podaje ją tylko wewnątrz zakładek).
+  const tabBar = useContext(BottomTabBarHeightContext);
+  const undoBar = useUndoBarHeight();
+  const bottom = space.SCREEN_BOTTOM + (tabBar === undefined ? insets.bottom : 0);
+  // Pasek „Cofnij” stoi layout.UNDO_BAR_OFFSET nad strefą Home, liczoną od dołu okna (nad paskiem zakładek — mniej).
+  const underBar = undoBar > 0 ? insets.bottom + layout.UNDO_BAR_OFFSET + undoBar - (tabBar ?? 0) + space.SCREEN_GAP : 0;
   const style = { flex: 1, backgroundColor: c.ground };
-  const content = { paddingTop: insets.top + 12, paddingBottom: 24, paddingHorizontal: 20, gap: 14 };
+  const content: ViewStyle = { paddingTop: insets.top + 12, paddingBottom: Math.max(bottom, underBar), paddingHorizontal: space.SCREEN_SIDE, gap: space.SCREEN_GAP, width: '100%', maxWidth: layout.CONTENT_MAX_WIDTH + 2 * space.SCREEN_SIDE, alignSelf: 'center' };
   return (
     <SwipeContext.Provider value={swipe}>
       {scroll ? (
@@ -89,14 +107,20 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
   );
 }
 
+/** Mnożnik Dynamic Type dla tytułu o danym rozmiarze: najwyżej fontScale.TITLE_MAX_PT (M-43, src/config/theme.ts). */
+export const titleScale = (pt: number) => fontScale.TITLE_MAX_PT / pt;
+
 /**
  * Tytuł ekranu. Po wejściu na ekran (koniec przejścia na stosie, także powrót na ten ekran) VoiceOver zaczyna od tytułu,
  * nie od „Wróć” czy chipu synchronizacji (audyt 2, M-269; HIG: tytuł to pierwsza informacja po wejściu na stronę).
  * Przełączenie zakładki fokusu nie przenosi (zostaje na zakładce, jak w aplikacjach systemowych).
  * `a11yFocus` — fokus także po pojawieniu się tytułu na tym samym ekranie (np. ostatni krok Pierwszych kroków, M-44).
+ * `role` — rola rozmiaru z motywu dla tytułów spoza zwykłych ekranów (logowanie, wprowadzenie); Dynamic Type do
+ * fontScale.TITLE_MAX_PT, interlinia fontScale.TITLE_LEADING (M-43, M-270).
  */
-export function Title({ children, a11yFocus }: { children: string; a11yFocus?: boolean }) {
+export function Title({ children, a11yFocus, role = 'TITLE' }: { children: string; a11yFocus?: boolean; role?: 'TITLE' | 'BRAND' | 'INTRO' }) {
   const { c, font, size } = useTheme();
+  const pt = size[role];
   const ref = useA11yFocus<Text>(null, !!a11yFocus);
   const navigation = useContext(NavigationContext);
   useEffect(() => {
@@ -116,7 +140,7 @@ export function Title({ children, a11yFocus }: { children: string; a11yFocus?: b
     return () => (subs.forEach((u) => u()), cancel());
   }, [navigation, ref]);
   return (
-    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: size.TITLE, lineHeight: size.TITLE * 1.05, letterSpacing: -1, color: c.ink }}>
+    <Text ref={ref} accessibilityRole="header" maxFontSizeMultiplier={titleScale(pt)} style={{ fontFamily: font.display800, fontSize: pt, lineHeight: pt * fontScale.TITLE_LEADING, letterSpacing: role === 'BRAND' ? -1.5 : -1, color: c.ink }}>
       {children}
     </Text>
   );
@@ -125,13 +149,13 @@ export function Title({ children, a11yFocus }: { children: string; a11yFocus?: b
 /**
  * Nagłówek panelu, który pojawia się w miejscu (pytanie, wybór osoby, wybór spotkania). Przycisk, który go otworzył,
  * zwykle znika, a iOS przenosi wtedy fokus na początek ekranu — więc fokus VoiceOvera przechodzi na nagłówek
- * (audyt 2, M-44). Ten sam wygląd co dotąd w każdym panelu.
+ * (audyt 2, M-44). Ten sam wygląd co CardTitle (M-281).
  */
 export function PanelTitle({ children }: { children: string }) {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const ref = useA11yFocus<Text>(children);
   return (
-    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: size.CARD_TITLE, color: c.ink }}>
       {children}
     </Text>
   );
@@ -149,9 +173,9 @@ export function ConfirmText({ children }: { children: string }) {
 }
 
 export function SectionTitle({ children }: { children: string }) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, space } = useTheme();
   return (
-    <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted, marginBottom: 4 }}>
+    <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted, marginTop: space.SECTION_TOP, marginBottom: 4 }}>
       {children}
     </Text>
   );
@@ -163,15 +187,63 @@ export function Body({ children, muted, style }: { children: ReactNode; muted?: 
 }
 
 /**
+ * Nagłówek karty i panelu — jeden wygląd na każdej karcie (audyt 2, M-281, PWD-12 B): krój tekstu 700, sizes.CARD_TITLE.
+ */
+export function CardTitle({ children, testID }: { children: ReactNode; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <Text accessibilityRole="header" testID={testID} style={{ fontFamily: font.text700, fontSize: size.CARD_TITLE, color: c.ink }}>
+      {children}
+    </Text>
+  );
+}
+
+/**
+ * Karta (audyt 2, M-281; PWD-12 B): `card` — karta informacyjna (promień radius.CARD), `panel` — panel pod polem albo
+ * wierszem i wpis na liście (radius.PANEL). Odstępy i obwódka z motywu (przy „Zwiększ kontrast” wyraźniejsza, D197).
+ * `style` — tylko dodatki (np. pasek koloru grupy z lewej, czerwona obwódka błędu).
+ */
+export function Card({ children, kind = 'card', testID, style }: { children: ReactNode; kind?: 'card' | 'panel'; testID?: string; style?: ViewStyle }) {
+  const { c, radius, space } = useTheme();
+  const card = kind === 'card';
+  return (
+    <View testID={testID} style={[{ gap: card ? space.CARD_GAP : space.PANEL_GAP, padding: card ? space.CARD_PAD : space.PANEL_PAD, borderRadius: card ? radius.CARD : radius.PANEL, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }, style]}>
+      {children}
+    </View>
+  );
+}
+
+/** Nagłówek okresu (miesiąc, tydzień, dzień) — ten sam rozmiar w Kalendarzu, Moich sprawach i mini kalendarzu (M-152). */
+export function PeriodTitle({ children, testID }: { children: ReactNode; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <Text accessibilityRole="header" testID={testID} style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: size.PERIOD, color: c.ink }}>
+      {children}
+    </Text>
+  );
+}
+
+/** Strzałka poprzedni/następny okres obok PeriodTitle. */
+export function PeriodArrow({ dir, label, onPress, testID }: { dir: -1 | 1; label: string; onPress: () => void; testID?: string }) {
+  const { c, size } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testID} onPress={onPress} style={{ minWidth: size.TOUCH_TARGET, minHeight: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
+      <Glyph name={dir < 0 ? 'prev' : 'next'} color={c.ink} place="period" />
+    </Pressable>
+  );
+}
+
+/**
  * Komunikat o błędzie pod polem albo przyciskiem: czerwony i ogłaszany przez VoiceOver, gdy się pojawi albo zmieni
- * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla Androida i testów). Jeden wygląd wszędzie.
+ * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla Androida i testów). Jeden wygląd wszędzie:
+ * rozmiar i krój z motywu (M-152).
  */
 export function ErrorText({ children, testID, silent }: { children: string; testID?: string; silent?: boolean }) {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   // `silent` — ten sam błąd ogłasza już inny napis (np. „Popraw lekcję…” przy „Zapisz”), bez dwóch ogłoszeń naraz.
   useEffect(() => (silent ? undefined : announce(children)), [children, silent]);
   return (
-    <Text accessibilityRole="alert" testID={testID} style={{ fontFamily: font.text700, color: c.danger }}>
+    <Text accessibilityRole="alert" testID={testID} style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>
       {children}
     </Text>
   );
@@ -233,7 +305,7 @@ export function SyncChip({ indicator, nowMs }: { indicator: Indicator; nowMs: nu
 }
 
 function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: number }) {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const warn = indicator.state === 'offline' || indicator.state === 'error' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required';
   const label = indicatorLabel(indicator, nowMs);
   return (
@@ -247,32 +319,33 @@ function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: numbe
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
     >
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? c.warnBorder : indicator.state === 'synced' ? c.ok : c.inkMuted }} />
-      <Text style={{ fontFamily: font.text600, fontSize: 13, color: warn ? c.warnInk : c.ink }}>{label}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: warn ? c.warnInk : c.ink }}>{label}</Text>
     </View>
   );
 }
 
 export function LineChip({ name, line }: { name: string; line: number }) {
-  const { c, font, line: lineOf } = useTheme();
+  const { c, font, size, line: lineOf } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingLeft: 6, paddingRight: 10, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
       <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: lineOf(line).line }} />
-      <Text style={{ fontFamily: font.text600, fontSize: 13, color: c.ink }}>{name}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.ink }}>{name}</Text>
     </View>
   );
 }
 
 export function Checkbox({ checked, onPress, label, round = true }: { checked: boolean; onPress: () => void; label: string; round?: boolean }) {
-  const { c, size } = useTheme();
+  const { c, size, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
       accessibilityLabel={label}
       onPress={onPress}
-      style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: round ? size.TOUCH_TARGET / 2 : 12, borderWidth: 2, borderColor: checked ? c.ok : c.control, backgroundColor: checked ? c.ok : c.surface, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: round ? size.TOUCH_TARGET / 2 : radius.FIELD, borderWidth: 2, borderColor: checked ? c.ok : c.control, backgroundColor: checked ? c.ok : c.surface, alignItems: 'center', justifyContent: 'center' }}
     >
-      {checked ? <Text style={{ color: c.surface, fontSize: 20, fontWeight: '700' }}>✓</Text> : null}
+      {/* M-43: pole ma stały kształt 44 pt, więc ✓ nie rośnie z Dynamic Type ponad to pole (wielkość = rola GLYPH_CHECK). */}
+      {checked ? <Glyph name="check" color={c.surface} place="check" /> : null}
     </Pressable>
   );
 }
@@ -372,7 +445,7 @@ const SWIPE_ACTION = 96;
  * dotknięciu przycisku wiersz się zamyka (audyt 2, M-249).
  */
 export function SwipeRow({ children, title, onDelete, enabled = true, testID, action = 'delete' }: { children: ReactNode; title: string; onDelete: () => void; enabled?: boolean; testID?: string; action?: 'delete' | 'cancel' }) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, radius } = useTheme();
   const ref = useRef<ScrollView>(null);
   const group = useContext(SwipeContext);
   // Szerokość wiersza = szerokość ekranu bez marginesów Screen (20 pt z każdej strony), potem z pomiaru.
@@ -415,7 +488,7 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
           accessibilityRole="button"
           accessibilityLabel={strings[action === 'delete' ? 'swipe.deleteA11y' : 'swipe.cancelA11y'](title)}
           onPress={press}
-          style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
+          style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: radius.FIELD, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
         >
           <Text accessibilityElementsHidden={claimed} style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>
             {label}
@@ -433,7 +506,7 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
  * VoiceOvera na przycisku po jego pojawieniu (potwierdzenie w miejscu bez pytania, M-44).
  */
 export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint, a11yLabel, busy, a11yFocus }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string; a11yLabel?: string; busy?: boolean; a11yFocus?: boolean }) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, radius } = useTheme();
   const ref = useA11yFocus<View>(null, !!a11yFocus);
   const off = !!disabled || !!busy;
   const bg = kind === 'primary' ? c.inverseBg : c.surface;
@@ -448,7 +521,7 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
       accessibilityState={{ disabled: off, busy: !!busy }}
       disabled={off}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 24, paddingHorizontal: 18, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: off ? 0.5 : 1 }}
+      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: radius.PILL, paddingHorizontal: 18, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: off ? 0.5 : 1 }}
     >
       {busy ? <ActivityIndicator testID={testID ? `${testID}-busy` : undefined} color={fg} /> : null}
       <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: fg }}>{label}</Text>
@@ -473,7 +546,7 @@ function LengthNote({ value, max }: { value: string | undefined; max: number | u
  * (audyt 2, M-268; RN 0.86 InputAccessoryView, iOS: https://reactnative.dev/docs/0.86/inputaccessoryview).
  */
 export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { label: string; ref?: Ref<TextInput>; a11yFocus?: boolean }) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, radius } = useTheme();
   const own = useA11yFocus<TextInput>(null, !!a11yFocus);
   const accessory = useId();
   const numeric = input.keyboardType === 'number-pad' || input.keyboardType === 'decimal-pad';
@@ -485,7 +558,7 @@ export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { la
         accessibilityLabel={label}
         placeholderTextColor={c.inkMuted}
         inputAccessoryViewID={numeric ? accessory : undefined}
-        style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 12, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
+        style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: radius.FIELD, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
         {...input}
       />
       {numeric ? (
@@ -534,7 +607,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
           onPress={submit}
           style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: size.TOUCH_TARGET / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Text style={{ color: c.inverseInk, fontSize: 24, lineHeight: 26, fontFamily: font.text700 }}>+</Text>
+          <Glyph name="add" color={c.inverseInk} place="check" />
         </Pressable>
       </View>
       <LengthNote value={value} max={config.lengths.TASK_TITLE} />
@@ -552,9 +625,10 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
       accessibilityLabel={strings['quick.chipA11y'](text)}
       accessibilityHint={strings['quick.chipHint']}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.control }}
+      style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.control }}
     >
-      <Text style={{ fontFamily: font.text600, fontSize: 15, color: c.ink }}>{`${text}  ✕`}</Text>
+      <Text maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{text}</Text>
+      <Glyph name="close" color={c.ink} place="inline" />
     </Pressable>
   );
 }
@@ -564,7 +638,7 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
  * na inny ekran (strzałka „›” obiecuje przejście, audyt 2: G-14, U-14).
  */
 export function NavRow({ title, subtitle, line, onPress, testID, chevron = true }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string; chevron?: boolean }) {
-  const { c, font, size, line: lineOf } = useTheme();
+  const { c, font, size, radius, line: lineOf } = useTheme();
   const actions = useSwipeAction();
   return (
     <Pressable
@@ -573,14 +647,14 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       {...actions}
       onPress={onPress}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.ROW, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
     >
       {line === undefined ? null : <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: lineOf(line).line, backgroundColor: c.surface }} />}
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{title}</Text>
         {subtitle ? <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{subtitle}</Text> : null}
       </View>
-      {chevron ? <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text> : null}
+      {chevron ? <Glyph name="next" color={c.inkMuted} /> : null}
     </Pressable>
   );
 }
@@ -610,7 +684,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
               onPress={() => onChange(o.value)}
               style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
-              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: 15, color: on ? c.surface : c.ink }}>{o.label}</Text>
+              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -660,7 +734,7 @@ export function EventRow({ title, time, length, part, line, group, onPress, test
         {/* D129: „Wyjdź o …” — jedyna pilna informacja — w osobnej, wyróżnionej linii; „powtarza się” tylko w szczegółach. */}
         {alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.accentInk }}>{alert}</Text> : null}
       </View>
-      <Text style={{ fontSize: 22, color: c.inkMuted }}>{expanded === undefined ? '›' : expanded ? '˄' : '˅'}</Text>
+      <Glyph name={expanded === undefined ? 'next' : expanded ? 'less' : 'more'} color={c.inkMuted} />
     </Pressable>
   );
 }
@@ -677,7 +751,11 @@ export function GapRow({ length, testID }: { length: string; testID?: string }) 
   );
 }
 
-/** Wybór wielu opcji (dni tygodnia, uczestnicy): każda opcja to pole wyboru z tekstem. */
+/**
+ * Wybór wielu opcji (dni tygodnia, uczestnicy): każda opcja to pole wyboru z tekstem. Zaznaczenie wygląda jak w
+ * Segmented (decyzja PW-52 A, D198: ciemne wypełnienie, terakota tylko dla przycisku głównego) i ma ✓, bo można wybrać
+ * kilka.
+ */
 export function Toggles<T extends string | number>({ values, options, onChange, label }: { values: T[]; options: { value: T; label: string; a11y?: string }[]; onChange: (v: T[]) => void; label: string }) {
   const { c, font, size } = useTheme();
   return (
@@ -693,9 +771,10 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
               accessibilityState={{ checked: on }}
               accessibilityLabel={o.a11y ?? o.label}
               onPress={() => onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])}
-              style={{ minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: on ? 2 : 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.inverseBg : c.ground }}
+              style={{ minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
-              <Text style={{ fontFamily: on ? font.text700 : font.text400, fontSize: 15, color: on ? c.inverseInk : c.ink }}>{o.label}</Text>
+              {on ? <Glyph name="check" color={c.surface} place="inline" /> : null}
+              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -707,9 +786,25 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
 export function BackButton({ onPress }: { onPress: () => void }) {
   const { c, font, size } = useTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={strings['common.back']} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', alignSelf: 'flex-start' }}>
-      <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>‹ {strings['common.back']}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={strings['common.back']} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+      <Glyph name="prev" color={c.ink} />
+      <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.back']}</Text>
     </Pressable>
+  );
+}
+
+/**
+ * Włącz/wyłącz w Ustawieniach (audyt 2, M-308; decyzja PWD-39 A z 8.10.2026): systemowy przełącznik iOS w wierszu zamiast
+ * pigułek z trzema różnymi napisami. Apple HIG Toggles (https://developer.apple.com/design/human-interface-guidelines/toggles):
+ * „Use a switch in a list row”. VoiceOver czyta nazwę wiersza, rolę „przełącznik” i stan.
+ */
+export function SwitchRow({ label, value, onChange, testID, hint }: { label: string; value: boolean; onChange: (v: boolean) => void; testID?: string; hint?: string }) {
+  const { c, font, size, radius } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: size.TOUCH_TARGET + 8, paddingHorizontal: 14, paddingVertical: 6, borderRadius: radius.ROW, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
+      <Text style={{ flex: 1, fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{label}</Text>
+      <Switch testID={testID} accessibilityRole="switch" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ checked: value }} value={value} onValueChange={onChange} />
+    </View>
   );
 }
 
