@@ -7,6 +7,7 @@ import { Alert, Share } from 'react-native';
 
 import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
+import { AccountError } from '../../sync/account';
 import { expectOps, answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate, setTime } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
@@ -507,14 +508,16 @@ describe('Ustawienia', () => {
     await press(screen.getByLabelText('Wróć'));
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));
-    await type(screen.getByTestId('delete-word'), 'usun');
+    // Audyt 3 (N-71): ekran mówi, co zostaje w grupach wspólnych.
+    expect(screen.getByText(/zostaną tam z podpisem „Usunięty użytkownik”/)).toBeTruthy();
+    await type(screen.getByTestId('delete-word'), 'usu');
     await press(screen.getByTestId('delete-confirm'));
-    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ, żeby potwierdzić.');
+    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ (albo USUN), żeby potwierdzić.');
     expect(s.account.deleteAccount).not.toHaveBeenCalled();
     await type(screen.getByTestId('delete-word'), 'usuń');
     expect(screen.queryByTestId('delete-word-error')).toBeNull();
     await press(screen.getByTestId('delete-confirm'));
-    expect(s.account.deleteAccount).toHaveBeenCalled();
+    expect(s.account.deleteAccount).toHaveBeenCalledWith({ deleteEntries: false });
     await press(screen.getByTestId('sign-out'));
     await answerAlert('Wyloguj');
     expect(s.account.signOut).toHaveBeenCalled();
@@ -588,17 +591,39 @@ describe('Ustawienia', () => {
     expect(screen.queryByText('Przypomnienia')).toBeNull();
   });
 
-  it('błąd usuwania konta: komunikat; anulowanie czyści pole', async () => {
-    const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(new Error('x'))) });
+  it('błąd usuwania konta: każdy rodzaj błędu ma swój komunikat (N-72); anulowanie czyści pole i wybór', async () => {
+    const errors: unknown[] = [new AccountError('network'), new Error('x'), new AccountError('apple_mismatch'), new AccountError('apple_unavailable'), new AccountError('canceled')];
+    const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(errors.shift())) });
     await open({ account });
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('delete-start'));
-    await type(screen.getByTestId('delete-word'), 'USUŃ');
+    // N-142 (Q45 A): bez polskiej klawiatury też.
+    await type(screen.getByTestId('delete-word'), 'USUN');
     await press(screen.getByTestId('delete-confirm'));
-    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    expect((await screen.findByTestId('delete-error')).props.children).toBe('Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.');
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toBe('Coś poszło nie tak. Spróbuj jeszcze raz.');
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toMatch(/^To nie jest Apple ID tego konta/);
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toMatch(/^Apple teraz nie odpowiada/);
+    // Zamknięte okno Apple — rezygnacja, bez komunikatu; przycisk znowu działa.
+    await press(screen.getByTestId('delete-confirm'));
+    await waitFor(() => expect(screen.queryByTestId('delete-error')).toBeNull());
+    expect(screen.getByTestId('delete-confirm').props.accessibilityState).toMatchObject({ disabled: false });
+    // Q5 C: „Usuń też moje wpisy w grupach” z opisem skutku.
+    expect(screen.queryByText(/przestaną być widoczne u wszystkich/)).toBeNull();
+    await act(() => fireEvent(screen.getByRole('switch', { name: 'Usuń też moje wpisy w grupach' }), 'valueChange', true));
+    expect(screen.getByText(/przestaną być widoczne u wszystkich: trafią do kosza grup, a po 30 dniach/)).toBeTruthy();
+    await press(screen.getByTestId('delete-confirm'));
+    expect(account.deleteAccount).toHaveBeenLastCalledWith({ deleteEntries: true });
     await press(screen.getByLabelText('Anuluj'));
     expect(screen.queryByTestId('delete-word')).toBeNull();
+    await press(screen.getByTestId('delete-start'));
+    expect(screen.queryByText(/przestaną być widoczne u wszystkich/)).toBeNull();
+    expect(screen.queryByTestId('delete-error')).toBeNull();
+    await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByLabelText('Odrzucone zmiany, 0 zmian'));
     expect(await screen.findByText('Serwer przyjął wszystkie Twoje zmiany.')).toBeTruthy();
   });
