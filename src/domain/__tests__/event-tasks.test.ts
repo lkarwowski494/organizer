@@ -36,9 +36,9 @@ function dances() {
   const e = createEvent('gf', fields(), newId);
   run(t, e.ops);
   run(t, [
-    createEventTask({ id: 'strój', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-12', title: 'Spakować strój' }),
-    createEventTask({ id: 'buty', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-12', title: 'Buty' }),
-    createEventTask({ id: 'opłata', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-19', title: 'Opłata' }),
+    createEventTask({ sortKey: 'a0', id: 'strój', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-12', title: 'Spakować strój' }),
+    createEventTask({ sortKey: 'a0', id: 'buty', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-12', title: 'Buty' }),
+    createEventTask({ sortKey: 'a0', id: 'opłata', groupId: 'gf', listId: 'lf', eventId: e.id, occurrenceDate: '2026-10-19', title: 'Opłata' }),
   ]);
   return { t, id: e.id, newId, d: () => eventDetail(t, ME, e.id)! };
 }
@@ -69,7 +69,7 @@ describe('termin z wystąpienia (D13)', () => {
   });
 
   it('operacje: nowe zadanie, podpięcie istniejącego (termin jak spotkanie)', () => {
-    expect(createEventTask({ id: 'x', groupId: 'g', listId: 'l', eventId: 'e', occurrenceDate: '2026-10-12', title: 'T' })).toEqual({
+    expect(createEventTask({ sortKey: 'a0', id: 'x', groupId: 'g', listId: 'l', eventId: 'e', occurrenceDate: '2026-10-12', title: 'T' })).toEqual({
       kind: 'create',
       entity: 'tasks',
       id: 'x',
@@ -97,7 +97,7 @@ describe('odwołanie i usunięcie (D14)', () => {
     // Jednorazowe: zawsze wszystkie.
     const newId = ids();
     const one = createEvent('gf', fields({ rule: null, date: '2026-10-08' }), () => `one-${newId()}`);
-    run(t, [...one.ops, createEventTask({ id: 'k', groupId: 'gf', listId: 'lf', eventId: one.id, occurrenceDate: '2026-10-08', title: 'K' })]);
+    run(t, [...one.ops, createEventTask({ sortKey: 'a0', id: 'k', groupId: 'gf', listId: 'lf', eventId: one.id, occurrenceDate: '2026-10-08', title: 'K' })]);
     expect(affectedByCancel(t, eventDetail(t, ME, one.id)!, '2026-10-08', 'this').map((x) => x.id)).toEqual(['k']);
   });
 
@@ -204,7 +204,7 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
 
   it('„to i następne” krótsze niż zadanie: kopia stałego zadania do kosza, zwykłe bez najbliższego terminu — odpięte', () => {
     const { t, id, d } = dances();
-    run(t, [{ ...createEventTask({ id: 'kopia', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-19', title: 'Nuty', seriesId: 'def' }) }]);
+    run(t, [{ ...createEventTask({ sortKey: 'a0', id: 'kopia', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-19', title: 'Nuty', seriesId: 'def' }) }]);
     // Od 12.10 do 12.10: terminy 19.10 znikają, a kolejnych nie ma.
     const ops = editEvent(d(), '2026-10-12', 'following', fields({ until: '2026-10-12' }));
     const fx = seriesEditEffects(t, d(), '2026-10-12', 'following', ops);
@@ -237,8 +237,8 @@ describe('audyt 2 (M-130, PWD-7 A): zadania wystąpienia na ekranie wydarzenia',
     run(t, [
       { kind: 'patch', entity: 'tasks', id: 'buty', set: { completed_at: '2026-10-10T08:00:00Z' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { deadline_mode: 'own', due_date: '2026-10-11', due_time: null } },
-      createEventTask({ id: 'kasa', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Kasa' }),
-      createEventTask({ id: 'a-buty', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Buty', }),
+      createEventTask({ sortKey: 'a0', id: 'kasa', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Kasa' }),
+      createEventTask({ sortKey: 'a0', id: 'a-buty', groupId: 'gf', listId: 'lf', eventId: id, occurrenceDate: '2026-10-12', title: 'Buty', }),
       { kind: 'delete', entity: 'tasks', id: 'kasa' },
     ]);
     const r = occurrenceTasks(t, id, '2026-10-12');

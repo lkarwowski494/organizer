@@ -141,8 +141,9 @@ export function TodayScreen() {
   const body = target ? quickPreview(target.body, now(), ignore) : null;
   const plain = target && target.memberId === null && !preview.event ? target : null;
   const product = plain && body ? (shoppingItem(plain.body) ?? shoppingItem(body.title)) : null;
-  // D68 po PW-18 b: zapis bez pytania; przed dodaniem napis, że nikt tego nie zobaczy w Moich sprawach.
-  const unseen = !!target && !!body && body.title.trim() !== '' && unseenInMyDays(tables, userId, target, body.dated);
+  // D68 po PW-18 b: zapis bez pytania; przed dodaniem napis, że nikt tego nie zobaczy w Moich sprawach — a przy zakresie
+  // grupy innym niż „Wszystko”, że ja tego nie zobaczę (audyt 3, N-30).
+  const unseen = target && body && body.title.trim() !== '' ? unseenInMyDays(tables, userId, target, body.dated, scopeOf(target.groupId)) : null;
   const shopList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
@@ -367,7 +368,7 @@ export function TodayScreen() {
           />
         ) : null}
         {plain && product && !shopList ? <Body muted>{strings['quick.noShoppingList'](product, addGroups.find((g) => g.id === plain.groupId)!.name)}</Body> : null}
-        {unseen ? <Body muted>{strings['quick.unseen']}</Body> : null}
+        {unseen ? <Body muted>{strings[unseen === 'nobody' ? 'quick.unseen' : 'quick.unseenScope']}</Body> : null}
         <QuickAddExtras preview={preview} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
       </QuickAddField>
       <Button

@@ -30,7 +30,7 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano zadanie: Basen · Osobiste')).toBeTruthy();
     // W tej chwili ktoś dodaje podzadania (np. drugi ekran) — przeniesienie bierze je ze sobą (audyt 2: T-33).
-    await act(async () => store.dispatch([0, 1].map((i) => createTask({ id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`czepek ${i}`, NOW) }))));
+    await act(async () => store.dispatch([0, 1].map((i) => createTask({ sortKey: 'a0', id: `sub-${i}`, groupId: 'u-me', listId: 'lp', parentId: created.id, parsed: parseQuickAdd(`czepek ${i}`, NOW) }))));
     await press(within(bar).getByLabelText('Zmień'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(screen.getByTestId('task-title').props.value).toBe('Basen');
@@ -52,11 +52,11 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
     // Utworzenie, podzadania z drugiego ekranu, przeniesienie (lista, kopie, oryginał do kosza) i cofnięcie (oryginał wraca, kopie i lista do kosza).
     expectOps(store, [
-      { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00' } },
+      { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00' } },
       { kind: 'create', entity: 'tasks', id: 'sub-0', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 0', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
       { kind: 'create', entity: 'tasks', id: 'sub-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 1', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
       { kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } },
-      { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'Basen', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', rollover: true } },
+      { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'Basen', note: null, sort_key: 'a1', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', rollover: true } },
       { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 0', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
       { kind: 'create', entity: 'tasks', id: 'new-5', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 1', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
       { kind: 'delete', entity: 'tasks', id: 'new-1' },
@@ -174,7 +174,7 @@ describe('@imię', () => {
     expect(screen.getByText('Nie ma @zenek w Twoich grupach')).toBeTruthy();
     expect(store.dispatched.length).toBe(n);
     await press(screen.getByText('Dodaj bez osoby'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zebranie @zenek', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zebranie @zenek', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     expect(screen.queryByTestId('mention-unknown')).toBeNull();
     // Zmiana tekstu chowa pytanie.
     await type('x @al');
@@ -245,7 +245,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen 17-18');
     await press(screen.getByLabelText(/17-18/));
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen 17-18', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen 17-18', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await type('Zebranie jutro od 17 do 18 @ala');
     expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-2', group_id: 'gf', set: { title: 'Zebranie', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'group', responsible_member_id: 'ala' } }]);
     expect(screen.getByText('Dodano wydarzenie: Zebranie · Rodzina')).toBeTruthy();

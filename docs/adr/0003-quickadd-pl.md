@@ -54,7 +54,7 @@ nie jest w zakresie MVP — zły dzień bez ostrzeżenia.
   „w weekend”, „codziennie / co miesiąc / co roku”, „rano/wieczorem”.
 
 ## Testy
-Korpus 766 fraz (przeliczone 8.10.2026 po bezpieczniku dnia: każda forma ze słownika z godziną i z „co tydzień”;
+Korpus 766 fraz (od audytu 3 — 976; przeliczone 8.10.2026 po bezpieczniku dnia: każda forma ze słownika z godziną i z „co tydzień”;
 wcześniej 540, pierwotnie 470, uzupełniany m.in. w ADR 0009) w `src/domain/__tests__/fixtures/quickadd.pl.json` generowany przez
 `scripts/gen-quickadd-corpus.py` z niezależną implementacją reguł na `datetime` Pythona (test różnicowy;
 `npm run check:corpus` pilnuje, że plik jest aktualny). Do tego testy własności (fast-check): data → fraza →
@@ -63,7 +63,20 @@ tokeny zawsze wskazują swój tekst. Sprawdzenie mutacyjne: zmiana D42, D43 lub 
 
 Ten sam korpus przechodzi drogę zapisu (`src/app/__tests__/quickadd.test.ts`: tekst → `quickAddOps` → wiersz).
 
+## Audyt 3 (9.10.2026)
+- N-28: „dziś/jutro/pojutrze” albo dzień tygodnia wygrywa z datą liczbową bez roku („raport 1.5 strony jutro” → jutro,
+  „1.5” zostaje w nazwie). Data liczbowa bez roku, która wypada w przyszłym roku („1/2 kostki masła” → 1 lutego 2027),
+  dostaje pod polem pełną datę z podpowiedzią, że chip można odkliknąć.
+- N-127: pora dnia przy godzinie („o 7 wieczorem”, „wieczorem o 7”, „o 3 po południu”, „o 7 rano”, „przed południem
+  o 11”) ustala połowę doby; znaczenia ze słownika sjp.pl (config/quickadd.pl.ts `DAY_PARTS`). „W nocy” celowo nie
+  (noc to „czas od zachodu do wschodu słońca” — „o 2” i „o 11 w nocy” to różne połówki doby) — zostaje w nazwie.
+- N-128 (decyzja Q36 A): „codziennie” i „co miesiąc” (w dniu miesiąca terminu) jak w formularzu.
+- N-129: składanie liter zachowuje długość („İ”), więc nazwa nie jest pocięta.
+- N-124: pole podzadania nie rozpoznaje powtarzania („co tydzień” zostaje w nazwie — podzadanie się nie powtarza).
+Korpus: 976 fraz (z porami dnia, „codziennie”/„co miesiąc”, słowem dnia przy liczbie i „İ”).
+
 ## Znane ograniczenia
-„2.5 kg” zostanie odczytane jako 2 maja — użytkownik odklikuje chip (w Moich sprawach i na liście zadań).
+„2.5 kg” bez słowa dnia zostanie odczytane jako 2 maja — pod polem stoi wtedy pełna data, użytkownik odklikuje chip
+(w Moich sprawach i na liście zadań).
 Lista zakupów nie używa parsera dat (audyt 2, M-20: wcześniej używała — „mąka 1.5 kg” stawała się „mąka kg”
 z terminem 1 maja): tytuł zostaje dosłowny, ilość czyta tylko wyświetlanie (D77).

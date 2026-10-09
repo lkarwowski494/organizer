@@ -28,6 +28,14 @@ type SwipeGroup = { opened: (close: () => void) => void; closed: (close: () => v
 const SwipeContext = createContext<SwipeGroup | null>(null);
 
 /**
+ * Przeciąganie wiersza (audyt 3, Q37 B — ReorderRows): na czas przeciągania ekran się nie przewija. RN 0.86 ScrollView,
+ * `scrollEnabled`: „When false, the view cannot be scrolled via touch interaction”
+ * (https://reactnative.dev/docs/0.86/scrollview#scrollenabled).
+ */
+const ScrollLockContext = createContext<(locked: boolean) => void>(() => {});
+export const useScrollLock = () => useContext(ScrollLockContext);
+
+/**
  * Usuwanie przesunięciem jako czynność VoiceOvera wiersza (audyt 2, M-150; standard iOS — pokrętło „Czynności”):
  * wiersz w SwipeRow (StationRow, EventRow, NavRow) dostaje akcję „Usuń”/„Odwołaj”, a przycisk poza ekranem znika
  * z kolejności VoiceOvera (był dodatkowym przystankiem po każdym wierszu). RN 0.86 „accessibilityActions … custom
@@ -79,6 +87,7 @@ export function Screen({ children, scroll = true, testID, refresh }: { children:
   const { c, space, layout } = useTheme();
   const insets = useSafeAreaInsets();
   const swipe = useSwipeGroup();
+  const [locked, setLocked] = useState(false);
   // Wysokość paska zakładek, gdy ekran jest zakładką (React Navigation podaje ją tylko wewnątrz zakładek).
   const tabBar = useContext(BottomTabBarHeightContext);
   const undoBar = useUndoBarHeight();
@@ -89,32 +98,35 @@ export function Screen({ children, scroll = true, testID, refresh }: { children:
   const content: ViewStyle = { paddingTop: insets.top + 12, paddingBottom: Math.max(bottom, underBar), paddingHorizontal: space.SCREEN_SIDE, gap: space.SCREEN_GAP, width: '100%', maxWidth: layout.CONTENT_MAX_WIDTH + 2 * space.SCREEN_SIDE, alignSelf: 'center' };
   return (
     <SwipeContext.Provider value={swipe}>
-      {scroll ? (
-        // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
-        // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
-        // Audyt 2 (M-41): pole na dole ekranu nie zostaje pod klawiaturą — RN 0.86 (ScrollView, iOS): „automatically adjust
-        // its contentInset and scrollViewInsets when the Keyboard changes its size”
-        // (https://reactnative.dev/docs/0.86/scrollview#automaticallyadjustkeyboardinsets-ios).
-        <View style={style}>
-          <ScrollView
-            testID={testID}
-            style={style}
-            contentContainerStyle={content}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
-            onScrollBeginDrag={swipe.closeAll}
-            refreshControl={refresh ? <RefreshControl refreshing={refresh.refreshing} onRefresh={refresh.onRefresh} tintColor={c.inkMuted} accessibilityLabel={strings['common.refresh']} /> : undefined}
-          >
+      <ScrollLockContext.Provider value={setLocked}>
+        {scroll ? (
+          // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
+          // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
+          // Audyt 2 (M-41): pole na dole ekranu nie zostaje pod klawiaturą — RN 0.86 (ScrollView, iOS): „automatically adjust
+          // its contentInset and scrollViewInsets when the Keyboard changes its size”
+          // (https://reactnative.dev/docs/0.86/scrollview#automaticallyadjustkeyboardinsets-ios).
+          <View style={style}>
+            <ScrollView
+              testID={testID}
+              style={style}
+              contentContainerStyle={content}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              automaticallyAdjustKeyboardInsets
+              scrollEnabled={!locked}
+              onScrollBeginDrag={swipe.closeAll}
+              refreshControl={refresh ? <RefreshControl refreshing={refresh.refreshing} onRefresh={refresh.onRefresh} tintColor={c.inkMuted} accessibilityLabel={strings['common.refresh']} /> : undefined}
+            >
+              {children}
+            </ScrollView>
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
+          </View>
+        ) : (
+          <View testID={testID} style={[style, content]}>
             {children}
-          </ScrollView>
-          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
-        </View>
-      ) : (
-        <View testID={testID} style={[style, content]}>
-          {children}
-        </View>
-      )}
+          </View>
+        )}
+      </ScrollLockContext.Provider>
     </SwipeContext.Provider>
   );
 }

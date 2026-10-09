@@ -12,6 +12,7 @@ import { Text } from 'react-native';
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
+import { useMyScope } from '../../app/my-scope';
 import type { RootStackParams } from '../../app/routes';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { type FormError, formDate, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
@@ -58,6 +59,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
   // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
   useAnnounce(p.kindSwitch ? strings['form.newTitle'] : null);
   const groups = formGroups(tables, userId);
+  const { scopeOf } = useMyScope();
+  const unseen = formUnseen(tables, userId, form, scopeOf(form.groupId));
   const members = formMembers(tables, form.groupId);
   const [initialEmpty] = useState(() => form.title === '');
 
@@ -127,8 +130,10 @@ export function AddTaskScreen({ route, navigation }: Props) {
         options={[{ value: '', label: strings['common.nobody'] }, ...members.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
       {form.date ? <RepeatEditor value={form.repeat} date={formDate(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['form.error.repeatNeedsDate']}</Body>}
-      {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
-      {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania;
+          przy zakresie grupy innym niż „Wszystko” — że ja tego nie zobaczę (audyt 3, N-30). */}
+      {unseen === 'nobody' ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {unseen === 'scope' ? <Body muted>{strings['form.unseenScope']}</Body> : null}
       {error ? <ErrorText>{ERRORS[error]}</ErrorText> : null}
       <Button label={strings['form.save']} onPress={save} testID="form-save" />
     </Screen>

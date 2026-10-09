@@ -43,9 +43,41 @@ describe('zadania na spotkaniu (D13)', () => {
     await type(screen.getByTestId('quick-add'), 'Kupić baletki');
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched).toEqual([
-      { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Kupić baletki', sort_key: 'a0', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } },
+      { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Kupić baletki', sort_key: 'a1', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } },
     ]);
     expect(screen.getByTestId('event-task-new-1')).toBeTruthy();
+  });
+
+  it('audyt 3 (N-51): „namiot @Ala” przypisuje Alę, „@ja” — mnie; nieznane imię — pytanie; sama osoba — komunikat', async () => {
+    const { store } = await open();
+    await openEvent();
+    const ev = { deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' };
+    await type(screen.getByTestId('quick-add'), 'namiot @Ala');
+    await press(screen.getByLabelText('Dodaj'));
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'namiot', sort_key: 'a1', assignee_member_id: 'ala', ...ev } }]);
+    await type(screen.getByTestId('quick-add'), 'karimata @ja');
+    await press(screen.getByLabelText('Dodaj'));
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'karimata', sort_key: 'a2', assignee_member_id: 'mf', ...ev } }]);
+    await type(screen.getByTestId('quick-add'), 'śpiwór @Zosia');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.getByTestId('mention-unknown')).toBeTruthy();
+    await press(screen.getByLabelText('Dodaj bez osoby'));
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'śpiwór @Zosia', sort_key: 'a3', ...ev } }]);
+    await type(screen.getByTestId('quick-add'), '@Ala');
+    await press(screen.getByLabelText('Dodaj'));
+    expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
+    expectOps(store, []);
+  });
+
+  it('audyt 3 (N-51): zadanie na każdy termin serii nie ma osoby — napis pod polem, „@imię” zostaje w nazwie', async () => {
+    const { store } = await open();
+    await openEvent();
+    await press(screen.getByLabelText('Na każdy termin w serii'));
+    await type(screen.getByTestId('quick-add'), 'woda @Ala');
+    expect(screen.getByText(/Zadanie na każdy termin w serii nie ma osoby/)).toBeTruthy();
+    await press(screen.getByLabelText('Dodaj'));
+    const def = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'event_task_series') as Extract<NewOp, { kind: 'create' }>;
+    expect(def.set.title).toBe('woda @Ala');
   });
 
   it('grupa bez listy zadań: powstaje lista „Zadania”; kilka list — wybór listy', async () => {

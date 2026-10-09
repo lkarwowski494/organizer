@@ -3,6 +3,7 @@ import { parseIsoDate } from '../format';
 import type { Row } from '../sync-engine/client';
 import { calendarMonth, isExpired, listDetail, todayView } from '../views';
 import { myDays, onlyGroups, rangeOf, shiftAnchor } from '../views/my-days';
+import { inheritedPerson, liveMembers } from '../views/concerns';
 
 const ME = 'u-me';
 const TODAY: CivilDate = { y: 2026, m: 10, d: 7 }; // środa
@@ -479,5 +480,33 @@ describe('PW-38 A (M-119): filtr grup', () => {
     const day = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect(onlyGroups(day, new Set(['gf']), 'day').days[0]!.entries.map((e) => e.kind)).toContain('lessons');
     expect(onlyGroups(day, new Set(['gp']), 'day').days[0]!.entries.map((e) => e.kind)).not.toContain('lessons');
+  });
+});
+
+describe('audyt 3 (Q15 A, N-29): podzadanie bez osoby należy do osoby zadania nadrzędnego', () => {
+  const ids = (v: ReturnType<typeof myDays>) => v.days.flatMap((d) => d.entries.flatMap((e) => (e.kind === 'task' ? [e.task.id] : [])));
+  it('„tort” z „Urodzin” Ali (termin jak nadrzędne) — nie u mnie; z mojego zadania — u mnie; osoba własna wygrywa', () => {
+    const t = world();
+    task(t, 'urodz', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ala' });
+    task(t, 'tort', { group_id: 'gf', list_id: 'lf', parent_id: 'urodz', deadline_mode: 'inherit', due_date: null });
+    task(t, 'balony', { group_id: 'gf', list_id: 'lf', parent_id: 'urodz', deadline_mode: 'inherit', due_date: null, assignee_member_id: 'mf' });
+    task(t, 'moje', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'mf' });
+    task(t, 'krok', { group_id: 'gf', list_id: 'lf', parent_id: 'moje' });
+    task(t, 'krokKroku', { group_id: 'gf', list_id: 'lf', parent_id: 'krok' });
+    // Wspólne bez osoby z terminem — dalej wszystkich (D89), także jego podzadania.
+    task(t, 'wsp', { group_id: 'gf', list_id: 'lf' });
+    task(t, 'wspPod', { group_id: 'gf', list_id: 'lf', parent_id: 'wsp' });
+    expect(ids(myDays(t, ME, TODAY, 'day', TODAY, local)).sort()).toEqual(['balony', 'krok', 'krokKroku', 'moje', 'wsp', 'wspPod']);
+    // Osoba zadania usunięta z grupy to nikt konkretny (D132) — podzadanie jak wspólne.
+    put(t, 'group_members', 'ala', { ...t.group_members!.ala!, deleted_at: 'x' });
+    expect(ids(myDays(t, ME, TODAY, 'day', TODAY, local))).toContain('tort');
+  });
+
+  it('cykl w uszkodzonych danych lokalnych nie zawiesza reguły (nikt konkretny)', () => {
+    const t = world();
+    task(t, 'a', { group_id: 'gf', list_id: 'lf', parent_id: 'b' });
+    task(t, 'b', { group_id: 'gf', list_id: 'lf', parent_id: 'a' });
+    expect(inheritedPerson(t, { assignee_member_id: null, parent_id: 'a' }, liveMembers(t))).toBeNull();
+    expect(inheritedPerson(t, { assignee_member_id: null, parent_id: 'brak' }, liveMembers(t))).toBeNull();
   });
 });

@@ -10,7 +10,7 @@
  */
 import { addDays, formatIsoDate, isoWeekday, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
-import { type Fragment, parseQuickAdd } from '../quickadd';
+import { type Fragment, parseQuickAdd, type QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import { findTimeRange, withoutRange } from '../time-range';
 import { emptyForm, type EventForm, validateForm } from './event-form';
@@ -67,6 +67,8 @@ export type QuickPreview = {
   tokens: Fragment[];
   event: boolean;
   unrecognizedDay: Fragment | null;
+  /** Data liczbowa bez roku w przyszłym roku — ostrzeżenie pod polem (audyt 3, N-28). */
+  farDate: QuickAddResult['farDate'];
   /** Czy wpis będzie miał dzień (termin zadania albo wydarzenie) — D68: inaczej we wspólnej grupie potrzebna osoba. */
   dated: boolean;
 };
@@ -83,5 +85,5 @@ export function quickPreview(text: string, now: LocalDateTime, ignore: readonly 
   // Zakres bez wydarzenia (nierozpoznany dzień) zostaje w nazwie zadania, jak w quickAddOps.
   const task = range && !event ? parseQuickAdd(text, now, { ignore }) : parsed;
   const tokens = [...(event ? [{ start: range.start, end: range.end, text: range.text }] : []), ...parsed.tokens.map(({ start, end, text: t }) => ({ start, end, text: t }))];
-  return { title: task.title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay, dated: event || task.due !== null };
+  return { title: task.title, tokens: tokens.sort((a, b) => a.start - b.start), event, unrecognizedDay: parsed.unrecognizedDay, farDate: task.farDate, dated: event || task.due !== null };
 }

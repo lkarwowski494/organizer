@@ -84,8 +84,8 @@ export function relinkOps(tasks: Task[], to: Relink): NewOp[] {
   });
 }
 
-/** Nowe zadanie na wystąpieniu: termin jak spotkanie (D13). */
-export function createEventTask(a: { id: string; groupId: string; listId: string; eventId: string; occurrenceDate: string; title: string; seriesId?: string }): NewOp {
+/** Nowe zadanie na wystąpieniu: termin jak spotkanie (D13); `sortKey` — kolejność na liście (sort-keys.ts), `assigneeId` — osoba z „@imię” (N-51). */
+export function createEventTask(a: { id: string; groupId: string; listId: string; eventId: string; occurrenceDate: string; title: string; sortKey: string; seriesId?: string; assigneeId?: string }): NewOp {
   return {
     kind: 'create',
     entity: 'tasks',
@@ -95,7 +95,8 @@ export function createEventTask(a: { id: string; groupId: string; listId: string
       list_id: a.listId,
       parent_id: null,
       title: a.title,
-      sort_key: 'a0',
+      sort_key: a.sortKey,
+      ...(a.assigneeId ? { assignee_member_id: a.assigneeId } : {}),
       deadline_mode: 'event',
       due_date: null,
       due_time: null,

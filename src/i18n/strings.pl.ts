@@ -6,7 +6,6 @@
  */
 import { WEEKDAYS_ABBREVIATED } from '../config/calendar.pl';
 import { config } from '../config';
-import { LIST_NAMES } from '../config/names.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../config/quickadd.pl';
 import type { CivilDate } from '../domain/civil-date';
 import type { Entity } from '../domain/sync-engine/client';
@@ -66,6 +65,8 @@ export const strings = {
   // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
   'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
   // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
+  // Audyt 3 (N-28): „1/2 kostki masła” to dla parsera 1 lutego — pełna data i jak to zdjąć (dotknięcie chipu).
+  'quick.farDate': (fragment: string, date: string) => `„${fragment}” to termin: ${date}. Jeśli to nie data, dotknij „${fragment}” wyżej.`,
   'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
   // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
   'quick.groupChip': (group: string) => `Do: ${group}`,
@@ -75,6 +76,9 @@ export const strings = {
   'quick.groupPick': 'Dodaj do grupy',
   // D68 po PW-18 b: zapis bez pytania, ale mówimy przed dodaniem, że nikt tego nie zobaczy w Moich sprawach.
   'quick.unseen': 'Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.',
+  'form.unseenScope': 'Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Wybierz siebie w „Dla kogo”, jeśli to dla Ciebie.',
+  // Audyt 3 (N-30): zakres grupy „Przypisane do mnie…” — wpis bez osoby nie trafi do moich spraw ani przypomnień.
+  'quick.unseenScope': 'Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Dopisz „@ja”, jeśli to dla Ciebie.',
   // PW-3 wariant D: cały wpis to produkt — podpowiedź listy zakupów (bez dotknięcia zostaje zadanie).
   'quick.toShopping': (list: string) => `Na listę: ${list}`,
   'quick.toShoppingA11y': (item: string, list: string) => `Dodaj „${item}” do listy zakupów „${list}”`,
@@ -286,6 +290,10 @@ export const strings = {
   'task.moveAsk': 'Do której grupy przenieść?',
   'task.moveInfo': 'Zadanie trafi z podzadaniami na ogólną listę wybranej grupy. Osoby spoza tej grupy przestaną je widzieć.',
   'task.moved': (title: string, group: string) => `Przeniesiono do „${group}”: ${title}`,
+  // Q35 A (N-133): wspólne zaległe bez osoby.
+  'task.take': 'Biorę to',
+  'task.takeHint': 'Nikt tego nie wziął, więc jest zaległe u wszystkich. „Biorę to” przypisze zadanie Tobie i przeniesie je na dziś.',
+  'task.taken': (title: string) => `Bierzesz na dziś: ${title}`,
   'task.subtasks': 'Podzadania',
   'task.addSubtask': 'Dodaj podzadanie',
   'task.delete': 'Usuń zadanie',
@@ -320,6 +328,11 @@ export const strings = {
   // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
   'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
+  // Q37 B (N-130): ręczna kolejność zadań.
+  'order.edit': 'Zmień kolejność',
+  'order.hint': 'Przeciągnij zadanie za ≡ albo przesuń strzałkami. Zadania stoją według terminu (bez terminu na górze), więc przesuwasz je wśród zadań z tym samym terminem.',
+  'order.up': (title: string) => `Przesuń wyżej: ${title}`,
+  'order.down': (title: string) => `Przesuń niżej: ${title}`,
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
   // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
   'lists.emptyShopping': 'Lista jest pusta. Dopisz pierwszy produkt polem powyżej.',
@@ -492,13 +505,14 @@ export const strings = {
   'event.childInfo': (children: string, title: string) => `${children}: ${title}`,
   'event.taskAdd': 'Dodaj zadanie na to wydarzenie',
   'event.taskAddHint': 'Termin zadania to termin wydarzenia.',
+  // Audyt 3 (N-51): stałe zadanie (event_task_series) nie ma osoby — „@imię” zostaje w nazwie.
+  'event.seriesNoPerson': 'Zadanie na każdy termin w serii nie ma osoby — „@imię” zostanie w nazwie. Osobę wybierzesz w zadaniu danego terminu.',
   'event.taskList': 'Na liście',
   'event.taskEvery': 'Jak często',
   'event.taskEvery.one': 'Tylko na ten termin',
   'event.taskEvery.all': 'Na każdy termin w serii',
   'event.seriesTasks': 'Na każdy termin w serii (osobne zadanie na każdy):',
   'event.seriesStop': (title: string) => `Zakończ: ${title}`,
-  'event.defaultList': LIST_NAMES.GENERAL,
   'event.relinkQuestion': (n: number) => `${n} ${plural(n, { one: 'zadanie jest podpięte', few: 'zadania są podpięte', many: 'zadań jest podpiętych' })} do odwoływanych terminów. Co z ${n === 1 ? 'nim' : 'nimi'}?`,
   'event.relinkNext': (date: string) => `Przepnij na kolejne: ${date}`,
   'event.relinkOther': 'Przepnij na inny termin',

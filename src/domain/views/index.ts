@@ -10,7 +10,7 @@ import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-da
 import { compareByDue, type Due, effectiveDue, isVisible } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { childOwner, type ChildOwner } from './child';
-import { concernsMe, liveMembers, ownPrivateList } from './concerns';
+import { concernsMe, inheritedPerson, liveMembers, ownPrivateList } from './concerns';
 import { occurrenceResolver } from './event-rows';
 import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
 import { doneTrips, tripEntries } from './shopping-trip';
@@ -18,6 +18,7 @@ import { formatRepeat, repeatOf } from './task-repeat';
 import { occurrences, parseRule } from '../rrule';
 import { memberCanSeeList } from './visibility';
 import type { MyScope } from './my-scope';
+import { taskOrder } from './sort-keys';
 import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
 
 export * from './model';
@@ -225,8 +226,8 @@ export function listOpenCount(t: Tables, list: Pick<List, 'id' | 'kind'>, today:
 }
 
 /**
- * Lista z drzewem zadań. Otwarte: przypięte (bez terminu) na górze, potem po terminie, potem sort_key
- * (compareByDue, D16). Zamknięte osobno: zrobione i te, które minęły bez odhaczenia (D61) („W koszyku” na liście
+ * Lista z drzewem zadań. Otwarte: przypięte (bez terminu) na górze, potem po terminie (compareByDue, D16), a przy tym
+ * samym terminie — kolejność dodania albo ręczna (sort_key, potem id; Q37 B, sort-keys.ts). Zamknięte osobno: zrobione i te, które minęły bez odhaczenia (D61) („W koszyku” na liście
  * zakupów). Zadania z przyszłym start_date („widoczne od”, funkcja bez UI — zob. visibleOnItsDay) są ukryte do tego dnia.
  * Podzadania pod rodzicem, w tej samej kolejności, wszystkie (ekran zadania pokazuje je w całości); otwarte podzadanie
  * zamkniętego rodzica stoi też w otwartych z dopiskiem rodzica (M-82) — ekran listy nie powtarza go w zamkniętych.
@@ -237,7 +238,7 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
   const members = rows(t, 'group_members', asMember).filter((m) => alive(m) && m.group_id === list.group_id);
   const names = new Map(members.map((m) => [m.member_id, m.display_name]));
   const s = listState(t, list, today);
-  const order = (a: TaskNode, b: TaskNode) => compareByDue(a.due, b.due) || a.sort_key.localeCompare(b.sort_key) || a.title.localeCompare(b.title, 'pl');
+  const order = (a: TaskNode, b: TaskNode) => compareByDue(a.due, b.due) || taskOrder(a, b);
   const node = (x: Task, depth: number, parent: Task | null): TaskNode => {
     const expired = s.expired(x);
     return {
@@ -315,9 +316,11 @@ export { liveMembers };
  */
 export function concernsMeTask(t: Tables, x: Task, g: GroupItem, due: Due, live: ReadonlyMap<string, Member>, list: Pick<List, 'visibility' | 'owner_member_id'>, owns: ChildOwner, scope: MyScope = 'all'): boolean {
   if (g.me.role === 'child') return owns(x, g.me.member_id);
-  const a = x.assignee_member_id === null ? undefined : live.get(x.assignee_member_id);
+  // Q15 A (N-29): podzadanie bez osoby — osoba zadania nadrzędnego.
+  const person = inheritedPerson(t, x, live);
+  const a = person === null ? undefined : live.get(person);
   if (a && a.member_id !== g.me.member_id && a.role === 'child' && a.user_id === null) return scope === 'all' && memberCanSeeList(t, g.me.member_id, x.list_id);
-  return concernsMe(x.assignee_member_id, g, due, live, ownPrivateList(list, g), scope);
+  return concernsMe(person, g, due, live, ownPrivateList(list, g), scope);
 }
 
 /**

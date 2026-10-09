@@ -14,6 +14,7 @@
 import { groupsView } from './index';
 import { extractMention, foldName, type Mention, type MentionTarget, mentionTargets } from './mention';
 import type { Tables } from './model';
+import type { MyScope } from './my-scope';
 import { memberCanSeeList } from './visibility';
 
 /** „@ja” po złożeniu liter. */
@@ -132,11 +133,14 @@ export function resolveQuick(t: Tables, userId: string, text: string, o: { chipG
 
 /**
  * D68 po zmianie właściciela z 8.10.2026 (PW-18 b): we wspólnej grupie zadanie bez osoby i terminu zapisuje się bez
- * pytania, ale nikt go nie zobaczy w Moich sprawach — pole dodawania mówi to przed dodaniem. (Szybkie dodanie trafia na
- * ogólną listę grupy, nigdy na listę „Tylko ja”, więc wyjątek A tu nie zachodzi.)
+ * pytania, ale nikt go nie zobaczy w Moich sprawach — pole dodawania mówi to przed dodaniem (`nobody`). (Szybkie dodanie
+ * trafia na ogólną listę grupy, nigdy na listę „Tylko ja”, więc wyjątek A tu nie zachodzi.)
+ * Audyt 3 (N-30): z terminem, ale w grupie, w której mój zakres Moich spraw nie jest „Wszystko” (my-scope.ts), wpis bez
+ * osoby nie trafi do moich spraw ani przypomnień — inni (z zakresem „Wszystko”) go widzą, ja nie (`scope`).
  */
-export function unseenInMyDays(t: Tables, userId: string, target: Pick<QuickTarget, 'groupId' | 'memberId'>, dated: boolean): boolean {
-  return !dated && target.memberId === null && groupsView(t, userId).find((g) => g.id === target.groupId)?.kind === 'shared';
+export function unseenInMyDays(t: Tables, userId: string, target: Pick<QuickTarget, 'groupId' | 'memberId'>, dated: boolean, scope: MyScope = 'all'): 'nobody' | 'scope' | null {
+  if (target.memberId !== null || groupsView(t, userId).find((g) => g.id === target.groupId)?.kind !== 'shared') return null;
+  return !dated ? 'nobody' : scope !== 'all' ? 'scope' : null;
 }
 
 export type ListResolution = { kind: 'ok'; memberId: string | null; body: string } | { kind: 'many'; name: string; targets: MentionTarget[] } | { kind: 'unknown'; name: string };

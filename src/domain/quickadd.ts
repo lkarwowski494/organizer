@@ -8,6 +8,13 @@
  * (15.10, 15.10.2027, 15/10) i słowne (15 października, 15 paź 2027), godziny (o 17, o 17:30,
  * o godz. 7, 17:30, 18.00 i 22.30 — z kropką, gdy minuty nie mogą być miesiącem), „co tydzień”. Rozpoznawanie ignoruje polskie znaki („dzis”, „srode”).
  * Pierwszy fragment danego rodzaju wygrywa; kolejne zostają w tytule.
+ * Audyt 3:
+ *  - N-28: „dziś/jutro/pojutrze” albo dzień tygodnia wygrywa z datą liczbową bez roku („raport 1.5 strony jutro” — to
+ *    ilość, nie 1 maja), a data liczbowa bez roku dalej niż pół roku daje ostrzeżenie z pełną datą, gdy wypada w przyszłym roku (`farDate`);
+ *  - N-127: pora dnia przy godzinie („o 7 wieczorem”, „rano o 7”, config DAY_PARTS) ustala połowę doby;
+ *  - N-128: „codziennie” i „co miesiąc” jak w formularzu (RECURRENCE_WORDS); `recurrence: false` — bez powtarzania
+ *    (pole podzadania: podzadanie się nie powtarza, N-124);
+ *  - N-129: składanie liter zachowuje długość tekstu („İ” → „i”), więc pozycje fragmentów pasują do oryginału.
  * Bezpiecznik (audyt 2, M-23): gdy tekst nazywa dzień, którego parser nie zna („w przyszły wtorek o 15”, „piątek o 18”),
  * a żadnej daty nie rozpoznano, godzina i „co tydzień” nie są brane — zostają w tytule, termin jest pusty, a wynik
  * podaje ten fragment (`unrecognizedDay`), żeby ekran powiedział, że dnia nie rozpoznano. Słowa: config/quickadd.pl.ts.
@@ -20,10 +27,12 @@
  *  - D45 sam dzień = termin bez godziny.
  */
 import {
+  DAY_PARTS,
   MONTHS_ABBREVIATED,
   MONTHS_GENITIVE,
   NEXT_FORMS,
   QUICKADD_RULES,
+  RECURRENCE_WORDS,
   RRULE_WEEKDAYS,
   WEEKDAY_FORMS,
   WEEKDAYS_ACCUSATIVE,
@@ -37,6 +46,7 @@ import {
   isValidDate,
   type LocalDateTime,
 } from './civil-date';
+import { formatDateInline } from './format';
 
 export type TokenKind = 'date' | 'time' | 'recurrence';
 
@@ -65,28 +75,44 @@ export type QuickAddResult = {
   tokens: Token[];
   /** Bezpiecznik (M-23): fragment, który nazywa dzień, ale nie został rozpoznany („przyszły wtorek”); `null` — brak. */
   unrecognizedDay: Fragment | null;
+  /** N-28 (B): rozpoznana data liczbowa bez roku, która wypada w przyszłym roku — tekst chipu i pełna data. */
+  farDate: { text: string; label: string } | null;
 };
 
 export type QuickAddOptions = {
   /** Fragmenty odklikane przez użytkownika: każdy token nachodzący na nie jest pomijany. */
   ignore?: readonly { start: number; end: number }[];
+  /** `false` — bez rozpoznawania powtarzania (pole podzadania, N-124: podzadanie się nie powtarza). */
+  recurrence?: boolean;
 };
 
-/** Zamiana polskich liter na łacińskie 1:1 — długość tekstu i pozycje się nie zmieniają. */
+/**
+ * Małe litery i zamiana polskich liter na łacińskie 1:1 — długość tekstu i pozycje się nie zmieniają. Znak po znaku:
+ * „İ” (U+0130) ma małą formę z dwóch znaków („0130; 0069 0307; …” w SpecialCasing.txt,
+ * https://www.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt), więc bierzemy jej pierwszy znak (N-129).
+ */
 const FOLD: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' };
-const fold = (s: string) => s.toLowerCase().replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!);
+const fold = (s: string) =>
+  s.replace(/[\s\S]/g, (ch) => {
+    const l = ch.toLowerCase();
+    return FOLD[l] ?? l[0]!;
+  });
 
 const isWordChar = (c: string | undefined) => c !== undefined && /[a-z0-9]/.test(c);
 
 type DateSpec =
   | { type: 'relative'; days: number }
   | { type: 'weekday'; weekday: number }
-  | { type: 'explicit'; d: number; m: number; y: number | null };
+  | { type: 'explicit'; d: number; m: number; y: number | null; numeric: boolean };
 
 type Candidate =
   | { kind: 'date'; start: number; end: number; spec: DateSpec }
-  | { kind: 'time'; start: number; end: number; h: number; min: number }
-  | { kind: 'recurrence'; start: number; end: number; rrule: 'FREQ=WEEKLY' };
+  /** `fixed` — połowa doby podana porą dnia (N-127), bez rozstrzygania z D43. */
+  | { kind: 'time'; start: number; end: number; h: number; min: number; fixed?: boolean }
+  | { kind: 'recurrence'; start: number; end: number; freq: Freq };
+
+type Freq = keyof typeof RECURRENCE_WORDS;
+const FREQ_OF = new Map(Object.entries(RECURRENCE_WORDS).map(([k, w]) => [fold(w), k as Freq]));
 
 const alt = (words: readonly string[]) => words.map(fold).join('|');
 
@@ -113,7 +139,7 @@ const PATTERNS: { re: RegExp; build: (m: RegExpExecArray) => Candidate | null }[
       const name = m[2]!;
       let idx = MONTHS_GENITIVE.map(fold).indexOf(name);
       if (idx < 0) idx = MONTHS_ABBREVIATED.map(fold).indexOf(name);
-      return explicitDate(m, Number(m[1]), idx + 1, m[3]);
+      return explicitDate(m, Number(m[1]), idx + 1, m[3], false);
     },
   },
   {
@@ -136,24 +162,42 @@ const PATTERNS: { re: RegExp; build: (m: RegExpExecArray) => Candidate | null }[
   {
     // „15.10”, „15.10.2027”, „15/10”. Uwaga: „2.5 kg” też wygląda jak data (2 maja) — chip pozwala to odkliknąć.
     re: /(?:na )?(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?/g,
-    build: (m) => explicitDate(m, Number(m[1]), Number(m[2]), m[3]),
+    build: (m) => explicitDate(m, Number(m[1]), Number(m[2]), m[3], true),
   },
   {
-    re: /co tydzien/g,
-    build: (m) => ({ kind: 'recurrence', start: m.index, end: m.index + m[0].length, rrule: 'FREQ=WEEKLY' }),
+    re: new RegExp(`(${[...FREQ_OF.keys()].join('|')})`, 'g'),
+    build: (m) => ({ kind: 'recurrence', start: m.index, end: m.index + m[0].length, freq: FREQ_OF.get(m[1]!)! }),
   },
 ];
 
-function explicitDate(m: RegExpExecArray, d: number, mo: number, year: string | undefined): Candidate | null {
+function explicitDate(m: RegExpExecArray, d: number, mo: number, year: string | undefined, numeric: boolean): Candidate | null {
   const y = year === undefined ? null : Number(year);
   // Bez roku dzień i miesiąc muszą istnieć w jakimkolwiek roku (29 lutego tak, 31 kwietnia nie).
   if (!isValidDate(y ?? 2028, mo, d)) return null;
-  return { kind: 'date', start: m.index, end: m.index + m[0].length, spec: { type: 'explicit', d, m: mo, y } };
+  return { kind: 'date', start: m.index, end: m.index + m[0].length, spec: { type: 'explicit', d, m: mo, y, numeric } };
 }
 
 function time(m: RegExpExecArray, h: number, min: number): Candidate | null {
   if (h > 23 || min > 59) return null;
   return { kind: 'time', start: m.index, end: m.index + m[0].length, h, min };
+}
+
+const PARTS = [...DAY_PARTS.am.map((w) => ({ w: fold(w), pm: false })), ...DAY_PARTS.pm.map((w) => ({ w: fold(w), pm: true }))];
+
+/**
+ * N-127: pora dnia tuż po godzinie („o 7 wieczorem”) albo tuż przed nią („wieczorem o 7”) wchodzi do fragmentu godziny
+ * i ustala połowę doby. Sprzeczna z godziną („o 19 rano”, „o 12 wieczorem”) zostaje w nazwie.
+ */
+function withDayPart(folded: string, c: Extract<Candidate, { kind: 'time' }>): Candidate {
+  for (const { w, pm } of PARTS) {
+    const after = folded.startsWith(` ${w}`, c.end) && !isWordChar(folded[c.end + w.length + 1]);
+    const before = !after && c.start > w.length && folded.slice(c.start - w.length - 1, c.start) === `${w} ` && !isWordChar(folded[c.start - w.length - 2]);
+    if (!after && !before) continue;
+    const h = c.h >= 1 && c.h <= QUICKADD_RULES.AMBIGUOUS_HOUR_MAX ? (pm ? c.h + 12 : c.h) : pm && c.h > 12 ? c.h : null;
+    if (h === null) return c;
+    return { ...c, h, fixed: true, start: before ? c.start - w.length - 1 : c.start, end: after ? c.end + w.length + 1 : c.end };
+  }
+  return c;
 }
 
 function findCandidates(folded: string): Candidate[] {
@@ -174,7 +218,7 @@ function findCandidates(folded: string): Candidate[] {
       if (/\d/.test(m[0][0]!) && numericNeighbour(before)) continue;
       if (numericNeighbour(after) && nextAfter !== undefined && /\d/.test(nextAfter)) continue;
       const c = build(m);
-      if (c) found.push(c);
+      if (c) found.push(c.kind === 'time' ? withDayPart(folded, c) : c);
     }
   }
   return found;
@@ -205,11 +249,16 @@ function findUnrecognizedDay(text: string, folded: string, taken: readonly { sta
   return null;
 }
 
-/** Wybiera nienachodzące na siebie fragmenty: wcześniejszy wygrywa (sortowanie stabilne). */
+const looseDate = (c: Candidate) => c.kind === 'date' && c.spec.type === 'explicit' && c.spec.numeric && c.spec.y === null;
+const wordDate = (c: Candidate) => c.kind === 'date' && (c.spec.type === 'relative' || c.spec.type === 'weekday');
+
+/**
+ * Wybiera nienachodzące na siebie fragmenty: wcześniejszy wygrywa (sortowanie stabilne). N-28: przy „jutro” albo dniu
+ * tygodnia data liczbowa bez roku nie jest kandydatem — zostaje w nazwie jako liczba.
+ */
 function selectCandidates(candidates: Candidate[], ignore: QuickAddOptions['ignore']): Candidate[] {
-  const sorted = candidates
-    .filter((c) => !(ignore ?? []).some((i) => overlaps(c, i)))
-    .sort((a, b) => a.start - b.start);
+  const free = candidates.filter((c) => !(ignore ?? []).some((i) => overlaps(c, i)));
+  const sorted = (free.some(wordDate) ? free.filter((c) => !looseDate(c)) : free).sort((a, b) => a.start - b.start);
   const chosen: Candidate[] = [];
   const usedKinds = new Set<TokenKind>();
   for (const c of sorted) {
@@ -255,8 +304,9 @@ function resolveTime(
   h: number,
   min: number,
   now: LocalDateTime,
+  fixed: boolean,
 ): { date: CivilDate; h: number } {
-  const ambiguous = h >= 1 && h <= QUICKADD_RULES.AMBIGUOUS_HOUR_MAX;
+  const ambiguous = !fixed && h >= 1 && h <= QUICKADD_RULES.AMBIGUOUS_HOUR_MAX;
   const today: CivilDate = { y: now.y, m: now.m, d: now.d };
   if (date !== null) {
     if (ambiguous && !isFuture(date, h, min, now) && isFuture(date, h + 12, min, now)) return { date, h: h + 12 };
@@ -287,7 +337,8 @@ function cleanTitle(text: string, tokens: Token[]): string {
 
 export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAddOptions = {}): QuickAddResult {
   const folded = fold(text);
-  let chosen = selectCandidates(findCandidates(folded), options.ignore);
+  const all = findCandidates(folded).filter((c) => options.recurrence !== false || c.kind !== 'recurrence');
+  let chosen = selectCandidates(all, options.ignore);
 
   const dateC = chosen.find((c) => c.kind === 'date');
   // Bezpiecznik (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z godziny i startu serii.
@@ -302,7 +353,7 @@ export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAd
 
   let due: Due | null = null;
   if (timeC) {
-    const r = resolveTime(date, timeC.h, timeC.min, now);
+    const r = resolveTime(date, timeC.h, timeC.min, now, timeC.fixed === true);
     date = r.date;
     due = { date: formatIsoDate(r.date), time: `${pad2(r.h)}:${pad2(timeC.min)}` };
   } else if (date) {
@@ -315,10 +366,14 @@ export function parseQuickAdd(text: string, now: LocalDateTime, options: QuickAd
   let rrule: string | null = null;
   if (recC && due) {
     // Dzień tygodnia wynika ze startu serii; BYDAY dopisujemy jawnie, żeby reguła była czytelna bez DTSTART.
+    // „Co miesiąc” — w dniu miesiąca startu (BYMONTHDAY, jak formularz: D137).
     const start = date ?? today;
-    rrule = `${recC.rrule};BYDAY=${RRULE_WEEKDAYS[isoWeekday(start)]}`;
+    rrule = recC.freq === 'daily' ? 'FREQ=DAILY' : recC.freq === 'weekly' ? `FREQ=WEEKLY;BYDAY=${RRULE_WEEKDAYS[isoWeekday(start)]}` : `FREQ=MONTHLY;BYMONTHDAY=${start.d}`;
   }
+  // N-28 (B): data liczbowa bez roku, która wypada w następnym roku (D44 przeniosła ją za Nowy Rok), to częściej ilość
+  // („1/2 kostki”, „2.5 kg”) — ostrzeżenie z pełną datą. Reguła bez progu liczbowego: rok inny niż bieżący.
+  const farDate = dateC && date && looseDate(dateC) && date.y > today.y ? { text: text.slice(dateC.start, dateC.end), label: formatDateInline(date, today) } : null;
 
   const tokens: Token[] = chosen.map((c) => ({ kind: c.kind, start: c.start, end: c.end, text: text.slice(c.start, c.end) }));
-  return { title: cleanTitle(text, tokens), due, rrule, tokens, unrecognizedDay };
+  return { title: cleanTitle(text, tokens), due, rrule, tokens, unrecognizedDay, farDate };
 }

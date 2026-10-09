@@ -6,6 +6,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
+import { scopeRowId } from '../../domain/views/my-scope';
 import { expectOps, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
@@ -54,12 +55,12 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     expect(screen.getByText('Nie rozpoznano dnia „przyszły wtorek”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.')).toBeTruthy();
     expect(screen.queryByLabelText(/^o 15[^,]*, rozpoznane$/)).toBeNull();
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta w przyszły wtorek o 15', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta w przyszły wtorek o 15', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Z zakresem godzin też bez zgadywania: zadanie, nie wydarzenie na dziś.
     await write('basen w następną sobotę 17–18');
     expect(screen.queryByText('Zakres godzin — dodasz wydarzenie, nie zadanie.')).toBeNull();
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen w następną sobotę 17–18', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen w następną sobotę 17–18', sort_key: 'a2', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Dzień rozpoznany — bez podpowiedzi.
     await write('dentysta we wtorek o 15');
     expect(screen.queryByText(/Nie rozpoznano dnia/)).toBeNull();
@@ -100,7 +101,7 @@ describe('Moje sprawy: pole szybkiego dodawania', () => {
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'rachunek za prąd', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-09', due_time: null } }]);
     await write('dentysta jutro o 17');
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: '17:00' } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'dentysta', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: '17:00' } }]);
   });
 });
 
@@ -154,7 +155,7 @@ describe('dodawanie na liście', () => {
       await write(text);
       expect(screen.queryByLabelText(/, rozpoznane$/)).toBeNull();
       await add();
-      expectOps(store, [{ kind: 'create', entity: 'tasks', id: `new-${i + 1}`, group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: text, sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+      expectOps(store, [{ kind: 'create', entity: 'tasks', id: `new-${i + 1}`, group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: text, sort_key: `a${i + 1}`, deadline_mode: 'none', due_date: null, due_time: null } }]);
     }
     // Ilość czyta wyświetlanie (D77): nazwa „mąka”, obok „1,5 kg”.
     expect(within(screen.getByTestId(`task-${(store.dispatched.at(-3) as { id: string }).id}`)).getByText(/1,5 kg/)).toBeTruthy();
@@ -175,7 +176,7 @@ describe('dodawanie na liście', () => {
     // „2.5” czytane jako 2 maja — chip pozwala to odkliknąć (ADR 0003).
     await press(screen.getByLabelText(/^2\.5[^,]*, rozpoznane$/));
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'kupić 2.5 kg mąki', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'kupić 2.5 kg mąki', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await write('pranie piątek o 18');
     expect(screen.getByText(/Nie rozpoznano dnia „piątek”/)).toBeTruthy();
     await write('jutro');
@@ -185,7 +186,7 @@ describe('dodawanie na liście', () => {
     await write('pranie w sobotę');
     expect(screen.queryByText('Wpisz, co jest do zrobienia.')).toBeNull();
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'pranie', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-10', due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'pranie', sort_key: 'a2', deadline_mode: 'own', due_date: '2026-10-10', due_time: null } }]);
   });
 });
 
@@ -231,7 +232,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     await pickGroup('Osobiste');
     await write('basen jutro');
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'basen', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
   });
 
@@ -246,13 +247,13 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
     await write('pranie @ja');
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'pranie', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'pranie', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
     // „@Ala” z innej grupy niż chip — grupa Ali, ale nie zostaje ostatnio użytą.
     await pickGroup('Osobiste');
     await write('basen jutro @ala');
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
     await add();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'basen', sort_key: 'a2', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
     expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
   });
 
@@ -287,7 +288,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
     expect(within(unknown).getByText('Nie ma grupy #kino')).toBeTruthy();
     expect(within(unknown).getByText('Popraw nazwę albo dodaj do grupy „Osobiste” („#kino” zostanie w nazwie).')).toBeTruthy();
     await press(within(unknown).getByText('Dodaj do: Osobiste'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'bilety #kino', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'bilety #kino', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await write('zebranie jutro #rodz');
     await add();
     expect(screen.getByText('Którą grupę masz na myśli: #rodz?')).toBeTruthy();
@@ -366,7 +367,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
     expect(shop()!.props.accessibilityLabel).toBe('Dodaj „mleko” do listy zakupów „Zakupy na weekend”');
     await press(shop()!);
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mleko', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano produkt: mleko · Zakupy na weekend')).toBeTruthy();
@@ -378,7 +379,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     const { store } = await openIn('gf');
     await write('mąka 1.5 kg');
     await press(shop()!);
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mąka 1.5 kg', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mąka 1.5 kg', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await write('mleko jutro');
     expect(shop()).toBeTruthy();
     await add();
@@ -387,7 +388,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     expect(task).toMatchObject({ entity: 'tasks', group_id: 'gf', set: { title: 'mleko', due_date: '2026-10-08' } });
     await write('chleb 2 szt. na jutro');
     await press(shop()!);
-    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }, { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'chleb 2 szt.', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }, { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'chleb 2 szt.', sort_key: 'a2', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 
   it('zdanie, osoba albo zakres godzin — bez podpowiedzi; grupa bez listy zakupów — informacja, zostaje zadanie', async () => {
@@ -422,5 +423,38 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     await write('masło');
     expect(screen.queryByTestId('quick-group')).toBeNull();
     expect(within(shop()!).getByText('Na listę: Moje zakupy')).toBeTruthy();
+  });
+});
+
+describe('audyt 3: parser w polu dodawania', () => {
+  it('N-28: „1/2 kostki masła” — pod polem pełna data z przyszłego roku; odklikane — bez ostrzeżenia; „jutro” wygrywa z liczbą', async () => {
+    await open();
+    await write('1/2 kostki masła');
+    expect(screen.getByText('„1/2” to termin: poniedziałek, 1 lutego 2027. Jeśli to nie data, dotknij „1/2” wyżej.')).toBeTruthy();
+    await press(screen.getByLabelText('1/2, rozpoznane'));
+    expect(screen.queryByText(/to termin:/)).toBeNull();
+    await write('raport 1.5 strony jutro');
+    expect(screen.getByLabelText('jutro, rozpoznane')).toBeTruthy();
+    expect(screen.queryByLabelText('1.5, rozpoznane')).toBeNull();
+    expect(screen.queryByText(/to termin:/)).toBeNull();
+  });
+
+  it('N-30: zakres „Tylko przypisane do mnie” — „rachunek w piątek #Rodzina” mówi, że go nie zobaczę; z „@ja” — nie; w formularzu tak samo', async () => {
+    const base = sampleBase();
+    put(base, 'my_day_scopes', scopeRowId('mf'), { id: scopeRowId('mf'), group_id: 'gf', member_id: 'mf', scope: 'mine', deleted_at: null, version: 2 });
+    await open(base);
+    const warn = 'Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Dopisz „@ja”, jeśli to dla Ciebie.';
+    await write('rachunek w piątek #Rodzina');
+    expect(screen.getByText(warn)).toBeTruthy();
+    await write('rachunek w piątek #Rodzina @ja');
+    expect(screen.queryByText(warn)).toBeNull();
+    // Bez terminu — nikt nie zobaczy (ważniejsze niż zakres).
+    await write('rachunek #Rodzina');
+    expect(screen.queryByText(warn)).toBeNull();
+    expect(screen.getByText('Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.')).toBeTruthy();
+    await write('rachunek w piątek #Rodzina');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('form-title');
+    expect(screen.getByText('Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Wybierz siebie w „Dla kogo”, jeśli to dla Ciebie.')).toBeTruthy();
   });
 });

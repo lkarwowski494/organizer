@@ -6,6 +6,7 @@
  */
 import { config } from '../../config';
 import { asTask, rows, type Tables, type Task } from './model';
+import { taskOrder } from './sort-keys';
 
 /**
  * Potomkowie zadania w kolejności drzewa (rodzic przed dziećmi, rodzeństwo po sort_key), najwyżej `config.MAX_TASK_DEPTH`
@@ -15,7 +16,7 @@ import { asTask, rows, type Tables, type Task } from './model';
 export function descendants(t: Tables, rootId: string, keep: (x: Task) => boolean): Task[] {
   const all = rows(t, 'tasks', asTask)
     .filter(keep)
-    .sort((a, b) => a.sort_key.localeCompare(b.sort_key) || a.id.localeCompare(b.id));
+    .sort(taskOrder);
   const out: Task[] = [];
   const walk = (id: string, level: number) => {
     if (level > config.MAX_TASK_DEPTH) return;

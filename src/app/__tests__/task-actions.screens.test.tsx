@@ -245,13 +245,13 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'jajka');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jajka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jajka', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lp'));
     await fireEvent.changeText(await screen.findByTestId('quick-add'), 'książka');
     await press(screen.getByLabelText('Dodaj'));
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'książka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'książka', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 });
 
