@@ -3,7 +3,7 @@
  * M-77 — wbudowana wysyłka e-maili Supabase to 2 na godzinę na cały projekt). Logowanie linkiem z e-maila wróci razem
  * z własnym dostawcą wysyłki.
  * Audyt 3: zamknięcie okna Apple to nie błąd (N-73); brak sieci mówi o internecie; w trakcie logowania przycisk jest
- * przygaszony jak zajęty `Button` (wskaźnik postępu, „zajęty” dla VoiceOvera), a drugie dotknięcie nic nie robi.
+ * przygaszony jak zajęty `Button` (wskaźnik postępu, „w toku” dla VoiceOvera), a drugie dotknięcie nic nie robi.
  * `notice` — jednorazowy komunikat, np. „Konto zostało usunięte.” (N-72).
  */
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -49,7 +49,7 @@ export function SignInScreen({ account, notice }: { account: Pick<AccountApi, 's
       {notice ? <StatusText>{notice}</StatusText> : null}
       <Body muted>{strings['auth.tagline']}</Body>
       <Body muted>{strings['auth.info']}</Body>
-      <View accessibilityState={{ busy }} style={{ opacity: busy ? 0.5 : 1 }}>
+      <View style={{ opacity: busy ? 0.5 : 1 }}>
         <AppleAuthentication.AppleAuthenticationButton
           testID="apple-sign-in"
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -59,7 +59,8 @@ export function SignInScreen({ account, notice }: { account: Pick<AccountApi, 's
           onPress={() => void signIn()}
         />
       </View>
-      {busy ? <ActivityIndicator testID="apple-sign-in-busy" color={c.ink} /> : null}
+      {/* „w toku” po polsku (bez accessibilityState.busy — RN dopisałby angielskie „busy”, src/ui/a11y.ts buttonA11y). */}
+      {busy ? <ActivityIndicator testID="apple-sign-in-busy" accessible accessibilityLabel={strings['a11y.busy']} color={c.ink} /> : null}
       <Body muted>{strings['auth.appleOnly']}</Body>
       {error ? <ErrorText>{error}</ErrorText> : null}
     </Screen>
