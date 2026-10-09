@@ -20,6 +20,8 @@ describe('kalendarz iPhone’a (D7)', () => {
     expect(draftOf({ title: 'T', date: '2026-12-31', startTime: '10:00', endTime: '10:00' })).toMatchObject({ end: new Date(Date.UTC(2027, 0, 1, 9, 0)) });
     expect(draftOf({ title: 'T', date: '2026-10-12', startTime: '22:00', endTime: '06:00' })).toMatchObject({ allDay: false, start: new Date(Date.UTC(2026, 9, 12, 20, 0)), end: new Date(Date.UTC(2026, 9, 13, 4, 0)) });
     expect(draftOf({ title: 'T', date: '2026-10-12', startTime: '20:00', endTime: '00:00' })).toMatchObject({ end: new Date(Date.UTC(2026, 9, 12, 22, 0)) });
+    // Wyjazd pt. 18:00 – nd. 16:00 (46 h, D199 cz. 2).
+    expect(draftOf({ title: 'T', date: '2026-10-09', startTime: '18:00', endTime: '16:00', durationMin: 46 * 60 })).toMatchObject({ start: new Date(Date.UTC(2026, 9, 9, 16, 0)), end: new Date(Date.UTC(2026, 9, 11, 14, 0)) });
     // Obóz 1–14 lipca: koniec wyłączny 15 lipca (RFC 5545 §3.6.1).
     expect(draftOf({ title: 'T', date: '2026-07-01', startTime: null, endTime: null, days: 14 })).toMatchObject({ allDay: true, start: new Date(2026, 6, 1), end: new Date(2026, 6, 15) });
   });
