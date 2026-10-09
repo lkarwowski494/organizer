@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { config } from '../../config';
 import { classify, type DetachedClient, FATAL_CODES, type RpcResult, supabaseAccount, supabaseTransport, type SupabaseLike } from '../supabase';
+import { AccountError, accountErrorCode } from '../account';
 import { TransportError } from '../transport';
 
 type Call = { fn: string; args: Record<string, unknown> };
@@ -10,12 +11,13 @@ type Call = { fn: string; args: Record<string, unknown> };
 function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, error: null, status: 200 })) {
   const calls: Call[] = [];
   const auth = {
-    signInWithIdToken: jest.fn(async () => ({ error: null as { message: string } | null })),
+    signInWithIdToken: jest.fn(async (_a: { provider: 'apple'; token: string }) => ({ error: null as { message: string; status?: number } | null })),
+    getUser: jest.fn(async () => ({ error: null as { message: string; status?: number; code?: string } | null })),
     signOut: jest.fn(async (_a: { scope: 'local' }) => ({ error: null as { message: string } | null })),
     updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
     getSession: jest.fn(async () => ({ data: { session: null as { refresh_token?: string; user: { id?: string; app_metadata?: { provider?: string; providers?: string[] } } } | null } })),
   };
-  const functions = { invoke: jest.fn(async (_name: string, _opts: object): Promise<{ data?: unknown; error: { message: string } | null }> => ({ error: null })) };
+  const functions = { invoke: jest.fn(async (_name: string, _opts: object): Promise<{ data?: unknown; error: { message: string; name?: string; context?: { json?(): Promise<unknown> } } | null }> => ({ error: null })) };
   const profileUpdate = { error: null as { message: string } | null };
   const profiles: { table: string; values: object; col: string; id: string }[] = [];
   const from = (table: 'profiles') => ({
@@ -281,7 +283,7 @@ describe('Supabase: konto', () => {
     const appleFn = jest.fn(async () => ({ identityToken: 'jwt', authorizationCode: 'code-1' }));
     auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { provider: 'apple' } } } } });
     await supabaseAccount(client, appleFn).deleteAccount();
-    expect(appleFn).toHaveBeenCalledWith('none');
+    expect(appleFn).toHaveBeenCalledWith({ scopes: 'none' });
     expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1' } });
     await expect(supabaseAccount(client, async () => ({ identityToken: 'jwt', authorizationCode: null })).deleteAccount()).rejects.toThrow('apple:no_authorization_code');
     await expect(supabaseAccount(client, async () => ({ identityToken: 'jwt' })).deleteAccount()).rejects.toThrow('apple:no_authorization_code');
@@ -296,13 +298,13 @@ describe('Supabase: konto', () => {
     const order: string[] = [];
     functions.invoke.mockImplementationOnce(async () => (order.push('server'), { error: null }));
     auth.signOut.mockImplementationOnce(async () => (order.push('signOut'), { error: null }));
-    await a.deleteAccount(async () => void order.push('before'));
+    await a.deleteAccount({ beforeSignOut: async () => void order.push('before') });
     expect(order).toEqual(['server', 'before', 'signOut']);
     const before = jest.fn(async () => {});
     functions.invoke.mockResolvedValueOnce({ error: { message: 'x' } });
-    await expect(a.deleteAccount(before)).rejects.toThrow('x');
+    await expect(a.deleteAccount({ beforeSignOut: before })).rejects.toThrow('x');
     expect(before).not.toHaveBeenCalled();
-    await expect(a.deleteAccount(async () => Promise.reject(new Error('kalendarz')))).resolves.toBeUndefined();
+    await expect(a.deleteAccount({ beforeSignOut: async () => Promise.reject(new Error('kalendarz')) })).resolves.toBeUndefined();
     await a.notifyHandoff('h1');
     expect(functions.invoke).toHaveBeenLastCalledWith('notify-handoff', { method: 'POST', body: { handoffId: 'h1' } });
     await a.notifyAssignment('a1');
@@ -389,11 +391,41 @@ describe('wylogowanie bez internetu: zaległe wyrejestrowanie tokenu starą sesj
     expect(t.detached).toHaveBeenCalledTimes(1);
   });
 
-  it('serwer zamknął sesję mimo błędu wyrejestrowania — zadanie bez sensu, usunięte od razu', async () => {
+  it('serwer zamknął sesję mimo błędu wyrejestrowania — zadanie bez sensu, usunięte od razu; token zostaje w pamięci (N-224)', async () => {
     const t = setup({ offline: true });
     await t.a.signOut();
     expect(t.state.jobs).toBeNull();
     expect(t.signOutJobs.save).toHaveBeenCalledTimes(2);
+    // Zdejmie go następne wylogowanie, a rejestracja przy następnym zalogowaniu przepisze na nowe konto.
+    expect(t.state.pushToken).toBe('ab'.repeat(32));
+    // Dwie próby wyrejestrowania przed końcem sesji (jedno ponowienie).
+    expect(t.calls.filter((c) => c.fn === 'unregister_push_token')).toHaveLength(2);
+  });
+
+  it('N-224: błąd serwera przy wyrejestrowaniu — jedno ponowienie od razu; udane = token zdjęty, bez zadania', async () => {
+    let fails = 1;
+    const { client, calls, auth } = fakeClient((c) => (c.fn === 'unregister_push_token' && fails-- > 0 ? { data: null, error: { message: 'boom', code: 'XX000' }, status: 500 } : { data: {}, error: null, status: 200 }));
+    auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt', user: {} } } });
+    const saved = { v: 'ab' as string | null };
+    const jobs = { load: jest.fn(async () => null), save: jest.fn(async () => {}) };
+    const a = supabaseAccount(client, async () => ({ identityToken: null }), { pushToken: { load: async () => saved.v, save: async (v) => void (saved.v = v) }, signOutJobs: jobs, detached: jest.fn() });
+    await a.signOut();
+    expect(calls.filter((c) => c.fn === 'unregister_push_token')).toHaveLength(2);
+    expect(saved.v).toBeNull();
+    expect(jobs.save).not.toHaveBeenCalled();
+    // Sesja nieważna — bez ponowienia (nic nie da), token zostaje w pamięci.
+    const jwt = fakeClient(() => ({ data: null, error: { message: 'JWT expired', code: 'PGRST301' }, status: 401 }));
+    const kept = { v: 'cd' as string | null };
+    await supabaseAccount(jwt.client, async () => ({ identityToken: null }), { pushToken: { load: async () => kept.v, save: async (v) => void (kept.v = v) } }).signOut();
+    expect(jwt.calls).toHaveLength(1);
+    expect(kept.v).toBe('cd');
+    // Bez sieci, a serwer i tak zamknął sesję: zapis tokenu z powrotem do pamięci może zawieść — wylogowanie bez wyjątku.
+    const off = fakeClient(() => ({ data: null, error: { message: 'Failed to fetch' }, status: 0 }));
+    off.auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt', user: {} } } });
+    const broken = { load: async () => 'ef', save: jest.fn(async (v: string | null) => (v === null ? undefined : Promise.reject(new Error('keychain')))) };
+    await expect(supabaseAccount(off.client, async () => ({ identityToken: null }), { pushToken: broken, signOutJobs: jobs, detached: jest.fn() }).signOut()).resolves.toBeUndefined();
+    expect(broken.save).toHaveBeenLastCalledWith('ef');
+    expect(new AccountError('network', 'Failed to fetch').message).toBe('Failed to fetch');
   });
 
   it('nadal bez sieci: zadanie zostaje (z nowym tokenem odświeżania po rotacji); nieważna sesja — zadanie porzucone', async () => {
@@ -468,5 +500,98 @@ describe('wylogowanie bez internetu: zaległe wyrejestrowanie tokenu starą sesj
     const none = fakeClient(() => ({ data: null, error: { message: 'Failed to fetch' }, status: 0 }));
     await supabaseAccount(none.client, async () => ({ identityToken: null }), { pushToken, signOutJobs: jobs, detached: t.detached }).signOut();
     expect(jobs.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('audyt 3: logowanie i usunięcie konta — rodzaje błędów, potwierdzenie (N-72, N-228, N-71)', () => {
+  const codeOf = async (p: Promise<unknown>) => p.then(() => 'ok', (e: unknown) => (e instanceof AccountError ? e.code : `obcy: ${String(e)}`));
+
+  it('logowanie: zamknięte okno Apple, inny błąd Apple, brak sieci i odmowa serwera', async () => {
+    const { client, auth } = fakeClient();
+    const cancel = async () => Promise.reject(Object.assign(new Error('The user canceled'), { code: 'ERR_REQUEST_CANCELED' }));
+    expect(await codeOf(supabaseAccount(client, cancel).signInWithApple())).toBe('canceled');
+    expect(await codeOf(supabaseAccount(client, async () => Promise.reject(Object.assign(new Error('x'), { code: 'ERR_REQUEST_FAILED' }))).signInWithApple())).toBe('failed');
+    expect(await codeOf(supabaseAccount(client, async () => Promise.reject(null)).signInWithApple())).toBe('failed');
+    expect(auth.signInWithIdToken).not.toHaveBeenCalled();
+    auth.signInWithIdToken.mockResolvedValueOnce({ error: { message: 'Failed to fetch', status: 0 } });
+    expect(await codeOf(supabaseAccount(client, async () => ({ identityToken: 'jwt' })).signInWithApple())).toBe('network');
+    auth.signInWithIdToken.mockResolvedValueOnce({ error: { message: 'invalid', status: 400 } });
+    expect(await codeOf(supabaseAccount(client, async () => ({ identityToken: 'jwt' })).signInWithApple())).toBe('failed');
+    expect(accountErrorCode(new Error('x'))).toBe('failed');
+    expect(accountErrorCode(new AccountError('canceled'))).toBe('canceled');
+    expect(new AccountError('network').message).toBe('network');
+  });
+
+  it('usunięcie: wybór „Usuń też moje wpisy” w treści prośby; kody z odpowiedzi funkcji', async () => {
+    const { client, functions, auth } = fakeClient();
+    const appleFn = jest.fn(async (_r?: object) => ({ identityToken: 'jwt', authorizationCode: 'code-1' }));
+    const a = supabaseAccount(client, appleFn);
+    await a.deleteAccount({ deleteEntries: true });
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { deleteEntries: true } });
+    auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { provider: 'apple' } } } } });
+    await a.deleteAccount({ deleteEntries: true });
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1', deleteEntries: true } });
+    await a.deleteAccount({ deleteEntries: false });
+    expect(functions.invoke).toHaveBeenLastCalledWith('delete-account', { method: 'POST', body: { appleAuthorizationCode: 'code-1' } });
+    // Zamknięte okno Apple — rezygnacja, bez prośby do serwera.
+    const calls = functions.invoke.mock.calls.length;
+    appleFn.mockRejectedValueOnce(Object.assign(new Error('c'), { code: 'ERR_REQUEST_CANCELED' }));
+    expect(await codeOf(a.deleteAccount())).toBe('canceled');
+    expect(functions.invoke).toHaveBeenCalledTimes(calls);
+    const http = (body: unknown) => ({ error: { message: 'Edge Function returned a non-2xx status code', name: 'FunctionsHttpError', context: { json: async () => body } } });
+    functions.invoke.mockResolvedValueOnce(http({ error: 'apple_code_invalid' }));
+    expect(await codeOf(a.deleteAccount())).toBe('apple_mismatch');
+    functions.invoke.mockResolvedValueOnce(http({ error: 'apple_unavailable' }));
+    expect(await codeOf(a.deleteAccount())).toBe('apple_unavailable');
+    functions.invoke.mockResolvedValueOnce(http({ error: 'delete_failed' }));
+    expect(await codeOf(a.deleteAccount())).toBe('failed');
+    // Treść nie jest JSON-em albo jej brak — zwykły błąd.
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'x', name: 'FunctionsHttpError', context: { json: async () => Promise.reject(new Error('json')) } } });
+    expect(await codeOf(a.deleteAccount())).toBe('failed');
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'Relay Error', name: 'FunctionsRelayError', context: {} } });
+    expect(await codeOf(a.deleteAccount())).toBe('failed');
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'Failed to send a request to the Edge Function', name: 'FunctionsFetchError' } });
+    expect(await codeOf(a.deleteAccount())).toBe('network');
+    // Apple potwierdzające usunięcie zawodzi innym błędem — zwykły błąd.
+    appleFn.mockRejectedValueOnce(new Error('ERR_REQUEST_FAILED'));
+    expect(await codeOf(a.deleteAccount())).toBe('failed');
+  });
+
+  it('N-228: konto usunięte, a odpowiedź nie doszła albo ponowna próba dostaje 401 — sukces z pełnym sprzątaniem', async () => {
+    const { client, functions, auth } = fakeClient();
+    const saved = { v: 'ab' as string | null };
+    const a = supabaseAccount(client, async () => ({ identityToken: null }), { pushToken: { load: async () => saved.v, save: async (v) => void (saved.v = v) } });
+    const before = jest.fn(async () => {});
+    auth.getUser.mockResolvedValue({ error: { message: 'User from sub claim in JWT does not exist', status: 403, code: 'user_not_found' } });
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'Failed to send a request', name: 'FunctionsFetchError' } });
+    await expect(a.deleteAccount({ beforeSignOut: before })).resolves.toBeUndefined();
+    expect(before).toHaveBeenCalledTimes(1);
+    expect(saved.v).toBeNull();
+    expect(auth.signOut).toHaveBeenLastCalledWith({ scope: 'local' });
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'non-2xx', name: 'FunctionsHttpError', context: { json: async () => ({ error: 'unauthorized' }) } } });
+    await expect(a.deleteAccount({ beforeSignOut: before })).resolves.toBeUndefined();
+    expect(before).toHaveBeenCalledTimes(2);
+    // Odmowa Apple to nie zgubiona odpowiedź — bez pytania o konto.
+    auth.getUser.mockClear();
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'non-2xx', name: 'FunctionsHttpError', context: { json: async () => ({ error: 'apple_code_invalid' }) } } });
+    expect(await codeOf(a.deleteAccount())).toBe('apple_mismatch');
+    expect(auth.getUser).not.toHaveBeenCalled();
+    // Konto jest (getUser bez błędu), serwer Auth niedostępny albo wyjątek — błąd zostaje błędem.
+    for (const user of [{ error: null }, { error: { message: 'Failed to fetch', status: 0 } }]) {
+      auth.getUser.mockResolvedValueOnce(user);
+      functions.invoke.mockResolvedValueOnce({ error: { message: 'Failed to send', name: 'FunctionsFetchError' } });
+      expect(await codeOf(a.deleteAccount({ beforeSignOut: before }))).toBe('network');
+    }
+    auth.getUser.mockRejectedValueOnce(new Error('boom'));
+    functions.invoke.mockResolvedValueOnce({ error: { message: 'Failed to send', name: 'FunctionsFetchError' } });
+    expect(await codeOf(a.deleteAccount())).toBe('network');
+    expect(before).toHaveBeenCalledTimes(2);
+    // Po usunięciu: błąd zamknięcia sesji, po którym sesja została na telefonie — błąd; bez sesji — sukces (S-24).
+    auth.getUser.mockResolvedValue({ error: null });
+    auth.signOut.mockResolvedValueOnce({ error: { message: 'boom' } });
+    auth.getSession.mockResolvedValueOnce({ data: { session: null } }).mockResolvedValueOnce({ data: { session: { user: { id: 'u' } } } });
+    expect(await codeOf(a.deleteAccount())).toBe('failed');
+    auth.signOut.mockResolvedValueOnce({ error: { message: 'Failed to fetch' } });
+    await expect(a.deleteAccount()).resolves.toBeUndefined();
   });
 });
