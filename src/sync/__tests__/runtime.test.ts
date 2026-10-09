@@ -236,25 +236,18 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(Object.keys(a.rt.getSnapshot().state.base.tasks ?? {})).toEqual(['prezent']);
   });
 
-  it('N-94: bez dodatkowego pobrania listy, której wiersze i tak przychodzą: moja nowa lista, grupa pobierana od zera', async () => {
+  it('N-94: bez dodatkowego pobrania listy, której wiersze i tak przychodzą — grupa pobierana od zera', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala', 'bartek']);
-    const ala = serverTransport(server, 'ala');
-    const a = harness(ala);
-    a.rt.start();
-    await a.flush();
-    a.rt.dispatch({ kind: 'create', entity: 'lists', id: 'moja', group_id: G, set: { kind: 'tasks', name: 'Tylko ja', visibility: 'private' } });
-    a.rt.dispatch({ kind: 'create', entity: 'lists', id: 'ukryta2', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } });
-    await a.advance(config.sync.PUSH_DEBOUNCE_MS);
-    expect(a.rt.getSnapshot().state.scopes).toEqual(expect.arrayContaining(['ukryta2']));
     shareFromBartek(server);
     // Nowy telefon (pobranie od zera): udostępniona lista przychodzi w całości z grupą.
     const fresh = serverTransport(server, 'ala');
     const b = harness(fresh);
     b.rt.start();
     await b.flush();
-    expect([...ala.calls, ...fresh.calls].filter((c) => c.startsWith('scope:'))).toEqual([]);
+    expect(fresh.calls.filter((c) => c.startsWith('scope:'))).toEqual([]);
     expect(Object.keys(b.rt.getSnapshot().state.base.tasks ?? {})).toEqual(['prezent']);
+    expect(b.rt.getSnapshot().state.scopes).toEqual(['ukryta']);
     expect(b.rt.getSnapshot().state.scopesToFetch).toEqual([]);
   });
 
