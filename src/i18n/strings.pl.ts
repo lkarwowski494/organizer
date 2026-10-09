@@ -189,9 +189,6 @@ export const strings = {
   'travel.section': 'Dojazd',
   'travel.enabled': 'Czas dojazdu do najbliższych wydarzeń',
   'travel.defaultMode': 'Domyślny dojazd',
-  'travel.navApp': 'Nawiguj w',
-  'travel.apple': 'Mapy Apple',
-  'travel.google': 'Google Maps',
   'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
   'travel.denied': 'Brak dostępu do lokalizacji. Włączysz go w Ustawieniach iPhone’a → Organizer → Lokalizacja.',
   // PWD-3 (M-175): przy wydarzeniu z adresem, gdy czas dojazdu jest wyłączony — włącza go i pyta o lokalizację.
@@ -911,7 +908,7 @@ export const strings = {
   'trip.all': 'Oznacz wszystko jako kupione',
   'trip.none': 'Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.',
   'device.title': 'Kalendarz iPhone’a',
-  'device.body': 'Pokaż swoje wydarzenia z kalendarza iPhone’a (także Google i Outlook dodane w iPhonie) obok spraw grup, a wydarzenia grup dodawaj automatycznie do osobnych kalendarzy „Organizer”. Twoje wydarzenia zostają na telefonie — nikt z grupy ich nie widzi.',
+  'device.body': 'Pokaż swoje wydarzenia z kalendarza iPhone’a (także z innych kont dodanych w iPhonie) obok spraw grup, a wydarzenia grup dodawaj automatycznie do osobnych kalendarzy „Organizer”. Twoje wydarzenia zostają na telefonie — nikt z grupy ich nie widzi.',
   'device.connect': 'Połącz z kalendarzem',
   'device.denied': 'Brak dostępu do kalendarza. Włączysz go w Ustawieniach iPhone’a → Organizer → Kalendarze → Pełny dostęp.',
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,

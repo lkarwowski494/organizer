@@ -28,7 +28,7 @@ select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');
 set local role authenticated;
 
 -- 1–6: pola zakupów.
-select is(pg_temp.push('77770000-0000-7000-8000-00000000c0e1', 1, '{"kind":"create","entity":"lists","id":"77770000-0000-7000-8000-0000000000c1","group_id":"77770000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Biedronka","due_date":"2026-10-08","due_time":"17:00","responsible_member_id":"77770000-0000-7000-8000-0000000000a1"}}'), 'ok', '1: lista zakupów z dniem, godziną i osobą');
+select is(pg_temp.push('77770000-0000-7000-8000-00000000c0e1', 1, '{"kind":"create","entity":"lists","id":"77770000-0000-7000-8000-0000000000c1","group_id":"77770000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Bazar","due_date":"2026-10-08","due_time":"17:00","responsible_member_id":"77770000-0000-7000-8000-0000000000a1"}}'), 'ok', '1: lista zakupów z dniem, godziną i osobą');
 select is((select due_date::text || ' ' || due_time::text || ' ' || responsible_member_id::text from public.lists where id = '77770000-0000-7000-8000-0000000000c1'),
   '2026-10-08 17:00:00 77770000-0000-7000-8000-0000000000a1', '2: pola zapisane');
 select is(pg_temp.push('77770000-0000-7000-8000-00000000c0e1', 2, '{"kind":"create","entity":"lists","id":"77770000-0000-7000-8000-0000000000c2","group_id":"77770000-0000-7000-8000-000000000001","set":{"kind":"tasks","name":"Dom","due_date":"2026-10-08"}}'), 'invalid:23514', '3: lista zadań nie ma zakupów');

@@ -1,5 +1,5 @@
 /**
- * Miejsce wydarzenia (D115–D117): adres, „Nawiguj” (Mapy Apple albo Google Maps — Ustawienia), „Wyjdź o …”
+ * Miejsce wydarzenia (D115–D117): adres, „Nawiguj” (Mapy Apple, ADR 0043), „Wyjdź o …”
  * i środek transportu dla tego wydarzenia (tylko na moim telefonie). Audyt 2: przy wyłączonym czasie dojazdu
  * „Pokaż, kiedy wyjść →” (PWD-3, M-175 — włącza go i pyta o lokalizację), przy wygasłej zgodzie „Zezwól na lokalizację”
  * (M-218), przy adresie, którego Mapy nie znalazły — informacja (M-106).

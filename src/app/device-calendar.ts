@@ -123,7 +123,7 @@ export const expoDeviceCalendar: DeviceCalendar = {
     },
     async createCalendar(title, color) {
       // Źródło (konto) jak domyślny kalendarz — na iPhonie zwykle iCloud; dokumentacja nie mówi, czy jest wymagane.
-      // Audyt 3 (N-58): gdy konto domyślne nie pozwala założyć kalendarza (np. Gmail, Exchange — do sprawdzenia na
+      // Audyt 3 (N-58): gdy konto domyślne nie pozwala założyć kalendarza (np. konto innego dostawcy — do sprawdzenia na
       // urządzeniu), próbujemy iCloud, potem „Na moim iPhonie”; błąd ostatniej próby wychodzi do lustra (komunikat).
       let last: unknown = null;
       for (const source of calendarSources()) {
