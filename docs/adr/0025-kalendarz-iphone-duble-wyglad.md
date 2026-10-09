@@ -28,3 +28,10 @@ iPhone'a obok zadania w aplikacji, np. „Dzieci – judo” obok „Tymek i Zos
 - Pod listą dnia (Moje sprawy, Kalendarz) wiersz „Ukryto N dubli z iPhone’a” — dotknięcie pokazuje ukryte (bez „Dodaj
   do grupy”). `DUPLICATE_MIN_WORD` usunięty z `config.calendar`. Otwarte pytanie o przełącznik „Ukrywaj duble” — nieaktualne
   (nic nie znika bez śladu).
+
+## Audyt 3 (9.10.2026): znacznik tylko z odpowiednikiem (N-183)
+- Kopia ze znacznikiem Organizera jest dublem tylko, gdy aplikacja ma tego dnia jej odpowiednik. „Dodaj do kalendarza”
+  zapisuje w wydarzeniu adres terminu (link `…://event/<id>/<data>` — z kalendarza da się wrócić do aplikacji); kopia z
+  adresem jest dublem, gdy ten termin jest tego dnia w aplikacji, starsza kopia bez adresu — gdy jest wpis o tej samej
+  nazwie. Kopia odwołanego albo przeniesionego terminu zostaje widoczna. Odrzucone: tylko reguła nazwy (zmiana nazwy w
+  aplikacji pokazałaby starą kopię obok).

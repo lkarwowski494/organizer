@@ -201,7 +201,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; travel?: AppServices['travel']; resetLocal?: () => void; local?: ReturnType<typeof memoryLocal>; clock?: { at: LocalDateTime; ms: number }; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; devicePrefs?: AppServices['devicePrefs']; onSignOut?: AppServices['onSignOut']; travel?: AppServices['travel']; resetLocal?: () => void; local?: ReturnType<typeof memoryLocal>; clock?: { at: LocalDateTime; ms: number }; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const base = opts.base ?? sampleBase();
   // Dane jak po pobraniu: każda grupa ma kursor (bez tego lustro kalendarza czeka, mirrorReady).
@@ -225,6 +225,8 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
     travel: opts.travel,
     resetLocal: opts.resetLocal,
     prefs: opts.prefs,
+    devicePrefs: opts.devicePrefs,
+    onSignOut: opts.onSignOut,
     local: opts.local ?? memoryLocal(),
     userId: ME,
     displayName: 'Łukasz',
