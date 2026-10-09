@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '../../i18n/strings.pl';
+import { Glyph } from '../../ui/glyph';
 import { useTheme } from '../../ui/theme';
 
 function Pill({ testID, label, hint, disabled, expanded, onPress, children }: { testID: string; label: string; hint: string; disabled?: boolean; expanded?: boolean; onPress: () => void; children: ReactNode }) {
@@ -31,21 +32,21 @@ function Pill({ testID, label, hint, disabled, expanded, onPress, children }: { 
 }
 
 export function QuickGroupChip({ name, line, fromText, open, onToggle }: { name: string; line: number; fromText: boolean; open: boolean; onToggle: () => void }) {
-  const { c, font, line: lineOf } = useTheme();
+  const { c, font, size, line: lineOf } = useTheme();
   return (
     <Pill testID="quick-group" label={strings['quick.group'](name)} hint={fromText ? strings['quick.groupFromText'] : strings['quick.groupHint']} disabled={fromText} expanded={open} onPress={onToggle}>
       <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: lineOf(line).line }} />
-      <Text style={{ fontFamily: font.text600, fontSize: 15, color: c.ink }}>{strings['quick.groupChip'](name)}</Text>
-      {fromText ? null : <Text style={{ fontSize: 13, color: c.inkMuted }}>▾</Text>}
+      <Text style={{ fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.groupChip'](name)}</Text>
+      {fromText ? null : <Glyph name="more" color={c.inkMuted} place="inline" />}
     </Pill>
   );
 }
 
 export function ShoppingChip({ item, list, onPress }: { item: string; list: string; onPress: () => void }) {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   return (
     <Pill testID="quick-shopping" label={strings['quick.toShoppingA11y'](item, list)} hint={strings['quick.toShoppingHint']} onPress={onPress}>
-      <Text style={{ fontFamily: font.text600, fontSize: 15, color: c.ink }}>{strings['quick.toShopping'](list)}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.toShopping'](list)}</Text>
     </Pill>
   );
 }

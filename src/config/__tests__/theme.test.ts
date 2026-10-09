@@ -1,5 +1,5 @@
 import { contrastRatio } from '../../domain/contrast';
-import { contrastMin, contrastPairs, groupLines, palettes, type Scheme, sizes } from '../theme';
+import { contrastMin, contrastPairs, fontScale, groupLines, highContrastPairs, layout, paletteOf, palettes, radius, type Scheme, sizes } from '../theme';
 
 const schemes: Scheme[] = ['light', 'dark'];
 
@@ -15,6 +15,18 @@ describe.each(schemes)('motyw „Wstążki”, tryb %s, spełnia progi czytelno�
       expect(contrastRatio(g.line, bg)).toBeGreaterThanOrEqual(contrastMin.NON_TEXT);
       expect(contrastRatio(g.ink, bg)).toBeGreaterThanOrEqual(contrastMin.TEXT);
     }
+  });
+
+  // M-148 / D197: „Zwiększ kontrast” — obwódki ≥ 3:1, a wszystkie zwykłe pary dalej spełniają progi.
+  it.each([...contrastPairs(paletteOf(scheme, true)), ...highContrastPairs(paletteOf(scheme, true))].map((p) => [p.use, p]))('Zwiększ kontrast: %s', (_use, p) => {
+    expect(contrastRatio(p.fg, p.bg)).toBeGreaterThanOrEqual(contrastMin[p.kind]);
+  });
+
+  it('bez „Zwiększ kontrast” paleta bez zmian; z nim obwódka wyraźniejsza niż zwykła', () => {
+    expect(paletteOf(scheme, false)).toBe(palettes[scheme]);
+    const hc = paletteOf(scheme, true);
+    expect(contrastRatio(hc.border, hc.surface)).toBeGreaterThan(contrastRatio(c.border, c.surface));
+    expect(contrastRatio(hc.control, hc.surface)).toBeGreaterThan(contrastRatio(c.control, c.surface));
   });
 
   it('osiem różnych linii', () => {
@@ -38,9 +50,23 @@ describe('motyw — reszta', () => {
     for (const s of [sizes.META, sizes.SECTION, sizes.BODY, sizes.TITLE]) expect(s).toBeGreaterThanOrEqual(sizes.MIN_TEXT);
   });
 
+  it('role rozmiarów: jeden opis 13 pt (PWD-23 A), żadna rola poniżej minimum HIG, tytuł do 60 pt (AX5 Large Title)', () => {
+    expect(sizes.META).toBe(13);
+    for (const [k, v] of Object.entries(sizes)) if (k !== 'TOUCH_TARGET') expect([k, v >= sizes.MIN_TEXT]).toEqual([k, true]);
+    expect(fontScale).toEqual({ FIXED_MAX: 2, TITLE_MAX_PT: 60, TITLE_LEADING: 1.2 });
+    expect(sizes.TITLE * (fontScale.TITLE_MAX_PT / sizes.TITLE)).toBe(60);
+  });
+
+  it('promienie PWD-12 B i szerokość treści na iPadzie PWD-25 B', () => {
+    expect(radius).toMatchObject({ CARD: 18, PANEL: 14, ROW: 14 });
+    expect(layout.CONTENT_MAX_WIDTH).toBe(600);
+  });
+
   it('test łapie słabą parę (kontrola samego testu)', () => {
     expect(contrastRatio('#94A3B8', palettes.light.surface)).toBeLessThan(contrastMin.NON_TEXT);
     expect(contrastRatio('#D97706', palettes.light.ground)).toBeLessThan(contrastMin.NON_TEXT);
     expect(contrastRatio(palettes.dark.inkMuted, palettes.light.surface)).toBeLessThan(contrastMin.TEXT);
+    // Zwykła obwódka nie przeszłaby progu „Zwiększ kontrast” — test par HC naprawdę coś sprawdza.
+    expect(contrastRatio(palettes.light.border, palettes.light.surface)).toBeLessThan(contrastMin.NON_TEXT);
   });
 });

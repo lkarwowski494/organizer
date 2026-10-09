@@ -1,14 +1,12 @@
 /** Zmiany odrzucone przez serwer (sync_push: status rejected) — serwer ma ostatnie słowo, nic nie ginie po cichu. */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import type { Op } from '../../domain/sync-engine/client';
 import type { Tables } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Screen, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { BackButton, Body, Button, Card, Screen, Title } from '../../ui/components';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Rejected'>;
 
@@ -49,17 +47,16 @@ export function describeOp(op: Op, t: Tables = {}): string {
 export function RejectedScreen({ navigation }: Props) {
   const { state, tables } = useAppData();
   const { store } = useServices();
-  const { c } = useTheme();
   return (
     <Screen testID="screen-rejected">
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['rejected.title']}</Title>
       {state.rejected.length === 0 ? <Body muted>{strings['rejected.empty']}</Body> : <Body muted>{strings['rejected.info']}</Body>}
       {[...state.rejected].reverse().map((r) => (
-        <View key={r.op.seq} style={{ padding: 14, gap: 4, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
+        <Card kind="panel" key={r.op.seq}>
           <Body>{describeOp(r.op, tables)}</Body>
           <Body muted>{rejectionReason(r.code)}</Body>
-        </View>
+        </Card>
       ))}
       {/* D190: lista nie rośnie bez końca — przeczytane można wyczyścić (z telefonu też znikają). */}
       {state.rejected.length ? <Button kind="secondary" label={strings['rejected.clear']} testID="rejected-clear" onPress={() => store.clearRejected()} /> : null}
