@@ -8,7 +8,7 @@
  */
 import type { DbAdapter } from '../data/db/adapter';
 import type { AccountApi } from '../sync/account';
-import { localNow } from './clock';
+import { localNow } from '../domain/local-time';
 import type { Prefs } from './context';
 
 export const SELF_CHECK_KEY = 'selfCheckVersion';

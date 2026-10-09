@@ -1,4 +1,4 @@
-import { localNow, localToMs } from '../clock';
+import { formatTime, localNow, localToMs } from '../local-time';
 
 describe('czas Europe/Warsaw', () => {
   it('lato (UTC+2), zima (UTC+1), północ i zmiana czasu', () => {
@@ -26,5 +26,12 @@ describe('czas lokalny → chwila (kalendarz iPhone’a, D7)', () => {
 
   it('powrót: localNow(localToMs(x)) = x dla zwykłych godzin', () => {
     for (let h = 0; h < 24; h++) expect(localNow(localToMs({ y: 2026, m: 7, d: 1, hh: h, mm: 15 }))).toEqual({ y: 2026, m: 7, d: 1, hh: h, mm: 15 });
+  });
+});
+
+describe('godzina chwili w Warszawie (formatTime)', () => {
+  it('z zerem wiodącym; lato i zima', () => {
+    expect(formatTime(Date.UTC(2026, 6, 1, 5, 7))).toBe('07:07');
+    expect(formatTime(Date.UTC(2026, 11, 1, 22, 30))).toBe('23:30');
   });
 });

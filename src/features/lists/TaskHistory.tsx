@@ -1,7 +1,7 @@
 /** Historia zadania (D76): kto, co, kiedy — najnowsze na górze. */
 import { Text, View } from 'react-native';
 
-import { localNow } from '../../app/clock';
+import { localNow } from '../../domain/local-time';
 import { config } from '../../config';
 import type { CivilDate } from '../../domain/civil-date';
 import { formatLongDate } from '../../domain/format';

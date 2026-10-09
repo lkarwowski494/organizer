@@ -172,6 +172,10 @@ describe('atrapy E2E', () => {
     expect(auth.signOut).toHaveBeenCalled();
     await a.deleteAccount();
     await a.finishSignOut();
+    // Nowa grupa z konta trafia na „serwer” (jak RPC create_group).
+    const server = new E2eServer([], () => NOW);
+    await e2eAccount(server, auth).createGroup({ groupId: 'g9', name: 'Działka', ownerMemberId: 'm9', displayName: 'Łukasz' });
+    expect(server.pull({ cursors: {} }, 100).groups.map((g) => g.group_id)).toEqual(['g9']);
     expect(await a.getPushMutes()).toEqual([]);
     expect(await a.notifyGroups({ groups: ['g'], retry: false })).toEqual({ retryInSec: null });
     await expect(Promise.all([a.setMyName('x'), a.revokeInvite('i'), a.registerPushToken('t', 'sandbox'), a.notifyHandoff('h'), a.notifyAssignment('a'), a.setPushMute('g', true), a.reportError({ kind: 'error', message: 'm', stack: null, screen: null, appVersion: '1' }), a.sendFeedback({ message: 'm', screen: null, appVersion: '1' })])).resolves.toBeDefined();

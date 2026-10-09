@@ -51,6 +51,24 @@ export function loadMirror(local: LocalStore): MirrorState {
 
 const draft = (i: MirrorItem) => draftOf({ title: i.title, date: i.date, startTime: i.startTime, endTime: i.endTime, location: i.location }, withMark(i.notes));
 
+/**
+ * Usunięcie kalendarza z iPhone'a (audyt 2, M-156): true, gdy kalendarza już nie ma (usunięty teraz albo wcześniej
+ * ręcznie). Błąd przy kalendarzu, który nadal jest, to false — kalendarz zostaje na liście tego telefonu i w stanie
+ * lustra, a następny przebieg spróbuje znowu (wcześniej błąd był połykany i kalendarz „Organizer – …” zostawał na zawsze).
+ */
+async function dropCalendar(sync: Pick<DeviceCalendarSync, 'deleteCalendar' | 'hasCalendar'>, id: string): Promise<boolean> {
+  try {
+    await sync.deleteCalendar(id);
+    return true;
+  } catch {
+    try {
+      return !(await sync.hasCalendar(id));
+    } catch {
+      return false;
+    }
+  }
+}
+
 /** Przerwanie przebiegu (wylogowanie, wyłączenie lustra) — po bieżącym kroku nic więcej nie zmieniamy w iPhonie. */
 class Stopped extends Error {}
 
@@ -83,15 +101,17 @@ export async function runMirror(
     // Pozostałości z tego telefonu (inne konto, reinstalacja) — usunąć; kalendarze ze stanu dopisać do listy telefonu.
     let owned = opts.owned ? await opts.owned.get() : [];
     const mine = new Set(Object.values(state.calendars));
+    const failed: string[] = [];
     for (const id of owned.filter((x) => !mine.has(x))) {
       step();
-      await sync.deleteCalendar(id).catch(() => {});
+      if (!(await dropCalendar(sync, id))) failed.push(id);
     }
     const keep = async (ids: string[]) => {
       owned = ids;
       await opts.owned?.set(ids);
     };
-    if (owned.some((x) => !mine.has(x)) || [...mine].some((x) => !owned.includes(x))) await keep([...mine]);
+    const wanted = [...mine, ...failed];
+    if (owned.some((x) => !wanted.includes(x)) || wanted.some((x) => !owned.includes(x))) await keep(wanted);
     const skip = new Set(loadSkip(local));
     const groups = mirrorGroups(t, userId, skip);
     const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, strings['lessons.title']);
@@ -99,7 +119,8 @@ export async function runMirror(
     const first = planMirror(items, state, groups, todayIso, config.calendar.MIRROR_MAX);
     for (const c of first.removeCalendars) {
       step();
-      await sync.deleteCalendar(c.calendarId).catch(() => {});
+      // Nieudane usunięcie: kalendarz zostaje w stanie i na liście — następny przebieg zaplanuje je znowu.
+      if (!(await dropCalendar(sync, c.calendarId))) continue;
       delete state.calendars[c.groupId];
       delete state.looks?.[c.groupId];
       forget(c.calendarId);
@@ -158,9 +179,11 @@ export async function runMirror(
 export async function clearMirror(sync: DeviceCalendarSync, local: LocalStore, owned?: MirrorOwned): Promise<void> {
   const state = loadMirror(local);
   const ids = Object.values(state.calendars);
-  for (const id of ids) await sync.deleteCalendar(id).catch(() => {});
+  const gone: string[] = [];
+  for (const id of ids) if (await dropCalendar(sync, id)) gone.push(id);
   local.save(MIRROR_KEY, null);
-  if (owned) await owned.set((await owned.get()).filter((x) => !ids.includes(x)));
+  // Nieusunięte zostają na liście telefonu — przy następnym przebiegu lustra to „pozostałości” do usunięcia.
+  if (owned) await owned.set((await owned.get()).filter((x) => !gone.includes(x)));
 }
 
 /**
@@ -174,7 +197,8 @@ export async function removeMirrorCalendars(calendar: DeviceCalendar, prefs: Pre
   const owned = ownedIn(prefs);
   const ids = await owned.get();
   if (!ids.length || (await calendar.sync.status()) !== 'granted') return;
-  for (const id of ids) await calendar.sync.deleteCalendar(id).catch(() => {});
-  // Tylko usunięte — kalendarz utworzony w tym czasie przez nowo zalogowane konto zostaje na liście.
-  await owned.set((await owned.get()).filter((x) => !ids.includes(x)));
+  const gone: string[] = [];
+  for (const id of ids) if (await dropCalendar(calendar.sync, id)) gone.push(id);
+  // Tylko usunięte — nieusunięty (do ponowienia) i utworzony w tym czasie przez nowo zalogowane konto zostają na liście.
+  await owned.set((await owned.get()).filter((x) => !gone.includes(x)));
 }

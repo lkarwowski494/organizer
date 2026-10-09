@@ -75,12 +75,29 @@ type Tables = { [e: string]: { [id: string]: Row } };
 const cloneTables = (t: ClientState['base']): Tables => Object.fromEntries(Object.entries(t).map(([e, rows]) => [e, { ...rows }]));
 
 /** Magazyny z bieżącego testu — po teście nie może zostać niezapowiedziane odrzucenie (afterEach niżej). */
-const live = new Set<{ unexpected(): string[] }>();
+const live = new Set<{ unexpected(): string[]; dispatched: NewOp[]; opsMark: number; opsChecked: boolean }>();
 afterEach(() => {
-  const found = [...live].flatMap((s) => s.unexpected());
+  const stores = [...live];
   live.clear();
+  const found = stores.flatMap((s) => s.unexpected());
   if (found.length) throw new Error(`Serwer odrzuciłby operacje z ekranu (M-50):\n${found.join('\n')}`);
+  // M-156: test, który sprawdza operacje (expectOps), sprawdza je wszystkie — także te po ostatniej asercji (np. przy
+  // wyjściu z ekranu albo z pętli w tle).
+  const left = stores.filter((s) => s.opsChecked && s.dispatched.length > s.opsMark).map((s) => JSON.stringify(s.dispatched.slice(s.opsMark)));
+  if (left.length) throw new Error(`Operacje bez sprawdzenia po ostatnim expectOps (M-156):\n${left.join('\n')}`);
 });
+
+/**
+ * Dokładnie te operacje od poprzedniego sprawdzenia (audyt 2, M-156): pełne operacje (toEqual — także zbędne pole
+ * w łatce, które przy synchronizacji per pole nadpisałoby czyjąś zmianę) i ich kolejność; po teście nie może zostać
+ * żadna niesprawdzona operacja. Zamiast `expect(store.dispatched…).toMatchObject(…)` (zabronione regułą ESLint).
+ */
+export function expectOps(store: { dispatched: NewOp[]; opsMark: number; opsChecked: boolean }, ops: readonly unknown[]) {
+  const since = store.dispatched.slice(store.opsMark);
+  store.opsMark = store.dispatched.length;
+  store.opsChecked = true;
+  expect(since).toEqual(ops);
+}
 
 export function memoryStore(initial: ClientState, indicator: Indicator = { state: 'synced', since: null }, userId = ME) {
   let n = 0;
@@ -93,6 +110,9 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
   const expected: string[] = [];
   const store = {
     dispatched,
+    /** Ile operacji już sprawdził expectOps (znacznik) i czy test w ogóle sprawdza operacje. */
+    opsMark: 0,
+    opsChecked: false,
     /** Operacje odrzucone przez model reguł serwera (z kodem). */
     rejected,
     /** Test zapowiada odrzucenie z tym kodem (np. sprawdza zachowanie ekranu po odrzuceniu). */
