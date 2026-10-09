@@ -77,7 +77,8 @@ describe('terminy', () => {
     const due = fc.option(fc.record({ date: fc.constantFrom('2026-10-08', '2026-10-09'), time: fc.option(fc.constantFrom('07:00', '08:00')) }));
     fc.assert(fc.property(due, due, due, (a, b, c) => {
       expect(Math.sign(compareByDue(a, b))).toBe(-Math.sign(compareByDue(b, a)) || 0);
-      if (compareByDue(a, b) <= 0 && compareByDue(b, c) <= 0) expect(compareByDue(a, c)).toBeLessThanOrEqual(0);
+      // Przechodniość: a ≤ b i b ≤ c ⇒ a ≤ c.
+      expect(compareByDue(a, b) > 0 || compareByDue(b, c) > 0 || compareByDue(a, c) <= 0).toBe(true);
     }));
   });
 

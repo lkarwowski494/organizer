@@ -1,6 +1,6 @@
 import type { DbAdapter } from '../../data/db/adapter';
 import { memoryDb } from '../../data/__tests__/sqlite';
-import * as clock from '../clock';
+import * as clock from '../../domain/local-time';
 import { reportSelfCheck, runSelfCheck, SELF_CHECK_KEY } from '../self-check';
 
 const prefsMap = (init: Record<string, string> = {}) => {

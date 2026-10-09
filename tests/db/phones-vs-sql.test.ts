@@ -11,7 +11,7 @@
  *  - oba telefony widzą to samo,
  *  - powtórzona paczka nigdy nie daje nowego odrzucenia, a odrzucenie wraca z tym samym kodem (M-56),
  *  - pętle „do ciszy” mają górną granicę obrotów (M-49).
- * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany.
+ * Wymaga bazy z migracjami (scripts/db/test-db.sh); bez PGHOST test jest pomijany (z CI_DB=1 — błąd, db-gate.ts).
  */
 import * as fc from 'fast-check';
 import { Client } from 'pg';
@@ -31,9 +31,9 @@ import {
   pullRequest,
   pushRequest,
 } from '../../src/domain/sync-engine/client';
+import { dbDescribe } from './db-gate';
 
-const enabled = !!process.env.PGHOST;
-const d = enabled ? describe : describe.skip;
+const d = dbDescribe;
 
 const U = { ala: '00000000-0000-7000-8000-0000000000a1', bartek: '00000000-0000-7000-8000-0000000000b1' } as const;
 const M = { ala: '99999999-0000-7000-8000-0000000000a1', bartek: '99999999-0000-7000-8000-0000000000b1' } as const;
@@ -141,6 +141,8 @@ const sorted = (t: { [e: string]: { [k: string]: unknown } }) =>
   Object.fromEntries(Object.entries(t).filter(([, rows]) => Object.keys(rows).length > 0).sort(([a], [b]) => a.localeCompare(b))) as { [e: string]: { [k: string]: { [c: string]: unknown } } };
 
 const seen = { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0, purged: 0, resync: 0, child: 0, recalled: 0 };
+/** Powtórki paczek, które zmieniły wynik (sprawdzane po przebiegu — bez asercji w warunku). */
+const repeatViolations: string[] = [];
 
 d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
   const db = new Client({ database: process.env.PGDATABASE ?? 'organizer_test' });
@@ -197,6 +199,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
   it('zbieżność z serwerem, pusta kolejka, oba telefony widzą to samo, powtórki bez nowych odrzuceń', async () => {
     // Statystyka przebiegów: test ma sens tylko wtedy, gdy losowe operacje naprawdę przechodzą (nie same odrzucenia).
     Object.assign(seen, { ok: 0, rejected: 0, entities: new Set<string>(), shopItems: 0, staples: 0, purged: 0, resync: 0, child: 0, recalled: 0 });
+    repeatViolations.length = 0;
     await fc.assert(
       fc.asyncProperty(fc.array(cmdArb, { minLength: 10, maxLength: 50 }).map((c) => [...PREFIX, ...c, ...SUFFIX]), async (cmds) => {
         await db.query('begin');
@@ -239,12 +242,10 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
                 for (const r of first.results) {
                   const again = res.results.find((x) => x.seq === r.seq);
                   // Powtórzona paczka: to, co za pierwszym razem przeszło, nie zmienia się w odrzucenie…
-                  if (r.status === 'ok') expect(again?.status).not.toBe('rejected');
+                  if (r.status === 'ok' && again?.status === 'rejected') repeatViolations.push(`ok → ${JSON.stringify(again)}`);
                   // …a odrzucenie wraca z tym samym kodem zamiast „duplicate” (M-56).
-                  if (r.status === 'rejected') {
-                    expect(again).toEqual(r);
-                    seen.recalled += 1;
-                  }
+                  if (r.status === 'rejected' && JSON.stringify(again) !== JSON.stringify(r)) repeatViolations.push(`${JSON.stringify(r)} → ${JSON.stringify(again)}`);
+                  if (r.status === 'rejected') seen.recalled += 1;
                 }
               }
               phones[c.who] = onPushResponse(s, res);
@@ -307,6 +308,7 @@ d('telefony na prawdziwym serwerze przy zawodnej sieci', () => {
     expect(seen.resync).toBeGreaterThan(0);
     expect(seen.child).toBeGreaterThan(0);
     expect(seen.recalled).toBeGreaterThan(0);
+    expect(repeatViolations).toEqual([]);
     // Regresja D87: pozycje zakupów naprawdę zapisują się na serwerze (wcześniej odrzucane po cichu).
     expect(seen.shopItems).toBeGreaterThan(0);
     // Polecenia stałych zakupów naprawdę zmieniają tablicę na serwerze (M-111).

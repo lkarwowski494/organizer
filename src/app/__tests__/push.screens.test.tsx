@@ -79,7 +79,7 @@ describe('powiadomienie drugiej strony', () => {
     expect(account.registerPushToken).toHaveBeenCalledWith('ab'.repeat(32), 'production');
     expect(account.notifyHandoff).toHaveBeenCalledWith('h1');
     // Kolejna zmiana stanu nie powtarza prośby w tym uruchomieniu.
-    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
+    await act(async () => store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } }));
     await flush();
     expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
   });
@@ -152,7 +152,7 @@ describe('przypisania (D81)', () => {
     const account = fakeAccount({ notifyAssignment: jest.fn(async () => Promise.reject(new Error('offline'))) });
     const { store } = await open({ base, account });
     expect(account.notifyAssignment).toHaveBeenCalledWith('a1');
-    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Róże' } });
+    await act(async () => store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Róże' } }));
     await flush();
     expect(account.notifyAssignment).toHaveBeenCalledTimes(1);
   });
@@ -278,7 +278,7 @@ describe('zgoda na powiadomienia po „Nie teraz” i po odmowie (audyt 2: N-8, 
     const { account, store } = await open({ push });
     await tick(2000);
     await flush();
-    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
+    await act(async () => store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } }));
     await tick(2000);
     await flush();
     expect(push.replaceReminders).toHaveBeenCalledTimes(2);
@@ -308,7 +308,7 @@ describe('token i ponowienia (audyt 2: N-11, N-15, N-36)', () => {
     const account = fakeAccount({ notifyHandoff: jest.fn(async () => Promise.reject(new Error('apns_failed'))), notifyAssignment: jest.fn(async () => {}) });
     const { store } = await open({ base, account });
     expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
-    store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } });
+    await act(async () => store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić róże' } }));
     await flush();
     expect(account.notifyHandoff).toHaveBeenCalledTimes(1);
     await app.foreground();

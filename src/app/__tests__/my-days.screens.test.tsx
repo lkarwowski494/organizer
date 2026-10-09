@@ -13,7 +13,7 @@ import { scopeRowId } from '../../domain/views/my-scope';
 import { MY_SCOPE_KEY } from '../my-scope';
 import { GROUP_FILTER_KEY } from '../group-filter';
 import { RootStack } from '../navigation';
-import { answerAlert, NOW, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, NOW, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -153,7 +153,7 @@ describe('Moje sprawy: „Zrobione dziś”, „Bez terminu”, kolejność kart
     await press(within(done).getByLabelText('Zrobione dziś (1), pokaż'));
     expect(within(done).getByLabelText('Zrobione dziś (1), schowaj').props.accessibilityState.expanded).toBe(true);
     await press(within(done).getByLabelText('Oznacz jako niezrobione: Odebrać paczkę'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: null } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: null } }]);
     expect(screen.queryByTestId('today-done')).toBeNull();
   });
 

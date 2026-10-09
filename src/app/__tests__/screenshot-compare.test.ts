@@ -56,6 +56,14 @@ describe('compare-screenshots (D143)', () => {
     expect(r.stdout).toContain('Brak wzorców');
     expect(r.report!.results).toEqual([{ name: '01-today.png', status: 'new' }]);
     expect(readFileSync(join(dir, 'summary.md'), 'utf8')).toContain('accept-baselines.sh');
+    expect(r.stdout).toMatch(/^### Zrzuty ekranu E2E\n/);
+  });
+
+  it('--name: wariant zrzutów (PWD-38 B) w nagłówku podsumowania', () => {
+    png(join(dir, 'actual', '01-today.png'), 10, 10);
+    expect(run('--name', 'iphone-17e-dark-ax5').stdout).toMatch(/^### Zrzuty ekranu E2E — iphone-17e-dark-ax5\n/);
+    png(join(dir, 'base', '01-today.png'), 10, 10);
+    expect(run('--name', 'iphone-17e-dark-ax5').stdout).toMatch(/^### Zrzuty ekranu E2E — iphone-17e-dark-ax5\n\nWszystkie zrzuty zgodne/);
   });
 
   it('zgodne, drobna różnica w progu, różnica ponad próg (obraz różnic), inny rozmiar, brak zrzutu, nowy', () => {

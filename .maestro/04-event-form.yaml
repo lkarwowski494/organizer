@@ -4,11 +4,16 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
 - runFlow: common/launch.yaml
 - tapOn:
     id: "tab-Calendar"
+# Przycisk na końcu długiej treści: przewinięcie do środka ekranu i koniec ruchu przed dotknięciem (E2E na main
+# 8.10.2026: dotknięcie tuż po przewinięciu, przy krawędzi nad paskiem zakładek, nie otworzyło formularza).
 - scrollUntilVisible:
     element:
       id: "calendar-add-event"
     direction: DOWN
     timeout: 10000
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     id: "calendar-add-event"
 - extendedWaitUntil:

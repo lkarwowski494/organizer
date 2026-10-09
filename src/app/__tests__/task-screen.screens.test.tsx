@@ -1,9 +1,8 @@
 /** Ekran zadania — audyt 2, paczka ekranu zadania (M-81, M-86, M-87, M-89, M-116, M-146, M-202, M-204, M-206, M-244, M-245, M-251). */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
-import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { answerAlert, pickDate, put, sampleBase, setTime, setup } from './harness';
+import { expectOps, answerAlert, pickDate, put, sampleBase, setTime, setup } from './harness';
 import { strings } from '../../i18n/strings.pl';
 
 const CHIP = strings['quick.chipA11y'];
@@ -67,7 +66,7 @@ describe('termin (M-89, M-206, M-245)', () => {
     expect(options).toEqual(['Dziś', 'Jutro', 'Inny dzień', 'Bez terminu']);
     expect(radio('Kiedy', 'Jutro').props.accessibilityState.selected).toBe(true);
     await press(radio('Kiedy', 'Dziś'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'own', due_date: '2026-10-07' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
     await press(radio('Kiedy', 'Inny dzień'));
     expect(screen.getByTestId('task-date-calendar')).toBeTruthy();
   });
@@ -93,11 +92,12 @@ describe('termin (M-89, M-206, M-245)', () => {
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await setTime('task-time', '19:30');
     expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { due_date: '2026-10-08', due_time: '19:30' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:30' } }]);
     // Kafelek po wpisywaniu ręcznym: pole pokazuje kafelek, nie stary wpis.
     await setTime('task-time', '0');
     await press(screen.getByTestId('task-time-h-08'));
     expect(screen.getByTestId('task-time-manual').props.value).toBe('08:30');
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '08:30' } }]);
   });
 });
 
@@ -109,13 +109,12 @@ describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
     expect(screen.queryByLabelText('Gdy nie zrobisz w terminie')).toBeNull();
     expect(radio('Kiedy', 'Jak zadanie nadrzędne').props.accessibilityState.selected).toBe(true);
     await press(radio('Kiedy', 'Dziś'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ id: 's-1', set: { deadline_mode: 'own', due_date: '2026-10-07' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 's-1', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
     expect(screen.getByLabelText('Gdy nie zrobisz w terminie')).toBeTruthy();
     await press(radio('Kiedy', 'Jak zadanie nadrzędne'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-1', set: { deadline_mode: 'inherit', due_date: null, due_time: null, repeat: null } });
-    const n = s.store.dispatched.length;
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 's-1', set: { deadline_mode: 'inherit', due_date: null, due_time: null, repeat: null } }]);
     await press(radio('Kiedy', 'Jak zadanie nadrzędne'));
-    expect(s.store.dispatched).toHaveLength(n);
+    expectOps(s.store, []);
     // Zadanie główne nie ma tej opcji.
     await press(screen.getByLabelText('Wróć'));
     expect(within(await screen.findByLabelText('Kiedy')).queryByLabelText('Jak zadanie nadrzędne')).toBeNull();
@@ -134,10 +133,10 @@ describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'wstążka jutro');
     await press(screen.getByLabelText(CHIP('jutro')));
     await press(screen.getByLabelText('Dodaj'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', title: 'wstążka jutro', deadline_mode: 'inherit' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'wstążka jutro', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } }]);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'kokarda jutro');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', title: 'kokarda', deadline_mode: 'own', due_date: '2026-10-08' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'kokarda', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'jutro');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
@@ -178,7 +177,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     const s = await openTask('Kupić kwiaty', repeating('FREQ=MONTHLY', '2026-10-15'));
     await press(radio('Kiedy', 'Jutro'));
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }]);
   });
 
   it('co miesiąc 31.: „ostatniego dnia miesiąca” albo napis o pominiętych miesiącach', async () => {
@@ -186,10 +185,10 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     expect(screen.getByText('Miesiące bez 31. dnia zostaną pominięte.')).toBeTruthy();
     expect(radio('Który dzień miesiąca', '31. dnia').props.accessibilityState.selected).toBe(true);
     await press(radio('Który dzień miesiąca', 'ostatniego dnia miesiąca'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' } }]);
     expect(screen.queryByText('Miesiące bez 31. dnia zostaną pominięte.')).toBeNull();
     await press(radio('Który dzień miesiąca', '31. dnia'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=31' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=31' } }]);
   });
 
   it('termin w środku miesiąca: bez wyboru dnia; odhaczenie „ostatniego dnia” daje koniec następnego miesiąca', async () => {
@@ -199,7 +198,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     expect(radio('Który dzień miesiąca', 'ostatniego dnia miesiąca').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Oznacz jako zrobione: Kupić kwiaty'));
     await answerAlert('Zrobione');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', id: nextId('t-kwiaty'), set: { due_date: '2026-11-30', repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'create', entity: 'tasks', id: '303b9615-ee92-546d-8d39-47a90f8fc973', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Kupić kwiaty', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-11-30', due_time: null, rollover: true, repeat: 'FREQ=MONTHLY;BYMONTHDAY=-1' } }]);
   });
 });
 
@@ -221,9 +220,9 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
   it('„@Ala” przypisuje osobę, „@ja” — mnie; „@” znika z nazwy', async () => {
     const s = await openList();
     await add('odkurzyć jutro @Ala');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', group_id: 'gf', set: { list_id: 'lf', title: 'odkurzyć', due_date: '2026-10-08', assignee_member_id: 'ala' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'odkurzyć', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
     await add('zmyć @ja');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { title: 'zmyć', assignee_member_id: 'mf' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zmyć', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
   });
 
   it('kilka osób — pytanie; nikt o tym imieniu nie widzi listy — „Dodaj bez osoby” zostawia „@…” w nazwie', async () => {
@@ -233,12 +232,12 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
     await add('zebranie @al');
     expect(s.store.dispatched).toEqual([]);
     await press(within(screen.getByTestId('mention-choices')).getByLabelText('Alek'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { title: 'zebranie', assignee_member_id: 'alek' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'alek' } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     await add('basen @Zosia');
     expect(screen.getByText('Nikt o imieniu @Zosia nie widzi tej listy')).toBeTruthy();
     await press(screen.getByLabelText('Dodaj bez osoby'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { title: 'basen @Zosia' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'basen @Zosia', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect((s.store.dispatched.at(-1) as { set: object }).set).not.toHaveProperty('assignee_member_id');
   });
 
@@ -247,7 +246,7 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'zebranie #Klasa');
     expect(screen.getByText('Na liście „#Klasa” nie zmienia grupy — zostanie w nazwie.')).toBeTruthy();
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ group_id: 'gf', set: { list_id: 'lf', title: 'zebranie #Klasa' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie #Klasa', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await add('@ja');
     expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
   });
@@ -268,6 +267,6 @@ describe('wydarzenie: ostatni dzień miesiąca (PWD-37)', () => {
     await press(radio('Który dzień miesiąca', 'ostatniego dnia miesiąca'));
     expect(screen.queryByText('Miesiące bez 31. dnia zostaną pominięte.')).toBeNull();
     await press(screen.getByTestId('event-save'));
-    expect(s.store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Czynsz', start_date: '2026-10-31', rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1' } });
+    expectOps(s.store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'u-me', set: { title: 'Czynsz', start_date: '2026-10-31', start_time: null, end_time: null, rrule: 'FREQ=MONTHLY;BYMONTHDAY=-1', audience: 'group', responsible_member_id: null } }]);
   });
 });

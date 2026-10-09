@@ -10,6 +10,7 @@ import * as Application from 'expo-application';
 import { Component, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
+import { config } from '../config';
 import { sizes } from '../config/theme';
 import { strings } from '../i18n/strings.pl';
 import type { ClientError } from '../sync/account';
@@ -19,6 +20,8 @@ export const buildNumber = () => Number(Application.nativeBuildVersion ?? Number
 export const appVersion = () => `${Application.nativeApplicationVersion ?? '?'} (${Application.nativeBuildVersion ?? '?'})`;
 
 const clip = (s: string | undefined | null, n: number) => (s == null ? null : s.slice(0, n));
+/** Długości pól zgłoszenia — te same co w SQL (client_errors, report_client_error). */
+const F = config.feedback;
 /** Ramka stosu V8/Hermes: „at nazwa (plik:wiersz:kolumna)” albo „at plik:wiersz:kolumna”. */
 const FRAME = /^\s*at [\w$.<>[\] ]*(\([^()]*:\d+(:\d+)?\)|[^\s()]+:\d+(:\d+)?)$/;
 /** Kod błędu modułu natywnego (np. expo „E_CALENDAR_ERROR_UNKNOWN”) — tylko taki napis, bez treści. */
@@ -39,9 +42,9 @@ export function toClientError(e: unknown, kind: ClientError['kind'], screen: str
       .split('\n')
       .filter((l) => FRAME.test(l) && !(err.message && l.includes(err.message)))
       .join('\n');
-    return { kind, message: clip(code ? `${err.name} (${code})` : err.name, 500)!, stack: clip(frames || null, 4000), screen: clip(screen, 100), appVersion: version };
+    return { kind, message: clip(code ? `${err.name} (${code})` : err.name, F.ERROR_MESSAGE_MAX)!, stack: clip(frames || null, F.ERROR_STACK_MAX), screen: clip(screen, F.SCREEN_MAX), appVersion: version };
   }
-  return { kind, message: clip(`${err.name}: ${err.message}`, 500)!, stack: clip(err.stack, 4000), screen: clip(screen, 100), appVersion: version };
+  return { kind, message: clip(`${err.name}: ${err.message}`, F.ERROR_MESSAGE_MAX)!, stack: clip(err.stack, F.ERROR_STACK_MAX), screen: clip(screen, F.SCREEN_MAX), appVersion: version };
 }
 
 type GlobalHandler = (e: unknown, isFatal?: boolean) => void;

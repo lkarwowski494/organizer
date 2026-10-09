@@ -10,6 +10,9 @@
 # Decyzja właściciela 8.10.2026 (audyt 2, M-79, PW-48 A): zadanie macOS tylko dla push na main, harmonogramu, ręcznego
 # uruchomienia i PR z tego repozytorium (PR z forka sprawdza tylko składnię scenariuszy); artefakt to wyłącznie zrzuty
 # ekranu (z obrazami różnic) i koniec logu xcodebuild — bez pełnego logu, logów Maestro i bez aplikacji (.app); 7 dni.
+# Warianty zrzutów (PWD-38 B, audyt 2 M-307): 2 telefony × 2 tryby kolorów × 2 rozmiary tekstu (scripts/e2e/run-matrix.sh);
+# przy push i PR tylko wariant bazowy (szybka informacja), nocą i ręcznie wszystkie 8. Audyt dostępności XCUITest na każdym
+# ekranie (D186, audyt 2 M-153, scripts/e2e/a11y-audit.sh) — jak różnice zrzutów: nocą i ręcznie oblewa przebieg.
 name: e2e
 
 on:
@@ -55,9 +58,13 @@ jobs:
     # acquired by Runner of type hosted even after multiple attempts” (8.10.2026 15:21–17:35 UTC trzy razy; standardowa
     # pula arm64 ma stałą adnotację „Due to capacity constraints…”). To brak maszyny, nie błąd testów: ponów ręcznie.
     runs-on: macos-26
-    timeout-minutes: 90
+    # Build ok. 25 min + ok. 6–8 min na wariant (8 wariantów nocą).
+    timeout-minutes: 150
     env:
-      E2E_DEVICE: iPhone 17
+      # Telefon wariantu bazowego (pierwszy w scripts/e2e/run-matrix.sh): build i audyt dostępności.
+      E2E_DEVICE: iPhone 17e
+      E2E_VARIANTS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'all' || 'base' }}
+      E2E_STRICT: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
       # Wyniki robocze (logi Maestro, raport porównania) poza katalogiem artefaktu; do e2e-artifacts/ trafia tylko to,
       # co publikujemy (krok „artefakt”).
       E2E_OUT: ${{ github.workspace }}/e2e-work
@@ -81,33 +88,50 @@ jobs:
         run: |
           scripts/e2e/boot-simulator.sh
           mkdir -p "$E2E_OUT"
-          xcrun simctl list devices booted > "$E2E_OUT/device.txt"
       - name: build symulatora (EXPO_PUBLIC_E2E=1)
         # Flaga ustawiana tylko tutaj (i w scripts/e2e/build-ios.sh); test kontraktowy src/app/__tests__/e2e-flag.test.ts.
         env:
           EXPO_PUBLIC_E2E: '1'
         run: scripts/e2e/build-ios.sh "${{ steps.sim.outputs.udid }}"
       - run: scripts/e2e/install-maestro.sh
-      - name: scenariusze Maestro
-        run: scripts/e2e/run-flows.sh "${{ steps.sim.outputs.udid }}" "$E2E_APP" "$E2E_OUT"
+      - name: scenariusze Maestro we wariantach zrzutów
+        # Porażka scenariuszy w wariancie bazowym oblewa krok; w pozostałych — krok porównania (nocą).
+        run: scripts/e2e/run-matrix.sh "$E2E_APP" "$E2E_OUT" "$E2E_VARIANTS"
       - name: porównanie zrzutów z wzorcami
         if: ${{ !cancelled() }}
-        env:
-          FAIL_ON_DIFF: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         run: |
           args=()
-          if [ "$FAIL_ON_DIFF" = "true" ]; then args+=(--fail); fi
-          node scripts/e2e/compare-screenshots.mjs --baselines .maestro/baselines --actual "$E2E_OUT/screenshots" --out "$E2E_OUT/diff" "${args[@]}"
+          if [ "$E2E_STRICT" = "true" ]; then args+=(--fail); fi
+          status=0
+          while read -r v; do
+            node scripts/e2e/compare-screenshots.mjs --name "$v" --baselines ".maestro/baselines/$v" --actual "$E2E_OUT/$v/screenshots" --out "$E2E_OUT/diff/$v" "${args[@]}" || status=1
+          done < "$E2E_OUT/variants.txt"
+          if [ -s "$E2E_OUT/variants-failed.txt" ]; then
+            echo "::warning::Scenariusze nie przeszły w wariantach: $(tr '\n' ' ' < "$E2E_OUT/variants-failed.txt")"
+            if [ "$E2E_STRICT" = "true" ]; then status=1; fi
+          fi
+          exit "$status"
+      - name: audyt dostępności na symulatorze (XCUITest)
+        if: ${{ !cancelled() }}
+        run: |
+          udid="$(scripts/e2e/boot-simulator.sh "$E2E_DEVICE" | tail -n 1)"
+          xcrun simctl ui "$udid" content_size large
+          args=()
+          if [ "$E2E_STRICT" = "true" ]; then args+=(--fail); fi
+          scripts/e2e/a11y-audit.sh "$udid" "$E2E_OUT/a11y" "${args[@]}"
       - name: artefakt (tylko zrzuty i koniec logu)
         if: ${{ !cancelled() }}
         # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro, opis symulatora (dla e2e:accept) i ostatnie
         # 200 wierszy logu xcodebuild bez wierszy `export` (zmienne środowiska buildu z faz skryptów).
         run: |
-          mkdir -p e2e-artifacts/screenshots e2e-artifacts/diff e2e-artifacts/failures
-          find "$E2E_OUT/screenshots" -maxdepth 1 -name '*.png' -exec cp {} e2e-artifacts/screenshots/ \; 2>/dev/null || true
-          find "$E2E_OUT/diff" -maxdepth 1 -name '*.diff.png' -exec cp {} e2e-artifacts/diff/ \; 2>/dev/null || true
-          find "$E2E_OUT/maestro" -name '*.png' ! -name '[0-9][0-9]-*.png' -exec cp {} e2e-artifacts/failures/ \; 2>/dev/null || true
-          cp "$E2E_OUT/device.txt" e2e-artifacts/ 2>/dev/null || true
+          mkdir -p e2e-artifacts/screenshots e2e-artifacts/diff e2e-artifacts/failures e2e-artifacts/devices
+          while read -r v; do
+            mkdir -p "e2e-artifacts/screenshots/$v" "e2e-artifacts/diff/$v" "e2e-artifacts/failures/$v"
+            find "$E2E_OUT/$v/screenshots" -maxdepth 1 -name '*.png' -exec cp {} "e2e-artifacts/screenshots/$v/" \; 2>/dev/null || true
+            find "$E2E_OUT/diff/$v" -maxdepth 1 -name '*.diff.png' -exec cp {} "e2e-artifacts/diff/$v/" \; 2>/dev/null || true
+            find "$E2E_OUT/$v/maestro" -name '*.png' ! -name '[0-9][0-9]-*.png' -exec cp {} "e2e-artifacts/failures/$v/" \; 2>/dev/null || true
+            cp "$E2E_OUT/device-$v.txt" "e2e-artifacts/devices/$v.txt" 2>/dev/null || true
+          done < "$E2E_OUT/variants.txt" 2>/dev/null || true
           if [ -f ios/build/e2e-xcodebuild.log ]; then
             tail -n 200 ios/build/e2e-xcodebuild.log | grep -v -E '^[[:space:]]*export ' > e2e-artifacts/xcodebuild-tail.txt || true
           fi

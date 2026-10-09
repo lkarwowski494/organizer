@@ -8,7 +8,7 @@ import type { LocalDateTime } from '../../domain/civil-date';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { initialState, materialize, mutate, type NewOp, type Row } from '../../domain/sync-engine/client';
 import { strings } from '../../i18n/strings.pl';
-import { quickAddOps } from '../quickadd';
+import { quickAddOps } from '../../domain/views/quick-add-ops';
 
 const ME = 'u-me';
 const NOW: LocalDateTime = { y: 2026, m: 10, d: 8, hh: 12, mm: 0 };

@@ -7,11 +7,12 @@
  * Bezpieczeństwo: (1) flagi nie ustawia żaden inny workflow ani konfiguracja buildu wydania — pilnuje tego test
  * kontraktowy src/app/__tests__/e2e-flag.test.ts; (2) nawet z flagą sesja demo powstaje tylko na symulatorze
  * (`isSimulator`, w wiring.ts: Application.getIosApplicationReleaseTypeAsync() === SIMULATOR), inaczej ekran logowania
- * bez działającego logowania. Kod produkcyjny nie importuje plików testów — serwer poniżej to osobna, uproszczona kopia
- * pomysłu z src/domain/__tests__/support/fake-server.ts (bez RLS: osoba demo widzi wszystkie grupy).
+ * bez działającego logowania. Kod produkcyjny nie importuje plików testów — serwer poniżej stosuje model reguł serwera
+ * z src/domain/server-rules.ts (ten sam co atrapa w testach ekranów, zgodny z SQL — tests/db/rules-vs-sql.test.ts).
  */
 import type { DbAdapter } from '../data/db/adapter';
-import { applyOp, type Entity, type Op, type PulledRow, type PullRequest, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
+import { applyOnServer, serverVerdict } from '../domain/server-rules';
+import { type Entity, type PulledRow, type PullRequest, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
 import { LEGACY_KEYS } from './account-prefs';
 import { WHATS_NEW_SEEN } from '../features/today/WhatsNew';
 import { WELCOME_SEEN } from '../features/welcome/WelcomeScreen';
@@ -101,18 +102,23 @@ export function e2eSeed(): Seed[] {
 const groupOf = (e: Entity, row: Row) => String(e === 'groups' ? row.id : row.group_id);
 
 /**
- * „Serwer” w pamięci z semantyką sync_push / sync_pull (supabase/migrations/20261006120200_sync.sql) w wersji
- * minimalnej: każda zmiana podnosi wersję grupy, pobranie oddaje wiersze nowsze niż kursor, powtórzona operacja
- * (seq ≤ ostatni) to duplikat. Bez uprawnień (osoba demo widzi wszystko) i bez odrzuceń.
+ * „Serwer” w pamięci z semantyką sync_push / sync_pull (supabase/migrations/20261006120200_sync.sql): każda zmiana
+ * podnosi wersję grupy, pobranie oddaje wiersze nowsze niż kursor, powtórzona operacja (seq ≤ ostatni) to duplikat,
+ * a odrzucenie wraca przy powtórce z tym samym kodem (M-56). Reguły i skutki jak na serwerze (audyt 2, M-50): model
+ * reguł (role, dziecko, widoczność list, kosz grupy, usunięte listy i wiersze) odrzuca operację z kodem, a przyjęta
+ * dostaje wartości domyślne, pola serwera, kaskady i skutek przyjęcia przekazania (applyOnServer). Osoba demo jest jedna
+ * (E2E_SESSION).
  */
 export class E2eServer {
   private readonly rows = new Map<string, PulledRow>();
   private readonly versions = new Map<string, number>();
   private readonly lastSeq = new Map<string, number>();
+  private readonly rejections = new Map<string, Map<number, { opId: string; code: string }>>();
 
   constructor(
     seed: readonly Seed[],
     private readonly nowIso: () => string,
+    private readonly user: string = E2E_SESSION.userId,
   ) {
     for (const s of seed) this.put(s.e, s.row);
   }
@@ -124,41 +130,41 @@ export class E2eServer {
     this.rows.set(`${e}:${rowKey(e, row)}`, { e, v, row: { ...row, version: v } });
   }
 
-  private apply(op: Op): void {
-    if (op.kind === 'cmd') {
-      // Polecenia ze skutkiem na telefonie — „to i następne” (split_event, audyt 2 M-3) i stałe zakupy (M-111) — tym samym
-      // algorytmem co telefon i serwer. Inne komendy (zakresy list ukrytych) nie zmieniają danych widocznych dla osoby demo.
-      const tables: { [e: string]: { [id: string]: Row } } = {};
-      for (const r of this.rows.values()) (tables[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
-      applyOp(tables, op);
-      for (const [e, rows] of Object.entries(tables)) {
-        for (const row of Object.values(rows)) {
-          if (this.rows.get(`${e}:${rowKey(e as Entity, row)}`)?.row !== row) this.put(e as Entity, row.deleted_at === 'pending' ? { ...row, deleted_at: this.nowIso() } : row);
-        }
+  /** Wiersze serwera jako tabele (encja → klucz → wiersz). */
+  private tables(): { [e: string]: { [k: string]: Row } } {
+    const t: { [e: string]: { [k: string]: Row } } = {};
+    for (const r of this.rows.values()) (t[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
+    return t;
+  }
+
+  /** Kod odrzucenia albo null; przyjęta operacja zapisuje zmienione wiersze z nowymi wersjami grup. */
+  private apply(op: PushRequest['ops'][number]): string | null {
+    const tables = this.tables();
+    const code = serverVerdict(tables, this.user, op);
+    if (code) return code;
+    applyOnServer(tables, this.user, op, this.nowIso());
+    for (const [e, rows] of Object.entries(tables)) {
+      for (const row of Object.values(rows)) {
+        if (this.rows.get(`${e}:${rowKey(e as Entity, row)}`)?.row !== row) this.put(e as Entity, row);
       }
-      return;
     }
-    const current = this.rows.get(`${op.entity}:${op.id}`)?.row;
-    if (op.kind === 'create') {
-      if (current) return; // powtórzone utworzenie (id nadaje telefon)
-      const keyed = op.entity === 'group_members' ? { member_id: op.id } : {};
-      return this.put(op.entity, { ...op.set, ...keyed, id: op.id, group_id: op.group_id, deleted_at: null });
-    }
-    if (!current) return;
-    if (op.kind === 'patch') {
-      if (current.deleted_at == null) this.put(op.entity, { ...current, ...op.set });
-    } else if (op.kind === 'delete') {
-      if (current.deleted_at == null) this.put(op.entity, { ...current, deleted_at: this.nowIso() });
-    } else if (current.deleted_at != null) this.put(op.entity, { ...current, deleted_at: null });
+    return null;
   }
 
   push(req: PushRequest): PushResponse {
     let last = this.lastSeq.get(req.client_id) ?? 0;
-    const results = req.ops.map((op) => {
-      if (op.seq <= last) return { seq: op.seq, status: 'duplicate' as const };
+    const remembered = this.rejections.get(req.client_id) ?? new Map<number, { opId: string; code: string }>();
+    this.rejections.set(req.client_id, remembered);
+    const results: PushResponse['results'] = req.ops.map((op) => {
+      if (op.seq <= last) {
+        const r = remembered.get(op.seq);
+        return r && r.opId === op.op_id ? { seq: op.seq, status: 'rejected', code: r.code } : { seq: op.seq, status: 'duplicate' };
+      }
       last = op.seq;
-      this.apply(op);
-      return { seq: op.seq, status: 'ok' as const };
+      const code = this.apply(op);
+      if (code === null) return { seq: op.seq, status: 'ok' };
+      remembered.set(op.seq, { opId: op.op_id, code });
+      return { seq: op.seq, status: 'rejected', code };
     });
     this.lastSeq.set(req.client_id, last);
     return { last_seq: last, results };

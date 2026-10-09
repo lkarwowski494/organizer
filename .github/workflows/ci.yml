@@ -65,3 +65,12 @@ jobs:
       # dopisał krok wyżej — ta sama wersja, którą skanuje repozytorium.
       - name: reguły .gitleaks.toml
         run: .github/scripts/test-gitleaks-rules.sh
+      # gitleaks-action skanuje przy push tylko pierwszego rodzica bez scaleń — commity scalonej gałęzi przechodziły
+      # nieskanowane (audyt 2). Tu cały zakres pusha (albo PR), ze scaleniami; test skryptu na repozytorium tymczasowym.
+      - name: test skanu zakresu
+        run: .github/scripts/test-gitleaks-range.sh
+      - name: skan całego zakresu pusha albo PR
+        env:
+          BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          AFTER: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: .github/scripts/gitleaks-range.sh "$BEFORE" "$AFTER"

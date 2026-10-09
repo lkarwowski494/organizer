@@ -8,7 +8,7 @@
  * - Oct lastSun 1:00u 0 -” — czyli ostatnia niedziela marca 2:00 → 3:00 i ostatnia niedziela października 3:00 → 2:00.
  */
 import { config } from '../config';
-import type { LocalDateTime } from '../domain/civil-date';
+import type { LocalDateTime } from './civil-date';
 
 const fmt = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.TIME_ZONE,

@@ -444,17 +444,11 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
           expect(p.state.pending).toHaveLength(0);
           expectSameAsServer(p.state, visible, view);
           // Utrata dostępu: telefon osoby usuniętej z grupy nie ma już żadnych jej wierszy.
-          if (!server.groups.get(GROUP)!.members.get(p.user) || server.groups.get(GROUP)!.members.get(p.user)!.deleted) {
-            const ofGroup = (t: { readonly [id: string]: Row } | undefined) => Object.values(t ?? {}).filter((r) => r.group_id === GROUP);
-            expect(ofGroup(view.lists)).toHaveLength(0);
-            expect(ofGroup(view.tasks)).toHaveLength(0);
-            expect(ofGroup(view.group_members)).toHaveLength(0);
-          }
-          if (visible.groups === 0) {
-            expect(Object.keys(view.lists ?? {})).toHaveLength(0);
-            expect(Object.keys(view.tasks ?? {})).toHaveLength(0);
-            expect(Object.keys(view.group_members ?? {})).toHaveLength(0);
-          }
+          const gone = !server.groups.get(GROUP)!.members.get(p.user) || server.groups.get(GROUP)!.members.get(p.user)!.deleted;
+          const ofGroup = (t: { readonly [id: string]: Row } | undefined) => Object.values(t ?? {}).filter((r) => r.group_id === GROUP);
+          expect(gone ? [ofGroup(view.lists), ofGroup(view.tasks), ofGroup(view.group_members)].map((x) => x.length) : [0, 0, 0]).toEqual([0, 0, 0]);
+          const count = (t: { readonly [id: string]: Row } | undefined) => Object.keys(t ?? {}).length;
+          expect(visible.groups === 0 ? [count(view.lists), count(view.tasks), count(view.group_members)] : [0, 0, 0]).toEqual([0, 0, 0]);
         }
         for (const [id, i] of allOps) {
           // Nic nie ginie: każda operacja zastosowana albo odrzucona — i nigdy dwa razy (także operacja z kopii, którą

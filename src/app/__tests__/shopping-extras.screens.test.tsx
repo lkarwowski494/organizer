@@ -2,7 +2,7 @@
 import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { expectOps, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -49,13 +49,15 @@ describe('działy', () => {
     expect(within(picker).getByRole('radio', { name: 'Higiena i kosmetyki' }).props.accessibilityState.selected).toBe(true);
     expect(within(picker).getByRole('radio', { name: 'Chemia i dom' }).props.accessibilityState.selected).toBe(false);
     await press(within(picker).getByRole('radio', { name: 'Chemia i dom' }));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-mydlo', set: { category: 'household' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-mydlo', set: { category: 'household' } }]);
     expect(within(screen.getByTestId('section-household')).getByText('Mydło')).toBeTruthy();
     expect(screen.queryByTestId('item-panel')).toBeNull();
     // Druga pozycja o tej samej nazwie trafia od razu do zapamiętanego działu.
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'mydło');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
+    // Dział z pamięci grupy czyta wyświetlanie — nowa pozycja nie wysyła własnego działu.
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mydło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Ponowne dotknięcie zamyka panel; „Gotowe” też.
     await press(screen.getByLabelText(/^jabłek(,|$)/));
     await press(screen.getByLabelText(/^jabłek(,|$)/));
@@ -82,7 +84,7 @@ describe('podpowiedzi', () => {
     const s = screen.getByTestId('suggestions');
     expect(within(s).getByLabelText('Dodaj: Makaron')).toBeTruthy();
     await press(within(s).getByLabelText('Dodaj: Makaron'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', set: { list_id: 'lz', title: 'Makaron' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Makaron', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 });
@@ -100,7 +102,7 @@ describe('stałe zakupy', () => {
     expect(screen.queryByText('Wpisz nazwę.')).toBeNull();
     await press(screen.getByTestId('staple-save'));
     // Stała bez ilości (decyzja właściciela z 8.10.2026, PWD-19 A).
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Jajka' } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Jajka' } }]);
     await fireEvent.changeText(screen.getByTestId('staple-name'), 'jajka');
     await fireEvent(screen.getByTestId('staple-name'), 'submitEditing');
     expect(screen.getByText('Ta pozycja już jest na liście stałych.')).toBeTruthy();
@@ -116,11 +118,11 @@ describe('stałe zakupy', () => {
     // Mydło czeka na liście, mleko jest w koszyku (PWD-19 A: też „już na liście”) — brakuje tylko jajek.
     expect(screen.getByTestId('staples-add').props.accessibilityLabel).toBe('Dodaj stałe (1)');
     await press(screen.getByTestId('staples-add'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: 'Jajka' } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } }, { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mleko' } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Jajka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(within(card()).getByText('Wszystkie stałe zakupy są już na liście.')).toBeTruthy();
     await press(screen.getByTestId('staples-edit'));
     await press(screen.getByLabelText('Usuń ze stałych: Mydło'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } }]);
     expect(screen.queryByLabelText('Usuń ze stałych: Mydło')).toBeNull();
   });
 
@@ -136,9 +138,9 @@ describe('stałe zakupy', () => {
     const { store } = await openList(base((x) => put(x, 'lists', 'lz', { ...x.lists!.lz!, staples: ['Mydło'] })));
     await press(screen.getByLabelText(/^Mydło(,|$)/));
     await press(screen.getByText('Usuń ze stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } }]);
     await press(screen.getByLabelText(/^jabłek(,|$)/));
     await press(screen.getByText('Dodaj do stałych'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'jabłek' } });
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'jabłek' } }]);
   });
 });

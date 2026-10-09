@@ -5,7 +5,7 @@ import { Linking } from 'react-native';
 import { config } from '../../config';
 import type { DeviceCalendarSync } from '../device-calendar';
 import { RootStack } from '../navigation';
-import { appStateEvents, put, sampleBase, setup } from './harness';
+import { expectOps, appStateEvents, put, sampleBase, setup } from './harness';
 
 /** Przełącznik iOS w wierszu Ustawień (M-308, PWD-39 A). */
 const toggle = async (el: ReturnType<typeof screen.getByLabelText>, on: boolean) => {
@@ -288,7 +288,7 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.getByTestId('event-location').props.value).toBe('Przychodnia, ul. Zdrowa 2');
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ group_id: 'gf', set: { title: 'Dentysta', start_date: '2026-10-07', start_time: '16:00', end_time: '17:00', location: 'Przychodnia, ul. Zdrowa 2' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Dentysta', start_date: '2026-10-07', start_time: '16:00', end_time: '17:00', rrule: null, audience: 'group', responsible_member_id: null, location: 'Przychodnia, ul. Zdrowa 2' } }]);
     await screen.findByTestId('screen-today');
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     expect(screen.getByTestId('today-hidden-2026-10-07')).toBeTruthy();
@@ -303,7 +303,7 @@ describe('kalendarz iPhone’a', () => {
     sync.createEvent.mockImplementationOnce(() => new Promise<string>((r) => (release = () => r('ev-1'))));
     const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarMirror: '1' }));
     await waitFor(() => expect(sync.createEvent).toHaveBeenCalledTimes(1), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
-    store.pull((b) => ({ ...b, events: { ...b.events, ev1: { ...b.events!.ev1!, title: 'Tańce towarzyskie' } } }));
+    await act(async () => store.pull((b) => ({ ...b, events: { ...b.events, ev1: { ...b.events!.ev1!, title: 'Tańce towarzyskie' } } })));
     await act(async () => new Promise((r) => setTimeout(r, config.calendar.MIRROR_DEBOUNCE_MS + 200)));
     await act(async () => release());
     await waitFor(() => expect(sync.updateEvent).toHaveBeenCalledWith('ev-1', expect.objectContaining({ title: 'Tańce towarzyskie' })), { timeout: 3000 });
@@ -330,7 +330,7 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, days: 3 } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, end_time: null, rrule: null, audience: 'group', responsible_member_id: null, days: 3 } }]);
     await screen.findByTestId('screen-today');
     // Oryginał z iPhone'a jest teraz dublem w każdym dniu (także kolejnym).
     await press(screen.getByLabelText('Następny dzień'));
@@ -350,6 +350,6 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { start_time: '18:00', end_time: '16:00', duration_min: 46 * 60 } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Wyjazd', start_date: '2026-10-07', start_time: '18:00', end_time: '16:00', rrule: null, audience: 'group', responsible_member_id: null, duration_min: 46 * 60 } }]);
   });
 });

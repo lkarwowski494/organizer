@@ -12,7 +12,7 @@ import type { Occurrence } from '../../domain/views/events';
 import { OccurrencePicker } from '../../features/events/OccurrencePicker';
 import { TransportError } from '../../sync/transport';
 import { RootStack } from '../navigation';
-import { answerAlert, fakeAccount, lastAlert, ME, put, sampleBase, setup } from './harness';
+import { answerAlert, expectOps, fakeAccount, lastAlert, ME, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => fireEvent.changeText(el, text);
@@ -161,7 +161,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     expect(screen.queryByTestId('member-tymek')).toBeNull();
     expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto z grupy: Tymek')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'group_members', id: 'tymek' });
+    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'tymek' }, { kind: 'restore', entity: 'group_members', id: 'tymek' }]);
     expect(await screen.findByTestId('member-tymek')).toBeTruthy();
   });
 

@@ -7,7 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { quickAddOps } from '../../app/quickadd';
+import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
@@ -17,7 +17,7 @@ import { useAppData, useServices } from '../../app/context';
 import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
-import { localNow } from '../../app/clock';
+import { localNow } from '../../domain/local-time';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';

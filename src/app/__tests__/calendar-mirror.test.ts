@@ -1,6 +1,6 @@
 /** Lustro grup w kalendarzu iPhone'a (D95) na atrapie kalendarza; zamiana wydarzeń iPhone'a na dni (toDeviceEvent). */
 import type { Row } from '../../domain/sync-engine/client';
-import { clearMirror, loadMirror, MIRROR_KEY, MIRROR_SKIP_KEY, ownedIn, runMirror } from '../calendar-mirror';
+import { clearMirror, loadMirror, MIRROR_KEY, MIRROR_SKIP_KEY, ownedIn, removeMirrorCalendars, runMirror } from '../calendar-mirror';
 import { type DeviceCalendarSync, toDeviceEvent } from '../device-calendar';
 
 jest.mock('expo-calendar', () => ({}));
@@ -51,6 +51,11 @@ function fakeSync() {
     deleteEvent: jest.fn(async (id: string) => void events.delete(id)),
   } as unknown as jest.Mocked<DeviceCalendarSync>;
   return { sync, calendars, events, titles };
+}
+
+function memPrefs(init: Record<string, string> = {}) {
+  const m = new Map(Object.entries(init));
+  return { m, get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) };
 }
 
 function memLocal(init: Record<string, string> = {}) {
@@ -107,6 +112,79 @@ describe('lustro grup (D95)', () => {
     expect(local.m.has(MIRROR_KEY)).toBe(false);
   });
 
+  it('audyt 2 (M-156): nieudane usunięcie kalendarza, który nadal jest — zostaje do ponowienia; już go nie ma — znika z listy', async () => {
+    const { sync, calendars } = fakeSync();
+    const prefs = memPrefs();
+    const owned = ownedIn(prefs);
+    const local = memLocal();
+    const t = tables();
+    await runMirror(sync, local, t, ME, today, { owned });
+    expect([...calendars]).toEqual(['cal-1']);
+    // Grupa poza lustrem, a iPhone odmawia usunięcia: kalendarz zostaje w stanie i na liście.
+    sync.deleteCalendar.mockRejectedValueOnce(new Error('odmowa'));
+    put(t, 'groups', 'gf', { ...t.groups!.gf!, deleted_at: '2026-10-08T10:00:00Z' });
+    await runMirror(sync, local, t, ME, today, { owned });
+    expect(loadMirror(local).calendars).toEqual({ gf: 'cal-1' });
+    expect(await owned.get()).toEqual(['cal-1']);
+    // Następny przebieg ponawia i się udaje.
+    await runMirror(sync, local, t, ME, today, { owned });
+    expect([...calendars]).toEqual([]);
+    expect(loadMirror(local).calendars).toEqual({});
+    expect(await owned.get()).toEqual([]);
+    // Pozostałość innego konta: odmowa — zostaje na liście; błąd, bo już jej nie ma — znika z listy.
+    calendars.add('stary');
+    await owned.set(['stary', 'zniknal']);
+    sync.deleteCalendar.mockRejectedValueOnce(new Error('odmowa')).mockRejectedValueOnce(new Error('nie ma'));
+    await runMirror(sync, memLocal(), tables(), ME, today, { owned });
+    expect((await owned.get()).sort()).toEqual(['cal-3', 'stary']);
+    // Sprawdzenie, czy kalendarz jest, też zawodzi — zostaje (nie zgubimy kalendarza na iPhonie).
+    sync.deleteCalendar.mockRejectedValueOnce(new Error('odmowa'));
+    sync.hasCalendar.mockRejectedValueOnce(new Error('brak dostępu'));
+    await clearMirror(sync, memLocal({ [MIRROR_KEY]: JSON.stringify({ calendars: { gf: 'stary' }, events: {} }) }), owned);
+    expect((await owned.get()).sort()).toEqual(['cal-3', 'stary']);
+  });
+
+  it('wydarzenie, którego iPhone nie usunie (już go nie ma), znika ze stanu; wydarzenia innej grupy zostają', async () => {
+    const { sync } = fakeSync();
+    const local = memLocal();
+    const t = tables();
+    put(t, 'groups', 'gk', { id: 'gk', name: 'Klasa', kind: 'shared', created_at: '2026-03-01T00:00:00Z', deleted_at: null });
+    put(t, 'group_members', 'mk', { member_id: 'mk', group_id: 'gk', user_id: ME, display_name: 'Łukasz', role: 'member', deleted_at: null });
+    put(t, 'events', 'e2', { ...t.events!.e1!, id: 'e2', group_id: 'gk', title: 'Wywiadówka' });
+    await runMirror(sync, local, t, ME, today);
+    expect(Object.keys(loadMirror(local).events)).toHaveLength(2);
+    sync.deleteEvent.mockRejectedValueOnce(new Error('nie ma'));
+    put(t, 'events', 'e1', { ...t.events!.e1!, deleted_at: '2026-10-08T10:00:00Z' });
+    expect(await runMirror(sync, local, t, ME, today)).toEqual({ created: 0, updated: 0, removed: 1 });
+    expect(Object.values(loadMirror(local).events).map((e) => e.calendarId)).toEqual([loadMirror(local).calendars.gk]);
+    // Grupa poza lustrem: znikają tylko jej wydarzenia ze stanu.
+    put(t, 'events', 'e1', { ...t.events!.e1!, deleted_at: null });
+    await runMirror(sync, local, t, ME, today);
+    put(t, 'groups', 'gk', { ...t.groups!.gk!, deleted_at: '2026-10-08T10:00:00Z' });
+    await runMirror(sync, local, t, ME, today);
+    expect(Object.values(loadMirror(local).events).map((e) => e.calendarId)).toEqual([loadMirror(local).calendars.gf]);
+  });
+
+  it('D172 przy wylogowaniu: usunięte znikają z listy, nieusunięte zostają; bez zgody, listy albo prefs — nic', async () => {
+    const { sync, calendars } = fakeSync();
+    const prefs = memPrefs();
+    const owned = ownedIn(prefs);
+    calendars.add('a').add('b');
+    await owned.set(['a', 'b']);
+    sync.deleteCalendar.mockRejectedValueOnce(new Error('odmowa'));
+    await removeMirrorCalendars({ add: jest.fn(), sync }, prefs);
+    expect(await owned.get()).toEqual(['a']);
+    expect([...calendars]).toEqual(['a']);
+    sync.status.mockResolvedValueOnce('denied' as never);
+    await removeMirrorCalendars({ add: jest.fn(), sync }, prefs);
+    expect([...calendars]).toEqual(['a']);
+    await removeMirrorCalendars({ add: jest.fn(), sync }, undefined);
+    await removeMirrorCalendars({ add: jest.fn() }, prefs);
+    await owned.set([]);
+    await removeMirrorCalendars({ add: jest.fn(), sync }, prefs);
+    expect(sync.deleteCalendar).toHaveBeenCalledTimes(2);
+  });
+
   it('błędny albo obcy zapis stanu — zaczynamy od zera', () => {
     expect(loadMirror(memLocal({ [MIRROR_KEY]: 'nie json' }))).toEqual({ calendars: {}, events: {} });
     expect(loadMirror(memLocal({ [MIRROR_KEY]: '{"x":1}' }))).toEqual({ calendars: {}, events: {} });
@@ -114,10 +192,6 @@ describe('lustro grup (D95)', () => {
 });
 
 describe('lustro: audyt 2 (M-27, M-97, M-220)', () => {
-  const memPrefs = (init: Record<string, string> = {}) => {
-    const m = new Map(Object.entries(init));
-    return { m, get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) };
-  };
 
   it('miejsce i znacznik Organizera w wydarzeniu; zmiana nazwy grupy zmienia nazwę kalendarza', async () => {
     const { sync, events, titles } = fakeSync();

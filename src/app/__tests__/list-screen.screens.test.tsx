@@ -13,7 +13,7 @@ import { palettes } from '../../config/theme';
 import type { Row } from '../../domain/sync-engine/client';
 import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { answerAlert, lastAlert, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, lastAlert, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -94,11 +94,11 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     const n = alerts();
     await press(screen.getByLabelText('Włóż do koszyka: Chleb żytni'));
     expect(alerts()).toBe(n);
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } }]);
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('W koszyku: Chleb żytni')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } }]);
     expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
     // Zadanie na liście zadań — dalej z pytaniem „Zrobione?” (D59).
     await press(screen.getByLabelText('Wróć'));
@@ -160,7 +160,11 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     expect(screen.getByTestId('trip-plan')).toBeTruthy();
     expect(screen.queryByText('Masło')).toBeNull();
     await press(within(bar).getByLabelText('Cofnij'));
-    expect(store.dispatched.slice(-3)).toEqual([
+    expectOps(store, [
+      // „Zakupy zrobione”: kupione do kosza, plan zakupów wyzerowany, wiersz zrobionych zakupów (PWD-11 A).
+      { kind: 'delete', entity: 'tasks', id: 's-maslo' },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null } },
+      { kind: 'create', entity: 'shopping_trips', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', planned_date: '2026-10-07', done_at: '2026-10-07T08:00:00.000Z' } },
       // PWD-11 A: wiersz zrobionych zakupów wraca do kosza (nie ma go w Kalendarzu).
       { kind: 'delete', entity: 'shopping_trips', id: 'new-1' },
       { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } },
@@ -284,13 +288,13 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     expect(screen.getByTestId('list-rename').props.value).toBe('Dom');
     await fireEvent.changeText(screen.getByTestId('list-rename'), ' Dom i ogród ');
     await fireEvent(screen.getByTestId('list-rename'), 'blur');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom i ogród' } });
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom i ogród' } }]);
     expect(screen.getAllByText('Dom i ogród').length).toBeGreaterThan(0);
     // Bez wyjścia z pola: zapis przy opuszczeniu ekranu.
     await fireEvent.changeText(screen.getByTestId('list-rename'), 'Dom 2');
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-lists');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom 2' } });
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom 2' } }]);
     expect(screen.getByLabelText('Dom 2, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
   });
 
@@ -312,19 +316,19 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     expect(name.props.maxLength).toBe(500);
     await fireEvent.changeText(name, 'Chleb żytni 2');
     await fireEvent(name, 'submitEditing');
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb żytni 2' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb żytni 2' } }]);
     expect(within(screen.getByTestId('task-s-chleb')).getByText(/^2 · czeka na wysłanie$/)).toBeTruthy();
     // Zmiana bez zatwierdzenia, potem „Gotowe” — panel się zamyka i zapisuje.
     await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Chleb razowy 1 szt.');
     await press(within(screen.getByTestId('item-panel')).getByLabelText('Gotowe'));
     expect(screen.queryByTestId('item-panel')).toBeNull();
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb razowy 1 szt.' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb razowy 1 szt.' } }]);
     expect(screen.getByLabelText(/^Chleb razowy(,|$)/)).toBeTruthy();
     // Zmiana nazwy, potem wybór działu (panel się zamyka) — oba zapisane.
     await press(screen.getByLabelText(/^Chleb razowy(,|$)/));
     await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Bułki');
     await press(within(screen.getByTestId('item-panel')).getByRole('radio', { name: 'Pieczywo' }));
-    expect(store.dispatched.slice(-2)).toEqual([
+    expectOps(store, [
       { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { category: 'bakery' } },
       { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Bułki' } },
     ]);
@@ -356,14 +360,15 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
     await press(radio('Kiedy', 'Bez terminu'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
     expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
     expect(screen.queryByText(/Najpierw ustaw/)).toBeNull();
     // Osoba, a potem znowu „Nikt konkretny” — też bez blokady.
     await press(radio('Dla kogo', 'Ala'));
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: 'ala' } }]);
     await press(radio('Dla kogo', 'Nikt konkretny'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } }]);
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
   });
 
@@ -376,7 +381,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     await press(radio('Grupa', 'Rodzina'));
     expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w Moich sprawach. Wybierz osobę („Dla kogo”) albo ustaw termin.');
     await press(screen.getByTestId('form-save'));
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'nowy odkurzacz', deadline_mode: 'none' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'nowy odkurzacz', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
   });
 
@@ -404,7 +409,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     expect(screen.queryByText(/We wspólnej grupie wybierz osobę albo dzień/)).toBeNull();
     expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByTestId('trip-save'));
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lzp', set: { due_date: null, due_time: null, responsible_member_id: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lzp', set: { due_date: null, due_time: null, responsible_member_id: null } }]);
   });
 });
 

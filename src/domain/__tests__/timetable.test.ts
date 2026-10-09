@@ -337,7 +337,8 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
     task(t, 'kopia', { event_id: 'nowa', occurrence_date: '2026-10-12', series_id: 'def' });
     const r = save(t, (l) => ({ ...l, day: 1 }), { until: '2026-10-20', keepUntil: false });
     expect(r.ops).toEqual([
-      { kind: 'patch', entity: 'events', id: 'nowa', set: { title: 'Chemia', start_date: '2026-10-13', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020' } },
+      // Tylko to, co zmieniłem w planie (dzień i koniec) — nazwa i godziny bez zmian nie idą (synchronizacja per pole).
+      { kind: 'patch', entity: 'events', id: 'nowa', set: { start_date: '2026-10-13', rrule: 'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261020' } },
       { kind: 'delete', entity: 'event_overrides', id: 'wolne' },
       { kind: 'patch', entity: 'tasks', id: 'daleko', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } },
       { kind: 'delete', entity: 'tasks', id: 'kopia' },
@@ -350,6 +351,27 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
     expect(t.tasks!.daleko).toMatchObject({ event_id: 'nowa', occurrence_date: '2026-10-26', deadline_mode: 'event' });
     expect(t.tasks!.odczynnik).toMatchObject({ occurrence_date: '2026-10-12' });
     expect([t.tasks!.kopia!.deleted_at, t.tasks!['nowa-kopia']!.deleted_at, t.event_overrides!.wolne!.deleted_at]).toEqual([null, expect.stringMatching(/^pending:\d+$/), null]);
+  });
+
+  it('seria, która jeszcze się nie zaczęła: sama nazwa — tylko title; cofnięcie też tylko nazwa (zmiana godziny z drugiego telefonu zostaje)', () => {
+    const t = base();
+    les(t, 'nowa', { title: 'Chemia', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' });
+    const r = save(t, (l) => ({ ...l, title: 'Chemia rozszerzona' }));
+    expect(r.ops).toEqual([{ kind: 'patch', entity: 'events', id: 'nowa', set: { title: 'Chemia rozszerzona' } }]);
+    run2(t, r.ops);
+    run2(t, [{ kind: 'patch', entity: 'events', id: 'nowa', set: { start_time: '09:00', end_time: '09:45' } }]);
+    expect(r.undo(t)).toEqual([{ kind: 'patch', entity: 'events', id: 'nowa', set: { title: 'Chemia' } }]);
+    // Sama godzina — para godzin.
+    expect(save(base2(), (l) => ({ ...l, end: '08:50' })).ops).toEqual([{ kind: 'patch', entity: 'events', id: 'nowa', set: { start_time: '08:00', end_time: '08:50' } }]);
+    // Lekcja bez końca: sama nazwa — dalej tylko title.
+    const open = base();
+    les(open, 'nowa', { title: 'Chemia', start_date: '2026-10-12', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=MO' });
+    expect(save(open, (l) => ({ ...l, title: 'Chemia 2' })).ops).toEqual([{ kind: 'patch', entity: 'events', id: 'nowa', set: { title: 'Chemia 2' } }]);
+    function base2() {
+      const x = base();
+      les(x, 'nowa', { title: 'Chemia', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' });
+      return x;
+    }
   });
 
   it('para: ta sama nazwa albo te same dni i godziny; nowa lekcja bez pary — nowa seria', () => {

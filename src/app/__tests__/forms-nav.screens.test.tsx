@@ -3,11 +3,11 @@
  * kroki” (M-117), wybór osoby w dużej grupie (PWD-30), walidacja po naciśnięciu (PWD-5), ekran imienia (M-242), zadania
  * na ekranie wydarzenia (M-130, PWD-7), wiersz wydarzenia z iPhone'a (M-253).
  */
-import { fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { DEFAULT_GROUP_KEY, LAST_USED_GROUP_KEY } from '../default-group';
 import { RootStack } from '../navigation';
-import { put, sampleBase, setup } from './harness';
+import { expectOps, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const selected = (group: string, name: string) => within(screen.getByLabelText(group)).getByLabelText(name).props.accessibilityState.selected;
@@ -54,21 +54,25 @@ describe('M-131: rzeczy, której nie ma — powód zamiast „Spróbuj jeszcze r
     const s = await open();
     await press(screen.getByLabelText(/^Odebrać paczkę,/));
     await screen.findByTestId('screen-task');
-    s.store.pull((b) => {
-      const tasks = { ...b.tasks };
-      delete tasks['t-paczka'];
-      return { ...b, tasks };
-    });
+    await act(async () =>
+      s.store.pull((b) => {
+        const tasks = { ...b.tasks };
+        delete tasks['t-paczka'];
+        return { ...b, tasks };
+      }),
+    );
     expect(await screen.findByText('Tego zadania już nie ma — ktoś je usunął albo nie masz już do niego dostępu.')).toBeTruthy();
     expect(screen.queryByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Lists'));
     await press(await screen.findByTestId('list-lf'));
-    s.store.pull((b) => {
-      const lists = { ...b.lists };
-      delete lists.lf;
-      return { ...b, lists };
-    });
+    await act(async () =>
+      s.store.pull((b) => {
+        const lists = { ...b.lists };
+        delete lists.lf;
+        return { ...b, lists };
+      }),
+    );
     expect(await screen.findByText('Tej listy już nie ma — ktoś ją usunął albo nie masz już do niej dostępu.')).toBeTruthy();
   });
 });
@@ -83,7 +87,7 @@ describe('ekran grupy: „Następne kroki”, dziecko, puste listy', () => {
     await screen.findByTestId('screen-group');
     // W Klasie jestem członkiem — karta pokazuje się tylko tym, którzy zapraszają.
     expect(screen.queryByTestId('next-steps')).toBeNull();
-    s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mk: { ...b.group_members!.mk!, role: 'admin' } } }));
+    await act(async () => s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mk: { ...b.group_members!.mk!, role: 'admin' } } })));
     expect(await screen.findByTestId('next-steps')).toBeTruthy();
     await press(screen.getByTestId('next-new-shopping'));
     expect(await screen.findByText('Nowa lista zakupów')).toBeTruthy();
@@ -102,7 +106,7 @@ describe('ekran grupy: „Następne kroki”, dziecko, puste listy', () => {
     await fireEvent.changeText(screen.getByTestId('child-name'), 'Ola');
     expect(screen.queryByTestId('child-error')).toBeNull();
     await fireEvent(screen.getByTestId('child-name'), 'submitEditing');
-    expect(s.store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'group_members', set: expect.objectContaining({ display_name: 'Ola' }) });
+    expectOps(s.store, [{ kind: 'create', entity: 'group_members', id: 'new-1', group_id: 'gf', set: { member_id: 'new-1', display_name: 'Ola', role: 'child' } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('group-gk'));
     expect(await screen.findByText('Brak list. Dodaj listę zakupów albo zadań.')).toBeTruthy();

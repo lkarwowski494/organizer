@@ -29,7 +29,7 @@ import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodTitle, Screen, Stati
 import { DayNumber } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
-import { localNow } from '../../app/clock';
+import { localNow } from '../../domain/local-time';
 import { GroupFilterBar, useGroupFilter } from '../../app/group-filter';
 import { useRowMeta } from '../../app/row-meta';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
