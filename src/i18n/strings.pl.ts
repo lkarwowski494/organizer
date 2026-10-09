@@ -310,8 +310,9 @@ export const strings = {
   'task.subtasks': 'Podzadania',
   'task.addSubtask': 'Dodaj podzadanie',
   'task.delete': 'Usuń zadanie',
-  'task.restore': 'Cofnij usunięcie',
-  'task.deleted': 'Zadanie usunięte',
+  // Audyt 3 (N-36, N-131): ekran zadania przeniesionego do innej grupy (null — grupa, do której nie należę).
+  'task.movedAway': (group: string | null) => (group === null ? 'To zadanie przeniesiono do innej grupy.' : `To zadanie przeniesiono do grupy „${group}”.`),
+  'task.openMoved': 'Otwórz zadanie',
 
   // Audyt 3 (N-166): wskazuje przyciski pod spodem, zamiast listy „Dom”, której nic nie podpowiada.
   'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.',
@@ -761,6 +762,7 @@ export const strings = {
   'rejected.code.cycle': 'Przeniesienie utworzyłoby pętlę zadań',
   'rejected.code.depth': 'Za głębokie zagnieżdżenie podzadań',
   'rejected.code.other': 'Zmiana niezgodna z danymi na serwerze',
+  'rejected.code.moved': 'Zadanie przeniesiono do innej grupy — jest tam, nie w koszu',
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
@@ -774,6 +776,8 @@ export const strings = {
   'rejected.op.cmd': 'Polecenie',
   // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
   'rejected.cmd.move_task': 'Przeniesienie zadania',
+  'rejected.cmd.move_task_to_group': (title: string) => `Przeniesienie do innej grupy: „${title}”`,
+  'rejected.cmd.unmove_task': (title: string) => `Cofnięcie przeniesienia do innej grupy: „${title}”`,
   'rejected.cmd.split_event': (title: string) => `Zmiana „to i następne”: „${title}”`,
   // Audyt 3 (N-3): koniec serii na całym łańcuchu i jego cofnięcie.
   'rejected.cmd.end_series': (title: string) => `Odwołanie serii: „${title}”`,
@@ -836,6 +840,8 @@ export const strings = {
 
   // Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151).
   'trash.info': (days: number) => `Usunięte rzeczy czekają tu ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}, potem znikają na dobre. Przywrócić może ten, kto ma prawo je zmieniać.`,
+  // Audyt 3 (N-36): ekran rzeczy w koszu — z terminem jak w koszu („W koszu · usunięcie za 30 dni”).
+  'trash.inTrash': 'W koszu',
   'trash.kind.group': 'Grupy',
   'trash.kind.list': 'Listy',
   'trash.kind.task': 'Zadania',

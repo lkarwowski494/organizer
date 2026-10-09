@@ -529,3 +529,77 @@ describe('model reguł serwera', () => {
     });
   });
 });
+
+describe('przeniesienie do innej grupy jednym poleceniem (audyt 3: N-12, N-131; pgTAP move_task_to_group.test.sql)', () => {
+  const AT = '2026-10-07T10:00:00Z';
+  /** Druga grupa właściciela: Klasa (lista ogólna lk, usunięta lk-del), w niej też członek, ale bez dziecka. */
+  const two = () => {
+    const t = world();
+    t.groups!.gk = { id: 'gk', name: 'Klasa', deleted_at: null };
+    t.group_members!['k-o'] = { member_id: 'k-o', group_id: 'gk', user_id: U.owner, role: 'owner', display_name: 'O', deleted_at: null };
+    t.group_members!['k-m'] = { member_id: 'k-m', group_id: 'gk', user_id: U.member, role: 'member', display_name: 'M', deleted_at: null };
+    t.lists!.lk = { id: 'lk', group_id: 'gk', kind: 'tasks', name: 'Ogólne', visibility: 'group', owner_member_id: 'k-o', deleted_at: null };
+    t.lists!['lk-del'] = { ...t.lists!.lk, id: 'lk-del', deleted_at: '2026-10-01T00:00:00Z' };
+    t.tasks!['t-subm'] = { ...t.tasks!.t!, id: 't-subm', parent_id: 't-member', title: 'pod' };
+    return t;
+  };
+  const cp = (id: string, from: string, list: string, extra: Row = {}) => ({ id, from, set: { list_id: list, parent_id: null, title: from, ...extra } });
+  const mv = (task: string, group: string, tasks: Row[], list: Row | null = null): NewOp => ({ kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: task, group_id: group, list, tasks } });
+  const un = (task: string, copy: string): NewOp => ({ kind: 'cmd', cmd: 'unmove_task', args: { task_id: task, copy_id: copy, title: 'x' } });
+
+  it('odrzucenia przed zapisami: niewidoczne, dziecko, ta sama grupa, podzadanie, w koszu, kształt kopii', () => {
+    const t = two();
+    expect(v(U.stranger, mv('t-member', 'gk', [cp('c', 't-member', 'lk')]), t)).toBe('not_found');
+    expect(v(U.child, mv('t-member', 'gk', [cp('c', 't-member', 'lk')]), t)).toBe('forbidden:child');
+    expect(v(U.owner, mv('t-member', 'g', [cp('c', 't-member', 'l')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-subm', 'gk', [cp('c', 't-subm', 'lk')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-del', 'gk', [cp('c', 't-del', 'lk')]), t)).toBe('deleted');
+    expect(v(U.owner, mv('t-member', 'gk', []), t)).toBe('invalid_value');
+    expect(v(U.owner, { kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: 't-member' } }, t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-subm', 'lk')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk', { parent_id: 'x' })]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk'), cp('c2', 't', 'lk')]), t)).toBe('invalid_value');
+    // Kopia o id istniejącego zadania (utworzenie = powtórzenie) — nie.
+    expect(v(U.owner, mv('t-member', 'gk', [cp('t', 't-member', 'lk')]), t)).toBe('invalid_value');
+  });
+
+  it('N-12: pierwsze odrzucenie kroku odrzuca całe polecenie', () => {
+    const t = two();
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk-del')]), t)).toBe('deleted:list');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'nl'), { ...cp('c2', 't-subm', 'nl', { assignee_member_id: M.member }), set: { list_id: 'nl', parent_id: 'c', title: 'pod', assignee_member_id: M.member } }], { id: 'nl', set: { kind: 'tasks', name: 'Ogólne' } }), t)).toBe('invalid_assignee');
+    expect(t.lists!.nl).toBeUndefined();
+  });
+
+  it('przyjęte: kopie, oryginał w koszu ze znacznikiem; przywrócenie — „moved”; „Cofnij” i jego odrzucenia', () => {
+    const t = two();
+    const op = mv('t-member', 'gk', [cp('c', 't-member', 'lk', { assignee_member_id: 'k-m' }), { id: 'c2', from: 't-subm', set: { list_id: 'lk', parent_id: 'c', title: 'pod' } }]);
+    expect(v(U.owner, op, t)).toBe('ok');
+    applyOnServer(t, U.owner, op, AT);
+    expect(t.tasks!['t-member']).toMatchObject({ deleted_at: AT, moved_to: 'c' });
+    expect(t.tasks!['t-subm']!.deleted_at).toBe(AT);
+    expect(t.tasks!.c2).toMatchObject({ group_id: 'gk', parent_id: 'c', deleted_at: null });
+    expect(v(U.owner, del('tasks', 't-member', 'restore'), t)).toBe('moved');
+    expect(v(U.owner, un('t-member', 'inna'), t)).toBe('invalid_value');
+    expect(v(U.child, un('t-member', 'c'), t)).toBe('forbidden:child');
+    expect(v(U.owner, un('brak', 'c'), t)).toBe('not_found');
+    expect(v(U.owner, { kind: 'cmd', cmd: 'unmove_task', args: {} }, t)).toBe('invalid_value');
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('ok');
+    applyOnServer(t, U.owner, un('t-member', 'c'), AT);
+    expect(t.tasks!['t-member']).toMatchObject({ deleted_at: null, moved_to: null });
+    expect(t.tasks!.c).toMatchObject({ deleted_at: AT, moved_to: 't-member' });
+    expect(v(U.owner, del('tasks', 'c', 'restore'), t)).toBe('moved');
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('ok');
+  });
+
+  it('bez tabeli zadań — nie ma czego przenieść', () => {
+    expect(v(U.owner, mv('t', 'gk', [cp('c', 't', 'lk')]), { groups: world().groups })).toBe('not_found');
+  });
+
+  it('cofnięcie, gdy kopii już nie widzę, a żyje — „moved”', () => {
+    const t = two();
+    const op = mv('t-member', 'gk', [cp('c', 't-member', 'lk')]);
+    applyOnServer(t, U.owner, op, AT);
+    t.group_members!['k-o'] = { ...t.group_members!['k-o']!, deleted_at: AT };
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('moved');
+  });
+});
