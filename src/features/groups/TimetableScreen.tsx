@@ -6,7 +6,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
@@ -21,8 +21,8 @@ import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps,
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
+import { BackButton, Body, Button, Card, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
@@ -34,7 +34,7 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(1);
 export function TimetableScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
+  const { c,  } = useTheme();
   const undo = useUndo();
   const d = groupDetail(tables, userId, route.params.groupId);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
@@ -118,16 +118,12 @@ export function TimetableScreen({ route, navigation }: Props) {
             const wd = WEEKDAYS_NOMINATIVE[day]!;
             const a11y = (field: string) => strings['timetable.fieldA11y'](field, n, wd);
             return (
-              <View key={i} style={{ gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: error?.index === i ? c.danger : c.border }}>
+              <Card kind="panel" key={i} style={{ borderColor: error?.index === i ? c.danger : c.border }}>
                 <Field label={strings['timetable.lesson']} accessibilityLabel={strings['timetable.lessonA11y'](n, wd)} value={l.title} onChangeText={(title) => set(i, { title })} testID={`lesson-title-${i}`} />
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <TimeField label={strings['event.start']} a11yLabel={a11y(strings['event.start'])} value={l.start} onChange={(start) => set(i, { start })} testID={`lesson-start-${i}`} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <TimeField label={strings['timetable.end']} a11yLabel={a11y(strings['timetable.end'])} value={l.end} onChange={(end) => set(i, { end })} testID={`lesson-end-${i}`} />
-                  </View>
-                </View>
+                <TimeFieldPair
+                  start={{ label: strings['event.start'], a11yLabel: a11y(strings['event.start']), value: l.start, onChange: (start) => set(i, { start }), testID: `lesson-start-${i}` }}
+                  end={{ label: strings['timetable.end'], a11yLabel: a11y(strings['timetable.end']), value: l.end, onChange: (end) => set(i, { end }), testID: `lesson-end-${i}` }}
+                />
                 <Segmented
                   label={strings['timetable.week']}
                   a11yLabel={a11y(strings['timetable.week'])}
@@ -140,7 +136,7 @@ export function TimetableScreen({ route, navigation }: Props) {
                   ]}
                 />
                 <Button kind="danger" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
-              </View>
+              </Card>
             );
           })}
           <Button kind="secondary" label={strings['timetable.add'](WEEKDAYS_NOMINATIVE[day]!)} testID={`lesson-add-${day}`} onPress={() => add(day)} />
@@ -148,9 +144,9 @@ export function TimetableScreen({ route, navigation }: Props) {
       ))}
       <DateField label={strings['timetable.until']} value={until} onChange={setUntil} today={today} testID="timetable-until" />
       {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
+        <ErrorText>
           {error.text}
-        </Text>
+        </ErrorText>
       ) : null}
       <Button label={strings['timetable.save']} onPress={() => save()} testID="timetable-save" />
     </Screen>

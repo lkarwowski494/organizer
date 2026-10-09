@@ -6,14 +6,14 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams, SettingsSection } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, NavRow, Screen, SectionTitle, Segmented, SyncChip, Title } from '../../ui/components';
-import { useAppearance, useTheme } from '../../ui/theme';
+import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwitchRow, SyncChip, Title } from '../../ui/components';
+import { useAppearance,  } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { useTravel } from '../../app/travel';
@@ -43,7 +43,6 @@ export function SettingsScreen({ navigation, route }: Props) {
   const addGroups = quickGroups(tables, userId, strings['groups.personal']);
   // Ustawionej grupy już nie ma — działa (i widać) „Ostatnio użyta”, jak w startGroup.
   const defaultValue = addGroups.some((g) => g.id === defaultGroup.setting) ? defaultGroup.setting : LAST_USED;
-  const { c, font } = useTheme();
   const [deleting, setDeleting] = useState(false);
   const [word, setWord] = useState('');
   const [busy, setBusy] = useState(false);
@@ -160,15 +159,8 @@ export function SettingsScreen({ navigation, route }: Props) {
               onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
               options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m }))}
             />
-            <Segmented
-              label={strings['reminders.leave']}
-              value={reminders.settings.leave === false ? 'off' : 'on'}
-              onChange={(v) => reminders.setSettings({ ...reminders.settings, leave: v === 'on' })}
-              options={[
-                { value: 'on', label: strings['reminders.leave.on'] },
-                { value: 'off', label: strings['reminders.leave.off'] },
-              ]}
-            />
+            {/* M-308 (PWD-39 A): włącz/wyłącz — systemowy przełącznik w wierszu. */}
+            <SwitchRow label={strings['reminders.leave']} value={reminders.settings.leave !== false} onChange={(on) => reminders.setSettings({ ...reminders.settings, leave: on })} testID="switch-reminders-leave" />
             <Body muted>{strings['reminders.leaveInfo']}</Body>
             <Body muted>{strings['reminders.info']}</Body>
             <MuteSettings />
@@ -194,15 +186,15 @@ export function SettingsScreen({ navigation, route }: Props) {
           {calendar.available && calendar.status === 'granted' ? (
             <View testID="device-settings" style={{ gap: 10 }}>
               <SectionTitle>{strings['device.title']}</SectionTitle>
-              <Segmented label={strings['device.read']} value={calendar.read ? 'on' : 'off'} onChange={(v) => calendar.setRead(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
-              <Segmented label={strings['device.mirror']} value={calendar.mirror ? 'on' : 'off'} onChange={(v) => calendar.setMirror(v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+              <SwitchRow label={strings['device.read']} value={calendar.read} onChange={calendar.setRead} testID="switch-device-read" />
+              <SwitchRow label={strings['device.mirror']} value={calendar.mirror} onChange={calendar.setMirror} testID="switch-device-mirror" />
               <Body muted>{strings['device.mirrorInfo']}</Body>
               {/* D174: wybór grup w lustrze (w bazie konta). */}
               {calendar.mirror && calendar.groups.length ? (
                 <View testID="device-mirror-groups" style={{ gap: 10 }}>
                   <Body muted>{strings['device.mirrorGroups']}</Body>
                   {calendar.groups.map((g) => (
-                    <Segmented key={g.id} label={g.name} value={g.mirrored ? 'on' : 'off'} onChange={(v) => calendar.setGroupMirrored(g.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+                    <SwitchRow key={g.id} label={g.name} value={g.mirrored} onChange={(on) => calendar.setGroupMirrored(g.id, on)} testID={`switch-mirror-${g.id}`} />
                   ))}
                 </View>
               ) : null}
@@ -210,7 +202,7 @@ export function SettingsScreen({ navigation, route }: Props) {
                 <View testID="device-calendars" style={{ gap: 10 }}>
                   <Body muted>{strings['device.calendarsInfo']}</Body>
                   {calendar.calendars.map((cal) => (
-                    <Segmented key={cal.id} label={cal.title} value={cal.read ? 'on' : 'off'} onChange={(v) => calendar.setCalendarRead(cal.id, v === 'on')} options={[{ value: 'on', label: strings['device.on'] }, { value: 'off', label: strings['device.off'] }]} />
+                    <SwitchRow key={cal.id} label={cal.title} value={cal.read} onChange={(on) => calendar.setCalendarRead(cal.id, on)} testID={`switch-calendar-${cal.id}`} />
                   ))}
                 </View>
               ) : null}
@@ -221,7 +213,7 @@ export function SettingsScreen({ navigation, route }: Props) {
             <Segmented label={strings['travel.navApp']} value={travel.navApp} onChange={travel.setNavApp} options={[{ value: 'apple', label: strings['travel.apple'] }, { value: 'google', label: strings['travel.google'] }]} />
             {travel.available ? (
               <>
-                <Segmented label={strings['travel.enabled']} value={travel.enabled ? 'on' : 'off'} onChange={(v) => void travel.setEnabled(v === 'on')} options={[{ value: 'on', label: strings['travel.on'] }, { value: 'off', label: strings['travel.off'] }]} />
+                <SwitchRow label={strings['travel.enabled']} value={travel.enabled} onChange={(on) => void travel.setEnabled(on)} testID="switch-travel" />
                 {travel.status === 'denied' ? <Body muted>{strings['travel.denied']}</Body> : null}
                 {/* M-218: „Pozwól raz” wygasło — włączony dojazd bez zgody nic nie liczy. */}
                 {travel.enabled && travel.status === 'undetermined' ? (
@@ -266,7 +258,7 @@ export function SettingsScreen({ navigation, route }: Props) {
             <View style={{ gap: 8 }}>
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
               <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" />
-              {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</Text> : null}
+              {error ? <ErrorText>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</ErrorText> : null}
               <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={busy || word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} onPress={del} testID="delete-confirm" />
               <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
             </View>

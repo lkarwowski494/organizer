@@ -5,7 +5,7 @@ import { formatLongDate, parseIsoDate } from '../../domain/format';
 import type { CivilDate } from '../../domain/civil-date';
 import type { HandoffItem } from '../../domain/views/handoffs';
 import { strings } from '../../i18n/strings.pl';
-import { Button, SectionTitle } from '../../ui/components';
+import { Button, Card, SectionTitle } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: { incoming: HandoffItem[]; declined: HandoffItem[]; today: CivilDate; onDecide: (h: HandoffItem, accept: boolean) => void; onClose: (h: HandoffItem) => void }) {
@@ -16,11 +16,11 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
     return h.date ? `${title} (${formatLongDate(parseIsoDate(h.date), today)})` : title;
   };
   const card = (h: HandoffItem, text: string, buttons: React.ReactNode) => (
-    <View key={h.id} testID={`handoff-${h.id}`} style={{ gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, borderLeftWidth: 6, borderLeftColor: line(h.line).line, backgroundColor: c.surface }}>
+    <Card key={h.id} testID={`handoff-${h.id}`} style={{ borderLeftWidth: 6, borderLeftColor: line(h.line).line }}>
       <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{text}</Text>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{h.groupName}</Text>
       <View style={{ flexDirection: 'row', gap: 8 }}>{buttons}</View>
-    </View>
+    </Card>
   );
   return (
     <View testID="handoff-inbox" style={{ gap: 8 }}>

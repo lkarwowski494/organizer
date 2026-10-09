@@ -21,6 +21,7 @@ import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
 import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
+import { Glyph } from './glyph';
 import { useTheme } from './theme';
 
 export type UndoOptions = {
@@ -67,12 +68,21 @@ type Undo = {
 };
 const UndoContext = createContext<Undo>({ show: () => {}, recent: [], undoRecent: () => 'gone', bindOpenRecent: () => {} });
 
+/**
+ * Wysokość widocznego paska „Cofnij” (0 — brak paska). Screen dodaje tyle miejsca pod treścią (audyt 2, M-149), żeby
+ * pasek nie zasłaniał ostatnich przycisków, np. „Usuń listę” po usunięciu ostatniej pozycji.
+ */
+const UndoBarContext = createContext(0);
+export const useUndoBarHeight = () => useContext(UndoBarContext);
+
 type Bar = { message: string; onUndo?: () => void; action: string; n: number; entry: number | null };
 
 export function UndoProvider({ children, nowMs = Date.now, backend }: { children: ReactNode; nowMs?: () => number; backend?: UndoBackend }) {
-  const { c, font, size } = useTheme();
+  const { c, font, size, layout, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const [bar, setBar] = useState<Bar | null>(null);
+  // Zmierzona wysokość paska (rośnie z Dynamic Type); do pierwszego pomiaru — najmniejsza.
+  const [barHeight, setBarHeight] = useState<number>(layout.UNDO_BAR_MIN_HEIGHT);
   // D194 b: lista z bazy konta (przeżywa ponowne uruchomienie).
   const [records, setRecords] = useState<readonly RecentRecord[]>(() => parseRecent(backend?.load() ?? null));
   const [reader, setReader] = useState(false);
@@ -167,50 +177,56 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
   const message = bar ? (
     <>
       <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.META, color: c.inverseInk }}>{bar.message}</Text>
-      {link ? <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>›</Text> : null}
+      {link ? <Glyph name="next" color={c.inverseInk} /> : null}
     </>
   ) : null;
   return (
     <UndoContext.Provider value={value}>
-      <View style={{ flex: 1 }}>
-        {children}
-        {bar ? (
-          <View
-            testID="undo-bar"
-            accessibilityLiveRegion="polite"
-            style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 72, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 16, paddingRight: 6, minHeight: 52, borderRadius: 14, backgroundColor: c.inverseBg }}
-          >
-            {/* Treść paska otwiera „Ostatnie zmiany” (D194), gdy pasek jest zmianą do cofnięcia. */}
-            {link ? (
-              <Pressable
-                ref={focus}
-                testID="undo-message"
-                accessibilityRole="button"
-                accessibilityLabel={bar.message}
-                accessibilityHint={strings['recent.openHint']}
-                onPress={() => (setBar(null), link())}
-                style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+      <UndoBarContext.Provider value={bar ? barHeight : 0}>
+        <View style={{ flex: 1 }}>
+          {children}
+          {bar ? (
+            // M-294: na iPadzie pasek tej samej szerokości co treść ekranu, wyśrodkowany.
+            <View pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + layout.UNDO_BAR_OFFSET, alignItems: 'center' }}>
+              <View
+                testID="undo-bar"
+                accessibilityLiveRegion="polite"
+                onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}
+                style={{ width: '100%', maxWidth: layout.CONTENT_MAX_WIDTH, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 16, paddingRight: 6, minHeight: layout.UNDO_BAR_MIN_HEIGHT, borderRadius: radius.PANEL, backgroundColor: c.inverseBg }}
               >
-                {message}
-              </Pressable>
-            ) : (
-              <View ref={focus} testID="undo-message" accessible accessibilityLabel={bar.message} style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {message}
+                {/* Treść paska otwiera „Ostatnie zmiany” (D194), gdy pasek jest zmianą do cofnięcia. */}
+                {link ? (
+                  <Pressable
+                    ref={focus}
+                    testID="undo-message"
+                    accessibilityRole="button"
+                    accessibilityLabel={bar.message}
+                    accessibilityHint={strings['recent.openHint']}
+                    onPress={() => (setBar(null), link())}
+                    style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    {message}
+                  </Pressable>
+                ) : (
+                  <View ref={focus} testID="undo-message" accessible accessibilityLabel={bar.message} style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {message}
+                  </View>
+                )}
+                {bar.onUndo ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel={bar.action} onPress={() => press(bar)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{bar.action}</Text>
+                  </Pressable>
+                ) : null}
+                {reader ? (
+                  <Pressable testID="undo-close" accessibilityRole="button" accessibilityLabel={strings['common.close']} onPress={() => setBar(null)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 10, justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{strings['common.close']}</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            )}
-            {bar.onUndo ? (
-              <Pressable accessibilityRole="button" accessibilityLabel={bar.action} onPress={() => press(bar)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center' }}>
-                <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{bar.action}</Text>
-              </Pressable>
-            ) : null}
-            {reader ? (
-              <Pressable testID="undo-close" accessibilityRole="button" accessibilityLabel={strings['common.close']} onPress={() => setBar(null)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 10, justifyContent: 'center' }}>
-                <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{strings['common.close']}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+            </View>
+          ) : null}
+        </View>
+      </UndoBarContext.Provider>
     </UndoContext.Provider>
   );
 }

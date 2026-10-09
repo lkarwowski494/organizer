@@ -91,10 +91,10 @@ const defaultTimer: Timer = (fn, ms) => {
 const NO_ERROR_UTILS = { getGlobalHandler: () => () => {}, setGlobalHandler: () => {} };
 
 function Loading() {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ground }}>
-      <Text style={{ fontFamily: font.text600, color: c.inkMuted }}>{strings['app.loading']}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings['app.loading']}</Text>
     </View>
   );
 }

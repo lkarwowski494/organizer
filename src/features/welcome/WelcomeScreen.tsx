@@ -9,7 +9,7 @@ import { Text, View } from 'react-native';
 import { useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Screen, Title } from '../../ui/components';
+import { Body, Button, Card, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
@@ -36,13 +36,13 @@ export function WelcomeScreen({ navigation }: Props) {
     return (
       <Screen testID="screen-welcome">
         {dots}
-        <Text accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: 34, lineHeight: 38, color: c.ink, marginTop: 24 }}>
-          {strings[`welcome.${step}.title` as 'welcome.0.title']}
-        </Text>
-        <Body>{strings[`welcome.${step}.body` as 'welcome.0.body']}</Body>
-        <View style={{ padding: 16, borderRadius: 18, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-          <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings[`welcome.${step}.example` as 'welcome.0.example']}</Text>
+        <View style={{ marginTop: 24 }}>
+          <Title role="INTRO">{strings[`welcome.${step}.title` as 'welcome.0.title']}</Title>
         </View>
+        <Body>{strings[`welcome.${step}.body` as 'welcome.0.body']}</Body>
+        <Card>
+          <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings[`welcome.${step}.example` as 'welcome.0.example']}</Text>
+        </Card>
         <Button label={strings['welcome.next']} testID="welcome-next" onPress={() => setStep(step + 1)} />
         <Button kind="secondary" label={strings['welcome.skip']} testID="welcome-skip" onPress={() => setStep(STEPS)} />
       </Screen>

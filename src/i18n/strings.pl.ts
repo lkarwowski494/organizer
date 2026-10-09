@@ -163,8 +163,6 @@ export const strings = {
   'travel.lateBody': (min: number) => `Masz ${formatMinutes(min)} spóźnienia — wyjdź teraz`,
   'travel.section': 'Dojazd',
   'travel.enabled': 'Czas dojazdu do najbliższych wydarzeń',
-  'travel.on': 'Włączony',
-  'travel.off': 'Wyłączony',
   'travel.defaultMode': 'Zwykle jadę',
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
@@ -333,6 +331,8 @@ export const strings = {
   'calendar.next': 'Następny miesiąc',
   'calendar.dayA11y': (date: string, n: number, holiday: string | null, events = 0) =>
     `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}`,
+  /** Dzisiejszy dzień w siatce Kalendarza i mini kalendarza — VoiceOver mówi „dziś” (audyt 2, M-140). */
+  'calendar.todayA11y': (label: string) => `Dziś, ${label}`,
   'calendar.empty': 'Tego dnia nic nie ma.',
   'calendar.addEvent': 'Dodaj wydarzenie',
 
@@ -770,8 +770,6 @@ export const strings = {
   // PWD-18 (decyzja właściciela 8.10.2026): wyciszenie dotyczy tylko przypisań — nazwa i dopisek mówią to wprost.
   'mutes.section': 'Powiadomienia o przypisaniach',
   'mutes.info': 'Gdy ktoś przypisze Ci zadanie, zakupy albo wydarzenie, dostaniesz powiadomienie. Możesz to wyciszyć dla wybranej grupy. Przypomnienia i przekazania (do przyjęcia) przychodzą zawsze.',
-  'mutes.on': 'Włączone',
-  'mutes.off': 'Wyciszone',
   'mutes.error': 'Nie udało się zmienić ustawień — sprawdź internet.',
   'trip.title': (list: string) => `Zakupy: ${list}`,
   'trip.section': 'Zakupy',
@@ -801,8 +799,6 @@ export const strings = {
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,
   'device.continued': 'cd.',
   'device.allDay': 'cały dzień',
-  'device.on': 'Włączone',
-  'device.off': 'Wyłączone',
   'device.read': 'Moje wydarzenia z iPhone’a w aplikacji',
   'device.mirror': 'Wydarzenia grup w kalendarzu iPhone’a',
   'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” ze sprawami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
@@ -842,8 +838,6 @@ export const strings = {
   'reminders.morning.off': 'Wyłączone',
   // PWD-17 (decyzja właściciela 8.10.2026): „Czas wyjść” osobno od przypomnień przed sprawą.
   'reminders.leave': 'Czas wyjść',
-  'reminders.leave.on': 'Włączone',
-  'reminders.leave.off': 'Wyłączone',
   'reminders.leaveInfo': 'O godzinie wyjścia na wydarzenie z miejscem, gdy liczysz czas dojazdu (Ustawienia → Kalendarz i dojazd). Wyłączone — zwykłe przypomnienie przed wydarzeniem.',
   'reminders.info': 'Przypomnienia działają, gdy w Ustawieniach iPhone’a Organizer ma włączone powiadomienia.',
   'push.enable': 'Włącz powiadomienia',
