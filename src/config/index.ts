@@ -384,13 +384,6 @@ export const config = {
   URL_SCHEME: 'io.github.lkarwowski494.organizer',
 
   /**
-   * Od tego dnia (UTC) brak sekretu SUPABASE_MONITOR_TOKEN oblewa nocne zadanie free-limits (D185, audyt 3 N-83):
-   * bez sekretu nic nie jest mierzone ani podtrzymywane, więc zielony przebieg nie może tego ukrywać. Wybór projektowy:
-   * tydzień od wdrożenia skryptu (9.10.2026) na dodanie sekretu przez właściciela.
-   */
-  LIMITS_MONITOR_TOKEN_REQUIRED_FROM: '2026-10-16',
-
-  /**
    * Progi ostrzeżeń dla darmowych limitów (ok. 70% limitu).
    * Źródła limitów: supabase.com/pricing, docs.github.com (billing, limits) — sprawdzone 5–6.10.2026.
    */
@@ -402,6 +395,11 @@ export const config = {
     edgeFunctionInvocationsPerMonthWarn: 350_000, // limit 500 tys.
     supabaseIdleDaysWarn: 5, // pauza po 7 dniach bezczynności
     actionsCacheBytesWarn: 8 * 1024 ** 3, // limit 10 GB
+    // Artefakty Actions: limit GitHub Free 500 MB (czy dotyczy repo publicznego — do potwierdzenia, audyt 3 N-106).
+    actionsArtifactsBytesWarn: 350 * 1024 * 1024,
+    // Od tego dnia (UTC) brak sekretu SUPABASE_MONITOR_TOKEN oblewa nocny pomiar (audyt 3, N-83): bez sekretu nic nie
+    // jest mierzone ani podtrzymywane. Wybór projektowy: tydzień od wdrożenia skryptu (9.10.2026) na dodanie sekretu.
+    monitorSecretRequiredFrom: '2026-10-16',
     testflightBuildAgeDaysWarn: 80, // build wygasa po 90 dniach
   },
 } as const;

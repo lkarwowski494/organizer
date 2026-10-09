@@ -9,7 +9,8 @@
 # żadnych sekretów ani środowisk (build symulatora nie jest podpisywany i nie łączy się z serwerem).
 # Decyzja właściciela 8.10.2026 (audyt 2, M-79, PW-48 A): zadanie macOS tylko dla push na main, harmonogramu, ręcznego
 # uruchomienia i PR z tego repozytorium (PR z forka sprawdza tylko składnię scenariuszy); artefakt to wyłącznie zrzuty
-# ekranu (z obrazami różnic) i koniec logu xcodebuild — bez pełnego logu, logów Maestro i bez aplikacji (.app); 7 dni.
+# ekranu (z obrazami różnic) i koniec logu xcodebuild — bez pełnego logu, logów Maestro i bez aplikacji (.app); 7 dni nocą
+# i ręcznie, 2 dni przy push i PR (audyt 3, N-106).
 # Warianty zrzutów (PWD-38 B, audyt 2 M-307): 2 telefony × 2 tryby kolorów × 2 rozmiary tekstu (scripts/e2e/run-matrix.sh);
 # przy push i PR tylko wariant bazowy (szybka informacja), nocą i ręcznie wszystkie 8. Audyt dostępności XCUITest na każdym
 # ekranie (D186, audyt 2 M-153, scripts/e2e/a11y-audit.sh) — jak różnice zrzutów: nocą i ręcznie oblewa przebieg.
@@ -140,5 +141,7 @@ jobs:
         with:
           name: e2e-${{ github.run_number }}-${{ github.run_attempt }}
           path: e2e-artifacts/
-          retention-days: 7
+          # Audyt 3 (N-106): limit artefaktów GitHub Free 500 MB (czy dotyczy repo publicznego — do potwierdzenia,
+          # docs/limits.md; pomiar w nightly.yml → free-limits). Nocą i ręcznie 7 dni, przy push i PR 2 dni.
+          retention-days: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 7 || 2 }}
           if-no-files-found: warn

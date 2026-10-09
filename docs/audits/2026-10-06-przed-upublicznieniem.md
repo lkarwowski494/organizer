@@ -31,3 +31,15 @@ gałąź `main`, brak tagów.
 | Ustawienia Actions | potwierdzenie właściciela (zrzuty ekranu, 13:37–13:40) | lista dozwolonych akcji: GitHub + `gitleaks/gitleaks-action@*`; wymagane przypięcie do SHA; forki bez tokenów zapisu i bez sekretów, przebiegi z forków za zgodą |
 
 Repozytorium przełączone na publiczne przez właściciela 6.10.2026 (potwierdzone przez API bez logowania).
+
+## Lista kontrolna kolejnych audytów (przed upublicznieniem każdego repozytorium projektu)
+
+Ten sam zakres co wyżej, a do tego (audyt 3, 9.10.2026):
+- Skan historii ze scaleniami: `gitleaks git --log-opts="--all -m"` (bez `-m` zmiany wniesione w samym scaleniu
+  przechodzą — N-84); to samo robi co noc `nightly.yml` (`.github/scripts/gitleaks-range.sh --all`).
+- **Ręczny przegląd identyfikatorów właściciela** (N-260): reguła `personal-email` w `.gitleaks.toml` łapie tylko pełne
+  adresy z domeną, a sama część lokalna adresu, prywatne imię i nazwisko czy numer telefonu przechodzą. Listę
+  identyfikatorów (część lokalna adresu, warianty imienia i nazwiska, numer telefonu) trzymaj w pliku **poza
+  repozytorium** i przeszukaj nią całą historię i bieżące pliki, bez wypisywania trafień do publicznych logów:
+  `git log --all -m -p | grep -i -c -F -f ~/prywatne-identyfikatory.txt` oraz `git grep -i -n -F -f ~/prywatne-identyfikatory.txt`.
+  Wynik przekaż właścicielowi; listy nie dopisuj do reguł gitleaks, bo plik konfiguracji jest publiczny.
