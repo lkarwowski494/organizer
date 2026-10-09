@@ -575,6 +575,10 @@ describe('przeniesienie do innej grupy jednym poleceniem (audyt 3: N-12, N-131; 
     expect(v(U.owner, un('t-member', 'c'), t)).toBe('ok');
   });
 
+  it('bez tabeli zadań — nie ma czego przenieść', () => {
+    expect(v(U.owner, mv('t', 'gk', [cp('c', 't', 'lk')]), { groups: world().groups })).toBe('not_found');
+  });
+
   it('cofnięcie, gdy kopii już nie widzę, a żyje — „moved”', () => {
     const t = two();
     const op = mv('t-member', 'gk', [cp('c', 't-member', 'lk')]);
