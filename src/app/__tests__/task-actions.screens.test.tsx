@@ -76,7 +76,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
     await press(screen.getByLabelText('Usuń: Kupić kwiaty'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.queryByTestId('task-t-kwiaty')).toBeNull();
-    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto zadanie: Kupić kwiaty')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'restore', entity: 'tasks', id: 't-kwiaty' }]);
     expect(screen.getByTestId('task-t-kwiaty')).toBeTruthy();
@@ -90,7 +90,7 @@ describe('usuwanie przesunięciem z „Cofnij” (D60)', () => {
       await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
       await press(screen.getByLabelText('Usuń: Odebrać paczkę'));
       expect(screen.getAllByTestId('undo-bar')).toHaveLength(1);
-      expect(screen.getByText('Usunięto: Odebrać paczkę')).toBeTruthy();
+      expect(screen.getByText('Usunięto zadanie: Odebrać paczkę')).toBeTruthy();
       await act(async () => jest.advanceTimersByTime(config.UNDO_MS - 1));
       expect(screen.getByTestId('undo-bar')).toBeTruthy();
       await act(async () => jest.advanceTimersByTime(1));

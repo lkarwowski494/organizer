@@ -66,6 +66,25 @@ Zmienia punkty 3 i 4 decyzji wykonawczych.
 - **W jednym terminie można wybrać „nikt konkretny”** (`event_overrides.responsible_cleared`, M-94); wskazana osoba wygrywa ze znacznikiem. To zmienia punkt 2 ADR 0011.
 - **Odwołany termin można przywrócić** z ekranu wydarzenia.
 
+## Dopisek: łańcuch serii — jedna seria dla użytkownika (audyt 3, 9.10.2026)
+Po „to i następne” seria to łańcuch części (`split_from`). Dotąd zakresy „Całą serię” i „Ten i następne” działały tylko na
+części, z której otwarto termin. Teraz (migracja `20261010050000_series_chain`, telefon `src/domain/event-chain.ts`):
+- **Koniec serii to jedno polecenie `end_series`** (N-3): „Usuń całą serię” — wszystkie części do kosza; „Odwołaj ten
+  i następne” — część z tym dniem kończy się dzień wcześniej, późniejsze części do kosza (ich stałe zadania przechodzą do
+  części, która zostaje), a wyjątki i odpowiedzi o obecności z terminów, które znikają, do kosza (N-117) — także odpowiedzi
+  innych osób, więc tylko serwer. „Cofnij” to polecenie `restore_series` z wierszami, które polecenie zabrało.
+- **„Zmień wszystkie” zmienia każdą część** tylko w polach zmienionych w formularzu; nowe dni tygodnia — w każdej części od
+  jej początku, z jej końcem. **„Ten i następne”** przed wcześniejszym podziałem zmienia też późniejsze części (`follow`
+  w `split_event`, N-22), a pola, których nie zmieniałem, nowa część bierze z obecnego stanu serii (N-135).
+- **Koniec serii w formularzu to koniec ostatniej części** (N-21); część, która zaczynałaby się po nowym końcu, idzie do kosza.
+- **Spóźnione zapisy** (telefon bez pobranego podziału: obecność, odwołanie, zadanie, przekazanie terminu) przechodzą do
+  części, która ma ten dzień — wyzwalacze `chain_repoint` i to samo na telefonie (N-23).
+- **Przekazanie całej serii** przyjmuje się na każdej części, która jeszcze trwa (N-113); przekazania odwołanego terminu nie
+  ma czego przyjąć (`stale`), a odbiorca go nie widzi, dopóki termin się nie odbywa (N-115).
+- Ekran grupy: jeden wiersz na serię (N-116). Build 21 nie zna nowych poleceń — jego zwykłe operacje działają jak dotąd.
+- Odrzucone: na terminie starej części tylko „Tylko ten termin” (półśrodek: „Usuń całą serię” z nowej części dalej zostawia
+  starą); odrzucanie spóźnionych zapisów kodem `stale` (wymaga ponownej czynności, a dzień jednoznacznie wskazuje część).
+
 ## Do zrobienia później
 - D13: zadania przypięte do wystąpienia wydarzenia (np. „spakować strój” przed tańcami). → zrobione w ADR 0008.
 - Przypomnienia o wydarzeniach (push). → zrobione: przypomnienia lokalne D75 (ADR 0016) i push do osoby odpowiedzialnej D88 (ADR 0018).
