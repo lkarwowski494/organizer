@@ -12,6 +12,7 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { createList } from '../../domain/views/commands';
 import { formGroups } from '../../domain/views/task-form';
+import { choicesError, sanitizeListDraft } from '../../domain/views/form-choices';
 import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { strings } from '../../i18n/strings.pl';
@@ -37,7 +38,10 @@ export function NewListScreen({ route, navigation }: Props) {
   const personal = group?.kind === 'personal';
   const [draft, setDraft] = useState<TripDraft>({ date: '', time: '', responsibleId: null });
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Utwórz” zostawia wpisane pola (app/form-draft).
-  const saved = useFormDraft('list:new', { name, kind, groupId, visibility, trip: draft }, { name: setName, kind: setKind, groupId: setGroupId, visibility: setVisibility, trip: setDraft });
+  // Audyt 3: przywrócony szkic bez grupy, osoby i minionego dnia zakupów, których już nie ma (N-32, N-144).
+  const saved = useFormDraft('list:new', { name, kind, groupId, visibility, trip: draft }, { name: setName, kind: setKind, groupId: setGroupId, visibility: setVisibility, trip: setDraft }, {
+    sanitize: (d, init) => sanitizeListDraft(tables, userId, today, d, init),
+  });
   const trip = readTrip(draft);
   const shopping = kind === 'shopping';
   const tripError = shopping && 'error' in trip ? trip.error : null;
@@ -50,6 +54,10 @@ export function NewListScreen({ route, navigation }: Props) {
   const missing = name.trim() === '' ? strings['lists.error.nameEmpty'] : groupId === '' ? strings['form.error.group'] : tripError ? tripError : tripMissing ? strings['trip.required'] : null;
   const create = () => {
     if (missing) return setError(missing);
+    // Audyt 3 (N-32): grupa albo osoba zmienione w trakcie wypełniania (serwer odrzuciłby listę).
+    const responsible = shopping && 'trip' in trip ? trip.trip.responsibleId : null;
+    const gone = choicesError(tables, userId, { groupId, adults: responsible ? [responsible] : [] });
+    if (gone) return setError(gone.error === 'group' ? strings['form.error.groupGone'] : strings['form.error.peopleGone'](gone.names));
     const id = newId();
     saved.saved();
     defaultGroup.remember(groupId);

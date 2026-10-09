@@ -109,4 +109,15 @@ export function asTask(r: Row): Task {
   };
 }
 
+/**
+ * Chwila usunięcia w ms (audyt 3, N-171). Usunięcie jeszcze niewysłane ma znacznik „pending:N” (applyOp) — liczy się od
+ * `nowMs`. Rozpoznajemy go jawnie: Date.parse('pending:5') w V8 (testy, Node) daje datę z 2001 r., a 'pending:2500' — rok
+ * 2500; Hermes zwraca NaN. Brak albo nieczytelny znacznik — też `nowMs`.
+ */
+export function stampMs(at: unknown, nowMs: number): number {
+  if (typeof at !== 'string' || at.startsWith('pending:')) return nowMs;
+  const ms = Date.parse(at);
+  return Number.isFinite(ms) ? ms : nowMs;
+}
+
 export const rows = <T>(t: Tables, e: string, f: (r: Row) => T): T[] => Object.values(t[e] ?? {}).map(f);

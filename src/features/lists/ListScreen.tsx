@@ -23,9 +23,10 @@ import { useTaskActions } from '../../app/task-actions';
 import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDoneRows, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
+import { InTrashScreen } from '../groups/TrashSection';
 import { strings } from '../../i18n/strings.pl';
 import { buttonA11y, useA11yFocus, useClosedPanel } from '../../ui/a11y';
-import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -109,10 +110,9 @@ export function ListScreen({ route, navigation }: Props) {
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
   const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)), { empty: strings['lists.error.nameEmpty'] });
 
+  // Audyt 3 (N-36): usunięta — jak kosz („W koszu · Przywróć”, gdy kosz by ją pokazał), inaczej „Tej listy już nie ma”.
   if (!detail) {
-    return (
-      <MissingScreen testID="screen-list-missing" text={strings['missing.list']} onBack={() => navigation.goBack()} />
-    );
+    return <InTrashScreen entity="lists" id={route.params.listId} missing={strings['missing.list']} testID="screen-list" onBack={() => navigation.goBack()} />;
   }
   const { list } = detail;
   const shopping = list.kind === 'shopping';
@@ -331,7 +331,7 @@ export function ListScreen({ route, navigation }: Props) {
         <QuickAddField inputRef={quickInput} value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null), setDup(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (
-            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
+            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay, farDate: parsed.farDate }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
           ) : (
             <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} />
           )}
