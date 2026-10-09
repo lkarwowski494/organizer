@@ -118,7 +118,7 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
           ))}
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
           {error ? <ErrorText>{error}</ErrorText> : null}
-          <Button label={strings['common.add']} testID="staple-save" onPress={save} />
+          <Button label={strings['common.add']} a11yLabel={strings['shop.stapleSaveA11y']} testID="staple-save" onPress={save} />
           <Button kind="secondary" label={strings['common.finish']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
         </>
       ) : (

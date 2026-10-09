@@ -8,7 +8,7 @@ import { Share } from 'react-native';
 
 import { config } from '../../config';
 import { RootStack } from '../navigation';
-import { fakeAccount, put, sampleBase, setup, expectOps } from './harness';
+import { fakeAccount, put, sampleBase, setup, expectOps, TOGGLE_BOX } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 type Base = ReturnType<typeof sampleBase>;
@@ -136,12 +136,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
     expect(screen.getByText('Rodzina · dziecko · ma własne konto')).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
-    await press(screen.getByRole('radio', { name: 'Członek' }));
+    await press(screen.getByRole('button', { name: 'Członek' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { role: 'member' } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('member-ala'));
     await screen.findByTestId('screen-member');
-    await press(screen.getByRole('radio', { name: 'Dziecko' }));
+    await press(screen.getByRole('button', { name: 'Dziecko' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'child' } }]);
   });
 
@@ -162,8 +162,8 @@ describe('telefon dziecka z kontem', () => {
     expect(screen.getByLabelText(/^Przynieść korki na trening/)).toBeTruthy();
     expect(screen.queryByLabelText(/^Zapłacić składkę/)).toBeNull();
     // Zakupy widać (można otworzyć listę i odhaczać pozycje), ale bez pola „zrobione” — serwer go nie przyjmie.
-    expect(within(screen.getByTestId('today-trip-lks')).queryByRole('checkbox')).toBeNull();
-    expect(within(screen.getByTestId('today-t-korki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('today-trip-lks')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
+    expect(within(screen.getByTestId('today-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
     expect(screen.getByLabelText(/^2 lekcje, 08:00–09:00, Klasa 2b/)).toBeTruthy();
     expect(s.store.dispatched).toEqual([]);
   });
@@ -172,9 +172,9 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: childBase() });
     await press(screen.getByLabelText('Kalendarz'));
     await screen.findByTestId('screen-calendar');
-    expect(within(screen.getByTestId('cal-trip-lks')).queryByRole('checkbox')).toBeNull();
+    expect(within(screen.getByTestId('cal-trip-lks')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     expect(screen.queryByLabelText(/Zapłacić składkę/)).toBeNull();
-    expect(within(screen.getByTestId('cal-t-korki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('cal-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
   });
 
   it('listy i zadanie: pole odhaczenia tylko przy moich sprawach (serwer: forbidden:not_own)', async () => {
@@ -183,16 +183,16 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: b });
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lk'));
-    expect(within(screen.getByTestId('task-t-korki')).getByRole('checkbox')).toBeTruthy();
-    expect(within(screen.getByTestId('task-t-skladka')).queryByRole('checkbox')).toBeNull();
+    expect(within(screen.getByTestId('task-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
+    expect(within(screen.getByTestId('task-t-skladka')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     await press(screen.getByLabelText(/^Zapłacić składkę/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText(/^Oznacz jako zrobione/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lks'));
-    expect(within(screen.getByTestId('task-s-woda')).queryByRole('checkbox')).toBeNull();
-    expect(within(screen.getByTestId('task-s-kanapki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('task-s-woda')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
+    expect(within(screen.getByTestId('task-s-kanapki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
   });
 
   it('grupa: bez „Wyjdź z grupy” — wypisuje owner albo admin', async () => {

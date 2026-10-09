@@ -154,7 +154,7 @@ describe('kalendarz iPhone’a', () => {
     await press(hidden);
     expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
-    expect(screen.getByTestId('today-hidden-2026-10-07').props.accessibilityState).toMatchObject({ expanded: true });
+    expect(screen.getByTestId('today-hidden-2026-10-07').props.accessibilityValue).toEqual({ text: 'rozwinięte' });
     await press(screen.getByTestId('today-hidden-2026-10-07'));
     expect(screen.queryByTestId('today-hidden-2026-10-07-list')).toBeNull();
     await press(screen.getByLabelText('Ustawienia'));

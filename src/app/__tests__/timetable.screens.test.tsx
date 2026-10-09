@@ -11,7 +11,7 @@ async function openTimetable(base = sampleBase()) {
   const s = setup({ base });
   await s.renderApp(<RootStack />);
   await press(screen.getByLabelText('Grupy'));
-  await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
+  await press(await screen.findByLabelText('Rodzina, 3 osoby, administrator'));
   await press(await screen.findByLabelText('Tymek, dziecko'));
   await press(await screen.findByTestId('open-timetable'));
   await screen.findByTestId('screen-timetable');
@@ -25,7 +25,7 @@ describe('plan lekcji (D112)', () => {
     await press(screen.getByTestId('lesson-add-4'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Basen');
     await setTime('lesson-end-0', '09:00');
-    await press(radio('Kiedy, lekcja 1, piątek', 'Tydzień B'));
+    await press(radio('Kiedy, lekcja 1, piątek', 'Tydzień B, Kiedy, lekcja 1, piątek'));
     await press(screen.getByTestId('timetable-save'));
     expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Basen', start_date: '2026-10-09', start_time: '08:00', end_time: '09:00', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR', audience: 'members', responsible_member_id: null, kind: 'lesson' } }, { kind: 'create', entity: 'event_participants', id: 'new-2', group_id: 'gf', set: { event_id: 'new-1', member_id: 'tymek' } }, { kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-09-28' } }]);
   });
@@ -47,7 +47,7 @@ describe('plan lekcji (D112)', () => {
     expect(within(screen.getByTestId('timetable-day-0')).getByText(/^Koniec musi być/)).toBeTruthy();
     expect(screen.getByText(/^Popraw lekcję 2, poniedziałek: Koniec musi być/)).toBeTruthy();
     await setTime('lesson-end-1', '09:30');
-    await press(radio('Kiedy, lekcja 2, poniedziałek', 'Tydzień B'));
+    await press(radio('Kiedy, lekcja 2, poniedziałek', 'Tydzień B, Kiedy, lekcja 2, poniedziałek'));
     await press(screen.getByTestId('lesson-add-2'));
     await press(screen.getAllByText('Usuń lekcję')[2]!);
     await press(screen.getByTestId('timetable-save'));
@@ -145,10 +145,10 @@ describe('plan lekcji (D112)', () => {
     const week = (group: string, option: string) => radio(group, option).props.accessibilityState.selected;
     // 28.09 to tydzień A, więc ten tydzień (5.10) to B, a basen z 5.10 — tydzień B.
     expect(week('Ten tydzień (5–11 października) to', 'Tydzień B')).toBe(true);
-    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień B')).toBe(true);
+    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień B, Kiedy, lekcja 1, poniedziałek')).toBe(true);
     expect(screen.getByText('Zmiana tygodnia nie przesuwa lekcji — zamienia tylko litery A i B.')).toBeTruthy();
     await press(radio('Ten tydzień (5–11 października) to', 'Tydzień A'));
-    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień A')).toBe(true);
+    expect(week('Kiedy, lekcja 1, poniedziałek', 'Tydzień A, Kiedy, lekcja 1, poniedziałek')).toBe(true);
     await press(screen.getByTestId('timetable-save'));
     // Tylko nowa kotwica — lekcje bez zmian.
     expect(store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-10-05' } }]);
@@ -178,7 +178,7 @@ describe('plan lekcji (D112)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby, administrator'));
     await press(await screen.findByLabelText(/^Ala, /));
     await screen.findByTestId('screen-member');
     expect(screen.queryByTestId('open-timetable')).toBeNull();
