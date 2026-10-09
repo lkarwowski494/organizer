@@ -35,7 +35,7 @@ import { extractTag, type ListResolution, type QuickAnswers, resolveListQuick } 
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
-import { asTrip, boughtItems, buyAgainOps, hasTrip, planTrip, tripAdults, tripItems, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
+import { asTrip, boughtItems, buyAgainOps, changeTrip, hasTrip, type Trip, tripAdults, tripItems, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { addStaple, addStaplesOps, categoryMemory, categoryOf, duplicateOf, itemKey, missingStaples, removeStaple, sections, setCategory, staplesOf, suggestions } from '../../domain/views/shopping';
 import { listMarks } from './ListsScreen';
@@ -90,6 +90,8 @@ export function ListScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [ask, setAsk] = useState<{ r: Exclude<ListResolution, { kind: 'ok' }>; answers: ListAnswers } | null>(null);
   const [planning, setPlanning] = useState<TripDraft | null>(null);
+  // Audyt 3 (N-126): zakupy z chwili otwarcia edytora — „Zapisz zakupy” wysyła tylko to, co zmieniłem.
+  const [planFrom, setPlanFrom] = useState<Trip | null>(null);
   const [planTried, setPlanTried] = useState(false);
   const [handing, setHanding] = useState(false);
   // Audyt 3 (N-62): po zamknięciu panelu fokus VoiceOvera wraca na przycisk, który go otworzył (albo do pola po „Anuluj”).
@@ -281,7 +283,10 @@ export function ListScreen({ route, navigation }: Props) {
                 testID="trip-save"
                 onPress={() => {
                   if (planError || planMissing) return setPlanTried(true);
-                  if (planned && 'trip' in planned) store.dispatch(planTrip(list.id, planned.trip));
+                  if (planned && 'trip' in planned) {
+                    const ops = changeTrip(list.id, planFrom ?? trip, planned.trip);
+                    if (ops.length) store.dispatch(ops);
+                  }
                   setPlanning(null);
                   setPlanTried(false);
                 }}
@@ -292,7 +297,7 @@ export function ListScreen({ route, navigation }: Props) {
             <>
               <Body>{strings['trip.summary'](trip.date ? formatDue({ date: trip.date, time: trip.time }, today) : null, who)}</Body>
               <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} />
-              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: tripPerson })} />
+              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => (setPlanFrom(trip), setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: tripPerson }))} />
               {/* Audyt 3 (N-172): bez osoby, która widzi listę („Tylko ja”) — nie ma komu przekazać, więc bez przycisku. */}
               {tripMine && (waiting || handoffTo.length > 0) ? (
                 waiting ? (
@@ -319,7 +324,7 @@ export function ListScreen({ route, navigation }: Props) {
               <Body muted>{strings['trip.none']}</Body>
               {/* Q8 A (N-7): zakupy bez planu też się kończą — kupione schodzą z listy, historia dostaje dzień zrobienia. */}
               {inCart > 0 ? <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} /> : null}
-              <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => setPlanning({ date: '', time: '', responsibleId: null })} />
+              <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => (setPlanFrom(trip), setPlanning({ date: '', time: '', responsibleId: null }))} />
             </>
           )}
         </TripBox>

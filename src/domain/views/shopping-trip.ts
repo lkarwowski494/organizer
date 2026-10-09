@@ -12,7 +12,7 @@
  * przekreślone w ich dniu, jak zrobione zadania (PWD-11 A, audyt 2 M-280; D135).
  */
 import type { NewOp } from '../sync-engine/client';
-import { inverseOps, toggleDone } from './commands';
+import { inverseOps, sameTime, toggleDone } from './commands';
 import { concernsMe, liveMembers, ownPrivateList } from './concerns';
 import { cancelHandoff, handoffKey, outgoingPending } from './handoffs';
 import type { GroupItem, TodayItem } from './index';
@@ -46,6 +46,21 @@ export function tripSet(x: Trip) {
 }
 
 export const planTrip = (listId: string, x: Trip): NewOp => ({ kind: 'patch', entity: 'lists', id: listId, set: tripSet(x) });
+
+/**
+ * „Zapisz zakupy” i „Przenieś zaległe” (audyt 3, N-126; zmiany per pole, D2): tylko pola różne od `was` (zakupy
+ * w chwili otwarcia edytora), więc nie cofam osoby, która w tym czasie przyjęła przekazanie, ani dnia zmienionego na
+ * drugim telefonie. Bez dnia nie ma godziny (lists_time_needs_date), więc zdjęcie dnia zdejmuje też godzinę.
+ */
+export function changeTrip(listId: string, was: Trip, now: Trip): NewOp[] {
+  const set: { [k: string]: unknown } = {};
+  if (now.date !== was.date) set.due_date = now.date;
+  if (now.date === null) {
+    if ('due_date' in set) set.due_time = null;
+  } else if (!sameTime(now.time, was.time)) set.due_time = now.time;
+  if (now.responsibleId !== was.responsibleId) set.responsible_member_id = now.responsibleId;
+  return Object.keys(set).length ? [{ kind: 'patch', entity: 'lists', id: listId, set }] : [];
+}
 
 /** Pozycje listy: niekupione i w koszyku. */
 export function tripItems(t: Tables, listId: string) {

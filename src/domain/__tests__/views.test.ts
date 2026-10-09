@@ -600,6 +600,13 @@ describe('operacje ekranów', () => {
     expect(cmd.patchTask('t', { title: 'x' })).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { title: 'x' } });
     expect(cmd.setDue('t', null)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } });
     expect(cmd.setDue('t', { date: '2026-10-09', time: null })).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: null } });
+    // Audyt 3 (N-126): z terminem z chwili zmiany — tylko zmienione pola; inny dzień z trybem (wraca termin zdjęty w tym czasie).
+    const was = { date: '2026-10-09', time: '17:00:00' };
+    expect(cmd.setDue('t', { date: '2026-10-09', time: '19:30' }, was)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { due_time: '19:30' } });
+    expect(cmd.setDue('t', { date: '2026-10-10', time: '17:00' }, was)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-10' } });
+    expect(cmd.setDue('t', { date: '2026-10-10', time: null }, was)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-10', due_time: null } });
+    expect(cmd.setDue('t', { date: '2026-10-10', time: '08:00' }, null)).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-10', due_time: '08:00' } });
+    expect(cmd.setDue('t', { date: '2026-10-10', time: null }, { date: '2026-10-09', time: null })).toEqual({ kind: 'patch', entity: 'tasks', id: 't', set: { deadline_mode: 'own', due_date: '2026-10-10' } });
     expect(cmd.remove('lists', 'l')).toEqual({ kind: 'delete', entity: 'lists', id: 'l' });
     expect(cmd.restore('tasks', 't')).toEqual({ kind: 'restore', entity: 'tasks', id: 't' });
     expect(cmd.createList({ id: 'l', groupId: 'g', kind: 'shopping', name: 'Z' })).toEqual({ kind: 'create', entity: 'lists', id: 'l', group_id: 'g', set: { kind: 'shopping', name: 'Z', visibility: 'group' } });

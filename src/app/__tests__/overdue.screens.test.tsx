@@ -13,11 +13,11 @@ describe('zaległe na dziś (D111)', () => {
     await screen.findByTestId('screen-today');
     expect(screen.getByText(/zaległe od 3 dni/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('move-overdue'));
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: '09:00:00' } }]);
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-07' } }]);
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Przeniesiono na dziś: 1 zadanie')).toBeTruthy();
     await fireEvent.press(within(bar).getByLabelText('Cofnij'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: '09:00:00' } }, { kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-04', due_time: '09:00:00' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-07' } }, { kind: 'patch', entity: 'tasks', id: 'old', set: { deadline_mode: 'own', due_date: '2026-10-04' } }]);
   });
 
   it('audyt 2 (T-11, P-56): „co miesiąc” liczy się raz; zaległe zakupy też się przenoszą; cofnięcie wszystkiego', async () => {
@@ -30,9 +30,9 @@ describe('zaległe na dziś (D111)', () => {
     expect(screen.getByLabelText('Przenieś zaległe na dziś (2)')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('move-overdue'));
     expect(s.store.dispatched).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-07' } },
       { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=5' } },
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: '18:00:00', responsible_member_id: 'mf' } },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07' } },
     ]);
     expect(screen.queryByText(/zaległe od/)).toBeNull();
     expect(screen.queryByTestId('move-overdue')).toBeNull();
@@ -40,9 +40,9 @@ describe('zaległe na dziś (D111)', () => {
     expect(within(bar).getByText('Przeniesiono na dziś: 2 zadania')).toBeTruthy();
     await fireEvent.press(within(bar).getByLabelText('Cofnij'));
     expect(s.store.dispatched.slice(3)).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-05' } },
       { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { repeat: 'FREQ=MONTHLY' } },
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-06', due_time: '18:00:00', responsible_member_id: 'mf' } },
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-06' } },
     ]);
   });
 
@@ -56,10 +56,10 @@ describe('zaległe na dziś (D111)', () => {
     await screen.findByTestId('screen-today');
     expect(screen.getAllByText(/zaległe od 2 dni/)).toHaveLength(3);
     await fireEvent.press(screen.getByLabelText('Przenieś zaległe na dziś (1)'));
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07' } }]);
     expect(screen.getAllByText(/zaległe od 2 dni/)).toHaveLength(2);
     await fireEvent.press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }, { kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: null } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-07' } }, { kind: 'patch', entity: 'tasks', id: 'moje', set: { deadline_mode: 'own', due_date: '2026-10-05' } }]);
   });
 
   it('audyt 2 (T-11): zaległe z grupy, w której jestem dzieckiem, zostają (serwer by odrzucił) — bez przycisku', async () => {
