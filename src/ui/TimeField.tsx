@@ -61,10 +61,11 @@ export function TimeField({ label, value, onChange, testID, optional, a11yLabel,
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${a11yLabel ?? label}: ${shown}`}
+        // Audyt 2 (M-144, M-141): etykieta to sam podpis, wartość raz; podpowiedź — co zrobi dotknięcie.
+        accessibilityLabel={a11yLabel ?? label}
         accessibilityState={{ expanded: open && !disabled, disabled }}
-        accessibilityValue={{ text: value.trim() }}
-        accessibilityHint={disabledNote}
+        accessibilityValue={{ text: shown }}
+        accessibilityHint={disabledNote ?? strings[open ? 'time.closeHint' : 'time.openHint']}
         testID={testID}
         disabled={disabled}
         onPress={() => (Keyboard.dismiss(), setOpen(!open))}

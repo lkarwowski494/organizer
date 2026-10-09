@@ -14,13 +14,14 @@
  *    działa tylko na Androidzie (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android).
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
 import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
+import { focusLater, pinFocus, useScreenReader } from './a11y';
 import { useTheme } from './theme';
 
 export type UndoOptions = {
@@ -75,7 +76,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
   const [bar, setBar] = useState<Bar | null>(null);
   // D194 b: lista z bazy konta (przeżywa ponowne uruchomienie).
   const [records, setRecords] = useState<readonly RecentRecord[]>(() => parseRecent(backend?.load() ?? null));
-  const [reader, setReader] = useState(false);
+  const reader = useScreenReader();
   const [openRecent, setOpenRecent] = useState<{ fn: () => void } | null>(null);
   const n = useRef(Math.max(0, ...records.map((r) => r.id)));
   // Cofnięcia-funkcje (tylko w tym uruchomieniu).
@@ -87,18 +88,6 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
     backend?.save(JSON.stringify(records));
   }, [records, backend]);
   const recent = useMemo(() => records.map(({ id, message, at, state, lost }) => ({ id, message, at, state, lost })), [records]);
-
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isScreenReaderEnabled()
-      .then((on) => live && setReader(on))
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (on: boolean) => setReader(on));
-    return () => {
-      live = false;
-      sub.remove();
-    };
-  }, []);
 
   const mark = useCallback((id: number, state: RecentRecord['state']) => setRecords((r) => r.map((e) => (e.id === id ? { ...e, state, ...(state === 'undone' ? { undo: null } : {}) } : e))), []);
 
@@ -146,9 +135,11 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
   useEffect(() => {
     if (!bar) return;
     // Przy VoiceOverze fokus na treść paska (czyta ją od razu) i bez znikania (D194).
+    // Pierwszeństwo przed tytułem ekranu, na który zaraz przechodzimy (np. usunięcie na ekranie zadania i powrót).
     if (reader) {
-      const t = setTimeout(() => focus.current && AccessibilityInfo.sendAccessibilityEvent(focus.current, 'focus'), 0);
-      return () => clearTimeout(t);
+      pinFocus(() => focusLater(focus));
+      const cancel = focusLater(focus);
+      return () => (cancel(), pinFocus(null));
     }
     const t = setTimeout(() => setBar((b) => (b?.n === bar.n ? null : b)), config.UNDO_MS);
     return () => clearTimeout(t);

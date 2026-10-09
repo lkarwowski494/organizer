@@ -3,13 +3,15 @@
  * Każdy element dotykowy ma co najmniej sizes.TOUCH_TARGET (44 pt, Apple HIG), etykietę dostępności
  * i rolę; kolor grupy zawsze idzie w parze z jej nazwą.
  */
-import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from 'react-native';
+import { NavigationContext } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
 import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
+import { announce, focusScreenTitle, spoken, useA11yFocus } from './a11y';
 import { useTheme } from './theme';
 
 /**
@@ -18,6 +20,25 @@ import { useTheme } from './theme';
  */
 type SwipeGroup = { opened: (close: () => void) => void; closed: (close: () => void) => void; closeAll: () => void };
 const SwipeContext = createContext<SwipeGroup | null>(null);
+
+/**
+ * Usuwanie przesunięciem jako czynność VoiceOvera wiersza (audyt 2, M-150; standard iOS — pokrętło „Czynności”):
+ * wiersz w SwipeRow (StationRow, EventRow, NavRow) dostaje akcję „Usuń”/„Odwołaj”, a przycisk poza ekranem znika
+ * z kolejności VoiceOvera (był dodatkowym przystankiem po każdym wierszu). RN 0.86 „accessibilityActions … custom
+ * actions” (https://reactnative.dev/docs/0.86/accessibility#accessibility-actions).
+ */
+type SwipeAction = { label: string; run: () => void; claim: () => void };
+const SwipeActionContext = createContext<SwipeAction | null>(null);
+
+function useSwipeAction() {
+  const act = useContext(SwipeActionContext);
+  useEffect(() => act?.claim(), [act]);
+  if (!act) return {};
+  return {
+    accessibilityActions: [{ name: 'delete', label: act.label }],
+    onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => (e.nativeEvent.actionName === 'delete' ? act.run() : undefined),
+  };
+}
 
 function useSwipeGroup(): SwipeGroup {
   const open = useRef<(() => void) | null>(null);
@@ -50,8 +71,11 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
       {scroll ? (
         // D102: klawiatura chowa się przy przewijaniu i po dotknięciu pustego miejsca (keyboardShouldPersistTaps „handled”).
         // D109: pas w kolorze tła pod zegarem i baterią — przewijana treść chowa się pod nim.
+        // Audyt 2 (M-41): pole na dole ekranu nie zostaje pod klawiaturą — RN 0.86 (ScrollView, iOS): „automatically adjust
+        // its contentInset and scrollViewInsets when the Keyboard changes its size”
+        // (https://reactnative.dev/docs/0.86/scrollview#automaticallyadjustkeyboardinsets-ios).
         <View style={style}>
-          <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScrollBeginDrag={swipe.closeAll}>
+          <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets onScrollBeginDrag={swipe.closeAll}>
             {children}
           </ScrollView>
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
@@ -65,10 +89,60 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
   );
 }
 
-export function Title({ children }: { children: string }) {
+/**
+ * Tytuł ekranu. Po wejściu na ekran (koniec przejścia na stosie, także powrót na ten ekran) VoiceOver zaczyna od tytułu,
+ * nie od „Wróć” czy chipu synchronizacji (audyt 2, M-269; HIG: tytuł to pierwsza informacja po wejściu na stronę).
+ * Przełączenie zakładki fokusu nie przenosi (zostaje na zakładce, jak w aplikacjach systemowych).
+ * `a11yFocus` — fokus także po pojawieniu się tytułu na tym samym ekranie (np. ostatni krok Pierwszych kroków, M-44).
+ */
+export function Title({ children, a11yFocus }: { children: string; a11yFocus?: boolean }) {
   const { c, font, size } = useTheme();
+  const ref = useA11yFocus<Text>(null, !!a11yFocus);
+  const navigation = useContext(NavigationContext);
+  useEffect(() => {
+    if (!navigation) return;
+    let cancel = () => {};
+    const subs: (() => void)[] = [];
+    // Ekran zakładki leży w ekranie stosu „Tabs” — przejście ogłasza rodzic.
+    for (let n: typeof navigation | undefined = navigation; n; n = n.getParent()) {
+      subs.push(
+        n.addListener('transitionEnd' as never, (e: { data?: { closing?: boolean } }) => {
+          if (e.data?.closing || !navigation.isFocused()) return;
+          cancel();
+          cancel = focusScreenTitle(ref);
+        }),
+      );
+    }
+    return () => (subs.forEach((u) => u()), cancel());
+  }, [navigation, ref]);
   return (
-    <Text accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: size.TITLE, lineHeight: size.TITLE * 1.05, letterSpacing: -1, color: c.ink }}>
+    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: size.TITLE, lineHeight: size.TITLE * 1.05, letterSpacing: -1, color: c.ink }}>
+      {children}
+    </Text>
+  );
+}
+
+/**
+ * Nagłówek panelu, który pojawia się w miejscu (pytanie, wybór osoby, wybór spotkania). Przycisk, który go otworzył,
+ * zwykle znika, a iOS przenosi wtedy fokus na początek ekranu — więc fokus VoiceOvera przechodzi na nagłówek
+ * (audyt 2, M-44). Ten sam wygląd co dotąd w każdym panelu.
+ */
+export function PanelTitle({ children }: { children: string }) {
+  const { c, font } = useTheme();
+  const ref = useA11yFocus<Text>(children);
+  return (
+    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+      {children}
+    </Text>
+  );
+}
+
+/** Pytanie potwierdzenia w miejscu przycisku („Wyjść z grupy?”) — jak Body, z fokusem VoiceOvera po pojawieniu (M-44). */
+export function ConfirmText({ children }: { children: string }) {
+  const { c, font, size } = useTheme();
+  const ref = useA11yFocus<Text>(children);
+  return (
+    <Text ref={ref} style={{ fontFamily: font.text400, fontSize: size.BODY, color: c.ink, lineHeight: size.BODY * 1.3 }}>
       {children}
     </Text>
   );
@@ -88,14 +162,25 @@ export function Body({ children, muted, style }: { children: ReactNode; muted?: 
   return <Text style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
 }
 
-/** Komunikat o błędzie pod polem albo przyciskiem: czerwony, ogłaszany przez VoiceOver (rola alert). */
-export function ErrorText({ children, testID }: { children: ReactNode; testID?: string }) {
+/**
+ * Komunikat o błędzie pod polem albo przyciskiem: czerwony i ogłaszany przez VoiceOver, gdy się pojawi albo zmieni
+ * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla Androida i testów). Jeden wygląd wszędzie.
+ */
+export function ErrorText({ children, testID, silent }: { children: string; testID?: string; silent?: boolean }) {
   const { c, font } = useTheme();
+  // `silent` — ten sam błąd ogłasza już inny napis (np. „Popraw lekcję…” przy „Zapisz”), bez dwóch ogłoszeń naraz.
+  useEffect(() => (silent ? undefined : announce(children)), [children, silent]);
   return (
     <Text accessibilityRole="alert" testID={testID} style={{ fontFamily: font.text700, color: c.danger }}>
       {children}
     </Text>
   );
+}
+
+/** Potwierdzenie albo stan po czynności („Dodano do kalendarza”, „Wysłano”): zwykły tekst ogłaszany jak błąd (M-39). */
+export function StatusText({ children }: { children: string }) {
+  useEffect(() => announce(children), [children]);
+  return <Body muted>{children}</Body>;
 }
 
 /** Tekst wskaźnika synchronizacji (architektura: 5 stanów + wygasła sesja). */
@@ -116,6 +201,19 @@ export function indicatorLabel(i: Indicator, nowMs: number): string {
     case 'synced':
       return strings['sync.synced'](i.since === null ? null : Math.floor((nowMs - i.since) / 60_000));
   }
+}
+
+const PROBLEM: ReadonlySet<Indicator['state']> = new Set(['offline', 'error', 'auth_expired', 'upgrade_required']);
+
+/**
+ * Co ogłosić VoiceOverem po zmianie wskaźnika (audyt 2, M-37): wejście w problem (offline, błąd, wygasła sesja,
+ * „zaktualizuj”) albo zmianę problemu i powrót do normy (zsynchronizowano / czeka) — nie każde „synchronizuję”.
+ * `last` — stan z ostatniego ogłoszenia albo ostatni zwykły stan.
+ */
+export function syncAnnouncement(last: Indicator['state'], next: Indicator, nowMs: number): { text: string | null; last: Indicator['state'] } {
+  if (next.state === 'syncing') return { text: null, last };
+  const say = PROBLEM.has(next.state) ? next.state !== last : PROBLEM.has(last);
+  return { text: say ? spoken(indicatorLabel(next, nowMs)) : null, last: next.state };
 }
 
 /**
@@ -139,9 +237,11 @@ function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: numbe
   const warn = indicator.state === 'offline' || indicator.state === 'error' || indicator.state === 'auth_expired' || indicator.state === 'upgrade_required';
   const label = indicatorLabel(indicator, nowMs);
   return (
+    // Jeden element VoiceOvera z etykietą (audyt 2, M-264): etykieta zwykłego widoku na iOS nie jest czytana.
     <View
+      accessible
       accessibilityRole="text"
-      accessibilityLabel={strings['sync.a11y'](label)}
+      accessibilityLabel={strings['sync.a11y'](spoken(label))}
       accessibilityLiveRegion="polite"
       testID="sync-chip"
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
@@ -191,8 +291,10 @@ export function StationRow(props: {
   /** Brak — wiersz bez pola odhaczenia (np. zakupy u dziecka z kontem: serwer ich nie przyjmie, PW-14 B). */
   onToggle?: () => void;
   onOpen?: () => void;
-  /** Etykieta VoiceOver dla dotknięcia wiersza (domyślnie „Otwórz: …”). */
-  openLabel?: string;
+  /** Podpowiedź VoiceOvera, co robi dotknięcie wiersza (domyślnie „Otwiera zadanie”). */
+  openHint?: string;
+  /** Wiersz rozwija panel pod sobą (np. pozycja zakupów) — stan dla VoiceOvera. */
+  expanded?: boolean;
   pending?: boolean;
   shopping?: boolean;
   /** Ostrzeżenie na czerwono, np. „zaległe od 2 dni” (D61). */
@@ -207,6 +309,25 @@ export function StationRow(props: {
     : `${done ? strings['task.undone'] : strings['task.done']}: ${props.title}`;
   // D104: podzadanie — wcięcie pod rodzicem, cieńsza wstążka i mniejsza kropka.
   const sub = (props.depth ?? 0) > 0;
+  const actions = useSwipeAction();
+  // Audyt 2 (M-263): VoiceOver zaczyna od tytułu, czyta widoczne dopiski (także „czeka na wysłanie”) słowami, a czynność
+  // jest w podpowiedzi, nie w etykiecie. Wiersz bez otwierania (M-142) to zwykły element z etykietą — nie „wyszarzony”
+  // przycisk.
+  const label = [props.title, props.alert, props.group, ...(props.meta ?? []).map(spoken), props.pending ? strings['lists.pendingItem'] : null].filter(Boolean).join(', ');
+  const body = (
+    <>
+      <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
+      {props.alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>{props.alert}</Text> : null}
+      {props.group || props.meta?.length || props.pending ? (
+        <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
+          {props.group ? <Text style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text> : null}
+          {props.meta?.length ? `${props.group ? '  ' : ''}${props.meta.join('  ·  ')}` : ''}
+          {props.pending ? <Text style={{ fontFamily: font.text700, color: c.pendingInk }}>{`  ·  ${strings['lists.pendingItem']}`}</Text> : null}
+        </Text>
+      ) : null}
+    </>
+  );
+  const bodyStyle = { flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' } as const;
   return (
     <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: sub ? 52 : 60, marginLeft: Math.min(props.depth ?? 0, 3) * 22 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
@@ -215,24 +336,23 @@ export function StationRow(props: {
         {sub ? null : <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />}
         <View style={{ marginTop: sub ? 18 : 16, width: sub ? 12 : 20, height: sub ? 12 : 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
       </View>
-      <Pressable
-        accessibilityRole={props.onOpen ? 'button' : undefined}
-        // VoiceOver czyta cały wiersz: tytuł, ostrzeżenie (np. zaległe), grupę i opis (audyt 8.10.2026).
-        accessibilityLabel={props.onOpen ? [props.openLabel ?? strings['task.open'](props.title), props.alert, props.group, ...(props.meta ?? [])].filter(Boolean).join(', ') : undefined}
-        disabled={!props.onOpen}
-        onPress={props.onOpen}
-        style={{ flex: 1, minHeight: size.TOUCH_TARGET, paddingVertical: 10, paddingLeft: 6, gap: 3, justifyContent: 'center' }}
-      >
-        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
-        {props.alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>{props.alert}</Text> : null}
-        {props.group || props.meta?.length || props.pending ? (
-          <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
-            {props.group ? <Text style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text> : null}
-            {props.meta?.length ? `${props.group ? '  ' : ''}${props.meta.join('  ·  ')}` : ''}
-            {props.pending ? <Text style={{ fontFamily: font.text700, color: c.pendingInk }}>{`  ·  ${strings['lists.pendingItem']}`}</Text> : null}
-          </Text>
-        ) : null}
-      </Pressable>
+      {props.onOpen ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityHint={props.openHint ?? strings['task.openHint']}
+          accessibilityState={props.expanded === undefined ? undefined : { expanded: props.expanded }}
+          {...actions}
+          onPress={props.onOpen}
+          style={bodyStyle}
+        >
+          {body}
+        </Pressable>
+      ) : (
+        <View accessible accessibilityLabel={label} {...actions} style={bodyStyle}>
+          {body}
+        </View>
+      )}
       {props.onToggle ? (
         <View style={{ justifyContent: 'center' }}>
           <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
@@ -259,6 +379,17 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
   const [width, setWidth] = useState(Dimensions.get('window').width - 40);
   const close = useCallback(() => ref.current?.scrollTo({ x: 0, animated: true }), []);
   useEffect(() => () => group?.closed(close), [group, close]);
+  // Wiersz przejął usuwanie jako czynność VoiceOvera (M-150) — przycisk tylko dla dotyku i przesunięcia.
+  const [claimed, setClaimed] = useState(false);
+  const press = () => {
+    ref.current?.scrollTo({ x: 0, animated: false });
+    group?.closed(close);
+    onDelete();
+  };
+  const latest = useRef(press);
+  useEffect(() => void (latest.current = press));
+  const label = strings[action === 'delete' ? 'swipe.delete' : 'swipe.cancel'];
+  const act = useMemo(() => ({ label, run: () => latest.current(), claim: () => setClaimed(true) }), [label]);
   if (!enabled) return <>{children}</>;
   const settle = (x: number) => (x > 0 ? group?.opened(close) : group?.closed(close));
   return (
@@ -274,19 +405,21 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
       onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.x)}
       onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
     >
-      <View style={{ width }}>{children}</View>
+      <View style={{ width }}>
+        <SwipeActionContext.Provider value={act}>{children}</SwipeActionContext.Provider>
+      </View>
       <View style={{ width: SWIPE_ACTION, paddingLeft: 8, justifyContent: 'center' }}>
+        {/* Przejęty przez wiersz: nie jest elementem VoiceOvera (napis też nie), dotyk działa jak dotąd. */}
         <Pressable
+          accessible={!claimed}
           accessibilityRole="button"
           accessibilityLabel={strings[action === 'delete' ? 'swipe.deleteA11y' : 'swipe.cancelA11y'](title)}
-          onPress={() => {
-            ref.current?.scrollTo({ x: 0, animated: false });
-            group?.closed(close);
-            onDelete();
-          }}
+          onPress={press}
           style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings[action === 'delete' ? 'swipe.delete' : 'swipe.cancel']}</Text>
+          <Text accessibilityElementsHidden={claimed} style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>
+            {label}
+          </Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -294,21 +427,30 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
 }
 
 /** `danger` (czerwony) — przycisk, który usuwa albo unieważnia, w obu krokach: otwarcie i potwierdzenie (audyt 2, M-241). */
-export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint, a11yLabel }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string; a11yLabel?: string }) {
+/**
+ * `busy` — trwa czynność sieciowa (audyt 2, M-267): mały wskaźnik postępu i stan „zajęty” dla VoiceOvera (RN ogłasza go
+ * na iOS: RCTViewComponentView, `accessibilityState.busy`); przycisk jest wtedy nieaktywny. `a11yFocus` — fokus
+ * VoiceOvera na przycisku po jego pojawieniu (potwierdzenie w miejscu bez pytania, M-44).
+ */
+export function Button({ label, onPress, kind = 'primary', disabled, testID, a11yHint, a11yLabel, busy, a11yFocus }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger'; disabled?: boolean; testID?: string; a11yHint?: string; a11yLabel?: string; busy?: boolean; a11yFocus?: boolean }) {
   const { c, font, size } = useTheme();
+  const ref = useA11yFocus<View>(null, !!a11yFocus);
+  const off = !!disabled || !!busy;
   const bg = kind === 'primary' ? c.inverseBg : c.surface;
   const fg = kind === 'primary' ? c.inverseInk : kind === 'danger' ? c.danger : c.ink;
   return (
     <Pressable
+      ref={ref}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       accessibilityHint={a11yHint}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: off, busy: !!busy }}
+      disabled={off}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 24, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: disabled ? 0.5 : 1 }}
+      style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 24, paddingHorizontal: 18, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: off ? 0.5 : 1 }}
     >
+      {busy ? <ActivityIndicator testID={testID ? `${testID}-busy` : undefined} color={fg} /> : null}
       <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: fg }}>{label}</Text>
     </Pressable>
   );
@@ -325,18 +467,36 @@ function LengthNote({ value, max }: { value: string | undefined; max: number | u
 }
 
 /** `ref` — pole tekstowe (React 19: ref jak zwykły props), np. żeby przejść do pola z karty „Następne kroki”. */
-export function Field({ label, ref, ...input }: TextInputProps & { label: string; ref?: Ref<TextInput> }) {
+/**
+ * `a11yFocus` — fokus VoiceOvera na polu po jego pojawieniu (panel w miejscu zaczyna się od pola, M-44); wtedy bez `ref`.
+ * Klawiatura numeryczna iOS nie ma klawisza zatwierdzenia — pole z nią dostaje pasek „Gotowe” nad klawiaturą
+ * (audyt 2, M-268; RN 0.86 InputAccessoryView, iOS: https://reactnative.dev/docs/0.86/inputaccessoryview).
+ */
+export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { label: string; ref?: Ref<TextInput>; a11yFocus?: boolean }) {
   const { c, font, size } = useTheme();
+  const own = useA11yFocus<TextInput>(null, !!a11yFocus);
+  const accessory = useId();
+  const numeric = input.keyboardType === 'number-pad' || input.keyboardType === 'decimal-pad';
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <TextInput
-        ref={ref}
+        ref={a11yFocus ? own : ref}
         accessibilityLabel={label}
         placeholderTextColor={c.inkMuted}
+        inputAccessoryViewID={numeric ? accessory : undefined}
         style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: 12, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
         {...input}
       />
+      {numeric ? (
+        <InputAccessoryView nativeID={accessory} backgroundColor={c.surface}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, borderTopWidth: 1, borderColor: c.border }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={strings['common.keyboardDone']} onPress={() => Keyboard.dismiss()} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.keyboardDone']}</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
       <LengthNote value={input.value} max={input.maxLength} />
     </View>
   );
@@ -390,6 +550,7 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={strings['quick.chipA11y'](text)}
+      accessibilityHint={strings['quick.chipHint']}
       onPress={onPress}
       style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, backgroundColor: c.surface, borderWidth: 1, borderColor: c.control }}
     >
@@ -404,11 +565,13 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
  */
 export function NavRow({ title, subtitle, line, onPress, testID, chevron = true }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string; chevron?: boolean }) {
   const { c, font, size, line: lineOf } = useTheme();
+  const actions = useSwipeAction();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      {...actions}
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
     >
@@ -425,8 +588,11 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
 /**
  * `a11yLabel` — etykieta VoiceOver grupy z kontekstem, gdy kilka grup na ekranie ma ten sam napis (audyt 2, M-145);
  * `hint` opcji — podpowiedź VoiceOvera, gdy wybór robi coś więcej niż zaznaczenie (np. otwiera inny formularz).
+ * `contextual` — kilka pól na ekranie ma te same opcje („Włączone / Wyłączone” dla każdego kalendarza, „Będę / Może”
+ * dla każdej osoby): opcja mówi, do którego pola należy („Włączone, Praca”), bo etykieta grupy na iOS nie jest czytana
+ * przy przechodzeniu po opcjach (audyt 2, M-264).
  */
-export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel }: { value: T; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string }) {
+export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel, contextual }: { value: T; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string; contextual?: boolean }) {
   const { c, font, size } = useTheme();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
@@ -439,7 +605,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
               key={o.value}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={o.label}
+              accessibilityLabel={contextual ? `${o.label}, ${a11yLabel ?? label}` : o.label}
               accessibilityHint={o.hint}
               onPress={() => onChange(o.value)}
               style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
@@ -455,16 +621,29 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
 
 /**
  * Wiersz wydarzenia (`faded` — minione, wyszarzone): godzina w kolumnie po lewej, kwadratowy znacznik linii grupy (zadania mają kółko-stację),
- * tytuł i grupa; po godzinach długość (D120). Całość otwiera wydarzenie.
+ * tytuł i grupa; po godzinach długość (D120). Całość otwiera wydarzenie. `expanded` — wiersz rozwija listę pod sobą
+ * (lekcje dziecka): zamiast „›” (obiecuje przejście) znak rozwinięcia ˅/˄, stan dla VoiceOvera i `hint` z czynnością
+ * (audyt 2, M-141). Etykieta VoiceOvera (M-263): tylko to, co widać (bez „powtarza się”, D129), dopiski słowami,
+ * „minione” przy wyszarzonym.
  */
 /** `part` (D199) — który to dzień wielodniowego („dzień 2 z 5”, ui/when.ts). */
-export function EventRow({ title, time, length, part, line, group, recurring, onPress, testID, faded, extra, alert }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string }) {
+export function EventRow({ title, time, length, part, line, group, onPress, testID, faded, extra, alert, expanded, hint }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string; expanded?: boolean; hint?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
+  const actions = useSwipeAction();
   const when = time ?? strings['event.allDayLabel'];
-  const whenA11y = [when, length, part].filter(Boolean).join(', ');
+  const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, whenA11y, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={expanded === undefined ? undefined : { expanded }}
+      {...actions}
+      onPress={onPress}
+      style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}
+    >
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
       </View>
@@ -481,7 +660,7 @@ export function EventRow({ title, time, length, part, line, group, recurring, on
         {/* D129: „Wyjdź o …” — jedyna pilna informacja — w osobnej, wyróżnionej linii; „powtarza się” tylko w szczegółach. */}
         {alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.accentInk }}>{alert}</Text> : null}
       </View>
-      <Text style={{ fontSize: 22, color: c.inkMuted }}>›</Text>
+      <Text style={{ fontSize: 22, color: c.inkMuted }}>{expanded === undefined ? '›' : expanded ? '˄' : '˅'}</Text>
     </Pressable>
   );
 }
@@ -490,7 +669,7 @@ export function EventRow({ title, time, length, part, line, group, recurring, on
 export function GapRow({ length, testID }: { length: string; testID?: string }) {
   const { c, font, size } = useTheme();
   return (
-    <View testID={testID} accessible accessibilityLabel={strings['day.gapA11y'](length)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30, paddingLeft: 38 }}>
+    <View testID={testID} accessible accessibilityLabel={strings['day.gapA11y'](spoken(length))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30, paddingLeft: 38 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />
       <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['day.gap'](length)}</Text>
       <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />

@@ -5,7 +5,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
@@ -15,9 +15,8 @@ import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
 import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
-import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
@@ -25,7 +24,6 @@ type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
 export function RoutineScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
   const undo = useUndo();
   const groups = groupsView(tables, userId).filter((g) => g.me.role !== 'child');
   const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (groups[0]?.id ?? ''));
@@ -103,9 +101,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />
       {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
-          {error}
-        </Text>
+        <ErrorText>{error}</ErrorText>
       ) : null}
       <Button label={strings['routine.save']} testID="routine-save" onPress={save} />
     </Screen>
