@@ -185,7 +185,8 @@ export const config = {
     /** Ile spraw wymienia poranne podsumowanie z nazwy (D110, ADR 0026: „pierwsze cztery”); reszta jako „i N innych”. Wybór projektowy, bez źródła. */
     MORNING_LIST_MAX: 4,
     /**
-     * Przypomnienia bliższe niż tyle od chwili planowania pomijamy (audyt 2, N-7): iOS odrzuca wyzwalacz z odstępem ≤ 0
+     * Przypomnienia bliższe niż tyle od chwili planowania nie dostają wyzwalacza czasu (audyt 2, N-7) — idą od razu, jeśli
+     * nie są już zaplanowane (audyt 3, N-112; src/app/push.ts): iOS odrzuca wyzwalacz z odstępem ≤ 0
      * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger,
      * https://developer.apple.com/documentation/usernotifications/untimeintervalnotificationtrigger/init(timeinterval:repeats:)),
      * a datę ucina do sekundy.
