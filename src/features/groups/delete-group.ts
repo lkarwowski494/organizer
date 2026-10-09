@@ -30,12 +30,8 @@ export function useDeleteGroup(onError: (message: string) => void) {
       hooks.before?.();
       store.refresh();
       hooks.after?.();
-      undo.show(strings['undo.groupDeleted'](name), () => {
-        account.restoreGroup(groupId).then(
-          () => store.refresh(),
-          (e: unknown) => undo.show(groupErrorText(e)),
-        );
-      });
+      // Audyt 3 (N-34): „Cofnięto” dopiero po odpowiedzi serwera, błąd — pasek z „Spróbuj ponownie” (undo.tsx).
+      undo.show(strings['undo.groupDeleted'](name), { run: () => account.restoreGroup(groupId).then(() => store.refresh()), failed: groupErrorText });
     };
     if (others === 0) return void go();
     Alert.alert(strings['groups.deleteConfirm'](name, others, config.sync.TOMBSTONE_DAYS), undefined, [
