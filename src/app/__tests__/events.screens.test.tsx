@@ -40,15 +40,18 @@ describe('Wydarzenia: dodawanie', () => {
     await press(screen.getByLabelText('Rodzina'));
     await type(screen.getByTestId('event-title'), 'Judo Tymka');
     await press(screen.getByLabelText('Co tydzień'));
-    expect(screen.getByLabelText('W środę').props.accessibilityState.checked).toBe(true); // dzień z kalendarza
-    await press(screen.getByLabelText('W środę'));
-    await press(screen.getByLabelText('W poniedziałek'));
+    expect(screen.getByLabelText('śr., w środę').props.accessibilityState.selected).toBe(true); // dzień z kalendarza
+    await press(screen.getByLabelText('śr., w środę'));
+    await press(screen.getByLabelText('pon., w poniedziałek'));
     await setTime('event-start-0', '18:00');
     await setTime('event-end-0', '19:00');
     await press(screen.getByTestId('event-add-slot'));
-    await press(screen.getByLabelText('W sobotę (Wariant 2)'));
+    await press(screen.getByLabelText('sob., w sobotę (Wariant 2)'));
     await setTime('event-start-1', '10:00');
+    expect(screen.queryByTestId('event-audience-info')).toBeNull();
     await press(screen.getByLabelText('Wybrane osoby'));
+    // Audyt 3 (N-46, Q13 C): wybór osób nie ukrywa wydarzenia przed resztą grupy — mówi to tekst przy wyborze.
+    expect(screen.getByText('Wydarzenie widzą wszyscy w grupie (w Kalendarzu). Wybór osób decyduje tylko, komu pokaże się w Moich sprawach.')).toBeTruthy();
     await press(screen.getByLabelText('Uczestnik: Tymek'));
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByTestId('screen-calendar')).toBeTruthy();
@@ -134,7 +137,7 @@ describe('Wydarzenia: dodawanie', () => {
     await press(screen.getByTestId('event-save'));
     expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Zebranie', start_date: '2026-10-05', start_time: '19:00', end_time: null, rrule: 'FREQ=MONTHLY;BYDAY=1MO', audience: 'group', responsible_member_id: null } }]);
     expect(await screen.findByTestId('series-new-1')).toBeTruthy();
-    expect(screen.getByLabelText(/Zebranie, Co miesiąc, w 1. poniedziałek · 19:00 · najbliżej: pon. 2 lis/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Zebranie, Co miesiąc, w 1. poniedziałek, 19:00, najbliżej: poniedziałek 2 lis/i)).toBeTruthy();
   });
 });
 
@@ -270,8 +273,8 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(await screen.findByText('Zmieniasz całą serię — wszystkie terminy.')).toBeTruthy();
     expect(screen.queryByTestId('event-date')).toBeNull();
     expect(screen.queryByTestId('event-add-slot')).toBeNull();
-    await press(screen.getByLabelText('W środę'));
-    await press(screen.getByLabelText('W czwartek'));
+    await press(screen.getByLabelText('śr., w środę'));
+    await press(screen.getByLabelText('czw., w czwartek'));
     await press(screen.getByTestId('event-save'));
     await screen.findByTestId('screen-event-preview');
     await press(screen.getByLabelText('Wróć do edycji'));
@@ -314,7 +317,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(screen.queryByRole('button', { name: 'Całą serię' })).toBeNull();
     await press(screen.getByRole('button', { name: 'Usuń całą serię' }));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'events', id: 'ev-tance' });
+    expect(store.dispatched).toContainEqual({ kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev-tance', date: null, title: 'Tańce' } });
     expect(screen.getByText('Usunięto serię: Tańce')).toBeTruthy();
   });
 
@@ -387,7 +390,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-event');
     await press(screen.getByTestId('event-cancel'));
     await screen.findByTestId('screen-today');
-    expect(screen.getByText('Usunięto: Wizyta')).toBeTruthy();
+    expect(screen.getByText('Usunięto wydarzenie: Wizyta')).toBeTruthy();
   });
 
   it('odwołanie od pierwszego wystąpienia = usunięcie serii', async () => {
@@ -395,9 +398,12 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByTestId('event-cancel'));
     await press(screen.getByTestId('scope-following'));
     await screen.findByTestId('screen-today');
-    expect(store.dispatched).toEqual([{ kind: 'delete', entity: 'events', id: 'ev-tance' }]);
+    // Audyt 3 (N-3): koniec serii od pierwszego terminu jednym poleceniem — cała seria do kosza, „Usunięto serię”.
+    const end = { kind: 'cmd', cmd: 'end_series', args: { event_id: 'ev-tance', date: '2026-10-07', title: 'Tańce' } };
+    expect(store.dispatched).toEqual([end]);
+    expect(screen.getByText('Usunięto serię: Tańce')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expectOps(store, [{ kind: 'delete', entity: 'events', id: 'ev-tance' }, { kind: 'restore', entity: 'events', id: 'ev-tance' }]);
+    expectOps(store, [end, { kind: 'cmd', cmd: 'restore_series', args: { event_id: 'ev-tance', title: 'Tańce', events: ['ev-tance'], parts: [], overrides: [], rsvps: [] } }]);
   });
 
   it('jednorazowe: zmiana bez pytania o zakres, usunięcie bez pytania (D187)', async () => {
@@ -484,8 +490,8 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     await open(base);
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
-    expect(screen.getByLabelText('Tańce, Co tydzień: śr. · 17:00–18:00 · najbliżej: dziś')).toBeTruthy();
-    expect(screen.getByLabelText(/Stare zajęcia, Co tydzień: śr., do 30.09.2026 · 17:00–18:00 · zakończone/)).toBeTruthy();
+    expect(screen.getByLabelText('Tańce, Co tydzień: środa, 17:00–18:00, najbliżej: dziś')).toBeTruthy();
+    expect(screen.getByLabelText('Stare zajęcia, Co tydzień: środa, do 30.09.2026, 17:00–18:00, zakończone')).toBeTruthy();
     await press(screen.getByTestId('series-ev-old'));
     expect(await screen.findByText('Środa, 2 września · 17:00–18:00 · 1 h')).toBeTruthy();
   });
@@ -496,7 +502,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     await open(base);
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
-    expect(screen.getByLabelText('Tańce, Co tydzień: śr. · 17:00–18:00 · najbliżej: jutro')).toBeTruthy();
+    expect(screen.getByLabelText('Tańce, Co tydzień: środa, 17:00–18:00, najbliżej: jutro')).toBeTruthy();
     await press(screen.getByTestId('series-ev-tance'));
     expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00 · 1 h')).toBeTruthy();
   });

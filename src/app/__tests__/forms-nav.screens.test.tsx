@@ -123,7 +123,7 @@ describe('PWD-30 A (M-299): wybór osoby w dużej grupie z wyszukiwaniem', () =>
     await press(screen.getByLabelText('Dla kogo: Nikt konkretny. Zmień'));
     await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'lucj');
     const group = screen.getByLabelText('Dla kogo');
-    expect(within(group).getAllByRole('radio').map((r) => r.props.accessibilityLabel)).toEqual(['Nikt konkretny', 'Łucja']);
+    expect(within(group).getAllByRole('button').map((r) => r.props.accessibilityLabel)).toEqual(['Nikt konkretny', 'Łucja']);
     await press(within(group).getByLabelText('Łucja'));
     expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-korki', set: { assignee_member_id: 'p1' } });
     expect(screen.getByLabelText('Dla kogo: Łucja. Zmień')).toBeTruthy();
@@ -146,13 +146,13 @@ describe('PWD-30 A: wyszukiwanie także przy wielu osobach i przy przekazaniu; M
     await press(within(screen.getByLabelText('Kogo dotyczy')).getByLabelText('Wybrane osoby'));
     await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'ewa');
     const who = () => screen.getByLabelText('Kto');
-    const labels = () => within(who()).getAllByRole('checkbox').map((x) => x.props.accessibilityLabel);
+    const labels = () => within(who()).getAllByRole('button').map((x) => x.props.accessibilityLabel);
     expect(labels()).toEqual(['Uczestnik: Pani Ewa', 'Uczestnik: Ewa']);
     await press(within(who()).getByLabelText('Uczestnik: Ewa'));
     await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'marek');
     expect([...labels()].sort()).toEqual(['Uczestnik: Ewa', 'Uczestnik: Marek']);
     await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'xyz');
-    expect(within(who()).getAllByRole('checkbox')).toHaveLength(1);
+    expect(within(who()).getAllByRole('button')).toHaveLength(1);
   });
 
   it('przekazanie zadania: szukanie w dużej grupie', async () => {

@@ -13,7 +13,7 @@ import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
-import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
+import { WEEKDAYS_ON } from '../../config/quickadd.pl';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import { materialize } from '../../domain/sync-engine/client';
 import { startGroup } from '../../domain/views/default-group';
@@ -28,7 +28,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
@@ -68,7 +68,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   });
   // Formularz z chwili otwarcia — zapis zmiany wysyła tylko pola, które zmieniłem (editEvent, synchronizacja per pole).
   const [loadedForm] = useState<EventForm | null>(() => (detail ? formOf(fieldsOf(detail, occurrence, scope)) : null));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
@@ -168,7 +168,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         today={today}
         choice={lostChoice}
         onChoice={setLostChoice}
-        onSave={() => commit(seriesEditOps(detail, preview.ops, preview.effects, lostChoice))}
+        onSave={() => commit(seriesEditOps(preview.ops, preview.effects, lostChoice))}
         onBack={() => setPreview(null)}
       />
     );
@@ -240,13 +240,14 @@ export function EventEditScreen({ route, navigation }: Props) {
               label={strings['event.days']}
               values={slot.days}
               onChange={(days) => setSlot(i, { days })}
-              options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) + (multi && form.slots.length > 1 ? ` (${strings['event.slot'](i + 1)})` : '') }))}
+              options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](w, WEEKDAYS_ON[wd]!) + (multi && form.slots.length > 1 ? ` (${strings['event.slot'](i + 1)})` : '') }))}
             />
           ) : null}
           {form.allDay ? null : (
             <TimeFieldPair
-              start={{ label: strings['event.start'], value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
-              end={{ label: strings['event.end'], value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
+              // Audyt 3 (N-196): przy kilku wariantach pole mówi, którego dotyczy — jak dni tygodnia wyżej.
+              start={{ label: strings['event.start'], a11yLabel: multi && form.slots.length > 1 ? `${strings['event.start']} (${strings['event.slot'](i + 1)})` : undefined, value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
+              end={{ label: strings['event.end'], a11yLabel: multi && form.slots.length > 1 ? `${strings['event.end']} (${strings['event.slot'](i + 1)})` : undefined, value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
             />
           )}
           {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
@@ -296,6 +297,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       {only || personal ? null : (
         <>
           <Segmented label={strings['event.audience']} value={form.audience} onChange={(audience) => set({ audience })} options={[{ value: 'group', label: strings['event.audience.group'] }, { value: 'members', label: strings['event.audience.members'] }]} />
+          {/* Audyt 3 (N-46, Q13 C): „Wybrane osoby” to nie prywatność — mówimy to przy wyborze. */}
+          {form.audience === 'members' ? <Body muted testID="event-audience-info">{strings['event.audienceInfo']}</Body> : null}
           {form.audience === 'members' ? (
             <PeopleToggles
               label={strings['event.who']}
@@ -315,7 +318,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
-      {error ? <ErrorText>{error}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{error}</ErrorText> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>
   );

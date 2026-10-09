@@ -4,22 +4,24 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 
 import { useServices } from '../../app/context';
+import { useDefaultGroup } from '../../app/default-group';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
 export function NewGroupScreen({ navigation, route }: Props) {
   const { account, newId, displayName, store, prefs } = useServices();
+  const defaultGroup = useDefaultGroup();
   const [name, setName] = useState(route.params?.name ?? '');
   const [me, setMe] = useState(displayName);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   const myField = useRef<TextInput>(null);
   // Audyt 2 (R-27): te same identyfikatory przy ponowieniu — gdy odpowiedź serwera zginęła, druga próba nie tworzy
   // drugiej grupy, a serwer potwierdza istniejącą (create_group_with_owner, migracja 20261008360000).
@@ -42,6 +44,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
       // także z ekranu Grupy (audyt 2, M-117, zasada właściciela A).
       if (route.params?.starter) store.dispatch(starterListsOps(ids.groupId, newId));
       prefs?.set(nextStepsKey(ids.groupId), '1').catch(() => {});
+      // Audyt 3 (N-45, decyzja Q14 A): nowa grupa zostaje ostatnio użytą — pierwsze wpisy z Moich spraw trafią do niej
+      // (partner je zobaczy), a nie do „Osobistych”. Chip „Do: …” przy polu pokazuje to przed dodaniem.
+      defaultGroup.remember(ids.groupId);
       store.refresh();
       navigation.replace('Group', { groupId: ids.groupId, fresh: true });
     } catch (e) {
@@ -58,7 +63,7 @@ export function NewGroupScreen({ navigation, route }: Props) {
       {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
       <Field label={strings['groups.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.GROUP_NAME} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => myField.current?.focus()} testID="group-name" />
       <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
-      {error ? <ErrorText>{error}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{error}</ErrorText> : null}
       <Button label={strings['groups.create']} onPress={create} busy={busy} testID="create-group" />
     </Screen>
   );

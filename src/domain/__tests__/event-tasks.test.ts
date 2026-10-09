@@ -138,7 +138,7 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
     expect(fx.lost).toEqual([]);
     expect(fx.overridesLost).toBe(0);
     // Jedno polecenie: zadania z terminów, które zostają, przenosi samo (bez osobnych operacji).
-    const all = seriesEditOps(d(), ops, fx, 'nearest');
+    const all = seriesEditOps(ops, fx, 'nearest');
     expect(all).toEqual(ops);
     run(t, all);
     expect(occurrenceResolver(t)(sid, '2026-10-19')).toEqual({ date: '2026-10-19', time: '17:00' });
@@ -159,13 +159,13 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
       ['opłata', '2026-10-20'],
       ['strój', '2026-10-13'],
     ]);
-    const nearest = seriesEditOps(d(), ops, fx, 'nearest');
+    const nearest = seriesEditOps(ops, fx, 'nearest');
     expect(nearest).toHaveLength(1);
     expect(nearest[0]).toMatchObject({ kind: 'cmd', args: { tasks: [{ id: 'buty', action: 'relink', date: '2026-10-13' }, { id: 'opłata', action: 'relink', date: '2026-10-20' }, { id: 'strój', action: 'relink', date: '2026-10-13' }] } });
     const moved = run(structuredClone(t), nearest);
     expect(occurrenceResolver(moved)(sid, moved.tasks!.opłata!.occurrence_date as string)).toEqual({ date: '2026-10-20', time: '18:00' });
     expect(moved.tasks!.buty).toMatchObject({ event_id: sid, occurrence_date: '2026-10-13' });
-    const unlinked = run(structuredClone(t), seriesEditOps(d(), ops, fx, 'unlink'));
+    const unlinked = run(structuredClone(t), seriesEditOps(ops, fx, 'unlink'));
     expect(unlinked.tasks!.buty).toMatchObject({ event_id: null, occurrence_date: null, deadline_mode: 'none' });
   });
 
@@ -180,13 +180,13 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
       ['opłata', '2026-10-20'],
       ['strój', '2026-10-13'],
     ]);
-    expect(seriesEditOps(d(), ops, fx, 'nearest')).toEqual([
+    expect(seriesEditOps(ops, fx, 'nearest')).toEqual([
       ...ops,
       { kind: 'patch', entity: 'tasks', id: 'buty', set: { event_id: id, occurrence_date: '2026-10-13' } },
       { kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: id, occurrence_date: '2026-10-20' } },
       { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: id, occurrence_date: '2026-10-13' } },
     ]);
-    expect(seriesEditOps(d(), ops, fx, 'unlink').slice(ops.length).map((o) => ('set' in o ? o.set : null))).toEqual([
+    expect(seriesEditOps(ops, fx, 'unlink').slice(ops.length).map((o) => ('set' in o ? o.set : null))).toEqual([
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
       { event_id: null, occurrence_date: null, deadline_mode: 'none' },
@@ -199,7 +199,7 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
     const fx = seriesEditEffects(t, d(), '2026-10-05', 'all', ops);
     expect(fx.kept.map((x) => x.id)).toEqual(['buty', 'strój']);
     expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([['opłata', null]]);
-    expect(seriesEditOps(d(), ops, fx, 'nearest').slice(ops.length)).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
+    expect(seriesEditOps(ops, fx, 'nearest').slice(ops.length)).toEqual([{ kind: 'patch', entity: 'tasks', id: 'opłata', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
   });
 
   it('„to i następne” krótsze niż zadanie: kopia stałego zadania do kosza, zwykłe bez najbliższego terminu — odpięte', () => {
@@ -209,10 +209,10 @@ describe('zmiana serii: podgląd skutków i przepięcie', () => {
     const ops = editEvent(d(), '2026-10-12', 'following', fields({ until: '2026-10-12' }));
     const fx = seriesEditEffects(t, d(), '2026-10-12', 'following', ops);
     expect(fx.lost.map((x) => [x.task.id, x.nearest])).toEqual([['kopia', null], ['opłata', null]]);
-    expect(seriesEditOps(d(), ops, fx, 'nearest')[0]).toMatchObject({ args: { tasks: [{ id: 'kopia', action: 'delete' }, { id: 'opłata', action: 'unlink' }] } });
+    expect(seriesEditOps(ops, fx, 'nearest')[0]).toMatchObject({ args: { tasks: [{ id: 'kopia', action: 'delete' }, { id: 'opłata', action: 'unlink' }] } });
     // Inne operacje obok polecenia zostają bez zmian.
     const extra: NewOp = { kind: 'patch', entity: 'tasks', id: 'buty', set: { title: 'Buty sportowe' } };
-    expect(seriesEditOps(d(), [...ops, extra], fx, 'nearest')[1]).toBe(extra);
+    expect(seriesEditOps([...ops, extra], fx, 'nearest')[1]).toBe(extra);
   });
 
   it('„wszystkie” na jednorazowe: podgląd z jednym dniem; zmienione pojedynczo terminy przepadają', () => {

@@ -51,7 +51,8 @@ odrzuconą przy D91.
 - **„#nazwa”** (`domain/views/quick-target.ts`): początek nazwy grupy bez wielkości liter, polskich znaków i spacji
   („#klasa2b” → „Klasa 2b”, osobista jako „#Osobiste”); dokładna nazwa wygrywa z początkiem innej; kilka pasujących —
   pytanie „Którą grupę masz na myśli”; żadna — „Nie ma grupy #kino” z „Dodaj do: <grupa chipa>” („#kino” zostaje
-  w nazwie). Grup, w których jestem dzieckiem, nie da się wybrać (D34).
+  w nazwie). Grup, w których jestem dzieckiem, nie da się wybrać (D34); „#Grupa” takiej grupy daje panel z listą zakupów
+  tej grupy (audyt 3, N-44, Q6d A — ADR 0035).
 - **„@ja”**: ja jako osoba we wspólnej grupie (w osobistej bez osoby); ma pierwszeństwo przed imionami na „Ja…”
   („@jan” nadal znajduje Jana). **„@imię”**: najpierw osoba z grupy wpisu (z „#” albo z chipa), dopiero bez niej
   wszystkie grupy (D91); po „#” — tylko osoby z tej grupy.

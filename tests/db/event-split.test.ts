@@ -13,6 +13,7 @@ import { Client } from 'pg';
 import { splitId } from '../../src/domain/event-split';
 import { parseRule } from '../../src/domain/rrule';
 import { type ClientState, initialState, materialize, mutate, type NewOp, onPullResponse, onPushResponse, type PullResponse, type PushResponse, pullRequest, pushRequest, type Row } from '../../src/domain/sync-engine/client';
+import { inverseOps } from '../../src/domain/views/commands';
 import { seriesEditEffects, seriesEditOps } from '../../src/domain/views/event-tasks';
 import { cancelEvent, editEvent, eventDetail, fieldsOf } from '../../src/domain/views/events';
 import { dbDescribe } from './db-gate';
@@ -187,7 +188,7 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
             participantIds: sc.participants.map((p) => M[p]),
           };
           const draft = editEvent(det, sc.date, 'following', f);
-          const ops = seriesEditOps(det, draft, seriesEditEffects(t, det, sc.date, 'following', draft), sc.lost);
+          const ops = seriesEditOps(draft, seriesEditEffects(t, det, sc.date, 'following', draft), sc.lost);
           expect(ops).toHaveLength(1);
           const cmd = ops[0]!;
           seen.decisions += cmd.kind === 'cmd' ? (cmd.args.tasks as unknown[]).length : 0;
@@ -222,6 +223,84 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     expect(seen.chain).toBeGreaterThan(5);
     expect(seen.moved).toBeGreaterThan(0);
     expect(seen.decisions).toBeGreaterThan(0);
+  }, 240_000);
+
+  /** Audyt 3 (N-3, N-117): koniec serii na łańcuchu (end_series) i jego cofnięcie (restore_series) — telefon = serwer. */
+  it('koniec serii i cofnięcie: ten sam wynik dla losowych łańcuchów', async () => {
+    const seen = { ended: 0, chain: 0, dropped: 0 };
+    const endScenario = fc.record({
+      overrides: fc.uniqueArray(fc.record({ date: fc.constantFrom(...MONDAYS), cancel: fc.boolean() }), { selector: (o) => o.date, maxLength: 4 }),
+      rsvps: fc.uniqueArray(fc.record({ date: fc.constantFrom(...MONDAYS), who: fc.constantFrom('a' as const, 'tymek' as const) }), { selector: (r) => `${r.date}|${r.who}`, maxLength: 4 }),
+      pre: fc.uniqueArray(fc.constantFrom(...MONDAYS.slice(1)), { maxLength: 2 }),
+      date: fc.option(fc.constantFrom(...MONDAYS), { nil: null }),
+      from: fc.constantFrom(...MONDAYS),
+    });
+    await fc.assert(
+      fc.asyncProperty(endScenario, async (sc) => {
+        await db.query('begin');
+        for (const k of Object.keys(seqs)) delete seqs[k];
+        try {
+          await family();
+          let n = 0;
+          const fresh = (p: string) => id(p, ++n);
+          const seed: NewOp[] = [
+            { kind: 'create', entity: 'lists', id: LIST, group_id: G, set: { kind: 'tasks', name: 'Dom', visibility: 'group', sort_key: 'a0' } },
+            { kind: 'create', entity: 'events', id: E, group_id: G, set: { title: 'Chór', start_date: '2026-10-05', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: M.a } },
+            { kind: 'create', entity: 'event_task_series', id: DEF, group_id: G, set: { event_id: E, list_id: LIST, title: 'Nuty' } },
+          ];
+          for (const o of sc.overrides) seed.push({ kind: 'create', entity: 'event_overrides', id: fresh('00b'), group_id: G, set: { event_id: E, occurrence_date: o.date, ...(o.cancel ? { cancelled: true } : { title: 'Próba' }) } });
+          for (const r of sc.rsvps) seed.push({ kind: 'create', entity: 'event_rsvps', id: fresh('00c'), group_id: G, set: { event_id: E, occurrence_date: r.date, member_id: M[r.who], answer: 'no' } });
+          await ok('a', seed);
+          for (const pre of [...sc.pre].sort()) {
+            const t0 = materialize(await phone());
+            const owner = Object.values(t0.events ?? {}).find((e) => e.deleted_at == null && String(e.start_date) <= pre && (e.rrule as string).split(';').every((p) => !p.startsWith('UNTIL=') || p.slice(6) >= pre.replaceAll('-', '')))!;
+            const d0 = eventDetail(t0, U.b, String(owner.id))!;
+            if (pre <= d0.event.start_date) continue;
+            await ok('a', editEvent(d0, pre, 'following', { ...fieldsOf(d0, pre, 'following'), startTime: '19:00', endTime: null }));
+            seen.chain += 1;
+          }
+          const s = await phone();
+          const t = materialize(s);
+          const owner = Object.values(t.events ?? {}).find((e) => e.deleted_at == null && String(e.start_date) <= sc.from && (e.rrule as string).split(';').every((p) => !p.startsWith('UNTIL=') || p.slice(6) >= sc.from.replaceAll('-', '')));
+          if (!owner) return;
+          const det = eventDetail(t, U.b, String(owner.id))!;
+          const date = sc.date !== null && sc.date > det.event.start_date ? sc.date : null;
+          const ops = cancelEvent(det, date ?? sc.from, date === null ? 'all' : 'following');
+          const back = inverseOps(t, ops);
+          let after = s;
+          for (const op of ops) after = mutate(after, op, () => id('00f', ++n));
+          const sync = async (st: ClientState) => {
+            const local = project(materialize(st));
+            const res = await push('b', pushRequest(st).ops as never);
+            expect(res.results.map((r) => r.status)).toEqual(pushRequest(st).ops.map(() => 'ok'));
+            let next = onPushResponse(st, res);
+            for (let i = 0; i < 50; i++) {
+              const out = await pullOnce(next, 'b');
+              next = out.state;
+              if (!out.needMore) break;
+            }
+            expect(project(materialize(next))).toEqual(local);
+            return next;
+          };
+          const synced = await sync(after);
+          seen.ended += 1;
+          seen.dropped += Object.values(project(materialize(synced)).event_rsvps ?? {}).filter((r) => r.gone).length;
+          if (!back) return;
+          let undone = synced;
+          for (const op of back) undone = mutate(undone, op, () => id('00f', ++n));
+          await sync(undone);
+          // Cofnięcie przywraca części, ich reguły, wyjątki i odpowiedzi (stałe zadania zostają w części, która została).
+          const rows = (x: ReturnType<typeof project>) => ({ events: x.events, event_overrides: x.event_overrides, event_rsvps: x.event_rsvps });
+          expect(rows(project(materialize(await phone())))).toEqual(rows(project(t)));
+        } finally {
+          await db.query('rollback');
+        }
+      }),
+      { numRuns: 40 },
+    );
+    expect(seen.ended).toBeGreaterThan(20);
+    expect(seen.chain).toBeGreaterThan(5);
+    expect(seen.dropped).toBeGreaterThan(0);
   }, 240_000);
 
   it('M-11 (S-8): dwa telefony zmieniają ten sam termin i dopisują tę samą osobę — bez odrzuceń, zmiany scalone', async () => {

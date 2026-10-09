@@ -60,6 +60,15 @@ export const WEEKDAYS_ACCUSATIVE = [
 ] as const;
 
 /**
+ * Dzień tygodnia z przyimkiem w etykietach VoiceOvera przy wyborze dni (audyt 3, N-64: było „W wtorek”), indeks
+ * 0 = poniedziałek. Dane zamiast reguły: „we” tylko przed „wtorek” — to samo źródło co wyżej: „We używamy w połączeniu
+ * z wyrazami zaczynającymi się od spółgłoski [w] lub [f], po której następuje inna spółgłoska (we wtorek …)”; przed
+ * „środę” i „czwartek” obie formy są poprawne („obok także poprawnych: w środę, w czwartek”) — bierzemy „w”, jak
+ * w pozostałych dniach. https://sjp.pwn.pl/poradnia/haslo/we-wtorek;21155.html
+ */
+export const WEEKDAYS_ON = ['w poniedziałek', 'we wtorek', 'w środę', 'w czwartek', 'w piątek', 'w sobotę', 'w niedzielę'] as const;
+
+/**
  * Bezpiecznik dnia (audyt 2, M-23): słowa, po których widać, że tekst wskazuje dzień, choć parser go nie rozpoznał
  * („w przyszły wtorek”, „rachunek piątek”, „w następną sobotę”, „w środy”). Wtedy nie zgadujemy dnia z samej godziny
  * (D43) ani startu serii „co tydzień” — godzina zostaje w tytule, a ekran mówi, że dnia nie rozpoznano.

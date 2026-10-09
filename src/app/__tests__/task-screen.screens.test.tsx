@@ -62,7 +62,7 @@ describe('ekran zadania: nagłówek i pola (M-146, M-202, M-116)', () => {
 describe('termin (M-89, M-206, M-245)', () => {
   it('jeden kształt: Dziś · Jutro · Inny dzień · Bez terminu; „Inny dzień” rozwija kalendarz', async () => {
     const s = await openTask('Kupić kwiaty');
-    const options = within(screen.getByLabelText('Kiedy')).getAllByRole('radio').map((r) => r.props.accessibilityLabel);
+    const options = within(screen.getByLabelText('Kiedy')).getAllByRole('button').map((r) => r.props.accessibilityLabel);
     expect(options).toEqual(['Dziś', 'Jutro', 'Inny dzień', 'Bez terminu']);
     expect(radio('Kiedy', 'Jutro').props.accessibilityState.selected).toBe(true);
     await press(radio('Kiedy', 'Dziś'));
@@ -76,7 +76,8 @@ describe('termin (M-89, M-206, M-245)', () => {
     await press(radio('Kiedy', 'Bez terminu'));
     const time = screen.getByTestId('task-time');
     expect(time.props.accessibilityState.disabled).toBe(true);
-    expect(time.props.accessibilityHint).toBe('Najpierw wybierz dzień.');
+    // Audyt 3 (N-199): powód czyta widoczna notka pod polem — podpowiedź go nie powtarza.
+    expect(time.props.accessibilityHint).toBeUndefined();
     expect(screen.getByText('Najpierw wybierz dzień.')).toBeTruthy();
     await press(time);
     expect(screen.queryByTestId('task-time-panel')).toBeNull();

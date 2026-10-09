@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { recentShoppingList, shoppingItem } from '../views/quick-shopping';
+import { otherShoppingList, recentShoppingList, shoppingItem } from '../views/quick-shopping';
 
 describe('podpowiedź „Na listę zakupów”: cały wpis to jeden znany produkt (PW-3 D, M-24)', () => {
   it.each([
@@ -116,5 +116,36 @@ describe('lista zakupów grupy, której ostatnio używano', () => {
     list(tie, 'lb', 'gf', 'shopping', 4);
     expect(recentShoppingList(tie, ME, 'gf')!.id).toBe('la');
     expect(recentShoppingList({}, ME, 'gf')).toBeNull();
+  });
+});
+
+describe('lista zakupów z innej grupy (audyt 3, N-45, Q14 B)', () => {
+  const ME = 'u-me';
+  type T = { [e: string]: { [id: string]: Row } };
+  const t = (): T => ({
+    groups: {
+      [ME]: { id: ME, name: 'Osobiste', kind: 'personal', created_at: '2026-01-01T00:00:00Z', deleted_at: null },
+      gf: { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-02T00:00:00Z', deleted_at: null },
+      gk: { id: 'gk', name: 'Klasa', kind: 'shared', created_at: '2026-02-01T00:00:00Z', deleted_at: null },
+    },
+    group_members: {
+      [ME]: { member_id: ME, group_id: ME, user_id: ME, display_name: 'Ja', role: 'owner', deleted_at: null },
+      mf: { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Ja', role: 'admin', deleted_at: null },
+      mk: { member_id: 'mk', group_id: 'gk', user_id: ME, display_name: 'Ja', role: 'child', deleted_at: null },
+    },
+    lists: {
+      lf: { id: 'lf', group_id: 'gf', kind: 'shopping', name: 'Zakupy', visibility: 'group', sort_key: 'a0', deleted_at: null, version: 2 },
+      lk: { id: 'lk', group_id: 'gk', kind: 'shopping', name: 'Na wycieczkę', visibility: 'group', sort_key: 'a0', deleted_at: null, version: 50 },
+    },
+  });
+
+  it('ostatnio użyta grupa pierwsza, potem kolejność grup; bez grupy wpisu; także grupa, w której jestem dzieckiem; brak — null', () => {
+    expect(otherShoppingList(t(), ME, ME, null)).toEqual({ id: 'lf', name: 'Zakupy', groupId: 'gf' });
+    expect(otherShoppingList(t(), ME, ME, 'gk')).toEqual({ id: 'lk', name: 'Na wycieczkę', groupId: 'gk' });
+    expect(otherShoppingList(t(), ME, ME, 'nie-ma')).toEqual({ id: 'lf', name: 'Zakupy', groupId: 'gf' });
+    expect(otherShoppingList(t(), ME, 'gf', 'gf')).toEqual({ id: 'lk', name: 'Na wycieczkę', groupId: 'gk' });
+    const none = t();
+    none.lists = {};
+    expect(otherShoppingList(none, ME, ME, 'gf')).toBeNull();
   });
 });

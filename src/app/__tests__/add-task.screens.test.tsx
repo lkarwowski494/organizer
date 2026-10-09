@@ -213,7 +213,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('Środa, 7 października');
     expect(radio('Osoba odpowiedzialna', 'Nikt konkretny').props.accessibilityState.selected).toBe(true);
     expect(radio('Kogo dotyczy', 'Wybrane osoby').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByLabelText('Uczestnik: Tymek').props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByLabelText('Uczestnik: Tymek').props.accessibilityState).toMatchObject({ selected: true });
     // Całodniowe — do zadania bez godziny; dzień z kalendarza przechodzi.
     await press(radio('Pora', 'Cały dzień'));
     await pickDate('event-date', '2026-10-09');
