@@ -22,9 +22,11 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
     timeout: 10000
 - tapOn:
     id: "delete-start"
-- tapOn:
-    id: "delete-word"
-- inputText: "USUŃ"
+- runFlow:
+    file: common/type.yaml
+    env:
+      FIELD: "delete-word"
+      TEXT: "USUŃ"
 - assertVisible:
     id: "delete-word"
 - assertVisible:

@@ -65,7 +65,7 @@
     "check": "npm run typecheck && npm run lint && npm run test:coverage && npm run check:functions && npm run check:corpus && npm run check:licenses",
     "check:functions": "deno check supabase/functions && deno lint supabase/functions && deno test --no-prompt --clean --coverage=coverage/deno supabase/functions && deno coverage coverage/deno --lcov --output=coverage/deno.lcov && node scripts/deno-coverage-check.mjs coverage/deno.lcov",
     "check:licenses": "node scripts/licenses/gen-licenses.mjs --check",
-    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json && python3 -I scripts/gen-contrast-corpus.py | diff -q - src/domain/__tests__/fixtures/contrast.json && python3 -I scripts/gen-theme-contrast-corpus.py | diff -q - src/config/__tests__/fixtures/theme-contrast.json",
+    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json && python3 -I scripts/gen-contrast-corpus.py | diff -q - src/domain/__tests__/fixtures/contrast.json && python3 -I scripts/gen-theme-contrast-corpus.py | diff -q - src/config/__tests__/fixtures/theme-contrast.json && python3 -I scripts/gen-dst-corpus.py | diff -q - src/domain/__tests__/fixtures/dst-lengths.json",
     "test:mutation": "stryker run",
     "test:coverage": "jest --coverage",
     "check:audit": "node scripts/audit-check.mjs",

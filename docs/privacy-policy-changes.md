@@ -229,3 +229,10 @@ liczby z `src/config`, administratora, opis każdej tabeli z migracji i konwencj
    Kod: `private.account_invites_handover`, wołana z `private.delete_account_data` i `private.delete_account_trash`
    (`20261010101000_account_deletion_invites.sql`); testy `supabase/tests/account_deletion_invites.test.sql`.
    Wcześniej polityka mówiła: „Linki zaproszeń, które wystawiłeś, przestają działać” — zdanie zastąpione.
+3. **„Cofnij” po usunięciu osoby i po zmianie roli** (PK-11, N-40, N-87): przywrócenie osoby przez właściciela albo
+   administratora cofa to, co zabrało usunięcie (dostęp do list „Wybrane osoby”, zaproszenia osobiste, przekazania, które
+   nadal mają sens); ustawienie „W Moich sprawach” przy odejściu trafia do kosza i wraca z osobą zamiast znikać;
+   „Cofnij” zmiany roli w oknie `config.invites.ROLE_UNDO_WINDOW_SEC` (180 s) przywraca zaproszenia osobiste.
+   Kod: `private.member_scope_cleanup` i przywracanie (`20261010110000_member_restore.sql`),
+   `private.role_invite_marks` — czas utraty roli przy członkostwie, znika przy odzyskaniu roli albo z członkostwem
+   (`20261010110100_role_undo_invites.sql`).

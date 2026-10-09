@@ -536,13 +536,23 @@ function seriesCascade(t: { [e: string]: { [k: string]: Row } }, entity: 'events
 }
 
 /**
- * Wyjście i powrót członka (group_members_departure, group_members_leave_scopes): oczekujące przekazania z nim i do niego
- * anulowane, jego listy prywatne usunięte (z kaskadą) i jego udostępnienia odebrane; powrót przywraca listy prywatne.
+ * Wyjście i powrót członka (group_members_departure, group_members_leave_scopes, member_scope_cleanup): oczekujące
+ * przekazania z nim i do niego anulowane, jego listy prywatne usunięte (z kaskadą), jego udostępnienia odebrane, a zakres
+ * Moich spraw w koszu — wszystko ze znacznikiem usunięcia osoby. Przywrócenie (w modelu tylko przez owner/admin — powrót
+ * zaproszeniem nie idzie przez sync_push) cofa to, co ma ten znacznik (audyt 3, N-40, 20261010110000_member_restore):
+ * listy prywatne, udostępnienia, zakres i przekazania, które nadal mają sens (reguła jak przy tworzeniu).
  */
 function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'delete' | 'restore', at: string) {
   const mine = (l: Row) => l.group_id === m.group_id && l.owner_member_id === m.member_id && l.visibility === 'private';
+  const scopes = Object.entries(t.my_day_scopes ?? {}).filter(([, sc]) => sc.member_id === m.member_id);
   if (kind === 'restore') {
     for (const [id, l] of Object.entries(t.lists ?? {})) if (mine(l) && l.deleted_at != null && String(l.deleted_at) >= String(m.deleted_at)) applyOp(t, { seq: 0, op_id: 'server', kind: 'restore', entity: 'lists', id });
+    for (const [k, o] of Object.entries(t.object_members ?? {})) if (o.member_id === m.member_id && o.deleted_at === m.deleted_at) t.object_members![k] = { ...o, deleted_at: null };
+    for (const [k, sc] of scopes) if (sc.deleted_at === m.deleted_at) t.my_day_scopes![k] = { ...sc, deleted_at: null };
+    for (const [k, h] of Object.entries(t.handoffs ?? {})) {
+      const involved = h.from_member === m.member_id || h.to_member === m.member_id;
+      if (h.group_id === m.group_id && h.status === 'cancelled' && h.decided_at === m.deleted_at && involved && handoffStillValid(t, h)) t.handoffs![k] = { ...h, status: 'pending', decided_at: null };
+    }
     return;
   }
   for (const [k, h] of Object.entries(t.handoffs ?? {})) {
@@ -554,8 +564,26 @@ function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'dele
     seriesCascade(t, 'lists', id, null, 'delete');
   }
   for (const [k, o] of Object.entries(t.object_members ?? {})) if (o.member_id === m.member_id && o.deleted_at == null) t.object_members![k] = { ...o, deleted_at: at };
-  // member_scope_cleanup: zakres Moich spraw tej osoby znika (wraca „Wszystko”).
-  for (const [k, sc] of Object.entries(t.my_day_scopes ?? {})) if (sc.member_id === m.member_id) delete t.my_day_scopes![k];
+  // member_scope_cleanup: zakres Moich spraw tej osoby do kosza (nagrobek dla telefonu, N-87; wraca „Wszystko”).
+  for (const [k, sc] of scopes) if (sc.deleted_at == null) t.my_day_scopes![k] = { ...sc, deleted_at: at };
+}
+
+/** Przekazanie anulowane przez usunięcie osoby wraca, gdy dałoby się je utworzyć teraz (handoffs_guard): obie osoby są,
+ * odbiorca to dorosły z kontem, rzecz nadal u nadawcy i odbiorca ją widzi, nikt inny jej nie przekazuje. */
+function handoffStillValid(t: ServerTables, h: Row): boolean {
+  const to = t.group_members?.[String(h.to_member)];
+  if (!live(t.group_members?.[String(h.from_member)]) || !live(to) || to.role === 'child' || to.user_id == null) return false;
+  if (rowsOf(t, 'handoffs').some((p) => p.status === 'pending' && p.entity === h.entity && p.entity_id === h.entity_id && same(p.occurrence_date, h.occurrence_date))) return false;
+  if (h.entity === 'tasks') {
+    const x = t.tasks?.[String(h.entity_id)];
+    return live(x) && x.assignee_member_id === h.from_member && memberCanSeeList(t, h.to_member, t.lists![String(x.list_id)]!);
+  }
+  if (h.entity === 'lists') {
+    const x = t.lists?.[String(h.entity_id)];
+    return live(x) && x.responsible_member_id === h.from_member && memberCanSeeList(t, h.to_member, x);
+  }
+  const x = t.events?.[String(h.entity_id)];
+  return live(x) && occurrenceResponsible(t, x, h.occurrence_date) === h.from_member;
 }
 
 /**

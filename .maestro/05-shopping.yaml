@@ -10,9 +10,11 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
     visible:
       id: "screen-list"
     timeout: 10000
-- tapOn:
-    id: "quick-add"
-- inputText: "Ser żółty"
+- runFlow:
+    file: common/type.yaml
+    env:
+      FIELD: "quick-add"
+      TEXT: "Ser żółty"
 - tapOn: "Dodaj"
 - scrollUntilVisible:
     element: "Włóż do koszyka: Ser żółty"

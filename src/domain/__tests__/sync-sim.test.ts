@@ -166,12 +166,21 @@ const cmdArb: fc.Arbitrary<Cmd> = fc.oneof(
   },
 );
 
-/** Ponowne uruchomienie aplikacji: stan wyłącznie z bazy telefonu (src/data/store), jak po zamknięciu i otwarciu. */
+/**
+ * Ponowne uruchomienie aplikacji: stan wyłącznie z bazy telefonu (src/data/store), jak po zamknięciu i otwarciu.
+ * Baza zamykana od razu: better-sqlite3 nie zwalnia otwartej bazy (pamięć poza stertą JS, której nie odda też
+ * odśmiecanie). Pomiar 9.10.2026: bez close() pamięć procesu rosła o ~2,2 MB na przebieg (2,1 GB po 800 przebiegach —
+ * proces zabijany przy kilku przebiegach Jest naraz), z close() ~0,14 MB na przebieg przy stałej stercie.
+ */
 function restarted(s: ClientState): ClientState {
   const db = memoryDb();
-  migrate(db);
-  writeState(db, initialState(s.clientId), s, 1);
-  return readState(db, 'inna-instalacja');
+  try {
+    migrate(db);
+    writeState(db, initialState(s.clientId), s, 1);
+    return readState(db, 'inna-instalacja');
+  } finally {
+    db.raw.close();
+  }
 }
 
 /**

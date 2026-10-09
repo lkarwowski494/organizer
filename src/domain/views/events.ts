@@ -12,7 +12,7 @@ import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../for
 import { chainParts } from '../event-chain';
 import { type SplitArgs, type SplitFollow, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
-import { type DayPart, daySpan, lengthMinutes, storedDuration } from '../span';
+import { type DayPart, daySpan, exactMinutes, lengthMinutes, storedDuration } from '../span';
 import { alignStart, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { childEventConcerns } from './child';
@@ -760,9 +760,12 @@ export function timeLabel(start: string | null, end: string | null): string | nu
   return end === null ? start.slice(0, 5) : `${start.slice(0, 5)}–${end.slice(0, 5)}`;
 }
 
-/** Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. */
-export function lengthLabel(start: string | null, end: string | null, duration: number | null = null): string | null {
-  const m = lengthMinutes(start, end, duration);
+/**
+ * Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. Z dniem
+ * startu (`date`, ISO) — rzeczywisty czas przez zmianę czasu (audyt 3, N-114: dyżur 22:00–06:00 w noc 24/25.10 — „9 h”).
+ */
+export function lengthLabel(start: string | null, end: string | null, duration: number | null = null, date: string | null = null): string | null {
+  const m = date === null ? lengthMinutes(start, end, duration) : exactMinutes(date, start, end, duration);
   return m === null ? null : formatMinutes(m);
 }
 

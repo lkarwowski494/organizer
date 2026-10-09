@@ -10,7 +10,6 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
-import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
@@ -26,7 +25,7 @@ import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodTitle, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
-import { DayNumber } from '../../ui/DateField';
+import { DayNumber, WeekdayHeader } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { localNow } from '../../domain/local-time';
@@ -150,12 +149,7 @@ export function CalendarScreen() {
           <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
         </Pressable>
       </View>
-      {/* Skróty dni tygodnia tylko dla oka — każdy dzień podaje pełną nazwę (audyt 2, M-263, A-46). */}
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
-        {WEEKDAYS_ABBREVIATED.map((w) => (
-          <Text key={w} style={{ flex: 1, textAlign: 'center', fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{w}</Text>
-        ))}
-      </View>
+      <WeekdayHeader />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {days.map((d) => {
           const on = d.date === selected;
