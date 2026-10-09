@@ -38,7 +38,7 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     await press(screen.getByTestId('task-move'));
     const panel = screen.getByTestId('move-groups');
     expect(within(panel).queryByLabelText('Osobiste')).toBeNull(); // już tam jest
-    expect(within(panel).queryByLabelText('Klasa 2b')).toBeTruthy();
+    expect(within(panel).getByLabelText('Klasa 2b')).toBeTruthy();
     const before = store.dispatched.length;
     await press(within(panel).getByLabelText('Rodzina'));
     // D97: ogólna lista „Zadania” grupy — powstaje, bo jej nie było; kopia zadania i obu podzadań, oryginał do kosza.

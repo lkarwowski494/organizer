@@ -115,7 +115,7 @@ describe('Wydarzenia: dodawanie', () => {
     expect(screen.getByText(/Brak wydarzeń/)).toBeTruthy();
     await press(screen.getByTestId('group-add-event'));
     await screen.findByTestId('screen-event-edit');
-    expect(screen.queryByLabelText('Grupa')).toBeTruthy(); // wybór grupy, podpowiedziana Rodzina
+    expect(screen.getByLabelText('Grupa')).toBeTruthy(); // wybór grupy, podpowiedziana Rodzina
     expect(screen.getByLabelText('Rodzina').props.accessibilityState.selected).toBe(true);
     await type(screen.getByTestId('event-title'), 'Zebranie');
     await setTime('event-start-0', '19:00');
@@ -434,7 +434,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     await screen.findByTestId('screen-event');
     // Wydarzenie usunięte w międzyczasie (np. przez inną osobę).
-    s.store.dispatch({ kind: 'delete', entity: 'events', id: 'ev-tance' });
+    await act(async () => s.store.dispatch({ kind: 'delete', entity: 'events', id: 'ev-tance' }));
     expect(await screen.findByTestId('screen-event-missing')).toBeTruthy();
   });
 });

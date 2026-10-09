@@ -4,6 +4,12 @@
  *  - app: ekrany i integracja z Expo (preset jest-expo).
  */
 module.exports = {
+  // Pamięć procesów testów (audyt 2): pamięć procesu rośnie z każdym plikiem ekranów (pomiar --logHeapUsage 9.10.2026:
+  // do ~1,8 GB po kilkudziesięciu plikach), co przy kilku procesach naraz kończyło się zabiciem procesu (SIGKILL)
+  // i długim odśmiecaniem (testy blisko limitu czasu). Jest: „After the worker has executed a test the memory usage of
+  // it is checked. If it exceeds the value specified the worker is killed and restarted”
+  // (https://jestjs.io/docs/29.7/configuration#workeridlememorylimit-numberstring).
+  workerIdleMemoryLimit: '800MB',
   // Progi pokrycia (decyzja właściciela 6.10.2026, docs/testing.md): logika 100% linii i gałęzi.
   collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', 'src/data/**/*.ts', 'src/sync/**/*.ts', '!**/__tests__/**'],
   coverageThreshold: {
@@ -30,6 +36,7 @@ module.exports = {
       displayName: 'app',
       preset: 'jest-expo/ios',
       setupFiles: ['<rootDir>/jest.app-setup.js'],
+      setupFilesAfterEnv: ['<rootDir>/jest.app-after-env.js'],
       testMatch: ['<rootDir>/src/**/*.test.tsx'],
     },
   ],
