@@ -308,11 +308,14 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     const t = g();
     t.tasks!.t1 = { ...t.tasks!.t1!, repeat: 'FREQ=DAILY', rollover: false };
     t.tasks!.t2 = { ...t.tasks!.t1!, id: 't2', repeat: 'FREQ=DAILY', rollover: true, completed_at: done };
+    for (const k of ['p1', 'p2']) t.tasks![k] = { ...t.tasks!.t1!, id: k, parent_id: 't1', repeat: null, deadline_mode: 'inherit', due_date: null };
     const out = withUpcomingCopies(t, d('2026-10-12'), 3, (iso) => iso.slice(0, 10));
+    // Kopie podzadań idą z każdym kolejnym następnym.
+    expect([nextId(nextId('p1')), nextId(nextId('p2'))].map((k) => out.tasks![k]?.parent_id)).toEqual([nextId(nextId('t1')), nextId(nextId('t1'))]);
     const c = nextId('t1');
     expect([out.tasks![c]?.due_date, out.tasks![nextId(c)]?.due_date, out.tasks![nextId(nextId(c))]]).toEqual(['2026-10-13', '2026-10-14', undefined]);
     expect(out.tasks![nextId('t2')]?.due_date).toBe('2026-10-13');
-    expect(Object.keys(t.tasks!)).toEqual(['t1', 't2']);
+    expect(Object.keys(t.tasks!)).toEqual(['t1', 't2', 'p1', 'p2']);
     expect(withUpcomingCopies({}, d('2026-10-12'), 1, (iso) => iso)).toEqual({ tasks: {} });
   });
 
