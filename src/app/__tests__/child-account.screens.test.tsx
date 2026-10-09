@@ -157,12 +157,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
 });
 
 describe('telefon dziecka z kontem', () => {
-  it('Moje sprawy: tylko moje zadanie, zakupy bez pola odhaczenia, moje lekcje jednym wierszem bez imienia (P-70, R-11, N-38)', async () => {
+  it('Moje sprawy: tylko moje zadanie, bez zakupów grupy, moje lekcje jednym wierszem bez imienia (P-70, R-11, N-38)', async () => {
     const s = await open({ base: childBase() });
     expect(screen.getByLabelText(/^Przynieść korki na trening/)).toBeTruthy();
     expect(screen.queryByLabelText(/^Zapłacić składkę/)).toBeNull();
-    // Zakupy widać (można otworzyć listę i odhaczać pozycje), ale bez pola „zrobione” — serwer go nie przyjmie.
-    expect(within(screen.getByTestId('today-trip-lks')).queryByRole('checkbox')).toBeNull();
+    // Decyzja właściciela (audyt 3: Q6c A, N-177): zakupy rodziców tylko w Kalendarzu — nie w Moich sprawach.
+    expect(screen.queryByTestId('today-trip-lks')).toBeNull();
     expect(within(screen.getByTestId('today-t-korki')).getByRole('checkbox')).toBeTruthy();
     expect(screen.getByLabelText(/^2 lekcje, 08:00–09:00, Klasa 2b/)).toBeTruthy();
     expect(s.store.dispatched).toEqual([]);

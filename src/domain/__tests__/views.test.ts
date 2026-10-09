@@ -5,7 +5,7 @@ import type { CivilDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
-import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, removedMembers, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
+import { asGroup, asList, asMember, asTask, calendarMonth, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, removedMembers, splitDoneRows, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
 import { tripEntries } from '../views/shopping-trip';
 import { nextId } from '../views/task-repeat';
 import { config } from '../../config';
@@ -322,6 +322,26 @@ describe('listy', () => {
     expect(rows).toEqual([`run:leki:Leki:01,04,05,06`, `task:${ids[1]}`, 'task:kartka', 'task:kwiaty']);
     // Wszystkie zamknięte dalej w `done` (ekran zadania szuka w nich zadania).
     expect(d.done).toHaveLength(7);
+  });
+
+  it('audyt 3 (N-52): zrobione z ostatnich 30 dni i starsze — dzień odhaczenia, terminu albo najpóźniejszej kopii', () => {
+    const t = world();
+    let id = 'leki';
+    for (let d = 1; d <= 7; d++) {
+      task(t, { id, title: 'Leki', ...own(`2026-10-0${d}`), rollover: false, repeat: 'FREQ=DAILY' });
+      id = nextId(id);
+    }
+    task(t, { id: 'zrob', title: 'Zrobione', completed_at: '2026-10-02T08:00:00Z' });
+    task(t, { id: 'kartka', title: 'Kartka', ...own('2026-10-04'), rollover: false });
+    task(t, { id: 'kwiaty', title: 'Kwiaty', ...own('2026-10-05'), rollover: false });
+    const d = listDetail(t, ME, 'lf', TODAY)!;
+    const key = (r: (typeof d.doneRows)[number]) => (r.kind === 'run' ? `run:${r.key}` : r.node.id);
+    // 4.11 − 30 dni = 5.10 (włącznie).
+    const split = splitDoneRows(d.doneRows, { y: 2026, m: 11, d: 4 });
+    expect(split.recent.map(key)).toEqual(['run:leki', 'kwiaty']);
+    expect(split.older.map(key)).toEqual(['zrob', 'kartka']);
+    expect(config.lists.DONE_RECENT_DAYS).toBe(30);
+    expect(splitDoneRows(d.doneRows, TODAY).older).toEqual([]);
   });
 
   it('remis terminu i sort_key rozstrzyga tytuł', () => {

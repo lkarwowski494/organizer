@@ -7,11 +7,23 @@
  */
 import { asList, asMember, rows, type Tables } from './model';
 
+/**
+ * Konto tego telefonu: id grupy osobistej to id konta (private.on_auth_user_created, 20261006120000_core.sql: „insert into
+ * public.groups (id, name, kind) values (new.id, 'Osobiste', 'personal')”), a telefon dostaje tylko własną (RLS).
+ */
+const phoneUser = (t: Tables) => {
+  const g = Object.values(t.groups ?? {}).find((x) => x.kind === 'personal');
+  return g ? String(g.id) : null;
+};
+
 export function memberCanSeeList(t: Tables, memberId: string, listId: string): boolean {
   const l = t.lists?.[listId] ? asList(t.lists[listId]!) : null;
   if (!l) return false;
   const m = rows(t, 'group_members', asMember).find((x) => x.member_id === memberId && x.group_id === l.group_id && x.deleted_at === null);
   if (!m) return false;
   if (l.visibility === 'group' || l.owner_member_id === memberId) return true;
+  // Audyt 3 (N-170): lista utworzona na tym telefonie przed odpowiedzią serwera nie ma jeszcze właściciela (nadaje go
+  // lists_guard). Innej listy bez właściciela telefon nie ma, więc to lista konta tego telefonu — jak ownPrivateList.
+  if (l.owner_member_id === null && m.user_id !== null && m.user_id === phoneUser(t)) return true;
   return l.visibility === 'restricted' && Object.values(t.object_members ?? {}).some((o) => o.scope_entity === 'lists' && o.scope_id === listId && o.member_id === memberId && o.deleted_at == null);
 }
