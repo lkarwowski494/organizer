@@ -165,8 +165,8 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(await screen.findByTestId('open-recent'));
     expect(screen.getAllByTestId(/^recent-\d+$/)).toHaveLength(config.RECENT_MAX);
     expect(screen.queryByText('Usunięto zadanie: Zadanie 0')).toBeNull();
-    // 31 usunięć na pełnym ekranie Moich spraw — przy obciążonej maszynie CI dłużej niż domyślne 5 s.
-  }, 20_000);
+    // 31 usunięć na pełnym ekranie Moich spraw — jeden z dłuższych testów; limit wspólny (jest.app-after-env.js).
+  });
 });
 
 /** Ponowne uruchomienie aplikacji: nowe drzewo (nowy UndoProvider) na tych samych usługach i tej samej bazie konta. */
