@@ -32,3 +32,13 @@ id = "supabase-access-token"
 description = "Token dostępu Supabase (sbp_..., CLI i Management API)"
 regex = '''\bsbp_(?:oauth_|v0_)?[a-f0-9]{40}\b'''
 keywords = ["sbp_"]
+
+# Prywatny adres e-mail w treści plików (audyt 3, A3-17-1): repozytorium jest publiczne, a commity mają tylko adres
+# noreply GitHuba. Adresy u popularnych dostawców poczty prywatnej są zgłaszane; w testach i przykładach używamy
+# domen zastrzeżonych do przykładów (example.com — RFC 2606, https://www.rfc-editor.org/rfc/rfc2606: „.example”,
+# „example.com” … reserved for use in documentation) i adresu noreply.
+[[rules]]
+id = "personal-email"
+description = "Prywatny adres e-mail (Gmail, Outlook, iCloud, polscy dostawcy) w treści pliku"
+regex = '''\b[A-Za-z0-9._%+-]+@(?:gmail|googlemail|outlook|hotmail|live|yahoo|icloud|me|proton|protonmail|aol|wp|o2|onet|interia|op|gazeta|tlen|vp|poczta\.onet|int)\.(?:com|pl|me|eu|ch|net)\b'''
+keywords = ["@"]

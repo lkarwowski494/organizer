@@ -30,6 +30,10 @@ printf 'SECRET=%s\n' "sb_secret_$(alnum 32)" >"$work/hit/sb-secret.env"
 jwt_head="$(printf '{"alg":"HS256","typ":"JWT"}' | b64url)"
 jwt_body="$(printf '{"role":"service_role","iss":"supabase"}' | b64url)" # „service_role” od bajtu 9: wyrównane do 3
 printf 'key: %s.%s.%s\n' "$jwt_head" "$jwt_body" "$(head -c 32 /dev/urandom | b64url)" >"$work/hit/service-role.yml"
+# Prywatny adres e-mail (reguła personal-email); adres składany w czasie testu, żeby ten plik go nie zawierał.
+at='@'
+printf "expect(emailName('%s')).toBe('x');\n" "jan.$(alnum 6)${at}gmail.com" >"$work/hit/email-gmail.test.ts"
+printf 'Kontakt: %s\n' "ola$(alnum 4)${at}wp.pl" >"$work/hit/email-wp.md"
 # Reguła domyślna (dowód, że useDefault działa): token GitHub.
 printf '%s\n' "ghp_$(alnum 36)" >"$work/hit/github.txt"
 
@@ -37,6 +41,8 @@ printf '%s\n' "ghp_$(alnum 36)" >"$work/hit/github.txt"
 printf '%s\n' "${sbp}$(hex 20 | cut -c1-39)" >"$work/miss/sbp-short.txt"
 printf '%s\n' "${sbp}$(hex 20 | tr 'a-f' 'A-F')" >"$work/miss/sbp-upper.txt"
 printf 'zmienna %sprzyklad w tekście\n' "$sbp" >"$work/miss/sbp-word.txt"
+# Adresy dozwolone: noreply GitHuba i domena przykładowa (RFC 2606).
+printf '%s\n' "336954459+lkarwowski494${at}users.noreply.github.com" "jan.kowalski85${at}example.com" >"$work/miss/email-ok.txt"
 
 scan() { # scan <katalog> <raport>
   "$gitleaks" dir "$1" --config "$root/.gitleaks.toml" --no-banner --redact --exit-code 0 \
@@ -62,6 +68,8 @@ expect supabase-access-token sbp-code.ts
 expect supabase-secret-key sb-secret.env
 expect apple-p8-private-key apns.p8
 expect supabase-service-role-jwt service-role.yml
+expect personal-email email-gmail.test.ts
+expect personal-email email-wp.md
 expect github-pat github.txt
 
 if jq -e 'length == 0' "$work/miss.json" >/dev/null; then
