@@ -153,6 +153,9 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - Linki zaproszeń, które wystawiłeś, przestają działać.
 - Grupę w koszu, której byłeś właścicielem, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje w koszu do
   końca tych samych 30 dni.
+- Jeśli przy usuwaniu zaznaczysz **„Usuń też moje wpisy w grupach”**, zamiast tego zadania i rzeczy na listach zakupów,
+  które dodałeś w grupach wspólnych, Twoje wydarzenia, stałe zadania i odpowiedzi o obecności trafiają do kosza grup
+  (jak przy zwykłym usunięciu w aplikacji) i po 30 dniach są usuwane na stałe. Listy i wpisy innych osób zostają.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,
   wyciszenia grup, Twoje zgłoszenia błędów i uwagi, nieudane próby dołączenia kodem, dane techniczne synchronizacji.
 - Przy koncie Apple usunięcie potwierdzasz oknem Apple, a my unieważniamy token Sign in with Apple.

@@ -15,6 +15,8 @@ export function rejectionReason(code: string): string {
   const head = code.split(':')[0];
   // Kody z migracji 20261008280000_audit_fixes (audyt 8.10.2026).
   if (code === 'deleted:parent') return strings['rejected.code.parent'];
+  // Audyt 3 (N-131): przywrócenie zadania przeniesionego do innej grupy (20261010060000_move_task_to_group).
+  if (code === 'moved') return strings['rejected.code.moved'];
   if (head === 'stale') return strings['rejected.code.stale'];
   if (head === 'forbidden') return strings['rejected.code.forbidden'];
   if (head === 'deleted' || head === 'not_found') return strings['rejected.code.deleted'];
@@ -33,6 +35,9 @@ export function describeOp(op: Op, t: Tables = {}): string {
   const verb = strings[`rejected.op.${op.kind}`];
   if (op.kind === 'cmd') {
     if (op.cmd === 'move_task') return strings['rejected.cmd.move_task'];
+    // Audyt 3 (N-12): przeniesienie do innej grupy jest jednym poleceniem — odrzucone w całości, oryginał zostaje.
+    if (op.cmd === 'move_task_to_group') return strings['rejected.cmd.move_task_to_group'](String((op.args.tasks as { set: { title?: unknown } }[])[0]?.set.title ?? ''));
+    if (op.cmd === 'unmove_task') return strings['rejected.cmd.unmove_task'](String(op.args.title ?? ''));
     // Audyt 2 (M-3): „to i następne” jest jednym poleceniem — odrzucone w całości, nazwa wydarzenia z polecenia.
     if (op.cmd === 'split_event') return strings['rejected.cmd.split_event'](String((op.args.set as { title?: unknown } | undefined)?.title ?? ''));
     if (op.cmd === 'end_series' || op.cmd === 'restore_series') return strings[`rejected.cmd.${op.cmd}`](String(op.args.title ?? ''));

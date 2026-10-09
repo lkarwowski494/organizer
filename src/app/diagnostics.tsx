@@ -86,8 +86,8 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
       <View testID="screen-crash" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: c.ground }}>
         <Text accessibilityRole="header" style={{ fontSize: sizes.DETAIL, fontWeight: '700', color: c.ink }}>{strings['crash.title']}</Text>
         <Text style={{ fontSize: sizes.BODY, color: c.inkMuted, textAlign: 'center' }}>{strings['crash.body']}</Text>
-        <Text accessibilityRole="button" accessibilityLabel={strings['crash.retry']} onPress={() => this.setState({ failed: false })} style={{ fontSize: sizes.BODY, fontWeight: '700', color: c.ink, minHeight: 44, paddingVertical: 12, paddingHorizontal: 20 }}>
-          {strings['crash.retry']}
+        <Text accessibilityRole="button" accessibilityLabel={strings['common.retry']} onPress={() => this.setState({ failed: false })} style={{ fontSize: sizes.BODY, fontWeight: '700', color: c.ink, minHeight: 44, paddingVertical: 12, paddingHorizontal: 20 }}>
+          {strings['common.retry']}
         </Text>
       </View>
     );
