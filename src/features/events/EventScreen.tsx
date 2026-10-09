@@ -15,7 +15,7 @@ import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDateInline, formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
-import { coveredDays } from '../../domain/span';
+import { coveredDays, endDayOffset } from '../../domain/span';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
 import { checkOff, listsView } from '../../domain/views';
@@ -74,9 +74,11 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
+  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej.
+  const long = occ.startTime !== null && (occ.durationMin ?? null) !== null;
+  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
-  const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1);
+  const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);
   const when = occ.startTime === null && span > 1 ? `${formatRange(startDay, addDays(startDay, span - 1), today)} · ${strings['event.daysCount'](span)}` : `${formatLongDate(startDay, today)} · ${time}`;
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
@@ -158,7 +160,11 @@ export function EventScreen({ route, navigation }: Props) {
       </View>
       <Title>{occ.title}</Title>
       <Body>{when}</Body>
-      {occ.startTime !== null && span > 1 ? <Body muted>{strings['event.endsNextDayOn'](formatDateInline(addDays(startDay, 1), today))}</Body> : null}
+      {long ? (
+        <Body muted>{strings['event.endsOn'](formatDateInline(addDays(startDay, endDayOffset(occ.startTime!, occ.durationMin!)), today), occ.endTime!.slice(0, 5))}</Body>
+      ) : occ.startTime !== null && span > 1 ? (
+        <Body muted>{strings['event.endsNextDayOn'](formatDateInline(addDays(startDay, 1), today))}</Body>
+      ) : null}
       {occ.date !== date ? <Body muted>{strings['event.moved'](formatDateInline(parseIsoDate(date), today))}</Body> : null}
       <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff']}</Body>
       {state === 'cancelled' ? (

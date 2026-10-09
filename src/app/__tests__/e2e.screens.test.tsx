@@ -84,6 +84,27 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(await screen.findByLabelText(/^Wywiadówka, 18:30/)).toBeTruthy();
   });
 
+  it('08 wydarzenie przez kilka dni (D199): „Kończy się”, „dzień 2 z 3” w Kalendarzu', async () => {
+    await start().render();
+    await screen.findByTestId('screen-today');
+    await press(screen.getByTestId('tab-Calendar'));
+    await press(await screen.findByTestId('calendar-add-event'));
+    await screen.findByTestId('screen-event-edit');
+    await press(screen.getByLabelText('Rodzina'));
+    await fireEvent.changeText(screen.getByTestId('event-title'), 'Obóz');
+    expect(screen.getAllByLabelText('Cały dzień')).toHaveLength(1);
+    await press(screen.getByLabelText('Cały dzień'));
+    await press(screen.getByTestId('event-end-date'));
+    const cal = screen.getByTestId('event-end-date-calendar');
+    const friday = within(cal).getAllByLabelText(/^Piątek, 9 października/);
+    expect(friday).toHaveLength(1);
+    await press(friday[0]!);
+    await press(screen.getByTestId('event-save'));
+    expect(await screen.findByTestId('screen-calendar')).toBeTruthy();
+    await press(screen.getByTestId('day-2026-10-08'));
+    expect(await screen.findByLabelText(/^Obóz, cały dzień, dzień 2 z 3/)).toBeTruthy();
+  });
+
   it('05 lista zakupów: dodanie produktu i włożenie do koszyka', async () => {
     await start().render();
     await screen.findByTestId('screen-today');
