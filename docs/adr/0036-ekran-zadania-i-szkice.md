@@ -18,6 +18,14 @@
    „nikt konkretny” (D132); termin z wydarzenia staje się własnym terminem. Historia zmian zostaje przy oryginale.
    Tylko zadanie główne, nie w trakcie przekazania. Odrzucone: RPC serwera zmieniające grupę (wymaga zmiany protokołu
    synchronizacji); kopia bez podzadań (gubiła je w koszu).
+   Zmiana 9.10.2026 (audyt 3, N-12, N-121, N-131, N-36): przeniesienie to jedno polecenie serwera `move_task_to_group`
+   (migracja 20261010060000) — wszystko albo nic także na serwerze (wcześniej odrzucona kopia zostawiała oryginał
+   w koszu i zadanie znikało z obu grup). Oryginał dostaje znacznik `moved_to`: nie stoi w koszu, nie wraca z niego,
+   dopóki żyje kopia (kod „moved”), a jego ekran mówi „Przeniesiono do …” z „Otwórz zadanie”. „Cofnij” to polecenie
+   `unmove_task` (kopia do kosza ze znacznikiem powrotu, oryginał wraca; lista ogólna założona dla przeniesienia zostaje).
+   Kopia z tą samą osobą nie wysyła „przypisuje Ci zadanie”. Zrobionego zadania się nie przenosi (zadanie powtarzane
+   dostałoby drugi następny termin). Ekran usuniętego zadania, listy i wydarzenia: „W koszu · Przywróć” tylko wtedy,
+   gdy kosz by tę rzecz pokazał, z tym samym paskiem; inaczej „Tego … już nie ma”.
 2. **Szkic (D179):** `app/form-draft.tsx` + `domain/drafts.ts`, jeden mechanizm dla nowego zadania, wydarzenia (także
    zmiany), rutyny, planu lekcji, nowej listy i nowej grupy. Szkic to tylko pola zmienione względem chwili otwarcia,
    w lokalnej bazie telefonu, osobno dla konta; przy zmianie istniejącej rzeczy nakłada się na jej obecne dane.

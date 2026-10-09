@@ -386,7 +386,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(screen.getByLabelText('Usuń: Moje')).toBeTruthy();
   });
 
-  it('podzadanie na ekranie zadania przesuwa się; „Usuń zadanie” — pasek „Cofnij” i powrót (M-254); usunięte gdzie indziej — „Zadanie usunięte”', async () => {
+  it('podzadanie na ekranie zadania przesuwa się; „Usuń zadanie” — pasek „Cofnij” i powrót (M-254); usunięte gdzie indziej — „W koszu · Przywróć”', async () => {
     const base = sampleBase();
     put(base, 'tasks', 'sub', { ...base.tasks!['t-kwiaty']!, id: 'sub', parent_id: 't-kwiaty', title: 'Wybrać tulipany', deadline_mode: 'inherit', due_date: null });
     put(base, 'tasks', 'gone', { ...base.tasks!['t-kwiaty']!, id: 'gone', title: 'Dawne', deleted_at: ago(1) });
@@ -404,9 +404,13 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     await act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, deleted_at: ago(0) } } })));
-    expect(screen.getByTestId('screen-task-deleted')).toBeTruthy();
-    await press(screen.getByLabelText('Cofnij usunięcie'));
+    // Audyt 3 (N-36): jak w koszu — „W koszu · usunięcie za …”, „Przywróć” i pasek „Przywrócono: … · Cofnij”.
+    expect(screen.getByTestId('screen-task-trash')).toBeTruthy();
+    expect(screen.getByText('W koszu · usunięcie za 30 dni')).toBeTruthy();
+    await press(screen.getByLabelText('Przywróć: Odebrać paczkę'));
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
+    expect(within(bar()).getByText('Przywrócono: Odebrać paczkę')).toBeTruthy();
+    expect(screen.getByTestId('screen-task')).toBeTruthy();
   });
 
   it('stała pozycja zakupów: usunięcie z „Cofnij” (wraca tym samym poleceniem co dodanie)', async () => {
@@ -420,6 +424,87 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(within(bar()).getByText('Usunięto ze stałych: Mydło')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } }, { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } }]);
+  });
+});
+
+describe('ekran rzeczy w koszu — jedna reguła z koszem (audyt 3: N-36, N-131)', () => {
+  const removeKwiaty = (store: Awaited<ReturnType<typeof open>>['store'], extra: Row = {}) =>
+    act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-kwiaty': { ...b.tasks!['t-kwiaty']!, deleted_at: ago(0), ...extra } } })));
+  async function openKwiaty(base = sampleBase()) {
+    const s = await open(base);
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText(/^Kupić kwiaty(,|$)/));
+    await screen.findByTestId('screen-task');
+    return s;
+  }
+
+  it('podzadanie usunięte z rodzicem (kosz go nie pokazuje — wraca z rodzicem) — „Tego zadania już nie ma”, bez przywracania', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 'sub', { ...base.tasks!['t-kwiaty']!, id: 'sub', parent_id: 't-kwiaty', title: 'Wybrać tulipany', deadline_mode: 'inherit', due_date: null });
+    const { store } = await openKwiaty(base);
+    await press(screen.getByLabelText(/^Wybrać tulipany(,|$)/));
+    await screen.findByTestId('screen-task');
+    await act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-kwiaty': { ...b.tasks!['t-kwiaty']!, deleted_at: ago(0) }, sub: { ...b.tasks!.sub!, deleted_at: ago(0) } } })));
+    expect(screen.getByTestId('screen-task-missing')).toBeTruthy();
+    expect(screen.getByText('Tego zadania już nie ma — ktoś je usunął albo nie masz już do niego dostępu.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Przywróć/ })).toBeNull();
+  });
+
+  it('dziecko (D34: nie przywraca) — „Tego zadania już nie ma”', async () => {
+    const base = sampleBase();
+    base.group_members!.mf = { ...base.group_members!.mf!, role: 'child' };
+    const { store } = await openKwiaty(base);
+    await removeKwiaty(store);
+    expect(screen.getByTestId('screen-task-missing')).toBeTruthy();
+  });
+
+  it('przeniesione na innym telefonie: „Przeniesiono do grupy …” i „Otwórz zadanie” (kopia)', async () => {
+    const { store } = await openKwiaty();
+    await act(async () =>
+      store.pull((b) => ({
+        ...b,
+        tasks: { ...b.tasks, 't-kwiaty': { ...b.tasks!['t-kwiaty']!, deleted_at: ago(0), moved_to: 'kopia' }, kopia: { ...b.tasks!['t-korki']!, id: 'kopia', title: 'Kupić kwiaty' } },
+      })),
+    );
+    expect(screen.getByTestId('screen-task-moved')).toBeTruthy();
+    expect(screen.getByText('To zadanie przeniesiono do grupy „Klasa 2b”.')).toBeTruthy();
+    await press(screen.getByLabelText('Otwórz zadanie'));
+    expect(await screen.findByTestId('screen-task')).toBeTruthy();
+    expect(screen.getByText('Klasa 2b')).toBeTruthy();
+    expect(screen.getByTestId('task-title').props.value).toBe('Kupić kwiaty');
+  });
+
+  it('kopia w grupie, do której nie należę — „przeniesiono do innej grupy”, bez przejścia', async () => {
+    const { store } = await openKwiaty();
+    await removeKwiaty(store, { moved_to: 'nieznana' });
+    expect(screen.getByText('To zadanie przeniesiono do innej grupy.')).toBeTruthy();
+    expect(screen.queryByTestId('task-open-moved')).toBeNull();
+  });
+
+  it('zrobione zadanie nie ma „Przenieś do grupy” (N-121)', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-kwiaty', { ...base.tasks!['t-kwiaty']!, completed_at: '2026-10-07T07:00:00Z' });
+    await open(base);
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText(/Zrobione/));
+    await press(await screen.findByLabelText(/^Kupić kwiaty(,|$)/));
+    await screen.findByTestId('screen-task');
+    expect(screen.queryByTestId('task-move')).toBeNull();
+  });
+
+  it('lista usunięta, gdy jest otwarta — „W koszu · Przywróć” z paskiem, jak w koszu', async () => {
+    const { store } = await open();
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await screen.findByTestId('screen-list');
+    await act(async () => store.pull((b) => ({ ...b, lists: { ...b.lists, lf: { ...b.lists!.lf!, deleted_at: ago(0) } } })));
+    expect(screen.getByTestId('screen-list-trash')).toBeTruthy();
+    await press(screen.getByLabelText('Przywróć: Dom'));
+    expect(within(bar()).getByText('Przywrócono: Dom')).toBeTruthy();
+    expect(screen.getByTestId('screen-list')).toBeTruthy();
+    expectOps(store, [{ kind: 'restore', entity: 'lists', id: 'lf' }]);
   });
 });
 
