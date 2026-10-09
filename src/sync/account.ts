@@ -7,6 +7,12 @@
 /** Kod do ID grupy (D92–D94): 6 cyfr, 24 h, dla wielu osób. */
 export type JoinInvite = { inviteId: string; joinId: string; code: string; url: string; expiresAt: string };
 
+/**
+ * Wynik dołączenia. `alreadyMember` — już jestem w tej grupie (przyjęcie bez skutku, rola bez zmian, audyt 3 N-157):
+ * moja rola i rola kodu; `null`, gdy serwer ich nie podał (wersja sprzed migracji 20261010100000).
+ */
+export type JoinResult = { groupId: string; alreadyMember?: { role: string | null; inviteRole: string | null } };
+
 export type Invite = { inviteId: string; token: string; url: string; expiresAt: string; maxUses: number };
 
 /** Zgłoszenie błędu (D80): bez treści z tabel. */
@@ -56,11 +62,13 @@ export interface AccountApi {
   setMyName(name: string): Promise<void>;
   createGroup(a: { groupId: string; name: string; ownerMemberId: string; displayName: string }): Promise<void>;
   createInvite(groupId: string, role: 'member' | 'admin'): Promise<Invite>;
-  acceptInvite(token: string, displayName: string): Promise<{ groupId: string }>;
+  /** `displayName` null — imię zostaje po stronie serwera (profil konta, dawne imię w grupie, imię profilu dziecka; N-164). */
+  acceptInvite(token: string, displayName: string | null): Promise<JoinResult>;
   revokeInvite(inviteId: string): Promise<void>;
   /**
    * Kod do ID grupy (owner/admin): bieżący ważny kod tej roli albo nowy, gdy ważnego nie ma — jeden aktywny kod na grupę
-   * i rolę (decyzja właściciela z 8.10.2026, PW-41 A).
+   * i rolę (decyzja właściciela z 8.10.2026, PW-41 A). Po usunięciu kogoś z grupy nowy (usunięta osoba wraca tylko kodem
+   * wystawionym później); starszy działa dalej dla innych do wygaśnięcia (audyt 3, N-38).
    */
   createJoinCode(groupId: string, role: 'member' | 'admin'): Promise<JoinInvite>;
   /** „Nowy kod”: kolejny kod tej roli; poprzedni przestaje działać (PW-41 A). */
@@ -76,7 +84,7 @@ export interface AccountApi {
    * Dołączenie ID + kod. Błędy (komunikat): invite_invalid, invite_expired, invite_revoked, invite_used_up, invite_removed,
    * invite_child_account (kod profilu dziecka na koncie, które jest albo było w grupie), rate_limited.
    */
-  joinGroup(joinId: string, code: string, displayName: string): Promise<{ groupId: string }>;
+  joinGroup(joinId: string, code: string, displayName: string | null): Promise<JoinResult>;
   /** Nowe ID grupy (owner); wszystkie kody na stare ID przestają działać. */
   rotateJoinId(groupId: string): Promise<string>;
   /** Kosz grupy (D54): tylko właściciel; przywrócenie w ciągu config.sync.TOMBSTONE_DAYS dni. */

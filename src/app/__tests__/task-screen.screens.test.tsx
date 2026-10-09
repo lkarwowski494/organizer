@@ -66,7 +66,7 @@ describe('termin (M-89, M-206, M-245)', () => {
     expect(options).toEqual(['Dziś', 'Jutro', 'Inny dzień', 'Bez terminu']);
     expect(radio('Kiedy', 'Jutro').props.accessibilityState.selected).toBe(true);
     await press(radio('Kiedy', 'Dziś'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07' } }]);
     await press(radio('Kiedy', 'Inny dzień'));
     expect(screen.getByTestId('task-date-calendar')).toBeTruthy();
   });
@@ -93,12 +93,12 @@ describe('termin (M-89, M-206, M-245)', () => {
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await setTime('task-time', '19:30');
     expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:30' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { due_time: '19:30' } }]);
     // Kafelek po wpisywaniu ręcznym: pole pokazuje kafelek, nie stary wpis.
     await setTime('task-time', '0');
     await press(screen.getByTestId('task-time-h-08'));
     expect(screen.getByTestId('task-time-manual').props.value).toBe('08:30');
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '08:30' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { due_time: '08:30' } }]);
   });
 });
 
@@ -165,7 +165,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     expect(screen.getByText('Zmienić też kolejne terminy?')).toBeTruthy();
     expect(s.store.dispatched).toEqual([]);
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } }]);
     expect(screen.queryByTestId('cycle-ask')).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     await press(radio('Kiedy', 'Jutro'));
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Też kolejne'));
     expect(s.store.dispatched).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
       { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=WEEKLY;BYDAY=TH' } },
     ]);
   });
@@ -186,7 +186,7 @@ describe('powtarzanie: zmiana dnia i ostatni dzień miesiąca (D181, PWD-37)', (
     const s = await openTask('Kupić kwiaty', repeating('FREQ=MONTHLY', '2026-10-15'));
     await press(radio('Kiedy', 'Jutro'));
     await press(within(screen.getByTestId('cycle-ask')).getByLabelText('Tylko ten raz'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-08' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=15' } }]);
   });
 
   it('co miesiąc 31.: „ostatniego dnia miesiąca” albo napis o pominiętych miesiącach', async () => {

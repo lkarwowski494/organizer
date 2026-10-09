@@ -171,7 +171,7 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   const manager = group.me.role === 'owner' || group.me.role === 'admin';
   const shared = group.kind === 'shared';
   // Zgodnie ze strażnikiem członkostw (migracje invites, 20261008440000): owner nie wychodzi (najpierw przekazuje grupę),
-  // dziecko też nie (wypisuje je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
+  // dziecko też nie (usuwa je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
   return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner' && group.me.role !== 'child', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 

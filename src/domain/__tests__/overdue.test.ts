@@ -7,17 +7,17 @@ const group = (id: string, kind: 'personal' | 'shared', member_id: string, role:
 const groups = [group('gp', 'personal', 'mp', 'owner'), group('gf', 'shared', 'mf', 'admin'), group('gk', 'shared', 'mk', 'child')];
 
 describe('przenieś zaległe na dziś (D111)', () => {
-  it('tylko zadania z własnym terminem; godzina zostaje; cofnięcie przywraca dawne terminy', () => {
+  it('tylko zadania z własnym terminem; godzina zostaje (audyt 3, N-126: wysyłany sam dzień); cofnięcie przywraca dawne terminy', () => {
     const list = [task('a'), task('b', { due: { date: '2026-10-06', time: null } }), task('c', { deadline_mode: 'inherit' }), task('e', { due: null as never })];
     expect(movableOverdue(list, groups).map((x) => x.id)).toEqual(['a', 'b']);
     expect(moveOverdueOps(list, '2026-10-08', {}, groups)).toEqual({
       ops: [
-        { kind: 'patch', entity: 'tasks', id: 'a', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '17:00' } },
-        { kind: 'patch', entity: 'tasks', id: 'b', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } },
+        { kind: 'patch', entity: 'tasks', id: 'a', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
+        { kind: 'patch', entity: 'tasks', id: 'b', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
       ],
       undo: [
-        { kind: 'patch', entity: 'tasks', id: 'a', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: '17:00' } },
-        { kind: 'patch', entity: 'tasks', id: 'b', set: { deadline_mode: 'own', due_date: '2026-10-06', due_time: null } },
+        { kind: 'patch', entity: 'tasks', id: 'a', set: { deadline_mode: 'own', due_date: '2026-10-05' } },
+        { kind: 'patch', entity: 'tasks', id: 'b', set: { deadline_mode: 'own', due_date: '2026-10-06' } },
       ],
       count: 2,
     });
@@ -39,11 +39,12 @@ describe('przenieś zaległe na dziś (D111)', () => {
     const r = moveOverdueOps(list, '2026-10-08', t, groups);
     expect(r.count).toBe(2);
     expect(r.ops).toEqual([
-      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
       { kind: 'patch', entity: 'tasks', id: 'czynsz', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=5' } },
-      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-08', due_time: '18:00', responsible_member_id: 'mf' } },
+      // Audyt 3 (N-126, V2-1): sam dzień — osoba przyjęta w tym czasie na drugim telefonie zostaje.
+      { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-08' } },
     ]);
-    expect(r.undo.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-06', due_time: '18:00', responsible_member_id: 'mf' } });
+    expect(r.undo.at(-1)).toEqual({ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-06' } });
     expect(moveOverdueOps(list, '2026-10-08', t, [])).toEqual({ ops: [], undo: [], count: 0 });
   });
 });

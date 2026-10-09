@@ -3,7 +3,7 @@ import { createList } from '../views/commands';
 import { asHandoff, incomingHandoffs } from '../views/handoffs';
 import { calendarMonth, groupsView } from '../views';
 import { myDays } from '../views/my-days';
-import { asTrip, boughtItems, buyAgainOps, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
+import { asTrip, boughtItems, buyAgainOps, changeTrip, doneTrips, finishTripOps, finishTripUndoOps, hasTrip, planTrip, tripAdults, tripEntries, tripItems, tripLacksAddressee, tripRequired, tripSet } from '../views/shopping-trip';
 import { planReminders } from '../views/reminders';
 
 const ME = 'u-me';
@@ -56,6 +56,13 @@ describe('zakupy na liście zakupów (D73)', () => {
 
   it('pola: godzina tylko z dniem; nowa lista i planowanie', () => {
     expect(tripSet({ date: null, time: '17:00', responsibleId: 'mf' })).toEqual({ due_date: null, due_time: null, responsible_member_id: 'mf' });
+    // Audyt 3 (N-126): „Zapisz zakupy” wysyła tylko pola zmienione od otwarcia; bez dnia nie ma godziny.
+    const was = { date: '2026-10-08', time: '17:00:00', responsibleId: 'mf' };
+    expect(changeTrip('l', was, { ...was, time: '17:00' })).toEqual([]);
+    expect(changeTrip('l', was, { ...was, date: '2026-10-09', time: '17:00' })).toEqual([{ kind: 'patch', entity: 'lists', id: 'l', set: { due_date: '2026-10-09' } }]);
+    expect(changeTrip('l', was, { ...was, time: '18:00' })).toEqual([{ kind: 'patch', entity: 'lists', id: 'l', set: { due_time: '18:00' } }]);
+    expect(changeTrip('l', was, { date: null, time: null, responsibleId: 'mf' })).toEqual([{ kind: 'patch', entity: 'lists', id: 'l', set: { due_date: null, due_time: null } }]);
+    expect(changeTrip('l', { date: null, time: null, responsibleId: null }, { date: '2026-10-09', time: null, responsibleId: 'ala' })).toEqual([{ kind: 'patch', entity: 'lists', id: 'l', set: { due_date: '2026-10-09', responsible_member_id: 'ala' } }]);
     expect(planTrip('l', { date: '2026-10-08', time: '17:00', responsibleId: null })).toEqual({ kind: 'patch', entity: 'lists', id: 'l', set: { due_date: '2026-10-08', due_time: '17:00', responsible_member_id: null } });
     expect(setOf(createList({ id: 'l', groupId: 'gf', kind: 'shopping', name: 'B', trip: { date: '2026-10-08', time: '17:00', responsibleId: 'mm' } }))).toEqual({
       kind: 'shopping', name: 'B', visibility: 'group', due_date: '2026-10-08', due_time: '17:00', responsible_member_id: 'mm',

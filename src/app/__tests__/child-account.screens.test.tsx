@@ -221,11 +221,11 @@ describe('telefon dziecka z kontem', () => {
     expect(await screen.findByLabelText(/^szampon/)).toBeTruthy();
   });
 
-  it('grupa: bez „Wyjdź z grupy” — wypisuje owner albo admin', async () => {
+  it('grupa: bez „Wyjdź z grupy” — usuwa owner albo admin', async () => {
     await open({ base: childBase() });
     await openGroup('gk');
     expect(screen.queryByTestId('leave')).toBeNull();
-    expect(screen.getByText('Z tej grupy wypisuje Cię właściciel albo administrator.')).toBeTruthy();
+    expect(screen.getByText('Z tej grupy usuwa Cię właściciel albo administrator.')).toBeTruthy();
     // Audyt 3 (N-161): zakres Moich spraw nic u dziecka nie zmienia — bez wyboru.
     expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
     expect(screen.queryByText(/^Co z tej grupy pokazywać w Moich sprawach/)).toBeNull();
