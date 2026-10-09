@@ -24,7 +24,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | `src/domain`, `src/config`, `src/sync`, `src/data` | 100% linii, gałęzi, funkcji, instrukcji | Jest `coverageThreshold` (`npm run test:coverage`) |
 | `src/domain`, `src/config`, `src/sync`, `src/data` | ≥ 90% wykrytych celowych usterek (mutation score) | Stryker (`npm run test:mutation`; nocą w częściach, próg na scalonym wyniku: `.github/scripts/mutation-merge.mjs`) |
 | SQL | każda tabela × rola × operacja w macierzy RLS; każda funkcja RPC z testem sukcesu i każdego kodu odrzucenia | pgTAP |
-| Ekrany | każdy ekran ma test RNTL (`src/app/__tests__/*.screens.test.tsx`); każda funkcja ma scenariusz E2E — na razie 6 scenariuszy (lista niżej), pozostałe funkcje do uzupełnienia | RNTL, Maestro |
+| Ekrany | każdy ekran ma test RNTL (`src/app/__tests__/*.screens.test.tsx`); każda funkcja ma scenariusz E2E — na razie 8 scenariuszy (lista niżej), pozostałe funkcje do uzupełnienia | RNTL, Maestro |
 | Lint | 0 ostrzeżeń | ESLint `--max-warnings 0` |
 | Zależności | 0 nowych zgłoszeń high/critical względem `scripts/audit-baseline.json` | `npm run check:audit` (nocą) |
 
@@ -43,7 +43,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Ekrany | RNTL: zachowanie przez role i etykiety (wymusza dostępność) | ✅ |
 | Dostępność | etykiety VoiceOver w RNTL ✅; ogłoszenia i przenoszenie fokusu VoiceOvera — wywołania atrapy `AccessibilityInfo` (`voiceover.screens.test.tsx`) ✅; kontrast kolorów w testach motywu, także paleta „Zwiększ kontrast” ✅; audyt ekranów (`a11y.test.tsx`): każdy tekst ma kolor i rozmiar z motywu, zaznaczenie nigdy w kolorze przycisku głównego, przełącznik ma etykietę ✅; literał `fontSize` poza `src/config` zabroniony regułą ESLint ✅; E2E przy największej czcionce Dynamic Type, „Pogrubionym tekście”, „Zwiększ kontrast” i na iPadzie — planowane, niezaimplementowane (do sprawdzenia na urządzeniu) | częściowo |
 | Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | **jeszcze nie działa**: wzorców brak, a żaden przebieg E2E na macOS się nie skończył (8.10.2026); najpierw iPhone 17 w jasnym wyglądzie, warianty — decyzja właściciela |
-| Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
+| Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia, pole nad klawiaturą, wydarzenie przez kilka dni | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
 | Teksty | wszystkie teksty w `strings.pl.ts`, odmiana przez `plural()` — pilnowane przeglądem kodu; reguły lint na teksty poza `strings.pl.ts` nie ma | częściowo |
 | Wydajność | czas startu, rozwijanie 50 serii RRULE × 5 lat, lista 1 000 pozycji — progi w `src/config` | nocą, od Etapu 2 |
 | Bezpieczeństwo | gitleaks przy każdej zmianie i na pełnej historii ✅, reguły projektu (klucz `.p8`, `service_role`, `sb_secret_`, token dostępu `sbp_`) sprawdzane na fałszywych sekretach tworzonych w czasie testu (`.github/scripts/test-gitleaks-rules.sh`) ✅; audyt zależności ✅; reguły workflow (bez `pull_request_target`, akcje przypięte do SHA; kontrakty: `e2e-flag.test.ts`, `.github/scripts/*.test.mjs`) | ✅ |
@@ -81,7 +81,7 @@ i logów Maestro, nigdy plik `.app`; 7 dni. Zadanie macOS nie rusza dla PR z for
 **Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
 `01-today` (dane demo na „Moich sprawach”), `02-quick-add` („Kupić mleko jutro” widać jutro), `03-event-rsvp` („Będę”
 na wydarzeniu cyklicznym), `04-event-form` (nowe wydarzenie, kafelki `event-start-0-h-18` / `-m-30` z `TimeField`),
-`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`, `07-keyboard` (pole „Wpisz USUŃ” na dole ekranu nad klawiaturą, audyt 2 M-41). Selektory: `id` = `testID`, tekst =
+`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`, `07-keyboard` (pole „Wpisz USUŃ” na dole ekranu nad klawiaturą, audyt 2 M-41), `08-multi-day` (obóz przez 3 dni z „Kończy się”, w Kalendarzu „dzień 2 z 3”, D199). Selektory: `id` = `testID`, tekst =
 etykieta VoiceOver (wyrażenie regularne w całości; na iOS wiersz to jeden element). Te same kroki na RNTL przechodzi
 `src/app/__tests__/e2e.screens.test.tsx` w zwykłym CI — błąd w danych demo, tekstach albo `testID` wychodzi od razu,
 bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teście, `npm run e2e:check`.

@@ -30,6 +30,8 @@ export type EventRow = {
   split_from: string | null;
   /** D199: ile dni trwa wydarzenie całodniowe (1 = jeden dzień; z godziną zawsze 1 — przez północ mówią godziny), span.ts. */
   days: number;
+  /** D199: długość z godziną w minutach, gdy dłuższa niż wynika z godzin (pt. 18:00 – nd. 16:00); `null` — z godzin. */
+  duration_min: number | null;
   deleted_at: string | null;
 };
 export type EventKind = 'event' | 'lesson' | 'routine';
@@ -51,11 +53,13 @@ export type Override = {
   responsible_cleared: boolean;
   /** D199: inna długość całodniowego terminu w dniach; `null` = jak w serii. */
   days: number | null;
+  /** D199: długość terminu z własnymi godzinami w minutach; `null` — z godzin (span.ts). */
+  duration_min: number | null;
   deleted_at: string | null;
 };
 
 const s = (v: unknown) => (v == null ? null : String(v));
-/** Liczba dni z wiersza (serwer pilnuje 1…config.events.MAX_DAYS); brak albo zła wartość = `null`. */
+/** Liczba dni (minut) z wiersza (serwer pilnuje zakresu); brak albo zła wartość = `null`. */
 const dayCount = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : null);
 export const asEvent = (r: Row): EventRow => ({
   id: String(r.id),
@@ -72,6 +76,7 @@ export const asEvent = (r: Row): EventRow => ({
   kind: r.kind === 'lesson' || r.kind === 'routine' ? r.kind : 'event',
   split_from: s(r.split_from),
   days: dayCount(r.days) ?? 1,
+  duration_min: dayCount(r.duration_min),
   deleted_at: s(r.deleted_at),
 });
 export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });
@@ -88,6 +93,7 @@ export const asOverride = (r: Row): Override => ({
   all_day: r.all_day === true,
   responsible_cleared: r.responsible_cleared === true,
   days: dayCount(r.days),
+  duration_min: dayCount(r.duration_min),
   deleted_at: s(r.deleted_at),
 });
 
@@ -107,11 +113,17 @@ export function occurrenceTimes(o: Pick<Override, 'all_day' | 'start_time' | 'en
 
 /**
  * D199: ile dni kalendarzowych obejmuje wystąpienie — całodniowe: długość z wyjątku albo serii (seria z godziną ma 1, więc
- * całodniowy termin takiej serii bez własnej długości trwa dzień); z godziną: 1 albo 2 (koniec po północy, span.ts).
+ * całodniowy termin takiej serii bez własnej długości trwa dzień); z godziną: od dnia startu do dnia końca (span.ts).
  */
-export function occurrenceDays(o: Pick<Override, 'all_day' | 'start_time' | 'end_time' | 'days'> | undefined, e: Pick<EventRow, 'start_time' | 'end_time' | 'days'>): number {
+export function occurrenceDays(o: Pick<Override, 'all_day' | 'start_time' | 'end_time' | 'days' | 'duration_min'> | undefined, e: Pick<EventRow, 'start_time' | 'end_time' | 'days' | 'duration_min'>): number {
   const { start, end } = occurrenceTimes(o, e);
-  return coveredDays(start, end, o?.days ?? e.days);
+  return coveredDays(start, end, o?.days ?? e.days, occurrenceDuration(o, e));
+}
+
+/** D199: zapisana długość terminu z godziną (minuty): z wyjątku z własnymi godzinami albo z serii; całodniowy — `null`. */
+export function occurrenceDuration(o: Pick<Override, 'all_day' | 'start_time' | 'duration_min'> | undefined, e: Pick<EventRow, 'duration_min'>): number | null {
+  if (o?.all_day) return null;
+  return o?.start_time ? o.duration_min : e.duration_min;
 }
 
 /** Reguła serii albo `null` (wydarzenie jednorazowe; reguła, której telefon nie rozumie, też = jednorazowe). */
