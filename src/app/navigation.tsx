@@ -27,6 +27,7 @@ import { RejectedScreen } from '../features/settings/RejectedScreen';
 import { RecentScreen } from '../features/groups/RecentScreen';
 import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
+import { LicensesScreen } from '../features/settings/LicensesScreen';
 import { NameScreen } from '../features/profile/NameScreen';
 import { TimetableScreen } from '../features/groups/TimetableScreen';
 import { RoutineScreen } from '../features/events/RoutineScreen';
@@ -144,6 +145,7 @@ export function RootStack() {
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       <Stack.Screen name="Recent" component={RecentScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
+      <Stack.Screen name="Licenses" component={LicensesScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}
       <Stack.Screen name="Name" component={NameScreen} options={({ route }) => ({ gestureEnabled: route.params?.from === 'settings' })} />

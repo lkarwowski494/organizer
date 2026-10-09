@@ -340,6 +340,22 @@ export const config = {
   },
 
   /**
+   * Polityka prywatności (audyt 3, N-75 i N-76; decyzja właściciela Q4 A): strona na tej samej witrynie co zaproszenia
+   * (site/privacy/, GitHub Pages), generowana z docs/privacy-policy.md; link w Ustawieniach → Konto i dane i na ekranie
+   * logowania. Apple, App Review 5.1.1(i): „All apps must include a link to their privacy policy in the App Store Connect
+   * metadata field and within the app in an easily accessible manner.”
+   * (https://developer.apple.com/app-store/review/guidelines/). Administrator danych (RODO art. 13 ust. 1 lit. a —
+   * „swoją tożsamość i dane kontaktowe”): właściciel aplikacji. `CONTACT_EMAIL` — osobny adres tylko dla Organizera,
+   * `null`, dopóki właściciel go nie założy (do tego czasu polityka wskazuje „Wyślij uwagę”); polityka musi podawać
+   * dokładnie te dane (test kontraktowy privacy-policy.contract.test.ts).
+   */
+  privacy: {
+    POLICY_URL: 'https://lkarwowski494.github.io/privacy/',
+    CONTROLLER: 'Łukasz Karwowski',
+    CONTACT_EMAIL: null as string | null,
+  },
+
+  /**
    * Jak długo serwer (codzienne sprzątanie, private.run_daily_maintenance) i telefon trzymają dane, które same nie
    * znikają (audyt 2, M-62, M-68). Serwer egzekwuje te same liczby (private.*_days(); test kontraktowy). Wybory
    * projektowe, bez źródła zewnętrznego:

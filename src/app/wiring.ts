@@ -143,6 +143,9 @@ export function realDeps(): RootDeps {
     // expo-sqlite SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/): closeSync — „Close the database.”,
     // deleteDatabaseSync(databaseName) — „Delete a database file.”
     removeDb: (userId) => {
+      // Audyt 3 (N-77): identyfikator instalacji usuniętego konta nie zostaje w pęku kluczy (pęk kluczy przeżywa nawet
+      // usunięcie aplikacji). deleteItemAsync — SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/securestore/).
+      void SecureStore.deleteItemAsync(`clientId.${userId}`, DEVICE_ONLY).catch(() => {});
       try {
         openDbs.get(userId)?.closeSync();
         openDbs.delete(userId);
