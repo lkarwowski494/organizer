@@ -4,9 +4,10 @@
  * (M-149), szerokość treści na iPadzie (M-294), glify (M-293), przełączniki w Ustawieniach (M-308).
  */
 import { fireEvent, screen, within } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import { layout, palettes, sizes, space } from '../../config/theme';
+import { glyphSize } from '../../ui/glyph';
 import { RootStack } from '../navigation';
 import type { TravelService } from '../travel-service';
 import { setup } from './harness';
@@ -63,10 +64,10 @@ describe('zaznaczenie (PW-52 A, D198)', () => {
     await press(await screen.findByTestId('calendar-add-routine'));
     const wed = screen.getAllByRole('checkbox').find((e) => e.props.accessibilityState?.checked)!;
     expect(flat(wed)).toMatchObject({ backgroundColor: c.ink });
-    expect(within(wed).getByText('✓')).toBeTruthy();
+    expect(within(wed).getByTestId('glyph-check', { includeHiddenElements: true }).props).toMatchObject({ name: 'checkmark', tintColor: c.surface });
     const off = screen.getAllByRole('checkbox').find((e) => !e.props.accessibilityState?.checked)!;
     expect(flat(off).backgroundColor).toBe(c.surface);
-    expect(within(off).queryByText('✓')).toBeNull();
+    expect(within(off).queryByTestId('glyph-check', { includeHiddenElements: true })).toBeNull();
   });
 });
 
@@ -123,15 +124,21 @@ describe('układ ekranu', () => {
 });
 
 describe('glify i przełączniki', () => {
-  it('„Wróć” i strzałka wiersza: glif krojem systemowym, niewidoczny dla VoiceOvera (M-293)', async () => {
+  it('„Wróć” i strzałka wiersza: symbol SF Symbols, niewidoczny dla VoiceOvera, rośnie z Dynamic Type do 200% (M-293)', async () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Ustawienia'));
     const back = await screen.findByLabelText('Wróć');
-    const glyph = within(back).getByText('‹');
-    expect(glyph.props.accessible).toBe(false);
-    expect(flat(glyph)).toMatchObject({ fontSize: sizes.GLYPH_ROW, fontWeight: '600' });
-    expect(flat(glyph).fontFamily).toBeUndefined();
+    const glyph = within(back).getByTestId('glyph-prev', { includeHiddenElements: true });
+    // Środowisko testów podaje fontScale 2 — symbol rośnie razem z tekstem.
+    expect(glyph.props).toMatchObject({ name: 'chevron.left', size: glyphSize(sizes.GLYPH_ROW, Dimensions.get('window').fontScale, 2), weight: 'semibold', tintColor: c.ink, accessible: false, importantForAccessibility: 'no-hide-descendants' });
+    expect(within(screen.getAllByLabelText(/^Powiadomienia/)[0]!).getByTestId('glyph-next', { includeHiddenElements: true }).props.name).toBe('chevron.right');
+  });
+
+  it('rozmiar symbolu: mnożnik Dynamic Type z limitem 200%, bez mnożnika — rozmiar bazowy', () => {
+    expect(glyphSize(17, 1.5, 2)).toBe(26);
+    expect(glyphSize(17, 3.571, 2)).toBe(34);
+    expect(glyphSize(17, 0, 2)).toBe(17);
   });
 
   it('Ustawienia: włącz/wyłącz to systemowy przełącznik z nazwą wiersza (M-308)', async () => {
