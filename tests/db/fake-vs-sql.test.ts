@@ -14,10 +14,10 @@ import { dbDescribe } from './db-gate';
 
 const d = dbDescribe;
 
-const U = { ala: '00000000-0000-7000-8000-0000000000a1', bartek: '00000000-0000-7000-8000-0000000000b1' } as const;
-const MEMBER = { ala: '99999999-0000-7000-8000-0000000000a1', bartek: '99999999-0000-7000-8000-0000000000b1' } as const;
-const G = '99999999-0000-7000-8000-000000000001';
-const id = (prefix: string, n: number) => `99999999-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
+const U = { ala: '00000000-0000-7000-8000-0000000004a1', bartek: '00000000-0000-7000-8000-0000000004b1' } as const;
+const MEMBER = { ala: 'fa000000-0000-7000-8000-0000000004a1', bartek: 'fa000000-0000-7000-8000-0000000004b1' } as const;
+const G = 'fa000000-0000-7000-8000-000000000001';
+const id = (prefix: string, n: number) => `fa000000-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
 const LISTS = [1, 2].map((n) => id('001', n));
 const TASKS = [1, 2, 3].map((n) => id('002', n));
 type User = keyof typeof U;
@@ -64,9 +64,14 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
   beforeAll(() => db.connect());
   afterAll(() => db.end());
 
+  // Czas (pomiar 9.10.2026 przy obciążeniu ~20): większość to opóźnienie zapytań, nie praca bazy — samo ustawienie
+  // osoby (dwa zapytania przy każdej paczce) zajmowało ~30% przebiegu. Osoba i rola ustawiane jednym zapytaniem i tylko
+  // przy zmianie osoby (set_config('role') = SET LOCAL ROLE; 'none' = RESET ROLE); po wycofaniu transakcji — od nowa.
+  let current: User | null | undefined;
   const as = async (user: User | null) => {
-    await db.query(`select set_config('request.jwt.claim.sub', $1, true)`, [user ? U[user] : '']);
-    await db.query(user ? 'set local role authenticated' : 'reset role');
+    if (user === current) return;
+    current = user;
+    await db.query(`select set_config('request.jwt.claim.sub', $1, true), set_config('role', $2, true)`, [user ? U[user] : '', user ? 'authenticated' : 'none']);
   };
 
   async function sqlVisible(user: User) {
@@ -78,16 +83,21 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
       rows.push(...(await db.query(`select public.sync_fetch_scope($1) r`, [s])).rows[0].r.rows);
     }
     const by = (e: string) => [...new Map(rows.filter((x: { e: string }) => x.e === e).map((x: { row: { id: string } }) => [x.row.id, x.row])).values()] as Record<string, unknown>[];
-    return view({ lists: by('lists'), tasks: by('tasks') });
+    return { view: view({ lists: by('lists'), tasks: by('tasks') }), pull: res };
   }
 
-  it('te same statusy i ten sam widok dla każdej osoby', async () => {
+  // 500 porównanych przebiegów w 5 częściach po 100 (każda z własnym losowym ziarnem): limit czasu pilnuje zawieszenia
+  // jednej części, a nie całości. Pomiar 9.10.2026: część trwa 7–8 s przy obciążeniu ~20, 9–23 s obok phones-vs-sql,
+  // rules-vs-sql i maintenance przy obciążeniu 22–25 (6 przebiegów); cały plik trwał dotąd 80–125 s przy limicie 120 s
+  // (w tym czekanie na blokady phones-vs-sql — wspólne konta, test w db-gate.test.ts). 60 s to ponad 2,5× najgorszy pomiar.
+  it.each([1, 2, 3, 4, 5])('te same statusy i ten sam widok dla każdej osoby (część %i z 5)', async () => {
     await fc.assert(
       fc.asyncProperty(fc.array(stepArb, { minLength: 1, maxLength: 12 }), async (steps) => {
         await db.query('begin');
+        current = undefined;
         try {
           await as(null);
-          await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test')`, [U.ala, U.bartek]);
+          await db.query(`insert into auth.users (id, email) values ($1, 'a4@x.test'), ($2, 'b4@x.test')`, [U.ala, U.bartek]);
           await as('ala');
           await db.query(`select public.create_group($1, 'Rodzina', $2, 'Ala')`, [G, MEMBER.ala]);
           await as(null);
@@ -112,10 +122,10 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
             }
           }
           for (const user of ['ala', 'bartek'] as const) {
-            expect(await sqlVisible(user)).toEqual(view(fake.visibleRows(user) as never));
-            // Protokół 2: zbiór list, które osoba widzi (M-54), i ukryte zakresy — te same w modelu i w SQL.
-            await as(user);
-            const res = (await db.query(`select public.sync_pull('{}'::jsonb, 1000, $1) r`, [config.sync.SCHEMA_VERSION])).rows[0].r;
+            const { view: seen, pull: res } = await sqlVisible(user);
+            expect(seen).toEqual(view(fake.visibleRows(user) as never));
+            // Protokół 2: zbiór list, które osoba widzi (M-54), i ukryte zakresy — te same w modelu i w SQL (to samo
+            // pobranie co widok wyżej; drugie pobranie dawało ten sam wynik, bo między nimi nic się nie zmienia).
             const f = fake.pull(user, { cursors: {} }, 1000);
             expect(res.groups.find((g: { group_id: string }) => g.group_id === G).lists).toEqual(f.groups.find((g) => g.group_id === G)!.lists);
             expect(res.scopes).toEqual(f.scopes);
@@ -124,7 +134,7 @@ d('FakeServer = prawdziwy SQL (sync_push / sync_pull)', () => {
           await db.query('rollback');
         }
       }),
-      { numRuns: 500 },
+      { numRuns: 100 },
     );
-  }, 120_000);
+  }, 60_000);
 });

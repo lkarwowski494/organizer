@@ -16,8 +16,8 @@ import { dbDescribe } from './db-gate';
 const d = dbDescribe;
 
 const ALA = '00000000-0000-7000-8000-0000000003a1';
-const BEN = '00000000-0000-7000-8000-0000000003b1';
-const id = (n: number) => `88888888-0000-7000-8000-${String(n).padStart(12, '0')}`;
+const BEN = '00000000-0000-7000-8000-0000000003a2';
+const id = (n: number) => `7e000000-0000-7000-8000-${String(n).padStart(12, '0')}`;
 const G = id(1);
 const MA = id(2), MB = id(3);
 const L = id(10), LOLD = id(11), SHOP = id(12), LHID = id(13);

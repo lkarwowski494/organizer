@@ -169,28 +169,34 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
         const server = new FakeServer();
         server.addGroup('g1', ['ala']);
         const db = memoryDb();
-        migrate(db);
-        let n = 0;
-        let s = readState(db, 'c1');
-        const commit = (next: ClientState) => {
-          writeState(db, s, next, 1000);
-          s = next;
-          expect(normalize(readState(db, 'c1'))).toEqual(normalize(s));
-        };
-        for (const st of steps) {
-          if (st.t === 'mutate') commit(mutate(s, st.op, () => `op-${++n}`));
-          else if (st.t === 'push') {
-            const res = server.push('ala', pushRequest(s));
-            if (!st.lose) commit(onPushResponse(s, res));
-          } else if (st.t === 'pull') {
-            const req = pullRequest(s);
-            const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
-            commit(out.state);
-            for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc), sc));
-          } else {
-            // Ponowne uruchomienie aplikacji: stan wyłącznie z bazy.
-            s = readState(db, 'c1');
+        // Każdy przebieg zamyka swoją bazę: better-sqlite3 nie zwalnia otwartej bazy (pamięć poza stertą JS) — bez tego
+        // pamięć procesu rosła z każdym przebiegiem (pomiar 9.10.2026 w sync-sim.test.ts: ~2 MB na bazę).
+        try {
+          migrate(db);
+          let n = 0;
+          let s = readState(db, 'c1');
+          const commit = (next: ClientState) => {
+            writeState(db, s, next, 1000);
+            s = next;
+            expect(normalize(readState(db, 'c1'))).toEqual(normalize(s));
+          };
+          for (const st of steps) {
+            if (st.t === 'mutate') commit(mutate(s, st.op, () => `op-${++n}`));
+            else if (st.t === 'push') {
+              const res = server.push('ala', pushRequest(s));
+              if (!st.lose) commit(onPushResponse(s, res));
+            } else if (st.t === 'pull') {
+              const req = pullRequest(s);
+              const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
+              commit(out.state);
+              for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc), sc));
+            } else {
+              // Ponowne uruchomienie aplikacji: stan wyłącznie z bazy.
+              s = readState(db, 'c1');
+            }
           }
+        } finally {
+          db.raw.close();
         }
       }),
       { numRuns: 300 },

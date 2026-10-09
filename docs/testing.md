@@ -63,6 +63,20 @@ npm run check:audit     # nowe podatności w zależnościach
 python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quickadd.pl.json  # po zmianie reguł D42–D45
 ```
 
+**Odporność na obciążenie (9.10.2026).** Test, który pada tylko na obciążonej maszynie, ma przyczynę — szukamy jej, nie
+powtarzamy przebiegu. Zasady wynikłe z pomiarów:
+- `tests/db` biegną równolegle na jednej bazie: każdy plik ma własny pierwszy człon identyfikatorów i własne konta
+  (kontrakt w `tests/db/db-gate.test.ts`), czyta i sprząta tylko swoje grupy (nie całe tabele, nie `purge_tombstones()`
+  na całej bazie) i nie zmienia schematu wspólnych tabel (wyzwalacz na `public.tasks` czekał na długie transakcje innych
+  plików i wstrzymywał ich zapisy).
+- Zamiast pomiaru czasu (`< 1 s`) — warunek wprost: blokady wierszy trzymane przez test, `pg_blocking_pids`,
+  `lock_timeout` (`tests/db/maintenance.test.ts`).
+- Statystyka „generator trafił w regułę” na stałym ziarnie i stałych danych, plus jawny przykład każdej reguły
+  (`tests/db/rules-vs-sql.test.ts`); długie własności dzielone na części z własnym limitem czasu (`fake-vs-sql`).
+- Bazy better-sqlite3 w testach zamykane (`db.raw.close()`) w pętlach własności — otwarta baza trzyma pamięć poza
+  stertą JS (sync-sim: 2,1 GB po 800 przebiegach, po zamknięciu ~0,5 GB).
+- Limit czasu testu ekranów 30 s z pomiarem w `jest.app-after-env.js`.
+
 ## E2E i zrzuty ekranu (D143)
 **Jak to działa.** `e2e.yml` buduje aplikację dla symulatora z flagą `EXPO_PUBLIC_E2E=1`. Wtedy `appDeps()` w
 `src/app/wiring.ts` podaje korzeniowi aplikacji atrapy z `src/app/e2e.ts` zamiast Supabase i modułów natywnych:
