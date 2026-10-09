@@ -325,6 +325,14 @@ describe('logowanie', () => {
     await fireEvent.press(screen.getByTestId('apple-sign-in'));
     expect(account.signInWithApple).toHaveBeenCalledTimes(2);
   });
+
+  it('N-72: komunikat po usunięciu konta, ogłaszany VoiceOverowi', async () => {
+    const spoken = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions').mockImplementation(() => {});
+    const { wrap } = setup({});
+    await render(wrap(<SignInScreen account={fakeAccount()} notice="Konto zostało usunięte." />));
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    expect(spoken.mock.calls.map((c) => c[0])).toContain('Konto zostało usunięte.');
+  });
 });
 
 describe('linki głębokie (D40)', () => {
