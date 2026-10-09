@@ -1,8 +1,9 @@
 -- Audyt 3 (jak N-40): „Cofnij” po zmianie roli administratora na członka przywraca jego zaproszenia osobiste, które ta zmiana
 -- unieważniła (migracja 20261010110100_role_undo_invites). Unieważnione wcześniej i kod profilu, który ma już nowszy kod,
--- nie wracają.
+-- nie wracają. Tylko „Cofnij” (powrót roli w oknie private.role_undo_window_sec()) — późniejsze ponowne nadanie roli to
+-- nowa decyzja i dawnych zaproszeń nie wskrzesza.
 begin;
-select plan(12);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000012c1', 'o@x.test'),
@@ -71,6 +72,18 @@ update public.invites set revoked_at = revoked_at + interval '1 second' where id
 select pg_temp.as_user('00000000-0000-7000-8000-0000000012c1');
 select is(pg_temp.p('12c10000-0000-7000-8000-000000000001', pg_temp.role('admin')), 'ok', '11: znowu administrator');
 select ok(pg_temp.revoked('ala_link') and not pg_temp.revoked('ala_tymek'), '12: wraca tylko to, co unieważniła zmiana roli');
+
+-- Późniejsze ponowne nadanie roli (poza oknem „Cofnij”): zaproszenia zostają unieważnione, znacznik znika.
+select is(pg_temp.p('12c10000-0000-7000-8000-000000000001', pg_temp.role('member')), 'ok', '13: znowu członek');
+select pg_temp.as_user('');
+update private.role_invite_marks set revoked_at = revoked_at - make_interval(secs => private.role_undo_window_sec() + 1)
+  where member_id = '12120000-0000-7000-8000-0000000000a2';
+update public.invites set revoked_at = revoked_at - make_interval(secs => private.role_undo_window_sec() + 1)
+  where created_by = '12120000-0000-7000-8000-0000000000a2' and id = ((select j from c where k = 'ala_tymek') ->> 'invite_id')::uuid;
+select pg_temp.as_user('00000000-0000-7000-8000-0000000012c1');
+select is(pg_temp.p('12c10000-0000-7000-8000-000000000001', pg_temp.role('admin')), 'ok', '14: po czasie Ola znowu nadaje rolę administratora');
+select ok(pg_temp.revoked('ala_tymek'), '15: dawny kod profilu nie wraca (nowa decyzja, nie „Cofnij”)');
+select is((select count(*)::int from private.role_invite_marks where member_id = '12120000-0000-7000-8000-0000000000a2'), 0, '16: znacznik usunięty');
 
 select * from finish();
 rollback;
