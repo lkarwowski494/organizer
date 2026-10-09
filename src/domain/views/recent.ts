@@ -70,7 +70,8 @@ export type RecentRecord = {
   id: number;
   message: string;
   at: number;
-  state: 'open' | 'undone' | 'stale' | 'lost';
+  /** „pending” — cofnięcie przez serwer czeka na odpowiedź (audyt 3, N-34); po ponownym uruchomieniu — „lost”. */
+  state: 'open' | 'pending' | 'undone' | 'stale' | 'lost';
   undo: RecentUndo | null;
   /** Dlaczego po ponownym uruchomieniu nie da się cofnąć (cofnięcie nie było zapisywalne). */
   lost: RecentLost | null;

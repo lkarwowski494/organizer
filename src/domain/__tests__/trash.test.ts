@@ -170,5 +170,7 @@ describe('zapis ostatnich zmian w bazie konta (D194 b)', () => {
     expect(parseRecent('{')).toEqual([]);
     expect(parseRecent('{"a":1}')).toEqual([]);
     expect(parseRecent(JSON.stringify([{ id: 1, message: 'm', at: 1, undo: { ops: [1] } }]))[0]).toMatchObject({ state: 'lost', undo: null });
+    // Audyt 3 (N-34): cofnięcie przez serwer przerwane zamknięciem aplikacji — wynik nieznany, wpis z wyjaśnieniem.
+    expect(parseRecent(JSON.stringify([{ id: 1, message: 'm', at: 1, state: 'pending', undo: null, lost: 'server' }]))[0]).toMatchObject({ state: 'lost', lost: 'server' });
   });
 });

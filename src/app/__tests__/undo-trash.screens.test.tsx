@@ -506,3 +506,80 @@ describe('czerwone przyciski (M-241)', () => {
   });
 });
 
+
+describe('cofnięcie przez serwer (grupa) bez internetu (audyt 3, N-34)', () => {
+  const owner = () => {
+    const base = sampleBase();
+    base.group_members!.mf = { ...base.group_members!.mf, role: 'owner' };
+    return base;
+  };
+  const offline = () => new Error('Network request failed');
+  const failBar = 'Nie cofnięto: Usunięto grupę: Rodzina. Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.';
+
+  it('z „Ostatnich zmian”: „Cofanie…”, potem pasek błędu z „Spróbuj ponownie”, wpis znów z „Cofnij”; ponowienie — „Cofnięto”', async () => {
+    const s = await open(owner());
+    let fail: (e: Error) => void = () => {};
+    s.account.restoreGroup.mockImplementationOnce(() => new Promise((_, reject) => (fail = reject)));
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Usuń: Rodzina'));
+    await answerAlert('Usuń grupę');
+    expect(await screen.findByText('Usunięto grupę: Rodzina')).toBeTruthy();
+    await press(screen.getByTestId('open-recent'));
+    await press(await screen.findByLabelText('Cofnij: Usunięto grupę: Rodzina'));
+    expect(s.account.restoreGroup).toHaveBeenCalledWith('gf');
+    // W toku: bez „Cofnięto” i bez drugiego „Cofnij”.
+    expect(screen.getByText('Cofanie…')).toBeTruthy();
+    expect(screen.queryByText('Cofnięto')).toBeNull();
+    expect(screen.queryByLabelText('Cofnij: Usunięto grupę: Rodzina')).toBeNull();
+    expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Cofanie…', { queue: true });
+    await act(async () => fail(offline()));
+    expect(within(bar()).getByText(failBar)).toBeTruthy();
+    expect(screen.queryByText('Cofnięto')).toBeNull();
+    expect(screen.getByLabelText('Cofnij: Usunięto grupę: Rodzina')).toBeTruthy();
+    expect(s.store.refresh).toHaveBeenCalledTimes(1); // tylko po usunięciu
+    // „Spróbuj ponownie” na pasku — ta sama ścieżka; teraz się udaje.
+    await press(within(bar()).getByLabelText('Spróbuj ponownie'));
+    await act(async () => {});
+    expect(s.account.restoreGroup).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Cofnięto')).toBeTruthy();
+    expect(s.store.refresh).toHaveBeenCalledTimes(2);
+    expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenLastCalledWith('Cofnięto', { queue: true });
+  });
+
+  it('z paska na ekranie grupy: ten sam pasek błędu; w „Ostatnich zmianach” dalej „Cofnij”', async () => {
+    const s = await open(owner());
+    s.account.restoreGroup.mockRejectedValueOnce(offline());
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('delete-group'));
+    await answerAlert('Usuń grupę');
+    await press(within(await screen.findByTestId('undo-bar')).getByLabelText('Cofnij'));
+    await act(async () => {});
+    expect(within(bar()).getByText(failBar)).toBeTruthy();
+    await press(screen.getByTestId('open-recent'));
+    expect(await screen.findByLabelText('Cofnij: Usunięto grupę: Rodzina')).toBeTruthy();
+    expect(screen.queryByText('Cofnięto')).toBeNull();
+  });
+
+  it('kosz: „Cofnij” przywrócenia bez internetu — pasek błędu (nie napis w koszu), grupa dalej poza koszem, wpis do ponowienia', async () => {
+    const base = owner();
+    base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
+    const s = await open(base);
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Przywróć: Rodzina'));
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Przywrócono: Rodzina')).toBeTruthy();
+    s.account.deleteGroup.mockRejectedValueOnce(offline());
+    await press(within(bar()).getByLabelText('Cofnij'));
+    await act(async () => {});
+    expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
+    expect(within(bar()).getByText('Nie cofnięto: Przywrócono: Rodzina. Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.')).toBeTruthy();
+    expect(screen.getAllByText(/Ta czynność wymaga internetu/)).toHaveLength(1);
+    expect(screen.queryByTestId('trash-gf')).toBeNull();
+    await press(within(bar()).getByLabelText('Spróbuj ponownie'));
+    await act(async () => {});
+    expect(s.account.deleteGroup).toHaveBeenCalledTimes(2);
+    expect(await screen.findByTestId('trash-gf')).toBeTruthy();
+    await press(screen.getByTestId('open-recent'));
+    expect(await screen.findByText('Cofnięto')).toBeTruthy();
+  });
+});
