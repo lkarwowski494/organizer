@@ -85,7 +85,21 @@ export function asList(r: Row): List {
     deleted_at: str(r.deleted_at),
   };
 }
+/**
+ * Zadanie z wiersza, pamiętane po samym wierszu: wiersze są niezmienne (applyOp i pull podmieniają wiersz na nowy obiekt,
+ * materialize kopiuje tabele płytko), a widoki przy każdej zmianie danych zamieniają całą historię — tysiące zadań
+ * (budżet czasu, config.perf). Wynik zamrożony: przypadkowa zmiana pola rzuca błąd zamiast psuć pamięć innym widokom.
+ */
+const tasks = new WeakMap<Row, Task>();
 export function asTask(r: Row): Task {
+  let x = tasks.get(r);
+  if (x === undefined) {
+    x = Object.freeze(toTask(r));
+    tasks.set(r, x);
+  }
+  return x;
+}
+function toTask(r: Row): Task {
   return {
     id: String(r.id),
     group_id: String(r.group_id),
