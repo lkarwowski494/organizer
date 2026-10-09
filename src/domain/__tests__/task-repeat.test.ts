@@ -32,6 +32,13 @@ describe('powtarzanie zadań (D76)', () => {
     expect(nextId('t1')).toBe(uuidv5(REPEAT_NAMESPACE, 't1|next'));
   });
 
+  it('nextId pamiętany: ten sam wynik z pamięci i po jej wyczyszczeniu (ponad 20 000 różnych zadań)', () => {
+    const first = nextId('t1');
+    for (let i = 0; i < 20_001; i++) nextId(`x${i}`);
+    expect(nextId('t1')).toBe(first);
+    expect(nextId('x0')).toBe(uuidv5(REPEAT_NAMESPACE, 'x0|next'));
+  });
+
   // Przykłady czytelne dla człowieka; pełny korpus z niezależnego wzorca (python-dateutil): nextdue-corpus.test.ts.
   it.each([
     [{ kind: 'weekly', days: [0, 3] }, '2026-10-12', '2026-10-10', '2026-10-15'], // zrobione przed terminem

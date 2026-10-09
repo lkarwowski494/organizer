@@ -136,7 +136,7 @@ type Series = { id: string; start: string; rule: Rule | null; gone?: boolean };
 const occursIn = (s: Series, date: string) => !s.gone && occurrences(parseIsoDate(s.start), s.rule, parseIsoDate(date), parseIsoDate(date)).length > 0;
 const firstFrom = (s: Series, date: string) => {
   const d = parseIsoDate(date);
-  const [first] = s.gone ? [] : occurrences(parseIsoDate(s.start), s.rule, d, addDays(d, LOOKAHEAD_DAYS));
+  const [first] = s.gone ? [] : occurrences(parseIsoDate(s.start), s.rule, d, addDays(d, LOOKAHEAD_DAYS), 1);
   return first ? formatIsoDate(first) : null;
 };
 

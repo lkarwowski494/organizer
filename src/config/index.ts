@@ -106,12 +106,6 @@ export const config = {
   repeat: {
     NEXT_SEARCH_DAYS: 400,
     /**
-     * Audyt 3 (N-27): najpierw szukamy w krótszym oknie (codziennie, co tydzień i prawie każde „co miesiąc” trafiają w nim),
-     * dopiero potem w całym — plan przypomnień liczy następne dla wielu przewidywanych kopii. Wynik ten sam (pierwszy dzień
-     * reguły w krótszym oknie jest pierwszym w dłuższym). Wybór projektowy, bez źródła; mniejszy niż NEXT_SEARCH_DAYS.
-     */
-    NEXT_QUICK_DAYS: 35,
-    /**
      * Audyt 2 (T-12): ile dni wstecz telefon dorosłego dokłada brakujące następne zadanie po odhaczeniu przez dziecko.
      * Wybór projektowy, bez źródła; musi być mniejszy niż sync.TOMBSTONE_DAYS (pilnuje test), żeby kopia usunięta
      * celowo i wyczyszczona z kosza nie wróciła.
@@ -481,6 +475,10 @@ export const config = {
    * Kalendarz (miesiąc + 6 tygodni wydarzeń) ok. 250 ms; po niej ok. 90 / 55 / 60 ms. Budżet ok. 2,5× wyniku po, żeby
    * obciążony automat CI nie dawał fałszywych alarmów, a powrót kosztu rosnącego z historią oblewał test. Na iPhonie
    * (Hermes, bez JIT) czasy będą dłuższe — do sprawdzenia na urządzeniu.
+   * 9.10.2026 po kolejnych poprawkach (następne zadań w planie, przeniesienia daleko) CI pokazał 266 / 150+ ms; po
+   * optymalizacji (pamięć nextId i asTask, jeden przegląd historii, pierwszy termin bez rozwijania roku) lokalnie
+   * mediana ok. 120 ms planu i 45 ms Kalendarza (przedtem 177 / 100). Ta metoda (1 rozgrzewka, mediana 5) mierzy też
+   * dogrzewanie JIT: pierwsze przebiegi po rozgrzewce są 2–3× wolniejsze od ustalonych (plan ok. 70 ms).
    */
   perf: {
     FAMILY_YEARS: 3,

@@ -159,9 +159,10 @@ function firstPeriod(r: Rule, start: CivilDate, from: CivilDate): number {
 
 /**
  * Wystąpienia od `start` (pierwsze wystąpienie, zgodne z regułą) w zakresie [from, to], z COUNT i UNTIL liczonymi
- * od początku serii. Bez reguły — tylko `start`.
+ * od początku serii. Bez reguły — tylko `start`. `limit` — najwyżej tyle pierwszych (następny termin zadania potrzebuje
+ * jednego, a nie całego roku dat; budżet czasu planu przypomnień, config.perf).
  */
-export function occurrences(start: CivilDate, rule: Rule | null, from: CivilDate, to: CivilDate): CivilDate[] {
+export function occurrences(start: CivilDate, rule: Rule | null, from: CivilDate, to: CivilDate, limit = Infinity): CivilDate[] {
   if (rule === null) return compareDates(start, from) >= 0 && compareDates(start, to) <= 0 ? [start] : [];
   const until = rule.until === null ? null : toDate(rule.until);
   const out: CivilDate[] = [];
@@ -173,7 +174,7 @@ export function occurrences(start: CivilDate, rule: Rule | null, from: CivilDate
       if (compareDates(d, to) > 0) return out;
       n++;
       if (rule.count !== null && n > rule.count) return out;
-      if (compareDates(d, from) >= 0) out.push(d);
+      if (compareDates(d, from) >= 0 && out.push(d) >= limit) return out;
     }
   }
   return out;
@@ -182,7 +183,7 @@ export function occurrences(start: CivilDate, rule: Rule | null, from: CivilDate
 /** Pierwszy dzień ≥ `date` pasujący do reguły — DTSTART serii (RFC: DTSTART to pierwsze wystąpienie). */
 export function alignStart(date: CivilDate, rule: Rule): CivilDate {
   const free: Rule = { ...rule, count: null, until: null };
-  const [first] = occurrences(date, free, date, addDays(date, 366 * 8));
+  const [first] = occurrences(date, free, date, addDays(date, 366 * 8), 1);
   return first ?? date;
 }
 
