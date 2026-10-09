@@ -89,7 +89,7 @@ describe('plan lekcji (D112)', () => {
     const bar = await screen.findByTestId('undo-bar');
     expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od jutra)')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
-    expectOps(store, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', event_id: 'mat', date: '2026-10-08', set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, location: null }, participants: [{ id: '47871a90-951a-58a8-af61-a0695de712c6', member_id: 'tymek' }], drop_overrides: [], tasks: [] } }, { kind: 'patch', entity: 'events', id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', set: { title: 'Matematyka', start_time: '08:00:00', end_time: '08:45:00', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
+    expectOps(store, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', event_id: 'mat', date: '2026-10-08', set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, location: null }, participants: [{ id: '1b4c3b73-6819-542b-9f70-232ec26db783', member_id: 'tymek' }], drop_overrides: [], tasks: [] } }, { kind: 'patch', entity: 'events', id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', set: { title: 'Matematyka', start_time: '08:00:00', end_time: '08:45:00', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
   });
 
   it('M-14: zapis, który zmienia zadania i odwołania — ten sam podgląd co „to i następne”, z wyborem dla zadań', async () => {

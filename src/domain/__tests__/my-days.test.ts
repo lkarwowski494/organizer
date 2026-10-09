@@ -216,8 +216,8 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     put(t, 'event_participants', 'p-mat-ola', { id: 'p-mat-ola', event_id: 'mat', member_id: 'ola', deleted_at: null });
     const blocks = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.flatMap((e) => (e.kind === 'lessons' ? [e.block] : []));
     expect(blocks.map((b) => [b.name, b.start, b.end, b.lessons.map((l) => l.title)])).toEqual([
-      ['Tymek', '08:00', '13:30', ['mat', 'pol', 'wf']],
       ['Ola', '08:00', '10:45', ['mat', 'ang']],
+      ['Tymek', '08:00', '13:30', ['mat', 'pol', 'wf']],
     ]);
   });
 
@@ -395,7 +395,7 @@ describe('PW-2 (M-35): zakres Moich spraw w grupie', () => {
   const day = (t: T, scope: 'all' | 'mineAndEvents' | 'mine') => myDays(t, ME, TODAY, 'day', TODAY, local, (g) => (g === 'gf' ? scope : 'all')).days[0]!.entries.map((e) => e.key);
 
   it('Wszystko — jak dotąd (D89)', () => {
-    expect(day(big(), 'all')).toEqual(['t-lz', 't-tymka', 't-moje', 't-osobiste', 't-prywatne', 't-wspolne', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
+    expect(day(big(), 'all')).toEqual(['t-lz', 't-moje', 't-osobiste', 't-prywatne', 't-tymka', 't-wspolne', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
   });
 
   it('Przypisane do mnie i wydarzenia: bez wspólnych nieprzypisanych, zadań dziecka i zakupów bez osoby; wydarzenia zostają', () => {
