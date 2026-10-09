@@ -8,7 +8,7 @@ import { View } from 'react-native';
 import { type CivilDate, daysInMonth, isoWeekday } from '../../domain/civil-date';
 
 import { WEEKDAYS_ABBREVIATED } from '../../config/calendar.pl';
-import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
+import { WEEKDAYS_ON } from '../../config/quickadd.pl';
 import type { Repeat } from '../../domain/views/task-repeat';
 import { strings } from '../../i18n/strings.pl';
 import { Body, Segmented, Toggles } from '../../ui/components';
@@ -40,7 +40,7 @@ export function RepeatEditor({ value, onChange, date }: { value: Repeat | null; 
           label={strings['repeat.days']}
           values={value.days}
           onChange={(days) => days.length && onChange({ kind: 'weekly', days })}
-          options={WEEKDAYS_ABBREVIATED.map((w, i) => ({ value: i, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[i]!) }))}
+          options={WEEKDAYS_ABBREVIATED.map((w, i) => ({ value: i, label: w, a11y: strings['event.dayA11y'](w, WEEKDAYS_ON[i]!) }))}
         />
       ) : null}
       {value?.kind === 'monthly' && (lastDay || value.day === -1) ? (

@@ -16,7 +16,7 @@ import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { strings } from '../../i18n/strings.pl';
 import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
-import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
@@ -46,7 +46,7 @@ export function NewListScreen({ route, navigation }: Props) {
   const tripMissing = shopping && 'trip' in trip && tripLacksAddressee(tripNeeds, trip.trip);
 
   // PWD-5 A (M-274): przycisk zawsze aktywny — po naciśnięciu komunikat, czego brakuje.
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   const missing = name.trim() === '' ? strings['lists.error.nameEmpty'] : groupId === '' ? strings['form.error.group'] : tripError ? tripError : tripMissing ? strings['trip.required'] : null;
   const create = () => {
     if (missing) return setError(missing);
@@ -77,7 +77,7 @@ export function NewListScreen({ route, navigation }: Props) {
           {tripError ? <ErrorText>{tripError}</ErrorText> : null}
         </>
       ) : null}
-      {error ? <ErrorText testID="list-error">{error}</ErrorText> : null}
+      {error ? <ErrorText testID="list-error" attempt={attempt}>{error}</ErrorText> : null}
       <Button label={strings['lists.create']} onPress={create} testID="create-list" />
     </Screen>
   );

@@ -5,6 +5,7 @@
  */
 import { getStateFromPath, NavigationContainer } from '@react-navigation/native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { contrastPairs, groupLines, palettes, type Scheme } from '../../config/theme';
@@ -47,14 +48,29 @@ function check(root: unknown, scheme: Scheme, where: string, opts: { screen?: bo
 }
 
 /**
- * Znane odstępstwa (do poprawy w paczce dostępności P14 i nawigacji P13) — test oblewa każde inne, a także znane, które
- * już nie występuje (wtedy usuń je z listy). Komunikat bez nazwy scenariusza.
+ * Znane odstępstwa — każde z uzasadnieniem i z limitem `max` (dzisiejsza liczba trafień we wszystkich scenariuszach obu
+ * trybów). Test oblewa każde inne, każde ponad limit (lista kurczy się także co do liczby — audyt 3, N-59) i znane,
+ * które już nie występuje (wtedy usuń je z listy). Komunikat bez nazwy scenariusza.
  */
-const KNOWN: { re: RegExp; why: string; hits: number }[] = [
-  { re: /^rola „(checkbox|radio|radiogroup|tab|tablist)” bez cechy iOS/, why: 'P14: M-40 (zakładki) i M-39 (pola wyboru, opcje) — VoiceOver czyta je jak tekst', hits: 0 },
-  { re: /^etykieta „W (poniedziałek|wtorek|środę|czwartek|piątek|sobotę|niedzielę)( \((Termin|Wariant) \d\))?” bez widocznych słów: (pon|wt|śr|czw|pt|sob|niedz)$/, why: 'nowe (M-46): skrót dnia na przycisku nie występuje w etykiecie (WCAG 2.5.3, Sterowanie głosem)', hits: 0 },
-  { re: /^etykieta „[^”]*, \d+ godzin[ay]?[^”]*” bez widocznych słów: h$/, why: 'nowe (M-46): czas trwania „1 h” na wierszu wydarzenia, w etykiecie „1 godzina” (WCAG 2.5.3, Sterowanie głosem)', hits: 0 },
-  { re: /^rola „alert” bez cechy iOS/, why: 'nowe (M-46): rola „alert” nie ma odpowiednika cechy iOS w React Native — komunikat błędu czytany jak zwykły tekst', hits: 0 },
+const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
+  {
+    re: /^etykieta „[^”]*” bez widocznych słów: (h|min|pon|wt|śr|czw|pt|sob|niedz)(, (h|min|pon|wt|śr|czw|pt|sob|niedz))*$/,
+    why: 'M-263, N-65: skróty z dopisków aplikacji są w etykiecie słowami („1 h” → „1 godzina”, „śr.” → „środa”; spoken() w src/ui/a11y.ts), tytuł na początku etykiety jest widoczny; jak Sterowanie głosem dopasowuje takie etykiety — do sprawdzenia na iPhonie',
+    max: 120,
+    hits: 0,
+  },
+  {
+    re: /^tekst „(Moje sprawy|Listy|Kalendarz|Grupy)” zmniejsza się do 0 pt \(adjustsFontSizeToFit, minimumFontScale < \d+ pt\)$/,
+    why: 'N-67 (paczka „Wygląd: pasek zakładek”, decyzja Q11): napis zakładki — rozmiar, plakietka i Large Content Viewer zmienia tamta paczka; reguła 16 pilnuje, żeby nie przybyło innych',
+    max: 408,
+    hits: 0,
+  },
+  {
+    re: /^rola „alert” bez cechy iOS/,
+    why: 'M-39: komunikat błędu ogłasza announce() (ErrorText); rola „alert” na iOS nie daje cechy ani słów w wartości (RN dopisuje je tylko dla „checkbox” i „radio”), zostaje dla testów (getByRole("alert"))',
+    max: 6,
+    hits: 0,
+  },
 ];
 const observed = new Map<string, string>();
 /** Ile scenariuszy przeszło audyt — podsumowanie liczy się tylko po pełnym przebiegu (nie przy jestowym -t). */
@@ -71,11 +87,11 @@ function unexplained(problems: string[], where: string) {
 const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promise<void>][] = [
   ['Moje sprawy', async () => {}],
   ['Listy', async (p) => p('Listy')],
-  ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'))],
-  ['Lista zadań', async (p) => (await p('Listy'), await p('Dom, Rodzina · Zadania · 3 otwarte'))],
+  ['Lista zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'))],
+  ['Lista zadań', async (p) => (await p('Listy'), await p('Dom, Rodzina, Zadania, 3 otwarte'))],
   ['Lista zadań: dla kogo albo na kiedy', async (p) => {
     await p('Listy');
-    await p('Dom, Rodzina · Zadania · 3 otwarte');
+    await p('Dom, Rodzina, Zadania, 3 otwarte');
     fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół');
     await p('Dodaj');
   }],
@@ -92,7 +108,9 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
   ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
   ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
-  ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'), await p('Zaplanuj zakupy'))],
+  ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'))],
+  // Audyt 3 (N-193): rozwinięty mini kalendarz przy planowaniu zakupów (dni ≥ 44 pt — reguła 15 liczy szerokość od rodzica).
+  ['Lista zakupów: planowanie zakupów, inny dzień', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'), await p('Inny dzień'))],
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 godzina, Rodzina')],
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'))],
@@ -101,11 +119,11 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
-  ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'))],
-  ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Tymek, dziecko'))],
+  ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
+  ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'))],
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz do grupy'))],
-  ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Zaproś'))],
+  ['Grupa: zaproszenie gotowe', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Zaproś'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
   ['Ustawienia: Powiadomienia', async (p) => (await p('Ustawienia'), await p('Powiadomienia'))],
   ['Ustawienia: Kalendarz i dojazd', async (p) => (await p('Ustawienia'), await p('Kalendarz i dojazd'))],
@@ -115,7 +133,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await fireEvent.press(await screen.findByTestId('form-date')), await p('Następny miesiąc'))],
-  ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Tymek, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
+  ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
   ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
   ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek$/))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
@@ -129,8 +147,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Ostatnie zmiany', async (p) => (await p('Usuń: Odebrać paczkę'), await p('Grupy'), await p('Ostatnie zmiany'))],
   ['Wprowadzenie: krok 2', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Dalej'))],
   ['Wprowadzenie: krok 3', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Dalej'), await p('Dalej'))],
-  ['Lista zakupów: stałe zakupy', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'), await p('Zmień stałe'))],
-  ['Osoba dorosła', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p(/^Ala, /))],
+  ['Lista zakupów: stałe zakupy', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zmień stałe'))],
+  ['Osoba dorosła', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p(/^Ala, /))],
   ['Kalendarz: inny dzień', async (p) => (await p('Kalendarz'), await p(/^Czwartek, 8 października/))],
 ];
 
@@ -151,6 +169,9 @@ describe.each(['light', 'dark'] as Scheme[])('tryb %s', (scheme) => {
   });
 });
 
+const RN = jest.requireActual<typeof import('react-native')>('react-native');
+const P = palettes.light;
+
 describe('audyt sam łapie błędy (kontrola testu)', () => {
   it('każda reguła łapie wstrzyknięty błąd', async () => {
     const { Pressable, Switch, Text, View } = jest.requireActual<typeof import('react-native')>('react-native');
@@ -159,7 +180,7 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
       <View style={{ backgroundColor: p.ground }}>
         <Pressable accessibilityRole="button" style={{ height: 20, width: 30 }} onPress={() => {}} />
         <Pressable accessibilityRole="tab" accessibilityLabel="Zakładka" style={{ minHeight: 44, width: '10%' }} onPress={() => {}} />
-        <Pressable accessibilityRole="checkbox" accessibilityLabel="Pole" style={{ minHeight: 44, width: 44, borderWidth: 2, borderColor: p.border }} onPress={() => {}} />
+        <Pressable accessibilityRole="checkbox" accessibilityLabel="Pole" accessibilityState={{ checked: false }} style={{ minHeight: 44, width: 44, borderWidth: 2, borderColor: p.border }} onPress={() => {}} />
         <Pressable accessibilityRole="button" accessibilityLabel="Zapisz" style={{ minHeight: 44 }} onPress={() => {}}>
           <Text style={{ color: p.ink }}>Zapisz zmiany</Text>
         </Pressable>
@@ -173,7 +194,7 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
         <View style={{ height: 20 }}>
           <Text style={{ color: p.ink }}>ciasno</Text>
         </View>
-        <Switch accessibilityLabel="Przełącznik" value />
+        <Switch accessibilityRole="switch" accessibilityLabel="Przełącznik" value />
         <Text style={{ color: p.ink }}>
           bez rozmiaru<Text style={{ color: p.ink }}>w środku</Text>
         </Text>
@@ -187,10 +208,10 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
       'próba: button „” ma 20 pt wysokości',
       'próba: button „” ma 30 pt szerokości',
       'próba: rola „tab” bez cechy iOS (Zakładka)',
-      'próba: tab „Zakładka” ma 35 pt szerokości',
+      'próba: tab „Zakładka” ma 39 pt szerokości',
       'próba: tab „Zakładka” bez stanu „wybrane”',
       'próba: rola „checkbox” bez cechy iOS (Pole)',
-      'próba: checkbox „Pole” bez stanu „zaznaczone”',
+      'próba: checkbox „Pole”: stan „checked” — RN dopisuje angielskie słowo (buttonA11y z src/ui/a11y.ts)',
       expect.stringMatching(/^próba: checkbox „Pole”: kontrast pola 1\.\d\d:1 \(< 3\)$/),
       'próba: etykieta „Zapisz” bez widocznych słów: zmiany',
       'próba: element dotykowy bez roli „Bez roli”',
@@ -206,6 +227,36 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     ]));
     expect(r.problems.filter((x) => x.includes('Tytuł do Large Title'))).toEqual([]);
     expect(r.pairs).toEqual(expect.arrayContaining([expect.objectContaining({ fg: p.border.toUpperCase(), bg: p.ground.toUpperCase(), kind: 'NON_TEXT' })]));
+  });
+
+  // Audyt 3 (N-59, N-202): błędy, przy których audyt zwracał pustą listę.
+  it.each<[string, () => ReactElement, RegExp]>([
+    ['pole tekstowe bez etykiety', () => <RN.TextInput placeholder="Tytuł" style={{ minHeight: 44, color: P.ink, fontSize: 17 }} />, /^x: pole tekstowe bez etykiety \(„Tytuł”\)$/],
+    ['przycisk w środku elementu accessible', () => <RN.View accessible accessibilityLabel="Karta"><RN.Pressable accessibilityRole="button" accessibilityLabel="Usuń" style={{ minHeight: 44 }} onPress={() => {}}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Usuń</RN.Text></RN.Pressable></RN.View>, /^x: button „Usuń” w środku elementu „Karta” — VoiceOver do niego nie dojdzie$/],
+    ['accessible={false} na rodzicu nie ukrywa błędu dziecka', () => <RN.View accessible={false}><RN.Pressable accessibilityRole="button" accessibilityLabel="Mały" style={{ minHeight: 20 }} onPress={() => {}} /></RN.View>, /^x: button „Mały” ma 20 pt wysokości$/],
+    ['zagnieżdżony tekst o słabym kontraście', () => <RN.View style={{ backgroundColor: P.ground }}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Grupa <RN.Text style={{ color: P.border }}>Rodzina</RN.Text></RN.Text></RN.View>, /^x: tekst „Rodzina”: kontrast 1\.\d\d:1/],
+    ['dwa przyciski o tej samej etykiecie', () => <RN.View>{[1, 2].map((k) => <RN.Pressable key={k} accessibilityRole="button" accessibilityLabel="Przyjmij" style={{ minHeight: 44, width: 60 }} onPress={() => {}} />)}</RN.View>, /^x: 2× ta sama etykieta elementu dotykowego „Przyjmij”$/],
+    ['szerokość z procentu w zagnieżdżonej karcie', () => <RN.View style={{ padding: 40 }}><RN.View style={{ paddingHorizontal: 30, borderWidth: 1 }}><RN.Pressable accessibilityRole="button" accessibilityLabel="9" style={{ width: `${100 / 7}%`, minHeight: 44 }} onPress={() => {}} /></RN.View></RN.View>, /^x: button „9” ma 35 pt szerokości$/],
+    ['adjustsFontSizeToFit bez minimumFontScale', () => <RN.Text numberOfLines={1} adjustsFontSizeToFit style={{ color: P.ink, fontSize: 12 }}>Moje sprawy</RN.Text>, /^x: tekst „Moje sprawy” zmniejsza się do 0 pt/],
+    ['stan „rozwinięte” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Dzień" accessibilityState={{ expanded: true }} style={{ minHeight: 44 }} onPress={() => {}}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Dzień</RN.Text></RN.Pressable>, /^x: button „Dzień”: stan „expanded” — RN dopisuje angielskie słowo/],
+    ['stan „zajęty” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Wyślij" accessibilityState={{ busy: false }} style={{ minHeight: 44 }} onPress={() => {}} />, /^x: button „Wyślij”: stan „busy”/],
+    ['N-202: obwódka przycisku ze stanem „wybrane” sprawdzana bez roli „checkbox”', () => <RN.View style={{ backgroundColor: P.ground }}><RN.Pressable accessibilityRole="button" accessibilityLabel="Pole" accessibilityState={{ selected: false }} style={{ minHeight: 44, width: 44, borderWidth: 2, borderColor: P.border }} onPress={() => {}} /></RN.View>, /^x: button „Pole”: kontrast pola 1\.\d\d:1 \(< 3\)$/],
+  ])('reguła audytu 3: %s', async (_name, ui, expected) => {
+    await render(ui());
+    expect(audit(screen.root!, P, 'x').problems).toEqual([expect.stringMatching(expected)]);
+  });
+
+  it('procent szerokości liczony od treści przewijanego ekranu; ukryte i accessible={false} nie liczą się do powtórzeń etykiet', async () => {
+    await render(
+      <RN.ScrollView contentContainerStyle={{ paddingHorizontal: 20 }}>
+        <RN.Pressable accessibilityRole="button" accessibilityLabel="Dzień" style={{ width: '12%', minHeight: 44 }} onPress={() => {}} />
+        <RN.View accessibilityElementsHidden><RN.Pressable accessibilityRole="button" accessibilityLabel="Dzień" style={{ minHeight: 44 }} onPress={() => {}} /></RN.View>
+        <RN.Pressable accessible={false} accessibilityRole="button" accessibilityLabel="Dzień" style={{ minHeight: 44 }} onPress={() => {}} />
+        <RN.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={11 / 16} style={{ color: P.ink, fontSize: 16 }}>12</RN.Text>
+      </RN.ScrollView>,
+    );
+    // 12% z 350 pt (390 − 2 × 20) = 42 pt; od całego ekranu byłoby 46,8 pt i błąd by przepadł.
+    expect(audit(screen.root!, P, 'x').problems).toEqual(['x: button „Dzień” ma 42 pt szerokości']);
   });
 
   it('tekst w wyłączonym elemencie nie liczy się do kontrastu (WCAG 1.4.3: „inactive user interface component”); przezroczystość tak', async () => {
@@ -306,7 +357,7 @@ describe('podsumowanie scenariuszy (na końcu pliku)', () => {
   it('znane odstępstwa nadal występują, a każda para kolor–tło jest w korpusie', () => {
   // Znane odstępstwo, które już nie występuje — usuń je z KNOWN (lista ma się tylko kurczyć).
   const full = ran === SCREENS.length * 2;
-  expect(full ? KNOWN.filter((k) => k.hits === 0).map((k) => k.why) : []).toEqual([]);
+  expect(full ? KNOWN.filter((k) => k.hits === 0 || k.hits > k.max).map((k) => `${k.hits}/${k.max}: ${k.why}`) : []).toEqual([]);
   // M-147: każda para kolor–tło z ekranów jest w korpusie contrastPairs (src/config/theme.ts, sprawdza go test motywu);
   // tekst w kolorze linii grupy ma osobny test (linie na tle i na kartach).
   const missing = [...observed].filter(([key]) => {

@@ -14,7 +14,8 @@ import { formatIsoDate, isValidDate } from '../domain/civil-date';
 import { formatLongDate, formatMonth, parseIsoDate } from '../domain/format';
 import { monthGrid, monthOf, shiftMonth } from '../domain/month-grid';
 import { strings } from '../i18n/strings.pl';
-import { Card, PeriodArrow, PeriodTitle } from './components';
+import { buttonA11y, useA11yFocus, useClosedPanel } from './a11y';
+import { Card, FieldCaption, PeriodArrow, PeriodTitle } from './components';
 import { useTheme } from './theme';
 
 const valid = (s: string) => {
@@ -28,10 +29,14 @@ const valid = (s: string) => {
  * M-125: jeden sposób czyszczenia dnia w każdym formularzu, także „Do dnia” w planie lekcji).
  * VoiceOver (M-144, M-141): etykieta to sam podpis, wartość — dzień słownie (bez ISO), podpowiedź mówi, co zrobi
  * dotknięcie (stan „zwinięte” RN na iOS sam nie ogłasza).
+ * Audyt 3 (N-62): po zwinięciu kalendarza (wybór dnia, „Bez dnia”) fokus VoiceOvera wraca na pole z nową wartością;
+ * `focusSignal` — każda nowa wartość (> 0) przenosi fokus na pole (np. po pytaniu, które pojawiło się po wyborze dnia).
  */
-export function DateField({ label, value, onChange, today, testID, openSignal = 0, optional }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string; openSignal?: number; optional?: boolean }) {
+export function DateField({ label, value, onChange, today, testID, openSignal = 0, optional, focusSignal = 0 }: { label: string; value: string; onChange: (iso: string) => void; today: CivilDate; testID: string; openSignal?: number; optional?: boolean; focusSignal?: number }) {
   const { c, font, size, radius } = useTheme();
   const [open, setOpen] = useState(false);
+  const closed = useClosedPanel(open) !== null;
+  const field = useA11yFocus<View>(`${open}-${focusSignal}`, (closed && !open) || focusSignal > 0);
   const [ym, setYm] = useState(() => monthOf(value, today));
   // Nowy sygnał rozwija kalendarz (zmiana stanu w trakcie rysowania, bez efektu).
   const [signal, setSignal] = useState(openSignal);
@@ -48,12 +53,11 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
   };
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
+      <FieldCaption>{label}</FieldCaption>
       <Pressable
-        accessibilityRole="button"
+        ref={field}
+        {...buttonA11y({ expanded: open }, shown)}
         accessibilityLabel={label}
-        accessibilityState={{ expanded: open }}
-        accessibilityValue={{ text: shown }}
         accessibilityHint={strings[open ? 'date.closeHint' : 'date.openHint']}
         testID={testID}
         onPress={toggle}

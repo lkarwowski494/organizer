@@ -7,7 +7,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, type TextInput } from 'react-native';
 
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
@@ -16,8 +16,9 @@ import type { RootStackParams } from '../../app/routes';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { type FormError, formDate, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
+import { useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { AskPanel } from '../../ui/AskPanel';
-import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, useFormError } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
 import { PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
@@ -48,9 +49,12 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const [initial] = useState(() => formFromText(tables, userId, p.text ?? '', now(), { chipGroupId: p.defaultGroupId ?? null, personalLabel: strings['groups.personal'] }));
   // Powrót z formularza wydarzenia (przełącznik rodzaju): to, co już wpisane.
   const [form, setForm] = useState<TaskForm>(() => ({ ...initial.form, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.date ? { date: p.date } : {}), ...(p.time ? { time: p.time } : {}), ...(p.groupId ? { groupId: p.groupId } : {}) }));
-  const [error, setError] = useState<FormError | null>(null);
+  const [error, setError, attempt] = useFormError<FormError>();
   // „@imię” pasujące do kilku osób (D91): pytanie jak w Moich sprawach, zamiast cicho zgubić wzmiankę (audyt 2, M-170).
   const [choices, setChoices] = useState(initial.candidates);
+  // Audyt 3 (N-62): po odpowiedzi albo „Anuluj” w pytaniu „Kogo masz na myśli?” fokus VoiceOvera wraca do tytułu.
+  const asked = useClosedPanel(choices.length > 0) !== null;
+  const titleRef = useA11yFocus<TextInput>(choices.length, asked && choices.length === 0);
   const set = (patch: Partial<TaskForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
   // D179: szkic na telefonie. Formularz z wpisanym tekstem startuje z tego tekstu (szkicu nie przywraca).
   const prefilled = (p.text ?? '').trim() !== '' || p.title !== undefined || p.kindSwitch === true;
@@ -104,7 +108,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         ]}
       />
       {/* M-247: kursor w pierwszym polu, gdy formularz jest pusty (z „Więcej” tekst już jest). */}
-      <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} returnKeyType="done" testID="form-title" />
+      <Field ref={titleRef} label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} returnKeyType="done" testID="form-title" />
       {choices.length && initial.mention ? (
         <AskPanel
           testID="mention-choices"
@@ -129,7 +133,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
       {form.date ? <RepeatEditor value={form.repeat} date={formDate(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['form.error.repeatNeedsDate']}</Body>}
       {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
       {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
-      {error ? <ErrorText>{ERRORS[error]}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{ERRORS[error]}</ErrorText> : null}
       <Button label={strings['form.save']} onPress={save} testID="form-save" />
     </Screen>
   );

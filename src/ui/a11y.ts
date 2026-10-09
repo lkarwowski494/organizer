@@ -13,9 +13,10 @@
  * (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android — „Android”), więc ogłaszamy wprost.
  */
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, type AccessibilityState } from 'react-native';
 
 import { config } from '../config';
+import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../config/calendar.pl';
 import { strings } from '../i18n/strings.pl';
 
 type Target = Parameters<typeof AccessibilityInfo.sendAccessibilityEvent>[0];
@@ -85,17 +86,68 @@ export function useA11yFocus<T>(key: unknown = null, active = true): RefObject<T
 }
 
 /**
+ * Panel w miejscu, który się zamknął (audyt 3, N-62): przycisk z fokusem w panelu znika, a iOS przenosi wtedy fokus na
+ * początek ekranu (ADR 0039, M-44 — fokus przechodził tylko DO panelu). Element, który wraca na miejsce panelu (przycisk,
+ * który go otworzył, pole z nową wartością), dostaje fokus przez `a11yFocus` / useA11yFocus. `open` — co jest otwarte
+ * (null albo false — nic); wynik — ostatnio otwarte, dopóki nic nie jest otwarte; przy otwartym i przed pierwszym
+ * otwarciem — null (wejście na ekran nie przenosi fokusu).
+ */
+export function useClosedPanel<K>(open: K | null | false): K | null {
+  const [last, setLast] = useState<K | null>(null);
+  const shown = open === null || open === false ? null : open;
+  // Zmiana stanu w trakcie rysowania (bez efektu), jak openSignal w DateField.
+  if (shown !== null && shown !== last) setLast(shown);
+  return shown === null ? last : null;
+}
+
+/**
  * Dopisek wiersza (termin, długość, postęp, zadanie nadrzędne) w wersji do czytania przez VoiceOver (audyt 2, M-263):
  * symbole z widoku zamienione na słowa — „↳ Zakupy” → „podzadanie: Zakupy”, „2/3 zrobione” → „2 z 3 zrobione”,
- * „1 h 30 min” → „1 godzina 30 minut”, separator „·” → przecinek. Tylko dla dopisków budowanych przez aplikację
+ * „1 h 30 min” → „1 godzina 30 minut”, separator „·” → przecinek, skrót dnia tygodnia słowem („śr.” → „środa”,
+ * audyt 3, N-65 — „Co tydzień: śr.”, nazwy z config/calendar.pl.ts). Tylko dla dopisków budowanych przez aplikację
  * (strings.pl.ts, domain/format.ts), nie dla tytułów wpisanych przez ludzi. Jak polski VoiceOver czyta „↳” i „h” —
  * do sprawdzenia na iPhonie (audyt 2, A-42); słowa są czytane zawsze tak samo.
  */
+const WEEKDAY_SHORT = new RegExp(`(?<!\\p{L})(${WEEKDAYS_ABBREVIATED.map((w) => w.replace('.', '\\.')).join('|')})`, 'gu');
+
 export function spoken(text: string): string {
   return text
+    .replace(WEEKDAY_SHORT, (w: string) => WEEKDAYS_NOMINATIVE[(WEEKDAYS_ABBREVIATED as readonly string[]).indexOf(w)]!)
     .replace(/↳ /g, strings['spoken.parent'])
     .replace(/(\d+)\/(\d+) zrobione/g, (_, d: string, t: string) => strings['spoken.progress'](Number(d), Number(t)))
     .replace(/(\d+) h\b/g, (_, n: string) => strings['spoken.hours'](Number(n)))
     .replace(/(\d+) min\b/g, (_, n: string) => strings['spoken.minutes'](Number(n)))
     .replace(/\s+·\s+/g, ', ');
+}
+
+/** Stan elementu dotykowego dla VoiceOvera (`buttonA11y`). */
+export type ButtonState = { selected?: boolean; disabled?: boolean; expanded?: boolean; busy?: boolean };
+
+/**
+ * Rola i stan przycisku dla VoiceOvera po polsku (audyt 3, N-9) — jedno miejsce dla pól odhaczenia, opcji wyboru,
+ * pól rozwijanych i przycisków „w toku”. React Native 0.86 na iOS dopisuje do wartości elementu angielskie słowa:
+ * rola „checkbox” → „checkbox”, „radio” → „radio button”, accessibilityState.checked → „checked”/„unchecked”,
+ * expanded: true → „expanded”, busy: true → „busy” (node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/
+ * RCTViewComponentView.mm, `accessibilityValue`: RCTLocalizedString, a React/I18n/strings/pl.lproj/Localizable.strings
+ * jest pusty), a role „checkbox” i „radio” nie dają żadnej cechy iOS (accessibilityPropsConversions.h — także bez
+ * „przycisk”). Cechy systemowe VoiceOver czyta w języku telefonu: `selected` → UIAccessibilityTraitSelected,
+ * `disabled` → UIAccessibilityTraitNotEnabled (ten sam plik, `updateProps`, „accessibilityState”). Dlatego:
+ *  - rola zawsze „button” (pole odhaczenia, opcja, dzień, kafelek godziny — wszystko, co się naciska);
+ *  - zaznaczenie i wybór (jedna albo wiele opcji, odhaczone zadanie) — cechą `selected`;
+ *  - rozwinięcie i „w toku” — polską wartością (accessibilityValue), dopisaną po wartości pola; zwinięte i wolne nic
+ *    nie dodają, jak w RN (expanded: false i busy: false nie dają słowa).
+ * Aplikacja jest tylko na iOS (CLAUDE.md), więc bez osobnej gałęzi dla Androida. Audyt drzewa (a11y-audit.ts, reguła 17)
+ * oblewa `checked` (poza systemowym przełącznikiem), `expanded` i `busy` w accessibilityState.
+ * Jak brzmi to na iPhonie z polskim VoiceOverem — do sprawdzenia na urządzeniu.
+ */
+export function buttonA11y(s: ButtonState = {}, value?: string | null): { accessibilityRole: 'button'; accessibilityState?: AccessibilityState; accessibilityValue?: { text: string } } {
+  const state: AccessibilityState = {};
+  if (s.selected !== undefined) state.selected = s.selected;
+  if (s.disabled !== undefined) state.disabled = s.disabled;
+  const text = [value, s.expanded ? strings['a11y.expanded'] : null, s.busy ? strings['a11y.busy'] : null].filter(Boolean).join(', ');
+  return {
+    accessibilityRole: 'button',
+    ...(Object.keys(state).length ? { accessibilityState: state } : {}),
+    ...(text ? { accessibilityValue: { text } } : {}),
+  };
 }

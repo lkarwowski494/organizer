@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '../../i18n/strings.pl';
+import { buttonA11y } from '../../ui/a11y';
 import { Glyph } from '../../ui/glyph';
 import { useTheme } from '../../ui/theme';
 
@@ -18,10 +19,9 @@ function Pill({ testID, label, hint, disabled, expanded, onPress, children }: { 
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      {...buttonA11y({ disabled: !!disabled, expanded })}
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={{ disabled: !!disabled, ...(expanded === undefined ? {} : { expanded }) }}
       disabled={disabled}
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: disabled ? c.border : c.control, backgroundColor: c.surface }}
