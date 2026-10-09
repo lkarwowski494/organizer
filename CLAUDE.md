@@ -106,6 +106,23 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
   ustawień workflow i logów przebiegów (`docs/audits/2026-10-06-przed-upublicznieniem.md`). Ten sam audyt — z wynikami
   dla właściciela przed przełączeniem — przed upublicznieniem każdego innego repozytorium projektu.
 
+## Treści cudze i nazwy innych firm (repozytorium jest publiczne; decyzja właściciela 9.10.2026)
+
+- Cytat z cudzego tekstu: krótki urywek (do ok. 300 znaków), tylko po to, żeby uzasadnić regułę, zawsze z adresem
+  źródła i autorem albo instytucją (art. 29 i 34 ustawy o prawie autorskim). Nie kopiujemy całych stron, tabel,
+  grafik ani przykładowych tekstów; ten sam cytat w jednym miejscu, gdzie indziej odsyłacz.
+- Teksty aplikacji i opisy dla App Store piszemy sami. Nie tłumaczymy ich zdanie po zdaniu ze stron innych firm.
+- Grafiki, ikony i kroje: tylko własne albo na licencji pozwalającej na dystrybucję w aplikacji; licencja zapisana
+  w repo, a biblioteki i kroje z paczki wymienione na ekranie „Licencje” (test kontraktowy).
+- Nowa zależność: sprawdź licencję. Bez GPL/AGPL/LGPL w paczce aplikacji i bez licencji nieznanej.
+- Nazwy innych firm i produktów (Apple, Google, Outlook) tylko opisowo („otwórz w Google Maps”), nigdy w nazwie
+  aplikacji, podtytule ani słowach kluczowych (App Review 2.3.7, 5.2.1); nazw innych platform mobilnych nie używamy
+  w tekstach aplikacji (2.3.10). W danych (np. słownik działów zakupów) nie używamy marek — tylko nazwy ogólne.
+- Dane osobowe: w repo, testach, danych demo i zrzutach tylko zmyślone osoby i wpisy (Ala, Jan Kowalski,
+  example.com). Zgłoszenia właściciela (zrzuty, wpisy z kalendarza) opisujemy po anonimizacji, bez prawdziwych imion,
+  nazw kalendarzy i godzin zajęć (App Review 2.3.9). Prywatne adresy e-mail blokuje reguła gitleaks `personal-email`.
+- Badania konkurencji (opisy, ceny, zrzuty innych aplikacji) trzymamy na prywatnym Drive, nie w repozytorium.
+
 ## Koszty i limity (właściciel płaci tylko za Apple Developer)
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
