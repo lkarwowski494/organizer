@@ -56,15 +56,15 @@ describe('Moje sprawy', () => {
     delete base.tasks!['t-books'];
     const { store } = await open({ base });
     await type(screen.getByTestId('quick-add'), 'mleko jutro');
-    expect(screen.getByLabelText(/Rozpoznano: jutro/)).toBeTruthy();
+    expect(screen.getByLabelText(/jutro, rozpoznane/)).toBeTruthy();
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.map((o) => o.kind)).toEqual(['create', 'create']);
     expect(store.dispatched[0]).toMatchObject({ entity: 'lists', group_id: ME, set: { name: 'Moje zadania' } });
     await press(screen.getByLabelText('Następny dzień'));
     expect(await screen.findByText('mleko')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'wtorek jutro');
-    await press(screen.getByLabelText(/Rozpoznano: jutro/));
-    expect(screen.queryByLabelText(/Rozpoznano: jutro/)).toBeNull();
+    await press(screen.getByLabelText(/jutro, rozpoznane/));
+    expect(screen.queryByLabelText(/jutro, rozpoznane/)).toBeNull();
     await press(screen.getByLabelText('Dodaj'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { title: 'wtorek jutro', deadline_mode: 'none' } });
   });
@@ -91,7 +91,7 @@ describe('Moje sprawy', () => {
     base.tasks = {};
     await open({ base, indicator: { state: 'offline', pending: 2 } });
     expect(screen.getByText(/^Na dziś nic. Dodaj coś polem powyżej/)).toBeTruthy();
-    expect(screen.getByLabelText('Stan synchronizacji: Offline · 2 zmiany czekają')).toBeTruthy();
+    expect(screen.getByLabelText('Stan synchronizacji: Offline, 2 zmiany czekają')).toBeTruthy();
   });
 });
 
@@ -120,7 +120,7 @@ describe('Listy i zadania', () => {
   it('zadanie: edycja tytułu, terminu z walidacją, osoby, podzadanie, usunięcie i cofnięcie', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Następny dzień'));
-    await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
+    await press(screen.getByLabelText(/^Kupić\ kwiaty(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(screen.queryByTestId('task-save')).toBeNull(); // D130: bez „Zapisz”
     await type(screen.getByTestId('task-title'), 'Kupić kwiaty dla babci');
@@ -154,13 +154,13 @@ describe('Listy i zadania', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect((await screen.findAllByText(/pt\. 9 paź · 17:30/)).length).toBe(2); // zadanie i dziedziczące podzadanie
-    await press(screen.getByLabelText(/^Otwórz:\ Kupić\ kwiaty\ dla\ babci(,|$)/));
+    await press(screen.getByLabelText(/^Kupić\ kwiaty\ dla\ babci(,|$)/));
     // Audyt 2 (M-254): usunięcie z ekranu zadania jak przesunięcie na liście — powrót i pasek „Cofnij”.
     await press(await screen.findByLabelText('Usuń zadanie'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto: Kupić kwiaty dla babci')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty\ dla\ babci(,|$)/));
+    await press(await screen.findByLabelText(/^Kupić\ kwiaty\ dla\ babci(,|$)/));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
     await press(screen.getByLabelText('Bez terminu'));

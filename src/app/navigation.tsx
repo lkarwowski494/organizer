@@ -7,7 +7,7 @@ import { type BottomTabBarProps, createBottomTabNavigator } from '@react-navigat
 import { DarkTheme, DefaultTheme, type LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -66,7 +66,10 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   // Plakietka na „Dziś”: przekazania czekające na moją decyzję (D70).
   const pending = incomingHandoffs(tables, userId).length;
   return (
-    <View accessibilityRole="tablist" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
+    // Audyt 2 (M-40): na iOS role „tab” i „tablist” nie dają żadnej cechy (React Native, accessibilityPropsConversions.h:
+    // brak gałęzi; React Navigation też daje na iOS „button”, BottomTabItem.tsx). Pasek dostaje cechę paska kart
+    // („tabbar” → UIAccessibilityTraitTabBar: VoiceOver mówi „karta 1 z 4”), zakładki — „button” na iOS.
+    <View accessibilityRole="tabbar" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
       {state.routes.map((r, i) => {
         const on = state.index === i;
         const label = TAB_LABELS[r.name as keyof TabParams];
@@ -74,7 +77,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
         return (
           <Pressable
             key={r.key}
-            accessibilityRole="tab"
+            accessibilityRole={Platform.OS === 'ios' ? 'button' : 'tab'}
             accessibilityState={{ selected: on }}
             accessibilityLabel={badge ? `${label}, ${strings['handoff.badge'](badge)}` : label}
             testID={`tab-${r.name}`}

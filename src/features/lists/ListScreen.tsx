@@ -185,7 +185,8 @@ export function ListScreen({ route, navigation }: Props) {
             shopping={shopping}
             onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
-            openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
+            openHint={shopping ? strings['shop.editHint'] : undefined}
+            expanded={shopping && editable && !done ? picking === t.id : undefined}
           />
         </SwipeRow>,
         ...(picking === t.id
@@ -242,7 +243,7 @@ export function ListScreen({ route, navigation }: Props) {
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {planError ? <Body>{planError}</Body> : null}
+              {planError ? <ErrorText>{planError}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}
                 testID="trip-save"
