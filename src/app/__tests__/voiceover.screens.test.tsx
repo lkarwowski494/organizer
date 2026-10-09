@@ -273,12 +273,19 @@ describe('pola daty i godziny (M-144, M-141)', () => {
     expect(time.props.accessibilityHint).toBe('Rozwija wybór godziny');
   });
 
-  it('skróty dni tygodnia w mini kalendarzu ukryte przed VoiceOverem', async () => {
+  // A-46 + D186 (XCUITest 9.10.2026: ukryte skróty to „Potentially inaccessible text”): nagłówek kolumn to jeden
+  // element z pełnymi nazwami — nie siedem przystanków i nie tekst, którego VoiceOver nie zna.
+  it.each([
+    ['mini kalendarz przy dacie', async () => (await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/)), await press(await screen.findByTestId('task-date')))],
+    ['Kalendarz', async () => press(screen.getByTestId('tab-Calendar'))],
+  ] as const)('%s: skróty dni tygodnia jednym elementem z pełnymi nazwami', async (_where, go) => {
     await open();
-    await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
-    await press(await screen.findByTestId('task-date'));
-    expect(screen.queryByText('pon.')).toBeNull();
-    expect(screen.getByText('pon.', HIDDEN)).toBeTruthy();
+    await go();
+    const header = await screen.findByTestId('weekday-header');
+    expect(header.props).toMatchObject({ accessible: true, accessibilityRole: 'text', accessibilityLabel: 'Dni tygodnia: poniedziałek, wtorek, środa, czwartek, piątek, sobota, niedziela' });
+    expect(header.props.accessibilityElementsHidden).toBeUndefined();
+    expect(within(header).getByText('pon.')).toBeTruthy();
+    expect(screen.getAllByText('pon.', HIDDEN)).toHaveLength(1);
   });
 });
 

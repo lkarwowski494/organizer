@@ -393,6 +393,8 @@ export const strings = {
     `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}${device ? `, ${device} z kalendarza iPhone’a` : ''}`,
   /** Dzisiejszy dzień w siatce Kalendarza i mini kalendarza — VoiceOver mówi „dziś” (audyt 2, M-140). */
   'calendar.todayA11y': (label: string) => `Dziś, ${label}`,
+  /** Nagłówek kolumn siatki miesiąca dla VoiceOvera — pełne nazwy zamiast skrótów (WeekdayHeader, D186). */
+  'calendar.weekdaysA11y': (days: readonly string[]) => `Dni tygodnia: ${days.join(', ')}`,
   'calendar.empty': 'Tego dnia nic nie ma.',
   // PWD-1 C (M-173): zrobione zadanie stoi w dniu terminu, z dniem odhaczenia, gdy był inny.
   'calendar.doneOn': (day: string) => `zrobione ${day}`,
