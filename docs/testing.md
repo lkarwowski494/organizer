@@ -45,7 +45,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | **jeszcze nie działa**: wzorców brak, a żaden przebieg E2E na macOS się nie skończył (8.10.2026); najpierw iPhone 17 w jasnym wyglądzie, warianty — decyzja właściciela |
 | Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia, pole nad klawiaturą, wydarzenie przez kilka dni | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
 | Teksty | wszystkie teksty w `strings.pl.ts`, odmiana przez `plural()` — pilnowane przeglądem kodu; reguły lint na teksty poza `strings.pl.ts` nie ma | częściowo |
-| Wydajność | czas startu, rozwijanie 50 serii RRULE × 5 lat, lista 1 000 pozycji — progi w `src/config` | nocą, od Etapu 2 |
+| Wydajność | czas startu, rozwijanie 50 serii RRULE × 5 lat, lista 1 000 pozycji — progi w `src/config` (jeszcze ich nie ma) | planowane, niezaimplementowane |
 | Bezpieczeństwo | gitleaks przy każdej zmianie i na pełnej historii ✅, reguły projektu (klucz `.p8`, `service_role`, `sb_secret_`, token dostępu `sbp_`) sprawdzane na fałszywych sekretach tworzonych w czasie testu (`.github/scripts/test-gitleaks-rules.sh`) ✅; audyt zależności ✅; reguły workflow (bez `pull_request_target`, akcje przypięte do SHA; kontrakty: `e2e-flag.test.ts`, `.github/scripts/*.test.mjs`) | ✅ |
 | Prywatność | test, że raport błędów `client_errors` nie zawiera danych osobowych; brak SDK firm trzecich (lista dozwolonych zależności) | Etap 6 |
 

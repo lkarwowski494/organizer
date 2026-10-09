@@ -16,7 +16,7 @@ Wybrał trzy rzeczy z czterech zaproponowanych. Stałe zakupy i podpowiedzi zost
    - Wysyłany jest tylko komunikat, stos, nazwa ekranu i wersja aplikacji. Nigdy treść z tabel.
    - Źródła: granica błędów (ekran „Coś poszło nie tak” z „Spróbuj ponownie”) i globalny handler wyjątków. Poprzedni handler wołamy dalej.
    - Limit: 50 błędów i 20 uwag dziennie na osobę. Ponad limit błędy są pomijane bez komunikatu, żeby pętla błędów nie zalała bazy.
-   - Retencja 90 dni. Sprzątanie odbywa się przy zapisie, bez pg_cron.
+   - Retencja 90 dni. Sprzątanie odbywa się przy zapisie, bez pg_cron. → Uzupełnione przez D82 (ADR 0018): sprząta też codzienny pg_cron.
    - Odczyt tylko w panelu Supabase. Liczby są w `config.feedback` (test kontraktowy z SQL).
 3. **Przypisania** idą przez kanał aktywności.
    - Wpis aktywności z nową osobą przy `assignee_member_id` albo `responsible_member_id` powstaje na serwerze.

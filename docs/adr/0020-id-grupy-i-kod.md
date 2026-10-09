@@ -8,7 +8,7 @@ Dołącza się, wpisując ID i kod albo klikając link, czyli dwa sposoby, jak p
 |---|---|---|---|
 | D92 | ID grupy | 9 cyfr (np. 482 913 507), stałe; właściciel może je zmienić | Litery i cyfry (RDZ-7Q4K) |
 | D93 | Kod | 6 cyfr, 24 h, dla wielu osób; limit nieudanych prób | Kod jednorazowy dla jednej osoby; dotychczasowe 7 dni i 10 osób |
-| D94 | Link | https na GitHub Pages + Universal Links | Bez linku; link w schemacie aplikacji (nieklikalny w komunikatorach, D67) |
+| D94 | Link | https na GitHub Pages + Universal Links → link ukryty w wiadomości, dopóki strona nie działa (D141, ADR 0035: `config.invites.LINK_LIVE`); w wiadomości link TestFlight (D153) | Bez linku; link w schemacie aplikacji (nieklikalny w komunikatorach, D67) |
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 1. **Kod to zwykłe zaproszenie** (`public.invites`, nowy rodzaj `code`).

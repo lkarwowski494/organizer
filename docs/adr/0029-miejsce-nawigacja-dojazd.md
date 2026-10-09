@@ -6,9 +6,9 @@ pokazywać czas dojazdu (samochód, komunikacja, pieszo) i godzina wyjścia.
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D116 | Skąd czas dojazdu | Mapy Apple na telefonie (MapKit) | Google Routes API (konto rozliczeniowe z kartą; 10 000 zapytań/mies. w Essentials, potem od 5 USD/1000); Apple Maps Server API (serwer, klucz Maps, położenie przez nasz serwer) |
+| D116 | Skąd czas dojazdu | Mapy Apple na telefonie (MapKit) | Google Routes API (konto rozliczeniowe z kartą — źródło niżej; liczby z cennika usunięte 9.10.2026, bo nie miały przeczytanego cytatu, a wariant jest odrzucony); Apple Maps Server API (serwer, klucz Maps, położenie przez nasz serwer) |
 | D115 | Czym „Nawiguj” | Wybór w Ustawieniach: Mapy Apple (domyślnie) albo Google Maps | Pytanie za każdym razem; tylko Mapy Apple |
-| D117 | Co przy dzisiejszym wydarzeniu | „Wyjdź o 16:35 · 25 min autem” + powiadomienie „Czas wyjść” zamiast stałego „30 min przed” | Tylko napis; tylko czas dojazdu |
+| D117 | Co przy dzisiejszym wydarzeniu | „Wyjdź o 16:35 · 25 min autem” (od D129, ADR 0035, w osobnej, wyróżnionej linii wiersza) + powiadomienie „Czas wyjść” zamiast stałego „30 min przed” | Tylko napis; tylko czas dojazdu |
 | D118 | Środek transportu | Domyślny w Ustawieniach + zmiana przy wydarzeniu (tylko na moim telefonie) | Tylko w Ustawieniach; trzy czasy naraz |
 
 ## Źródła

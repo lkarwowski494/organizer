@@ -4,7 +4,7 @@
  *  - dziś: zaległe (termin bez zmian, czerwony znacznik — D61) na górze, potem plan dnia (agenda.ts),
  *  - dzień przyszły: zadania z terminem tego dnia i wydarzenia.
  * Wygasłe (D61: „Tylko tego dnia”, zadanie na spotkaniu) nie przechodzą na dziś. Tydzień od poniedziałku
- * (PN-EN ISO 8601, jak kalendarz).
+ * (PN-EN ISO 8601, jak kalendarz; źródło — CLDR firstDay dla PL, opis w src/domain/month-grid.ts).
  * Odhaczone dziś stoją osobno (`doneToday`, PWD-7 A / audyt 2 M-276: zwinięta sekcja „Zrobione dziś (N)” — da się je
  * odznaczyć bez szukania listy). Zakres grupy (PW-2, my-scope.ts) zawęża zadania, zakupy i wydarzenia; wydarzenie
  * dziecka, za które odpowiada ktoś inny, stoi informacyjnie (PWD-32 B, Occurrence.childInfo) — poza „Tylko przypisane

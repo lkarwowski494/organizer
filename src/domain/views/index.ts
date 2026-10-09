@@ -393,7 +393,8 @@ export type CalendarItem = TodayItem & { doneOn: string | null; projected: boole
 export type CalendarDay = { date: string; inMonth: boolean; holiday: string | null; items: CalendarItem[] };
 
 /**
- * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek).
+ * Miesiąc w siatce tygodni od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek; źródło — CLDR
+ * firstDay dla PL, opis w src/domain/month-grid.ts).
  * Dni z zadaniami z terminem z moich grup i polskimi dniami wolnymi (src/domain/holidays.ts).
  * Wydarzenia dokłada ekran (eventsByDate); zaplanowane zakupy (D73) są tu jako wpisy z `trip`, a ostatnie zrobione
  * zakupy listy — przekreślone w dniu planu (PWD-11 A, M-280; doneTrips).

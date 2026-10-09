@@ -16,7 +16,7 @@ Ten zapis dotyczy punktu 5.
   - Treść: „5 spraw, w tym 1 zaległa: …” i pierwsze cztery: zaległe i bez godziny, potem z godziną („17:00 Tańce”).
   - Godzina jak dotąd w Ustawieniach (7:00, 8:00, 9:00 albo wyłączone).
   - Odrzucone: osobne drugie przypomnienie „zaplanuj dzień” (dwa poranne to szum).
-- **D111:** przycisk w dzisiejszym dniu, gdy są zaległe z własnym terminem. Ustawia termin na dziś, godzina zostaje. Pasek „Cofnij” przywraca dawne terminy.
+- **D111:** przycisk w dzisiejszym dniu, gdy są zaległe z własnym terminem. Ustawia termin na dziś, godzina zostaje. → Uzupełnione przez D137 (ADR 0035): przy powtarzaniu miesięcznym reguła pamięta dzień miesiąca, a przeniesienie zmienia tylko ten raz. Pasek „Cofnij” przywraca dawne terminy.
   - Pomijane: zakupy (termin listy) i zadania z terminem po rodzicu albo wydarzeniu — tam termin zmienia się u rodzica.
     → zmienione 8.10.2026 (audyt 2, T-11, P-56): zakupy z terminem przenoszą się jak zadania (poranne podsumowanie
     i tak je liczy); pomijane są zadania z terminem po rodzicu albo wydarzeniu i grupy, w których jestem dzieckiem

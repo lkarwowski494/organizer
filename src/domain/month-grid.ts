@@ -1,6 +1,9 @@
 /**
  * Siatka miesiąca od poniedziałku (norma PN-EN ISO 8601: tydzień zaczyna się w poniedziałek), ze świętami —
  * wspólna dla zakładki Kalendarz i mini kalendarza przy wyborze daty (D103). Pełne tygodnie, 4–6 wierszy.
+ * Przeczytane źródło (tekstu normy ISO nie czytaliśmy — jest płatny): CLDR, dane tygodnia dla Polski
+ * (https://github.com/unicode-org/cldr/blob/main/common/supplemental/supplementalData.xml, `<weekData>`):
+ * `<firstDay day="mon" territories="… PL …"/>`.
  */
 import { HOLIDAYS_FROM_YEAR } from '../config/holidays.pl';
 import { addDays, type CivilDate, formatIsoDate, isoWeekday, isValidDate } from './civil-date';
