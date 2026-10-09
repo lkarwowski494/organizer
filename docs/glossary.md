@@ -29,6 +29,7 @@ test `src/app/__tests__/texts.test.ts` (płeć, cudzysłów przy nazwach ekranó
 | Zapis formularza | **Zapisz + rzecz** | samo „Zapisz” | „Zapisz zadanie”, „Zapisz wydarzenie”, „Zapisz imię” |
 | Zamknięcie panelu, w którym wybór zapisał się od razu | **Gotowe** | Anuluj | panel pozycji zakupów, stałe zakupy |
 | Komunikat po dodaniu | **Dodano + rodzaj: tytuł · gdzie** | „Dodano: X” | „Dodano zadanie: Basen · Rodzina”, „Dodano produkt: mleko · Zakupy” |
+| Komunikat po usunięciu | **Usunięto + rodzaj: tytuł** | „Usunięto: X” | „Usunięto zadanie: Basen”, „Usunięto produkt: mleko”, „Usunięto wydarzenie: Wizyta”, „Usunięto serię: Tańce” |
 | Głos aplikacji | **my** | ja | „Synchronizujemy…”, „Pobieramy grupę…”, „spróbujemy ponownie” |
 | Etykiety pól | **bezosobowo** | głos użytkownika („Zwykle jadę”, „Liczę”) | „Domyślny dojazd”, „Jednostka” |
 
