@@ -33,7 +33,7 @@ describe('D199: formularz wydarzenia', () => {
   it('obóz: „Cały dzień” i „Kończy się” — jedno wydarzenie przez 5 dni; przesunięcie startu przesuwa koniec', async () => {
     const { store } = await open();
     await newEvent('Obóz');
-    expect(screen.queryByTestId('event-end-date')).toBeNull();
+    // D199 cz. 2: „Kończy się” jest też przy „O godzinie”.
     await press(screen.getByLabelText('Cały dzień'));
     // Domyślnie ten sam dzień.
     expect(screen.getByTestId('event-end-date').props.accessibilityLabel).toBe('Kończy się: Środa, 7 października');
@@ -129,5 +129,42 @@ describe('D199: wiersze i ekran wydarzenia', () => {
     await press(await screen.findByTestId('cal-event-dyzur-2026-10-07'));
     expect(await screen.findByText('Środa, 7 października · 22:00–06:00 · 8 h')).toBeTruthy();
     expect(screen.getByText('Kończy się następnego dnia: Czwartek, 8 października')).toBeTruthy();
+  });
+});
+
+describe('D199 cz. 2: z godziną przez więcej niż jedną noc', () => {
+  it('formularz: „Kończy się” także z godziną — domyślnie następny dzień przy końcu przed początkiem; wyjazd na 46 h', async () => {
+    const { store } = await open();
+    await newEvent('Wyjazd');
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toEqual({ text: '2026-10-07' });
+    await setTime('event-start-0', '18:00');
+    await setTime('event-end-0', '16:00');
+    expect(screen.getByTestId('event-end-date').props.accessibilityValue).toEqual({ text: '2026-10-08' });
+    expect(screen.getByText('Kończy się następnego dnia.')).toBeTruthy();
+    await pickDate('event-end-date', '2026-10-09');
+    expect(screen.queryByText('Kończy się następnego dnia.')).toBeNull();
+    await setTime('event-end-0', '');
+    await press(screen.getByTestId('event-save'));
+    expect(screen.getByRole('alert').props.children).toBe('Wpisz godzinę końca — wydarzenie kończy się innego dnia.');
+    await setTime('event-end-0', '16:00');
+    await press(screen.getByTestId('event-save'));
+    expect(created(store.dispatched).map((o) => o.set)).toEqual([expect.objectContaining({ title: 'Wyjazd', start_date: '2026-10-07', start_time: '18:00', end_time: '16:00', duration_min: 46 * 60 })]);
+  });
+
+  it('wiersze: „od 18:00”, „cały dzień”, „do 16:00”; ekran wydarzenia z długością i dniem końca', async () => {
+    const base = sampleBase();
+    event(base, 'trip', { title: 'Wyjazd', start_time: '18:00:00', end_time: '16:00:00', duration_min: 46 * 60 });
+    await open(base);
+    expect(screen.getByTestId('today-event-trip-2026-10-07').props.accessibilityLabel).toBe('Wyjazd, od 18:00, dzień 1 z 3, Rodzina');
+    await press(screen.getByLabelText('Kalendarz'));
+    await press(screen.getByTestId('day-2026-10-08'));
+    expect(screen.getByTestId('cal-event-trip-2026-10-07').props.accessibilityLabel).toBe('Wyjazd, cały dzień, dzień 2 z 3, Rodzina');
+    await press(screen.getByTestId('day-2026-10-09'));
+    expect(screen.getByTestId('cal-event-trip-2026-10-07').props.accessibilityLabel).toBe('Wyjazd, do 16:00, dzień 3 z 3, Rodzina');
+    await press(screen.getByTestId('cal-event-trip-2026-10-07'));
+    expect(await screen.findByText('Środa, 7 października · od 18:00 · 46 h')).toBeTruthy();
+    expect(screen.getByText('Kończy się: Piątek, 9 października, 16:00')).toBeTruthy();
+    await press(screen.getByLabelText('Zmień'));
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
   });
 });

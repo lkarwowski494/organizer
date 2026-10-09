@@ -13,10 +13,10 @@ import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
-import { formatIsoDate } from '../../domain/civil-date';
+import { addDays, formatIsoDate } from '../../domain/civil-date';
 import { formatLongDate, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
-import { coveredDays } from '../../domain/span';
+import { coveredDays, endsNextDay } from '../../domain/span';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
 import { config } from '../../config';
@@ -53,7 +53,9 @@ export function EventEditScreen({ route, navigation }: Props) {
     const { title, start, end, responsibleId, location, allDay, participantIds, endDate } = route.params;
     const f = emptyForm(occurrence, participantIds ?? []);
     const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');
-    return { ...f, title: title ?? '', allDay: allDay ?? false, endDate: allDay && endDate ? endDate : '', location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
+    // D199: dzień końca taki jak z godzin (ten sam albo następny przy końcu przed początkiem) = puste pole (z napisem).
+    const auto = !allDay && start && end && endsNextDay(start, end) ? formatIsoDate(addDays(parseIsoDate(occurrence), 1)) : occurrence;
+    return { ...f, title: title ?? '', allDay: allDay ?? false, endDate: endDate && endDate !== auto ? endDate : '', location: location ?? '', slots: [{ ...f.slots[0]!, start: start ?? '', end: end ?? '' }], responsibleId: adult ? responsibleId : null };
   });
   const [error, setError] = useState<string | null>(null);
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
@@ -98,6 +100,9 @@ export function EventEditScreen({ route, navigation }: Props) {
   const multi = !detail && form.repeat === 'weekly';
   const slots = multi ? form.slots : form.slots.slice(0, 1);
   const pos = DATE.test(form.date) ? weekdayPosition(form.date) : null;
+  // D199: dzień końca wynikający z godzin pierwszego terminu (koniec nie później niż początek — następny dzień).
+  const clock = (slot: Slot) => /^\d{2}:\d{2}$/.test(slot.start.trim()) && /^\d{2}:\d{2}$/.test(slot.end.trim());
+  const autoEnd = !form.allDay && DATE.test(form.date) && clock(form.slots[0]!) && endsNextDay(form.slots[0]!.start.trim(), form.slots[0]!.end.trim()) ? formatIsoDate(addDays(parseIsoDate(form.date), 1)) : form.date;
 
   const save = () => {
     // W grupie osobistej „kogo dotyczy” nie ma (P-53) — zawsze cała grupa, czyli ja.
@@ -188,13 +193,6 @@ export function EventEditScreen({ route, navigation }: Props) {
       )}
       {/* D136: także „tylko to” może być na cały dzień. */}
       <Segmented label={strings['event.when']} value={form.allDay ? 'allDay' : 'time'} onChange={(v) => set({ allDay: v === 'allDay' })} options={[{ value: 'time', label: strings['event.atTime'] }, { value: 'allDay', label: strings['event.allDay'] }]} />
-      {form.allDay ? (
-        // D199: całodniowe przez kilka dni (obóz); ten sam dzień = jednodniowe.
-        <View style={{ gap: 6 }}>
-          <DateField label={strings['event.endDate']} value={form.endDate || form.date} onChange={(v) => set({ endDate: v === form.date ? '' : v })} today={today} testID="event-end-date" />
-          {series && form.endDate !== '' && form.endDate !== form.date ? <Body muted>{strings['event.sameLength']}</Body> : null}
-        </View>
-      ) : null}
       {only ? null : (
         <Segmented
           label={strings['event.repeat']}
@@ -227,12 +225,18 @@ export function EventEditScreen({ route, navigation }: Props) {
             </View>
           )}
           {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
-          {!form.allDay && /^\d{2}:\d{2}$/.test(slot.start.trim()) && /^\d{2}:\d{2}$/.test(slot.end.trim()) && coveredDays(slot.start.trim(), slot.end.trim(), 1) === 2 ? (
+          {!form.allDay && form.endDate === '' && clock(slot) && coveredDays(slot.start.trim(), slot.end.trim(), 1) === 2 ? (
             <Body muted>{strings['event.endsNextDay']}</Body>
           ) : null}
           {multi && form.slots.length > 1 ? <Button kind="danger" label={strings['event.removeSlot'](i + 1)} onPress={() => set({ slots: form.slots.filter((_, j) => j !== i) })} /> : null}
         </View>
       ))}
+      {/* D199: „Kończy się” — całodniowe przez kilka dni (obóz) i z godziną do innego dnia (wyjazd pt. 18:00 – nd. 16:00).
+          Domyślnie ten sam dzień, a z godziną końca nie później niż początek — następny (wtedy pole pokazuje ten dzień). */}
+      <View style={{ gap: 6 }}>
+        <DateField label={strings['event.endDate']} value={form.endDate || autoEnd} onChange={(v) => set({ endDate: v === autoEnd ? '' : v })} today={today} testID="event-end-date" />
+        {series && form.endDate !== '' && form.endDate !== autoEnd ? <Body muted>{strings['event.sameLength']}</Body> : null}
+      </View>
       {multi ? (
         <View style={{ gap: 6 }}>
           <Button kind="secondary" label={strings['event.addSlot']} testID="event-add-slot" onPress={() => set({ slots: [...form.slots, { days: [], start: '', end: '' }] })} />
