@@ -75,9 +75,9 @@ export function RoutineScreen({ route, navigation }: Props) {
       />
       <Body muted>{strings['routine.info']}</Body>
       {groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['routine.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} testID="routine-title" />
+      <Field label={strings['common.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} testID="routine-title" />
       <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
@@ -96,7 +96,7 @@ export function RoutineScreen({ route, navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Field label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} testID={`routine-step-${i}`} />
           </View>
-          {steps.length > 1 ? <Button kind="danger" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
+          {steps.length > 1 ? <Button kind="danger" label={strings['common.delete']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />

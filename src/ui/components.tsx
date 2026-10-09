@@ -388,7 +388,7 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
   };
   const latest = useRef(press);
   useEffect(() => void (latest.current = press));
-  const label = strings[action === 'delete' ? 'swipe.delete' : 'swipe.cancel'];
+  const label = strings[action === 'delete' ? 'common.delete' : 'event.cancel'];
   const act = useMemo(() => ({ label, run: () => latest.current(), claim: () => setClaimed(true) }), [label]);
   if (!enabled) return <>{children}</>;
   const settle = (x: number) => (x > 0 ? group?.opened(close) : group?.closed(close));
@@ -491,8 +491,8 @@ export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { la
       {numeric ? (
         <InputAccessoryView nativeID={accessory} backgroundColor={c.surface}>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, borderTopWidth: 1, borderColor: c.border }}>
-            <Pressable accessibilityRole="button" accessibilityLabel={strings['common.keyboardDone']} onPress={() => Keyboard.dismiss()} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.keyboardDone']}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={strings['common.finish']} onPress={() => Keyboard.dismiss()} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.finish']}</Text>
             </Pressable>
           </View>
         </InputAccessoryView>
@@ -530,7 +530,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={strings['quick.add']}
+          accessibilityLabel={strings['common.add']}
           onPress={submit}
           style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: size.TOUCH_TARGET / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}
         >
@@ -631,7 +631,7 @@ export function EventRow({ title, time, length, part, line, group, onPress, test
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const actions = useSwipeAction();
-  const when = time ?? strings['event.allDayLabel'];
+  const when = time ?? strings['common.allDay'];
   const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
   return (
     <Pressable

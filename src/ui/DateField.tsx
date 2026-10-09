@@ -66,11 +66,11 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
       {open ? (
         <View testID={`${testID}-calendar`} style={{ padding: 8, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {arrow(-1, strings['calendar.prev'], '‹')}
+            {arrow(-1, strings['today.prev.month'], '‹')}
             <Text accessibilityRole="header" style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: 17, color: c.ink }}>
               {formatMonth(ym.y, ym.m)}
             </Text>
-            {arrow(1, strings['calendar.next'], '›')}
+            {arrow(1, strings['today.next.month'], '›')}
           </View>
           {/* Skróty dni tygodnia tylko dla oka — każdy dzień siatki podaje pełną nazwę (audyt 2, M-263, A-46). */}
           <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
