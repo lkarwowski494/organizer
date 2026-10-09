@@ -479,10 +479,10 @@ describe('przypadki brzegowe gałęzi (pokrycie)', () => {
     expect(t.events!.b).toMatchObject({ title: 'Y', days: 1, duration_min: null });
   });
 
-  it('formularz usuniętego jednorazowego wydarzenia; „wszystkie” — tylko uczestnicy w innej części; „ten i następne” bez pól z chwili otwarcia', () => {
+  it('formularz usuniętej serii (bez żywych części); „wszystkie” — tylko uczestnicy w innej części; „ten i następne” bez pól z chwili otwarcia', () => {
     const t = world();
-    put(t, 'events', 'raz', { id: 'raz', group_id: 'gf', title: 'Raz', start_date: '2026-10-08', rrule: null, audience: 'group', deleted_at: '2026-10-07T00:00:00Z' });
-    expect(fieldsOf(det(t, 'raz'), '2026-10-08', 'all').until).toBeNull();
+    put(t, 'events', 'raz', { id: 'raz', group_id: 'gf', title: 'Raz', start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH;UNTIL=20261029', audience: 'group', deleted_at: '2026-10-07T00:00:00Z' });
+    expect(fieldsOf(det(t, 'raz'), '2026-10-08', 'all').until).toBe('2026-10-29');
     const u = splitAtNov2();
     u.events!.chor = { ...u.events!.chor!, audience: 'members' };
     u.events![B] = { ...u.events![B]!, audience: 'members' };
