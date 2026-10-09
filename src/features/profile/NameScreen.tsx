@@ -56,13 +56,11 @@ export function NameScreen({ route, navigation }: Props) {
     <Screen testID="screen-name">
       <Title>{asked ? strings['name.askTitle'] : strings['name.title']}</Title>
       <Body muted>{strings['name.info']}</Body>
-      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" testID="name-field" />
+      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" testID="name-field" />
       {error ? (
-        <ErrorText>
-          {ERRORS[error]}
-        </ErrorText>
+        <ErrorText>{ERRORS[error]}</ErrorText>
       ) : null}
-      <Button label={strings['name.save']} disabled={busy} onPress={() => void save()} testID="name-save" />
+      <Button label={strings['name.save']} busy={busy} onPress={() => void save()} testID="name-save" />
       <Button kind="secondary" label={asked ? strings['name.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
     </Screen>
   );

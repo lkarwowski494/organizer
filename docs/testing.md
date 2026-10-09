@@ -41,7 +41,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Migracje | SQL: od zera i z danymi sprzed migracji (`scripts/db/upgrade-*.sql`); SQLite na telefonie: kolejne wersje w `src/data/db/migrations.ts` (`store.test.ts`) | ✅ |
 | Funkcje serwerowe (Edge) | `deno check` + `deno lint` + `deno test` (`*_test.ts`, z udawanym APNs i API Apple) | ✅ |
 | Ekrany | RNTL: zachowanie przez role i etykiety (wymusza dostępność) | ✅ |
-| Dostępność | etykiety VoiceOver w RNTL ✅; kontrast kolorów w testach motywu, także paleta „Zwiększ kontrast” ✅; audyt ekranów (`a11y.test.tsx`): każdy tekst ma kolor i rozmiar z motywu, zaznaczenie nigdy w kolorze przycisku głównego, przełącznik ma etykietę ✅; literał `fontSize` poza `src/config` zabroniony regułą ESLint ✅; E2E przy największej czcionce Dynamic Type, „Pogrubionym tekście”, „Zwiększ kontrast” i na iPadzie — planowane, niezaimplementowane (do sprawdzenia na urządzeniu) | częściowo |
+| Dostępność | etykiety VoiceOver w RNTL ✅; ogłoszenia i przenoszenie fokusu VoiceOvera — wywołania atrapy `AccessibilityInfo` (`voiceover.screens.test.tsx`) ✅; kontrast kolorów w testach motywu, także paleta „Zwiększ kontrast” ✅; audyt ekranów (`a11y.test.tsx`): każdy tekst ma kolor i rozmiar z motywu, zaznaczenie nigdy w kolorze przycisku głównego, przełącznik ma etykietę ✅; literał `fontSize` poza `src/config` zabroniony regułą ESLint ✅; E2E przy największej czcionce Dynamic Type, „Pogrubionym tekście”, „Zwiększ kontrast” i na iPadzie — planowane, niezaimplementowane (do sprawdzenia na urządzeniu) | częściowo |
 | Wygląd | porównanie zrzutów ekranu z symulatora piksel po pikselu (`scripts/e2e/compare-screenshots.mjs`, pixelmatch) z wzorcami `.maestro/baselines/` | **jeszcze nie działa**: wzorców brak, a żaden przebieg E2E na macOS się nie skończył (8.10.2026); najpierw iPhone 17 w jasnym wyglądzie, warianty — decyzja właściciela |
 | Przepływy użytkownika | Maestro na symulatorze iOS (`.maestro/`): „Moje sprawy” z danymi, szybkie dodanie na jutro, obecność na wydarzeniu cyklicznym, nowe wydarzenie z kafelkami godzin, lista zakupów, Ustawienia | częściowo ✅; onboarding, przypięte zadanie, offline → online — planowane |
 | Teksty | wszystkie teksty w `strings.pl.ts`, odmiana przez `plural()` — pilnowane przeglądem kodu; reguły lint na teksty poza `strings.pl.ts` nie ma | częściowo |
@@ -81,7 +81,7 @@ i logów Maestro, nigdy plik `.app`; 7 dni. Zadanie macOS nie rusza dla PR z for
 **Scenariusze** (`.maestro/`, każdy od czystej instalacji przez `common/launch.yaml`, kończy się `takeScreenshot`):
 `01-today` (dane demo na „Moich sprawach”), `02-quick-add` („Kupić mleko jutro” widać jutro), `03-event-rsvp` („Będę”
 na wydarzeniu cyklicznym), `04-event-form` (nowe wydarzenie, kafelki `event-start-0-h-18` / `-m-30` z `TimeField`),
-`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`. Selektory: `id` = `testID`, tekst =
+`05-shopping` (produkt do listy i do koszyka — bez pytania, z paskiem „Cofnij”, D59), `06-settings`, `07-keyboard` (pole „Wpisz USUŃ” na dole ekranu nad klawiaturą, audyt 2 M-41). Selektory: `id` = `testID`, tekst =
 etykieta VoiceOver (wyrażenie regularne w całości; na iOS wiersz to jeden element). Te same kroki na RNTL przechodzi
 `src/app/__tests__/e2e.screens.test.tsx` w zwykłym CI — błąd w danych demo, tekstach albo `testID` wychodzi od razu,
 bez macOS. Nowy scenariusz: plik `NN-opis.yaml`, kroki dopisane też w tym teście, `npm run e2e:check`.

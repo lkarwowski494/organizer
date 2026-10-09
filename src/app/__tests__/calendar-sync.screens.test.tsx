@@ -149,7 +149,8 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     // Audyt 2 (M-105): nic nie znika bez śladu — „Ukryto 1 dubel” i podgląd po dotknięciu (bez „Dodaj do grupy”).
     const hidden = screen.getByTestId('today-hidden-2026-10-07');
-    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a, dotknij, by zobaczyć');
+    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a');
+    expect(hidden.props.accessibilityHint).toBe('Pokazuje ukryte duble');
     await press(hidden);
     expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
@@ -326,7 +327,7 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     expect(screen.queryByTestId('device-copy-d|camp')).toBeNull();
     await press(screen.getByLabelText('Poprzedni dzień'));
     await press(await screen.findByTestId('device-copy-d|camp'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, days: 3 } });

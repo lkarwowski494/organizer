@@ -7,7 +7,7 @@ import { appVersion } from '../../app/diagnostics';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, StatusText, Title } from '../../ui/components';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Feedback'>;
 
@@ -30,12 +30,10 @@ export function FeedbackScreen({ navigation }: Props) {
       <Title>{strings['feedback.title']}</Title>
       <Body muted>{strings['feedback.info']}</Body>
       <Field label={strings['feedback.field']} value={text} onChangeText={(v) => (setText(v.slice(0, config.feedback.MAX_LENGTH)), setState('idle'))} multiline testID="feedback-text" />
-      <Button label={strings['feedback.send']} testID="feedback-send" disabled={state === 'busy' || text.trim() === ''} onPress={send} />
-      {state === 'sent' ? <Body>{strings['feedback.sent']}</Body> : null}
+      <Button label={strings['feedback.send']} testID="feedback-send" disabled={text.trim() === ''} busy={state === 'busy'} onPress={send} />
+      {state === 'sent' ? <StatusText>{strings['feedback.sent']}</StatusText> : null}
       {state === 'limit' || state === 'error' ? (
-        <ErrorText>
-          {strings[state === 'limit' ? 'feedback.limit' : 'feedback.error']}
-        </ErrorText>
+        <ErrorText>{strings[state === 'limit' ? 'feedback.limit' : 'feedback.error']}</ErrorText>
       ) : null}
     </Screen>
   );

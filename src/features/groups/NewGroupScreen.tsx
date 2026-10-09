@@ -52,9 +52,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
       <Title>{strings['groups.new']}</Title>
       <DraftNote draft={draft} />
       <Field label={strings['groups.name']} value={name} onChangeText={setName} autoFocus maxLength={config.lengths.GROUP_NAME} testID="group-name" />
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="group-my-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" testID="group-my-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button label={strings['groups.create']} onPress={create} disabled={busy || name.trim() === '' || me.trim() === ''} testID="create-group" />
+      <Button label={strings['groups.create']} onPress={create} disabled={name.trim() === '' || me.trim() === ''} busy={busy} testID="create-group" />
     </Screen>
   );
 }

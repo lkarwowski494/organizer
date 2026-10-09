@@ -66,9 +66,9 @@ export function InviteScreen({ route, navigation }: Props) {
           <Field label={strings['invite.paste']} value={paste} onChangeText={onPaste} autoCapitalize="none" autoCorrect={false} multiline testID="invite-input" />
         </>
       )}
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} testID="invite-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" testID="invite-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button label={strings['invite.accept']} onPress={accept} disabled={busy || me.trim() === '' || !ready} testID="invite-accept" />
+      <Button label={strings['invite.accept']} onPress={accept} disabled={me.trim() === '' || !ready} busy={busy} testID="invite-accept" />
     </Screen>
   );
 }

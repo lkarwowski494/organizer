@@ -48,9 +48,10 @@ import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, LineChip, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, indicatorLabel, LineChip, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
+import { announce, spoken } from '../../ui/a11y';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -300,10 +301,10 @@ export function TodayScreen() {
           time={timeLabel(b.start, b.end)}
           line={b.line}
           group={groupLabel(b.groupId, b.groupName)}
-          recurring={false}
-          extra={open ? strings['lessons.hide'] : strings['lessons.show']}
+          expanded={open}
+          hint={open ? strings['lessons.hideHint'] : strings['lessons.showHint']}
           faded={past}
-          onPress={() => setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key])}
+          onPress={() => (setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key]), open || announce(strings['lessons.shown'](b.lessons.length)))}
         />
         {open ? b.lessons.map((l) => entryRow({ kind: 'event', key: `${x.key}-${l.eventId}`, event: l }, past)) : null}
       </Fragment>
@@ -322,7 +323,6 @@ export function TodayScreen() {
         {...occurrenceRow(x.event)}
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
-        recurring={x.event.recurring}
         alert={leaveOf(x.event.eventId, x.event.occurrenceDate)[0]}
         extra={[...whoEvent(x.event.responsibleId), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n?.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), ...streakOf(routineStreak(tables, x.event.eventId, today))].join('  ·  ') || undefined}
         faded={past}
@@ -341,7 +341,8 @@ export function TodayScreen() {
   return (
     <Screen testID="screen-today">
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['settings.open']} onPress={() => nav.navigate('Settings')} style={{ minHeight: 44, justifyContent: 'center' }}>
+        {/* Przycisk przykrywa chip dla VoiceOvera — stan synchronizacji jako jego wartość (audyt 2, M-264). */}
+        <Pressable accessibilityRole="button" accessibilityLabel={strings['settings.open']} accessibilityValue={{ text: strings['sync.a11y'](spoken(indicatorLabel(indicator, nowMs()))) }} onPress={() => nav.navigate('Settings')} style={{ minHeight: 44, justifyContent: 'center' }}>
           <SyncChip indicator={indicator} nowMs={nowMs()} />
         </Pressable>
       </View>

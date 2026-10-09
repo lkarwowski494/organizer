@@ -102,7 +102,7 @@ describe('przypomnienia (D75)', () => {
       await press(screen.getByLabelText('Ustawienia'));
       await press(await screen.findByTestId('settings-notifications'));
       await screen.findByTestId('screen-settings-notifications');
-      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText('Wyłączone'));
+      await press(within(screen.getByLabelText('Przed sprawą z godziną')).getByLabelText(/^Wyłączone(,|$)/));
       expect(settingsOf(prefs)).toEqual({ leadMin: 0, morning: '08:00', leave: true });
       await act(async () => {
         jest.advanceTimersByTime(2000);

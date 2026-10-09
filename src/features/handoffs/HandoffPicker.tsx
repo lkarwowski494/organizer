@@ -2,14 +2,12 @@
 
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Card, CardTitle } from '../../ui/components';
+import { Body, Button, Card, PanelTitle } from '../../ui/components';
 
 export function HandoffPicker({ targets, onPick, onCancel, children }: { targets: Member[]; onPick: (m: Member) => void; onCancel: () => void; children?: React.ReactNode }) {
   return (
     <Card kind="panel" testID="handoff-picker">
-      <CardTitle>
-        {strings['handoff.pickTitle']}
-      </CardTitle>
+      <PanelTitle>{strings['handoff.pickTitle']}</PanelTitle>
       <Body muted>{strings['handoff.pickInfo']}</Body>
       {children}
       {targets.length === 0 ? <Body muted>{strings['handoff.noTargets']}</Body> : null}

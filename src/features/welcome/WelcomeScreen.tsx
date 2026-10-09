@@ -9,7 +9,8 @@ import { Text, View } from 'react-native';
 import { useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Card, Screen, Title } from '../../ui/components';
+import { useA11yFocus } from '../../ui/a11y';
+import { Body, Button, Card, Screen, Title, titleScale } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Welcome'>;
@@ -18,17 +19,21 @@ const STEPS = 3;
 
 export function WelcomeScreen({ navigation }: Props) {
   const { prefs } = useServices();
-  const { c, font, size } = useTheme();
+  const { c, font, size, fontScale } = useTheme();
   const [step, setStep] = useState(0);
+  // Audyt 2 (M-44): „Dalej” podmienia treść tego samego ekranu — fokus VoiceOvera na nowy nagłówek.
+  const header = useA11yFocus<Text>(step, step > 0);
   const finish = (then?: () => void) => {
     prefs?.set(WELCOME_SEEN, '1').catch(() => {});
     navigation.goBack();
     then?.();
   };
   const dots = (
-    <View accessibilityLabel={strings['welcome.progress'](Math.min(step + 1, STEPS + 1), STEPS + 1)} style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}>
+    // Audyt 2 (M-143): kropki jako jeden element VoiceOvera („Krok 1 z 4”) — etykieta zwykłego widoku nie jest czytana;
+    // nieaktywne w kolorze obramowania pól (control), widoczne na tle (border prawie znikał).
+    <View accessible accessibilityRole="text" accessibilityLabel={strings['welcome.progress'](Math.min(step + 1, STEPS + 1), STEPS + 1)} testID="welcome-progress" style={{ flexDirection: 'row', gap: 6, justifyContent: 'center' }}>
       {Array.from({ length: STEPS + 1 }, (_, i) => (
-        <View key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === step ? c.inverseBg : c.border }} />
+        <View key={i} style={{ width: i === step ? 22 : 8, height: 8, borderRadius: 4, backgroundColor: i === step ? c.inverseBg : c.control }} />
       ))}
     </View>
   );
@@ -36,9 +41,9 @@ export function WelcomeScreen({ navigation }: Props) {
     return (
       <Screen testID="screen-welcome">
         {dots}
-        <View style={{ marginTop: 24 }}>
-          <Title role="INTRO">{strings[`welcome.${step}.title` as 'welcome.0.title']}</Title>
-        </View>
+        <Text ref={header} accessibilityRole="header" maxFontSizeMultiplier={titleScale(size.INTRO)} style={{ fontFamily: font.display800, fontSize: size.INTRO, lineHeight: size.INTRO * fontScale.TITLE_LEADING, color: c.ink, marginTop: 24 }}>
+          {strings[`welcome.${step}.title` as 'welcome.0.title']}
+        </Text>
         <Body>{strings[`welcome.${step}.body` as 'welcome.0.body']}</Body>
         <Card>
           <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings[`welcome.${step}.example` as 'welcome.0.example']}</Text>
@@ -51,7 +56,7 @@ export function WelcomeScreen({ navigation }: Props) {
   return (
     <Screen testID="screen-welcome-start">
       {dots}
-      <Title>{strings['welcome.start.title']}</Title>
+      <Title a11yFocus>{strings['welcome.start.title']}</Title>
       <Body muted>{strings['welcome.start.body']}</Body>
       <Button label={strings['welcome.start.family']} testID="welcome-family" onPress={() => finish(() => navigation.navigate('NewGroup', { name: strings['welcome.start.familyName'], starter: true }))} />
       <Button kind="secondary" label={strings['welcome.start.code']} testID="welcome-code" onPress={() => finish(() => navigation.navigate('Invite', {}))} />

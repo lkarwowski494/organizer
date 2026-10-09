@@ -22,9 +22,7 @@ export function QuickAddExtras({ preview, error, onUnclick }: { preview: Pick<Qu
       {preview.event ? <Body muted>{strings['quick.isEvent']}</Body> : null}
       {preview.unrecognizedDay ? <Body muted>{strings['quick.dayUnclear'](preview.unrecognizedDay.text)}</Body> : null}
       {error ? (
-        <ErrorText>
-          {error}
-        </ErrorText>
+        <ErrorText>{error}</ErrorText>
       ) : null}
     </>
   );
