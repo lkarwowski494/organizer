@@ -602,6 +602,7 @@ export const strings = {
   'groups.error.session': 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
   // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
   'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
+  'groups.error.groupFull': 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.',
   'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
   'member.name': 'Imię w grupie',
   // Audyt 2 (P-67): dwa miejsca zmiany imienia odsyłają do siebie (tu i 'name.info').
@@ -692,6 +693,9 @@ export const strings = {
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
+  // Audyt 3 (N-2, decyzja Q12 część 3 A): limit grupy (config.quotas.GROUP_ROWS, GROUP_BYTES).
+  'rejected.code.groupRows': 'Grupa ma już najwięcej spraw, ile może mieć — usuń niepotrzebne i wprowadź zmianę jeszcze raz',
+  'rejected.code.groupSize': 'Sprawy grupy zajmują już najwięcej miejsca, ile mogą — usuń niepotrzebne albo skróć długie notatki i wprowadź zmianę jeszcze raz',
   'rejected.op.create': 'Dodanie',
   'rejected.op.patch': 'Zmiana',
   'rejected.op.delete': 'Usunięcie',
