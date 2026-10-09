@@ -10,7 +10,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'react';
 
 import { myMemberships, type Tables } from '../domain/views';
-import { type MyScope, parseScopes, type ScopeOf, scopeAll, scopeLookup, scopesOf, setScopeOps } from '../domain/views/my-scope';
+import { adoptScopeOps, type MyScope, parseScopes, type ScopeOf, scopeAll, scopeLookup, scopesOf, setScopeOps } from '../domain/views/my-scope';
 import { useAppData, useServices } from './context';
 
 /** Dawny zapis na telefonie (przed zapisem na koncie) — przenoszony raz. */
@@ -33,8 +33,7 @@ export function MyScopeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const old = parseScopes(local?.load(MY_SCOPE_KEY) ?? null);
     if (!local?.load(MY_SCOPE_KEY) || mine.size === 0) return;
-    const have = scopesOf(tables, mine);
-    const ops = Object.entries(old).flatMap(([g, scope]) => (mine.has(g) && !have[g] ? setScopeOps(tables, g, mine.get(g)!.member_id, scope) : []));
+    const ops = Object.entries(old).flatMap(([g, scope]) => (mine.has(g) ? adoptScopeOps(tables, g, mine.get(g)!.member_id, scope) : []));
     if (ops.length) store.dispatch(ops);
     local.save(MY_SCOPE_KEY, null);
   }, [local, store, tables, mine]);

@@ -81,8 +81,15 @@ describe('src/config zgodny z SQL', () => {
     ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
     ['wake_max_groups', config.wake.MAX_GROUPS],
     ['wake_left_grace_min', config.wake.LEFT_GRACE_MIN],
+    ['role_undo_window_sec', config.invites.ROLE_UNDO_WINDOW_SEC],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
+  });
+
+  it('audyt 3 (PK-11): okno „Cofnij” zmiany roli mieści pasek, wysyłkę i dwa ponowienia po najdłuższej przerwie', () => {
+    const { UNDO_MS } = config;
+    const { PUSH_DEBOUNCE_MS, BACKOFF_MAX_MS } = config.sync;
+    expect(config.invites.ROLE_UNDO_WINDOW_SEC * 1000).toBeGreaterThanOrEqual(UNDO_MS + PUSH_DEBOUNCE_MS + 2 * BACKOFF_MAX_MS);
   });
 
   it('D140 odwrócona: kod żyje krócej niż ślad prób (doba) i limit na kod daje szansę odgadnięcia ≤ 0,01% (rachunek)', () => {

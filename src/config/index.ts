@@ -330,6 +330,13 @@ export const config = {
     CODE_TTL_HOURS: 24,
     JOIN_FAILS_PER_USER: 5,
     JOIN_FAILS_PER_CODE: 100,
+    /**
+     * Audyt 3 (PK-11, decyzja koordynatora 9.10.2026): „Cofnij” po zmianie roli administratora przywraca jego zaproszenia
+     * osobiste tylko, gdy powrót roli dotrze na serwer w tym czasie od jej utraty (private.role_undo_window_sec). Pasek
+     * UNDO_MS + wysyłka PUSH_DEBOUNCE_MS + dwa ponowienia po BACKOFF_MAX_MS mieszczą się z zapasem (test kontraktowy).
+     * Wybór projektowy, bez źródła zewnętrznego.
+     */
+    ROLE_UNDO_WINDOW_SEC: 180,
     /** Strona z linkiem zaproszenia (GitHub Pages, D94). Universal Links dla /j/ dopiero po krokach z docs/join-links.md (bez associatedDomains w app.json). */
     JOIN_LINK: 'https://lkarwowski494.github.io/j/',
     /** D141: link w wiadomości zaproszenia dopiero, gdy strona działa (docs/join-links.md, krok właściciela). */

@@ -69,8 +69,13 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     const scope = await screen.findByLabelText('W Moich sprawach');
     expect(within(scope).getByLabelText('Wszystko').props.accessibilityState.selected).toBe(true);
     await press(within(scope).getByLabelText('Przypisane do mnie i wydarzenia'));
-    // Zapis na koncie: wiersz zakresu przy moim członkostwie (widzi go tylko to konto).
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } });
+    // Zapis na koncie: wiersz zakresu przy moim członkostwie (widzi go tylko to konto). Audyt 3 (N-91): telefon bez wiersza
+    // wysyła też przywrócenie i zmianę pola — gdy konto ma już wiersz (drugi telefon), wybór nie przepada.
+    expect(s.store.dispatched.slice(-3)).toEqual([
+      { kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } },
+      { kind: 'restore', entity: 'my_day_scopes', id: scopeRowId('mk') },
+      { kind: 'patch', entity: 'my_day_scopes', id: scopeRowId('mk'), set: { scope: 'mineAndEvents' } },
+    ]);
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
