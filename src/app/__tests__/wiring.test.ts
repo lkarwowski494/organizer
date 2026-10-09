@@ -90,7 +90,6 @@ describe('appDeps (D143)', () => {
     listener({ isConnected: null }); // stan nieznany = sieć (o braku powie nieudane żądanie)
     expect(seen).toEqual([false, true, true]);
     expect(typeof deps.session.refresh).toBe('function');
-    expect(typeof deps.session.signOutLocal).toBe('function');
   });
 
   it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty, identyfikator instalacji z pęku kluczy też (N-77); błąd usuwania cichy', async () => {

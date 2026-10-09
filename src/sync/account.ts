@@ -12,8 +12,33 @@ export type Invite = { inviteId: string; token: string; url: string; expiresAt: 
 /** Zgłoszenie błędu (D80): bez treści z tabel. */
 export type ClientError = { kind: 'crash' | 'error' | 'diagnostic'; message: string; stack: string | null; screen: string | null; appVersion: string };
 
+/**
+ * Błąd logowania albo usunięcia konta, który ekran rozróżnia (audyt 3, N-72, N-73):
+ * `canceled` — osoba zamknęła okno Apple (bez komunikatu); `network` — żądanie nie doszło do serwera;
+ * `apple_mismatch` — potwierdzenie innym Apple ID niż to, którym logowano się do Organizera; `apple_unavailable` — Apple
+ * nie odpowiada; `failed` — każdy inny błąd.
+ */
+export type AccountErrorCode = 'canceled' | 'network' | 'apple_mismatch' | 'apple_unavailable' | 'failed';
+export class AccountError extends Error {
+  constructor(
+    readonly code: AccountErrorCode,
+    message: string = code,
+  ) {
+    super(message);
+    this.name = 'AccountError';
+  }
+}
+export const accountErrorCode = (e: unknown): AccountErrorCode => (e instanceof AccountError ? e.code : 'failed');
+
+export type DeleteAccountOptions = {
+  /** „Usuń też moje wpisy w grupach” (audyt 3, N-71, decyzja Q5 C). */
+  deleteEntries?: boolean;
+  /** Po udanym usunięciu na serwerze, przed końcem sesji (sprzątanie telefonu, M-64). */
+  beforeSignOut?: () => Promise<void>;
+};
+
 export interface AccountApi {
-  /** W becie jedyny sposób logowania (D177). */
+  /** W becie jedyny sposób logowania (D177). Błędy: `AccountError`. */
   signInWithApple(): Promise<void>;
   /** Wylogowanie tylko tego telefonu (D176); bez sieci token push zdejmie później `finishSignOut`. */
   signOut(): Promise<void>;
@@ -23,10 +48,10 @@ export interface AccountApi {
    */
   finishSignOut(): Promise<void>;
   /**
-   * Usunięcie konta (D49): serwer przekazuje grupy i zaciera imię w historii. `beforeSignOut` — po udanym usunięciu na
-   * serwerze, przed końcem sesji (sprzątanie telefonu, M-64).
+   * Usunięcie konta (D49): serwer przekazuje grupy i zaciera imię w historii; z `deleteEntries` moje wpisy w grupach
+   * wspólnych idą do kosza. Błędy: `AccountError`.
    */
-  deleteAccount(beforeSignOut?: () => Promise<void>): Promise<void>;
+  deleteAccount(opts?: DeleteAccountOptions): Promise<void>;
   /** Moje imię w profilu konta (D100); członkostwa zmienia kolejka (domain/views/my-name). */
   setMyName(name: string): Promise<void>;
   createGroup(a: { groupId: string; name: string; ownerMemberId: string; displayName: string }): Promise<void>;

@@ -125,6 +125,7 @@ describe('każda tabela z danymi opisana w polityce (N-77)', () => {
     'public.push_tokens': '**Token powiadomień**',
     'public.shopping_trips': '**Zrobione zakupy:** gdy ktoś oznaczy zakupy',
     'public.tasks': 'zadania (także stałe zadania',
+    'private.account_deletion_options': 'zaznaczysz **„Usuń też moje wpisy w grupach”**',
     'private.access_events': 'Zapis, kiedy Twoje konto dostało albo straciło dostęp',
     'private.join_attempts': 'zapisujemy każdą nieudaną próbę',
     'private.push_log': '**Dziennik wysyłki:**',
@@ -138,6 +139,7 @@ describe('każda tabela z danymi opisana w polityce (N-77)', () => {
     'private.group_usage': 'liczba wierszy i bajtów grupy (limit rozmiaru), bez danych o osobach',
     'private.maintenance_runs': 'czas i wynik nocnego sprzątania',
     'private.sync_entities': 'opis tabel synchronizacji (stała konfiguracja)',
+    'private.task_moves': 'pary identyfikatorów zadania przeniesionego do innej grupy (kopia → źródło), bez danych o osobach',
   };
   const sql = readdirSync(join(root, 'supabase/migrations'))
     .filter((f) => f.endsWith('.sql'))

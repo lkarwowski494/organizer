@@ -18,7 +18,7 @@ import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
-import { type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { type AppleSignIn, type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
@@ -35,8 +35,8 @@ const toSession = (u: User | null | undefined): Session | null => {
   return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email), ...(apple ? {} : { emailOnly: true }) };
 };
 
-const apple = async (scopes?: 'none') =>
-  AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
+const apple: AppleSignIn = async (req = {}) =>
+  AppleAuthentication.signInAsync({ requestedScopes: req.scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
 const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
 
@@ -117,10 +117,6 @@ export function realDeps(): RootDeps {
       // refresh token kończy sesję w auth-js (SIGNED_OUT → ekran logowania, dane konta zostają w jego bazie).
       refresh: async () => {
         const { error } = await client.auth.refreshSession();
-        if (error) throw error;
-      },
-      signOutLocal: async () => {
-        const { error } = await client.auth.signOut({ scope: 'local' });
         if (error) throw error;
       },
     },

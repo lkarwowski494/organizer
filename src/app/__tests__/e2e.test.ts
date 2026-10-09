@@ -167,7 +167,7 @@ describe('atrapy E2E', () => {
       await expect(f()).rejects.toThrow('e2e_offline');
     }
     const before = jest.fn(async () => {});
-    await a.deleteAccount(before);
+    await a.deleteAccount({ beforeSignOut: before });
     expect(before).toHaveBeenCalled();
     expect(auth.signOut).toHaveBeenCalled();
     await a.deleteAccount();

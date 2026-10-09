@@ -172,6 +172,13 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
 6. **„Nawiguj”** otwiera Mapy Apple (`navigationUrl` w `src/domain/travel.ts`); wybór map innej firmy i strona map
    w przeglądarce usunięte 9.10.2026 (ADR 0043).
 
+## Zmiany z audytu 3 — usunięcie konta (9.10.2026), do akceptu
+1. **„Usuń też moje wpisy w grupach”** (decyzja Q5 C, N-71): nowy punkt w części „Usunięcie konta”. Wybór zapisuje
+   `public.prepare_account_deletion` (wołana przez funkcję `delete-account` z sesją użytkownika), wykonuje
+   `private.delete_account_entries` w wyzwalaczu `on_auth_user_a_entries` przed usunięciem `auth.users`
+   (`20261010240000_account_delete_entries.sql`); testy `supabase/tests/account_delete_entries.test.sql`. Bez wyboru
+   zachowanie jak dotąd (wpisy zostają z podpisem „Usunięty użytkownik”).
+
 ## Zmiany z audytu 3 — PK-25: zgody, RODO, dokładność (9.10.2026), do akceptu
 Decyzje i źródła: ADR 0044. Test kontraktowy `src/config/__tests__/privacy-policy.contract.test.ts` sprawdza stronę,
 liczby z `src/config`, administratora, opis każdej tabeli z migracji i konwencje tekstów.
