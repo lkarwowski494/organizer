@@ -64,7 +64,8 @@ export function installGlobalHandler(utils: ErrorUtilsLike, report: (e: ClientEr
   return () => utils.setGlobalHandler(previous);
 }
 
-type Props = { report: (e: ClientError) => void; version: string; children: ReactNode; colors: { ground: string; ink: string; inkMuted: string } };
+/** `screen` — nazwa ekranu w zgłoszeniu (granica jednego ekranu, N-1); brak = granica całej aplikacji („render”). */
+type Props = { report: (e: ClientError) => void; version: string; children: ReactNode; colors: { ground: string; ink: string; inkMuted: string }; screen?: string };
 
 export class ErrorBoundary extends Component<Props, { failed: boolean }> {
   state = { failed: false };
@@ -73,7 +74,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
   }
   componentDidCatch(e: unknown) {
     try {
-      this.props.report(toClientError(e, 'crash', 'render', this.props.version));
+      this.props.report(toClientError(e, 'crash', this.props.screen ?? 'render', this.props.version));
     } catch {
       // jak wyżej
     }

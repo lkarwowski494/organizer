@@ -4,12 +4,13 @@
  */
 import { config } from '../../config';
 import { migrate } from '../../data/db/migrations';
-import { readState, saveLocal } from '../../data/store';
+import { readState, saveLocal, writeState } from '../../data/store';
 import { memoryDb } from '../../data/__tests__/sqlite';
-import type { PullResponse, Row } from '../../domain/sync-engine/client';
+import type { PullResponse, PushResponse, Row } from '../../domain/sync-engine/client';
+import { SyncRuntime } from '../../sync/runtime';
 import type { Reminder } from '../../domain/views/reminders';
 import type { SyncTransport } from '../../sync/transport';
-import { refreshInBackground, registerWakeTask, setLiveSession, WAKE_TASK, type BackgroundDeps } from '../background';
+import { claimAccountDb, refreshInBackground, registerWakeTask, setLiveSession, WAKE_TASK, type BackgroundDeps } from '../background';
 import { localToMs } from '../../domain/local-time';
 import type { DevicePush } from '../push';
 
@@ -174,6 +175,79 @@ describe('odświeżenie w tle (D159)', () => {
     expect(await refreshInBackground(d, (fn, ms) => (timers.push(ms), fn(), () => {}))).toBe('new');
     expect(timers).toEqual([config.wake.TASK_BUDGET_MS]);
     stuck();
+  });
+
+  it('N-11: ekrany otwarte w trakcie odświeżenia w tle — jeden pisarz bazy, licznik operacji się nie cofa', async () => {
+    // Serwer pamięta ostatni numer operacji instalacji (private.sync_clients): numer już widziany = „duplicate”.
+    const server = { last: 0, applied: [] as string[] };
+    let releaseBg = () => {};
+    const blocked = new Promise<void>((r) => (releaseBg = r));
+    let pulls = 0;
+    const tr: SyncTransport = {
+      push: async (req): Promise<PushResponse> => {
+        const results = req.ops.map((op) => {
+          if (op.seq <= server.last) return { seq: op.seq, status: 'duplicate' as const };
+          server.last = op.seq;
+          server.applied.push(op.op_id);
+          return { seq: op.seq, status: 'ok' as const };
+        });
+        return { last_seq: server.last, results };
+      },
+      pull: async () => {
+        // Pierwsze pobranie (zadanie w tle) wraca dopiero po pracy ekranów.
+        if (pulls++ === 0) await blocked;
+        return { groups: [{ group_id: 'g', cursor: pulls, has_more: false, resync: false, rows: page1 }], scopes: [] };
+      },
+      fetchScope: async () => [],
+    };
+    let n = 0;
+    const { d, db, plans } = deps({ transport: tr, newId: () => `id-${++n}` });
+    const timers: (() => void)[] = [];
+    let clock = NOW;
+    const screens = (initial: ReturnType<typeof readState>) =>
+      new SyncRuntime({ initial, transport: tr, now: () => clock, newId: d.newId, setTimer: (fn) => (timers.push(fn), () => {}), persist: (a, b, t) => writeState(db, a, b, t) });
+    const settle = async () => {
+      for (let i = 0; i < 10; i++) {
+        clock += 5_000;
+        timers.splice(0).forEach((f) => f());
+        await new Promise((r) => setImmediate(r));
+      }
+    };
+    // 1. iOS uruchomił aplikację w tle: zadanie czyta bazę i czeka na sieć.
+    const bg = refreshInBackground(d);
+    await new Promise((r) => setImmediate(r));
+    // 2. Osoba otwiera aplikację: ekrany zajmują bazę, czytają ją i zapisują zmianę, która dochodzi do serwera.
+    const release = claimAccountDb(U);
+    const rt = screens(readState(db, 'x'));
+    rt.start();
+    rt.dispatch({ kind: 'create', entity: 'tasks', id: 't1', group_id: 'g', set: { list_id: 'l', title: 'Kup mleko' } });
+    await settle();
+    expect(server.applied).toHaveLength(1);
+    // 3. Odpowiedź dla zadania w tle przepada (baza należy do ekranów); bez planu przypomnień ze starego stanu.
+    releaseBg();
+    expect(await bg).toBe('new');
+    rt.stop();
+    expect(plans).toEqual([]);
+    const after = readState(db, 'x');
+    expect(after.nextSeq).toBe(2);
+    // 4. Po ponownym uruchomieniu następna zmiana dostaje nowy numer i dochodzi do serwera.
+    const rt2 = screens(after);
+    rt2.start();
+    rt2.dispatch({ kind: 'create', entity: 'tasks', id: 't2', group_id: 'g', set: { list_id: 'l', title: 'Odbierz paczkę' } });
+    await settle();
+    rt2.stop();
+    expect(server.applied).toHaveLength(2);
+    // Zadanie w tle, gdy ekrany już zajęły bazę (przed rejestracją odświeżania) — nic nie pobiera ani nie zapisuje.
+    const before = pulls;
+    expect(await refreshInBackground(d)).toBe('none');
+    expect(pulls).toBe(before);
+    // Zwolnienie: znów zwykła droga „aplikacja nie działa”; stare zwolnienie nie zdejmuje nowszego zajęcia.
+    const again = claimAccountDb(U);
+    release();
+    expect(await refreshInBackground(d)).toBe('none');
+    again();
+    expect(await refreshInBackground(d)).toBe('new');
+    expect(pulls).toBe(before + 1);
   });
 
   it('zadanie expo-notifications: zdefiniowane i zarejestrowane; wynik dla iOS', async () => {
