@@ -162,3 +162,15 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    zmianą dostępu, bez treści spraw (`realtime.send` w migracjach synchronizacji); imię w `public.profiles`.
 6. **„Nawiguj” bez aplikacji Google Maps** otwiera stronę Map Google w przeglądarce (`navigationUrl` w
    `src/domain/travel.ts`: `https://www.google.com/maps/dir/?api=1…`).
+
+## Zmiany z audytu 3 — zaproszenia (9.10.2026), do akceptu
+1. **Wyjście, usunięcie z grupy i utrata roli administratora** (decyzja Q7 A, N-39): przestają działać tylko zaproszenia
+   osobiste tej osoby (kody profili dzieci, dawne linki z tokenem); wspólny kod roli grupy działa dalej do wygaśnięcia.
+   Kod: `private.group_members_departure`, `private.group_members_role_invites` (`20261010100000_invites_membership.sql`).
+2. **Usunięcie konta** (decyzja Q1 B koordynatora): to samo — osobiste zaproszenia przestają działać, wspólny kod grupy
+   zostaje, a wystawiającym wszystkich zaproszeń tej osoby w grupie (także unieważnionych) staje się bieżący właściciel
+   grupy, więc żadne zaproszenie nie wskazuje już członkostwa usuniętej osoby. Grupa bez następcy idzie do kosza i żaden jej
+   kod nie działa (wystawiającym zostaje podpis „Usunięty użytkownik” bez konta; zaproszenia znikają z grupą po 30 dniach).
+   Kod: `private.account_invites_handover`, wołana z `private.delete_account_data` i `private.delete_account_trash`
+   (`20261010101000_account_deletion_invites.sql`); testy `supabase/tests/account_deletion_invites.test.sql`.
+   Wcześniej polityka mówiła: „Linki zaproszeń, które wystawiłeś, przestają działać” — zdanie zastąpione.
