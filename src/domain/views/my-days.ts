@@ -11,14 +11,14 @@
  * do mnie”.
  */
 import { addDays, type CivilDate, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
-import { effectiveDue } from '../deadlines';
+import { type Due, effectiveDue } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { agenda, type LessonBlock, type AgendaEntry } from './agenda';
 import { occurrenceResolver } from './event-rows';
 import { expandEventDays, type Occurrence } from './events';
 import { assigneeName, concernsMeTask, groupsView, isExpired, liveMembers, type TodayItem, visibleOnItsDay } from './index';
 import { childOwner } from './child';
-import { asList, asTask, rows, type Tables } from './model';
+import { asList, asTask, rows, type Tables, type Task } from './model';
 import { type ScopeOf, occurrenceInScope, scopeAll } from './my-scope';
 import { tripEntries } from './shopping-trip';
 
@@ -48,13 +48,25 @@ export type MyEntry = AgendaEntry | { kind: 'overdue'; key: string; task: MyTask
 export type MyDay = { date: string; past: boolean; isToday: boolean; entries: MyEntry[] };
 export type MyDaysView = { pinned: TodayItem[]; days: MyDay[]; doneToday: TodayItem[] };
 
+const DAY_MS = 86_400_000;
+
 /**
- * Dni zakresu z ich zawartością. W tygodniu i miesiącu tylko dni, w których coś jest (i zawsze dziś);
- * w trybie dnia — zawsze ten jeden dzień. `localDate` zamienia chwilę odhaczenia (ISO, UTC) na dzień w Warszawie.
+ * Część Moich spraw niezależna od dnia i zakresu (audyt 3, N-6): grupy, listy, zadania, które mnie dotyczą, zakupy.
+ * Plan przypomnień liczy z niej 14 dni (myDaysOf), zamiast za każdym dniem przeglądać od nowa całą bazę. Zadania
+ * zrobione dostają termin, zakres i dzień odhaczenia dopiero, gdy mogą trafić do widoku (pamiętane w `doneMemo`).
  */
-export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeMode, anchor: CivilDate, localDate: (iso: string) => string, scopeOf: ScopeOf = scopeAll): MyDaysView {
-  const { from, to } = rangeOf(mode, anchor);
-  const isoToday = formatIsoDate(today);
+export type MyDaysBase = {
+  readonly open: readonly { x: Task; due: Due; item: TodayItem }[];
+  readonly done: readonly { x: Task; ms: number }[];
+  readonly trips: readonly TodayItem[];
+  readonly byId: ReadonlyMap<string, Task>;
+  readonly doneItem: (x: Task) => { item: TodayItem; day: string } | null;
+  readonly t: Tables;
+  readonly userId: string;
+  readonly scopeOf: ScopeOf;
+};
+
+export function myDaysBase(t: Tables, userId: string, localDate: (iso: string) => string, scopeOf: ScopeOf = scopeAll): MyDaysBase {
   const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
   const lists = new Map(rows(t, 'lists', asList).filter((l) => l.deleted_at === null).map((l) => [l.id, l]));
   const all = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
@@ -62,34 +74,82 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   const live = liveMembers(t);
   const owns = childOwner(t, live);
   const occ = occurrenceResolver(t);
+  /** Wpis zadania, które mnie dotyczy (D73: pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …”). */
+  const itemOf = (x: Task): { due: Due; item: TodayItem } | null => {
+    const g = groups.get(x.group_id);
+    const l = lists.get(x.list_id);
+    if (!g || !l || l.kind === 'shopping') return null;
+    const due = effectiveDue(x, byId, occ);
+    if (!concernsMeTask(t, x, g, due, live, l, owns, scopeOf(g.id))) return null;
+    return { due, item: { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) } };
+  };
+  const open: { x: Task; due: Due; item: TodayItem }[] = [];
+  const done: { x: Task; ms: number }[] = [];
+  for (const x of all) {
+    if (x.completed_at === null) {
+      const it = itemOf(x);
+      if (it) open.push({ x, ...it });
+    } else done.push({ x, ms: Date.parse(x.completed_at) });
+  }
+  const memo = new Map<string, { item: TodayItem; day: string } | null>();
+  const doneItem = (x: Task) => {
+    if (!memo.has(x.id)) {
+      const it = itemOf(x);
+      memo.set(x.id, it && { item: it.item, day: localDate(x.completed_at!) });
+    }
+    return memo.get(x.id)!;
+  };
+  return { open, done, trips: tripEntries(t, groups, false, scopeOf), byId, doneItem, t, userId, scopeOf };
+}
+
+/**
+ * Dni zakresu z ich zawartością. W tygodniu i miesiącu tylko dni, w których coś jest (i zawsze dziś);
+ * w trybie dnia — zawsze ten jeden dzień. `localDate` zamienia chwilę odhaczenia (ISO, UTC) na dzień w Warszawie.
+ */
+export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeMode, anchor: CivilDate, localDate: (iso: string) => string, scopeOf: ScopeOf = scopeAll): MyDaysView {
+  return myDaysOf(myDaysBase(t, userId, localDate, scopeOf), today, mode, anchor);
+}
+
+/**
+ * myDays z gotowej części stałej. `eventDays` — wynik expandEventDays dla tego zakresu, gdy wołający ma go już policzony
+ * (plan przypomnień rozwija wydarzenia raz na 14 dni); brak — liczone tutaj.
+ */
+export function myDaysOf(b: MyDaysBase, today: CivilDate, mode: RangeMode, anchor: CivilDate, eventDays?: readonly Occurrence[]): MyDaysView {
+  const { from, to } = rangeOf(mode, anchor);
+  const isoToday = formatIsoDate(today);
+  const { t, userId, scopeOf, byId } = b;
   const pinned: TodayItem[] = [];
   const doneToday: TodayItem[] = [];
   const overdue: MyTask[] = [];
   const tasksByDay = new Map<string, TodayItem[]>();
-  const push = (d: string, item: TodayItem) => tasksByDay.set(d, [...(tasksByDay.get(d) ?? []), item]);
-  for (const x of all) {
-    const g = groups.get(x.group_id);
-    const l = lists.get(x.list_id);
-    // Pozycje list zakupów nie są sprawami — lista pokazuje się raz, jako „Zakupy: …” (D73; audyt 8.10.2026).
-    if (!g || !l || l.kind === 'shopping') continue;
-    const due = effectiveDue(x, byId, occ);
-    if (!concernsMeTask(t, x, g, due, live, l, owns, scopeOf(g.id))) continue;
-    const item: TodayItem = { ...x, due, line: g.line, groupName: g.name, listName: l.name, assignee: assigneeName(x, live) };
-    if (x.completed_at !== null) {
-      const d = localDate(x.completed_at);
-      // Historia dla minionych dni; odhaczone dziś — w „Zrobione dziś”, nie w planie dnia.
-      // (Odhaczone „jutro” przez przesunięty zegar telefonu liczy się jako dziś.)
-      if (d < isoToday) push(d, item);
-      else doneToday.push(item);
-      continue;
-    }
+  const push = (d: string, item: TodayItem) => {
+    const list = tasksByDay.get(d);
+    if (list) list.push(item);
+    else tasksByDay.set(d, [item]);
+  };
+  // Zrobione: widok pokazuje tylko dni zakresu i „Zrobione dziś”, więc zadanie odhaczone przed nimi pomijamy bez
+  // liczenia dnia w Warszawie (Intl, audyt 3 N-16). Dzień lokalny jest najwyżej o 1 późniejszy od dnia UTC (strefy
+  // czasowe mają przesunięcie od −12:00 do +14:00, https://en.wikipedia.org/wiki/List_of_UTC_offsets), więc chwila
+  // wcześniejsza niż doba przed północą UTC pierwszego potrzebnego dnia na pewno wypada przed nim.
+  const first = formatIsoDate(from) < isoToday ? formatIsoDate(from) : isoToday;
+  const cutoff = Date.parse(`${first}T00:00:00Z`) - DAY_MS;
+  for (const { x, ms } of b.done) {
+    if (ms < cutoff) continue;
+    const it = b.doneItem(x);
+    if (!it) continue;
+    // Historia dla minionych dni; odhaczone dziś — w „Zrobione dziś”, nie w planie dnia.
+    // (Odhaczone „jutro” przez przesunięty zegar telefonu liczy się jako dziś.)
+    if (it.day < isoToday) push(it.day, it.item);
+    else doneToday.push(it.item);
+  }
+  for (const { x, due, item } of b.open) {
     if (!visibleOnItsDay(x, due, today) || isExpired(x, due, isoToday, byId)) continue;
     if (due === null) pinned.push(item);
     else if (due.date < isoToday) overdue.push({ ...item, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(due.date)) });
     else push(due.date, item);
   }
   // Zakupy z terminem albo osobą (D73) — jak zadanie: bez terminu przypięte, po terminie zaległe, inaczej w swoim dniu.
-  for (const trip of tripEntries(t, groups, false, scopeOf)) {
+  for (const trip of b.trips) {
     if (trip.due === null) pinned.push(trip);
     else if (trip.due.date < isoToday) overdue.push({ ...trip, overdueDays: toDayNumber(today) - toDayNumber(parseIsoDate(trip.due.date)) });
     else push(trip.due.date, trip);
@@ -99,11 +159,13 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   // każdego z dzieci (audyt 2, E-15: plan każdego dziecka kompletny).
   const lessons = new Map<string, Map<string, LessonBlock>>();
   // D199: wielodniowe w każdym swoim dniu („dzień 2 z 5”).
-  for (const e of expandEventDays(t, userId, from, to)) {
+  for (const e of eventDays ?? expandEventDays(t, userId, from, to)) {
     const info = !e.concernsMe && e.childInfo !== null && scopeOf(e.groupId) !== 'mine';
     if (!occurrenceInScope(e, scopeOf) && !info) continue;
     if (!e.lessonFor) {
-      events.set(e.date, [...(events.get(e.date) ?? []), e]);
+      const list = events.get(e.date);
+      if (list) list.push(e);
+      else events.set(e.date, [e]);
       continue;
     }
     const day = lessons.get(e.date) ?? new Map<string, LessonBlock>();
