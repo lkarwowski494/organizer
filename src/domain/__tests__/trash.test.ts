@@ -80,6 +80,25 @@ describe('kosz (M-34, D151)', () => {
   it('pusto bez grup', () => {
     expect(trashView({}, ME, NOW)).toEqual([]);
   });
+
+  it('audyt 3 (N-171): niewysłane usunięcie („pending:N”) liczy się od teraz — w V8 Date.parse dawał rok 2001 albo 2500', () => {
+    const t = world();
+    // Warunek błędu: w Node 'pending:5' i 'pending:2500' to prawidłowe daty (Hermes: NaN).
+    expect(Number.isFinite(Date.parse('pending:5'))).toBe(true);
+    put(t, 'tasks', 'p5', { id: 'p5', group_id: 'gf', list_id: 'dom', parent_id: null, title: 'Offline', deleted_at: 'pending:5' });
+    put(t, 'tasks', 'p2500', { id: 'p2500', group_id: 'gf', list_id: 'dom', parent_id: null, title: 'Offline 2', deleted_at: 'pending:2500' });
+    // Admin widzi usuniętego członka grupy; usunięcie niewysłane.
+    put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: 'u-ola', display_name: 'Ola', role: 'member', deleted_at: 'pending:13', removed_at: 'pending:13' });
+    const v = trashView(t, ME, NOW);
+    expect(['p5', 'p2500', 'ola'].map((id) => v.find((e) => e.id === id)?.daysLeft)).toEqual([30, 30, 30]);
+    expect(v.find((e) => e.id === 'p5')?.deletedMs).toBe(NOW);
+  });
+
+  it('audyt 3 (N-131): zadanie przeniesione do innej grupy (znacznik moved_to) — nie w koszu', () => {
+    const t = world();
+    put(t, 'tasks', 't1', { ...t.tasks!.t1!, moved_to: 'kopia' });
+    expect(trashView(t, ME, NOW).some((e) => e.id === 't1')).toBe(false);
+  });
 });
 
 describe('ostatnie zmiany: sprawdzenie, czy rzecz się nie zmieniła (D194)', () => {
@@ -145,6 +164,21 @@ describe('ostatnie zmiany: sprawdzenie, czy rzecz się nie zmieniła (D194)', ()
   });
 });
 
+describe('odcisk podziału serii (audyt 3, N-35)', () => {
+  it('split_event: nazwa i godziny nowej części; zmiana godziny na innym telefonie = zmienione', () => {
+    const t = world();
+    put(t, 'events', 'nowa', { id: 'nowa', group_id: 'g', title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: null, rrule: 'FREQ=WEEKLY', deleted_at: null });
+    const fp = fingerprint(t, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'nowa', event_id: 'stara' } }]);
+    expect(fp).toEqual([{ entity: 'events', id: 'nowa', alive: true, fields: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: null } }]);
+    // Z serwera godzina wraca z sekundami, reguła z inną datą końca — to nie zmiana.
+    put(t, 'events', 'nowa', { ...t.events!.nowa!, start_time: '17:00:00', rrule: 'FREQ=WEEKLY;UNTIL=20270101' });
+    expect(isStale(t, fp)).toBe(false);
+    put(t, 'events', 'nowa', { ...t.events!.nowa!, start_time: '18:00:00' });
+    expect(isStale(t, fp)).toBe(true);
+    expect(fingerprint(t, [{ kind: 'cmd', cmd: 'move_task', args: {} }])).toEqual([]);
+  });
+});
+
 describe('zapis ostatnich zmian w bazie konta (D194 b)', () => {
   const op = { kind: 'restore', entity: 'tasks', id: 't' } as const;
   it('wpisy wracają; otwarte bez zapisanego cofnięcia — „lost” z powodem; przepis rutyny zostaje', () => {
@@ -170,5 +204,7 @@ describe('zapis ostatnich zmian w bazie konta (D194 b)', () => {
     expect(parseRecent('{')).toEqual([]);
     expect(parseRecent('{"a":1}')).toEqual([]);
     expect(parseRecent(JSON.stringify([{ id: 1, message: 'm', at: 1, undo: { ops: [1] } }]))[0]).toMatchObject({ state: 'lost', undo: null });
+    // Audyt 3 (N-34): cofnięcie przez serwer przerwane zamknięciem aplikacji — wynik nieznany, wpis z wyjaśnieniem.
+    expect(parseRecent(JSON.stringify([{ id: 1, message: 'm', at: 1, state: 'pending', undo: null, lost: 'server' }]))[0]).toMatchObject({ state: 'lost', lost: 'server' });
   });
 });

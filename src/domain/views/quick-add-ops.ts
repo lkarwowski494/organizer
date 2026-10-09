@@ -15,7 +15,7 @@ import { generalList, PERSONAL_LIST_NAME } from './task-form';
 export const DEFAULT_LIST_NAME = PERSONAL_LIST_NAME;
 
 /** Pozycja zakupów: tekst bez rozpoznawania terminów (tylko złączone spacje). */
-const verbatim = (text: string): QuickAddResult => ({ title: text.replace(/\s+/g, ' ').trim(), due: null, rrule: null, tokens: [], unrecognizedDay: null });
+const verbatim = (text: string): QuickAddResult => ({ title: text.replace(/\s+/g, ' ').trim(), due: null, rrule: null, tokens: [], unrecognizedDay: null, farDate: null });
 
 export function quickAddOps(a: {
   tables: Tables;

@@ -63,7 +63,15 @@ tokeny zawsze wskazują swój tekst. Sprawdzenie mutacyjne: zmiana D42, D43 lub 
 
 Ten sam korpus przechodzi drogę zapisu (`src/app/__tests__/quickadd.test.ts`: tekst → `quickAddOps` → wiersz).
 
+## Audyt 3 (9.10.2026)
+- N-28: „dziś/jutro/pojutrze” albo dzień tygodnia wygrywa z datą liczbową bez roku („raport 1.5 strony jutro” → jutro,
+  „1.5” zostaje w nazwie). Data liczbowa bez roku, która wypada w przyszłym roku („1/2 kostki masła” → 1 lutego 2027),
+  dostaje pod polem pełną datę z podpowiedzią, że chip można odkliknąć.
+- N-124: pole podzadania nie rozpoznaje powtarzania („co tydzień” zostaje w nazwie — podzadanie się nie powtarza).
+Korpus: 786 fraz (ze słowem dnia przy liczbie bez roku).
+
 ## Znane ograniczenia
-„2.5 kg” zostanie odczytane jako 2 maja — użytkownik odklikuje chip (w Moich sprawach i na liście zadań).
+„2.5 kg” bez słowa dnia zostanie odczytane jako 2 maja — pod polem stoi wtedy pełna data, użytkownik odklikuje chip
+(w Moich sprawach i na liście zadań).
 Lista zakupów nie używa parsera dat (audyt 2, M-20: wcześniej używała — „mąka 1.5 kg” stawała się „mąka kg”
 z terminem 1 maja): tytuł zostaje dosłowny, ilość czyta tylko wyświetlanie (D77).

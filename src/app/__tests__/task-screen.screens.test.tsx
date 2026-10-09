@@ -129,6 +129,14 @@ describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
     expect(within(screen.getByLabelText(/^wstążka/)).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 
+  it('audyt 3 (N-124): „co tydzień” w podzadaniu bez chipu — zostaje w nazwie, bez terminu i powtarzania', async () => {
+    const s = await openTask('Kupić kwiaty');
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'podlać co tydzień');
+    expect(screen.queryByLabelText(CHIP('co tydzień'))).toBeNull();
+    await press(screen.getByLabelText('Dodaj'));
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'podlać co tydzień', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } }]);
+  });
+
   it('dodawanie jak szybkie dodawanie: „jutro” to chip (termin); odklikany zostaje w nazwie; sam termin — komunikat', async () => {
     const s = await openTask('Kupić kwiaty');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'wstążka jutro');
