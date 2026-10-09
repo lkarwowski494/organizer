@@ -43,6 +43,29 @@ export function setLiveSession(s: LiveSession): () => void {
   };
 }
 
+/**
+ * Jeden pisarz bazy konta (audyt 3, N-11): ekrany (SignedInApp w Root) zajmują bazę konta synchronicznie, zanim przeczytają
+ * z niej stan (readState), a zwalniają przy odmontowaniu. Odświeżenie w tle, które zaczęło się wcześniej (iOS uruchomił
+ * aplikację cichym powiadomieniem, potem osoba ją otworzyła), od tej chwili nic do bazy nie zapisuje — inaczej jego stan
+ * sprzed zmian z ekranów cofał licznik operacji (next_seq) i kolejna zmiana ginęła jako „duplicate”.
+ */
+type Claim = { userId: string };
+let writer: Claim | null = null;
+
+/** Ekrany zajmują bazę konta `userId`; zwraca zwolnienie (zwalnia tylko to zajęcie, nie późniejsze). */
+export function claimAccountDb(userId: string): () => void {
+  const c: Claim = { userId };
+  writer = c;
+  return () => {
+    if (writer === c) writer = null;
+  };
+}
+
+const claimed = (userId: string) => writer?.userId === userId;
+
+/** Zapis z tła po zajęciu bazy przez ekrany — przerywa pobieranie, nic nie zapisuje. */
+class Superseded extends Error {}
+
 export type BackgroundDeps = Pick<RootDeps, 'session' | 'transport' | 'openDb' | 'newId' | 'push' | 'legacyPrefs' | 'nowMs' | 'deviceClientId'>;
 export type RefreshResult = 'new' | 'none' | 'failed';
 
@@ -66,12 +89,15 @@ export async function refreshInBackground(deps: BackgroundDeps, timer: Timer = d
       await within(live.refresh(), config.wake.TASK_BUDGET_MS, timer);
       return 'new';
     }
+    // Ekrany już czytają bazę, ale jeszcze nie zarejestrowały odświeżania (live) — pobiorą same po starcie pętli.
+    if (claimed(s.userId)) return 'none';
     const now = deps.nowMs ?? Date.now;
     const started = now();
     const db = deps.openDb(s.userId);
     // Baza z nowszej wersji aplikacji (M-177) — migrate rzuca, a tej bazy nie ruszamy („failed”).
     migrate(db);
     const set = (next: ClientState) => {
+      if (claimed(s.userId)) throw new Superseded();
       writeState(db, state, next, now());
       state = next;
     };
@@ -89,6 +115,8 @@ export async function refreshInBackground(deps: BackgroundDeps, timer: Timer = d
     } catch {
       // jak wyżej
     }
+    // Baza przeszła do ekranów w trakcie: ich pętla pobiera i planuje przypomnienia ze swojego stanu.
+    if (claimed(s.userId)) return 'new';
     if (!deps.push || (await deps.push.status()) !== 'granted') return 'new';
     const local = { load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) };
     const prefs = accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local));

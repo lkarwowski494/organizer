@@ -2,8 +2,9 @@
  * Prośby o ciche powiadomienia dla grup (D159, ADR 0016): po moich zmianach, które mogą zmienić czyjeś przypomnienia
  * (src/domain/reminder-wake.ts), telefon zbiera grupy przez config.wake.DEBOUNCE_MS od ostatniej zmiany i wysyła jedną
  * prośbę (seria edycji = jedno powiadomienie u innych — budżet Apple to 2–3 na godzinę). Wyjście z aplikacji wysyła
- * od razu (`flush`). Serwer odpowiada, za ile sekund może dostarczyć zaległe (przerwa między powiadomieniami do
- * urządzenia) — wtedy ponowienie samych zaległych (`retry`), póki aplikacja działa. Błąd sieci — ponowienie po
+ * od razu (`flush`), tak samo zmiany, które serwer przyjął już po wyjściu (`add(…, true)`). Serwer odpowiada, za ile
+ * sekund może dostarczyć zaległe (przerwa między powiadomieniami do urządzenia) — wtedy ponowienie samych zaległych
+ * (`retry`), póki aplikacja działa. Błąd sieci — ponowienie po
  * config.wake.RETRY_MS. Tylko w pamięci: po zamknięciu aplikacji zaległe wyjdą przy następnej prośbie kogokolwiek
  * z grupy (serwer je pamięta).
  */
@@ -15,8 +16,11 @@ export type WakeRequest = { groups: string[]; retry: boolean };
 export type WakeSend = (r: WakeRequest) => Promise<{ retryInSec: number | null }>;
 
 export type GroupWaker = {
-  /** Grupy po moich zmianach; wysyłka po config.wake.DEBOUNCE_MS od ostatniej. */
-  add(groups: readonly string[]): void;
+  /**
+   * Grupy po moich zmianach; wysyłka po config.wake.DEBOUNCE_MS od ostatniej. `now` — od razu (aplikacja już w tle:
+   * uśpiona nie doczeka timera, audyt 3, N-19).
+   */
+  add(groups: readonly string[], now?: boolean): void;
   /** Wyślij teraz (wyjście z aplikacji). */
   flush(): Promise<void>;
   stop(): void;
@@ -68,10 +72,12 @@ export function groupWaker(send: WakeSend, setTimer: Timer): GroupWaker {
     return busy;
   };
   return {
-    add(groups) {
+    add(groups, now = false) {
       if (stopped || groups.length === 0) return;
       for (const g of groups) fresh.add(g);
-      later(config.wake.DEBOUNCE_MS);
+      if (!now) return later(config.wake.DEBOUNCE_MS);
+      // Trwająca wysyłka nie objęła tych grup — kolejna zaraz po niej.
+      void (busy ? busy.then(flush) : flush());
     },
     flush,
     stop() {

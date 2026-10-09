@@ -228,6 +228,13 @@ export const config = {
      * godzinie, górna granica zalecenia Apple. Ta sama wartość w private.wake_push_claim (test kontraktowy).
      */
     MIN_GAP_MIN: 20,
+    /**
+     * Osoba usunięta z grupy albo grupa w koszu jeszcze tyle minut liczy się do budzenia (audyt 3, N-17): jej telefon
+     * musi się obudzić, żeby skasować przypomnienia spraw, do których stracił dostęp (budzenie nie niesie treści).
+     * Trzy przerwy MIN_GAP_MIN: zaległe budzenie z przerwy wychodzi przy ponowieniu. Ta sama wartość w
+     * private.wake_left_grace_min() (test kontraktowy). Wybór projektowy.
+     */
+    LEFT_GRACE_MIN: 60,
     /** Telefon zbiera zmiany przez tyle ms po ostatniej, zanim poprosi serwer (seria edycji = jedno powiadomienie); wyjście z aplikacji wysyła od razu. Wybór projektowy. */
     DEBOUNCE_MS: 30_000,
     /** Najwyżej tyle grup w jednej prośbie (funkcja i baza odrzucają więcej — test kontraktowy). Wybór projektowy. */
@@ -357,8 +364,14 @@ export const config = {
    *    PUSH_MAX_AGE_H, test kontraktowy); CRON_HISTORY_DAYS — historia zadań pg_cron (private.cron_history_days)
    *    — audyt 2, M-154, D-23; wybory projektowe, bez źródła.
    *  - TRIP_DAYS — zrobione zakupy w Kalendarzu (PWD-11 A, public.shopping_trips), jak historia zmian.
+   * Tylko telefon (src/domain/sync-engine/retention.ts; audyt 3, N-89, N-93), wybory projektowe, bez źródła:
+   *  - PURGE_LAG_DAYS — zapas na to, że serwer sprząta raz na dobę: telefon usuwa nagrobki i zakupy najwcześniej dzień
+   *    po serwerze, nigdy przed nim;
+   *  - CLOCK_SLACK_DAYS — o ile „teraz” telefonu może wyprzedzać najnowszy wpis historii z serwera (zegar przestawiony
+   *    w przód nie kasuje historii); im mniej, tym mniejsza szkoda złego zegara, ale dłużej zostają stare wiersze
+   *    w grupach bez zmian.
    */
-  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90 },
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90, PURGE_LAG_DAYS: 1, CLOCK_SLACK_DAYS: 7 },
 
   /**
    * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy

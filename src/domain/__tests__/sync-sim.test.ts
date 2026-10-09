@@ -484,7 +484,8 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
       { numRuns: 800 },
     );
     // Każda badana sytuacja zdarzyła się wiele razy (próg z zapasem; przebiegi są losowe).
-    for (const [k, v] of Object.entries(seen)) expect([k, v > 10]).toEqual([k, true]);
+    // Ponowione pobranie listy jest rzadsze od N-94 (grupa pobierana od zera nie pobiera list osobno) — niższy próg.
+    for (const [k, v] of Object.entries(seen)) expect([k, v > (k === 'scopeRetried' ? 3 : 10)]).toEqual([k, true]);
     // Kopie bywają odrzucane (lista zawężona albo usunięta, zanim telefon się dowiedział) — własność wyżej nie jest pusta.
     expect(derivedRejected > 10).toBe(true);
   });
