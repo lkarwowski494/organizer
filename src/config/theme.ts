@@ -198,9 +198,9 @@ export const sizes = {
   TAB: 12,
   /** Liczba na plakietce. */
   BADGE: 11,
-  /** Glify (strzałki, ✓, ✕, +) — jeden krój systemowy, rozmiar według miejsca (PWD-24 A; components.tsx Glyph). */
-  GLYPH_ROW: 22,
-  GLYPH_PERIOD: 26,
+  /** Glify SF Symbols (strzałki, ✓, ✕, +) — rozmiar według miejsca (PWD-24 A; src/ui/glyph.tsx). Strzałka wiersza jak tekst. */
+  GLYPH_ROW: 17,
+  GLYPH_PERIOD: 22,
   GLYPH_CHECK: 20,
 } as const;
 
