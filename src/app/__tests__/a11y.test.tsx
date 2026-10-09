@@ -168,10 +168,16 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
         <Text>bez koloru</Text>
         <Text style={{ color: p.border }}>blady</Text>
         <Text style={{ color: p.ink }} allowFontScaling={false}>stały</Text>
+        <Text style={{ color: p.ink, fontSize: 17 }} maxFontSizeMultiplier={1.5}>przycięty</Text>
+        <Text style={{ color: p.ink, fontSize: 34 }} maxFontSizeMultiplier={60 / 34}>Tytuł do Large Title</Text>
         <View style={{ height: 20 }}>
           <Text style={{ color: p.ink }}>ciasno</Text>
         </View>
         <Switch accessibilityLabel="Przełącznik" value />
+        <Text style={{ color: p.ink }}>
+          bez rozmiaru<Text style={{ color: p.ink }}>w środku</Text>
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="wybrany" accessibilityState={{ selected: true }} style={{ minHeight: 44, backgroundColor: p.inverseBg }} onPress={() => {}} />
       </View>,
     );
     const r = audit(screen.root!, p, 'próba', { screen: true });
@@ -191,9 +197,14 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
       'próba: tekst „bez koloru” bez koloru',
       expect.stringMatching(/^próba: tekst „blady”: kontrast 1\.\d\d:1/),
       'próba: tekst „stały” bez skalowania (allowFontScaling={false})',
+      'próba: tekst „przycięty” z maxFontSizeMultiplier 1.5',
       'próba: kontener tekstu „ciasno” ma stałą wysokość 20 pt (Dynamic Type)',
       'próba: ekran bez nagłówka (rola header)',
+      // Audyt 2 (M-42, M-152): tekst bez rozmiaru z motywu; M-151 (PW-52 A, D198): zaznaczenie w kolorze przycisku głównego.
+      'próba: tekst „bez rozmiaru w środku” bez rozmiaru',
+      'próba: button „wybrany”: zaznaczenie w kolorze przycisku głównego',
     ]));
+    expect(r.problems.filter((x) => x.includes('Tytuł do Large Title'))).toEqual([]);
     expect(r.pairs).toEqual(expect.arrayContaining([expect.objectContaining({ fg: p.border.toUpperCase(), bg: p.ground.toUpperCase(), kind: 'NON_TEXT' })]));
   });
 
@@ -203,12 +214,12 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     await render(
       <View style={{ backgroundColor: p.ground }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Dziś" accessibilityState={{ disabled: true }} style={{ minHeight: 44, opacity: 0.35 }} onPress={() => {}}>
-          <Text style={{ color: p.ink }}>Dziś</Text>
+          <Text style={{ color: p.ink, fontSize: 17 }}>Dziś</Text>
         </Pressable>
         <View style={{ opacity: 0.3 }}>
-          <Text style={{ color: p.ink }}>przygaszony</Text>
+          <Text style={{ color: p.ink, fontSize: 17 }}>przygaszony</Text>
         </View>
-        <Text accessibilityRole="header" style={{ color: p.ink }}>Tytuł</Text>
+        <Text accessibilityRole="header" style={{ color: p.ink, fontSize: 17 }}>Tytuł</Text>
       </View>,
     );
     expect(audit(screen.root!, p, 'próba', { screen: true }).problems).toEqual([expect.stringMatching(/^próba: tekst „przygaszony”: kontrast \d\.\d\d:1 .*widoczny #/)]);

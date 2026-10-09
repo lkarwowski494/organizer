@@ -21,16 +21,18 @@
  *  6. Elementy nietekstowe stanu (pole odhaczania, przełącznik): obwódka albo wypełnienie ≥ 3:1 do tła — WCAG 2.2
  *     SC 1.4.11: „Visual information required to identify user interface components and states” „at least 3:1”
  *     (https://www.w3.org/TR/WCAG22/#non-text-contrast).
- *  7. Dynamic Type: tekst nie wyłącza skalowania (allowFontScaling={false}, maxFontSizeMultiplier < 2) — Apple HIG
+ *  7. Dynamic Type: tekst nie wyłącza skalowania (allowFontScaling={false}, maxFontSizeMultiplier < 2 — poza tytułem, który
+ *     i tak dochodzi do fontScale.TITLE_MAX_PT, rozmiaru „Large Title” przy AX5) — Apple HIG
  *     Typography: obsługa Dynamic Type; kontener tekstu nie ma stałej wysokości (height), bo powiększony tekst się w niej
  *     nie mieści.
  *  8. Ekran ma nagłówek (rola header) — HIG: tytuł to pierwsza informacja dla technologii wspomagających.
+ *  9. Tekst ma rozmiar z motywu (M-42, M-152); zaznaczenie nie jest w kolorze przycisku głównego (M-151, D198).
  * Każda para (kolor, tło) z reguł 5 i 6 trafia do `pairs` — test sprawdza, że jest w korpusie contrastPairs
  * (src/config/theme.ts), więc korpus nie jest już listą spisaną z pamięci (M-147).
  */
 import { StyleSheet } from 'react-native';
 
-import { contrastMin, type Palette } from '../../config/theme';
+import { contrastMin, fontScale, type Palette } from '../../config/theme';
 import { contrastRatio } from '../../domain/contrast';
 
 export type Node = { props: Record<string, unknown>; children: (Node | string)[]; type: unknown; parent: Node | null };
@@ -127,14 +129,20 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
         }
       }
     }
+    // Jeden wzór zaznaczenia (M-151, PW-52 A, D198): zaznaczony wybór nigdy w kolorze przycisku głównego.
+    if (s.backgroundColor === palette.inverseBg && [n, ...ancestors(n)].some((a) => a.props.accessibilityRole !== 'tab' && ((a.props.accessibilityState as { selected?: boolean; checked?: boolean } | undefined)?.selected === true || (a.props.accessibilityState as { checked?: boolean } | undefined)?.checked === true))) say(`${name}: zaznaczenie w kolorze przycisku głównego`);
     if (n.type === 'Text') {
       const own = textOf(n).trim();
       // Zagnieżdżony Text dziedziczy kolor rodzica — kolor sprawdzamy na najbardziej zewnętrznym.
       const parentText = ancestors(n).find((a) => a.type === 'Text');
       const color = (s.color ?? (parentText ? style(parentText).color : undefined)) as string | undefined;
       if (n.props.allowFontScaling === false) say(`tekst „${own}” bez skalowania (allowFontScaling={false})`);
-      if (typeof n.props.maxFontSizeMultiplier === 'number' && n.props.maxFontSizeMultiplier < 2) say(`tekst „${own}” z maxFontSizeMultiplier ${String(n.props.maxFontSizeMultiplier)}`);
+      // Limit niższy niż 200% tylko dla tytułu, który i tak dochodzi do „Large Title” przy AX5 (fontScale.TITLE_MAX_PT, M-43).
+      const mult = n.props.maxFontSizeMultiplier;
+      if (typeof mult === 'number' && mult < fontScale.FIXED_MAX && !(typeof s.fontSize === 'number' && Math.round(s.fontSize * mult) >= fontScale.TITLE_MAX_PT)) say(`tekst „${own}” z maxFontSizeMultiplier ${String(n.props.maxFontSizeMultiplier)}`);
       if (!own || parentText) continue;
+      // Bez rozmiaru z motywu iOS rysuje systemowe 14 pt bez Dynamic Type z motywu (audyt 2, M-42, M-152).
+      if (!s.fontSize) say(`tekst „${own}” bez rozmiaru`);
       if (!color) {
         say(`tekst „${own}” bez koloru`);
         continue;

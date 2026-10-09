@@ -23,7 +23,7 @@ describe('lekcje dziecka (D127)', () => {
     const row = screen.getByLabelText('Kuba: 2 lekcje, 08:00–12:45, Rodzina');
     expect(row.props.accessibilityState).toEqual({ expanded: false });
     expect(row.props.accessibilityHint).toBe('Pokazuje lekcje');
-    expect(within(row).getByText('˅')).toBeTruthy();
+    expect(within(row).getByTestId('glyph-more', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText(/dotknij/)).toBeNull();
     expect(screen.queryByText('Matematyka')).toBeNull();
     await press(row);

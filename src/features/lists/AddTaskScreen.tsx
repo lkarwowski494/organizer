@@ -40,7 +40,7 @@ const ERRORS: Record<FormError, string> = {
 export function AddTaskScreen({ route, navigation }: Props) {
   const { userId, now, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   const p = route.params;
   const added = useAdded();
   // Grupa z chipa przy polu (M-24), gdy tekst („#…”, „@…”) nie wskazuje innej.
@@ -125,7 +125,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
       />
       {form.date ? <RepeatEditor value={form.repeat} date={formDate(form, today)} onChange={(r) => set({ repeat: r })} /> : <Body muted>{strings['form.error.repeatNeedsDate']}</Body>}
       {/* D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez osoby i terminu zapis przechodzi, z dopiskiem jak na ekranie zadania. */}
-      {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
+      {formUnseen(tables, userId, form) ? <Text testID="form-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {error ? <ErrorText>{ERRORS[error]}</ErrorText> : null}
       <Button label={strings['form.save']} onPress={save} testID="form-save" />
     </Screen>

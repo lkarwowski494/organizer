@@ -6,6 +6,12 @@ import type { TravelService } from '../travel-service';
 import { RootStack } from '../navigation';
 import { expectOps, appStateEvents, put, sampleBase, setTime, setup } from './harness';
 
+/** Przełącznik iOS w wierszu Ustawień (M-308, PWD-39 A). */
+const toggle = async (el: ReturnType<typeof screen.getByLabelText>, on: boolean) => {
+  expect(el.props.accessibilityRole).toBe('switch');
+  await fireEvent(el, 'valueChange', on);
+};
+
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const flush = () => act(async () => {});
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
@@ -78,20 +84,20 @@ describe('dojazd (D115–D117)', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('travel-settings');
-    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Włączony'));
+    await toggle(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń'), true);
     await flush();
     expect(travel.request).toHaveBeenCalled();
     expect(screen.getByText(/Brak dostępu do lokalizacji/)).toBeTruthy();
     expect(prefs.m.get('travelEnabled')).toBeUndefined();
     travel.request.mockResolvedValueOnce(true);
-    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Włączony'));
+    await toggle(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń'), true);
     await flush();
     expect(prefs.m.get('travelEnabled')).toBe('1');
     await press(within(within(box).getByLabelText('Domyślny dojazd')).getByLabelText('Komunikacją'));
     expect(prefs.m.get('travelMode')).toBe('transit');
     await press(within(within(box).getByLabelText('Nawiguj w')).getByLabelText('Google Maps'));
     expect(prefs.m.get('navApp')).toBe('google');
-    await press(within(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń')).getByLabelText('Wyłączony'));
+    await toggle(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń'), false);
     expect(prefs.m.get('travelEnabled')).toBe('0');
   });
 

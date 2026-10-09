@@ -5,7 +5,6 @@ import { AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hy
 import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
 import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
 import { useFonts } from 'expo-font';
-import { StatusBar } from 'expo-status-bar';
 
 import { registerWakeTask } from './src/app/background';
 import { Root } from './src/app/Root';
@@ -24,9 +23,7 @@ export default function App() {
     AtkinsonHyperlegibleNext_700Bold,
   });
   return (
-    <>
-      <Root deps={deps} fontsLoaded={fontsLoaded} />
-      <StatusBar style="auto" />
-    </>
+    // Pasek stanu rysuje ThemeProvider (styl według trybu aplikacji, audyt 2 M-139).
+    <Root deps={deps} fontsLoaded={fontsLoaded} />
   );
 }

@@ -48,7 +48,7 @@ import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, indicatorLabel, LineChip, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, indicatorLabel, LineChip, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { announce, spoken } from '../../ui/a11y';
@@ -339,11 +339,6 @@ export function TodayScreen() {
   const spanOf = ({ entry: x }: { entry: MyEntry }): Span =>
     x.kind === 'event' ? daySpan(x.event.startTime, x.event.endTime, x.event.part) : x.kind === 'lessons' ? { start: x.block.start, end: x.block.end } : x.kind === 'task' ? { start: x.task.due?.time ?? null, end: null } : { start: null, end: null };
   const nowMin = now().hh * 60 + now().mm;
-  const arrow = (k: number, a11y: string, glyph: string) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={a11y} onPress={() => setAnchor(shiftAnchor(mode, at, k))} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 26, color: c.ink }}>{glyph}</Text>
-    </Pressable>
-  );
 
   return (
     <Screen testID="screen-today">
@@ -432,11 +427,9 @@ export function TodayScreen() {
       ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {arrow(-1, strings[`today.prev.${mode}`], '‹')}
-        <Text accessibilityRole="header" testID="today-range-label" style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: 18, color: c.ink }}>
-          {label}
-        </Text>
-        {arrow(1, strings[`today.next.${mode}`], '›')}
+        <PeriodArrow dir={-1} label={strings[`today.prev.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, -1))} />
+        <PeriodTitle testID="today-range-label">{label}</PeriodTitle>
+        <PeriodArrow dir={1} label={strings[`today.next.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, 1))} />
         {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
         <Pressable
           accessibilityRole="button"
@@ -447,7 +440,7 @@ export function TodayScreen() {
           onPress={() => setAnchor(null)}
           style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: 15, color: c.ink }}>{strings['common.today']}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
         </Pressable>
       </View>
       <WhatsNew />
