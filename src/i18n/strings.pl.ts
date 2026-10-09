@@ -133,6 +133,7 @@ export const strings = {
   'form.tomorrow': 'Jutro',
   'due.when': 'Kiedy',
   'due.other': 'Inny dzień',
+  'due.day': 'Dzień',
   'due.timeNeedsDay': 'Najpierw wybierz dzień.',
   'form.save': 'Zapisz zadanie',
   // Audyt 2 (T-33): kopia w innej grupie nie ma podzadań — mówimy, ile pójdzie do kosza razem z oryginałem.
@@ -315,8 +316,11 @@ export const strings = {
     `Usunąć listę „${name}” i ${n} ${shopping ? plural(n, { one: 'pozycję', few: 'pozycje', many: 'pozycji' }) : plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}? Wrócą razem z listą, jeśli przywrócisz ją z kosza.`,
   'lists.expired': 'minęło',
   'lists.expiredRun': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} minęło`,
-  'lists.runShow': 'dotknij, by zobaczyć',
-  'lists.runHide': 'dotknij, by zwinąć',
+  // Audyt 2 (M-141): czynność rozwinięcia w podpowiedzi VoiceOvera, jak przy lekcjach.
+  'lists.runShowHint': 'Pokazuje minione kopie',
+  'lists.runHideHint': 'Chowa minione kopie',
+  'device.hiddenShowHint': 'Pokazuje ukryte duble',
+  'device.hiddenHideHint': 'Chowa ukryte duble',
   'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”',
   'today.moveOverdue': (n: number) => `Przenieś zaległe na dziś (${n})`,
   'today.movedOverdue': (n: number) => `Przeniesiono na dziś: ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}`,

@@ -115,6 +115,18 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
   });
 
+  it('07 pole na dole ekranu nad klawiaturą (M-41)', async () => {
+    await start().render();
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByLabelText('Konto i dane'));
+    // Ekran przewijany odsuwa treść o klawiaturę — pole „Wpisz USUŃ” na końcu strony zostaje nad nią.
+    expect((await screen.findByTestId('screen-settings-account')).props.automaticallyAdjustKeyboardInsets).toBe(true);
+    await press(screen.getByTestId('delete-start'));
+    await fireEvent.changeText(screen.getByTestId('delete-word'), 'USUŃ');
+    expect(screen.getByTestId('delete-confirm').props.accessibilityState).toMatchObject({ disabled: false });
+  });
+
   it('zmiany przechodzą przez „serwer” i wracają przy pobraniu (synchronizacja bez sieci)', async () => {
     const t = start();
     await t.render();

@@ -421,13 +421,15 @@ describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
     // Dzisiejsza kopia (7.10) jest w otwartych; cztery minione — zwinięte.
     expect(screen.getByTestId(`task-${ids[4]}`)).toBeTruthy();
     for (const x of ids.slice(0, 4)) expect(screen.queryByTestId(`task-${x}`)).toBeNull();
-    const run = screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zobaczyć');
+    const run = screen.getByLabelText('Leki, 4 razy minęło');
+    expect(run.props.accessibilityHint).toBe('Pokazuje minione kopie');
     expect(run.props.accessibilityState.expanded).toBe(false);
     await press(run);
-    expect(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityHint).toBe('Chowa minione kopie');
     for (const x of ids.slice(0, 4)) expect(within(screen.getByTestId(`task-${x}`)).getByText(/minęło/)).toBeTruthy();
     expect(screen.getByTestId(`task-${ids[0]}`).props.style.marginLeft).toBe(22);
-    await press(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć'));
+    await press(screen.getByLabelText('Leki, 4 razy minęło'));
     expect(screen.queryByTestId(`task-${ids[0]}`)).toBeNull();
   });
 });

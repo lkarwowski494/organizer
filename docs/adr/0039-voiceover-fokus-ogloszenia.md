@@ -1,4 +1,4 @@
-# 0037. VoiceOver: ogłoszenia, fokus, etykiety i klawiatura (audyt 2, 8.10.2026)
+# 0039. VoiceOver: ogłoszenia, fokus, etykiety i klawiatura (audyt 2, 8.10.2026)
 
 Decyzje techniczne Claude'a przy paczce P14a (M-37…M-44, M-125, M-141…M-150, M-263…M-269, część D194 o VoiceOverze);
 właściciel może je zawetować. Numer D nada koordynator przy scaleniu.

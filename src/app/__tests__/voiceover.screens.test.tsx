@@ -252,7 +252,9 @@ describe('pola daty i godziny (M-144, M-141)', () => {
     await open();
     await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     const date = await screen.findByTestId('task-date');
-    expect(date.props.accessibilityLabel).toBe('Inny dzień');
+    expect(date.props.accessibilityLabel).toBe('Dzień');
+    // Pole i opcja „Inny dzień” mają różne nazwy.
+    expect(screen.getAllByLabelText('Inny dzień')).toHaveLength(1);
     expect(date.props.accessibilityValue.text).not.toMatch(/\d{4}-\d{2}-\d{2}/);
     expect(date.props.accessibilityValue.text).toMatch(/października|dziś/i);
     expect(date.props.accessibilityHint).toBe('Rozwija kalendarz');
