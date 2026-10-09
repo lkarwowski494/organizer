@@ -103,7 +103,9 @@ declare c bigint := 0; k int := 0; res jsonb; g jsonb;
 begin
   loop
     k := k + 1;
-    res := public.sync_pull(jsonb_build_object('55555555-0000-7000-8000-000000000001', c), 3);
+    -- Pozostałe grupy z aktualnym kursorem, jak w telefonie: budżet porcji jest na całą odpowiedź (20261010020000_pull_budget).
+    res := public.sync_pull((select jsonb_object_agg(gg ->> 'group_id', gg -> 'cursor') from r rr, jsonb_array_elements(rr.res -> 'groups') gg where rr.n = 5)
+                            || jsonb_build_object('55555555-0000-7000-8000-000000000001', c), 3);
     select x into g from jsonb_array_elements(res -> 'groups') x where x ->> 'group_id' = '55555555-0000-7000-8000-000000000001';
     insert into chunks values (k, (g ->> 'cursor')::bigint, (g ->> 'has_more')::boolean, g -> 'rows');
     c := (g ->> 'cursor')::bigint;

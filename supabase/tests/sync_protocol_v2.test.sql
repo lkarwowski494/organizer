@@ -38,7 +38,11 @@ declare
 begin
   loop
     k := k + 1;
-    res := public.sync_pull(case when cur is null then '{}'::jsonb else jsonb_build_object(grp, cur) end, lim, ver);
+    -- Pozostałe grupy osoby z bieżącym kursorem (bez zmian), jak w telefonie: budżet porcji jest na całą odpowiedź
+    -- (20261010020000_pull_budget), więc grupa bez kursora zabierałaby go badanej.
+    res := public.sync_pull(coalesce((select jsonb_object_agg(gr.id, case when ver >= 2 then jsonb_build_object('v', gr.version, 'p', gr.purged_version) else to_jsonb(gr.version) end)
+                                      from public.groups gr where gr.id::text <> grp), '{}'::jsonb)
+                            || case when cur is null then '{}'::jsonb else jsonb_build_object(grp, cur) end, lim, ver);
     select x into g from jsonb_array_elements(res -> 'groups') x where x ->> 'group_id' = grp;
     if k = 1 then first_resync := (g ->> 'resync')::boolean; elsif (g ->> 'resync')::boolean then later_resync := true; end if;
     n := n + jsonb_array_length(g -> 'rows');
@@ -130,7 +134,8 @@ select is((select (r ->> 'rows')::int from v2_stale), (select n from full_rows),
 select is((pg_temp.g_of(public.sync_pull(jsonb_build_object('f1f10000-0000-7000-8000-000000000001',
     jsonb_build_object('v', 1, 'p', (select purged_version from public.groups where id = 'f1f10000-0000-7000-8000-000000000001'))), 2, 2)) ->> 'resync')::boolean,
   false, '23: ta sama epoka (bez nowego czyszczenia od ostatniej porcji): bez resync');
-select is((pg_temp.g_of(public.sync_pull('{}'::jsonb, 2, 2)) ->> 'purged')::bigint,
+-- Porcja 1000: przy 2 grupa osobista zabrałaby cały budżet, a grupa odłożona nie podaje epoki (20261010020000_pull_budget).
+select is((pg_temp.g_of(public.sync_pull('{}'::jsonb, 1000, 2)) ->> 'purged')::bigint,
   (select purged_version from public.groups where id = 'f1f10000-0000-7000-8000-000000000001'), '24: odpowiedź podaje epokę grupy');
 
 -- ───────── M-58: tylko encje znane telefonowi ─────────

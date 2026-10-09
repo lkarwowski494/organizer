@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { formatRule, parseRule } from '../../domain/rrule';
 import { formEventRules } from '../../domain/__tests__/support/form-rules';
 import { OVERRIDE_NAMESPACE, PARTICIPANT_NAMESPACE, participantId } from '../../domain/views/events';
+import { LIST_SCOPED_ENTITIES } from '../../domain/sync-engine/list-scoped';
 import { RSVP_NAMESPACE } from '../../domain/views/rsvp';
 import { SCOPE_NAMESPACE, scopeRowId } from '../../domain/views/my-scope';
 import { COPY_NAMESPACE } from '../../domain/views/series-tasks';
@@ -73,6 +74,8 @@ describe('src/config zgodny z SQL', () => {
     ['max_push_tokens', config.quotas.PUSH_TOKENS],
     ['max_sync_clients', config.quotas.SYNC_CLIENTS],
     ['sync_push_per_minute', config.quotas.SYNC_PUSH_PER_MINUTE],
+    // Audyt 3 (N-96): limit częstości pobierania.
+    ['sync_pull_per_minute', config.quotas.SYNC_PULL_PER_MINUTE],
     ['notify_per_hour', config.quotas.NOTIFY_PER_HOUR],
     // Audyt 3 (N-2, Q12 część 3 A): limit grupy i zapisów konta.
     ['max_group_rows', config.quotas.GROUP_ROWS],
@@ -89,6 +92,13 @@ describe('src/config zgodny z SQL', () => {
     expect(config.invites.CODE_TTL_HOURS).toBeLessThanOrEqual(24);
     expect(sql).toContain("delete from private.join_attempts where at < now() - interval '1 day'");
     expect(config.invites.JOIN_FAILS_PER_CODE / 10 ** config.invites.CODE_DIGITS).toBeLessThanOrEqual(0.0001);
+  });
+
+  it('tabele zależne od listy: telefon i atrapa serwera = private.list_scoped_entities() (audyt 3, N-88)', () => {
+    const found = [...sql.matchAll(/create (?:or replace )?function private\.list_scoped_entities\(\)[^$]*\$\$\s*select\s+array\[([^\]]*)\]\s*\$\$/gi)];
+    expect(found.length).toBeGreaterThan(0);
+    const last = found[found.length - 1]![1]!.split(',').map((x) => x.trim().replace(/^'|'$/g, ''));
+    expect([...last].sort()).toEqual([...LIST_SCOPED_ENTITIES].sort());
   });
 
   it('długość opinii w SQL = config.feedback.MAX_LENGTH (D80)', () => {

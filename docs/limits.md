@@ -46,6 +46,14 @@ Liczby: `config.quotas.GROUP_ROWS`, `GROUP_BYTES`, `WRITE_BYTES_PER_DAY`, `confi
 (testy kontraktowe). Wybory projektowe z zapasem nad zwykłym użyciem, bez źródła zewnętrznego. Bez osobnego limitu zostaje
 historia zmian (`activity`, 90 dni): rośnie z każdą zmianą, ale tempo ogranicza limit zapisów konta.
 
+## Pobieranie (audyt 3, PK-02)
+Migracja `20261010020000_pull_budget.sql`. Odpowiedź `sync_pull` ma najwyżej `config.sync.PULL_LIMIT_MAX` (1000) wierszy
+łącznie ze wszystkich grup (dotąd tyle na każdą grupę: przy 50 grupach ok. 17 MB w jednej odpowiedzi); grupy ponad budżet
+wracają bez wierszy z `has_more` i telefon pobiera dalej. Grupa bez zmian od kursora nie jest przeglądana. Konto woła
+`sync_pull` i (osobno) `sync_fetch_scope` najwyżej `config.quotas.SYNC_PULL_PER_MINUTE` (120) razy na minutę; ponad limit
+`rate_limited` i telefon ponawia z opóźnieniem. Wyjątek do wycofania buildu 21: telefon z protokołem 1 po czyszczeniu kosza
+dostaje grupę w całości w jednej porcji (ogranicza ją limit grupy). Wybory projektowe, bez źródła zewnętrznego.
+
 ## Nocny pomiar i podtrzymanie projektu (D185, audyt 2 M-78)
 Zadanie `free-limits` w `nightly.yml` (`.github/scripts/free-limits.mjs`) co noc: mierzy rozmiar bazy (zapytanie
 tylko do odczytu przez Supabase Management API — to samo zapytanie podtrzymuje projekt Free przed uśpieniem po tygodniu
