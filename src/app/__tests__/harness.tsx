@@ -124,6 +124,10 @@ export function memoryStore(initial: ClientState, indicator: Indicator = { state
     refresh: jest.fn(),
     /** Zmiana danych serwera przez RPC konta (np. nowa grupa z właścicielem) — bez operacji telefonu. */
     serverPut: (entity: string, key: string, row: Row) => void ((server[entity] ??= {})[key] = row),
+    clearRejected: () => {
+      snap = { ...snap, state: { ...snap.state, rejected: [] } };
+      listeners.forEach((f) => f());
+    },
     /** Pobranie z serwera (zmiana drugiego telefonu): podmienia wiersze bazowe bez operacji tego telefonu. */
     pull: (fn: (base: ClientState['base']) => ClientState['base']) => {
       snap = { ...snap, state: { ...snap.state, base: fn(snap.state.base) } };
@@ -167,6 +171,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
     registerPushToken: jest.fn(async () => {}),
     notifyHandoff: jest.fn(async () => {}),
     notifyAssignment: jest.fn(async () => {}),
+    notifyGroups: jest.fn(async () => ({ retryInSec: null as number | null })),
     getPushMutes: jest.fn(async () => []),
     setPushMute: jest.fn(async () => {}),
     setMyName: jest.fn(async () => {}),

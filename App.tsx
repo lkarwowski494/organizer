@@ -7,10 +7,13 @@ import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-gr
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 
+import { registerWakeTask } from './src/app/background';
 import { Root } from './src/app/Root';
 import { appDeps } from './src/app/wiring';
 
 const deps = appDeps();
+// D159: zadanie cichego powiadomienia — w zasięgu modułu, zanim iOS przekaże powiadomienie (dokumentacja SDK 57).
+registerWakeTask(deps);
 
 export default function App() {
   const [fontsLoaded] = useFonts({

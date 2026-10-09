@@ -69,6 +69,8 @@ describe('src/config zgodny z SQL', () => {
     ['max_sync_clients', config.quotas.SYNC_CLIENTS],
     ['sync_push_per_minute', config.quotas.SYNC_PUSH_PER_MINUTE],
     ['notify_per_hour', config.quotas.NOTIFY_PER_HOUR],
+    ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
+    ['wake_max_groups', config.wake.MAX_GROUPS],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });

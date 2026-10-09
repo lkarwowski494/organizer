@@ -19,6 +19,11 @@ export type SchedulerState = {
   /** Ile operacji czeka na wysłanie (z ClientState). */
   readonly pending: number;
   readonly needPull: boolean;
+  /**
+   * Prośba o pobranie (poke, powrót, sieć…) przyszła w trakcie pobierania — mogło jej nie objąć, więc po nim pobieramy
+   * jeszcze raz. Bez tego koniec pobierania (pull_ok) kasował prośbę i zmiana czekała do następnego zdarzenia.
+   */
+  readonly repull: boolean;
   /** Najwcześniejsza chwila następnej wysyłki (debounce po zmianie albo ponowienie po błędzie). */
   readonly pushNotBefore: number;
   readonly pullNotBefore: number;
@@ -55,7 +60,7 @@ export function initialScheduler(now: number): SchedulerState {
   return {
     online: true, foreground: true, authExpired: false, inflight: null, pending: 0,
     // Start aplikacji: od razu pobranie (nowe dane innych osób) i wysyłka zaległości.
-    needPull: true, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null, fatal: null, seenAt: now,
+    needPull: true, repull: false, pushNotBefore: now, pullNotBefore: now, failures: 0, lastSuccessAt: null, lastError: null, fatal: null, seenAt: now,
   };
 }
 
@@ -74,8 +79,15 @@ function rebase(s: SchedulerState, now: number): SchedulerState {
   return { ...s, seenAt: now, pushNotBefore: s.pushNotBefore - back, pullNotBefore: s.pullNotBefore - back };
 }
 
+/** Zdarzenia, które proszą o pobranie. */
+const asksPull = (e: SchedulerEvent) => (e.t === 'poke' && e.fresh) || e.t === 'refresh' || e.t === 'foreground' || (e.t === 'network' && e.online) || e.t === 'auth_refreshed';
+
 export function onEvent(prev: SchedulerState, e: SchedulerEvent, now: number): SchedulerState {
-  const s = rebase(prev, now);
+  const next = step(rebase(prev, now), e, now);
+  return next.inflight === 'pull' && asksPull(e) ? { ...next, repull: true } : next;
+}
+
+function step(s: SchedulerState, e: SchedulerEvent, now: number): SchedulerState {
   switch (e.t) {
     case 'clock':
       return s;
@@ -96,22 +108,24 @@ export function onEvent(prev: SchedulerState, e: SchedulerEvent, now: number): S
     case 'poke':
       return e.fresh ? { ...s, needPull: true } : s;
     case 'started':
-      return { ...s, inflight: e.what };
+      return { ...s, inflight: e.what, ...(e.what === 'pull' ? { repull: false } : {}) };
     case 'push_ok':
       // Po udanej wysyłce pobieramy: dopiero pobranie zdejmuje potwierdzone operacje z kolejki.
       return { ...s, inflight: null, pending: e.pending, needPull: true, failures: 0, lastSuccessAt: now, lastError: null, pushNotBefore: now };
     case 'pull_ok':
       return {
-        ...s, inflight: null, pending: e.pending, needPull: e.needMore, failures: 0, lastSuccessAt: now, lastError: null,
+        ...s, inflight: null, pending: e.pending, needPull: e.needMore || s.repull, repull: false, failures: 0, lastSuccessAt: now, lastError: null,
         pullNotBefore: now, pushNotBefore: Math.max(s.pushNotBefore, now),
       };
     case 'failed': {
-      if (e.error === 'auth') return { ...s, inflight: null, authExpired: true, lastError: 'auth' };
-      if (e.error === 'fatal') return { ...s, inflight: null, fatal: e.code, lastError: e.code };
+      // Nieudane pobranie i tak zostawia potrzebę pobrania (needPull), więc znacznik `repull` już niepotrzebny.
+      const r = e.what === 'pull' ? { repull: false, needPull: s.needPull || s.repull } : {};
+      if (e.error === 'auth') return { ...s, ...r, inflight: null, authExpired: true, lastError: 'auth' };
+      if (e.error === 'fatal') return { ...s, ...r, inflight: null, fatal: e.code, lastError: e.code };
       const failures = s.failures + 1;
       const at = now + backoffMs(failures);
       return {
-        ...s, inflight: null, failures, lastError: e.error,
+        ...s, ...r, inflight: null, failures, lastError: e.error,
         // Nieudane żądanie traktujemy jak brak sieci (captive portal: isInternetReachable na iOS kłamie). Błąd sieci
         // wstrzymuje oba kierunki — inaczej po nieudanej wysyłce od razu szło nieudane pobranie (audyt 2, M-10).
         ...(e.error === 'network'
