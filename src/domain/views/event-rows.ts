@@ -5,6 +5,7 @@
  */
 import type { Due, OccurrenceDue } from '../deadlines';
 import { parseIsoDate } from '../format';
+import { coveredDays } from '../span';
 import { occurrences, parseRule, type Rule, RuleError } from '../rrule';
 import type { Row } from '../sync-engine/client';
 import { rows, type Tables } from './model';
@@ -27,6 +28,8 @@ export type EventRow = {
   kind: EventKind;
   /** Poprzedniczka po „to i następne” (audyt 2, M-96; ustawia tylko polecenie split_event) — razem jedna seria. */
   split_from: string | null;
+  /** D199: ile dni trwa wydarzenie całodniowe (1 = jeden dzień; z godziną zawsze 1 — przez północ mówią godziny), span.ts. */
+  days: number;
   deleted_at: string | null;
 };
 export type EventKind = 'event' | 'lesson' | 'routine';
@@ -46,10 +49,14 @@ export type Override = {
   all_day: boolean;
   /** Audyt 2 (M-94): w tym terminie nikt konkretny, choć seria ma osobę odpowiedzialną (osoba wskazana wygrywa). */
   responsible_cleared: boolean;
+  /** D199: inna długość całodniowego terminu w dniach; `null` = jak w serii. */
+  days: number | null;
   deleted_at: string | null;
 };
 
 const s = (v: unknown) => (v == null ? null : String(v));
+/** Liczba dni z wiersza (serwer pilnuje 1…config.events.MAX_DAYS); brak albo zła wartość = `null`. */
+const dayCount = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : null);
 export const asEvent = (r: Row): EventRow => ({
   id: String(r.id),
   group_id: String(r.group_id),
@@ -64,6 +71,7 @@ export const asEvent = (r: Row): EventRow => ({
   location: s(r.location),
   kind: r.kind === 'lesson' || r.kind === 'routine' ? r.kind : 'event',
   split_from: s(r.split_from),
+  days: dayCount(r.days) ?? 1,
   deleted_at: s(r.deleted_at),
 });
 export const asParticipant = (r: Row): Participant => ({ id: String(r.id), event_id: String(r.event_id), member_id: String(r.member_id), deleted_at: s(r.deleted_at) });
@@ -79,6 +87,7 @@ export const asOverride = (r: Row): Override => ({
   responsible_member_id: s(r.responsible_member_id),
   all_day: r.all_day === true,
   responsible_cleared: r.responsible_cleared === true,
+  days: dayCount(r.days),
   deleted_at: s(r.deleted_at),
 });
 
@@ -94,6 +103,15 @@ export function occurrenceResponsible(o: Pick<Override, 'responsible_member_id' 
 export function occurrenceTimes(o: Pick<Override, 'all_day' | 'start_time' | 'end_time'> | undefined, e: Pick<EventRow, 'start_time' | 'end_time'>): { start: string | null; end: string | null } {
   if (o?.all_day) return { start: null, end: null };
   return { start: o?.start_time ?? e.start_time, end: o?.start_time ? o.end_time : e.end_time };
+}
+
+/**
+ * D199: ile dni kalendarzowych obejmuje wystąpienie — całodniowe: długość z wyjątku albo serii (seria z godziną ma 1, więc
+ * całodniowy termin takiej serii bez własnej długości trwa dzień); z godziną: 1 albo 2 (koniec po północy, span.ts).
+ */
+export function occurrenceDays(o: Pick<Override, 'all_day' | 'start_time' | 'end_time' | 'days'> | undefined, e: Pick<EventRow, 'start_time' | 'end_time' | 'days'>): number {
+  const { start, end } = occurrenceTimes(o, e);
+  return coveredDays(start, end, o?.days ?? e.days);
 }
 
 /** Reguła serii albo `null` (wydarzenie jednorazowe; reguła, której telefon nie rozumie, też = jednorazowe). */
