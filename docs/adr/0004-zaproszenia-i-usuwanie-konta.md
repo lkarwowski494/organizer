@@ -34,3 +34,12 @@ Status: przyjęte.
 ## Otwarte
 - **Kto uruchamia usunięcie.** Do wyboru są funkcja serwerowa `delete-account` (sprawdza JWT i woła `auth.admin.deleteUser`) albo RPC SQL. Decyzja zapadnie razem z ekranem ustawień. → rozstrzygnięte: funkcja `delete-account` (ADR 0006, decyzja wykonawcza 4).
 - **Sign in with Apple.** Usunięcie konta może wymagać unieważnienia tokenu Apple (REST API Apple). Trzeba to sprawdzić w wytycznych App Store i dokumentacji Apple przed implementacją; nie jest jeszcze zweryfikowane. → rozstrzygnięte: unieważniamy token przez REST API Apple (O-036, ADR 0016, decyzja wykonawcza 5).
+
+## Audyt 3 (9.10.2026)
+| ID | Sprawa | Rozstrzygnięcie | Odrzucone |
+|---|---|---|---|
+| Q5 C (N-71) | Moje wpisy w grupach wspólnych po usunięciu konta | Wybór „Usuń też moje wpisy w grupach”: moje zadania i rzeczy na listach zakupów (z podzadaniami), wydarzenia, stałe zadania (z niezrobionymi kopiami od dziś) i odpowiedzi o obecności idą do kosza grup jak zwykłe usunięcie, po 30 dniach znikają na stałe. Bez wyboru — jak dotąd. Listy, kopie stałych zadań na cudzych definicjach i odpowiedzi za dziecko zostają. Ekran usuwania mówi, co zostaje. Migracja `20261010240000_account_delete_entries.sql`. | Twarde usunięcie od razu (telefony innych nie dowiedziałyby się o nim); usuwanie tylko spraw, których nikt nie zmieniał (rodzina traci np. wizytę dziecka bez pytania). |
+| N-72, N-228 | Potwierdzenie i błędy | Ekran logowania pokazuje raz „Konto zostało usunięte.”; błędy rozróżnione (zamknięte okno Apple — bez komunikatu, inne Apple ID, Apple niedostępne, sieć, inne). Zgubiona odpowiedź albo 401 przy ponownej próbie: `auth.getUser()` z kodem `user_not_found` = konto już usunięte → ścieżka sukcesu. | Osobny ekran „Konto usunięte”; idempotentna funkcja (wymaga JWT, który Auth już odrzuca). |
+| N-99 | Brak klucza Sign in with Apple w sekretach | Usunięcie dalej działa (prawo z 5.1.1(v)), ale `not_configured` trafia do logu funkcji i do `client_errors` (bez konta); sprawdzenie sekretów na liście kontrolnej `docs/testflight-beta.md`. | Odrzucanie usunięcia bez klucza. |
+| N-142 (Q45 A) | Słowo potwierdzenia | „USUŃ” albo „USUN”. | Tylko „USUŃ”. |
+
