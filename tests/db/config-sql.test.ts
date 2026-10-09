@@ -8,6 +8,7 @@
 import { Client } from 'pg';
 
 import { config } from '../../src/config';
+import { CHECKED_FIELDS } from '../../src/domain/sync-engine/row-check';
 import { dbDescribe } from './db-gate';
 
 const d = dbDescribe;
@@ -60,6 +61,21 @@ d('src/config ↔ liczby w ograniczeniach i funkcjach SQL', () => {
       const literals = [...def.matchAll(/'[^']*'::[a-z ]+/g)].map((m) => m[0]);
       expect({ name, literals: literals.filter((l) => !allowed.includes(l)) }).toEqual({ name, literals: [] });
     }
+  });
+
+  // Audyt 3 (N-1): telefon sprawdza w wierszach z serwera dokładnie te kolumny dat, godzin i chwil, które mają *_range.
+  it('kolumny z zakresem dat = pola sprawdzane na telefonie (row-check.ts)', async () => {
+    const cols = (await db.query<{ tab: string; col: string; typ: string }>(
+      `select c.conrelid::regclass::text as tab, a.attname as col, format_type(a.atttypid, null) as typ
+       from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+       where c.connamespace = 'public'::regnamespace and c.conname = (c.conrelid::regclass::text || '_' || a.attname || '_range')
+         and format_type(a.atttypid, null) in ('date', 'time without time zone', 'timestamp with time zone') order by 1, 2`,
+    )).rows;
+    const kind = (t: string) => (t === 'date' ? 'date' : t.startsWith('time ') ? 'time' : 'instant');
+    const want: Record<string, Record<string, string[]>> = {};
+    for (const c of cols) ((want[c.tab] ??= {})[kind(c.typ)] ??= []).push(c.col);
+    const sorted = (f: typeof CHECKED_FIELDS) => Object.fromEntries(Object.entries(f).sort().map(([e, k]) => [e, Object.fromEntries(Object.entries(k!).map(([n, v]) => [n, [...v].sort()]))]));
+    expect(sorted(CHECKED_FIELDS)).toEqual(sorted(want));
   });
 
   it('token push: cyfry szesnastkowe, długość PUSH_TOKEN_MIN–PUSH_TOKEN_MAX', async () => {
