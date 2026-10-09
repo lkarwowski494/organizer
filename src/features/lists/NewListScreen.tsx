@@ -14,7 +14,7 @@ import { createList } from '../../domain/views/commands';
 import { formGroups } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
@@ -65,7 +65,7 @@ export function NewListScreen({ route, navigation }: Props) {
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {/* Audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt konkretny (inną osobę serwer odrzuci). */}
           <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={tripNeeds} />
-          {tripError ? <Body>{tripError}</Body> : null}
+          {tripError ? <ErrorText>{tripError}</ErrorText> : null}
         </>
       ) : null}
       <Button label={strings['lists.create']} onPress={create} disabled={name.trim() === '' || groupId === '' || !!tripError || tripMissing} testID="create-list" />

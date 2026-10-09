@@ -6,7 +6,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
@@ -21,7 +21,7 @@ import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps,
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
@@ -34,7 +34,7 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(1);
 export function TimetableScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
+  const { c } = useTheme();
   const undo = useUndo();
   const d = groupDetail(tables, userId, route.params.groupId);
   const m = d?.members.find((x) => x.member_id === route.params.memberId);
@@ -61,6 +61,8 @@ export function TimetableScreen({ route, navigation }: Props) {
   const monday = addDays(today, -isoWeekday(today));
   // Audyt 2 (E-26): sobota i niedziela, gdy mają lekcje (np. lekcja przeniesiona na sobotę „to i następne”).
   const days = [...SCHOOL_DAYS, ...WEEKEND.filter((x) => lessons.some((l) => l.day === x))];
+  // Numer lekcji w obrębie jej dnia (jak w etykietach VoiceOvera, M-145).
+  const lessonNo = (i: number) => lessons.slice(0, i + 1).filter((x) => x.day === lessons[i]!.day).length;
   const set = (i: number, patch: Partial<Lesson>) => (setLessons((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l))), setError(null));
   const add = (day: number) => {
     const prev = [...lessons].reverse().find((l) => l.day === day);
@@ -70,7 +72,8 @@ export function TimetableScreen({ route, navigation }: Props) {
   const save = (choice?: LostChoice) => {
     const edit = plan.series.length ? { tables, userId, series: plan.series } : undefined;
     const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === plan.until, weekA: plan.weekA, lost: choice });
-    if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.index });
+    // Błąd daty końca dotyczy pola „Do dnia”, nie lekcji (stoi pod nim).
+    if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.error === 'until' ? -1 : r.index });
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
     if (r.ops.length === 0) return (draft.saved(), navigation.goBack());
     // Zapis zmienia zadania albo zmienione pojedynczo terminy — najpierw ten sam podgląd co przy „to i następne”.
@@ -114,7 +117,7 @@ export function TimetableScreen({ route, navigation }: Props) {
           {lessons.map((l, i) => {
             if (l.day !== day) return null;
             // Audyt 2 (M-145): numer w obrębie dnia i dzień w etykietach VoiceOvera.
-            const n = lessons.slice(0, i + 1).filter((x) => x.day === day).length;
+            const n = lessonNo(i);
             const wd = WEEKDAYS_NOMINATIVE[day]!;
             const a11y = (field: string) => strings['timetable.fieldA11y'](field, n, wd);
             return (
@@ -139,6 +142,8 @@ export function TimetableScreen({ route, navigation }: Props) {
                     { value: 'B', label: strings['timetable.weekB'] },
                   ]}
                 />
+                {/* Audyt 2 (M-39, A-21): błąd przy lekcji tekstem, nie tylko czerwoną ramką; ogłasza go napis przy „Zapisz”. */}
+                {error?.index === i ? <ErrorText silent>{error.text}</ErrorText> : null}
                 <Button kind="danger" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
               </View>
             );
@@ -146,12 +151,8 @@ export function TimetableScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['timetable.add'](WEEKDAYS_NOMINATIVE[day]!)} testID={`lesson-add-${day}`} onPress={() => add(day)} />
         </View>
       ))}
-      <DateField label={strings['timetable.until']} value={until} onChange={setUntil} today={today} testID="timetable-until" />
-      {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
-          {error.text}
-        </Text>
-      ) : null}
+      <DateField label={strings['timetable.until']} value={until} onChange={setUntil} today={today} testID="timetable-until" optional />
+      {error ? <ErrorText>{error.index >= 0 ? strings['timetable.fixLesson'](lessonNo(error.index), WEEKDAYS_NOMINATIVE[lessons[error.index]!.day]!, error.text) : error.text}</ErrorText> : null}
       <Button label={strings['timetable.save']} onPress={() => save()} testID="timetable-save" />
     </Screen>
   );
