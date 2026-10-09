@@ -34,7 +34,22 @@ import { childIndex, type ChildIndex, descendants, subtasksOf } from './nesting'
 import { memberCanSeeList } from './visibility';
 
 export const REPEAT_NAMESPACE = 'e21c312a-9090-47c5-9490-c54305c7ddd1';
-export const nextId = (taskId: string) => uuidv5(REPEAT_NAMESPACE, `${taskId}|next`);
+/**
+ * Id następnego zadania (UUIDv5 z id poprzedniego). Wynik zależy tylko od `taskId`, więc pamiętamy go: plan przypomnień,
+ * Kalendarz i listy liczą te same id przy każdej zmianie danych, a SHA-1 w JS to kilkadziesiąt µs na wywołanie (budżet
+ * czasu, config.perf). Pamięć ograniczona do NEXT_ID_CACHE wpisów — po przekroczeniu zaczyna od nowa.
+ */
+const NEXT_ID_CACHE = 20_000;
+const nextIds = new Map<string, string>();
+export function nextId(taskId: string): string {
+  let id = nextIds.get(taskId);
+  if (id === undefined) {
+    if (nextIds.size >= NEXT_ID_CACHE) nextIds.clear();
+    id = uuidv5(REPEAT_NAMESPACE, `${taskId}|next`);
+    nextIds.set(taskId, id);
+  }
+  return id;
+}
 
 export type Repeat =
   | { kind: 'daily' }
@@ -88,7 +103,7 @@ export function nextDue(r: Repeat, due: CivilDate, done: CivilDate, cycle: Civil
   const from = addDays(latest, 1);
   const rule = parseRule(formatRepeat(r));
   // Reguła tygodniowa liczy tygodnie od startu; start = termin (dzień z reguły albo poza nią — wtedy pierwsze trafienie później).
-  return occurrences(due, rule, from, addDays(from, config.repeat.NEXT_QUICK_DAYS))[0] ?? occurrences(due, rule, from, addDays(from, config.repeat.NEXT_SEARCH_DAYS))[0]!;
+  return occurrences(due, rule, from, addDays(from, config.repeat.NEXT_SEARCH_DAYS), 1)[0]!;
 }
 
 /**
@@ -235,14 +250,23 @@ export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: CanCrea
  * dorosłego — liczone od dnia odhaczenia. Tylko odhaczenia z ostatnich `config.repeat.MISSING_COPY_DAYS` dni: kopia
  * usunięta i wyczyszczona z kosza (po `config.sync.TOMBSTONE_DAYS`) nie może wrócić.
  */
-export function missingRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreate, localDate: (iso: string) => string, skip: ReadonlySet<string> = new Set()): NewOp[] {
+export function missingRepeatOps(
+  t: Tables,
+  today: CivilDate,
+  canCreate: CanCreate,
+  localDate: (iso: string) => string,
+  skip: ReadonlySet<string> = new Set(),
+  /** Wiersze do przejrzenia — wszystkie zadania albo już wybrani kandydaci (withUpcomingCopies przegląda historię raz). */
+  rows: readonly Row[] = Object.values(t.tasks ?? {}),
+): NewOp[] {
   const since = formatIsoDate(addDays(today, -config.repeat.MISSING_COPY_DAYS));
   // Dzień w Warszawie to dzień UTC albo następny (UTC+1, UTC+2) — starsze odhaczenia odpadają bez liczenia dnia i SHA-1
-  // (plan przypomnień woła to przy każdej zmianie danych, a historia ma tysiące zrobionych).
+  // (plan przypomnień woła to przy każdej zmianie danych, a historia ma tysiące zrobionych). Chwila ISO jest przed
+  // `sinceUtc` (10 znaków) dokładnie wtedy, gdy jej data jest — porównanie napisów bez wycinania daty.
   const sinceUtc = formatIsoDate(addDays(today, -config.repeat.MISSING_COPY_DAYS - 1));
   const out: NewOp[] = [];
-  for (const row of Object.values(t.tasks ?? {})) {
-    if (row.completed_at == null || String(row.completed_at).slice(0, 10) < sinceUtc) continue;
+  for (const row of rows) {
+    if (row.completed_at == null || String(row.completed_at) < sinceUtc) continue;
     const x = asTask(row);
     const done = localDate(x.completed_at!);
     if (done < since || !copyable(t, x, canCreate, skip)) continue;
@@ -278,10 +302,22 @@ export function orphanRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreat
  * (dziecko na starszej wersji) — zrobi to inny telefon.
  */
 export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, localDate: (iso: string) => string): Tables {
+  // Historia rodziny ma tysiące zadań: przeglądamy ją raz (z indeksem dzieci jak childIndex). Obie reguły dotyczą tylko
+  // zadań z powtarzaniem (copyable wymaga repeatOf), zrobionych (missingRepeatOps) albo otwartych (D133); dalej — tylko
+  // dokładane kopie.
+  const done: Row[] = [];
+  const undone: Row[] = [];
+  const index: ChildIndex = new Map();
+  for (const row of Object.values(t.tasks ?? {})) {
+    if (row.repeat != null) (row.completed_at == null ? undone : done).push(row);
+    if (row.parent_id == null) continue;
+    const kids = index.get(String(row.parent_id));
+    if (kids) kids.push(row);
+    else index.set(String(row.parent_id), [row]);
+  }
   const tasks = { ...(t.tasks ?? {}) };
   const out: Tables = { ...t, tasks };
   const all = () => true;
-  const index = childIndex(out);
   const put = (ops: NewOp[]) => {
     let seq = 0;
     for (const op of ops) {
@@ -289,15 +325,17 @@ export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, lo
       // Tu same utworzenia: kopię dokładamy tylko, gdy następnego nie ma (copyable).
       const row = tasks[(op as Extract<NewOp, { kind: 'create' }>).id]!;
       if (row.parent_id != null) index.set(String(row.parent_id), [...(index.get(String(row.parent_id)) ?? []), row]);
+      // Kopia z powtarzaniem (także podzadania) — kandydat D133 jak każde otwarte.
+      if (row.repeat != null) undone.push(row);
     }
   };
-  put(missingRepeatOps(out, today, all, localDate));
+  put(missingRepeatOps(out, today, all, localDate, new Set(), done));
   // D133 dzień po dniu jak expiredRepeatOps w każdym z tych dni: otwarte „Tylko tego dnia” bez następnego, a gdy miną —
   // ich następne. Kandydaci wybrani raz (historia ma tysiące zadań), dalej tylko powstające kopie.
   const none = new Set<string>();
   const pending = (rows: (Row | undefined)[]) =>
     rows.flatMap((row) => (row && row.completed_at == null && row.rollover === false && row.repeat != null ? [asTask(row)] : [])).filter((x) => copyable(out, x, all, none));
-  let open = pending(Object.values(tasks));
+  let open = pending(undone);
   for (let k = 0; k < days; k++) {
     const day = addDays(today, k);
     const iso = formatIsoDate(day);
