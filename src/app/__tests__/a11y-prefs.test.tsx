@@ -12,12 +12,6 @@ import { RootStack } from '../navigation';
 import { audit } from './a11y-audit';
 import { setup } from './harness';
 
-/**
- * Znane odstępstwo wspólne z a11y.test.tsx: napis zakładki zmniejsza się bez minimumFontScale (N-67, paczka „Wygląd:
- * pasek zakładek” — rozmiar napisu i plakietka po decyzji Q11).
- */
-const KNOWN = /^tekst „(Moje sprawy|Listy|Kalendarz|Grupy)” zmniejsza się do 0 pt/;
-
 const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promise<void>][] = [
   ['Moje sprawy', async () => {}],
   ['Lista zakupów', async (p) => (await p('Listy'), await p(/^Zakupy na weekend, /))],
@@ -47,7 +41,7 @@ describe.each(['light', 'dark'] as Scheme[])('„Zwiększ kontrast” i „Pogru
       await fireEvent.press(await screen.findByLabelText(label));
     });
     const r = audit(screen.root!, palette, name, { screen: true });
-    expect(r.problems.filter((p) => !KNOWN.test(p.slice(name.length + 2)))).toEqual([]);
+    expect(r.problems).toEqual([]);
     const missing = r.pairs.filter((p) => {
       const inCorpus = corpus.some((c) => c.kind === p.kind && c.fg.toUpperCase() === p.fg && c.bg.toUpperCase() === p.bg);
       const line = p.kind === 'TEXT' && groupLines.some((g) => g[scheme].ink.toUpperCase() === p.fg);
