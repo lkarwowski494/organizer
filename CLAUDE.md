@@ -123,6 +123,20 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
   nazw kalendarzy i godzin zajęć (App Review 2.3.9). Prywatne adresy e-mail blokuje reguła gitleaks `personal-email`.
 - Badania konkurencji (opisy, ceny, zrzuty innych aplikacji) trzymamy na prywatnym Drive, nie w repozytorium.
 
+## Audyty i wydania (decyzja właściciela 9.10.2026, obowiązuje we wszystkich jego aplikacjach do odwołania)
+
+- Próg wydania: wydanie blokują tylko znaleziska krytyczne i wysokie — utrata lub zepsucie danych (także migracja,
+  import, kopia), awaria albo funkcja nie do użycia, błędne liczby lub twierdzenia merytoryczne, prywatność,
+  bezpieczeństwo, sekrety i prawa autorskie, bariera dostępności, ryzyko odrzucenia przez Apple. Średnie i niskie
+  trafiają do backlogu z przypisaną wersją i nie wstrzymują wydania.
+- Jeden audyt na wydanie, bez pętli: naprawę sprawdza test, który odtwarza znalezisko, pełne sprawdzenie i E2E,
+  nie kolejny audyt. Nowy błąd znaleziony przy naprawie oceniamy tym samym progiem.
+- Zamrożenie zakresu: od startu audytu do wydania żadnych nowych funkcji, tylko naprawy blokerów; pomysły do backlogu.
+- Głębokość: wydanie testowe (TestFlight) — audyt zmian od poprzedniego wydania i stała lista kontrolna (dane,
+  migracje, prywatność); przed upublicznieniem w App Store i mniej więcej co trzecie wydanie — pełny audyt całości.
+- Bez limitu czasu. Gdy bloker wymaga dużej przebudowy, właściciel decyduje: naprawa teraz albo wydanie bez tej
+  funkcji (wyłączonej albo cofniętej).
+
 ## Koszty i limity (właściciel płaci tylko za Apple Developer)
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
