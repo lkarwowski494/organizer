@@ -52,7 +52,7 @@ export type PullResponse = {
     purged?: number;
     /** Protokół 2: wszystkie listy grupy, które widzę; lokalne spoza zbioru znikają z zawartością (M-54). */
     lists?: string[];
-    /** Protokół 2: zadania przeniesione do listy, której nie widzę (M-54). */
+    /** Protokół 2: zadania przeniesione do listy, której nie widzę (M-54), albo te, których nowy wiersz przyjdzie dopiero w dalszej porcji. */
     gone?: string[];
   }[];
   scopes: string[];
