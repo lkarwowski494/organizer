@@ -85,19 +85,29 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     assert.match(report(r), /egress/);
   });
 
-  it('bez sekretu: komunikat i kod 0, bez żadnego zapytania', async () => {
-    const f = fakeFetch({});
-    const out = [];
-    assert.equal(await main({ env: {}, fetchFn: f.fn, log: (s) => out.push(s) }), 0);
-    assert.equal(f.calls.length, 0);
-    assert.match(out.join('\n'), /::notice::Brak sekretu SUPABASE_MONITOR_TOKEN/);
+  it('bez sekretu: bez żadnego zapytania; ostrzeżenie i kod 0 przed datą graniczną, błąd i kod 1 od niej (N-83)', async () => {
+    const { config } = await import('../../src/config/index.ts');
+    const from = Date.parse(`${config.LIMITS_MONITOR_TOKEN_REQUIRED_FROM}T00:00:00Z`);
+    const run = async (now) => {
+      const f = fakeFetch({});
+      const out = [];
+      const code = await main({ env: {}, fetchFn: f.fn, log: (s) => out.push(s), now });
+      assert.equal(f.calls.length, 0);
+      return { code, out: out.join('\n') };
+    };
+    const before = await run(from - 1);
+    assert.equal(before.code, 0);
+    assert.match(before.out, /^::warning::Brak sekretu SUPABASE_MONITOR_TOKEN — limity nie są mierzone.*oblewa to zadanie/);
+    const after = await run(from);
+    assert.equal(after.code, 1);
+    assert.match(after.out, /^::error::Brak sekretu SUPABASE_MONITOR_TOKEN — limity nie są mierzone/);
   });
 
   it('progi z config.limits; przekroczenie albo błąd → kod 1; tokenu nie ma w wyjściu', async () => {
     const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
     const run = async (db) => {
       const out = [];
-      const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers(db, { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: 0 });
+      const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers(db, { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-10-09T03:00:00Z') });
       return { code, out: out.join('\n') };
     };
     const ok = await run([{ bytes: 10 }]);
@@ -108,6 +118,15 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     const err = await run(503);
     assert.equal(err.code, 1);
     for (const o of [ok.out, warn.out, err.out]) assert.ok(!o.includes(TOKEN));
+    assert.ok(!ok.out.includes('Początek miesiąca'));
+  });
+
+  it('1. dnia miesiąca przypomina o ręcznym odczycie egress i Realtime (N-83)', async () => {
+    const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
+    const out = [];
+    const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers([{ bytes: 10 }], { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-11-01T03:00:00Z') });
+    assert.equal(code, 0);
+    assert.match(out.join('\n'), /::warning::Początek miesiąca: sprawdź ręcznie egress i wiadomości Realtime/);
   });
 
   it('prawdziwe progi: src/config (jedno źródło prawdy) zawiera progi, których używa skrypt', async () => {

@@ -6,8 +6,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseIsoDate } from '../../domain/format';
+import { parseQuantity } from '../../domain/quantity';
+import { ENTITIES } from '../../domain/sync-engine/client';
 import { parseRule } from '../../domain/rrule';
 import { describeRule } from '../../domain/views/events';
+import { itemKey } from '../../domain/views/shopping';
 import { strings } from '../../i18n/strings.pl';
 import { whatsNewEntries } from '../../i18n/whats-new.pl';
 
@@ -146,5 +149,21 @@ describe('jeden klucz na jedno pojęcie (U-60)', () => {
     for (const [k, v] of Object.entries(strings as Record<string, unknown>)) if (typeof v === 'string') byValue.set(v, [...(byValue.get(v) ?? []), k]);
     const dups = [...byValue.values()].filter((ks) => ks.length > 1).map((ks) => ks.join(', '));
     expect(dups.filter((d) => !(d in allowed))).toEqual([]);
+  });
+});
+
+describe('„Odrzucone zmiany” bez nazw tabel (audyt 3, N-92)', () => {
+  it.each(ENTITIES)('%s ma polską nazwę', (e) => {
+    const label = strings['rejected.entity'](e);
+    expect(label).not.toBe(e);
+    expect(label).toMatch(/^[a-ząćęłńóśźż „”]+$/i);
+  });
+});
+
+describe('przykład w polu dodawania produktu (audyt 3, N-48 c)', () => {
+  it('nazwa w przykładzie to ta sama forma co bez ilości („mleko 2”, nie „2 mleka”)', () => {
+    const example = /„(.+)”/.exec(strings['lists.addItem'])?.[1] ?? '';
+    expect(parseQuantity(example).qty).not.toBeNull();
+    expect(itemKey(example)).toBe('mleko');
   });
 });
