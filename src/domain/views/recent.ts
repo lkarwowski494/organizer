@@ -26,8 +26,18 @@ export function sameValue(a: unknown, b: unknown): boolean {
   return typeof a === 'object' && typeof b === 'object' && JSON.stringify(a) === JSON.stringify(b);
 }
 
+/**
+ * Audyt 3 (N-35): część serii po „to i następne” (split_event — także zmiana lekcji w zapisie planu) — nazwa i godziny
+ * nowej części (telefon tworzy ją od razu, applySplit; serwer — te same pola). Reguły nie porównujemy: serwer może
+ * przejść do następczyni serii i zapisać inną datę końca.
+ */
+const SPLIT_KEYS = ['title', 'start_date', 'start_time', 'end_time'];
+
 function touched(op: NewOp): { entity: string; id: string; keys: string[] } | null {
-  if (op.kind === 'cmd') return op.cmd === 'staple_add' || op.cmd === 'staple_remove' ? { entity: 'lists', id: String(op.args.list_id), keys: ['staples'] } : null;
+  if (op.kind === 'cmd') {
+    if (op.cmd === 'split_event') return { entity: 'events', id: String(op.args.id), keys: SPLIT_KEYS };
+    return op.cmd === 'staple_add' || op.cmd === 'staple_remove' ? { entity: 'lists', id: String(op.args.list_id), keys: ['staples'] } : null;
+  }
   return { entity: op.entity, id: op.id, keys: op.kind === 'create' || op.kind === 'patch' ? Object.keys(op.set) : [] };
 }
 
@@ -70,7 +80,8 @@ export type RecentRecord = {
   id: number;
   message: string;
   at: number;
-  state: 'open' | 'undone' | 'stale' | 'lost';
+  /** „pending” — cofnięcie przez serwer czeka na odpowiedź (audyt 3, N-34); po ponownym uruchomieniu — „lost”. */
+  state: 'open' | 'pending' | 'undone' | 'stale' | 'lost';
   undo: RecentUndo | null;
   /** Dlaczego po ponownym uruchomieniu nie da się cofnąć (cofnięcie nie było zapisywalne). */
   lost: RecentLost | null;
