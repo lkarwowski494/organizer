@@ -6,7 +6,7 @@
 import { getStateFromPath, NavigationContainer } from '@react-navigation/native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 
 import { contrastPairs, groupLines, palettes, type Scheme } from '../../config/theme';
 import { inviteUrl, joinUrl } from '../../domain/invite-link';
@@ -295,6 +295,14 @@ describe('logowanie', () => {
     await render(wrap(<SignInScreen account={account} />));
     await fireEvent.press(screen.getByTestId('apple-sign-in'));
     expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeTruthy();
+  });
+
+  it('N-72: komunikat po usunięciu konta, ogłaszany VoiceOverowi', async () => {
+    const spoken = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions').mockImplementation(() => {});
+    const { wrap } = setup({});
+    await render(wrap(<SignInScreen account={fakeAccount()} notice="Konto zostało usunięte." />));
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    expect(spoken.mock.calls.map((c) => c[0])).toContain('Konto zostało usunięte.');
   });
 });
 

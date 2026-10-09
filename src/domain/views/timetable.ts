@@ -98,6 +98,13 @@ export function memberTimetable(t: Tables, groupId: string, memberId: string, to
   return { lessons, until, series, thisWeek: even(weeksBetween(anchor, today)) ? 'A' : 'B', weekA };
 }
 
+/**
+ * Znacznik obecnego planu (audyt 3, N-31): serie z ich regułami, polami i uczestnikami oraz kotwica tygodnia A. Różny
+ * od znacznika z chwili otwarcia ekranu (albo zapisanego ze szkicem) = ktoś zmienił plan w międzyczasie — zapis mojego
+ * planu zakończyłby jego lekcje, więc ekran pyta.
+ */
+export const planStamp = (p: CurrentPlan): string => JSON.stringify([p.weekA, p.series.map((x) => [x.id, x.start_date, x.rrule, x.spec, x.others])]);
+
 /** Cofnięcie jednej zmiany, liczone na tabelach z chwili cofnięcia (kopie stałych zadań dołożone w międzyczasie). */
 type Step = { ops: NewOp[]; undo: (t: Tables) => NewOp[]; effects?: SeriesEffects };
 /** Wybór z podglądu dla zadań z terminów, których nowa seria nie ma (jak przy „to i następne”). */

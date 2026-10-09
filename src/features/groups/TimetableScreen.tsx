@@ -17,7 +17,8 @@ import { formatRange } from '../../domain/format';
 import { materialize } from '../../domain/sync-engine/client';
 import { groupDetail } from '../../domain/views';
 import type { SeriesEffects } from '../../domain/views/event-tasks';
-import { copyTargets, type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import { copyTargets, type Lesson, type LostChoice, memberTimetable, planStamp, swapWeeks, timetableOps, type Week } from '../../domain/views/timetable';
+import { config } from '../../config';
 import { AskPanel } from '../../ui/AskPanel';
 import { useClosedPanel } from '../../ui/a11y';
 import { SeriesPreview } from '../events/SeriesPreview';
@@ -55,7 +56,14 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [lostChoice, setLostChoice] = useState<LostChoice>('nearest');
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisany plan (app/form-draft); nakłada się
   // na plan z chwili ponownego otwarcia tylko w polach, które zmieniłem.
-  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil }, { restore: !copy });
+  // Audyt 3 (N-31): szkic pamięta, na jakim planie powstał (znacznik) — plan zmieniony w międzyczasie przez drugiego
+  // rodzica (przy przywróceniu szkicu albo przy otwartym ekranie) nie znika po cichu: zapis pyta „Pokaż obecny plan /
+  // Zapisz mój plan”. Odrzucone: scalanie szkicu lekcja po lekcji (lekcje nie mają stałej tożsamości — pary zgadywane
+  // po nazwie i godzinach mogłyby scalić nie te lekcje).
+  const [openStamp] = useState(() => planStamp(plan));
+  const draft = useFormDraft(`timetable:${route.params.groupId}:${route.params.memberId}`, { lessons, thisWeek, until }, { lessons: setLessons, thisWeek: setThisWeek, until: setUntil }, { restore: !copy, stamp: openStamp });
+  const [known, setKnown] = useState(draft.stamp ?? openStamp);
+  const [changedMeanwhile, setChangedMeanwhile] = useState(() => draft.restored && known !== openStamp);
 
   if (!d || !m || d.group.me.role === 'child') {
     return (
@@ -74,9 +82,12 @@ export function TimetableScreen({ route, navigation }: Props) {
     setLessons([...lessons, { day, title: '', start: prev?.end ?? '08:00', end: '', week: 'both' }]);
   };
   // `choice` — po podglądzie (audyt 2, M-14): co z zadaniami z terminów, których po zmianie nie będzie.
-  const save = (choice?: LostChoice) => {
-    const edit = plan.series.length ? { tables, userId, series: plan.series } : undefined;
-    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === plan.until, weekA: plan.weekA, lost: choice });
+  // `base` — znacznik planu, który zastępuję (po „Zapisz mój plan” — obecny).
+  const save = (choice?: LostChoice, base = known) => {
+    const now = memberTimetable(tables, d.group.id, m.member_id, today);
+    if (planStamp(now) !== base) return (setPreview(null), setChangedMeanwhile(true));
+    const edit = now.series.length ? { tables, userId, series: now.series } : undefined;
+    const r = timetableOps({ groupId: d.group.id, memberId: m.member_id, lessons, thisWeek, today, until: until || null, newId, edit, keepUntil: until === now.until, weekA: now.weekA, lost: choice });
     // Błąd daty końca dotyczy pola „Do dnia”, nie lekcji (stoi pod nim).
     if ('error' in r) return setError({ text: r.error === 'empty' ? strings['timetable.empty'] : r.error === 'title' ? strings['timetable.error.title'] : strings[`event.error.${r.error}`], index: r.error === 'until' ? -1 : r.index });
     // Bez zmian (audyt 2, E-5): nic do zapisu ani cofania.
@@ -87,7 +98,9 @@ export function TimetableScreen({ route, navigation }: Props) {
     draft.saved();
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
-    undo.show(plan.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan' });
+    // Audyt 3 (N-35): plan zmieniony od zapisu (np. przez drugiego rodzica) nie jest cofany — odcisk zmienionych wierszy
+    // (D194).
+    undo.show(now.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan', changed: r.ops });
     navigation.goBack();
   };
 
@@ -100,6 +113,28 @@ export function TimetableScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings['timetable.title'](m.display_name)}</Title>
       <DraftNote draft={draft} />
+      {changedMeanwhile ? (
+        <AskPanel
+          testID="timetable-changed"
+          title={strings['timetable.changedTitle']}
+          body={strings['timetable.changedInfo']}
+          options={[
+            // Szkic znika, ekran otwiera się od nowa z obecnym planem.
+            { key: 'show', label: strings['timetable.showCurrent'], onPress: () => (draft.saved(), navigation.replace('Timetable', { groupId: route.params.groupId, memberId: route.params.memberId })) },
+            {
+              key: 'mine',
+              label: strings['timetable.saveMine'],
+              onPress: () => {
+                const stamp = planStamp(memberTimetable(tables, d.group.id, m.member_id, today));
+                setKnown(stamp);
+                setChangedMeanwhile(false);
+                save(undefined, stamp);
+              },
+            },
+          ]}
+          onCancel={() => setChangedMeanwhile(false)}
+        />
+      ) : null}
       {copy ? <Body testID="timetable-copied">{strings['timetable.copied'](copy.from)}</Body> : null}
       <Body muted>{strings['timetable.info']}</Body>
       <Segmented
@@ -128,7 +163,8 @@ export function TimetableScreen({ route, navigation }: Props) {
             const a11y = (field: string) => strings['timetable.fieldA11y'](field, n, wd);
             return (
               <Card kind="panel" key={i} style={{ borderColor: error?.index === i ? c.danger : c.border }}>
-                <Field label={strings['timetable.lesson']} accessibilityLabel={strings['timetable.lessonA11y'](n, wd)} value={l.title} onChangeText={(title) => set(i, { title })} testID={`lesson-title-${i}`} />
+                {/* Audyt 3 (N-134): limit z SQL. */}
+                <Field label={strings['timetable.lesson']} accessibilityLabel={strings['timetable.lessonA11y'](n, wd)} value={l.title} onChangeText={(title) => set(i, { title })} maxLength={config.lengths.EVENT_TITLE} testID={`lesson-title-${i}`} />
                 <TimeFieldPair
                   start={{ label: strings['event.start'], a11yLabel: a11y(strings['event.start']), value: l.start, onChange: (start) => set(i, { start }), testID: `lesson-start-${i}` }}
                   end={{ label: strings['timetable.end'], a11yLabel: a11y(strings['timetable.end']), value: l.end, onChange: (end) => set(i, { end }), testID: `lesson-end-${i}` }}
