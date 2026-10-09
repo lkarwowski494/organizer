@@ -18,10 +18,18 @@
  *   przypomina o ręcznym sprawdzeniu (docs/limits.md).
  * - Pamięć podręczna Actions: `GET /repos/{owner}/{repo}/actions/cache/usage`
  *   (https://docs.github.com/en/rest/actions/cache#get-github-actions-cache-usage-for-a-repository).
+ * - Artefakty Actions (audyt 3, N-106): `GET /repos/{owner}/{repo}/actions/artifacts` — „Lists all artifacts for a
+ *   repository”, `per_page` „max 100”, pola `size_in_bytes` i `expired`
+ *   (https://docs.github.com/en/rest/actions/artifacts#list-artifacts-for-a-repository). Limit GitHub Free: „Artifact
+ *   storage … 500 MB” (https://docs.github.com/en/billing/concepts/product-billing/github-actions); czy dotyczy
+ *   repozytorium publicznego, strona nie mówi wprost — mierzymy na wszelki wypadek.
  *
- * Zmienne: SUPABASE_MONITOR_TOKEN (osobisty token dostępu Supabase; brak → komunikat i kod 0, bo sekret doda
- * właściciel), GITHUB_TOKEN i GITHUB_REPOSITORY (opcjonalnie — pamięć Actions), GITHUB_STEP_SUMMARY.
- * Kod wyjścia: 0 — wszystko poniżej progów (albo brak sekretu); 1 — próg przekroczony albo pomiar się nie udał
+ * Zmienne: SUPABASE_MONITOR_TOKEN (token Supabase z zakresem, sekret środowiska `monitor` — docs/limits.md),
+ * GITHUB_TOKEN i GITHUB_REPOSITORY (opcjonalnie — pamięć i artefakty Actions), GITHUB_STEP_SUMMARY.
+ * Bez sekretu (audyt 3, N-83): do dnia `config.limits.monitorSecretRequiredFrom` ostrzeżenie i kod 0, od tego dnia błąd
+ * i kod 1 — zielony nocny przebieg nie może znaczyć „limity sprawdzone”, gdy niczego nie zmierzono (ani nie podtrzymano
+ * projektu).
+ * Kod wyjścia: 0 — wszystko poniżej progów; 1 — próg przekroczony, pomiar się nie udał albo brak sekretu po terminie
  * (nocny przebieg robi się czerwony, GitHub wysyła właścicielowi powiadomienie). Tokenu nigdy nie wypisuje.
  */
 import { appendFileSync } from 'node:fs';
@@ -30,6 +38,8 @@ import { pathToFileURL } from 'node:url';
 const API = 'https://api.supabase.com';
 /** Okno logów: najwyżej 24 h (opis endpointu logs), miesiąc liczony jako 30 takich okien — szacunek. */
 const DAYS_PER_MONTH = 30;
+/** Artefakty: najwyżej tyle stron po 100 (10 000 artefaktów) — dalej to błąd, nie cicha część sumy. */
+const MAX_ARTIFACT_PAGES = 100;
 
 /** Identyfikator projektu z adresu `https://<ref>.supabase.co` (config.SUPABASE_URL). */
 export function projectRef(url) {
@@ -100,8 +110,29 @@ export async function measure({ fetchFn, token, ref, now, github }) {
       if (!Number.isFinite(v)) throw new Error('brak active_caches_size_in_bytes');
       return v;
     });
+    await attempt('actionsArtifactsBytes', () => artifactsBytes(fetchFn, github));
   }
   return out;
+}
+
+/** Suma rozmiarów niewygasłych artefaktów repozytorium (strony po 100, aż do `total_count`). */
+async function artifactsBytes(fetchFn, github) {
+  let sum = 0;
+  let seen = 0;
+  for (let page = 1; page <= MAX_ARTIFACT_PAGES; page++) {
+    const body = await call(fetchFn, `https://api.github.com/repos/${github.repository}/actions/artifacts?per_page=100&page=${page}`, {
+      headers: { Authorization: `Bearer ${github.token}`, Accept: 'application/vnd.github+json' },
+    });
+    if (!Array.isArray(body.artifacts) || !Number.isFinite(body.total_count)) throw new Error('brak listy artefaktów');
+    for (const a of body.artifacts) {
+      const size = Number(a.size_in_bytes);
+      if (!Number.isFinite(size)) throw new Error('brak size_in_bytes');
+      if (!a.expired) sum += size;
+    }
+    seen += body.artifacts.length;
+    if (seen >= body.total_count || body.artifacts.length === 0) return sum;
+  }
+  throw new Error(`więcej niż ${MAX_ARTIFACT_PAGES * 100} artefaktów`);
 }
 
 /** Próg ostrzeżenia dla pomiaru (config.limits) i opis do raportu. */
@@ -110,6 +141,7 @@ export function thresholds(limits) {
     dbBytes: { warn: limits.supabaseDbBytesWarn, label: 'Rozmiar bazy Supabase', unit: 'bytes' },
     functionInvocationsPerMonth: { warn: limits.edgeFunctionInvocationsPerMonthWarn, label: 'Wywołania Edge Functions (ostatnie 24 h × 30)', unit: 'count' },
     actionsCacheBytes: { warn: limits.actionsCacheBytesWarn, label: 'Pamięć podręczna Actions', unit: 'bytes' },
+    actionsArtifactsBytes: { warn: limits.actionsArtifactsBytesWarn, label: 'Artefakty Actions', unit: 'bytes' },
   };
 }
 
@@ -141,13 +173,31 @@ export function report(results) {
   ].join('\n');
 }
 
-export async function main({ env = process.env, fetchFn = fetch, now = Date.now(), log = console.log, loadConfig } = {}) {
-  const token = env.SUPABASE_MONITOR_TOKEN;
-  if (!token) {
-    log('::notice::Brak sekretu SUPABASE_MONITOR_TOKEN — pomiar limitów i podtrzymanie projektu pominięte (docs/limits.md, D185).');
+/**
+ * Brak sekretu: ostrzeżenie do dnia `requiredFrom` (YYYY-MM-DD, UTC), potem błąd. Zwraca kod wyjścia.
+ */
+export function missingSecret(now, requiredFrom, log) {
+  const what = 'Brak sekretu SUPABASE_MONITOR_TOKEN (środowisko monitor) — pomiar limitów i podtrzymanie projektu Supabase pominięte; instrukcja: docs/limits.md (D185).';
+  if (now < Date.parse(`${requiredFrom}T00:00:00Z`)) {
+    log(`::warning::${what} Od ${requiredFrom} brak sekretu oblewa nocny przebieg.`);
     return 0;
   }
+  log(`::error::${what}`);
+  return 1;
+}
+
+/** Pierwszy dzień miesiąca (UTC): przypomnienie o ręcznym odczycie tego, czego API nie podaje. */
+export function monthlyReminder(now) {
+  if (new Date(now).getUTCDate() !== 1) return null;
+  return '::warning::Comiesięczny odczyt ręczny: panel Supabase → Usage (egress, wiadomości Realtime, połączenia Realtime) i GitHub → Settings → Billing (docs/limits.md).';
+}
+
+export async function main({ env = process.env, fetchFn = fetch, now = Date.now(), log = console.log, loadConfig } = {}) {
   const { config } = await (loadConfig ?? (() => import('../../src/config/index.ts')))();
+  const reminder = monthlyReminder(now);
+  if (reminder) log(reminder);
+  const token = env.SUPABASE_MONITOR_TOKEN;
+  if (!token) return missingSecret(now, config.limits.monitorSecretRequiredFrom, log);
   const ref = projectRef(config.SUPABASE_URL);
   const measured = await measure({ fetchFn, token, ref, now, github: { token: env.GITHUB_TOKEN, repository: env.GITHUB_REPOSITORY } });
   const results = evaluate(measured, config.limits);
