@@ -18,7 +18,7 @@ async function openTask(title: string, base = sampleBase()) {
   await screen.findByTestId('screen-today');
   await press(screen.getByLabelText('Listy'));
   await press(await screen.findByTestId('list-lf'));
-  await press(await screen.findByLabelText(new RegExp(`^Otwórz: ${title}(,|$)`)));
+  await press(await screen.findByLabelText(new RegExp(`^${title}(,|$)`)));
   await screen.findByTestId('screen-task');
   return s;
 }
@@ -104,7 +104,7 @@ describe('termin (M-89, M-206, M-245)', () => {
 describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
   it('„jak nadrzędne”: bez przełącznika „Gdy nie zrobisz w terminie”, z opisem; własny dzień i powrót do „Jak zadanie nadrzędne”', async () => {
     const s = await openTask('Kupić kwiaty', withSub());
-    await press(screen.getByLabelText(/^Otwórz: Wybrać tulipany(,|$)/));
+    await press(screen.getByLabelText(/^Wybrać tulipany(,|$)/));
     await screen.findByText('Gdy nie zrobisz w terminie: jak zadanie nadrzędne.');
     expect(screen.queryByLabelText('Gdy nie zrobisz w terminie')).toBeNull();
     expect(radio('Kiedy', 'Jak zadanie nadrzędne').props.accessibilityState.selected).toBe(true);
@@ -123,10 +123,10 @@ describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
 
   it('wiersze podzadań jak na liście: termin, osoba, „czeka na wysłanie”', async () => {
     await openTask('Kupić kwiaty', withSub({ deadline_mode: 'own', due_date: '2026-10-07', assignee_member_id: 'ala' }));
-    expect(screen.getByLabelText(/^Otwórz: Wybrać tulipany, .*dziś.*Ala/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Wybrać tulipany, .*dziś.*Ala/)).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'wstążka');
     await press(screen.getByLabelText('Dodaj'));
-    expect(within(screen.getByLabelText(/^Otwórz: wstążka/)).getByText(/czeka na wysłanie/)).toBeTruthy();
+    expect(within(screen.getByLabelText(/^wstążka/)).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 
   it('dodawanie jak szybkie dodawanie: „jutro” to chip (termin); odklikany zostaje w nazwie; sam termin — komunikat', async () => {

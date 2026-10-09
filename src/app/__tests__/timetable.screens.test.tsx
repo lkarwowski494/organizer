@@ -43,7 +43,9 @@ describe('plan lekcji (D112)', () => {
     await fireEvent.changeText(screen.getByTestId('lesson-title-1'), 'Plastyka');
     await setTime('lesson-end-1', '08:00');
     await press(screen.getByTestId('timetable-save'));
-    expect(screen.getByText(/Koniec musi być/)).toBeTruthy();
+    // Audyt 2 (M-39, A-21): błąd w karcie lekcji i przy „Zapisz” — której lekcji dotyczy.
+    expect(within(screen.getByTestId('timetable-day-0')).getByText(/^Koniec musi być/)).toBeTruthy();
+    expect(screen.getByText(/^Popraw lekcję 2, poniedziałek: Koniec musi być/)).toBeTruthy();
     await setTime('lesson-end-1', '09:30');
     await press(radio('Kiedy, lekcja 2, poniedziałek', 'Tydzień B'));
     await press(screen.getByTestId('lesson-add-2'));
@@ -155,8 +157,8 @@ describe('plan lekcji (D112)', () => {
     await press(screen.getByTestId('lesson-add-1'));
     await press(screen.getByTestId('lesson-add-1'));
     expect(screen.getByLabelText('Lekcja 2, wtorek')).toBeTruthy();
-    expect(screen.getByLabelText(/^Początek, lekcja 2, wtorek: /)).toBeTruthy();
-    expect(screen.getByLabelText(/^Koniec, lekcja 2, wtorek: /)).toBeTruthy();
+    expect(screen.getByLabelText(/^Początek, lekcja 2, wtorek$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Koniec, lekcja 2, wtorek$/)).toBeTruthy();
     expect(screen.getByLabelText('Usuń lekcję 2, wtorek')).toBeTruthy();
     expect(screen.getByLabelText('Usuń lekcję 1, poniedziałek')).toBeTruthy();
     await press(screen.getByLabelText('Usuń lekcję 1, sobota'));

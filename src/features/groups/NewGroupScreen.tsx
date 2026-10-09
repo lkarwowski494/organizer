@@ -1,7 +1,7 @@
 /** Nowa grupa (RPC create_group — wymaga internetu): nazwa i moje imię w tej grupie. */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import { Text, type TextInput } from 'react-native';
+import type { TextInput } from 'react-native';
 
 import { useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
@@ -9,15 +9,13 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Button, Field, Screen, Title } from '../../ui/components';
-import { useTheme } from '../../ui/theme';
+import { BackButton, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
 export function NewGroupScreen({ navigation, route }: Props) {
   const { account, newId, displayName, store, prefs } = useServices();
-  const { c, font } = useTheme();
   const [name, setName] = useState(route.params?.name ?? '');
   const [me, setMe] = useState(displayName);
   const [busy, setBusy] = useState(false);
@@ -59,9 +57,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
       <DraftNote draft={draft} />
       {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
       <Field label={strings['groups.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.GROUP_NAME} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => myField.current?.focus()} testID="group-name" />
-      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
-      <Button label={strings['groups.create']} onPress={create} disabled={busy} testID="create-group" />
+      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      <Button label={strings['groups.create']} onPress={create} busy={busy} testID="create-group" />
     </Screen>
   );
 }

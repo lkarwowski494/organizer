@@ -52,7 +52,7 @@ describe('PW-37 A (M-118): formularze wydarzenia, rutyny i listy startują z „
 describe('M-131: rzeczy, której nie ma — powód zamiast „Spróbuj jeszcze raz”', () => {
   it('zadanie i lista znikają z danych (np. utrata dostępu) — ekran mówi, co się stało', async () => {
     const s = await open();
-    await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę/));
+    await press(screen.getByLabelText(/^Odebrać paczkę,/));
     await screen.findByTestId('screen-task');
     s.store.pull((b) => {
       const tasks = { ...b.tasks };
@@ -114,7 +114,7 @@ describe('PWD-30 A (M-299): wybór osoby w dużej grupie z wyszukiwaniem', () =>
     const base = sampleBase();
     ['Żaneta', 'Łucja', 'Marek', 'Ewa', 'Ola', 'Piotr'].forEach((n, i) => put(base, 'group_members', `p${i}`, { member_id: `p${i}`, group_id: 'gk', user_id: `u-p${i}`, display_name: n, role: 'member', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 }));
     const s = await open(base);
-    await press(screen.getByLabelText(/^Otwórz: Przynieść korki na trening/));
+    await press(screen.getByLabelText(/^Przynieść korki na trening,/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Dla kogo: Nikt konkretny. Zmień'));
     await fireEvent.changeText(screen.getByLabelText('Szukaj osoby'), 'lucj');
@@ -155,7 +155,7 @@ describe('PWD-30 A: wyszukiwanie także przy wielu osobach i przy przekazaniu; M
     const base = crowd();
     put(base, 'tasks', 't-korki', { ...base.tasks!['t-korki']!, assignee_member_id: 'mk' });
     await open(base);
-    await press(screen.getByLabelText(/^Otwórz: Przynieść korki na trening/));
+    await press(screen.getByLabelText(/^Przynieść korki na trening,/));
     await press(await screen.findByTestId('handoff-start'));
     await fireEvent.changeText(screen.getByTestId('handoff-search'), 'luc');
     const picker = screen.getByTestId('handoff-picker');
@@ -196,7 +196,7 @@ describe('M-130, PWD-7 A: zadania na ekranie wydarzenia', () => {
     await open(base);
     await press(screen.getByTestId('today-event-ev-2026-10-07'));
     await screen.findByTestId('screen-event');
-    expect(screen.getByLabelText('Otwórz: Spakować strój, 17:00, dla: Ala')).toBeTruthy();
+    expect(screen.getByLabelText('Spakować strój, 17:00, dla: Ala')).toBeTruthy();
     const done = screen.getByTestId('event-tasks-done');
     await press(within(done).getByLabelText('Zrobione (1), pokaż'));
     expect(within(done).getByLabelText('Oznacz jako niezrobione: Woda')).toBeTruthy();

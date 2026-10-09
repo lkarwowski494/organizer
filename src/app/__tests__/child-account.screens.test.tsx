@@ -159,8 +159,8 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
 describe('telefon dziecka z kontem', () => {
   it('Moje sprawy: tylko moje zadanie, zakupy bez pola odhaczenia, moje lekcje jednym wierszem bez imienia (P-70, R-11, N-38)', async () => {
     const s = await open({ base: childBase() });
-    expect(screen.getByLabelText(/^Otwórz: Przynieść korki na trening/)).toBeTruthy();
-    expect(screen.queryByLabelText(/^Otwórz: Zapłacić składkę/)).toBeNull();
+    expect(screen.getByLabelText(/^Przynieść korki na trening/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^Zapłacić składkę/)).toBeNull();
     // Zakupy widać (można otworzyć listę i odhaczać pozycje), ale bez pola „zrobione” — serwer go nie przyjmie.
     expect(within(screen.getByTestId('today-trip-lks')).queryByRole('checkbox')).toBeNull();
     expect(within(screen.getByTestId('today-t-korki')).getByRole('checkbox')).toBeTruthy();
@@ -185,7 +185,7 @@ describe('telefon dziecka z kontem', () => {
     await press(await screen.findByTestId('list-lk'));
     expect(within(screen.getByTestId('task-t-korki')).getByRole('checkbox')).toBeTruthy();
     expect(within(screen.getByTestId('task-t-skladka')).queryByRole('checkbox')).toBeNull();
-    await press(screen.getByLabelText(/^Otwórz: Zapłacić składkę/));
+    await press(screen.getByLabelText(/^Zapłacić składkę/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText(/^Oznacz jako zrobione/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));

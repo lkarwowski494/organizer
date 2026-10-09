@@ -28,7 +28,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, Segmented, Title, Toggles, MissingScreen } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
@@ -311,7 +311,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           options={[{ value: '', label: strings['event.responsibleNone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>
   );

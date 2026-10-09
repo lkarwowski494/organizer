@@ -26,7 +26,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Collapsible, GroupLine, MissingScreen, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Collapsible, ErrorText, GroupLine, MissingScreen, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { useRowMeta } from '../../app/row-meta';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
@@ -56,7 +56,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
-  const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
+  const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
   const meta = useRowMeta();
   const [doneOpen, setDoneOpen] = useState(false);
@@ -158,7 +158,7 @@ export function EventScreen({ route, navigation }: Props) {
     setCalendarMsg(null);
     // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
     const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
-    setCalendarMsg(r === 'saved' ? strings['event.calendarSaved'] : r === 'denied' ? strings['event.calendarDenied'] : null);
+    setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 
   const next = relink?.scope === 'this' ? nextOccurrence(tables, userId, eventId, date) : null;
@@ -226,7 +226,7 @@ export function EventScreen({ route, navigation }: Props) {
 
       {/* PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie — „Dodaj” zrobiłby nieaktualizowany dubel. */}
       {active ? inMirror ? <Body muted>{strings['event.inMirror'](inMirror)}</Body> : <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
-      {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
+      {calendarMsg === 'saved' ? <StatusText>{strings['event.calendarSaved']}</StatusText> : calendarMsg === 'denied' ? <ErrorText>{strings['event.calendarDenied']}</ErrorText> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
       {tasks.length === 0 && doneTasks.length === 0 ? <Body muted>{strings['event.noTasks']}</Body> : null}
@@ -276,9 +276,7 @@ export function EventScreen({ route, navigation }: Props) {
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (
           <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-            <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-              {strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}
-            </Text>
+            <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
             {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
@@ -288,9 +286,7 @@ export function EventScreen({ route, navigation }: Props) {
         )
       ) : ask === 'edit' || ask === 'cancel' ? (
         <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}
-          </Text>
+          <PanelTitle>{ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}</PanelTitle>
           {SCOPES.map((s) => (
             <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}
