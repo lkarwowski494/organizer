@@ -354,7 +354,7 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
     const row = await screen.findByTestId('trash-gf');
     expect(within(row).getByText('Rodzina')).toBeTruthy();
     expect(within(row).getByText('usunięcie za 29 dni')).toBeTruthy();
-    expect(within(row).queryByText('›')).toBeNull();
+    expect(within(row).queryByTestId('glyph-next', { includeHiddenElements: true })).toBeNull();
     await press(within(row).getByLabelText('Przywróć: Rodzina'));
     expect(s.account.restoreGroup).toHaveBeenCalledWith('gf');
     expect(s.store.refresh).toHaveBeenCalled();
@@ -397,7 +397,7 @@ describe('wybór terminu i nowa lista (audyt 2, G-14, P-71)', () => {
     const item = { eventId: 'ev', occurrenceDate: '2026-10-09', date: '2026-10-09', title: 'Tańce', startTime: '17:00', endTime: '18:00', line: 1 } as Occurrence;
     await render(s.wrap(<OccurrencePicker items={[item]} today={{ y: 2026, m: 10, d: 7 }} onPick={onPick} onCancel={() => {}} />));
     const row = screen.getByTestId('pick-ev-2026-10-09');
-    expect(within(row).queryByText('›')).toBeNull();
+    expect(within(row).queryByTestId('glyph-next', { includeHiddenElements: true })).toBeNull();
     await press(row);
     expect(onPick).toHaveBeenCalledWith(item);
   });

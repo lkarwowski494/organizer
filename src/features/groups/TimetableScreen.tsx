@@ -21,8 +21,8 @@ import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps,
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
-import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
-import { TimeField } from '../../ui/TimeField';
+import { BackButton, Body, Button, Card, ErrorText, Field, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 
@@ -121,16 +121,12 @@ export function TimetableScreen({ route, navigation }: Props) {
             const wd = WEEKDAYS_NOMINATIVE[day]!;
             const a11y = (field: string) => strings['timetable.fieldA11y'](field, n, wd);
             return (
-              <View key={i} style={{ gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: error?.index === i ? c.danger : c.border }}>
+              <Card kind="panel" key={i} style={{ borderColor: error?.index === i ? c.danger : c.border }}>
                 <Field label={strings['timetable.lesson']} accessibilityLabel={strings['timetable.lessonA11y'](n, wd)} value={l.title} onChangeText={(title) => set(i, { title })} testID={`lesson-title-${i}`} />
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <TimeField label={strings['event.start']} a11yLabel={a11y(strings['event.start'])} value={l.start} onChange={(start) => set(i, { start })} testID={`lesson-start-${i}`} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <TimeField label={strings['timetable.end']} a11yLabel={a11y(strings['timetable.end'])} value={l.end} onChange={(end) => set(i, { end })} testID={`lesson-end-${i}`} />
-                  </View>
-                </View>
+                <TimeFieldPair
+                  start={{ label: strings['event.start'], a11yLabel: a11y(strings['event.start']), value: l.start, onChange: (start) => set(i, { start }), testID: `lesson-start-${i}` }}
+                  end={{ label: strings['timetable.end'], a11yLabel: a11y(strings['timetable.end']), value: l.end, onChange: (end) => set(i, { end }), testID: `lesson-end-${i}` }}
+                />
                 <Segmented
                   label={strings['timetable.week']}
                   a11yLabel={a11y(strings['timetable.week'])}
@@ -145,7 +141,7 @@ export function TimetableScreen({ route, navigation }: Props) {
                 {/* Audyt 2 (M-39, A-21): błąd przy lekcji tekstem, nie tylko czerwoną ramką; ogłasza go napis przy „Zapisz”. */}
                 {error?.index === i ? <ErrorText silent>{error.text}</ErrorText> : null}
                 <Button kind="danger" label={strings['timetable.remove']} a11yLabel={strings['timetable.removeA11y'](n, wd)} onPress={() => (setLessons(lessons.filter((_, j) => j !== i)), setError(null))} />
-              </View>
+              </Card>
             );
           })}
           <Button kind="secondary" label={strings['timetable.add'](WEEKDAYS_NOMINATIVE[day]!)} testID={`lesson-add-${day}`} onPress={() => add(day)} />

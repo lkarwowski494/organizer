@@ -26,7 +26,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -40,7 +40,7 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
   const { tables, today } = useAppData();
-  const { c, font, line } = useTheme();
+  const { c, font, line, size } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
   const { eventId: linked, date: linkedDate } = route.params;
@@ -154,7 +154,7 @@ export function EventScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{ width: 20, height: 20, borderRadius: 5, backgroundColor: line(d.line).line }} />
-        <Text style={{ fontFamily: font.text700, fontSize: 15, color: line(d.line).ink }}>{d.groupName}</Text>
+        <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: line(d.line).ink }}>{d.groupName}</Text>
       </View>
       <Title>{occ.title}</Title>
       <Body>{when}</Body>
@@ -232,7 +232,7 @@ export function EventScreen({ route, navigation }: Props) {
           <Body muted>{strings['event.seriesTasks']}</Body>
           {defs.map((s) => (
             <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ flex: 1, fontFamily: font.text600, fontSize: 16, color: c.ink }}>{s.title}</Text>
+              <Text style={{ flex: 1, fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{s.title}</Text>
               {/* Audyt 2 (M-225, G-19): kończy stałe zadanie — czerwony i z „Cofnij” (D60), jak inne usuwanie. */}
               {d.canEdit ? <Button kind="danger" label={strings['event.seriesStop'](s.title)} testID={`series-stop-${s.id}`} onPress={() => stopSeries(s)} /> : null}
             </View>
@@ -266,23 +266,23 @@ export function EventScreen({ route, navigation }: Props) {
         relink.picking ? (
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (
-          <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+          <Card kind="panel">
             <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
             {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
             <Button kind="danger" label={strings['event.relinkDelete']} testID="relink-delete" onPress={() => finish(relink.scope, { kind: 'delete' })} />
             <Button kind="secondary" label={strings['common.cancel']} onPress={() => setRelink(null)} />
-          </View>
+          </Card>
         )
       ) : ask === 'edit' || ask === 'cancel' ? (
-        <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
+        <Card kind="panel">
           <PanelTitle>{ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}</PanelTitle>
           {SCOPES.map((s) => (
             <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
-        </View>
+        </Card>
       ) : (
         <View style={{ gap: 8 }}>
           <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
