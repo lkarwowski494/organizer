@@ -23,8 +23,9 @@ import { useTaskActions } from '../../app/task-actions';
 import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDoneRows, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
+import { InTrashScreen } from '../groups/TrashSection';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -93,10 +94,9 @@ export function ListScreen({ route, navigation }: Props) {
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
   const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)), { empty: strings['lists.error.nameEmpty'] });
 
+  // Audyt 3 (N-36): usunięta — jak kosz („W koszu · Przywróć”, gdy kosz by ją pokazał), inaczej „Tej listy już nie ma”.
   if (!detail) {
-    return (
-      <MissingScreen testID="screen-list-missing" text={strings['missing.list']} onBack={() => navigation.goBack()} />
-    );
+    return <InTrashScreen entity="lists" id={route.params.listId} missing={strings['missing.list']} testID="screen-list" onBack={() => navigation.goBack()} />;
   }
   const { list } = detail;
   const shopping = list.kind === 'shopping';

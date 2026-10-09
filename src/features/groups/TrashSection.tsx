@@ -14,7 +14,7 @@ import { type TrashedGroup, trashedGroups } from '../../domain/views';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { TRASH_KINDS, type TrashEntry, type TrashKind, trashView } from '../../domain/views/trash';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, CardTitle, ErrorText, SectionTitle } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, MissingScreen, Screen, SectionTitle, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { absoluteDay } from './dates';
@@ -30,6 +30,41 @@ function TrashRow({ id, title, meta, onRestore, restoreLabel }: { id: string; ti
       </View>
       {onRestore ? <Button kind="secondary" label={strings['groups.restoreButton']} a11yLabel={restoreLabel} testID={`restore-${id}`} onPress={onRestore} /> : null}
     </View>
+  );
+}
+
+/**
+ * Przywrócenie rzeczy z kosza — w koszu i na ekranie rzeczy w koszu (audyt 3, N-36): zwykła zmiana z paskiem
+ * „Przywrócono: … · Cofnij”, jak usunięcie (D60).
+ */
+function useTrashRestore() {
+  const { store } = useServices();
+  const undo = useUndo();
+  return (e: TrashEntry) => {
+    const ops: NewOp[] = [{ kind: 'restore', entity: e.entity, id: e.id }];
+    store.dispatch(ops);
+    undo.show(strings['groups.restored'](e.title), { ops: [{ kind: 'delete', entity: e.entity, id: e.id }] }, { changed: ops });
+  };
+}
+
+/**
+ * Ekran usuniętego zadania, pozycji, listy albo wydarzenia (otwarty, gdy ktoś je usunął, albo z linku) — jedna reguła
+ * (audyt 3, N-36): „W koszu · Przywróć” tylko wtedy, gdy kosz by tę rzecz pokazał (te same warunki: dorosły, rodzic
+ * i lista nie w koszu, termin kosza), z tym samym paskiem co w koszu. Inaczej — „Tego … już nie ma”.
+ */
+export function InTrashScreen({ entity, id, missing, testID, onBack }: { entity: TrashEntry['entity']; id: string; missing: string; testID: string; onBack: () => void }) {
+  const { userId, nowMs } = useServices();
+  const { tables } = useAppData();
+  const restore = useTrashRestore();
+  const e = trashView(tables, userId, nowMs()).find((x) => x.entity === entity && x.id === id);
+  if (!e) return <MissingScreen testID={`${testID}-missing`} text={missing} onBack={onBack} />;
+  return (
+    <Screen testID={`${testID}-trash`}>
+      <BackButton onPress={onBack} />
+      <Title>{e.title}</Title>
+      <Body muted>{[strings['trash.inTrash'], strings['groups.trashLeft'](e.daysLeft)].join(' · ')}</Body>
+      <Button label={strings['groups.restoreButton']} a11yLabel={strings['groups.restore'](e.title)} testID={`restore-${e.id}`} onPress={() => restore(e)} />
+    </Screen>
   );
 }
 
@@ -70,11 +105,7 @@ export function TrashSection() {
       );
     });
   };
-  const restore = (e: TrashEntry) => {
-    const ops: NewOp[] = [{ kind: 'restore', entity: e.entity, id: e.id }];
-    store.dispatch(ops);
-    undo.show(strings['groups.restored'](e.title), { ops: [{ kind: 'delete', entity: e.entity, id: e.id }] }, { changed: ops });
-  };
+  const restore = useTrashRestore();
   const meta = (e: TrashEntry) =>
     [e.groupName, e.listName, e.kind === 'list' && e.tasks > 0 ? strings['trash.withTasks'](e.tasks, e.shopping) : null, strings['groups.trashLeft'](e.daysLeft)].filter(Boolean).join(' · ');
 

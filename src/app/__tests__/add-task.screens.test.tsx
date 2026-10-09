@@ -2,6 +2,7 @@
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
+import { materialize } from '../../domain/sync-engine/client';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask } from '../../domain/views/commands';
 import { RootStack } from '../navigation';
@@ -42,30 +43,43 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     const before = store.dispatched.length;
     await press(within(panel).getByLabelText('Rodzina'));
     // D97: ogólna lista „Zadania” grupy — powstaje, bo jej nie było; kopia zadania i obu podzadań, oryginał do kosza.
+    // Audyt 3 (N-12): jedno polecenie serwera (wszystko albo nic) z listą, kopiami i źródłami kopii.
     const moved = store.dispatched.slice(before);
-    expect(moved.map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['create', 'lists'], ['create', 'tasks'], ['create', 'tasks'], ['create', 'tasks'], ['delete', 'tasks']]);
-    expect(moved[1]).toMatchObject({ group_id: 'gf', set: { list_id: (moved[0] as { id: string }).id, title: 'Basen', due_date: '2026-10-08', due_time: '19:00', parent_id: null } });
-    expect(moved[2]).toMatchObject({ group_id: 'gf', set: { title: 'czepek 0', parent_id: (moved[1] as { id: string }).id } });
-    expect(moved[4]).toEqual({ kind: 'delete', entity: 'tasks', id: created.id });
+    expect(moved).toHaveLength(1);
+    expect(moved[0]).toMatchObject({ kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: created.id, group_id: 'gf', list: { set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } } } });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(within(screen.getByTestId('undo-bar')).getByText('Przeniesiono do „Rodzina”: Basen')).toBeTruthy();
+    // Kopie są od razu w nowej grupie (skutek polecenia na telefonie), oryginał — w koszu ze znacznikiem przeniesienia.
+    const tables = materialize(store.getSnapshot().state);
+    expect(tables.tasks!['new-3']).toMatchObject({ group_id: 'gf', list_id: 'new-2', title: 'Basen', deleted_at: null });
+    expect(tables.tasks![created.id]).toMatchObject({ moved_to: 'new-3' });
     await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
-    // Utworzenie, podzadania z drugiego ekranu, przeniesienie (lista, kopie, oryginał do kosza) i cofnięcie (oryginał wraca, kopie i lista do kosza).
+    // Utworzenie, podzadania z drugiego ekranu, przeniesienie i cofnięcie (kopia do kosza ze znacznikiem powrotu, oryginał wraca).
     expectOps(store, [
       { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00' } },
       { kind: 'create', entity: 'tasks', id: 'sub-0', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 0', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
       { kind: 'create', entity: 'tasks', id: 'sub-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 1', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
-      { kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } },
-      { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'Basen', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', rollover: true } },
-      { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 0', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
-      { kind: 'create', entity: 'tasks', id: 'new-5', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 1', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
-      { kind: 'delete', entity: 'tasks', id: 'new-1' },
-      { kind: 'restore', entity: 'tasks', id: 'new-1' },
-      { kind: 'delete', entity: 'tasks', id: 'new-5' },
-      { kind: 'delete', entity: 'tasks', id: 'new-4' },
-      { kind: 'delete', entity: 'tasks', id: 'new-3' },
-      { kind: 'delete', entity: 'lists', id: 'new-2' },
+      {
+        kind: 'cmd',
+        cmd: 'move_task_to_group',
+        args: {
+          task_id: 'new-1',
+          group_id: 'gf',
+          list: { id: 'new-2', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } },
+          tasks: [
+            { id: 'new-3', from: 'new-1', set: { list_id: 'new-2', parent_id: null, title: 'Basen', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', rollover: true } },
+            { id: 'new-4', from: 'sub-0', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 0', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
+            { id: 'new-5', from: 'sub-1', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 1', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
+          ],
+        },
+      },
+      { kind: 'cmd', cmd: 'unmove_task', args: { task_id: 'new-1', copy_id: 'new-3', title: 'Basen' } },
     ]);
+    const after = materialize(store.getSnapshot().state);
+    expect(after.tasks!['new-1']).toMatchObject({ deleted_at: null, moved_to: null });
+    expect(after.tasks!['sub-0']!.deleted_at).toBeNull();
+    expect(after.tasks!['new-3']).toMatchObject({ moved_to: 'new-1' });
+    expect(after.tasks!['new-3']!.deleted_at).not.toBeNull();
   });
 
   it('podzadanie i zadanie w trakcie przekazania nie mają „Przenieś do grupy”', async () => {

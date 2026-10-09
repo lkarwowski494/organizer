@@ -507,7 +507,7 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     expect(await screen.findByText('Czwartek, 8 października · 17:00–18:00 · 1 h')).toBeTruthy();
   });
 
-  it('wydarzenie usunięte w międzyczasie: komunikat błędu', async () => {
+  it('wydarzenie usunięte w międzyczasie: jak w koszu — „W koszu · Przywróć” z paskiem (audyt 3, N-36); kosza nie ma — „już nie ma”', async () => {
     const s = setup({ base: withDances() });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
@@ -515,6 +515,12 @@ describe('Wydarzenia: widoczność i uprawnienia', () => {
     await screen.findByTestId('screen-event');
     // Wydarzenie usunięte w międzyczasie (np. przez inną osobę).
     await act(async () => s.store.dispatch({ kind: 'delete', entity: 'events', id: 'ev-tance' }));
+    expect(await screen.findByTestId('screen-event-trash')).toBeTruthy();
+    await press(screen.getByLabelText(/^Przywróć: /));
+    expect(await screen.findByTestId('screen-event')).toBeTruthy();
+    expect(within(screen.getByTestId('undo-bar')).getByText(/^Przywrócono: /)).toBeTruthy();
+    // Po wyczyszczeniu kosza (wiersza już nie ma) — „Tego wydarzenia już nie ma”.
+    await act(async () => s.store.pull((b) => ({ ...b, events: Object.fromEntries(Object.entries(b.events ?? {}).filter(([k]) => k !== 'ev-tance')) })));
     expect(await screen.findByTestId('screen-event-missing')).toBeTruthy();
   });
 });

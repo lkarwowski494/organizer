@@ -18,7 +18,7 @@ import { formatRepeat, repeatOf } from './task-repeat';
 import { occurrences, parseRule } from '../rrule';
 import { memberCanSeeList } from './visibility';
 import type { MyScope } from './my-scope';
-import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
+import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, stampMs, type Tables, type Task } from './model';
 
 export * from './model';
 
@@ -156,7 +156,8 @@ export function removedMembers(t: Tables, userId: string, groupId: string, nowMs
   const day = 86_400_000;
   return rows(t, 'group_members', (r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
     .filter(({ m, removedAt }) => m.group_id === groupId && m.deleted_at !== null && typeof removedAt === 'string' && (me.role === 'owner' || m.role === 'member' || m.role === 'child'))
-    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((Date.parse(removedAt as string) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
+    // Audyt 3 (N-171): usunięcie niewysłane („pending:N”) liczy się od teraz (stampMs).
+    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((stampMs(removedAt, nowMs) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
     .filter((m) => m.daysLeft > 0)
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
