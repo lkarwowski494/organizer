@@ -63,12 +63,8 @@ export function TrashSection() {
     }
     mark(g, true);
     store.refresh();
-    undo.show(strings['groups.restored'](g.name), () => {
-      account.deleteGroup(g.id).then(
-        () => (mark(g, false), store.refresh()),
-        (e: unknown) => setError(groupErrorText(e)),
-      );
-    });
+    // Audyt 3 (N-34): błąd cofnięcia jak przy usunięciu grupy — pasek z „Spróbuj ponownie” (undo.tsx), nie napis w koszu.
+    undo.show(strings['groups.restored'](g.name), { run: () => account.deleteGroup(g.id).then(() => (mark(g, false), store.refresh())), failed: groupErrorText });
   };
   const restore = (e: TrashEntry) => {
     const ops: NewOp[] = [{ kind: 'restore', entity: e.entity, id: e.id }];
