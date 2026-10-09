@@ -5,13 +5,10 @@
  *  - całodniowe: liczba dni `days` (1 = jeden dzień). §3.6.1: „The "DTEND" property for a "VEVENT" calendar component
  *    specifies the non-inclusive end of the event” — koniec wyłączny = dzień startu + `days`; ostatni dzień, który
  *    pokazujemy („do dnia”), to dzień startu + `days` − 1. Długość zamiast daty końca, bo w serii każde wystąpienie trwa
- *    tyle samo: §3.8.5.3 „If the duration of the recurring component is specified with the "DTEND" or "DUE" property,
- *    then the same exact duration will apply to all the members of the generated recurrence set”, a wyjątek może ją
- *    zmienić: „The duration of a specific recurrence may be modified in an exception component” (event_overrides.days);
- *  - z godziną: długość w minutach `duration_min` — §3.8.2.5 DURATION: „In a "VEVENT" calendar component the property
- *    may be used to specify a duration of the event, instead of an explicit end DATE-TIME” (tam „dur-time”, dla dat
- *    „dur-day”: „When the "DURATION" property relates to a "DTSTART" property that is specified as a DATE value, then the
- *    "DURATION" property MUST be specified as a "dur-day" or "dur-week" value” — stąd `days` dla całodniowych).
+ *    tyle samo: §3.8.5.3 „the same exact duration will apply to all the members of the generated recurrence set”,
+ *    a wyjątek może ją zmienić (tamże; event_overrides.days);
+ *  - z godziną: długość w minutach `duration_min` — §3.8.2.5 DURATION pozwala podać długość wydarzenia zamiast końca
+ *    (dla dat jako „dur-day” albo „dur-week” — stąd `days` dla całodniowych).
  *    `null` = długość z godzin: koniec po początku — ten sam dzień, koniec nie później niż początek („22:00–06:00”,
  *    „8:00–8:00” = doba) — następnego dnia. Dłuższe (pt. 18:00 – nd. 16:00) mają `duration_min`; godzina końca zostaje
  *    w wierszu i musi się zgadzać z początkiem + długością (inaczej serwer zeruje długość — zmiana godzin z buildu 21).

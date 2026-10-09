@@ -11,7 +11,7 @@
  *    https://reactnative.dev/docs/0.86/accessibilityinfo — „isScreenReaderEnabled() … resolves to a boolean”,
  *    „screenReaderChanged … The argument to the event handler is a boolean”, „sendAccessibilityEvent … like changing
  *    the focused element for a screen reader” (zamiast przestarzałego setAccessibilityFocus). accessibilityLiveRegion
- *    działa tylko na Androidzie (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android).
+ *    działa tylko poza iOS (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android).
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';

@@ -24,7 +24,7 @@ opcja („jak zadania”) jest więc stanem obecnym; nowe w D88 jest tylko powia
 3. **D83 Samosprawdzenie telefonu (S3, S4):** raz na wersję zgłoszenie „diagnostic”: strefa czasowa przy zmianach czasu, polskie litery, wersja SQLite, JSON, wycofanie transakcji. Wynik w tabeli `client_errors` w panelu Supabase.
 4. **D85 Działy:**
    - Lista i kolejność działów to konwencja aplikacji, nie twierdzenie o układzie sklepów.
-   - Strony sklepów internetowych (Frisco, Auchan, Carrefour, Biedronka) nie dały się przeczytać. Otwarte pytanie O-059: porównać nazwy działów z drzewem kategorii polskiego sklepu.
+   - Strony czterech polskich sklepów internetowych nie dały się przeczytać. Otwarte pytanie O-059: porównać nazwy działów z drzewem kategorii polskiego sklepu.
    - Słownik to heurystyka podpowiedzi, poprawiana ręcznie.
    - Ręczny wybór zapisany w pozycji (`tasks.category`). Pamięć grupy to najnowszy ręczny wybór dla tej samej nazwy, bez osobnej tabeli.
    - Audyt 2 (M-110): pamięć i podpowiedzi biorą też pozycje z kosza (po „Zakupy zrobione”); telefon trzyma je do
