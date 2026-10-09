@@ -120,6 +120,11 @@ export function contrastPairs(c: Palette): ContrastPair[] {
     { fg: c.inverseInk, bg: c.danger, kind: 'TEXT', use: 'plakietka „do potwierdzenia” na zakładce' },
     { fg: c.accentInk, bg: c.accentBg, kind: 'TEXT', use: 'aktywna zakładka' },
     { fg: c.inkTab, bg: c.accentBg, kind: 'TEXT', use: 'nieaktywna zakładka obok aktywnej' },
+    // Pary z ekranów, których brakowało w spisanym ręcznie korpusie (audyt 2, M-147: a11y.test.tsx sprawdza, że każda
+    // para kolor–tło z ekranów jest tutaj).
+    { fg: c.surface, bg: c.ink, kind: 'TEXT', use: 'wybrana opcja przełącznika (Segmented)' },
+    { fg: c.surface, bg: c.ok, kind: 'TEXT', use: '✓ na odhaczonym polu' },
+    { fg: c.ink, bg: c.ground, kind: 'NON_TEXT', use: 'obwódka wybranego dnia i pola wyboru' },
   ];
 }
 
