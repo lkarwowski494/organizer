@@ -262,7 +262,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
     // Para z inną specyfikacją (sameSpec) zawsze zmienia któreś pole.
     const base: NewOp[] = [{ kind: 'patch', entity: 'events', id: e.id, set: changed }, ...lost.map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id }))];
     const effects = seriesEditEffects(t, d, e.start_date, 'all', base);
-    const ops = seriesEditOps(d, base, effects, choice);
+    const ops = seriesEditOps(base, effects, choice);
     const tasks = taskUndo(t, decisionsOf(ops), e.id);
     return {
       ops,
@@ -287,7 +287,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
   };
   const cmd: NewOp[] = [{ kind: 'cmd', cmd: 'split_event', args }];
   const effects = seriesEditEffects(t, d, isoTomorrow, 'following', cmd);
-  const ops = seriesEditOps(d, cmd, effects, choice);
+  const ops = seriesEditOps(cmd, effects, choice);
   const tasks = taskUndo(t, (ops[0] as unknown as { args: SplitArgs }).args.tasks, id);
   const [first] = occurrences(oldStart, oldRule, tomorrow, addDays(tomorrow, LOOKAHEAD));
   return {

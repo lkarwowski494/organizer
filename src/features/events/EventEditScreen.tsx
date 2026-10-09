@@ -168,7 +168,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         today={today}
         choice={lostChoice}
         onChoice={setLostChoice}
-        onSave={() => commit(seriesEditOps(detail, preview.ops, preview.effects, lostChoice))}
+        onSave={() => commit(seriesEditOps(preview.ops, preview.effects, lostChoice))}
         onBack={() => setPreview(null)}
       />
     );

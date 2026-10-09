@@ -115,7 +115,7 @@ describe('kopie przy odwołaniu i zmianie serii', () => {
     const ops = editEvent(d(), '2026-10-19', 'following', { ...fields, startTime: '17:00' });
     const fx = seriesEditEffects(t, d(), '2026-10-19', 'following', ops);
     const created = splitId(id, '2026-10-19');
-    run(t, seriesEditOps(d(), ops, fx, 'nearest'));
+    run(t, seriesEditOps(ops, fx, 'nearest'));
     // Polecenie podziału przenosi definicję i kopie z terminów od 19.10.
     expect(t.event_task_series![SERIES]!.event_id).toBe(created);
     expect(t.tasks![copyId(SERIES, '2026-10-19')]).toMatchObject({ event_id: created, occurrence_date: '2026-10-19' });
@@ -126,7 +126,7 @@ describe('kopie przy odwołaniu i zmianie serii', () => {
     run(w.t, fillOps(w.t, ME, TODAY));
     const all = editEvent(w.d(), '2026-10-12', 'all', { ...w.fields, rule: parseRule('FREQ=WEEKLY;BYDAY=TU') });
     const fx2 = seriesEditEffects(w.t, w.d(), '2026-10-12', 'all', all);
-    const out2 = seriesEditOps(w.d(), all, fx2, 'nearest').slice(all.length);
+    const out2 = seriesEditOps(all, fx2, 'nearest').slice(all.length);
     expect(out2.every((o) => o.kind === 'delete' && o.entity === 'tasks')).toBe(true);
     expect(out2).toHaveLength(config.SERIES_TASK_WEEKS);
     run(w.t, [...all, ...out2]);
@@ -138,7 +138,7 @@ describe('kopie przy odwołaniu i zmianie serii', () => {
     run(t, fillOps(t, ME, TODAY));
     // Podział od 28.12 (poza oknem kopii); 30.11 — kopie na 7.12, 14.12 i 21.12 (stara część) i od 28.12 (nowa).
     const ops = editEvent(d(), '2026-12-28', 'following', { ...fields, startTime: '17:00' });
-    run(t, seriesEditOps(d(), ops, seriesEditEffects(t, d(), '2026-12-28', 'following', ops), 'nearest'));
+    run(t, seriesEditOps(ops, seriesEditEffects(t, d(), '2026-12-28', 'following', ops), 'nearest'));
     expect(t.event_task_series![SERIES]!.event_id).toBe(splitId(id, '2026-12-28'));
     const later = fillOps(t, ME, parseIsoDate('2026-11-30'));
     expect(later.map((o) => [o.kind === 'create' ? o.set.event_id : '?', dates([o])[0]])).toEqual([
