@@ -1,5 +1,6 @@
 /** Kto widzi listę — reguła jak `private.member_can_see_list` na serwerze (supabase/migrations/20261006120100_lists_tasks.sql). */
-import type { Row } from '../sync-engine/client';
+import { applyOp, type Op, type Row } from '../sync-engine/client';
+import { createList } from '../views/commands';
 import { memberCanSeeList } from '../views/visibility';
 
 type T = { [e: string]: { [id: string]: Row } };
@@ -47,5 +48,29 @@ describe('kto widzi listę (audyt 2)', () => {
     expect(memberCanSeeList(t, 'ja', 'wybrane')).toBe(true);
     expect(memberCanSeeList(t, 'ala', 'wybrane')).toBe(false);
     expect(memberCanSeeList({}, 'ala', 'cala')).toBe(false);
+  });
+
+  it('N-170: świeża lista „Tylko ja” (przed odpowiedzią serwera, bez właściciela) — widzi ją konto tego telefonu', () => {
+    const t: T = {
+      groups: { 'u-me': { id: 'u-me', kind: 'personal', deleted_at: null }, g: { id: 'g', kind: 'shared', deleted_at: null } },
+      group_members: {
+        me: { member_id: 'me', group_id: 'g', user_id: 'u-me', deleted_at: null },
+        ala: { member_id: 'ala', group_id: 'g', user_id: 'u-ala', deleted_at: null },
+        tymek: { member_id: 'tymek', group_id: 'g', user_id: null, deleted_at: null },
+      },
+      lists: {},
+    };
+    const op = createList({ id: 'l1', groupId: 'g', kind: 'shopping', name: 'Prezenty', visibility: 'private', trip: { date: null, time: null, responsibleId: 'me' } });
+    applyOp(t, { ...op, seq: 1, op_id: 'o1' } as Op);
+    // Właściciela nadaje serwer — telefon go nie wysyła.
+    expect(op.kind === 'create' && 'owner_member_id' in op.set).toBe(false);
+    expect(memberCanSeeList(t, 'me', 'l1')).toBe(true);
+    expect(memberCanSeeList(t, 'ala', 'l1')).toBe(false);
+    expect(memberCanSeeList(t, 'tymek', 'l1')).toBe(false);
+    // Bez znanej grupy osobistej — nikt (jak przed poprawką).
+    delete t.groups!['u-me'];
+    expect(memberCanSeeList(t, 'me', 'l1')).toBe(false);
+    delete t.groups;
+    expect(memberCanSeeList(t, 'me', 'l1')).toBe(false);
   });
 });
