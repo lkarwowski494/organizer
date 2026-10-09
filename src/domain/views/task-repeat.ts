@@ -286,8 +286,9 @@ export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, lo
     let seq = 0;
     for (const op of ops) {
       applyOp(out as { [e: string]: { [id: string]: Row } }, { ...op, seq: ++seq, op_id: '' } as Op);
-      const row = op.kind === 'create' ? tasks[op.id]! : null;
-      if (row?.parent_id != null) index.set(String(row.parent_id), [...(index.get(String(row.parent_id)) ?? []), row]);
+      // Tu same utworzenia: kopię dokładamy tylko, gdy następnego nie ma (copyable).
+      const row = tasks[(op as Extract<NewOp, { kind: 'create' }>).id]!;
+      if (row.parent_id != null) index.set(String(row.parent_id), [...(index.get(String(row.parent_id)) ?? []), row]);
     }
   };
   put(missingRepeatOps(out, today, all, localDate));

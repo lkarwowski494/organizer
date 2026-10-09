@@ -317,6 +317,12 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     expect(out.tasks![nextId('t2')]?.due_date).toBe('2026-10-13');
     expect(Object.keys(t.tasks!)).toEqual(['t1', 't2', 'p1', 'p2']);
     expect(withUpcomingCopies({}, d('2026-10-12'), 1, (iso) => iso)).toEqual({ tasks: {} });
+    // Podzadanie z własnym powtarzaniem: jego następne powstaje razem z następnym zadania nadrzędnego — nie drugi raz.
+    const sub = g();
+    sub.tasks!.t1 = { ...sub.tasks!.t1!, repeat: 'FREQ=DAILY', rollover: false };
+    sub.tasks!.s = { ...sub.tasks!.t1!, id: 's', parent_id: 't1', repeat: 'FREQ=WEEKLY;BYDAY=MO' };
+    const o = withUpcomingCopies(sub, d('2026-10-12'), 2, (iso) => iso.slice(0, 10));
+    expect([o.tasks![nextId('s')]?.parent_id, o.tasks![nextId('s')]?.repeat]).toEqual([nextId('t1'), undefined]);
   });
 
   it('audyt 3 (N-27, własność): przewidywanie = dokładanie dzień po dniu (missingRepeatOps, potem expiredRepeatOps każdego dnia)', () => {
