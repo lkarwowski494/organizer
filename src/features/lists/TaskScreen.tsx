@@ -167,7 +167,9 @@ export function TaskScreen({ route, navigation }: Props) {
     if (task.deadline_mode !== 'inherit') store.dispatch(inheritDue(task.id));
   };
   // Podzadanie dodaje się jak w polu dodawania (M-244): rozpoznane fragmenty to chipy do odklikania.
-  const subParsed = parseQuickAdd(sub, now(), { ignore: subIgnore });
+  // Bez powtarzania (audyt 3, N-124): podzadanie się nie powtarza (powtarza się zadanie z podzadaniami), więc „co tydzień”
+  // zostaje w nazwie — dotąd chip obiecywał powtarzanie, którego zapis nie miał.
+  const subParsed = parseQuickAdd(sub, now(), { ignore: subIgnore, recurrence: false });
   const addSub = () => {
     if (sub.trim() === '') return;
     if (subParsed.title.trim() === '') return setSubError(strings['form.error.title']);
@@ -373,7 +375,7 @@ export function TaskScreen({ route, navigation }: Props) {
           ))}
           {canEdit ? (
             <QuickAddField value={sub} onChangeText={(v) => (setSub(v), setSubIgnore([]), setSubError(null))} onSubmit={addSub} placeholder={strings['task.addSubtask']}>
-              <QuickAddExtras preview={{ tokens: subParsed.tokens, event: false, unrecognizedDay: subParsed.unrecognizedDay }} error={subError} onUnclick={(t) => setSubIgnore([...subIgnore, { start: t.start, end: t.end }])} />
+              <QuickAddExtras preview={{ tokens: subParsed.tokens, event: false, unrecognizedDay: subParsed.unrecognizedDay, farDate: subParsed.farDate }} error={subError} onUnclick={(t) => setSubIgnore([...subIgnore, { start: t.start, end: t.end }])} />
             </QuickAddField>
           ) : null}
         </View>

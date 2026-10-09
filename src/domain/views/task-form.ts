@@ -140,7 +140,7 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
   const due = date ? { date, time: f.time.trim() || null } : null;
   const g = generalList(t, userId, f.groupId, newId);
   const id = newId();
-  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null }, assigneeId: f.assigneeId })];
+  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null, farDate: null }, assigneeId: f.assigneeId })];
   if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
   return { ops, taskId: id };
 }
