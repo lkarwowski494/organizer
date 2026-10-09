@@ -7,7 +7,9 @@ import * as fc from 'fast-check';
 
 import { config } from '../../config';
 import { parseIsoDate } from '../format';
-import { coveredDays, dayWhen, daySpan, endsNextDay, isContinuation, lengthMinutes } from '../span';
+import { clockMinutes, coveredDays, dayWhen, daySpan, endDayOffset, endsNextDay, isContinuation, lengthMinutes, storedDuration } from '../span';
+import { applySplit } from '../event-split';
+import { formOf, validateForm, emptyForm } from '../views/event-form';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { agenda } from '../views/agenda';
 import { mirrorHash, mirrorItems } from '../views/calendar-sync';
@@ -115,8 +117,8 @@ describe('wystąpienia po dniach', () => {
     event(t, 'z2', { title: 'Taki sam', start_date: '2026-10-20' });
     event(t, 'a2', { title: 'Taki sam', start_date: '2026-10-20' });
     expect(days(t, '2026-10-20', '2026-10-20').map((x) => x.split(' ')[1])).toEqual(['a2', 'z2']);
-    expect(occurrenceDays(undefined, { start_time: null, end_time: null, days: 4 })).toBe(4);
-    expect(occurrenceDays({ all_day: true, start_time: null, end_time: null, days: null }, { start_time: '17:00', end_time: '18:00', days: 1 })).toBe(1);
+    expect(occurrenceDays(undefined, { start_time: null, end_time: null, days: 4, duration_min: null })).toBe(4);
+    expect(occurrenceDays({ all_day: true, start_time: null, end_time: null, days: null, duration_min: null }, { start_time: '17:00', end_time: '18:00', days: 1, duration_min: 600 })).toBe(1);
   });
 
   it('własność: całodniowe przez N dni stoi w każdym swoim dniu okna, z kolejnym numerem dnia', () => {
@@ -233,3 +235,112 @@ describe('lustro w iPhonie', () => {
     expect(mirrorHash(items[0]!)).not.toBe(mirrorHash({ ...items[0]!, days: 1 }));
   });
 });
+
+describe('D199 cz. 2: z godziną przez więcej niż jedną noc (pt. 18:00 – nd. 16:00)', () => {
+  const TRIP = 46 * 60;
+  it('span.ts: długość zapisana, dni, dzień końca, postać do zapisu', () => {
+    expect([clockMinutes('18:00', '16:00'), clockMinutes(null, '1:00')]).toEqual([1320, null]);
+    expect([lengthMinutes('18:00', '16:00', TRIP), lengthMinutes('18:00', null, TRIP), lengthMinutes('18:00', '16:00')]).toEqual([TRIP, null, 1320]);
+    expect([coveredDays('18:00', '16:00', 1, TRIP), coveredDays('18:00', '00:00', 1, 30 * 60), coveredDays('18:00', null, 1, null), coveredDays('22:00', '06:00', 1, 32 * 60)]).toEqual([3, 2, 1, 3]);
+    expect([endDayOffset('18:00', TRIP), endDayOffset('18:00', 30 * 60), endDayOffset('17:00', 60)]).toEqual([2, 2, 0]);
+    // Zgodna z godzinami — zostaje; z godzin wynika ta sama — null; niezgodna (godziny zmienione bez długości) — null.
+    expect([storedDuration('18:00', '16:00', TRIP), storedDuration('22:00', '06:00', 480), storedDuration('18:00', '20:00', TRIP), storedDuration(null, '16:00', TRIP), storedDuration('18:00', null, TRIP), storedDuration('18:00', '16:00', null)]).toEqual([TRIP, null, null, null, null, null]);
+  });
+
+  it('wiersze dni: „od 18:00”, „cały dzień”, „do 16:00”; przypomnienie raz; wyjątek z własną długością', () => {
+    const t = world();
+    event(t, 'trip', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP });
+    const o = expandEventDays(t, ME, parseIsoDate('2026-10-09'), parseIsoDate('2026-10-11'));
+    expect(o.map((x) => [x.date, x.part, dayWhen(x.startTime, x.endTime, x.part)])).toEqual([
+      ['2026-10-09', { day: 1, days: 3 }, { kind: 'from', start: '18:00' }],
+      ['2026-10-10', { day: 2, days: 3 }, { kind: 'allDay' }],
+      ['2026-10-11', { day: 3, days: 3 }, { kind: 'until', end: '16:00' }],
+    ]);
+    expect(o[0]).toMatchObject({ durationMin: TRIP, endDate: '2026-10-11' });
+    const toMs = (l: { y: number; m: number; d: number; hh: number; mm: number }) => Date.UTC(l.y, l.m - 1, l.d, l.hh - 2, l.mm);
+    const r = planReminders(t, ME, parseIsoDate('2026-10-09'), toMs({ y: 2026, m: 10, d: 9, hh: 7, mm: 0 }), { leadMin: 30, morning: 'off' }, { days: 3, max: 40, toMs, localDate: (x) => x.slice(0, 10), label: { trip: (n) => n, morningTitle: 'Dziś', more: (n) => `+${n}`, summary: (n, v) => `${n}/${v}` } });
+    expect(r.map((x) => x.id)).toEqual(['e|trip|2026-10-09|2026-10-09']);
+    // Seria co tydzień; jeden termin krócej (do soboty) przy tych samych godzinach.
+    const s2 = world();
+    event(s2, 'w', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP, rrule: 'FREQ=WEEKLY;BYDAY=FR' });
+    const d = eventDetail(s2, ME, 'w')!;
+    const f = fieldsOf(d, '2026-10-16', 'this');
+    expect(f.durationMin).toBe(TRIP);
+    expect(editEvent(d, '2026-10-16', 'this', f)).toEqual([]);
+    const ops = editEvent(d, '2026-10-16', 'this', { ...f, durationMin: 1320 });
+    expect((ops[0] as { set: Row }).set).toMatchObject({ start_time: '18:00', end_time: '16:00', duration_min: 1320 });
+    run(s2, ops);
+    expect(expandEvents(s2, ME, parseIsoDate('2026-10-16'), parseIsoDate('2026-10-16'))[0]).toMatchObject({ days: 2, durationMin: 1320 });
+    // Inne godziny — długość tylko, gdy dłuższa niż z godzin.
+    const other = editEvent(d, '2026-10-23', 'this', { ...fieldsOf(d, '2026-10-23', 'this'), startTime: '19:00', endTime: '17:00', durationMin: TRIP });
+    expect((other[0] as { set: Row }).set).toMatchObject({ start_time: '19:00', duration_min: TRIP });
+    const night = editEvent(d, '2026-10-30', 'this', { ...fieldsOf(d, '2026-10-30', 'this'), startTime: '22:00', endTime: '06:00', durationMin: null });
+    expect((night[0] as { set: Row }).set).toMatchObject({ start_time: '22:00' });
+    expect((night[0] as { set: Row }).set).not.toHaveProperty('duration_min');
+    // Całodniowy termin serii z godziną — bez długości z godziną.
+    const allDay = (editEvent(d, '2026-11-06', 'this', { ...fieldsOf(d, '2026-11-06', 'this'), startTime: null, endTime: null })[0] as { set: Row }).set;
+    expect(allDay).toMatchObject({ all_day: true });
+    expect(allDay).not.toHaveProperty('duration_min');
+  });
+
+  it('zapis: utworzenie, „wszystkie”, „to i następne” i podział na telefonie', () => {
+    const base: EventFields = { title: 'Wyjazd', date: '2026-10-09', startTime: '18:00', endTime: '16:00', rule: null, until: null, audience: 'group', participantIds: [], responsibleId: null, durationMin: TRIP };
+    const set = (op: NewOp) => (op as { set: Row }).set;
+    expect(set(createEvent('gf', base, () => 'n').ops[0]!)).toMatchObject({ duration_min: TRIP });
+    expect(set(createEvent('gf', { ...base, durationMin: 1320 }, () => 'n').ops[0]!)).not.toHaveProperty('duration_min');
+    const t = world();
+    event(t, 'w', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP, rrule: 'FREQ=WEEKLY;BYDAY=FR' });
+    const d = eventDetail(t, ME, 'w')!;
+    const all = fieldsOf(d, '2026-10-09', 'all');
+    expect(set(editEvent(d, '2026-10-09', 'all', all)[0]!)).not.toHaveProperty('duration_min');
+    expect(set(editEvent(d, '2026-10-09', 'all', { ...all, durationMin: null })[0]!)).toMatchObject({ duration_min: null });
+    const split = editEvent(d, '2026-10-16', 'following', fieldsOf(d, '2026-10-16', 'following'))[0] as unknown as { args: { id: string; set: Row } };
+    expect(split.args.set.duration_min).toBe(TRIP);
+    applySplit(t, split.args as unknown as Row);
+    expect(t.events![split.args.id]).toMatchObject({ duration_min: TRIP });
+    // Bez długości w poleceniu (starszy telefon) — jak w dzielonej; niezgodna z godzinami — null.
+    const t2 = world();
+    event(t2, 'w', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP, rrule: 'FREQ=WEEKLY;BYDAY=FR' });
+    const args = { ...split.args, set: { ...split.args.set } };
+    delete (args.set as { duration_min?: unknown }).duration_min;
+    applySplit(t2, args as unknown as Row);
+    expect(t2.events![args.id]!.duration_min).toBe(TRIP);
+    const t3 = world();
+    event(t3, 'w', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP, rrule: 'FREQ=WEEKLY;BYDAY=FR' });
+    applySplit(t3, { ...split.args, set: { ...split.args.set, end_time: '20:00' } } as unknown as Row);
+    expect(t3.events![split.args.id]!.duration_min).toBeNull();
+  });
+
+  it('formularz: „Kończy się” z godziną, błędy, formularz z zapisanego', () => {
+    const f = (over: object) => ({ ...emptyForm('2026-10-09'), title: 'Wyjazd', slots: [{ days: [4], start: '18:00', end: '16:00' }], ...over });
+    const ok = (over: object) => {
+      const r = validateForm(f(over), { overnight: true });
+      if ('error' in r) throw new Error(r.error);
+      return r.fields[0]!;
+    };
+    expect(ok({ endDate: '2026-10-11' })).toMatchObject({ startTime: '18:00', endTime: '16:00', durationMin: TRIP, days: 1 });
+    expect(ok({ endDate: '' }).durationMin).toBeNull();
+    expect(ok({ endDate: '2026-10-10' }).durationMin).toBe(1320);
+    expect(ok({ endDate: '2026-10-10', slots: [{ days: [4], start: '18:00', end: '20:00' }] }).durationMin).toBe(26 * 60);
+    expect(validateForm(f({ endDate: '2026-10-09' }), { overnight: true })).toEqual({ error: 'endBeforeStart' });
+    expect(validateForm(f({ endDate: '2026-10-11', slots: [{ days: [4], start: '18:00', end: '' }] }), { overnight: true })).toEqual({ error: 'endTime' });
+    expect(validateForm(f({ endDate: '2026-11-09' }), { overnight: true })).toEqual({ error: 'tooLong' });
+    expect(ok({ endDate: '2026-11-08', slots: [{ days: [4], start: '00:00', end: '23:00' }] }).durationMin).toBe(30 * 1440 + 23 * 60);
+    expect(validateForm(f({ endDate: '2026-10-11', repeat: 'daily' }), { overnight: true })).toEqual({ error: 'overlap' });
+    expect(ok({ endDate: '2026-10-11', repeat: 'weekly' }).rule).not.toBeNull();
+    // Plan lekcji i rutyny (bez `overnight`) — „Kończy się” się nie liczy.
+    expect(validateForm(f({ endDate: '2026-10-11', slots: [{ days: [4], start: '18:00', end: '20:00' }] }))).toMatchObject({ fields: [{ durationMin: null }] });
+    expect(formOf(ok({ endDate: '2026-10-11' })).endDate).toBe('2026-10-11');
+    expect(formOf(ok({ endDate: '' })).endDate).toBe('');
+  });
+
+  it('lustro: jedno wydarzenie z długością w skrócie', () => {
+    const t = world();
+    event(t, 'trip', { start_date: '2026-10-09', start_time: '18:00', end_time: '16:00', duration_min: TRIP });
+    const [i] = mirrorItems(t, ME, TODAY, 0, 7, new Set(), (n) => n);
+    expect(i).toMatchObject({ startTime: '18:00', endTime: '16:00', days: 1, durationMin: TRIP });
+    expect(mirrorHash(i!)).not.toBe(mirrorHash({ ...i!, durationMin: null }));
+    expect(groupSeries(t, ME, 'gf', TODAY)[0]!.time).toBe('18:00');
+  });
+});
+

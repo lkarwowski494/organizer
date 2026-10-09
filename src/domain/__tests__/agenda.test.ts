@@ -10,6 +10,7 @@ const ev = (id: string, startTime: string | null, title = id): Occurrence => ({
   endDate: '2026-10-07',
   days: 1,
   part: null,
+  durationMin: null,
   startTime,
   endTime: null,
   title,
