@@ -200,7 +200,8 @@ export function TaskScreen({ route, navigation }: Props) {
         <>
           <Field label={strings['task.title']} {...title.field} maxLength={config.lengths.TASK_TITLE} testID="task-title" />
           {title.error ? <ErrorText>{title.error}</ErrorText> : null}
-          <Field label={strings['task.note']} {...note.field} onSubmitEditing={undefined} multiline testID="task-note" />
+          {/* Audyt 3 (N-134): limit notatki z SQL (CHECK char_length(note) <= config.lengths.NOTE). */}
+          <Field label={strings['task.note']} {...note.field} onSubmitEditing={undefined} multiline maxLength={config.lengths.NOTE} testID="task-note" />
         </>
       ) : (
         <>
