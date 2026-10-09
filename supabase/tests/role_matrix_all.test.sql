@@ -62,6 +62,13 @@ insert into public.push_mutes (user_id, group_id) select id, '88888888-0000-7000
 insert into public.app_feedback (user_id, message) select id, 'uwaga' from auth.users where email like '%@x.test';
 insert into public.client_errors (user_id, kind, message) select id, 'error', 'błąd' from auth.users where email like '%@x.test';
 insert into public.profiles (user_id, display_name) select id, 'P' from auth.users where email like '%@x.test' on conflict (user_id) do nothing;
+-- Zakupy zrobione na liście zakupów G i zakres Moich spraw ownera (id z member_id, jak na telefonie) — P13b.
+insert into public.lists (id, group_id, kind, name, owner_member_id) values
+  ('88888888-0000-7000-8000-0000000000e8', '88888888-0000-7000-8000-000000000001', 'shopping', 'Zakupy', '88888888-0000-7000-8000-000000000090');
+insert into public.shopping_trips (id, group_id, list_id, done_at) values
+  ('88888888-0000-7000-8000-0000000000c7', '88888888-0000-7000-8000-000000000001', '88888888-0000-7000-8000-0000000000e8', '2026-10-07T10:00:00Z');
+insert into public.my_day_scopes (id, group_id, member_id, scope) values
+  (private.uuid_v5('2432a5f3-a3c4-5bf6-92f5-7d368b14c8e9'::uuid, '88888888-0000-7000-8000-000000000090'), '88888888-0000-7000-8000-000000000001', '88888888-0000-7000-8000-000000000090', 'mine');
 
 -- DANE: koniec
 
@@ -102,6 +109,16 @@ select pg_temp.sync_ops('event_task_series', $j$jsonb_build_object('event_id', '
 -- Przekazanie swojego zadania „Do przekazania” (obcy: zadania ownera) adminowi (admin — ownerowi); zmiana: przyjęcie
 -- przekazania od ownera do membera.
 select pg_temp.sync_ops('handoffs', $j$jsonb_build_object('entity', 'tasks', 'entity_id', coalesce((select id::text from public.tasks where title = 'Do przekazania' and assignee_member_id = '%2$s'), '88888888-0000-7000-8000-0000000000d3'), 'to_member', case when '%2$s' = '88888888-0000-7000-8000-000000000091' then '88888888-0000-7000-8000-000000000090' else '88888888-0000-7000-8000-000000000091' end)$j$, $j$jsonb_build_object('status', 'accepted')$j$, '88888888-0000-7000-8000-0000000000c6');
+-- Zrobione zakupy: zmienić można tylko deleted_at (patch z inną kolumną — invalid_field), usunąć = „Cofnij”.
+select pg_temp.sync_ops('shopping_trips', $j$jsonb_build_object('list_id', '88888888-0000-7000-8000-0000000000e8', 'done_at', '2026-10-08T10:00:00Z')$j$, $j$jsonb_build_object('done_at', '2026-10-08T11:00:00Z')$j$, '88888888-0000-7000-8000-0000000000c7');
+-- Zakres Moich spraw: utworzenie za siebie z id z member_id (owner ma już wiersz — powtórzone utworzenie); zmiana
+-- i usunięcie wiersza ownera.
+create table pg_temp.scope_ids as select member, private.uuid_v5('2432a5f3-a3c4-5bf6-92f5-7d368b14c8e9'::uuid, member::text) as id from pg_temp.who;
+grant select on pg_temp.scope_ids to authenticated;
+insert into pg_temp.ops values
+  ('my_day_scopes', 'insert', $q$select pg_temp.push('%1$s', jsonb_build_object('kind', 'create', 'entity', 'my_day_scopes', 'id', (select id from pg_temp.scope_ids where member = '%2$s'), 'group_id', '88888888-0000-7000-8000-000000000001', 'set', jsonb_build_object('member_id', '%2$s', 'scope', 'mineAndEvents')))$q$),
+  ('my_day_scopes', 'update', $q$select pg_temp.push('%1$s', jsonb_build_object('kind', 'patch', 'entity', 'my_day_scopes', 'id', (select id from pg_temp.scope_ids where member = '88888888-0000-7000-8000-000000000090'), 'set', jsonb_build_object('scope', 'all')))$q$),
+  ('my_day_scopes', 'delete', $q$select pg_temp.push('%1$s', jsonb_build_object('kind', 'delete', 'entity', 'my_day_scopes', 'id', (select id from pg_temp.scope_ids where member = '88888888-0000-7000-8000-000000000090')))$q$);
 -- Tabele poza synchronizacją: wprost w SQL.
 create function pg_temp.dml(tbl text, ins text, upd text, del text) returns void language sql as $$
   insert into pg_temp.ops values
@@ -154,6 +171,8 @@ from (values
   ('event_rsvps', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
   ('event_task_series', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
   ('handoffs', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
+  ('shopping_trips', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
+  ('my_day_scopes', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
   ('object_members', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
   ('activity', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
   ('invites', $w$group_id = '88888888-0000-7000-8000-000000000001'$w$),
@@ -253,6 +272,16 @@ insert into pg_temp.want values
   ('profiles', 'owner', 'insert', '42501'), ('profiles', 'admin', 'insert', '42501'), ('profiles', 'member', 'insert', '42501'), ('profiles', 'child', 'insert', '42501'), ('profiles', 'stranger', 'insert', '42501'),
   ('profiles', 'owner', 'update', 'ok'), ('profiles', 'admin', 'update', '0 rows'), ('profiles', 'member', 'update', '0 rows'), ('profiles', 'child', 'update', '0 rows'), ('profiles', 'stranger', 'update', '0 rows'),
   ('profiles', 'owner', 'delete', '42501'), ('profiles', 'admin', 'delete', '42501'), ('profiles', 'member', 'delete', '42501'), ('profiles', 'child', 'delete', '42501'), ('profiles', 'stranger', 'delete', '42501'),
+  -- Zrobione zakupy (P13b): jak lista zakupów — dziecko nie kończy zakupów (PW-14 B); zmienić można tylko deleted_at.
+  ('shopping_trips', 'owner', 'select', 'visible'), ('shopping_trips', 'admin', 'select', 'visible'), ('shopping_trips', 'member', 'select', 'visible'), ('shopping_trips', 'child', 'select', 'visible'), ('shopping_trips', 'stranger', 'select', 'hidden'),
+  ('shopping_trips', 'owner', 'insert', 'ok'), ('shopping_trips', 'admin', 'insert', 'ok'), ('shopping_trips', 'member', 'insert', 'ok'), ('shopping_trips', 'child', 'insert', 'forbidden:child'), ('shopping_trips', 'stranger', 'insert', 'forbidden'),
+  ('shopping_trips', 'owner', 'update', 'invalid_field:done_at'), ('shopping_trips', 'admin', 'update', 'invalid_field:done_at'), ('shopping_trips', 'member', 'update', 'invalid_field:done_at'), ('shopping_trips', 'child', 'update', 'invalid_field:done_at'), ('shopping_trips', 'stranger', 'update', 'invalid_field:done_at'),
+  ('shopping_trips', 'owner', 'delete', 'ok'), ('shopping_trips', 'admin', 'delete', 'ok'), ('shopping_trips', 'member', 'delete', 'ok'), ('shopping_trips', 'child', 'delete', 'forbidden:child'), ('shopping_trips', 'stranger', 'delete', 'not_found'),
+  -- Zakres Moich spraw (PW-2 A): tylko własny wiersz, także dziecka z kontem; obcy w G nie jest członkiem.
+  ('my_day_scopes', 'owner', 'select', 'visible'), ('my_day_scopes', 'admin', 'select', 'hidden'), ('my_day_scopes', 'member', 'select', 'hidden'), ('my_day_scopes', 'child', 'select', 'hidden'), ('my_day_scopes', 'stranger', 'select', 'hidden'),
+  ('my_day_scopes', 'owner', 'insert', 'ok'), ('my_day_scopes', 'admin', 'insert', 'ok'), ('my_day_scopes', 'member', 'insert', 'ok'), ('my_day_scopes', 'child', 'insert', 'ok'), ('my_day_scopes', 'stranger', 'insert', 'forbidden:not_self'),
+  ('my_day_scopes', 'owner', 'update', 'ok'), ('my_day_scopes', 'admin', 'update', 'not_found'), ('my_day_scopes', 'member', 'update', 'not_found'), ('my_day_scopes', 'child', 'update', 'not_found'), ('my_day_scopes', 'stranger', 'update', 'not_found'),
+  ('my_day_scopes', 'owner', 'delete', 'ok'), ('my_day_scopes', 'admin', 'delete', 'not_found'), ('my_day_scopes', 'member', 'delete', 'not_found'), ('my_day_scopes', 'child', 'delete', 'not_found'), ('my_day_scopes', 'stranger', 'delete', 'not_found'),
   ('push_mutes', 'owner', 'select', '42501'), ('push_mutes', 'admin', 'select', '42501'), ('push_mutes', 'member', 'select', '42501'), ('push_mutes', 'child', 'select', '42501'), ('push_mutes', 'stranger', 'select', '42501'),
   ('push_mutes', 'owner', 'insert', '42501'), ('push_mutes', 'admin', 'insert', '42501'), ('push_mutes', 'member', 'insert', '42501'), ('push_mutes', 'child', 'insert', '42501'), ('push_mutes', 'stranger', 'insert', '42501'),
   ('push_mutes', 'owner', 'update', '42501'), ('push_mutes', 'admin', 'update', '42501'), ('push_mutes', 'member', 'update', '42501'), ('push_mutes', 'child', 'update', '42501'), ('push_mutes', 'stranger', 'update', '42501'),

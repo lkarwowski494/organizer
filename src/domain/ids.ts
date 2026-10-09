@@ -2,6 +2,9 @@
  * Identyfikatory UUIDv7 nadawane na telefonie (R3), także offline.
  * Format wg RFC 9562, sekcja 5.7: 48 bitów czasu uniksowego w milisekundach,
  * 4 bity wersji (0111), 12 bitów losowych, 2 bity wariantu (10), 62 bity losowe.
+ * https://www.rfc-editor.org/rfc/rfc9562#section-5.7: „UUIDv7 values are created by allocating a Unix timestamp in
+ * milliseconds in the most significant 48 bits and filling the remaining 74 bits, excluding the required version and
+ * variant bits, with random bits”.
  *
  * Domena nie importuje Reacta ani Expo — źródło losowości i zegar są wstrzykiwane,
  * dzięki czemu testy są deterministyczne.
@@ -97,7 +100,9 @@ export function sha1(data: Uint8Array): Uint8Array {
 const utf8 = (s: string) => new TextEncoder().encode(s);
 
 /**
- * UUIDv5 (RFC 9562, sekcja 5.5): SHA-1 z przestrzeni nazw i nazwy, wersja 5, wariant RFC. Ten sam wynik na każdym
+ * UUIDv5 (RFC 9562, sekcja 5.5, https://www.rfc-editor.org/rfc/rfc9562#section-5.5: „computing an SHA-1 hash … over a
+ * given Namespace ID value … concatenated with the desired name value … The most significant, leftmost 128 bits of the
+ * SHA-1 value are then used”): SHA-1 z przestrzeni nazw i nazwy, wersja 5, wariant RFC. Ten sam wynik na każdym
  * telefonie — kopie stałych zadań serii mają identyfikator z definicji i daty wystąpienia (D65), więc się nie dublują.
  */
 export function uuidv5(namespace: string, name: string): string {

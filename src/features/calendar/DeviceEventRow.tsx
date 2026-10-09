@@ -13,6 +13,8 @@ import { addDays, formatIsoDate } from '../../domain/civil-date';
 import { parseIsoDate } from '../../domain/format';
 import { dayWhen } from '../../domain/span';
 import { strings } from '../../i18n/strings.pl';
+import { lengthLabel } from '../../domain/views/events';
+import { META_SEP } from '../../ui/components';
 import { partText, whenText } from '../../ui/when';
 import { useTheme } from '../../ui/theme';
 
@@ -44,10 +46,12 @@ export function DeviceEventRow({ e, copy = true }: { e: DeviceEntry; copy?: bool
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const when = whenOf(e);
   const part = partText(e.part);
+  // Audyt 2 (M-253): długość jak przy wydarzeniach grup (D120) — tylko jednodniowe z godziną końca.
+  const length = e.part === null && e.time && e.endTime && e.endTime !== '24:00' ? lengthLabel(e.time, e.endTime) : null;
   return (
     // D108: jak wiersz wydarzenia grupy (EventRow), ale wyciszony — szary znacznik zamiast koloru grupy.
     <View testID={`device-${e.key}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60 }}>
-      <View accessible accessibilityLabel={`${[e.title, when, part].filter(Boolean).join(', ')}, ${strings['device.from'](e.calendarTitle)}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View accessible accessibilityLabel={[e.title, when, length, part, strings['device.from'](e.calendarTitle)].filter(Boolean).join(', ')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View style={{ width: 30, alignItems: 'center' }}>
           <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: c.control }} />
         </View>
@@ -55,8 +59,9 @@ export function DeviceEventRow({ e, copy = true }: { e: DeviceEntry; copy?: bool
           <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{e.title}</Text>
           <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
             <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
-            {part ? `  ·  ${part}` : ''}
-            {`  ·  ${strings['device.from'](e.calendarTitle)}`}
+            {length ? `${META_SEP}${length}` : ''}
+            {part ? `${META_SEP}${part}` : ''}
+            {`${META_SEP}${strings['device.from'](e.calendarTitle)}`}
           </Text>
         </View>
       </View>

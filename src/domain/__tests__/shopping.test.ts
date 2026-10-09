@@ -172,7 +172,7 @@ describe('pamięć działów i podpowiedzi po zakupach (audyt 2, M-110)', () => 
     expect(categoryMemory(t, 'g').get('tofu')).toBe('meat');
     expect(suggestions(t, 'g', 'lz', 'to')).toEqual(['Tofu']);
     let seq = 0;
-    for (const op of finishTripOps(t, 'u-me', 'lz', false, '2026-10-08T09:00:00Z')) applyOp(t, { ...op, seq: ++seq, op_id: `o${seq}` } as Op);
+    for (const op of finishTripOps(t, 'u-me', 'lz', false, '2026-10-08T09:00:00Z', () => 'trip-1')) applyOp(t, { ...op, seq: ++seq, op_id: `o${seq}` } as Op);
     expect(t.tasks!.i1!.deleted_at).not.toBeNull();
     expect(categoryMemory(t, 'g').get('tofu')).toBe('meat');
     expect(suggestions(t, 'g', 'lz', 'to')).toEqual(['Tofu']);

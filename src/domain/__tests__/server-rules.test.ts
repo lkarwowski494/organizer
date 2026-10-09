@@ -4,6 +4,7 @@
  */
 import { applyOnServer, type ServerTables, serverVerdict } from '../server-rules';
 import { overrideId } from '../views/events';
+import { scopeRowId } from '../views/my-scope';
 import type { NewOp, Row } from '../sync-engine/client';
 
 const U = { owner: 'u-o', admin: 'u-a', member: 'u-m', child: 'u-c', stranger: 'u-x' };
@@ -92,6 +93,41 @@ describe('model reguł serwera', () => {
     expect(v(U.owner, create('tasks', { list_id: 'l', title: 'x', bb: 1, ab: 2 }))).toBe('invalid_field:ab');
     expect(v(U.owner, patch('tasks', 't', { list_id: 'l2' }))).toBe('invalid_field:list_id');
     expect(v(U.owner, patch('tasks', 'brak', {}))).toBe('ok');
+  });
+
+  it('zakres Moich spraw (my_day_scopes_guard): tylko za siebie, id z member_id; cudzy wiersz niewidoczny', () => {
+    const w = world();
+    expect(v(U.member, create('my_day_scopes', { member_id: M.member, scope: 'mine' }, 'g', scopeRowId(M.member)), w)).toBe('ok');
+    expect(v(U.child, create('my_day_scopes', { member_id: M.child, scope: 'mine' }, 'g', scopeRowId(M.child)), w)).toBe('ok');
+    expect(v(U.member, create('my_day_scopes', { member_id: M.member, scope: 'mine' }, 'g', 'inne-id'), w)).toBe('invalid_id');
+    expect(v(U.member, create('my_day_scopes', { member_id: M.owner, scope: 'mine' }, 'g', scopeRowId(M.owner)), w)).toBe('forbidden:not_self');
+    expect(v(U.stranger, create('my_day_scopes', { member_id: M.stranger, scope: 'mine' }, 'g', scopeRowId(M.stranger)), w)).toBe('forbidden:not_self');
+    (w.my_day_scopes ??= {})[scopeRowId(M.owner)] = { id: scopeRowId(M.owner), group_id: 'g', member_id: M.owner, scope: 'mine', deleted_at: null };
+    // Ten sam klucz cudzego wiersza: strażnik przed konfliktem klucza; własny — powtórzone utworzenie.
+    expect(v(U.member, create('my_day_scopes', { member_id: M.owner, scope: 'all' }, 'g', scopeRowId(M.owner)), w)).toBe('forbidden:not_self');
+    expect(v(U.owner, create('my_day_scopes', { member_id: M.owner, scope: 'all' }, 'g', scopeRowId(M.owner)), w)).toBe('ok');
+    expect(v(U.owner, patch('my_day_scopes', scopeRowId(M.owner), { scope: 'all' }), w)).toBe('ok');
+    expect(v(U.member, patch('my_day_scopes', scopeRowId(M.owner), { scope: 'all' }), w)).toBe('not_found');
+    expect(v(U.owner, patch('my_day_scopes', scopeRowId(M.owner), { member_id: M.member }), w)).toBe('invalid_field:member_id');
+  });
+
+  it('zrobione zakupy (shopping_trips_guard): dorosły z listą zakupów, dziecko nie; zmienić można tylko usunięciem', () => {
+    const w = world();
+    const trip = (list: string, group = 'g') => create('shopping_trips', { list_id: list, done_at: '2026-10-07T10:00:00Z' }, group, 'trip');
+    expect(v(U.member, trip('l-shop'), w)).toBe('ok');
+    expect(v(U.child, trip('l-shop'), w)).toBe('forbidden:child');
+    expect(v(U.stranger, trip('l-shop'), w)).toBe('forbidden');
+    expect(v(U.member, trip('l'), w)).toBe('invalid_list');
+    expect(v(U.member, trip('brak'), w)).toBe('invalid_list');
+    expect(v(U.member, trip('l2'), w)).toBe('invalid_list');
+    expect(v(U.member, trip('l-del'), w)).toBe('invalid_list');
+    (w.lists as { [k: string]: Row })['l-shop-p'] = { ...w.lists!['l-shop']!, id: 'l-shop-p', visibility: 'private', owner_member_id: M.admin };
+    expect(v(U.member, trip('l-shop-p'), w)).toBe('forbidden'); // RLS: lista, której nie widzę
+    (w.shopping_trips ??= {}).t1 = { id: 't1', group_id: 'g', list_id: 'l-shop', done_at: '2026-10-07T10:00:00Z', deleted_at: null };
+    expect(v(U.member, del('shopping_trips', 't1'), w)).toBe('ok');
+    expect(v(U.child, del('shopping_trips', 't1'), w)).toBe('forbidden:child');
+    expect(v(U.stranger, del('shopping_trips', 't1'), w)).toBe('not_found');
+    expect(v(U.member, patch('shopping_trips', 't1', { done_at: null }), w)).toBe('invalid_field:done_at');
   });
 
   it('tabela bez wierszy w danych', () => {
@@ -342,6 +378,14 @@ describe('model reguł serwera', () => {
       const t = run(U.member, create('events', { title: 'Obóz', audience: 'group', start_time: null, days: 5 }));
       expect(run(U.member, patch('events', 'new', { title: 'Obóz 2' }), t).events!.new).toMatchObject({ days: 5 });
       expect(run(U.member, patch('events', 'new', { start_time: '09:00' }), t).events!.new).toMatchObject({ days: 1 });
+    });
+
+    it('zrobione zakupy: kto zrobił nadaje serwer; wyjście z grupy zdejmuje zakres Moich spraw tej osoby', () => {
+      expect(run(U.member, create('shopping_trips', { list_id: 'l-shop', done_at: AT })).shopping_trips!.new).toMatchObject({ done_by: M.member });
+      const t = world();
+      (t.my_day_scopes ??= {}).a = { id: 'a', group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: null };
+      t.my_day_scopes.b = { id: 'b', group_id: 'g', member_id: M.admin, scope: 'all', deleted_at: null };
+      expect(Object.keys(run(U.member, del('group_members', M.member), t).my_day_scopes!)).toEqual(['b']);
     });
 
     it('utworzenie: wartości domyślne, klucz główny, twórca listy, nadawca i stan przekazania', () => {

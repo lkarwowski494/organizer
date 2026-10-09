@@ -1,11 +1,14 @@
 /**
  * Plan lekcji z tygodniami A/B (D112, ADR 0027): lekcje osoby (np. dziecka) zapisane jako zwykłe wydarzenia cykliczne
  * z tą osobą jako uczestnikiem — od razu w Kalendarzu, „Moich sprawach” uczestnika, lustrze iPhone'a i przypomnieniach.
+ * Rodzaj `lesson` (D126): bez pytania o obecność. Dorosły, który sam nie uczestniczy, widzi lekcje dziecka w Moich
+ * sprawach jednym zwiniętym wierszem na dzień, bez przypomnień i poza porannym podsumowaniem (D127, ADR 0035).
  *  - „co tydzień” = FREQ=WEEKLY; tydzień A albo B = FREQ=WEEKLY;INTERVAL=2 z pierwszym dniem w tygodniu A albo B
  *    (RFC 5545: INTERVAL liczony od DTSTART, https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10);
- *  - tydzień od poniedziałku (PN-EN ISO 8601); który tydzień jest A, zapisuje się przy osobie (D171, audyt 2 M-15):
- *    group_members.week_a = poniedziałek jakiegoś tygodnia A. Litery są więc stałe i zgodne ze szkołą; parzystość
- *    liczona różnicą dni (bez numerów tygodni ISO, więc rok z 53 tygodniami jej nie psuje). Bez zapisanej kotwicy
+ *  - tydzień od poniedziałku (PN-EN ISO 8601; źródło — CLDR firstDay dla PL, src/domain/month-grid.ts); który tydzień
+ *    jest A, zapisuje się przy osobie (D171, audyt 2 M-15): group_members.week_a = poniedziałek jakiegoś tygodnia A.
+ *    Litery są więc stałe i zgodne ze szkołą; parzystość liczona różnicą dni (bez numerów tygodni ISO, więc rok
+ *    z 53 tygodniami jej nie psuje). Bez zapisanej kotwicy
  *    (plan sprzed D171) ten tydzień to A, jak dotąd. Przełącznik „Ten tydzień to A/B” zmienia tylko nazwy tygodni:
  *    lekcje zostają w swoich dniach (ekran zamienia litery lekcji — `swapWeeks`), a zapis ustawia kotwicę;
  *  - ta sama lekcja (nazwa, godziny, tydzień) w kilka dni = jedna seria z kilkoma dniami.

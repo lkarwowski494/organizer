@@ -1,8 +1,10 @@
 /**
  * Zgłaszanie błędów z telefonu (D80, ADR 0017). Wysyłamy tylko komunikat, stos, nazwę ekranu i wersję aplikacji —
  * nigdy treści z tabel (list, zadań, imion). Dwa źródła: błędy renderowania (granica błędów — ekran „Coś poszło nie
- * tak” z „Spróbuj ponownie”) i nieobsłużone wyjątki (globalny handler React Native, ErrorUtils.setGlobalHandler,
- * https://reactnative.dev/docs/0.86/... — poprzedni handler wołany dalej, więc zachowanie systemu się nie zmienia).
+ * tak” z „Spróbuj ponownie”) i nieobsłużone wyjątki (globalny handler React Native, ErrorUtils.setGlobalHandler —
+ * poprzedni handler wołany dalej, więc zachowanie systemu się nie zmienia). ErrorUtils nie ma strony w dokumentacji
+ * React Native; definicja w kodzie react-native 0.86: Libraries/vendor/core/ErrorUtils.js („error handler specified via
+ * ErrorUtils.setGlobalHandler”) i @react-native/js-polyfills/error-guard.js.
  */
 import * as Application from 'expo-application';
 import { Component, type ReactNode } from 'react';

@@ -56,6 +56,17 @@ export type Occurrence = {
   groupName: string;
   line: number;
   concernsMe: boolean;
+  /**
+   * Odpowiadam za ten termin albo jestem imiennie uczestnikiem — „przypisane do mnie” w zakresie „Tylko przypisane do
+   * mnie” (PW-2, my-scope.ts).
+   */
+  assignedToMe: boolean;
+  /**
+   * PWD-32 B (decyzja właściciela 8.10.2026, audyt 2 M-301): wydarzenie dziecka z grupy, za które odpowiada ktoś inny —
+   * mnie (dorosłemu) nie dotyczy (D66), ale Moje sprawy pokazują je wyszarzone „Kuba: basen (zawozi Ala)”, bez
+   * przypomnień i lustra. Imiona dzieci-uczestników; `null`, gdy to nie ten przypadek.
+   */
+  childInfo: string[] | null;
   /** Osoba odpowiedzialna w tym wystąpieniu (D66) i jej imię. */
   responsibleId: string | null;
   responsibleName: string | null;
@@ -109,6 +120,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     const iAmIn = mine.some((m) => m?.member_id === g.me.member_id);
     const child = g.me.role === 'child';
     const children = e.kind !== 'lesson' ? [] : !iAmIn ? mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null) : child ? [g.me] : [];
+    const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
     for (const d of occurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
@@ -122,6 +134,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
       // D132: osoba usunięta z grupy już nie odpowiada — wydarzenie wraca do reguły „nikt konkretny”.
       const responsibleId = raw !== null && members.get(raw)?.deleted_at === null ? raw : null;
       if (child && !childEventConcerns(e.audience, responsibleId, g.me.member_id, iAmIn)) continue;
+      const concernsMe = responsibleId === null ? byRule : responsibleId === g.me.member_id || iParticipate;
       out.push({
         eventId: e.id,
         occurrenceDate: occ,
@@ -139,7 +152,10 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
         groupId: g.id,
         groupName: g.name,
         line: g.line,
-        concernsMe: responsibleId === null ? byRule : responsibleId === g.me.member_id || iParticipate,
+        concernsMe,
+        assignedToMe: responsibleId === g.me.member_id || iAmIn,
+        // Lekcje dziecka mają własny wiersz (D127), więc bez dopisku informacyjnego.
+        childInfo: !concernsMe && !lessonFor && g.me.role !== 'child' && kids.length ? kids.map((k) => k.display_name) : null,
         responsibleId,
         responsibleName: responsibleId === null ? null : members.get(responsibleId)!.display_name,
         location: e.location,

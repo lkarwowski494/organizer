@@ -20,7 +20,7 @@ import { absoluteDay } from './dates';
 const hhmm = (l: ReturnType<typeof localNow>) => `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;
 const until = (iso: string, today: CivilDate) => {
   const l = localNow(Date.parse(iso));
-  return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today).replace(' · ', ', ');
+  return formatDue({ date: formatIsoDate(l), time: hhmm(l) }, today);
 };
 const untilAbs = (iso: string, today: CivilDate) => `${absoluteDay(Date.parse(iso), today)}, ${hhmm(localNow(Date.parse(iso)))}`;
 

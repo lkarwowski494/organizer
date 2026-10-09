@@ -167,6 +167,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await setTime('event-start-0', '16:00');
     await setTime('event-end-0', '17:00');
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     const oid = overrideId('ev-tance', '2026-10-07');
     expect(store.dispatched).toEqual([
@@ -183,6 +186,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('screen-event-edit');
     await press(screen.getByLabelText('Cały dzień'));
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(store.dispatched[0]).toEqual(expect.objectContaining({ kind: 'create', entity: 'event_overrides', set: expect.objectContaining({ start_time: null, end_time: null, all_day: true }) }));
     expect(screen.getByLabelText(/^Tańce, cały dzień, Rodzina/)).toBeTruthy();
@@ -206,6 +212,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await screen.findByTestId('event-date');
     await pickDate('event-date', '2026-10-08');
     await press(screen.getByTestId('event-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
@@ -230,6 +239,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     expect(await screen.findByText('Najbliższe terminy po zmianie: dziś, śr. 14 paź, śr. 21 paź.')).toBeTruthy();
     expect(store.dispatched).toHaveLength(0);
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     // Audyt 2 (M-3): jedno polecenie split_event — serwer wykonuje je w całości albo wcale, telefon od razu u siebie.
     const sid = splitId('ev-tance', '2026-10-07');
@@ -265,6 +277,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await press(screen.getByLabelText('Wróć do edycji'));
     await press(await screen.findByTestId('event-save'));
     await press(await screen.findByTestId('event-preview-save'));
+    // Audyt 2 (M-246): tego terminu po zmianie nie ma — powrót o ekran dalej.
     await screen.findByTestId('screen-today');
     expect(store.dispatched[0]).toEqual({ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH' } });
     await press(screen.getByLabelText('Następny dzień'));
@@ -356,6 +369,9 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     // Audyt 2 (E-20): podgląd mówi, ile zmienionych pojedynczo terminów przepada.
     expect(screen.getByText('Zmienione pojedynczo terminy, których po zmianie nie będzie: 1. Ich zmiany przepadną.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { start_date: '2026-10-07', rrule: null } }, { kind: 'delete', entity: 'event_overrides', id: 'ov1' }]);
     expect(store.dispatched).toContainEqual({ kind: 'delete', entity: 'event_overrides', id: 'ov1' });
@@ -415,7 +431,8 @@ describe('zmiana wysyła tylko pola, które zmieniłem (synchronizacja per pole)
     await act(async () => store.pull((b) => ({ ...b, events: { ...b.events, 'ev-1': { ...b.events!['ev-1']!, responsible_member_id: 'ala' } } })));
     await type(screen.getByTestId('event-title'), 'Wywiadówka w szkole');
     await press(screen.getByTestId('event-save'));
-    await screen.findByTestId('screen-today');
+    // Po zapisie wracam do wydarzenia (P13b).
+    await screen.findByTestId('screen-event');
     expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-1', set: { title: 'Wywiadówka w szkole' } }]);
     expect(store.getSnapshot().state.base.events!['ev-1']!.responsible_member_id).toBe('ala');
   });
@@ -428,7 +445,8 @@ describe('zmiana wysyła tylko pola, które zmieniłem (synchronizacja per pole)
     await type(await screen.findByTestId('event-title'), 'Tańce towarzyskie');
     await press(screen.getByTestId('event-save'));
     await press(await screen.findByTestId('event-preview-save'));
-    await screen.findByTestId('screen-today');
+    // Po zapisie wracam do wydarzenia (P13b).
+    await screen.findByTestId('screen-event');
     expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev-tance', set: { title: 'Tańce towarzyskie' } }]);
   });
 });
@@ -508,7 +526,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
     expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Logopeda', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: 'ala' } }]);
-    await press(screen.getByLabelText('Dziś'));
+    await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Logopeda')).toBeNull(); // odpowiada Ala — nie u mnie
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByLabelText(/^Logopeda, 18:00/));

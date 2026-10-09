@@ -1,4 +1,4 @@
-# Organizer: polityka prywatności (wersja testowa, 8.10.2026)
+# Organizer: polityka prywatności (wersja testowa, 9.10.2026)
 
 > Szkic do zatwierdzenia przez właściciela (ADR 0016, D142 w ADR 0035). Opisuje, co aplikacja naprawdę robi z danymi
 > w tej wersji kodu. Nie jest poradą prawną. Lista zmian względem wersji z 7.10.2026: `docs/privacy-policy-changes.md`.
@@ -12,7 +12,10 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 
 ### Konto
 - **Logowanie przez Apple:** identyfikator konta Apple. Jeśli Apple przekaże imię i nazwisko (robi to tylko przy pierwszym
-  logowaniu), zapisujemy je w koncie, a imię staje się Twoim podpisem w grupach.
+  logowaniu), zapisujemy je w koncie, a imię staje się Twoim podpisem w grupach. Aplikacja prosi Apple też o adres e-mail:
+  Apple przekazuje go w danych logowania (prawdziwy adres albo, jeśli tak wybierzesz, ukryty adres przekierowujący
+  Apple), a usługa logowania (Supabase Auth) może go zapisać w Twoim koncie. Aplikacja z tego adresu nie korzysta
+  i nikomu go nie pokazuje.
 - **Konta założone wcześniej linkiem z e-maila:** adres e-mail. W wersji testowej nowych logowań e-mailem nie ma —
   logujesz się tylko przez Apple.
 - **Twoje imię:** to, które wpiszesz albo zmienisz w aplikacji. Widzą je osoby z Twoich grup.
@@ -56,23 +59,30 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 
 ### Zgłoszenia błędów i samosprawdzenie
 - **Błędy:** gdy aplikacja napotka błąd, wysyła jego opis techniczny: komunikat błędu, miejsce w kodzie, nazwę ekranu albo
-  funkcji (np. „travel”, „render”) i wersję aplikacji. Aplikacja nie dołącza treści Twoich list, zadań, wydarzeń ani imion.
+  funkcji (np. „render”, „travel”, „calendar-read”, „calendar-mirror”, „selfcheck”) i wersję aplikacji. Aplikacja nie dołącza treści Twoich list, zadań, wydarzeń ani imion.
   Przy błędach kalendarza iPhone'a i czasu dojazdu wysyłamy tylko rodzaj i kod błędu oraz miejsce w kodzie — bez
   komunikatu, bo mógłby zawierać nazwę kalendarza, wydarzenia albo adres.
 - **Samosprawdzenie:** raz na każdą nową wersję aplikacji telefon sprawdza, czy działa poprawnie (strefa czasowa,
   polskie litery, baza danych na telefonie) i wysyła wynik tą samą drogą co błędy: wersję bazy danych, wyniki testów
   i wersję aplikacji. Bez treści z list.
-- Zgłoszenia są przypisane do Twojego konta. Wysyłamy najwyżej 50 dziennie z jednego konta. Czyta je tylko autor
-  aplikacji w panelu serwera.
+- Zgłoszenia są przypisane do Twojego konta. Zapisujemy najwyżej 50 zgłoszeń na dobę z jednego konta (kolejne serwer
+  pomija). Czyta je autor aplikacji w panelu serwera; dostęp techniczny ma też dostawca serwera (Supabase, „Gdzie są
+  dane”).
 
 ### Uwagi
 - Tekst, który sam wyślesz z Ustawień („Wyślij uwagę”), razem z wersją aplikacji i nazwą ekranu, z którego wysyłasz
-  (zawsze „Settings”). Uwaga jest przypisana do Twojego konta. Najwyżej 20 dziennie. Czyta je tylko autor aplikacji.
+  (zawsze „Settings”). Uwaga jest przypisana do Twojego konta. Najwyżej 20 dziennie. Czyta je autor aplikacji w panelu
+  serwera (dostęp techniczny ma też dostawca serwera, Supabase).
 
 ### Dane techniczne synchronizacji
 - Losowy identyfikator kopii danych na Twoim telefonie (nie identyfikator urządzenia) i czas ostatniej synchronizacji,
   żeby żadna zmiana nie zginęła ani nie zapisała się dwa razy.
 - Zapis, kiedy dostałeś albo straciłeś dostęp do grupy lub listy, żeby telefon wiedział, co pobrać albo usunąć.
+- **Połączenie na żywo** (Supabase Realtime): gdy aplikacja jest otwarta, telefon utrzymuje połączenie z serwerem
+  (z Twoim adresem IP i tokenem logowania). Serwer wysyła nim tylko sygnał „w grupie jest nowa wersja” (numer wersji)
+  albo „zmienił się Twój dostęp” — bez treści spraw.
+- **Profil:** Twoje imię jest też w profilu konta na serwerze — stąd bierze się podpis, gdy dołączasz do grupy bez wpisania
+  imienia. Imię z profilu widzą też osoby z Twoich grup; profil usuwamy z kontem.
 
 ### Kalendarz iPhone'a (tylko gdy połączysz go w aplikacji)
 - **Odczyt:** aplikacja odczytuje Twoje wydarzenia (od 31 dni wstecz do 62 dni naprzód), żeby pokazać je obok
@@ -99,8 +109,9 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Położenie nigdy nie trafia na serwer Organizera** ani do innych osób. Aplikacja nie śledzi położenia w tle.
 - Na telefonie zapamiętujemy współrzędne adresów wydarzeń (najwyżej 200 adresów; adres, którego Mapy nie znalazły,
   sprawdzamy znowu po dobie) i wybrany środek transportu, żeby nie liczyć ich od nowa.
-- „Nawiguj” otwiera wybraną aplikację map (Mapy Apple albo Mapy Google) z adresem wydarzenia. Od tej chwili adres
-  przetwarza ta aplikacja według swoich zasad.
+- „Nawiguj” otwiera wybraną aplikację map (Mapy Apple albo Mapy Google) z adresem wydarzenia, a gdy aplikacji Google Maps
+  nie ma na iPhonie — stronę Map Google w przeglądarce. Od tej chwili adres przetwarza ta aplikacja albo strona według
+  swoich zasad.
 - Adres wydarzenia (pole „Miejsce”) jest częścią wydarzenia i widzi go cała grupa.
 - **Czujniki ruchu:** aplikacja z nich nie korzysta i nigdy o nie nie pyta. Opis tej zgody jest w aplikacji tylko dlatego,
   że Apple go wymaga: biblioteka lokalizacji, z której korzysta „Czas dojazdu”, zawiera taką funkcję.

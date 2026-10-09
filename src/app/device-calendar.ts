@@ -3,6 +3,9 @@
  * (https://docs.expo.dev/versions/v57.0.0/sdk/calendar/): requestCalendarPermissions(writeOnly = true) — iOS 17+ pyta
  * o samo dodawanie wydarzeń; getDefaultCalendarSync() przy dostępie tylko do zapisu zwraca wirtualny kalendarz
  * EventKit, a addEventWithForm otwiera systemowy formularz z wypełnionymi polami — zapisuje dopiero użytkownik.
+ * iOS 16 (najniższy, config.IOS_MIN) nie zna zgody tylko na zapis: expo-calendar prosi wtedy o zwykły dostęp do
+ * kalendarza (CalendarWriteOnlyNextPermissionsRequester.swift: `if #available(iOS 17.0, *) { requestWriteOnlyAccessToEvents }
+ * else { requestAccess(to: .event) }`, opis z NSCalendarsUsageDescription) — jedno okno zgody, potem ten sam formularz.
  */
 import {
   createCalendar,

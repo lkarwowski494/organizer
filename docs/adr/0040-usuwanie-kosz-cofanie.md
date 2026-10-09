@@ -1,4 +1,4 @@
-# 0036. Usuwanie, kosz i cofanie (audyt 2, 8.10.2026)
+# 0040. Usuwanie, kosz i cofanie (audyt 2, 8.10.2026)
 
 Decyzje właściciela (koordynator przekazał 8.10.2026); wykonanie i decyzje techniczne — Claude, właściciel może je
 zawetować.

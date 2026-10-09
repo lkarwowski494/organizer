@@ -74,10 +74,10 @@ describe('zadania na spotkaniu (D13)', () => {
     const { store } = await open(base({ deadline_mode: 'own', due_date: '2026-10-07' }));
     await press(screen.getByLabelText(/^Spakować\ strój(,|$)/)); // własny termin dziś
     await screen.findByTestId('screen-task');
-    expect(screen.getByText('Wydarzenie: Tańce, dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Wydarzenie: Tańce, dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-event-due'));
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev', occurrence_date: '2026-10-07', deadline_mode: 'event', due_date: null, due_time: null, repeat: null } }]);
-    expect(screen.getByText('Jak wydarzenie: dziś · 17:00')).toBeTruthy();
+    expect(screen.getByText('Jak wydarzenie: dziś, 17:00')).toBeTruthy();
     await press(screen.getByTestId('task-relink'));
     await press(screen.getByTestId('pick-ev2-2026-10-09'));
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: 'ev2', occurrence_date: '2026-10-09' } }]);
@@ -183,6 +183,7 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     expect(screen.getByText('Spakować strój')).toBeTruthy();
     await press(screen.getByLabelText('Odepnij'));
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): tego terminu po zmianie nie ma — powrót o ekran dalej.
     await screen.findByTestId('screen-today');
     expectOps(store, [{ kind: 'patch', entity: 'events', id: 'ev', set: { start_date: '2026-10-08', rrule: 'FREQ=WEEKLY;BYDAY=TH' } }, { kind: 'patch', entity: 'tasks', id: 'strój', set: { event_id: null, occurrence_date: null, deadline_mode: 'none' } }]);
   });
@@ -198,6 +199,9 @@ describe('zmiana serii z zadaniami: podgląd skutków', () => {
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByText('1 podpięte zadanie przejdzie razem z terminami.')).toBeTruthy();
     await press(screen.getByTestId('event-preview-save'));
+    // Audyt 2 (M-246): po zmianie powrót do szczegółów wystąpienia.
+    await screen.findByTestId('screen-event');
+    await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-today');
     // Jedno polecenie podziału: zadanie przenosi ono samo (bez osobnej operacji).
     expect(store.dispatched).toEqual([expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ tasks: [] }) })]);

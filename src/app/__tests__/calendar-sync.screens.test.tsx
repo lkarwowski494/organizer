@@ -66,10 +66,10 @@ describe('kalendarz iPhone’a', () => {
     expect(prefs.m.get('calendarAsked')).toBe('1');
     expect(screen.queryByTestId('device-calendar-card')).toBeNull();
     expect(await screen.findByTestId('device-d|x1')).toBeTruthy();
-    expect(screen.getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
+    expect(screen.getByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
     expect(screen.getByTestId('device-dot-2026-10-07')).toBeTruthy();
-    await press(screen.getByLabelText('Dziś'));
-    expect(await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
+    await press(screen.getByTestId('tab-Today'));
+    expect(await screen.findByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
   });
 
   it('lustro po zmianie danych: kalendarz grupy i wydarzenia (z opóźnieniem)', async () => {
@@ -114,7 +114,7 @@ describe('kalendarz iPhone’a', () => {
 
   it('lista z przerwami (D122): moje wydarzenie z iPhone’a według godziny, przerwy wokół niego', async () => {
     await open(fakeSync({ status: jest.fn(async () => 'granted' as const) }), memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
-    await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca');
+    await screen.findByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca');
     // teraz 10:00; Dentysta 16:00–17:00, korki 17:30, paczka 18:00.
     expect(screen.getAllByTestId(/^(today-gap|device-d|today-t-(korki|paczka))/).map((e) => e.props.testID)).toEqual(['today-gap-600-960', 'device-d|x1', 'today-gap-1020-1050', 'today-t-korki', 'today-gap-1050-1080', 'today-t-paczka']);
   });
@@ -123,7 +123,7 @@ describe('kalendarz iPhone’a', () => {
     const sync = fakeSync({ status: jest.fn(async () => 'granted' as const) });
     const { prefs, services } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1', calendarMirror: '1' }));
     services.local?.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
-    expect(await screen.findByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
+    expect(await screen.findByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-settings');
@@ -152,7 +152,7 @@ describe('kalendarz iPhone’a', () => {
     expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a');
     expect(hidden.props.accessibilityHint).toBe('Pokazuje ukryte duble');
     await press(hidden);
-    expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
+    expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
     expect(screen.getByTestId('today-hidden-2026-10-07').props.accessibilityState).toMatchObject({ expanded: true });
     await press(screen.getByTestId('today-hidden-2026-10-07'));

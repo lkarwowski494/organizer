@@ -15,7 +15,7 @@ import { Screen, syncAnnouncement, Title } from '../../ui/components';
 import { DateField } from '../../ui/DateField';
 import { pinFocus, spoken } from '../../ui/a11y';
 import { RootStack } from '../navigation';
-import { NOW, put, sampleBase, setTime, setup } from './harness';
+import { lastAlert, NOW, put, sampleBase, setTime, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 const announced = () => (AccessibilityInfo.announceForAccessibilityWithOptions as jest.Mock).mock.calls.map((c) => c[0] as string);
@@ -154,16 +154,20 @@ describe('fokus paneli i tytułów (M-44, M-269)', () => {
     await expectFocusOn('Co zmienić?');
   });
 
-  it('potwierdzenie wyjścia z grupy i panel „Wyczyść dane” przenoszą fokus', async () => {
+  it('potwierdzenie wyjścia z grupy to okno systemowe (PWD-4 A) — VoiceOver dostaje je sam', async () => {
     await open(sampleBase(), { resetLocal: jest.fn() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText(/^Klasa 2b/));
     await press(await screen.findByTestId('leave'));
-    await expectFocusOn('Na pewno wyjść?');
+    expect(lastAlert().message).toMatch(/^Na pewno wyjść\?/);
   });
 
   it('Pierwsze kroki: „Dalej” przenosi fokus na nowy nagłówek; postęp to jeden element z etykietą (M-143)', async () => {
-    await open();
+    // Konto bez grupy wspólnej — z wyborem startu (PWD-20 A).
+    const alone = sampleBase();
+    delete alone.groups!.gf;
+    delete alone.groups!.gk;
+    await open(alone);
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('welcome-again'));
     expect((await screen.findByTestId('welcome-progress')).props.accessible).toBe(true);
@@ -279,7 +283,7 @@ describe('pola daty i godziny (M-144, M-141)', () => {
 describe('wiersze (M-141, M-142, M-150, M-263)', () => {
   it('wiersz zadania: tytuł na początku, czynność w podpowiedzi, „czeka na wysłanie” i dopiski słowami', async () => {
     await open();
-    const row = screen.getByLabelText('Odebrać paczkę, Rodzina, dziś, 18:00, dla Ciebie');
+    const row = screen.getByLabelText('Odebrać paczkę, 18:00, Rodzina, dla Ciebie');
     expect(row.props.accessibilityHint).toBe('Otwiera zadanie');
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText(/^Dom, /));
@@ -342,10 +346,11 @@ describe('wiersze (M-141, M-142, M-150, M-263)', () => {
 });
 
 describe('etykiety z kontekstem (M-264, M-265)', () => {
-  it('chip synchronizacji to jeden element; na Moich sprawach stan jako wartość przycisku Ustawień', async () => {
+  it('chip synchronizacji to jeden element (tekst ze stanem); Ustawienia — osobna ikona (PW-28 A, D188)', async () => {
     await open();
     expect(screen.getByTestId('sync-chip').props.accessible).toBe(true);
-    expect(screen.getByLabelText('Ustawienia').props.accessibilityValue.text).toMatch(/^Stan synchronizacji: /);
+    expect(screen.getByTestId('sync-chip').props.accessibilityLabel).toMatch(/^Stan synchronizacji: /);
+    expect(screen.getByTestId('open-settings').props.accessibilityRole).toBe('button');
   });
 
   it('obecność kilku osób: opcja mówi, czyja to odpowiedź', async () => {

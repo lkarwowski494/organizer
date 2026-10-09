@@ -12,7 +12,8 @@ import { parseIsoDate } from '../format';
 import type { SplitArgs, SplitTask } from '../event-split';
 import { occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
-import { asEvent, ruleOf } from './event-rows';
+import { type Due, effectiveDue } from '../deadlines';
+import { asEvent, occurrenceResolver, ruleOf } from './event-rows';
 import { type EventDetail, expandEvents, type Occurrence, type Scope } from './events';
 import { asTask, rows, type Tables, type Task } from './model';
 
@@ -24,6 +25,22 @@ export function attachedTasks(t: Tables, eventId: string, occurrenceDate?: strin
   return rows(t, 'tasks', asTask)
     .filter((x) => x.deleted_at === null && x.completed_at === null && x.event_id === eventId && (occurrenceDate === undefined || x.occurrence_date === occurrenceDate))
     .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+}
+
+/**
+ * Zadania wystąpienia na ekranie wydarzenia (audyt 2, M-130; PWD-7 A): otwarte i zrobione osobno, z własnym terminem
+ * (termin zadania albo — przy „ze spotkania” — termin wystąpienia, effectiveDue), żeby wiersz był taki jak w Moich
+ * sprawach, a licznik „1/3 zrobione” zgadzał się z tym, co widać.
+ */
+export function occurrenceTasks(t: Tables, eventId: string, occurrenceDate: string): { open: (Task & { due: Due })[]; done: (Task & { due: Due })[] } {
+  const all = rows(t, 'tasks', asTask).filter((x) => x.deleted_at === null);
+  const byId = new Map(all.map((x) => [x.id, x]));
+  const occ = occurrenceResolver(t);
+  const mine = all
+    .filter((x) => x.event_id === eventId && x.occurrence_date === occurrenceDate)
+    .sort((a, b) => a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id))
+    .map((x) => ({ ...x, due: effectiveDue(x, byId, occ) }));
+  return { open: mine.filter((x) => x.completed_at === null), done: mine.filter((x) => x.completed_at !== null) };
 }
 
 function inCancelScope(t: Tables, d: EventDetail, occurrenceDate: string, scope: Scope): Task[] {

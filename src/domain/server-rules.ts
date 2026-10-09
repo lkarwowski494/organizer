@@ -4,7 +4,8 @@
  * private.sync_entities, powtórzone utworzenie, wiersz niewidoczny / usunięty), polityki RLS (widoczność list,
  * przekazań, uprawnienia zmiany grupy) i strażnicy wierszy (tasks_guard, lists_guard, events_guard, event_rsvps_guard,
  * event_task_series_guard, group_members_guard, handoffs_guard, object_members_guard, list_responsible_guard,
- * event_responsible_guard, tasks_event_guard, groups_stamp) oraz kosz grup (bump_group_version: deleted:group).
+ * event_responsible_guard, tasks_event_guard, groups_stamp, my_day_scopes_guard, shopping_trips_guard) oraz kosz grup
+ * (bump_group_version: deleted:group).
  * Kolejność sprawdzeń jak w SQL: kolumny, widoczność, strażnicy w kolejności nazw wyzwalaczy, licznik wersji grupy.
  *
  * Używają go atrapy serwera — testy ekranów (src/app/__tests__/harness.tsx: odrzucenie oblewa test, chyba że test je
@@ -18,12 +19,13 @@
  * zakupów albo wydarzeniu, przy jednym terminie — wyjątek).
  *
  * Poza modelem (zwraca null — „przyjęte”): polecenia (`cmd`: przeniesienie zadania, udostępnienia, stałe zakupy, podział
- * serii), identyfikatory pochodne (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
+ * serii), identyfikatory pochodne poza zakresem Moich spraw (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
  * przyjęcie przekazania nieaktualnego (stale), wygasłe przywrócenie członka (deleted:expired) i przekazania wydarzeń.
  */
 import { config } from '../config';
 import { applyOp, type NewOp, type Op, type Row } from './sync-engine/client';
 import { overrideId } from './views/events';
+import { scopeRowId } from './views/my-scope';
 
 export type ServerTables = { readonly [entity: string]: { readonly [key: string]: Row } | undefined };
 
@@ -46,6 +48,8 @@ export const SYNC_ENTITIES: { readonly [entity: string]: Spec } = {
   event_rsvps: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'occurrence_date', 'member_id', 'answer'], patch: ['answer'], softDelete: true },
   event_task_series: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'list_id', 'title'], patch: ['event_id', 'title'], softDelete: true },
   handoffs: { pk: 'id', insert: ['id', 'group_id', 'entity', 'entity_id', 'occurrence_date', 'to_member'], patch: ['status', 'closed'], softDelete: false },
+  my_day_scopes: { pk: 'id', insert: ['id', 'group_id', 'member_id', 'scope'], patch: ['scope'], softDelete: true },
+  shopping_trips: { pk: 'id', insert: ['id', 'group_id', 'list_id', 'planned_date', 'done_at'], patch: [], softDelete: true },
 };
 
 class Rejected extends Error {}
@@ -87,8 +91,9 @@ function canSeeList(t: ServerTables, user: string, listId: unknown): boolean {
 function canSee(t: ServerTables, user: string, entity: string, row: Row): boolean {
   if (entity === 'groups') return !!member(t, String(row.id), user);
   if (entity === 'lists') return canSeeList(t, user, row.id);
-  if (entity === 'tasks' || entity === 'event_task_series') return canSeeList(t, user, row.list_id);
+  if (entity === 'tasks' || entity === 'event_task_series' || entity === 'shopping_trips') return canSeeList(t, user, row.list_id);
   const me = member(t, String(row.group_id), user);
+  if (entity === 'my_day_scopes') return !!me && row.member_id === me.member_id;
   if (entity === 'handoffs') return !!me && (row.from_member === me.member_id || row.to_member === me.member_id);
   return !!me;
 }
@@ -273,6 +278,21 @@ function groupMembersGuard(me: Me | null, user: string, row: Row, old: Row | nul
   if (!same(row.week_a, old.week_a) && (actor === '' || actor === 'child')) reject('forbidden');
 }
 
+/** my_day_scopes_guard (20261008570000_my_scopes_trips.sql): tylko własne członkostwo; id z member_id (UUIDv5). */
+function myScopesGuard(me: Me | null, row: Row, old: Row | null) {
+  if (row.member_id !== me?.member_id) reject('forbidden:not_self');
+  if (!old && row.id !== scopeRowId(String(row.member_id))) reject('invalid_id');
+}
+
+/** shopping_trips_guard: członek, nie dziecko; przy utworzeniu — żywa lista zakupów tej grupy. */
+function tripsGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
+  if (!me) reject('forbidden');
+  if (me!.role === 'child') reject('forbidden:child');
+  if (old) return;
+  const l = t.lists?.[String(row.list_id)];
+  if (!l || l.group_id !== row.group_id || l.kind !== 'shopping' || l.deleted_at != null) reject('invalid_list');
+}
+
 function groupsGuard(me: Me | null, row: Row, old: Row) {
   if (!same(row.color, old.color) && me?.role !== 'owner') reject('forbidden:role');
 }
@@ -302,6 +322,10 @@ function guards(t: ServerTables, user: string, entity: string, row: Row, old: Ro
       return handoffsGuard(t, me, row, old);
     case 'group_members':
       return groupMembersGuard(me, user, row, old);
+    case 'my_day_scopes':
+      return myScopesGuard(me, row, old);
+    case 'shopping_trips':
+      return tripsGuard(t, me, row, old);
     default:
       return groupsGuard(me, row, old!);
   }
@@ -312,7 +336,8 @@ function guards(t: ServerTables, user: string, entity: string, row: Row, old: Ro
  * sprawdzają już strażnicy; zostaje widoczna lista serii zadań przy wydarzeniu (event_task_series_guard jej nie sprawdza).
  */
 function insertAllowed(t: ServerTables, user: string, entity: string, row: Row): boolean {
-  return entity !== 'event_task_series' || canSeeList(t, user, row.list_id);
+  // Zakres: własne członkostwo sprawdził już strażnik (forbidden:not_self).
+  return (entity !== 'event_task_series' && entity !== 'shopping_trips') || canSeeList(t, user, row.list_id);
 }
 
 function trashed(t: ServerTables, group: unknown) {
@@ -350,8 +375,13 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     const vals: Row = { ...op.set, [spec.pk]: op.id, group_id: op.group_id };
     const bad = jsonbKeys(vals).find((k) => !spec.insert.includes(k));
     if (bad !== undefined) reject(`invalid_field:${bad}`);
-    if (current) return void (canSee(t, user, op.entity, current) || reject('invalid:23505'));
+    if (current && canSee(t, user, op.entity, current)) return; // powtórzone utworzenie
     const row: Row = { visibility: op.entity === 'lists' ? 'group' : undefined, ...op.set, [spec.pk]: op.id, group_id: op.group_id, deleted_at: null };
+    // Cudzy wiersz o tym kluczu: strażnicy (BEFORE INSERT) działają przed konfliktem klucza — np. cudzy zakres Moich spraw.
+    if (current) {
+      guards(t, user, op.entity, row, null);
+      reject('invalid:23505');
+    }
     guards(t, user, op.entity, row, null);
     trashed(t, op.group_id);
     if (!insertAllowed(t, user, op.entity, row)) reject('forbidden'); // RLS WITH CHECK: 42501 → forbidden (sync_push)
@@ -427,6 +457,8 @@ function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'dele
     seriesCascade(t, 'lists', id, null, 'delete');
   }
   for (const [k, o] of Object.entries(t.object_members ?? {})) if (o.member_id === m.member_id && o.deleted_at == null) t.object_members![k] = { ...o, deleted_at: at };
+  // member_scope_cleanup: zakres Moich spraw tej osoby znika (wraca „Wszystko”).
+  for (const [k, sc] of Object.entries(t.my_day_scopes ?? {})) if (sc.member_id === m.member_id) delete t.my_day_scopes![k];
 }
 
 /**
@@ -443,7 +475,7 @@ export function applyOnServer(t: { [e: string]: { [k: string]: Row } }, user: st
   if (op.kind === 'create') {
     const row = t[op.entity]![op.id]!;
     const assigned: Row =
-      op.entity === 'lists' ? { owner_member_id: me!.member_id } : op.entity === 'handoffs' ? { from_member: me!.member_id, status: 'pending', closed: false, decided_at: null } : {}; // przyjęte: jestem członkiem
+      op.entity === 'lists' ? { owner_member_id: me!.member_id } : op.entity === 'handoffs' ? { from_member: me!.member_id, status: 'pending', closed: false, decided_at: null } : op.entity === 'shopping_trips' ? { done_by: me!.member_id } : {}; // przyjęte: jestem członkiem
     // Klucz główny w wierszu (członek: member_id) jak w tabeli serwera.
     t[op.entity]![op.id] = { ...config.sync.PATCH_DEFAULTS[op.entity], ...row, [SYNC_ENTITIES[op.entity]!.pk]: op.id, ...assigned };
   }

@@ -51,9 +51,11 @@ select is_empty($$ select entity from private.sync_entities where entity <> 'gro
 select is_empty($$ select entity from private.sync_entities e where entity <> 'groups'
   and not exists (select 1 from pg_trigger g where g.tgrelid = ('public.' || e.entity)::regclass and g.tgfoid = 'private.stamp_version'::regproc) $$,
   'każda encja synchronizacji ma znacznik wersji (stamp_version; groups — groups_stamp)');
--- Wyjątek (stan 8.10.2026, purge_group z 20261008480000_retention.sql): usunięte członkostwa zostają w bazie.
+-- Wyjątki (stan 9.10.2026, purge_group z 20261008570000_my_scopes_trips.sql): usunięte członkostwa zostają w bazie;
+-- zakres Moich spraw (jeden wiersz na członkostwo) znika na dobre razem z członkostwem (member_scope_cleanup), a usunięty
+-- operacją z telefonu zostaje jako nagrobek — do decyzji w audycie 3.
 select is_empty($$ select t from pg_temp.grouped() t
-  where t <> 'group_members'
+  where t not in ('group_members', 'my_day_scopes')
     and exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = t and c.column_name = 'deleted_at')
     and pg_temp.src('purge_group') !~ ('public\.' || t || '\M') $$,
   'każda tabela z group_id i deleted_at jest czyszczona z kosza (purge_group), poza jawnymi wyjątkami');

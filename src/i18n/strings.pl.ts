@@ -30,13 +30,17 @@ export const strings = {
   'sync.upgradeOpen': 'Otwórz TestFlight',
   'sync.a11y': (label: string) => `Stan synchronizacji: ${label}`,
 
-  'tabs.today': 'Dziś',
+  // PW-27 A (M-133, D193): zakładka nazywa się jak ekran; przycisk „Dziś” na nim zostaje (skok do dzisiejszego dnia).
+  'tabs.today': 'Moje sprawy',
   'tabs.lists': 'Listy',
   'tabs.calendar': 'Kalendarz',
   'tabs.groups': 'Grupy',
 
-  'today.title': 'Moje sprawy',
-  'today.pinned': 'Przypięte',
+  // PWD-13 A (M-282): sekcja bez terminu nazywa się jak pole terminu (form.noDate — „Bez terminu”), nie „Przypięte”.
+  'today.pinnedCount': (n: number) => `Bez terminu (${n})`,
+  'today.doneToday': (n: number) => `Zrobione dziś (${n})`,
+  'section.showA11y': (title: string) => `${title}, pokaż`,
+  'section.hideA11y': (title: string) => `${title}, schowaj`,
   // Audyt 2 (M-23, U-45): przykłady, które parser rozumie jednoznacznie, i to zadania, nie zakupy.
   'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd w piątek” albo „dentysta jutro o 17”.',
   'today.noDue': 'bez terminu',
@@ -50,7 +54,7 @@ export const strings = {
   'today.next.week': 'Następny tydzień',
   'today.prev.month': 'Poprzedni miesiąc',
   'today.next.month': 'Następny miesiąc',
-  'today.emptyRange': 'Nic tu nie ma.',
+  'today.emptyRange': 'Brak spraw w tym okresie.',
   'today.pastInfo': 'Minęło: zrobione i wydarzenia. Niezrobione z terminem przeszły na dziś; te „tylko tego dnia” i kroki rutyn minęły.',
 
   'quick.label': 'Szybkie dodawanie',
@@ -350,6 +354,11 @@ export const strings = {
   /** Dzisiejszy dzień w siatce Kalendarza i mini kalendarza — VoiceOver mówi „dziś” (audyt 2, M-140). */
   'calendar.todayA11y': (label: string) => `Dziś, ${label}`,
   'calendar.empty': 'Tego dnia nic nie ma.',
+  // PWD-1 C (M-173): zrobione zadanie stoi w dniu terminu, z dniem odhaczenia, gdy był inny.
+  'calendar.doneOn': (day: string) => `zrobione ${day}`,
+  // PWD-15 A (M-284): blady przyszły termin zadania powtarzanego — policzony, zadanie powstanie po odhaczeniu poprzedniego.
+  'calendar.repeatNext': 'kolejny termin',
+  'calendar.repeatNextHint': 'Otwiera zadanie, z którego wynika ten termin',
   'calendar.addEvent': 'Dodaj wydarzenie',
 
   'event.new': 'Nowe wydarzenie',
@@ -462,6 +471,10 @@ export const strings = {
   'event.calendarSaved': 'Dodano do kalendarza.',
   'event.calendarDenied': 'Brak zgody na dodawanie do kalendarza. Włączysz ją w Ustawieniach iPhone’a → Organizer → Kalendarze.',
   'event.tasks': 'Zadania na to wydarzenie',
+  'event.noTasks': 'Brak zadań. Dodaj, co trzeba przygotować.',
+  'event.tasksDone': (n: number) => `Zrobione (${n})`,
+  // PWD-32 B (M-301): wydarzenie dziecka, za które odpowiada ktoś inny — informacyjnie, z imieniem dziecka.
+  'event.childInfo': (children: string, title: string) => `${children}: ${title}`,
   'event.taskAdd': 'Dodaj zadanie na to wydarzenie',
   'event.taskAddHint': 'Termin zadania to termin wydarzenia.',
   'event.taskList': 'Na liście',
@@ -542,6 +555,10 @@ export const strings = {
   'groups.revokeConfirm': 'Unieważnić kod? Kto go jeszcze nie użył, już z nim nie dołączy — tego nie da się cofnąć. Nowy kod utworzysz w każdej chwili.',
   'groups.addChild': 'Dodaj dziecko (bez konta)',
   'groups.childName': 'Imię dziecka',
+  'groups.error.childEmpty': 'Wpisz imię dziecka.',
+  'groups.error.myNameEmpty': 'Wpisz swoje imię w tej grupie.',
+  'groups.noLists': 'Brak list. Dodaj listę zakupów albo zadań.',
+  'groups.nextSteps.newShopping': 'Utwórz listę zakupów',
   'groups.leave': 'Wyjdź z grupy',
   // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
   'groups.leaveConfirm': (days: number) =>
@@ -622,12 +639,13 @@ export const strings = {
   'invite.paste': 'Wklej wiadomość albo link (opcjonalnie)',
   'invite.joinId': `ID grupy (${config.invites.JOIN_ID_DIGITS} cyfr)`,
   'invite.code': `Kod (${config.invites.CODE_DIGITS} cyfr)`,
+  'invite.error.missing': 'Wpisz ID grupy i kod albo wklej wiadomość z zaproszeniem.',
 
   'settings.title': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
   'settings.signOutAsk': 'Wylogować się?',
   // D176: wylogowanie tylko tego telefonu.
-  'settings.signOutInfo': 'Przypomnienia znikną z tego telefonu, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach konto zostaje zalogowane. Żeby wrócić, zaloguj się tym samym kontem.',
+  'settings.signOutInfo': 'Przypomnienia i kalendarze „Organizer” znikną z tego iPhone’a, a powiadomienia tego konta przestaną tu przychodzić. Na innych urządzeniach konto zostaje zalogowane. Żeby wrócić, zaloguj się tym samym kontem.',
   // Wylogowanie bez internetu: token push zdejmie zaległe zadanie (src/sync/supabase.ts, finishSignOut).
   'settings.signOutOffline': 'Powiadomienia tego konta przestaną przychodzić, gdy telefon połączy się z internetem.',
   // Audyt 2 (M-166): niewysłane zmiany zostają w bazie konta na telefonie (D172 b) i wyślą się po ponownym zalogowaniu.
@@ -651,6 +669,7 @@ export const strings = {
   'settings.deleteConfirm': 'Usuń konto na zawsze',
   'settings.deleteType': 'Wpisz USUŃ, żeby potwierdzić',
   'settings.deleteWord': 'USUŃ',
+  'settings.deleteWordError': 'Wpisz USUŃ, żeby potwierdzić.',
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
   'settings.appearance.dark': 'Ciemny',
@@ -789,6 +808,7 @@ export const strings = {
   'welcome.2.example': '„dentysta jutro o 17” → dentysta, jutro 17:00',
   'welcome.next': 'Dalej',
   'welcome.skip': 'Pomiń',
+  'welcome.done': 'Zaczynamy',
   'welcome.start.title': 'Od czego zaczynasz?',
   'welcome.start.body': 'Grupę osobistą już masz. Wspólną utworzysz albo dołączysz do niej kodem, który dostaniesz od bliskich.',
   'welcome.start.family': 'Utwórz grupę rodzinną',
@@ -809,6 +829,7 @@ export const strings = {
   'feedback.sent': 'Dziękujemy! Uwaga dotarła.',
   'feedback.limit': 'Na dziś to już dużo uwag — spróbuj jutro.',
   'feedback.error': 'Nie udało się wysłać. Sprawdź internet i spróbuj jeszcze raz.',
+  'feedback.empty': 'Wpisz, co chcesz nam przekazać.',
   // PWD-18 (decyzja właściciela 8.10.2026): wyciszenie dotyczy tylko przypisań — nazwa i dopisek mówią to wprost.
   'mutes.section': 'Powiadomienia o przypisaniach',
   'mutes.info': 'Gdy ktoś przypisze Ci zadanie, zakupy albo wydarzenie, dostaniesz powiadomienie. Możesz to wyciszyć dla wybranej grupy. Przypomnienia i przekazania (do przyjęcia) przychodzą zawsze.',
@@ -931,6 +952,29 @@ export const strings = {
   'common.back': 'Wróć',
   'common.close': 'Zamknij',
   'common.error': 'Coś poszło nie tak. Spróbuj jeszcze raz.',
+  'common.refresh': 'Odśwież',
+  // Audyt 2 (M-131): rzeczy, której nie ma (usunięta, stary link, powiadomienie) — bez „Spróbuj jeszcze raz”.
+  'missing.task': 'Tego zadania już nie ma — ktoś je usunął albo nie masz już do niego dostępu.',
+  'missing.list': 'Tej listy już nie ma — ktoś ją usunął albo nie masz już do niej dostępu.',
+  'missing.event': 'Tego wydarzenia już nie ma — ktoś je usunął albo nie masz już do niego dostępu.',
+  'missing.group': 'Tej grupy już nie ma — ktoś ją usunął albo już do niej nie należysz.',
+  // PW-2 A (M-35, D149): zakres Moich spraw w grupie.
+  'myScope.title': 'W Moich sprawach',
+  'myScope.all': 'Wszystko',
+  'myScope.mineAndEvents': 'Przypisane do mnie i wydarzenia',
+  'myScope.mine': 'Tylko przypisane do mnie',
+  'myScope.info': 'Co z tej grupy pokazywać w Moich sprawach, przypomnieniach, porannym podsumowaniu i kalendarzu iPhone’a. Ustawienie Twojego konta (także na innych urządzeniach) — nikt z grupy go nie widzi.',
+  'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz niżej „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
+  // PW-38 A (M-119, D192): chipy grup filtrują Moje sprawy i Kalendarz.
+  'filter.label': 'Pokaż grupy',
+  'filter.chipA11y': (name: string) => `Tylko grupa ${name}`,
+  'filter.on': (names: string) => `Filtr włączony: ${names}`,
+  'filter.clear': 'Pokaż wszystkie',
+  'filter.clearA11y': 'Wyłącz filtr, pokaż wszystkie grupy',
+  // PWD-30 A (M-299): wybór osoby z wyszukiwaniem w dużej grupie.
+  'people.search': 'Szukaj osoby',
+  'people.none': 'Nikt o takim imieniu.',
+  'people.change': (label: string, name: string) => `${label}: ${name}. Zmień`,
   'common.offlineOnly': 'Ta czynność wymaga internetu.',
   'common.maxLength': (n: number) => `Najwyżej ${n} ${plural(n, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
 } as const;
