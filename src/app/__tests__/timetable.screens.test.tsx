@@ -11,7 +11,7 @@ async function openTimetable(base = sampleBase()) {
   const s = setup({ base });
   await s.renderApp(<RootStack />);
   await press(screen.getByLabelText('Grupy'));
-  await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+  await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
   await press(await screen.findByLabelText('Kuba, dziecko'));
   await press(await screen.findByTestId('open-timetable'));
   await screen.findByTestId('screen-timetable');
@@ -32,7 +32,7 @@ describe('plan lekcji (D112)', () => {
 
   it('lekcje co tydzień i w tygodniu B; zapis jako serie z Kubą; cofnięcie usuwa serie', async () => {
     const { store } = await openTimetable();
-    expect(screen.getByText('Plan lekcji – Kuba')).toBeTruthy();
+    expect(screen.getByText('Plan lekcji — Kuba')).toBeTruthy();
     await press(screen.getByTestId('timetable-save'));
     expect(screen.getByText('Dodaj co najmniej jedną lekcję.')).toBeTruthy();
     await press(screen.getByTestId('lesson-add-0'));
@@ -59,7 +59,7 @@ describe('plan lekcji (D112)', () => {
     ]);
     expect(store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'event_participants').every((o) => (o as unknown as { set: { member_id: string } }).set.member_id === 'kuba')).toBe(true);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano plan: 2 serie wydarzeń')).toBeTruthy();
+    expect(within(bar).getByText('Dodano plan lekcji: 2 lekcje w tygodniu')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Serie do kosza; kotwica tygodnia A (zapisana przy lekcji z tygodnia B, D171) wraca do pustej.
     expect(store.dispatched.slice(-3)).toEqual([expect.objectContaining({ kind: 'delete', entity: 'events' }), expect.objectContaining({ kind: 'delete', entity: 'events' }), { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: null } }]);
@@ -169,7 +169,7 @@ describe('plan lekcji (D112)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
     await press(await screen.findByLabelText(/^Ala, /));
     await screen.findByTestId('screen-member');
     expect(screen.queryByTestId('open-timetable')).toBeNull();

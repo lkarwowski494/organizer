@@ -56,8 +56,9 @@ export const config = {
    * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
    * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
    * dni wstecz widoki dnia szukają wydarzeń, które zaczęły się wcześniej. Wybory projektowe, bez źródła.
+   * INTERVAL_MAX: największy odstęp powtarzania („co 99 tygodni”) — to samo sprawdza private.rrule_ok (test kontraktowy).
    */
-  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62, MAX_DAYS: 31 },
+  events: { LOCATION_MAX_LENGTH: 300, MOVE_WINDOW_DAYS: 62, MAX_DAYS: 31, INTERVAL_MAX: 99 },
 
   /**
    * Zadania na spotkaniu (D13, D14; ADR 0008): jak daleko naprzód szukamy kolejnego wystąpienia serii (przepinanie,

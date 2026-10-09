@@ -189,7 +189,7 @@ describe('adresat we wspólnej grupie (D68)', () => {
     expect(screen.queryByTestId('addressee-ask')).toBeNull();
     const created = store.dispatched.at(-1) as { id: string };
     expect(created).toMatchObject({ kind: 'create', set: { title: 'nowy odkurzacz', deadline_mode: 'none' } });
-    expect(within(await screen.findByTestId(`task-${created.id}`)).getByText('bez osoby i terminu — nikt tego nie widzi w „Moich sprawach”')).toBeTruthy();
+    expect(within(await screen.findByTestId(`task-${created.id}`)).getByText('bez osoby i terminu — nikt tego nie widzi w Moich sprawach')).toBeTruthy();
     // Z terminem w tekście — bez dopisku; pusty tekst — nic.
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'chleb jutro');
     await press(screen.getByLabelText('Dodaj'));

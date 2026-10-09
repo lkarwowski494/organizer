@@ -364,7 +364,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     await press(screen.getByLabelText('Usuń: Wizyta'));
     await screen.findByTestId('screen-event');
     expect(store.dispatched).toHaveLength(n);
-    expect(screen.getByText(/1 zadanie jest podpięte do odwoływanych wydarzeń/)).toBeTruthy();
+    expect(screen.getByText(/1 zadanie jest podpięte do odwoływanych terminów/)).toBeTruthy();
     // Zadanie terminu też przesuwa się do usunięcia (M-124).
     await press(screen.getByLabelText('Usuń: Wziąć skierowanie'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'zad' });
@@ -448,7 +448,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     await press(screen.getByTestId('form-save'));
     await screen.findByTestId('screen-today');
     const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks')!;
-    expect(within(bar()).getByText('Dodano: Zadzwonić do mamy · Osobiste')).toBeTruthy();
+    expect(within(bar()).getByText('Dodano zadanie: Zadzwonić do mamy · Osobiste')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' });
   });
@@ -463,7 +463,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     expect(within(bar()).getByText('Dodano listę: Remont · Osobiste')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Kupić farbę');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(within(bar()).getByText('Dodano: Kupić farbę · Remont')).toBeTruthy();
+    expect(within(bar()).getByText('Dodano zadanie: Kupić farbę · Remont')).toBeTruthy();
     await press(within(bar()).getByLabelText('Zmień'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(store.dispatched.some((o) => o.kind === 'create' && o.entity === 'lists')).toBe(true);

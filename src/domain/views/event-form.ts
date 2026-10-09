@@ -142,7 +142,7 @@ export function validateForm(s: EventForm, opts: { overnight?: boolean } = {}): 
     }
     if (s.repeat === 'weekly' && slot.days.length === 0) return { error: 'days' };
   }
-  if (s.repeat !== 'none' && (!/^\d{1,2}$/.test(s.interval.trim()) || Number(s.interval) < 1)) return { error: 'interval' };
+  if (s.repeat !== 'none' && (!/^\d+$/.test(s.interval.trim()) || Number(s.interval) < 1 || Number(s.interval) > config.events.INTERVAL_MAX)) return { error: 'interval' };
   if (s.repeat === 'monthly' && s.monthly === 'nth' && weekdayPosition(date).n > 4) return { error: 'monthly' };
   if (s.repeat === 'monthly' && s.monthly === 'last' && !weekdayPosition(date).last) return { error: 'monthly' };
   if (s.repeat === 'monthly' && s.monthly === 'lastDay' && !weekdayPosition(date).lastDay) return { error: 'monthly' };
