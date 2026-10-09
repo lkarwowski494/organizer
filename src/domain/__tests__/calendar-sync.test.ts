@@ -32,14 +32,15 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
   it('godziny w czasie lokalnym; całodniowe na każdy dzień; kilkudniowe z godziną tylko pierwszego dnia', () => {
     expect([...days.keys()].sort()).toEqual(['2026-10-08', '2026-10-09', '2026-10-10']);
     expect(days.get('2026-10-09')).toEqual([
-      { ...x, key: 'd|b', title: 'Urlop', time: null, endTime: null, continued: true },
-      { ...x, key: 'd|a', title: 'Dentysta', time: '16:00', endTime: '17:30', continued: false, organizer: true, location: 'Wodna 1' },
-      { ...x, key: 'd|c', title: 'Konferencja', time: '20:00', endTime: '24:00', continued: false },
-      { ...x, key: 'd|d', title: 'Do północy', time: '22:00', endTime: '24:00', continued: false },
+      { ...x, key: 'd|b', title: 'Urlop', time: null, endTime: null, continued: true, part: { day: 2, days: 3 }, eventStart: null, eventEnd: null, lastDate: '2026-10-10' },
+      { ...x, key: 'd|a', title: 'Dentysta', time: '16:00', endTime: '17:30', continued: false, organizer: true, location: 'Wodna 1', part: null, eventStart: '16:00', eventEnd: '17:30', lastDate: '2026-10-09' },
+      // D199: który to dzień i godziny całego wydarzenia (do napisu „do 12:00 · dzień 2 z 2” zamiast „cd.”).
+      { ...x, key: 'd|c', title: 'Konferencja', time: '20:00', endTime: '24:00', continued: false, part: { day: 1, days: 2 }, eventStart: '20:00', eventEnd: '12:00', lastDate: '2026-10-10' },
+      { ...x, key: 'd|d', title: 'Do północy', time: '22:00', endTime: '24:00', continued: false, part: null, eventStart: '22:00', eventEnd: '24:00', lastDate: '2026-10-09' },
     ]);
-    expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.endTime, e.continued])).toEqual([
-      ['d|b', null, null, true],
-      ['d|c', '00:00', '12:00', true],
+    expect(days.get('2026-10-10')!.map((e) => [e.key, e.time, e.endTime, e.continued, e.part])).toEqual([
+      ['d|b', null, null, true, { day: 3, days: 3 }],
+      ['d|c', '00:00', '12:00', true, { day: 2, days: 2 }],
     ]);
     expect(days.get('2026-10-08')!.map((e) => [e.key, e.continued])).toEqual([['d|b', false]]);
   });
@@ -58,8 +59,8 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
     expect(deviceCalendars([{ ...events[0]!, calendarId: 'b' }, { ...events[0]!, calendarId: 'a' }], new Set())).toEqual([{ id: 'a', title: 'Praca' }, { id: 'b', title: 'Praca' }]);
   });
 
-  it('dubel (D173): ta sama nazwa po ujednoliceniu i godzina ±30 min (albo obie bez godziny) albo znacznik Organizera; „cd.” nigdy', () => {
-    const e = (title: string, time: string | null, more: Partial<DeviceEntry> = {}): DeviceEntry => ({ key: `d|${title}`, date: '2026-10-09', title, calendarId: 'c1', calendarTitle: 'Ł', time, endTime: null, continued: false, organizer: false, location: null, ...more });
+  it('dubel (D173): ta sama nazwa po ujednoliceniu i godzina ±30 min (albo obie bez godziny) albo znacznik Organizera; kolejny dzień wielodniowego tylko z kolejnym dniem', () => {
+    const e = (title: string, time: string | null, more: Partial<DeviceEntry> = {}): DeviceEntry => ({ key: `d|${title}`, date: '2026-10-09', title, calendarId: 'c1', calendarTitle: 'Ł', time, endTime: null, continued: false, part: null, eventStart: null, eventEnd: null, lastDate: '2026-10-09', organizer: false, location: null, ...more });
     const app = [{ title: 'Basen Kuby', time: '19:00:00' }, { title: 'Urodziny babci', time: '17:00' }, { title: 'Bal', time: '18:00' }, { title: 'WF', time: null }];
     expect(normalizeTitle('  Żółć – BASEN!! kuby ')).toBe('zolc basen kuby');
     expect(isDuplicate(e('basen  KUBY', '19:30'), app)).toBe(true);
@@ -76,7 +77,12 @@ describe('moje wydarzenia z iPhone’a (D95, D96)', () => {
     expect(isDuplicate(e('!!!', null), [{ title: '?', time: null }])).toBe(false);
     // Kopia z „Dodaj do kalendarza” (znacznik w notatce): aplikacja ma aktualną wersję, nawet po zmianie nazwy albo terminu.
     expect(isDuplicate(e('Basen (stara nazwa)', '10:00', { organizer: true }), [])).toBe(true);
-    expect(isDuplicate(e('Bal', null, { continued: true, organizer: true }), app)).toBe(false);
+    // D199: kopia wielodniowego (znacznik) — dubel w każdym dniu; kolejny dzień — dublem kolejnego dnia wpisu aplikacji o tej
+    // samej nazwie (godziny bez znaczenia), nie pierwszego dnia.
+    expect(isDuplicate(e('Bal', null, { continued: true, organizer: true }), app)).toBe(true);
+    expect(isDuplicate(e('Bal', '00:00', { continued: true }), app)).toBe(false);
+    expect(isDuplicate(e('Obóz', null, { continued: true }), [{ title: 'obóz!', time: null, continued: true }])).toBe(true);
+    expect(isDuplicate(e('!!!', null, { continued: true }), [{ title: '?', time: null, continued: true }])).toBe(false);
     const r = splitDuplicates([e('Bal', '18:00'), e('Dentysta', '09:00')], app);
     expect([r.shown.map((x) => x.title), r.hidden.map((x) => x.title)]).toEqual([['Dentysta'], ['Bal']]);
   });
@@ -117,9 +123,9 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
 
   it('wystąpienia moich grup w oknie, bez odwołanych, z osobą odpowiedzialną w nazwie i miejscem', () => {
     expect(items).toEqual([
-      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', location: 'Wodna 1', notes: 'Rodzina' },
-      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, location: null, notes: 'Osobiste' },
-      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', location: 'Wodna 1', notes: 'Rodzina' },
+      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', days: 1, location: 'Wodna 1', notes: 'Rodzina' },
+      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, days: 1, location: null, notes: 'Osobiste' },
+      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', days: 1, location: 'Wodna 1', notes: 'Rodzina' },
     ]);
     expect(mirrorGroups(base(), ME).map((g) => [g.id, g.name])).toEqual([[ME, PERSONAL_NAME], ['gf', 'Rodzina']]);
     expect(mirrorGroups(base(), ME)[0]!.color).toMatch(/^#[0-9A-F]{6}$/);
@@ -146,9 +152,9 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     const all = mirrorItems(t, ME, today, 0, 7, NO_SKIP, LESSONS);
     expect(all.some((i) => i.key.startsWith('e4|'))).toBe(false);
     expect(all.filter((i) => i.key.startsWith('lessons|')).sort((a, b) => a.key.localeCompare(b.key))).toEqual([
-      { key: 'lessons|kuba|2026-10-12', groupId: 'gf', title: 'Kuba: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '13:00', location: null, notes: 'Rodzina\n08:00 Matematyka\n08:55 Polski\n13:00 Basen' },
-      { key: 'lessons|ola|2026-10-12', groupId: 'gf', title: 'Ola: 1 lekcja', date: '2026-10-12', startTime: null, endTime: null, location: null, notes: 'Rodzina\nDzień sportu' },
-      { key: 'lessons|roza|2026-10-12', groupId: 'gf', title: 'Róża: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '08:45', location: null, notes: 'Rodzina\n08:00 Angielski\n08:00 Matematyka\nWycieczka' },
+      { key: 'lessons|kuba|2026-10-12', groupId: 'gf', title: 'Kuba: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '13:00', days: 1, location: null, notes: 'Rodzina\n08:00 Matematyka\n08:55 Polski\n13:00 Basen' },
+      { key: 'lessons|ola|2026-10-12', groupId: 'gf', title: 'Ola: 1 lekcja', date: '2026-10-12', startTime: null, endTime: null, days: 1, location: null, notes: 'Rodzina\nDzień sportu' },
+      { key: 'lessons|roza|2026-10-12', groupId: 'gf', title: 'Róża: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '08:45', days: 1, location: null, notes: 'Rodzina\n08:00 Angielski\n08:00 Matematyka\nWycieczka' },
     ]);
     expect(all.some((i) => i.key.startsWith('l1|'))).toBe(false);
     const onlyMine = mirrorItems(t, ME, today, 0, 7, new Set(['gf']), LESSONS);
@@ -223,7 +229,7 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
   it('wystąpienie bez godziny końca i bez osoby odpowiedzialnej', () => {
     const t = base();
     put(t, 'events', 'e3', { id: 'e3', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
-    expect(mirrorItems(t, ME, today, 0, 3, NO_SKIP, LESSONS).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, location: null, notes: 'Rodzina' });
+    expect(mirrorItems(t, ME, today, 0, 3, NO_SKIP, LESSONS).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, days: 1, location: null, notes: 'Rodzina' });
   });
 });
 

@@ -308,3 +308,35 @@ describe('kalendarz iPhone’a', () => {
     await waitFor(() => expect(sync.updateEvent).toHaveBeenCalledWith('ev-1', expect.objectContaining({ title: 'Tańce towarzyskie' })), { timeout: 3000 });
   }, 20000);
 });
+
+describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt 2, M-253) i kopia do grupy', () => {
+  const camp = { ...mine, id: 'camp', title: 'Urlop', allDay: true as const, startDate: '2026-10-07', endDate: '2026-10-10' } as never;
+  // 22:00–06:00 w Warszawie (UTC+2).
+  const night = { ...mine, id: 'night', title: 'Dyżur', startMs: Date.UTC(2026, 9, 7, 20, 0), endMs: Date.UTC(2026, 9, 8, 4, 0) };
+
+  it('każdy dzień z numerem, kolejny dzień nocnego „do 06:00”; „Dodaj do grupy” z ostatnim dniem i końcem następnego dnia', async () => {
+    const sync = fakeSync({ status: jest.fn(async () => 'granted' as const), listEvents: jest.fn(async () => [camp, night]) });
+    const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
+    expect(await screen.findByLabelText('Urlop, cały dzień, dzień 1 z 3, Kalendarz: Praca')).toBeTruthy();
+    expect(screen.getByLabelText('Dyżur, 22:00–06:00, dzień 1 z 2, Kalendarz: Praca')).toBeTruthy();
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(await screen.findByLabelText('Urlop, cały dzień, dzień 2 z 3, Kalendarz: Praca')).toBeTruthy();
+    expect(screen.getByLabelText('Dyżur, do 06:00, dzień 2 z 2, Kalendarz: Praca')).toBeTruthy();
+    // Kolejne dni nie mają „Dodaj do grupy” (kopiuje się całe wydarzenie z pierwszego dnia).
+    expect(screen.queryByTestId('device-copy-d|camp')).toBeNull();
+    await press(screen.getByLabelText('Poprzedni dzień'));
+    await press(await screen.findByTestId('device-copy-d|camp'));
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    await press(screen.getByTestId('event-save'));
+    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, days: 3 } });
+    await screen.findByTestId('screen-today');
+    // Oryginał z iPhone'a jest teraz dublem w każdym dniu (także kolejnym).
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(await screen.findByTestId('today-hidden-2026-10-08')).toBeTruthy();
+    expect(screen.queryByLabelText('Urlop, cały dzień, dzień 2 z 3, Kalendarz: Praca')).toBeNull();
+    await press(screen.getByLabelText('Poprzedni dzień'));
+    await press(await screen.findByTestId('device-copy-d|night'));
+    expect(await screen.findByText('Kończy się następnego dnia.')).toBeTruthy();
+  });
+});
