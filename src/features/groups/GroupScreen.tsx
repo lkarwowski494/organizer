@@ -4,7 +4,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, type TextInput, View } from 'react-native';
+import { Alert, Pressable, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
@@ -17,7 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, Body, Button, ConfirmText, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, CardTitle, ConfirmText, ErrorText, Field, NavRow, Screen, SectionTitle, SwipeRow, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
 import { useEventActions } from '../../app/event-actions';
 import { useTaskActions } from '../../app/task-actions';
@@ -32,7 +32,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
 export function GroupScreen({ route, navigation }: Props) {
   const { userId, store, account, newId, prefs } = useServices();
   const { tables, today } = useAppData();
-  const { c, font, line } = useTheme();
+  const { c, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const undo = useUndo();
   const actions = useTaskActions();
@@ -107,10 +107,10 @@ export function GroupScreen({ route, navigation }: Props) {
         <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
       </View>
       {nextSteps && d.canInvite ? (
-        <View testID="next-steps" style={{ gap: 8, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
+        <Card testID="next-steps">
+          <CardTitle>
             {strings['groups.nextSteps']}
-          </Text>
+          </CardTitle>
           <Body muted>{strings['groups.nextSteps.body']}</Body>
           <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite(adminFirst ? 'admin' : 'member')} />
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
@@ -124,7 +124,7 @@ export function GroupScreen({ route, navigation }: Props) {
               prefs?.set(nextStepsKey(d.group.id), '0').catch(() => {});
             }}
           />
-        </View>
+        </Card>
       ) : null}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
       {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}

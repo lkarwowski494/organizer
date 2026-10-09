@@ -27,7 +27,8 @@ import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodTitle, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { DayNumber } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceCalendarCard } from './DeviceCalendarCard';
@@ -108,14 +109,10 @@ export function CalendarScreen() {
     <Screen testID="screen-calendar">
       <Title>{strings['tabs.calendar']}</Title>
       <DeviceCalendarCard />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.prev.month']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, color: c.ink }}>‹</Text>
-        </Pressable>
-        <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: 20, color: c.ink }}>{formatMonth(ym.y, ym.m)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['today.next.month']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, color: c.ink }}>›</Text>
-        </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <PeriodArrow dir={-1} label={strings['today.prev.month']} onPress={() => shift(-1)} />
+        <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
+        <PeriodArrow dir={1} label={strings['today.next.month']} onPress={() => shift(1)} />
       </View>
       {/* Skróty dni tygodnia tylko dla oka — każdy dzień podaje pełną nazwę (audyt 2, M-263, A-46). */}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
@@ -128,9 +125,12 @@ export function CalendarScreen() {
           const on = d.date === selected;
           const n = parseIsoDate(d.date).d;
           const evs = events.get(d.date) ?? [];
+          const isToday = d.date === isoToday;
           // Audyt 2 (M-263, A-44): kropka „z kalendarza iPhone'a” ma odpowiednik w etykiecie.
           const device = deviceOf(d.date, d.items).length;
-          const label = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday, evs.length, device);
+          const dayLabel = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday, evs.length, device);
+          // M-140 (PW-50 A, D196): dziś — kółko z obwódką i „Dziś, …” dla VoiceOvera; zaznaczenie ciemnym wypełnieniem (D198).
+          const label = isToday ? strings['calendar.todayA11y'](dayLabel) : dayLabel;
           return (
             <Pressable
               key={d.date}
@@ -139,9 +139,9 @@ export function CalendarScreen() {
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
               onPress={() => setSelected(d.date)}
-              style={{ width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: on ? 2 : 0, borderColor: c.ink, backgroundColor: d.date === isoToday ? c.surface : 'transparent' }}
+              style={{ width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={{ fontFamily: d.holiday ? font.text700 : font.text400, fontSize: 16, color: d.holiday ? c.danger : d.inMonth ? c.ink : c.inkMuted }}>{n}</Text>
+              <DayNumber n={n} selected={on} today={isToday} holiday={!!d.holiday} muted={!d.inMonth} testID={`day-num-${d.date}`} />
               <View style={{ flexDirection: 'row', gap: 2, height: 8, marginTop: 2 }}>
                 {[...new Set([...evs.map((e) => e.line), ...d.items.map((i) => i.line)])].slice(0, 4).map((l) => (
                   <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: line(l).line }} />
@@ -154,7 +154,7 @@ export function CalendarScreen() {
       </View>
       {day ? (
         <View style={{ gap: 4 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: 18, color: c.ink }}>
+          <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.CARD_TITLE, color: c.ink }}>
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
