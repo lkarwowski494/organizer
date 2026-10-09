@@ -1,6 +1,11 @@
 /**
  * Lokalny czas w strefie config.TIME_ZONE (R2: Europe/Warsaw, niezależnie od ustawień telefonu).
- * Intl.DateTimeFormat z timeZone — na iPhonie wymaga Intl w Hermesie (spike S3, otwarte).
+ * Intl.DateTimeFormat z timeZone — na iPhonie wymaga Intl w Hermesie (spike S3; sprawdza to na telefonie samosprawdzenie
+ * D83, ADR 0018). Strefy i zmiany czasu bierze silnik z bazy IANA (ECMA-402 §6.5, https://tc39.es/ecma402/#sec-use-of-iana-time-zone-database:
+ * „they must use the IANA Time Zone Database … to supply available named time zone identifiers and data used in
+ * ECMAScript calculations and formatting”). Europe/Warsaw w tej bazie (https://data.iana.org/time-zones/tzdb/europe):
+ * „Zone Europe/Warsaw … 1:00 EU CE%sT” z regułami „Rule EU 1981 max - Mar lastSun 1:00u 1:00 S” i „Rule EU 1996 max
+ * - Oct lastSun 1:00u 0 -” — czyli ostatnia niedziela marca 2:00 → 3:00 i ostatnia niedziela października 3:00 → 2:00.
  */
 import { config } from '../config';
 import type { LocalDateTime } from '../domain/civil-date';
@@ -23,7 +28,10 @@ export function localNow(ms: number): LocalDateTime {
 /**
  * Chwila (ms UTC) dla czasu lokalnego Europe/Warsaw — do kalendarza iPhone'a (D7). Przesunięcie strefy liczymy
  * z localNow (dwa kroki wystarczą, bo zmiana czasu to ±1 h). Godzina nieistniejąca (wiosną 2:00–2:59) przesuwa się
- * o godzinę do przodu; podwójna (jesienią 2:00–2:59) — wybieramy pierwsze wystąpienie (czas letni).
+ * o godzinę do przodu; podwójna (jesienią 2:00–2:59) — wybieramy pierwsze wystąpienie (czas letni). Tak samo jak
+ * RFC 5545 §3.3.5 (https://www.rfc-editor.org/rfc/rfc5545#section-3.3.5): „the local time described occurs more than once
+ * … the DATE-TIME value refers to the first occurrence”; „If the local time described does not occur … interpreted using
+ * the UTC offset before the gap” (np. 2:30 → 3:30 czasu letniego).
  */
 export function localToMs(t: LocalDateTime): number {
   const wall = Date.UTC(t.y, t.m - 1, t.d, t.hh, t.mm);

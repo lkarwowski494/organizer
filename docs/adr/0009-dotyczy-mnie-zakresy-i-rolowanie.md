@@ -5,7 +5,7 @@ Zgłoszenie właściciela po buildzie 2: brakuje przechodzenia na wczoraj i jutr
 ## Decyzje produktowe (właściciel, 7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |
 |---|---|---|---|
-| D61 | Niezrobione zadanie po terminie | Domyślnie przechodzi na kolejne dni i do odhaczenia jest widoczne „dziś” z czerwonym znacznikiem „zaległe od N dni”. Termin zostaje pierwotny. Przy zadaniu można wybrać „Tylko tego dnia”, wtedy mija jak wydarzenie. | Domyślnie przepada, z opcją rolowania; zawsze roluje, bez opcji; przestawianie terminu na dziś |
+| D61 | Niezrobione zadanie po terminie | Domyślnie przechodzi na kolejne dni i do odhaczenia jest widoczne „dziś” z czerwonym znacznikiem „zaległe od N dni”. Termin zostaje pierwotny. Przy zadaniu można wybrać „Tylko tego dnia”, wtedy mija jak wydarzenie. → Uzupełnione: zadanie powtarzane „Tylko tego dnia” dostaje następny termin także po przeminięciu (D133, ADR 0035), a minione kopie jednego łańcucha są na liście zwinięte (PWD-14, ADR 0035). | Domyślnie przepada, z opcją rolowania; zawsze roluje, bez opcji; przestawianie terminu na dziś |
 | D62 | Nawigacja w „Dotyczy mnie” | Przełącznik Dzień / Tydzień / Miesiąc, strzałki ‹ › (dzień, tydzień albo miesiąc) i przycisk „Dziś” do powrotu | Pasek dni tygodnia; przesuwanie całego ekranu palcem, które koliduje z usuwaniem z D60 |
 | D63 | Miniony dzień | Pokazuje zadania odhaczone tego dnia i wyszarzone wydarzenia. Niezrobione przeszły na dziś. | Także niezrobione; bez wydarzeń |
 | D64 | Zadanie na spotkaniu po spotkaniu | Przepada: znika z „Dotyczy mnie”, a na liście trafia do zrobionych z dopiskiem „minęło”. Każde spotkanie w serii ma mieć osobne zadanie, bo zrobione w poniedziałek nie znaczy zrobione za tydzień. | Roluje jak inne zadania |

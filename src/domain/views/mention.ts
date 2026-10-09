@@ -22,6 +22,12 @@ export function extractMention(text: string): { text: string; mention: Mention |
   return { text: `${text.slice(0, start)}${text.slice(end)}`.replace(/\s+/g, ' ').trim(), mention: { start, end, name: m[2]! } };
 }
 
+/**
+ * Własna tabela zamiast rozkładu NFD: „ł” nie ma w Unicode rozkładu kanonicznego, więc NFD by go nie zmieniło —
+ * UnicodeData.txt (https://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt): „0142;LATIN SMALL LETTER L WITH
+ * STROKE;Ll;0;L;;;;;N;…” (pole rozkładu puste), a np. „0105;LATIN SMALL LETTER A WITH OGONEK;Ll;0;L;0061 0328;…”.
+ * Samo pomijanie polskich znaków to reguła produktowa (D91), nie językowa.
+ */
 const FOLD: Record<string, string> = { ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ó: 'o', ś: 's', ź: 'z', ż: 'z' };
 /** Imię albo nazwa do porównania: bez wielkości liter i polskich znaków. */
 export const foldName = (s: string) => s.toLocaleLowerCase('pl').replace(/[ąćęłńóśźż]/g, (c) => FOLD[c]!);

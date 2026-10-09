@@ -15,7 +15,7 @@ Właściciel zapytał, czy nie zrobić pól obowiązkowych. Moja opinia: twarde 
    - Termin ze spotkania (D13) i termin dziedziczony liczą się jako termin.
 2. **Regułę pilnuje telefon:**
    - przy dodawaniu na liście;
-   - w zadaniu, gdzie nie da się zdjąć ostatniego adresata („Usuń termin” albo „Dla każdego”).
+   - w zadaniu, gdzie nie da się zdjąć ostatniego adresata („Usuń termin” albo „Dla każdego”). → Dziś „Bez terminu” i „Nikt konkretny” (audyt 6c66161, docs/glossary.md); reguła zmieniona przez D158 (PW-18, opis niżej).
 
    Odrzucone: strażnik w bazie. Starsze wersje aplikacji (buildy 1–5) wciąż wysyłają zadania bez adresata. Serwer by je odrzucał, a ludzie widzieliby „Odrzucone zmiany” bez wyjaśnienia. Do rozważenia, gdy wszyscy będą na nowej wersji.
 3. **Istniejące zadania bez adresata zostają.** Lista pokazuje przy nich czerwony dopisek „bez osoby i terminu — nikt tego nie widzi w Dotyczy mnie”, a ekran zadania podpowiada, co ustawić.

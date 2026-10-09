@@ -22,7 +22,10 @@ EN (dla recenzji Apple):
   sposób logowania — decyzja D177 z 8.10.2026; logowanie linkiem e-mail jest wyłączone w aplikacji, a dostawcę Email
   w Supabase Auth wyłączasz po wydaniu tego buildu — O-110).
 - Notes:
-  > Sign-in is with Sign in with Apple only (use any Apple ID). To test: create a group (Grupy → Nowa grupa), add a list and a task such as "dentysta jutro o 17" (dentist, tomorrow 5 pm) in the quick-add field, then open "Dziś". Handoffs need a second account in the same group (invite code from Grupy → group → Zaproś).
+  > Sign-in is with Sign in with Apple only (use any Apple ID). To test: type a task such as "dentysta jutro o 17" (dentist, tomorrow at 5 pm) in the quick-add field on the first tab — no list is needed, the task goes to the group shown on the chip next to the field. Groups: Grupy → Nowa grupa. Handoffs need a second account in the same group (Grupy → group → Zaproś gives a group ID and a 6-digit code).
+
+  Przed wysyłką do recenzji sprawdź, czy nazwy w notatce (zakładki, przyciski) zgadzają się z bieżącym buildem
+  (`src/i18n/strings.pl.ts`: `tabs.*`, `groups.new`, `groups.invite`).
 
 ## 3. Grupa zewnętrzna i link
 1. External Testing → „+” → nazwa np. „Testy publiczne”.
@@ -33,7 +36,7 @@ EN (dla recenzji Apple):
    TestFlight: …” (decyzja PW-7 A z 8.10.2026).
 
 **What to Test**, PL:
-> Sprawdź: dodawanie szybkim polem („dentysta jutro o 17”), listy zakupów z dniem i osobą, przekazanie zadania drugiej osobie, przypomnienia (Ustawienia → Przypomnienia), powtarzanie zadań, tryb jasny i ciemny. Uwagi wysyłaj zrzutem ekranu z TestFlight.
+> Sprawdź: dodawanie szybkim polem („dentysta jutro o 17”), listy zakupów z dniem i osobą, przekazanie zadania drugiej osobie, przypomnienia i poranne podsumowanie dnia (Ustawienia → Powiadomienia), powtarzanie zadań, tryb jasny i ciemny. Uwagi wysyłaj zrzutem ekranu z TestFlight.
 
 ## 4. Pierwsze uruchomienie na iPhonie (O-037) — lista kontrolna
 - [ ] Kroje: nagłówki Bricolage Grotesque, tekst Atkinson Hyperlegible (nie systemowe).
@@ -46,4 +49,5 @@ EN (dla recenzji Apple):
 - [ ] Pęk kluczy po usunięciu aplikacji (M-165, W): zainstaluj ponownie — sesja i wygląd mogą zostać (Expo: „will persist
       across app uninstallations … not guaranteed”), ustawienia konta (wprowadzenie, przypomnienia) zaczynają od zera,
       bo są w bazie konta. Zapisz wynik.
-- [ ] Powiadomienia: karta zgody, przypomnienie 30 min przed, poranne o 8:00, push o przekazaniu.
+- [ ] Powiadomienia: karta zgody, przypomnienie 30 min przed (przy wydarzeniu i zadaniu z podzadaniami jedno zbiorcze,
+      D134), poranne podsumowanie dnia o 8:00 (D110), push o przekazaniu i przypisaniu.

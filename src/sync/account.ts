@@ -1,6 +1,7 @@
 /**
- * Operacje na koncie i grupach, które wymagają serwera (nie idą przez kolejkę offline):
- * logowanie, tworzenie grupy (RPC create_group), zaproszenia (create/accept/revoke_invite), usunięcie konta.
+ * Operacje na koncie i grupach, które wymagają serwera (nie idą przez kolejkę offline): logowanie, grupy (tworzenie,
+ * kody i ID grupy, usunięcie i przywrócenie, przekazanie własności), zaproszenia, powiadomienia, zgłoszenia błędów
+ * i uwag, usunięcie konta — pełna lista to metody `AccountApi` niżej.
  * Implementacja: src/sync/supabase.ts; w testach ekranów — atrapa.
  */
 /** Kod do ID grupy (D92–D94): 6 cyfr, 24 h, dla wielu osób. */
