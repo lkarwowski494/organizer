@@ -8,7 +8,7 @@ import { Share } from 'react-native';
 
 import { config } from '../../config';
 import { RootStack } from '../navigation';
-import { answerAlert, expectOps, fakeAccount, put, sampleBase, setup } from './harness';
+import { answerAlert, expectOps, fakeAccount, put, sampleBase, setup, TOGGLE_BOX } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 type Base = ReturnType<typeof sampleBase>;
@@ -136,12 +136,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
     expect(screen.getByText('Rodzina · dziecko · ma własne konto')).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
-    await press(screen.getByRole('radio', { name: 'Członek' }));
+    await press(screen.getByRole('button', { name: 'Członek' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { role: 'member' } }]);
     // Audyt 3 (Q6b A): pasek „Cofnij” przywraca poprzednią rolę (serwer przyjmuje — konto połączone z profilem dziecka).
     const bar = within(await screen.findByTestId('undo-bar'));
     expect(bar.getByText('Zmieniono rolę: Tymek — członek')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Dziecko' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dziecko' })).toBeTruthy();
     await press(bar.getByLabelText('Cofnij'));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { role: 'child' } }]);
   });
@@ -149,12 +149,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
   it('N-42 (Q6b A): dorosły, który dołączył sam, nie dostanie roli „Dziecko” (serwer: forbidden:role)', async () => {
     const s = await open({ base: asOwner() });
     await openMember('gf', 'ala');
-    expect(screen.getByRole('radio', { name: 'Administrator' })).toBeTruthy();
-    expect(screen.queryByRole('radio', { name: 'Dziecko' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Administrator' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Dziecko' })).toBeNull();
     expect(screen.getByText(/^Rolę „Dziecko” dostaje tylko konto połączone z profilem dziecka/)).toBeTruthy();
-    await press(screen.getByRole('radio', { name: 'Członek' }));
+    await press(screen.getByRole('button', { name: 'Członek' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } }]);
-    expect(screen.queryByRole('radio', { name: 'Dziecko' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Dziecko' })).toBeNull();
   });
 
   it('admin nie widzi wyboru roli (serwer: forbidden:role)', async () => {
@@ -162,7 +162,8 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
     put(b, 'group_members', 'tymek', { ...b.group_members!.tymek!, user_id: 'u-tymek' });
     await open({ base: b });
     await openMember('gf', 'tymek');
-    expect(screen.queryByRole('radiogroup', { name: 'Rola' })).toBeNull();
+    expect(screen.queryByLabelText('Rola')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Członek' })).toBeNull();
     // Opis zasad dziecka z kontem widać i bez wyboru roli.
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
   });
@@ -175,7 +176,7 @@ describe('telefon dziecka z kontem', () => {
     expect(screen.queryByLabelText(/^Zapłacić składkę/)).toBeNull();
     // Decyzja właściciela (audyt 3: Q6c A, N-177): zakupy rodziców tylko w Kalendarzu — nie w Moich sprawach.
     expect(screen.queryByTestId('today-trip-lks')).toBeNull();
-    expect(within(screen.getByTestId('today-t-korki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('today-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
     expect(screen.getByLabelText(/^2 lekcje, 08:00–09:00, Klasa 2b/)).toBeTruthy();
     expect(s.store.dispatched).toEqual([]);
   });
@@ -184,9 +185,9 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: childBase() });
     await press(screen.getByLabelText('Kalendarz'));
     await screen.findByTestId('screen-calendar');
-    expect(within(screen.getByTestId('cal-trip-lks')).queryByRole('checkbox')).toBeNull();
+    expect(within(screen.getByTestId('cal-trip-lks')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     expect(screen.queryByLabelText(/Zapłacić składkę/)).toBeNull();
-    expect(within(screen.getByTestId('cal-t-korki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('cal-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
   });
 
   it('listy i zadanie: pole odhaczenia tylko przy moich sprawach (serwer: forbidden:not_own)', async () => {
@@ -195,16 +196,16 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: b });
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lk'));
-    expect(within(screen.getByTestId('task-t-korki')).getByRole('checkbox')).toBeTruthy();
-    expect(within(screen.getByTestId('task-t-skladka')).queryByRole('checkbox')).toBeNull();
+    expect(within(screen.getByTestId('task-t-korki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
+    expect(within(screen.getByTestId('task-t-skladka')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     await press(screen.getByLabelText(/^Zapłacić składkę/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText(/^Oznacz jako zrobione/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('list-lks'));
-    expect(within(screen.getByTestId('task-s-woda')).queryByRole('checkbox')).toBeNull();
-    expect(within(screen.getByTestId('task-s-kanapki')).getByRole('checkbox')).toBeTruthy();
+    expect(within(screen.getByTestId('task-s-woda')).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
+    expect(within(screen.getByTestId('task-s-kanapki')).getByRole('button', { name: TOGGLE_BOX })).toBeTruthy();
   });
 
   it('Q6d A: dziecko dopisuje produkt na liście zakupów (serwer przyjmuje); na liście zadań pola nie ma (D34)', async () => {
@@ -226,7 +227,7 @@ describe('telefon dziecka z kontem', () => {
     expect(screen.queryByTestId('leave')).toBeNull();
     expect(screen.getByText('Z tej grupy usuwa Cię właściciel albo administrator.')).toBeTruthy();
     // Audyt 3 (N-161): zakres Moich spraw nic u dziecka nie zmienia — bez wyboru.
-    expect(screen.queryByRole('radiogroup', { name: 'W Moich sprawach' })).toBeNull();
+    expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
     expect(screen.queryByText(/^Co z tej grupy pokazywać w Moich sprawach/)).toBeNull();
   });
 });

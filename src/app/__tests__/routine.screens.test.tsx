@@ -41,7 +41,7 @@ describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby, administrator'));
     await press(await screen.findByTestId('group-timetable-tymek'));
     expect(await screen.findByText('Plan lekcji — Tymek')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
@@ -71,7 +71,7 @@ describe('rutyny (D113)', () => {
     await press(screen.getByTestId('routine-add-step'));
     await press(screen.getAllByText('Usuń')[2]!);
     await press(screen.getByLabelText('Uczestnik: Tymek'));
-    await press(screen.getByLabelText('W sobotę'));
+    await press(screen.getByLabelText('sob., w sobotę'));
     await press(screen.getByTestId('routine-save'));
     const ev = s.store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events');
     expect(ev).toMatchObject({ group_id: 'gf', set: { title: 'Poranek Tymka', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA', audience: 'members' } });

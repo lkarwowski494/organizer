@@ -42,13 +42,14 @@ describe('działy', () => {
   it('dotknięcie pozycji: wybór działu wysyła zmianę i przenosi pozycję; pamięć grupy działa na nową pozycję', async () => {
     const { store } = await openList();
     await press(screen.getByLabelText(/^Mydło(,|$)/));
-    // Audyt 2 (M-238): dział to wybór jednej opcji (radio w grupie „Dział”), jak inne takie wybory.
+    // Audyt 2 (M-238): dział to wybór jednej opcji w grupie „Dział”, jak inne takie wybory.
     const picker = screen.getByTestId('item-panel');
-    expect(within(picker).getByLabelText('Dział').props.accessibilityRole).toBe('radiogroup');
-    expect(within(picker).getAllByRole('radio')).toHaveLength(13);
-    expect(within(picker).getByRole('radio', { name: 'Higiena i kosmetyki' }).props.accessibilityState.selected).toBe(true);
-    expect(within(picker).getByRole('radio', { name: 'Chemia i dom' }).props.accessibilityState.selected).toBe(false);
-    await press(within(picker).getByRole('radio', { name: 'Chemia i dom' }));
+    // Audyt 3 (N-9): bez roli „radiogroup” (na iOS bez cechy); opcje to przyciski ze stanem „wybrane”.
+    expect(within(picker).getByLabelText('Dział').props.accessibilityRole).toBeUndefined();
+    expect(within(picker).getAllByRole('button').filter((b) => typeof b.props.accessibilityState?.selected === 'boolean')).toHaveLength(13);
+    expect(within(picker).getByRole('button', { name: 'Higiena i kosmetyki' }).props.accessibilityState.selected).toBe(true);
+    expect(within(picker).getByRole('button', { name: 'Chemia i dom' }).props.accessibilityState.selected).toBe(false);
+    await press(within(picker).getByRole('button', { name: 'Chemia i dom' }));
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-mydlo', set: { category: 'household' } }]);
     expect(within(screen.getByTestId('section-household')).getByText('Mydło')).toBeTruthy();
     expect(screen.queryByTestId('item-panel')).toBeNull();

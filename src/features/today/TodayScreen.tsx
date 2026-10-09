@@ -5,7 +5,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, type TextInput, View } from 'react-native';
 
 import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
@@ -50,7 +50,7 @@ import { useMyScope } from '../../app/my-scope';
 import { type RowTask, useRowMeta } from '../../app/row-meta';
 import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
-import { announce } from '../../ui/a11y';
+import { announce, useA11yFocus } from '../../ui/a11y';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -67,6 +67,9 @@ export function TodayScreen() {
   // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24).
   // `answers` — dotychczasowe odpowiedzi.
   const [ask, setAsk] = useState<{ r: Exclude<QuickResolution, { kind: 'ok' | 'noGroup' }>; answers: QuickAnswers } | null>(null);
+  // Audyt 3 (N-62): po „Anuluj” w pytaniu pod polem fokus VoiceOvera wraca do pola (wybór dodaje wpis — fokus ma pasek).
+  const [askCancelled, setAskCancelled] = useState(0);
+  const quickInput = useA11yFocus<TextInput>(askCancelled, askCancelled > 0);
   // M-24: grupa wybrana chipem dla tego wpisu (null — start z ustawienia „Grupa domyślna”) i rozwinięty wybór.
   const [chip, setChip] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -350,7 +353,7 @@ export function TodayScreen() {
       <TabHeader />
       <Title>{strings['tabs.today']}</Title>
       <GroupFilterBar groups={filterGroups} testID="today-filter" />
-      <QuickAddField value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
+      <QuickAddField inputRef={quickInput} value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {(addGroups.length > 1 && shownGroup) || shopList ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {addGroups.length > 1 && shownGroup ? (
@@ -395,7 +398,7 @@ export function TodayScreen() {
           testID="mention-choices"
           title={strings['mention.ask'](ask.r.name)}
           options={ask.r.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => proceed({ ...ask.answers, person: t }) }))}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : ask?.r.kind === 'unknown' ? (
         <AskPanel
@@ -403,14 +406,14 @@ export function TodayScreen() {
           title={strings['mention.unknown'](ask.r.name)}
           body={strings['mention.unknownInfo'](ask.r.name)}
           options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : ask?.r.kind === 'manyGroups' ? (
         <AskPanel
           testID="tag-choices"
           title={strings['tag.ask'](ask.r.name)}
           options={ask.r.groups.map((g) => ({ key: g.id, label: g.name, onPress: () => proceed({ ...ask.answers, group: g.id }) }))}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : ask?.r.kind === 'childGroup' ? (
         // Audyt 3 (N-44): „#Rodzina szampon” od dziecka — grupa jest, ale spraw tam nie dodaje (D34); produkt dopisze do
@@ -424,7 +427,7 @@ export function TodayScreen() {
             const r = ask.r as Extract<QuickResolution, { kind: 'childGroup' }>;
             return g.list ? [{ key: g.id, label: strings['quick.toShopping'](strings['quick.listInGroup'](g.list.name, g.name)), onPress: () => toShopping(null, r.body, g.list!) }] : [];
           })}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : ask?.r.kind === 'unknownGroup' ? (
         <AskPanel
@@ -432,7 +435,7 @@ export function TodayScreen() {
           title={strings['tag.unknown'](ask.r.name)}
           body={strings['tag.unknownInfo'](ask.r.name, ask.r.chip.name)}
           options={[{ key: 'chip', label: strings['tag.addTo'](ask.r.chip.name), onPress: () => proceed({ ...ask.answers, skipTag: true }) }]}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />

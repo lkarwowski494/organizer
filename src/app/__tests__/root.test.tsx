@@ -431,7 +431,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     await waitFor(() => expect(t.pulls()).toBe(before + 1));
   });
 
-  it('audyt 2 (M-37): przejście w offline i powrót ogłaszane VoiceOverem (chip zmienia się po cichu)', async () => {
+  it('audyt 2 (M-37): przejście w offline i powrót ogłaszane VoiceOverem (chip zmienia się po cichu); powrót — po chwili spokoju (audyt 3, N-198)', async () => {
     let net: (online: boolean) => void = () => {};
     const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
     await render(<Root deps={t.deps} fontsLoaded />);
@@ -440,9 +440,17 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     say.mockClear();
     await act(() => net(false));
     await waitFor(() => expect(say).toHaveBeenCalledWith('Offline', { queue: true }));
-    await act(() => net(true));
-    await waitFor(() => expect(say).toHaveBeenCalledTimes(2));
-    expect(say.mock.calls[1]![0]).toMatch(/^Zsynchronizowano|^Przed chwilą/);
+    jest.useFakeTimers();
+    try {
+      await act(() => net(true));
+      await act(async () => jest.advanceTimersByTime(config.a11y.SYNC_CALM_MS - 1));
+      expect(say).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(1));
+      expect(say).toHaveBeenCalledTimes(2);
+      expect(say.mock.calls[1]![0]).toMatch(/^Zsynchronizowano|^Przed chwilą/);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('M-10: bez połączenia (nieudane żądanie, np. captive portal) czyszczenie danych jest zablokowane', async () => {

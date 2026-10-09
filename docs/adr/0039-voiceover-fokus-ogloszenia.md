@@ -17,11 +17,31 @@ czytany (RN dopisuje tylko „rozwinięte”). Dlatego jeden wspólny mechanizm 
 | Zakładki (M-40) | Pasek `tabbar` (cecha paska kart), zakładki `button` na iOS (jak React Navigation) | Powrót do standardowego paska (zmiana wyglądu) |
 | Klawiatura (M-41, M-268) | `automaticallyAdjustKeyboardInsets` na przewijanym `Screen`; pole z klawiaturą numeryczną ma nad nią „Gotowe” (`InputAccessoryView`); pola mojego imienia `textContentType="givenName"` | Nowa zależność natywna (keyboard-controller) |
 | Wiersze (M-142, M-150, M-263) | Etykieta od tytułu, czynność w podpowiedzi („Otwiera zadanie”), dopiski słowami (`spoken`: „podzadanie:”, „2 z 3 zrobione”, „1 godzina 30 minut”, przecinek zamiast „·”), „czeka na wysłanie”, „minione”; bez niewidocznego „powtarza się”. Wiersz bez otwierania to zwykły element z etykietą. Usuwanie przesunięciem to czynność VoiceOvera wiersza („Usuń”/„Odwołaj”), a przycisk poza ekranem znika z kolejności VoiceOvera. Pole odhaczenia zostaje osobnym elementem (widoczne, ze stanem, dostępne dla Sterowania głosem) | Odhaczanie też jako czynność wiersza z ukrytym polem (stan „zrobione” tylko w etykiecie, Sterowanie głosem traci pole) |
-| Rozwijanie (M-141, M-144) | `accessibilityState.expanded` i podpowiedź zależna od stanu („Rozwija kalendarz” / „Zwija kalendarz”, „Pokazuje lekcje” / „Chowa lekcje”); wiersz lekcji ma ˅/˄ zamiast „›” i bez „dotknij, by…”. Pola daty i godziny: etykieta = podpis, wartość raz i słownie | „zwinięte” w etykiecie |
+| Rozwijanie (M-141, M-144) | `accessibilityState.expanded` (zmienione w audycie 3 — niżej) i podpowiedź zależna od stanu („Rozwija kalendarz” / „Zwija kalendarz”, „Pokazuje lekcje” / „Chowa lekcje”); wiersz lekcji ma ˅/˄ zamiast „›” i bez „dotknij, by…”. Pola daty i godziny: etykieta = podpis, wartość raz i słownie | „zwinięte” w etykiecie |
 | „Bez dnia” (M-125) | `DateField optional` — „Bez dnia” w rozwiniętym kalendarzu, jak „Bez godziny”; w każdym terminie (`DueFields`) i w „Do dnia” planu lekcji | Osobne przyciski na ekranach |
 | Kontekst opcji (M-264, M-265) | `Segmented contextual`, gdy kilka pól ma te same opcje (kalendarze, wyciszenia, obecność kilku osób): „Włączone, Praca”. Przyciski kart przekazań z tytułem („Przyjmij: Basen”) | Kontekst w każdej opcji każdego pola (dłuższe wypowiedzi bez potrzeby) |
-| Zajętość (M-267) | `Button busy` — wskaźnik postępu i `accessibilityState.busy` | Samo wyszarzenie |
+| Zajętość (M-267) | `Button busy` — wskaźnik postępu i `accessibilityState.busy` (zmienione w audycie 3 — niżej) | Samo wyszarzenie |
 
 Do sprawdzenia na iPhonie z VoiceOverem: czy fokus po `FOCUS_DELAY_MS` (100 ms) trafia w panel i tytuł (a nie wraca
 na „Wróć” po ogłoszeniu zmiany ekranu przez iOS), czy pasek kart mówi „karta 1 z 4”, wymowa dopisków, czynność „Usuń”
 w pokrętle, „Gotowe” nad klawiaturą numeryczną.
+
+## Audyt 3 (9.10.2026, paczka PK-21)
+
+RN 0.86 na iOS dopisuje do wartości elementu **angielskie** słowa: rola „checkbox” → „checkbox”, „radio” → „radio button”,
+`accessibilityState.checked` → „checked/unchecked”, `expanded: true` → „expanded”, `busy: true` → „busy”
+(`RCTViewComponentView.mm`, `accessibilityValue`; `React/I18n/strings/pl.lproj/Localizable.strings` jest pusty). Opis
+„role czytane jak tekst” wyżej był niepełny.
+
+| Sprawa | Decyzja | Odrzucone |
+|---|---|---|
+| Stany (N-9) | Jeden helper `buttonA11y` (`src/ui/a11y.ts`): rola zawsze „button”; zaznaczenie i wybór (pole odhaczenia, opcje, dni tygodnia, uczestnicy) — cechą `selected`; rozwinięcie i „w toku” — polską wartością („rozwinięte”, „w toku”) po wartości pola. Bez ról „radiogroup”/„radio”/„checkbox”. `checked` tylko przy systemowym przełączniku (`SwitchRow`) | Tłumaczenia w pakiecie RN (patch-package; zależne od wnętrza RN, role dalej bez „przycisk”) |
+| Audyt drzewa (N-59, N-202) | Reguły 10–17 w `a11y-audit.ts` (pole tekstowe z etykietą, przycisk w elemencie `accessible`, `accessible={false}` nie ukrywa dzieci, kontrast zagnieżdżonego tekstu, powtórzone etykiety na ekranie, szerokość procentowa od rodzica, `minimumFontScale`, zakaz stanów ze słowami RN); kontrast pola stanu według stanu, nie roli; znane odstępstwa z limitem liczby; osobny test z „Zwiększ kontrast” i „Pogrubionym tekstem” (`a11y-prefs.test.tsx`) | Część reguł tylko w XCUITest na symulatorze (wolniej, tylko macOS) |
+| Ogłoszenia (N-60, N-194, N-198) | Nowy okres po strzałkach/„Dziś” ogłasza `PeriodTitle`; ten sam błąd przy kolejnym „Zapisz” — licznik prób `useFormError` → `ErrorText attempt`; powrót synchronizacji do normy dopiero po `config.a11y.SYNC_CALM_MS` bez problemu (`syncAnnouncer`) | Ogłaszanie tylko wejścia w problem |
+| Fokus (N-62, N-63) | Po zamknięciu panelu fokus wraca na pole albo przycisk, który go otworzył (`useClosedPanel` + `a11yFocus`/`useA11yFocus`; po „Anuluj” w pytaniu pod polem dodawania — do pola, także „… już jest na liście” i „dopisujesz tylko zakupy”; wybór grupy do skopiowania planu lekcji — na „Skopiuj…”); nagłówek ekranu zadania (linia grupy) i powód na ekranie „brak obiektu” dostają fokus po przejściu jak `Title` | Samo ogłoszenie wybranej wartości |
+| Etykiety (N-64…N-66, N-195, N-196, N-199) | Dzień tygodnia: widoczny skrót i dzień z przyimkiem („wt., we wtorek”, `WEEKDAYS_ON`); `spoken()` także w ostrzeżeniu wiersza, „Wyjdź o…”, pasku „Dodano”, podpisie `NavRow` i szczegółach wydarzenia, skrót dnia słowem; chipy szybkiego dodawania — etykieta = widoczny napis, podpowiedź bez nazwy gestu; widoczny podpis pola ukryty (pole ma tę samą etykietę); powód nieaktywnej godziny tylko w notce; kontekst w opcjach lekcji, wariantach wydarzenia i „Dodaj stałą pozycję” | Etykiety bez skrótu („w środę”) — niezgodne z WCAG 2.5.3 |
+| Cel dotyku (N-193) | Planowanie zakupów (pola) na tle ekranu, nie w karcie — dni mini kalendarza ≥ 44 pt | Mniejsze marginesy panelu w karcie (43 pt) |
+
+Do sprawdzenia na iPhonie z polskim VoiceOverem: brzmienie cechy „wybrane” na polu odhaczenia i opcjach, „rozwinięte”
+i „w toku” po wartości, odczyt „wt., we wtorek”, fokus po zamknięciu paneli; „Odwróć kolory (inteligentnie)” a kolory
+grup (N-201 — bez zmian w kodzie do obejrzenia na urządzeniu).
