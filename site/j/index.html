@@ -14,7 +14,6 @@
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px; margin: 20px 0; }
   .label { color: var(--muted); font-size: 14px; }
   .value { font-size: 30px; font-weight: 800; letter-spacing: 2px; margin: 2px 0 12px; }
-  a.button { display: block; text-align: center; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700; padding: 15px; border-radius: 27px; min-height: 24px; }
   p.muted { color: var(--muted); }
 </style>
 </head>
@@ -23,11 +22,10 @@
   <h1>Zaproszenie do grupy</h1>
   <p>Ktoś zaprasza Cię do wspólnej grupy w aplikacji Organizer.</p>
   <div id="ok" hidden>
-    <a class="button" id="open" href="#">Otwórz w aplikacji</a>
     <div class="card">
       <div class="label">ID grupy</div><div class="value" id="g"></div>
       <div class="label">Kod</div><div class="value" id="c"></div>
-      <p class="muted">Jeśli przycisk nie działa: otwórz Organizer → Grupy → „Dołącz do grupy” i wpisz ID grupy oraz kod.</p>
+      <p class="muted">Otwórz Organizer → Grupy → „Dołącz do grupy” i wpisz ID grupy oraz kod.</p>
     </div>
   </div>
   <p id="bad" class="card" hidden>Ten link jest niepełny. Poproś o nowe zaproszenie.</p>
@@ -36,13 +34,16 @@
 </main>
 <script>
   // ID grupy: 9 cyfr (bez zera na początku), kod: 6 cyfr (src/config: invites.JOIN_ID_DIGITS, CODE_DIGITS).
+  // Audyt 3 (N-259, decyzja Q23 A): bez przycisku z linkiem w schemacie aplikacji — ten sam schemat może zarejestrować
+  // inna aplikacja i przejąć kod (Apple: „If multiple apps register the same scheme, the app the system targets is
+  // undefined”, https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app). Aplikację
+  // otwiera sam link https (Universal Links, docs/join-links.md, krok 2); ta strona jest dla telefonu bez aplikacji.
   var q = new URLSearchParams(location.search);
   var g = (q.get('g') || '').replace(/\D/g, ''), c = (q.get('c') || '').replace(/\D/g, '');
   var three = function (s) { return s.replace(/(\d{3})(?=\d)/g, '$1 '); };
   if (/^[1-9]\d{8}$/.test(g) && /^\d{6}$/.test(c)) {
     document.getElementById('g').textContent = three(g);
     document.getElementById('c').textContent = three(c);
-    document.getElementById('open').href = 'io.github.lkarwowski494.organizer://join?g=' + g + '&c=' + c;
     document.getElementById('ok').hidden = false;
   } else {
     document.getElementById('bad').hidden = false;

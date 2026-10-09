@@ -15,6 +15,7 @@
 import { config } from '../../config';
 import { applyEndSeries, applyRestoreSeries, repointLate } from '../event-chain';
 import { applySplit } from '../event-split';
+import { moveCmdSteps, movedAlive } from '../task-move-cmd';
 import { badField } from './row-check';
 
 /**
@@ -193,7 +194,10 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
       return;
     case 'restore':
       if (!current || current.deleted_at == null) return;
-      table[op.id] = { ...current, deleted_at: null };
+      // Audyt 3 (N-131): przeniesione do innej grupy nie wraca, dopóki żyje kopia; przywrócone traci znacznik (serwer:
+      // tasks_a_guard_moved, kod „moved”).
+      if (op.entity === 'tasks' && movedAlive(tables, current)) return;
+      table[op.id] = { ...current, deleted_at: null, ...(current.moved_to != null ? { moved_to: null } : {}) };
       cascade(tables, op.entity, op.id, current.deleted_at, null);
       return;
   }
@@ -214,13 +218,23 @@ export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): str
 /**
  * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
  * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split), koniec serii i jego cofnięcie
- * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain) i stałe zakupy.
+ * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain), przeniesienie zadania do innej grupy i jego
+ * cofnięcie (audyt 3: move_task_to_group, unmove_task, migracja 20261010060000_move_task_to_group) i stałe zakupy.
  */
 function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
   if (op.cmd === 'split_event') return applySplit(tables, op.args);
   // Audyt 3 (N-3, N-117): koniec całej serii (łańcucha) i jego cofnięcie (src/domain/event-chain.ts).
   if (op.cmd === 'end_series') return applyEndSeries(tables, op.args, `pending:${op.seq}`);
   if (op.cmd === 'restore_series') return applyRestoreSeries(tables, op.args);
+  // Audyt 3 (N-12): przeniesienie zadania do innej grupy i jego cofnięcie (src/domain/task-move-cmd.ts).
+  const move = moveCmdSteps(tables, op);
+  if (move) {
+    for (const step of move) {
+      if ('op' in step) applyOp(tables, { ...step.op, seq: op.seq, op_id: op.op_id } as Op);
+      else tables.tasks![step.mark.id] = { ...tables.tasks![step.mark.id]!, moved_to: step.mark.to };
+    }
+    return;
+  }
   const id = String(op.args.list_id);
   const list = tables.lists?.[id];
   // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.

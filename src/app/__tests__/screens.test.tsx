@@ -7,6 +7,7 @@ import { Alert, Share } from 'react-native';
 
 import { parseJoin } from '../../domain/invite-link';
 import { RootStack } from '../navigation';
+import { AccountError } from '../../sync/account';
 import { expectOps, answerAlert, fakeAccount, lastAlert, ME, sampleBase, setup , pickDate, setTime } from './harness';
 
 async function open(opts: Parameters<typeof setup>[0] = {}) {
@@ -129,7 +130,7 @@ describe('Listy i zadania', () => {
     await fireEvent(screen.getByTestId('task-title'), 'blur');
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { title: 'Kupić kwiaty dla babci' } }]);
     await pickDate('task-date', '2026-10-09');
-    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: null } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09' } }]);
     const sent = store.dispatched.length;
     await setTime('task-time', '25:00');
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
@@ -149,7 +150,7 @@ describe('Listy i zadania', () => {
     await type(screen.getByTestId('task-note'), 'tulipany');
     await press(screen.getByLabelText('Wróć'));
     const titles = store.dispatched.filter((o) => o.kind === 'patch').map((o) => ('set' in o ? o.set : {}));
-    expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' }]));
+    expect(titles).toEqual(expect.arrayContaining([{ title: 'Kupić kwiaty dla babci' }, { note: 'tulipany' }, { due_time: '17:30' }]));
     // Termin 9.10 to inny dzień niż oglądany (jutro), więc zadanie znika z widoku — otwieramy je z listy.
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(screen.queryByText('Kupić kwiaty dla babci')).toBeNull();
@@ -166,7 +167,7 @@ describe('Listy i zadania', () => {
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): termin i osobę da się zdjąć — zostaje dopisek.
     await press(screen.getByLabelText('Bez terminu'));
-    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-09', due_time: '17:30' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { note: 'tulipany' } }, { kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-kwiaty' }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { due_time: '17:30' } }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { note: 'tulipany' } }, { kind: 'delete', entity: 'tasks', id: 't-kwiaty' }, { kind: 'restore', entity: 'tasks', id: 't-kwiaty' }, { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
     expect(screen.getByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Ala'));
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
@@ -327,7 +328,7 @@ describe('Grupy', () => {
     await type(screen.getByTestId('invite-join-id'), '482 913 507');
     await type(screen.getByTestId('invite-code'), '731-064');
     await press(screen.getByTestId('invite-accept'));
-    expect(account.joinGroup).toHaveBeenLastCalledWith('482913507', '731064', 'Łukasz');
+    expect(account.joinGroup).toHaveBeenLastCalledWith('482913507', '731064', null); // imię z konta niezmienione — po stronie serwera (audyt 3, N-164)
     expect(await screen.findByText('Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.')).toBeTruthy();
     await press(screen.getByTestId('invite-accept'));
     expect(await screen.findByText('Ten kod wygasł. Poproś o nowe zaproszenie.')).toBeTruthy();
@@ -354,7 +355,7 @@ describe('Grupy', () => {
     await type(screen.getByTestId('invite-code'), '');
     await type(screen.getByTestId('invite-input'), `Wklej kod:\n${tok}`);
     await press(screen.getByTestId('invite-accept'));
-    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, 'Łukasz');
+    expect(account.acceptInvite).toHaveBeenLastCalledWith(tok, null);
     expect(account.joinGroup).not.toHaveBeenCalled();
   });
 });
@@ -482,6 +483,10 @@ describe('Ustawienia', () => {
       { op: { seq: 8, op_id: 'o8', kind: 'restore' as const, entity: 'tasks' as const, id: 'z' }, code: 'deleted:parent' },
       { op: { seq: 9, op_id: 'o9', kind: 'patch' as const, entity: 'handoffs' as const, id: 'h', set: { status: 'accepted' } }, code: 'stale' },
       { op: { seq: 10, op_id: 'o10', kind: 'create' as const, entity: 'group_members' as const, id: 'gm', group_id: 'g', set: { display_name: 'Ja' } }, code: 'limit:groups' },
+      // Audyt 3 (N-12, N-131): przeniesienie do innej grupy — jedna pozycja z nazwą; przywrócenie przeniesionego.
+      { op: { seq: 11, op_id: 'o11', kind: 'cmd' as const, cmd: 'move_task_to_group', args: { task_id: 't', group_id: 'g', list: null, tasks: [{ id: 'c', from: 't', set: { title: 'Basen' } }] } }, code: 'limit:group_rows' },
+      { op: { seq: 12, op_id: 'o12', kind: 'cmd' as const, cmd: 'unmove_task', args: { task_id: 't', copy_id: 'c', title: 'Basen' } }, code: 'moved' },
+      { op: { seq: 13, op_id: 'o13', kind: 'cmd' as const, cmd: 'unmove_task', args: { task_id: 't', copy_id: 'c' } }, code: 'moved' },
     ];
     await act(async () => {
       s.store.getSnapshot().state = { ...s.store.getSnapshot().state, rejected } as never;
@@ -489,7 +494,7 @@ describe('Ustawienia', () => {
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-account'));
-    expect(await screen.findByText('8 zmian')).toBeTruthy();
+    expect(await screen.findByText('11 zmian')).toBeTruthy();
     await press(screen.getByTestId('open-rejected'));
     expect(await screen.findByText('Zmiana: „Pranie”')).toBeTruthy();
     expect(screen.getByText('Brak uprawnień')).toBeTruthy();
@@ -504,17 +509,23 @@ describe('Ustawienia', () => {
     expect(screen.getByText(/Przekazanie jest nieaktualne/)).toBeTruthy();
     // Audyt 2 (M-70): limit konta.
     expect(screen.getByText(/Przekroczony limit konta/)).toBeTruthy();
+    expect(screen.getByText('Przeniesienie do innej grupy: „Basen”')).toBeTruthy();
+    expect(screen.getByText('Cofnięcie przeniesienia do innej grupy: „Basen”')).toBeTruthy();
+    expect(screen.getByText('Cofnięcie przeniesienia do innej grupy: „”')).toBeTruthy();
+    expect(screen.getAllByText('Zadanie przeniesiono do innej grupy — jest tam, nie w koszu').length).toBe(2);
     await press(screen.getByLabelText('Wróć'));
     expect(screen.getByText(/trafi do kosza na 30 dni/)).toBeTruthy();
     await press(screen.getByTestId('delete-start'));
-    await type(screen.getByTestId('delete-word'), 'usun');
+    // Audyt 3 (N-71): ekran mówi, co zostaje w grupach wspólnych.
+    expect(screen.getByText(/zostaną tam z podpisem „Usunięty użytkownik”/)).toBeTruthy();
+    await type(screen.getByTestId('delete-word'), 'usu');
     await press(screen.getByTestId('delete-confirm'));
-    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ, żeby potwierdzić.');
+    expect(screen.getByTestId('delete-word-error').props.children).toBe('Wpisz USUŃ (albo USUN), żeby potwierdzić.');
     expect(s.account.deleteAccount).not.toHaveBeenCalled();
     await type(screen.getByTestId('delete-word'), 'usuń');
     expect(screen.queryByTestId('delete-word-error')).toBeNull();
     await press(screen.getByTestId('delete-confirm'));
-    expect(s.account.deleteAccount).toHaveBeenCalled();
+    expect(s.account.deleteAccount).toHaveBeenCalledWith({ deleteEntries: false });
     await press(screen.getByTestId('sign-out'));
     await answerAlert('Wyloguj');
     expect(s.account.signOut).toHaveBeenCalled();
@@ -588,17 +599,39 @@ describe('Ustawienia', () => {
     expect(screen.queryByText('Przypomnienia')).toBeNull();
   });
 
-  it('błąd usuwania konta: komunikat; anulowanie czyści pole', async () => {
-    const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(new Error('x'))) });
+  it('błąd usuwania konta: każdy rodzaj błędu ma swój komunikat (N-72); anulowanie czyści pole i wybór', async () => {
+    const errors: unknown[] = [new AccountError('network'), new Error('x'), new AccountError('apple_mismatch'), new AccountError('apple_unavailable'), new AccountError('canceled')];
+    const account = fakeAccount({ deleteAccount: jest.fn(async () => Promise.reject(errors.shift())) });
     await open({ account });
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-account'));
     await press(await screen.findByTestId('delete-start'));
-    await type(screen.getByTestId('delete-word'), 'USUŃ');
+    // N-142 (Q45 A): bez polskiej klawiatury też.
+    await type(screen.getByTestId('delete-word'), 'USUN');
     await press(screen.getByTestId('delete-confirm'));
-    expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
+    expect((await screen.findByTestId('delete-error')).props.children).toBe('Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.');
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toBe('Coś poszło nie tak. Spróbuj jeszcze raz.');
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toMatch(/^To nie jest Apple ID tego konta/);
+    await press(screen.getByTestId('delete-confirm'));
+    expect((await screen.findByTestId('delete-error')).props.children).toMatch(/^Apple teraz nie odpowiada/);
+    // Zamknięte okno Apple — rezygnacja, bez komunikatu; przycisk znowu działa.
+    await press(screen.getByTestId('delete-confirm'));
+    await waitFor(() => expect(screen.queryByTestId('delete-error')).toBeNull());
+    expect(screen.getByTestId('delete-confirm').props.accessibilityState).toMatchObject({ disabled: false });
+    // Q5 C: „Usuń też moje wpisy w grupach” z opisem skutku.
+    expect(screen.queryByText(/przestaną być widoczne u wszystkich/)).toBeNull();
+    await act(() => fireEvent(screen.getByRole('switch', { name: 'Usuń też moje wpisy w grupach' }), 'valueChange', true));
+    expect(screen.getByText(/przestaną być widoczne u wszystkich: trafią do kosza grup, a po 30 dniach/)).toBeTruthy();
+    await press(screen.getByTestId('delete-confirm'));
+    expect(account.deleteAccount).toHaveBeenLastCalledWith({ deleteEntries: true });
     await press(screen.getByLabelText('Anuluj'));
     expect(screen.queryByTestId('delete-word')).toBeNull();
+    await press(screen.getByTestId('delete-start'));
+    expect(screen.queryByText(/przestaną być widoczne u wszystkich/)).toBeNull();
+    expect(screen.queryByTestId('delete-error')).toBeNull();
+    await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByLabelText('Odrzucone zmiany, 0 zmian'));
     expect(await screen.findByText('Serwer przyjął wszystkie Twoje zmiany.')).toBeTruthy();
   });

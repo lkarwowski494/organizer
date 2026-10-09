@@ -18,7 +18,7 @@ import { formatRepeat, repeatOf } from './task-repeat';
 import { occurrences, parseRule } from '../rrule';
 import { memberCanSeeList } from './visibility';
 import type { MyScope } from './my-scope';
-import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
+import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, stampMs, type Tables, type Task } from './model';
 
 export * from './model';
 
@@ -156,7 +156,8 @@ export function removedMembers(t: Tables, userId: string, groupId: string, nowMs
   const day = 86_400_000;
   return rows(t, 'group_members', (r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
     .filter(({ m, removedAt }) => m.group_id === groupId && m.deleted_at !== null && typeof removedAt === 'string' && (me.role === 'owner' || m.role === 'member' || m.role === 'child'))
-    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((Date.parse(removedAt as string) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
+    // Audyt 3 (N-171): usunięcie niewysłane („pending:N”) liczy się od teraz (stampMs).
+    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((stampMs(removedAt, nowMs) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
     .filter((m) => m.daysLeft > 0)
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
@@ -170,7 +171,7 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   const manager = group.me.role === 'owner' || group.me.role === 'admin';
   const shared = group.kind === 'shared';
   // Zgodnie ze strażnikiem członkostw (migracje invites, 20261008440000): owner nie wychodzi (najpierw przekazuje grupę),
-  // dziecko też nie (wypisuje je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
+  // dziecko też nie (usuwa je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
   return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner' && group.me.role !== 'child', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 

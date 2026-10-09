@@ -35,7 +35,7 @@ Błąd znaleziony ręcznie albo przez użytkownika najpierw dostaje test, który
 | Aspekt | Warstwa | Status |
 |---|---|---|
 | Logika domeny | testy przykładów + własności (fast-check) | ✅ |
-| Wiedza dziedzinowa (język, kalendarz) | korpusy z **niezależną** implementacją oczekiwań (`scripts/gen-quickadd-corpus.py`, `gen-rrule-corpus.py` i `gen-nextdue-corpus.py` — python-dateutil, `gen-holidays-corpus.py`, `gen-contrast-corpus.py`) — test różnicowy | ✅ parser dat, RRULE, święta, kontrast |
+| Wiedza dziedzinowa (język, kalendarz) | korpusy z **niezależną** implementacją oczekiwań (`scripts/gen-quickadd-corpus.py`, `gen-rrule-corpus.py` i `gen-nextdue-corpus.py` — python-dateutil, `gen-holidays-corpus.py`, `gen-contrast-corpus.py`, `gen-theme-contrast-corpus.py` — kontrast każdej pary motywu we wszystkich motywach, kolory czytane z `src/config/theme.ts`) — test różnicowy | ✅ parser dat, RRULE, święta, kontrast |
 | Jakość samych testów | testy mutacyjne (Stryker, tylko z testami logiki — `jest.mutation.config.js`); nocą 8 części (`.github/scripts/mutation-shards.mjs`, `stryker.shard.config.mjs`), wynik i próg ze scalonych raportów (ta sama funkcja wyniku co w Strykerze) | częściowo: od 8.10.2026 nocny pomiar się nie kończył (audyt 2, M-47); pierwszy przebieg w częściach do sprawdzenia |
 | Pokrycie | progi 100% w logice i w czystej logice warstw aplikacji; progi zapadkowe ekranów i adapterów; funkcje Edge (audyt 2, M-51) | ✅ |
 | Jedno źródło prawdy | testy kontraktowe w `src/config/__tests__`: `app.json` ↔ `src/config`, `src/config` ↔ funkcje `private.*` w SQL, strona `site/` ↔ config | ✅ |
@@ -61,6 +61,7 @@ node --test ".github/scripts/*.test.mjs"   # skrypty CI i kontrakty workflow
 .github/scripts/test-gitleaks-rules.sh     # reguły .gitleaks.toml (gitleaks w PATH albo GITLEAKS=…, jq)
 npm run check:audit     # nowe podatności w zależnościach
 python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quickadd.pl.json  # po zmianie reguł D42–D45
+python3 -I scripts/gen-theme-contrast-corpus.py > src/config/__tests__/fixtures/theme-contrast.json  # po zmianie kolorów motywu
 ```
 
 **Odporność na obciążenie (9.10.2026).** Test, który pada tylko na obciążonej maszynie, ma przyczynę — szukamy jej, nie

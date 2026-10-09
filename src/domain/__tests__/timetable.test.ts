@@ -3,7 +3,7 @@ import { parseIsoDate } from '../format';
 import { applyOp, type NewOp, type Op, type Row } from '../sync-engine/client';
 import { occurrenceResolver } from '../views/event-rows';
 import { expandEvents } from '../views/events';
-import { copyTargets, type Lesson, memberTimetable, swapWeeks, timetableOps } from '../views/timetable';
+import { copyTargets, type Lesson, memberTimetable, planStamp, swapWeeks, timetableOps } from '../views/timetable';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -480,5 +480,25 @@ describe('dokąd skopiować plan lekcji (audyt 3, N-47, Q27 B)', () => {
       { groupId: 'g2', groupName: 'Dom taty', memberId: 'k2', name: 'Zosia' },
     ]);
     expect(copyTargets(t, 'u', 'g2')).toEqual([{ groupId: 'g1', groupName: 'Rodzina', memberId: 'k1', name: 'Tymek' }]);
+  });
+});
+
+describe('znacznik planu (audyt 3, N-31)', () => {
+  it('zmienia się po dodaniu lekcji, zmianie godziny, uczestnika i kotwicy tygodnia; nie zmienia bez zmian', () => {
+    const t = base();
+    les(t, 'mat', {});
+    const a = planStamp(memberTimetable(t, 'gf', 'tymek', today));
+    expect(planStamp(memberTimetable(t, 'gf', 'tymek', today))).toBe(a);
+    const added = base();
+    les(added, 'mat', {});
+    les(added, 'pla', { rrule: 'FREQ=WEEKLY;BYDAY=TU' });
+    expect(planStamp(memberTimetable(added, 'gf', 'tymek', today))).not.toBe(a);
+    const moved = base();
+    les(moved, 'mat', { start_time: '09:00:00' });
+    expect(planStamp(memberTimetable(moved, 'gf', 'tymek', today))).not.toBe(a);
+    const anchored = base();
+    les(anchored, 'mat', {});
+    put(anchored, 'group_members', 'tymek', { ...anchored.group_members!.tymek!, week_a: '2026-10-05' });
+    expect(planStamp(memberTimetable(anchored, 'gf', 'tymek', today))).not.toBe(a);
   });
 });

@@ -66,6 +66,8 @@ export const strings = {
   // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
   'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
   // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
+  // Audyt 3 (N-28): „1/2 kostki masła” to dla parsera 1 lutego — pełna data i jak to zdjąć (dotknięcie chipu).
+  'quick.farDate': (fragment: string, date: string) => `„${fragment}” to termin: ${date}. Jeśli to nie data, dotknij „${fragment}” wyżej.`,
   'quick.dayUnclear': (fragment: string) => `Nie rozpoznano dnia „${fragment}”, więc zadanie będzie bez terminu. Napisz np. „w piątek”, „jutro” albo „15.10”.`,
   // Audyt 2 (M-24, decyzja właściciela 8.10.2026): chip grupy przy polu w Moich sprawach i skróty „#Grupa”, „@ja”.
   'quick.groupChip': (group: string) => `Do: ${group}`,
@@ -155,6 +157,9 @@ export const strings = {
   // Audyt 2 (T-33): kopia w innej grupie nie ma podzadań — mówimy, ile pójdzie do kosza razem z oryginałem.
   'form.error.title': 'Wpisz, co jest do zrobienia.',
   'form.error.group': 'Wybierz grupę.',
+  // Audyt 3 (N-32): zmiana z serwera w trakcie wypełniania formularza.
+  'form.error.groupGone': 'Tej grupy już nie masz — wybierz inną.',
+  'form.error.peopleGone': (names: string[]) => (names.length > 1 ? `${names.join(', ')} nie należą już do grupy — wybierz inaczej.` : `${names[0] ?? 'Wybrana osoba'} nie należy już do grupy — wybierz inaczej.`),
   'form.error.repeatNeedsDate': 'Ustaw termin, żeby zadanie mogło się powtarzać.',
   // Audyt 2 (U-57): z rodzajem, jak „Dodano wydarzenie” i „Dodano listę”.
   'form.added': (title: string, group: string) => `Dodano zadanie: ${title} · ${group}`,
@@ -258,6 +263,11 @@ export const strings = {
   'timetable.error.title': 'Wpisz nazwę lekcji.',
   'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
   'timetable.saved': (n: number) => `Dodano plan lekcji: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })} w tygodniu`,
+  // Audyt 3 (N-31): plan zmieniony w międzyczasie przez kogoś innego (albo na innym telefonie).
+  'timetable.changedTitle': 'Ktoś zmienił plan w międzyczasie',
+  'timetable.changedInfo': 'Twoja wersja nie zawiera tych zmian — zapisanie jej zakończy lekcje dodane albo zmienione w tym czasie.',
+  'timetable.showCurrent': 'Pokaż obecny plan',
+  'timetable.saveMine': 'Zapisz mój plan',
   'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie o tej samej nazwie co wpis z aplikacji (ten sam dzień, podobna godzina) albo dodane przez Organizer jest ukrywane jako dubel — pod listą dnia widać, ile ukryto.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
   'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
@@ -300,8 +310,9 @@ export const strings = {
   'task.subtasks': 'Podzadania',
   'task.addSubtask': 'Dodaj podzadanie',
   'task.delete': 'Usuń zadanie',
-  'task.restore': 'Cofnij usunięcie',
-  'task.deleted': 'Zadanie usunięte',
+  // Audyt 3 (N-36, N-131): ekran zadania przeniesionego do innej grupy (null — grupa, do której nie należę).
+  'task.movedAway': (group: string | null) => (group === null ? 'To zadanie przeniesiono do innej grupy.' : `To zadanie przeniesiono do grupy „${group}”.`),
+  'task.openMoved': 'Otwórz zadanie',
 
   // Audyt 3 (N-166): wskazuje przyciski pod spodem, zamiast listy „Dom”, której nic nie podpowiada.
   'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.',
@@ -463,6 +474,7 @@ export const strings = {
   'event.moveTooFar': (n: number) => `Jeden termin można przenieść najwyżej o ${n} ${plural(n, { one: 'dzień', few: 'dni', many: 'dni' })}. Dalej — zmień całą serię albo dodaj osobne wydarzenie.`,
   'event.error.title': 'Wpisz nazwę wydarzenia.',
   'event.error.date': 'Wybierz dzień w kalendarzu.',
+  'event.error.titleLong': `Nazwa może mieć najwyżej ${config.lengths.EVENT_TITLE} ${plural(config.lengths.EVENT_TITLE, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
   'event.error.time': 'Sprawdź godzinę (GG:MM).',
   'event.error.endBeforeStart': 'Koniec musi być po początku.',
   'event.error.endDate': 'Ostatni dzień wydarzenia nie może być przed pierwszym.',
@@ -554,6 +566,8 @@ export const strings = {
   'groups.new': 'Nowa grupa',
   'groups.name': 'Nazwa grupy',
   'groups.myName': 'Twoje imię w grupie',
+  // Audyt 3 (N-164): konto bez imienia nie podpowiada imienia zastępczego („Ja”, początek adresu) — pole puste z przykładem.
+  'groups.myName.placeholder': 'np. „Ala” albo „Mama”',
   'groups.create': 'Utwórz grupę',
   'groups.join': 'Dołącz do grupy',
   'groups.role.owner': 'właściciel',
@@ -568,7 +582,8 @@ export const strings = {
   'groups.inviteAdmin': 'Zaproś jako administratora',
   'groups.inviteReady': 'Zaproszenie gotowe',
   // Decyzja właściciela z 8.10.2026 (PW-34 A): czym różnią się role przy zapraszaniu.
-  'groups.rolesInfo': 'Administrator zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.',
+  // Audyt 3 (N-163): administrator nie zmienia ról ani nie usuwa innych administratorów (memberActions) — bez „zarządza osobami”.
+  'groups.rolesInfo': 'Administrator zaprasza, dodaje dzieci i usuwa z grupy członków i dzieci. Role zmienia właściciel. Członek korzysta z list, zadań i wydarzeń.',
   // PW-41 A: jeden aktywny kod na rolę; „Nowy kod” unieważnia poprzedni.
   'groups.newCode': 'Nowy kod',
   'groups.inviteAs': (role: string) => `Dołączy jako: ${role}`,
@@ -598,9 +613,11 @@ export const strings = {
   // Audyt 3 (N-47, Q27): też co zostaje — zadania bez osoby (D132), plan lekcji i historia dzieci w grupie.
   'groups.leaveConfirm': (days: number) =>
     `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).`,
-  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
+  // Audyt 3 (N-163): gdy nie ma komu przekazać własności (brak innego dorosłego z kontem), zostaje „Usuń grupę”.
+  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia) albo usuń grupę.',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
-  'groups.childCannotLeave': 'Z tej grupy wypisuje Cię właściciel albo administrator.',
+  // Audyt 3 (N-163): to samo słowo co przycisk „Usuń z grupy” (docs/glossary.md).
+  'groups.childCannotLeave': 'Z tej grupy usuwa Cię właściciel albo administrator.',
   'groups.lists': 'Listy grupy',
   'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
@@ -636,6 +653,10 @@ export const strings = {
   'draft.restored': 'Przywrócono niezapisane zmiany.',
   'draft.discard': 'Odrzuć',
   'draft.discardA11y': 'Odrzuć niezapisane zmiany',
+  // Audyt 3 (N-32, N-144): przywrócony szkic z wyborem, którego już nie ma.
+  'draft.groupGone': (name: string | null) => (name ? `Grupy „${name}” ze szkicu już nie masz — sprawdź wybraną grupę.` : 'Grupy ze szkicu już nie masz — sprawdź wybraną grupę.'),
+  'draft.peopleGone': (names: string[]) => (names.length > 1 ? `${names.join(', ')} nie należą już do grupy — wybór usunięto.` : `${names[0] ?? 'Wybrana osoba'} nie należy już do grupy — wybór usunięto.`),
+  'draft.dateGone': 'Dzień ze szkicu minął — wybierz nowy.',
   'groups.error.trashed': 'Ta grupa jest w koszu.',
   'groups.error.expired': (days: number) => `Grupa była w koszu dłużej niż ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} — nie da się jej już przywrócić.`,
   'groups.error.member': 'Tej osoby nie ma już w grupie.',
@@ -644,7 +665,10 @@ export const strings = {
   // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
   'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
   'groups.error.groupFull': 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.',
-  'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
+  // Audyt 3 (N-163): ID grupy zmienia tylko właściciel — administrator dostaje radę, o co poprosić.
+  'groups.error.limitInvites': (n: number, owner: boolean) =>
+    `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo ${owner ? 'zmień ID grupy — stare kody przestaną działać' : 'poproś właściciela o zmianę ID grupy'}.`,
+  'groups.childAdded': (name: string, group: string) => `Dodano dziecko: ${name} · ${group}`,
   'member.name': 'Imię w grupie',
   // Audyt 2 (P-67): dwa miejsca zmiany imienia odsyłają do siebie (tu i 'name.info').
   'member.nameHere': 'To imię widać tylko w tej grupie. Imię we wszystkich grupach zmienisz w Ustawieniach → Konto i dane → Twoje imię.',
@@ -669,11 +693,18 @@ export const strings = {
   // Audyt 3 (N-42, Q6b A): dlaczego przy dorosłym nie ma wyboru „Dziecko”.
   'member.childRoleLinkedOnly': 'Rolę „Dziecko” dostaje tylko konto połączone z profilem dziecka („Połącz z kontem dziecka” przy profilu).',
   // Audyt 3 (Q6d A): dziecko dopisuje też produkty do list zakupów.
-  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania, dopisuje produkty do list zakupów i odpowiada o obecności za siebie. Z grupy wypisuje je właściciel albo administrator.',
+  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania, dopisuje produkty do list zakupów i odpowiada o obecności za siebie. Z grupy usuwa je właściciel albo administrator.',
 
   'invite.title': 'Zaproszenie do grupy',
   'invite.body': 'Wpisz ID grupy i kod z zaproszenia albo wklej całą wiadomość.',
   'invite.accept': 'Dołącz',
+  /**
+   * Audyt 3 (N-157): kod przy koncie, które już jest w tej grupie, nie zmienia roli (serwer: accept_invite). `role` — moja
+   * rola (groups.role.*), gdy kod jest na wyższą; inaczej null.
+   */
+  'invite.alreadyMember': (role: string | null) =>
+    role ? `Już jesteś w tej grupie (rola: ${role}). Ten kod nie zmienia roli — zmienia ją właściciel grupy.` : 'Już jesteś w tej grupie.',
+  'invite.openGroup': 'Otwórz grupę',
   'invite.invalid': 'Nieprawidłowe ID grupy albo kod. Sprawdź cyfry albo poproś o nowe zaproszenie.',
   'invite.expired': 'Ten kod wygasł. Poproś o nowe zaproszenie.',
   'invite.revoked': 'Ten kod został unieważniony (przez osobę zapraszającą albo po zbyt wielu błędnych próbach). Poproś o nowe zaproszenie.',
@@ -712,12 +743,23 @@ export const strings = {
   'settings.section.account': 'Konto i dane',
   'settings.notificationsUnavailable': 'Powiadomienia nie są dostępne na tym urządzeniu.',
   'settings.delete': 'Usuń konto',
+  // Audyt 3, N-71 (Apple: „let people know what information will and won't be retained”,
+  // https://developer.apple.com/support/offering-account-deletion-in-your-app/). Usunięcie jest natychmiastowe.
   'settings.deleteInfo': (trashDays: number) =>
-    `Usuniemy Twoje konto i grupę osobistą. Grupy wspólne przejmie dorosły z najdłuższym stażem (najpierw administrator); jeśli takiej osoby nie ma, grupa trafi do kosza na ${trashDays} ${plural(trashDays, { one: 'dzień', few: 'dni', many: 'dni' })}. W historii zmian zostanie podpis „Usunięty użytkownik”.`,
+    `Konto i grupę osobistą usuniemy od razu. Grupy wspólne przejmie dorosły z najdłuższym stażem (najpierw administrator); jeśli takiej osoby nie ma, grupa trafi do kosza na ${trashDays} ${plural(trashDays, { one: 'dzień', few: 'dni', many: 'dni' })}. Zadania, wydarzenia, odpowiedzi o obecności i rzeczy na listach zakupów, które dodano z tego konta w grupach wspólnych, zostaną tam z podpisem „Usunięty użytkownik” — jak historia zmian — chyba że niżej wybierzesz ich usunięcie.`,
+  // Q5 C (decyzja 9.10.2026): wybór przy usuwaniu konta.
+  'settings.deleteEntries': 'Usuń też moje wpisy w grupach',
+  'settings.deleteEntriesInfo': (trashDays: number) =>
+    `Twoje zadania, wydarzenia, stałe zadania, odpowiedzi o obecności i rzeczy na listach zakupów przestaną być widoczne u wszystkich: trafią do kosza grup, a po ${trashDays} ${plural(trashDays, { one: 'dniu', few: 'dniach', many: 'dniach' })} zostaną usunięte na stałe. Listy i wpisy innych osób zostaną.`,
   'settings.deleteConfirm': 'Usuń konto na zawsze',
-  'settings.deleteType': 'Wpisz USUŃ, żeby potwierdzić',
+  // N-142 (Q45 A): także bez polskiej klawiatury.
+  'settings.deleteType': 'Wpisz USUŃ (albo USUN), żeby potwierdzić',
   'settings.deleteWord': 'USUŃ',
-  'settings.deleteWordError': 'Wpisz USUŃ, żeby potwierdzić.',
+  'settings.deleteWordAscii': 'USUN',
+  'settings.deleteWordError': 'Wpisz USUŃ (albo USUN), żeby potwierdzić.',
+  // N-72: potwierdzenie innym Apple ID niż to, którym założono konto (apple_code_invalid z delete-account).
+  'settings.deleteAppleMismatch': 'To nie jest Apple ID tego konta. Potwierdź usunięcie tym Apple ID, którym logujesz się do Organizera.',
+  'settings.deleteAppleUnavailable': 'Apple teraz nie odpowiada, więc konto zostało bez zmian. Spróbuj za kilka minut.',
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
   'settings.appearance.dark': 'Ciemny',
@@ -735,6 +777,7 @@ export const strings = {
   'rejected.code.cycle': 'Przeniesienie utworzyłoby pętlę zadań',
   'rejected.code.depth': 'Za głębokie zagnieżdżenie podzadań',
   'rejected.code.other': 'Zmiana niezgodna z danymi na serwerze',
+  'rejected.code.moved': 'Zadanie przeniesiono do innej grupy — jest tam, nie w koszu',
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
@@ -748,6 +791,8 @@ export const strings = {
   'rejected.op.cmd': 'Polecenie',
   // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
   'rejected.cmd.move_task': 'Przeniesienie zadania',
+  'rejected.cmd.move_task_to_group': (title: string) => `Przeniesienie do innej grupy: „${title}”`,
+  'rejected.cmd.unmove_task': (title: string) => `Cofnięcie przeniesienia do innej grupy: „${title}”`,
   'rejected.cmd.split_event': (title: string) => `Zmiana „to i następne”: „${title}”`,
   // Audyt 3 (N-3): koniec serii na całym łańcuchu i jego cofnięcie.
   'rejected.cmd.end_series': (title: string) => `Odwołanie serii: „${title}”`,
@@ -764,6 +809,8 @@ export const strings = {
   'auth.info': 'Konto łączy Twoje grupy na wszystkich Twoich urządzeniach. Przy pierwszym logowaniu powstaje grupa osobista — jej sprawy widzisz tylko Ty.',
   // D177: w becie tylko Apple.
   'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
+  // N-72: potwierdzenie po usunięciu konta (Apple: „provide a confirmation when the deletion is complete”).
+  'auth.deleted': 'Konto zostało usunięte.',
 
   'confirm.doneTitle': 'Zrobione?',
   // Decyzja właściciela z 8.10.2026: odhaczenie zadania z niezrobionymi podzadaniami — razem albo samo zadanie (jak zakupy).
@@ -798,6 +845,9 @@ export const strings = {
   'recent.empty': 'Nie ma jeszcze zmian do cofnięcia.',
   'recent.undoA11y': (message: string) => `Cofnij: ${message}`,
   'recent.undone': 'Cofnięto',
+  // Audyt 3 (N-34): cofnięcie przez serwer (grupa) czeka na odpowiedź; po błędzie pasek z ponowieniem.
+  'recent.pending': 'Cofanie…',
+  'undo.failed': (message: string, reason: string) => `Nie cofnięto: ${message}. ${reason}`,
   'recent.stale': 'Nie cofnięto: to zmieniło się od tamtej chwili (u Ciebie albo u kogoś w grupie). Popraw ręcznie, jeśli trzeba.',
   'recent.staleBar': (message: string) => `Nie cofnięto: ${message} — to się w międzyczasie zmieniło`,
   'recent.lost.server': 'Tej zmiany nie cofniesz już stąd: szła przez serwer, a aplikacja była od tego czasu zamknięta. Usuniętą grupę przywrócisz z Kosza (Grupy), a przywróconą usuniesz na jej ekranie.',
@@ -805,6 +855,8 @@ export const strings = {
 
   // Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151).
   'trash.info': (days: number) => `Usunięte rzeczy czekają tu ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}, potem znikają na dobre. Przywrócić może ten, kto ma prawo je zmieniać.`,
+  // Audyt 3 (N-36): ekran rzeczy w koszu — z terminem jak w koszu („W koszu · usunięcie za 30 dni”).
+  'trash.inTrash': 'W koszu',
   'trash.kind.group': 'Grupy',
   'trash.kind.list': 'Listy',
   'trash.kind.task': 'Zadania',
@@ -879,7 +931,7 @@ export const strings = {
   'crash.title': 'Coś poszło nie tak',
   // Audyt 2 (D-14): zgłoszenie idzie bez kolejki — bez sieci albo ponad limit nie dotrze.
   'crash.body': 'Spróbujemy zgłosić, co się stało, żeby to naprawić. Twoje dane są bezpieczne na telefonie.',
-  'crash.retry': 'Spróbuj ponownie',
+  'common.retry': 'Spróbuj ponownie',
   'feedback.open': 'Wyślij uwagę',
   'feedback.title': 'Twoja uwaga',
   // Audyt 8.10.2026: zgodnie z tym, co faktycznie wysyłamy (send_feedback: treść, ekran, wersja; zgłoszenie przypisane do konta).

@@ -25,6 +25,8 @@
  *     i tak dochodzi do fontScale.TITLE_MAX_PT, rozmiaru „Large Title” przy AX5) — Apple HIG
  *     Typography: obsługa Dynamic Type; kontener tekstu nie ma stałej wysokości (height), bo powiększony tekst się w niej
  *     nie mieści.
+ *  7′. Wyjątek od 7 (audyt 3, N-67): stały rozmiar w elemencie z Large Content Viewer
+ *     (accessibilityShowsLargeContentViewer), którego accessibilityLargeContentTitle zawiera napis — tylko pasek zakładek.
  *  8. Ekran ma nagłówek (rola header) — HIG: tytuł to pierwsza informacja dla technologii wspomagających.
  *  9. Tekst ma rozmiar z motywu (M-42, M-152); zaznaczenie nie jest w kolorze przycisku głównego (M-151, D198).
  * Audyt 3 (N-59, N-202) — luki, przez które test był zielony przy realnych błędach:
@@ -202,7 +204,10 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
       // Zagnieżdżony Text dziedziczy kolor rodzica (reguła 13: własny kolor zagnieżdżonego też jest sprawdzany).
       const parentText = ancestors(n).find((a) => a.type === 'Text');
       const color = (s.color ?? (parentText ? style(parentText).color : undefined)) as string | undefined;
-      if (n.props.allowFontScaling === false) say(`tekst „${own}” bez skalowania (allowFontScaling={false})`);
+      // Reguła 7′ (audyt 3, N-67): wyjątek — element z Large Content Viewer, którego tytuł zawiera napis (zakładki;
+      // Apple, UILargeContentViewerInteraction: „buttons in a tab bar remain small”, cytat w tabBar, src/config/theme.ts).
+      const lcv = [n, ...ancestors(n)].find((a) => a.props.accessibilityShowsLargeContentViewer === true);
+      if (n.props.allowFontScaling === false && !(lcv && String(lcv.props.accessibilityLargeContentTitle ?? '').includes(own))) say(`tekst „${own}” bez skalowania (allowFontScaling={false}${lcv ? ', tytuł Large Content Viewer bez tego napisu' : ''})`);
       // Limit niższy niż 200% tylko dla tytułu, który i tak dochodzi do „Large Title” przy AX5 (fontScale.TITLE_MAX_PT, M-43).
       const mult = n.props.maxFontSizeMultiplier;
       if (typeof mult === 'number' && mult < fontScale.FIXED_MAX && !(typeof s.fontSize === 'number' && Math.round(s.fontSize * mult) >= fontScale.TITLE_MAX_PT)) say(`tekst „${own}” z maxFontSizeMultiplier ${String(n.props.maxFontSizeMultiplier)}`);

@@ -167,3 +167,22 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    zmianą dostępu, bez treści spraw (`realtime.send` w migracjach synchronizacji); imię w `public.profiles`.
 6. **„Nawiguj”** otwiera Mapy Apple (`navigationUrl` w `src/domain/travel.ts`); wybór map innej firmy i strona map
    w przeglądarce usunięte 9.10.2026 (ADR 0043).
+
+## Zmiany z audytu 3 — usunięcie konta (9.10.2026), do akceptu
+1. **„Usuń też moje wpisy w grupach”** (decyzja Q5 C, N-71): nowy punkt w części „Usunięcie konta”. Wybór zapisuje
+   `public.prepare_account_deletion` (wołana przez funkcję `delete-account` z sesją użytkownika), wykonuje
+   `private.delete_account_entries` w wyzwalaczu `on_auth_user_a_entries` przed usunięciem `auth.users`
+   (`20261010240000_account_delete_entries.sql`); testy `supabase/tests/account_delete_entries.test.sql`. Bez wyboru
+   zachowanie jak dotąd (wpisy zostają z podpisem „Usunięty użytkownik”).
+
+## Zmiany z audytu 3 — zaproszenia (9.10.2026), do akceptu
+1. **Wyjście, usunięcie z grupy i utrata roli administratora** (decyzja Q7 A, N-39): przestają działać tylko zaproszenia
+   osobiste tej osoby (kody profili dzieci, dawne linki z tokenem); wspólny kod roli grupy działa dalej do wygaśnięcia.
+   Kod: `private.group_members_departure`, `private.group_members_role_invites` (`20261010100000_invites_membership.sql`).
+2. **Usunięcie konta** (decyzja Q1 B koordynatora): to samo — osobiste zaproszenia przestają działać, wspólny kod grupy
+   zostaje, a wystawiającym wszystkich zaproszeń tej osoby w grupie (także unieważnionych) staje się bieżący właściciel
+   grupy, więc żadne zaproszenie nie wskazuje już członkostwa usuniętej osoby. Grupa bez następcy idzie do kosza i żaden jej
+   kod nie działa (wystawiającym zostaje podpis „Usunięty użytkownik” bez konta; zaproszenia znikają z grupą po 30 dniach).
+   Kod: `private.account_invites_handover`, wołana z `private.delete_account_data` i `private.delete_account_trash`
+   (`20261010101000_account_deletion_invites.sql`); testy `supabase/tests/account_deletion_invites.test.sql`.
+   Wcześniej polityka mówiła: „Linki zaproszeń, które wystawiłeś, przestają działać” — zdanie zastąpione.
