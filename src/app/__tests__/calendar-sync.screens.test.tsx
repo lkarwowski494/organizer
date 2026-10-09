@@ -4,6 +4,7 @@ import { Linking, Platform } from 'react-native';
 
 import { config } from '../../config';
 import type { DeviceCalendarSync } from '../device-calendar';
+import { GROUP_FILTER_KEY } from '../group-filter';
 import { RootStack } from '../navigation';
 import { expectOps, appStateEvents, put, sampleBase, setup } from './harness';
 
@@ -385,6 +386,25 @@ describe('kalendarz iPhone’a: audyt 3', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
   };
+
+  it('N-179: po wyjściu z grup wspólnych (została jedna grupa) filtr przestaje działać — wydarzenia z iPhone’a wracają', async () => {
+    const s = setup({ base: sampleBase(), prefs: memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }), calendar: { add: jest.fn(async () => 'saved' as const), sync: fakeSync({ status: jest.fn(async () => 'granted' as const) }) } });
+    s.services.local!.save(GROUP_FILTER_KEY, JSON.stringify(['u-me']));
+    await s.renderApp(<RootStack />);
+    await flush();
+    // Filtr „Osobiste” chowa wydarzenia z iPhone'a — widać to po pasku „Filtr włączony”.
+    expect(within(screen.getByTestId('today-filter-on')).getByText('Filtr włączony: Osobiste')).toBeTruthy();
+    expect(screen.queryByTestId('device-d|x1')).toBeNull();
+    // Serwer: już nie jestem w Rodzinie ani w Klasie 2b (wyszedłem z obu na drugim telefonie).
+    await act(async () =>
+      s.store.pull((b) => ({ ...b, group_members: Object.fromEntries(Object.entries(b.group_members!).filter(([, m]) => m.group_id === 'u-me')), groups: { 'u-me': b.groups!['u-me']! } })),
+    );
+    expect(screen.queryByTestId('today-filter-on')).toBeNull();
+    expect(await screen.findByTestId('device-d|x1')).toBeTruthy();
+    expect(s.services.local!.load(GROUP_FILTER_KEY)).toBeNull();
+    await press(screen.getByLabelText('Kalendarz'));
+    expect(await screen.findByLabelText('Dentysta, 16:00–17:00, 1 h, Kalendarz: Praca')).toBeTruthy();
+  });
 
   it('N-184: wyłączenie lustra w trakcie przebiegu — kalendarz założony po wyłączeniu też znika', async () => {
     let release: () => void = () => {};

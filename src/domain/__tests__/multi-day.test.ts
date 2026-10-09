@@ -15,6 +15,7 @@ import { agenda } from '../views/agenda';
 import { mirrorHash, mirrorItems } from '../views/calendar-sync';
 import { occurrenceDays } from '../views/event-rows';
 import { createEvent, editEvent, eventDetail, type EventFields, eventsByDate, expandEventDays, expandEvents, fieldsOf, groupSeries, lengthLabel, type RuleLabels, todayEvents } from '../views/events';
+import { dayPlan } from '../views/day-plan';
 import { myDays } from '../views/my-days';
 import { planReminders } from '../views/reminders';
 
@@ -345,3 +346,29 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc (pt. 18:00 – nd
   });
 });
 
+
+describe('audyt 3 (N-118): z godziną przez kilka dni z końcem o północy (pt. 18:00 – nd. 00:00)', () => {
+  // 30 h: piątek 9.10 18:00 → niedziela 11.10 00:00 (koniec wyłączny = koniec soboty) — tak zapisuje formularz.
+  const weekend = () => {
+    const t = world();
+    event(t, 'wyj', { start_date: '2026-10-09', start_time: '18:00:00', end_time: '00:00:00', duration_min: 30 * 60 });
+    return t;
+  };
+
+  it('piątek „od 18:00 · dzień 1 z 2”, sobota „cały dzień · dzień 2 z 2” — jak wydarzenie z iPhone’a do północy', () => {
+    const [fri, sat] = expandEventDays(weekend(), ME, parseIsoDate('2026-10-09'), parseIsoDate('2026-10-11'));
+    expect([fri!.part, sat!.part]).toEqual([{ day: 1, days: 2 }, { day: 2, days: 2 }]);
+    expect(dayWhen(fri!.startTime, fri!.endTime, fri!.part)).toEqual({ kind: 'from', start: '18:00' });
+    expect(dayWhen(sat!.startTime, sat!.endTime, sat!.part)).toEqual({ kind: 'allDay' });
+    // Wydarzenie z iPhone'a ma na ostatnim dniu koniec „24:00” (calendar-sync.ts) — ten sam napis.
+    expect(dayWhen('18:00', '24:00', { day: 2, days: 2 })).toEqual({ kind: 'allDay' });
+  });
+
+  it('plan dnia: sobota zajęta od 00:00 do 24:00 — bez „wolne 15 h” przed sprawą o 15:00', () => {
+    const [, sat] = expandEventDays(weekend(), ME, parseIsoDate('2026-10-09'), parseIsoDate('2026-10-11'));
+    const span = daySpan(sat!.startTime, sat!.endTime, sat!.part);
+    expect(span).toEqual({ start: '00:00', end: '24:00' });
+    const rows = dayPlan([{ depth: 0, s: span }, { depth: 0, s: { start: '15:00', end: null } }], [], (e) => e.s, { nowMin: null, gaps: true });
+    expect(rows.map((r) => r.kind)).toEqual(['entry', 'entry']);
+  });
+});

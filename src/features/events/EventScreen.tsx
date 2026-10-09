@@ -79,9 +79,10 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej.
+  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej; przez zmianę czasu
+  // rzeczywisty czas (audyt 3, N-114: ten wyjazd 23–25.10.2026 — „47 h”).
   const long = occ.startTime !== null && (occ.durationMin ?? null) !== null;
-  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
+  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null, occ.date)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);

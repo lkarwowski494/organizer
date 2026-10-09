@@ -169,3 +169,34 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc', () => {
     expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
   });
 });
+
+describe('audyt 3: koniec o północy (N-118) i zmiana czasu (N-114)', () => {
+  it('N-118: wyjazd pt. 18:00 – nd. 00:00 — sobota „cały dzień”, bez „wolne” przed sobotnią sprawą', async () => {
+    const base = sampleBase();
+    event(base, 'trip', { title: 'Wyjazd', start_date: '2026-10-09', start_time: '18:00:00', end_time: '00:00:00', duration_min: 30 * 60 });
+    put(base, 'tasks', 't-sob', { id: 't-sob', group_id: 'gf', list_id: 'lf', parent_id: null, title: 'Zadzwonić do babci', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-10', due_time: '15:00:00', start_date: null, completed_at: null, deleted_at: null, version: 1 });
+    await open(base);
+    await press(screen.getByLabelText('Kalendarz'));
+    await press(screen.getByTestId('day-2026-10-09'));
+    expect(screen.getByTestId('cal-event-trip-2026-10-09').props.accessibilityLabel).toBe('Wyjazd, od 18:00, dzień 1 z 2, Rodzina');
+    await press(screen.getByTestId('day-2026-10-10'));
+    expect(screen.getByTestId('cal-event-trip-2026-10-09').props.accessibilityLabel).toBe('Wyjazd, cały dzień, dzień 2 z 2, Rodzina');
+    expect(screen.queryAllByTestId(/^cal-gap/)).toEqual([]);
+  });
+
+  it('N-114: dyżur 22:00–06:00 w noc 24/25.10 — „9 h”; wyjazd pt. 23.10 18:00 – nd. 25.10 16:00 — „47 h”', async () => {
+    const base = sampleBase();
+    event(base, 'dyzur', { title: 'Dyżur', start_date: '2026-10-24', start_time: '22:00:00', end_time: '06:00:00' });
+    event(base, 'trip', { title: 'Wyjazd', start_date: '2026-10-23', start_time: '18:00:00', end_time: '16:00:00', duration_min: 46 * 60 });
+    await open(base);
+    await press(screen.getByLabelText('Kalendarz'));
+    await press(screen.getByTestId('day-2026-10-24'));
+    expect(screen.getByTestId('cal-event-dyzur-2026-10-24').props.accessibilityLabel).toBe('Dyżur, 22:00–06:00, 9 godzin, dzień 1 z 2, Rodzina');
+    await press(screen.getByTestId('cal-event-dyzur-2026-10-24'));
+    expect(await screen.findByText('Sobota, 24 października · 22:00–06:00 · 9 h')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('day-2026-10-23'));
+    await press(screen.getByTestId('cal-event-trip-2026-10-23'));
+    expect(await screen.findByText('Piątek, 23 października · od 18:00 · 47 h')).toBeTruthy();
+  });
+});

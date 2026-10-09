@@ -12,10 +12,14 @@
  *    `null` = długość z godzin: koniec po początku — ten sam dzień, koniec nie później niż początek („22:00–06:00”,
  *    „8:00–8:00” = doba) — następnego dnia. Dłuższe (pt. 18:00 – nd. 16:00) mają `duration_min`; godzina końca zostaje
  *    w wierszu i musi się zgadzać z początkiem + długością (inaczej serwer zeruje długość — zmiana godzin z buildu 21).
- *    Godziny to czas lokalny (R2), więc długość liczymy na zegarze (jak „nominal duration” z §3.8.5.3).
+ *    Godziny to czas lokalny (R2), więc zapis i podział na dni liczymy na zegarze. Napis długości (exactMinutes, audyt 3
+ *    N-114) — rzeczywisty czas danego wystąpienia: §3.3.6 „The format can represent nominal durations (weeks and days)
+ *    and accurate durations (hours, minutes, and seconds)” — godziny są „accurate”, więc noc zmiany czasu ma 9 h albo 7 h.
  * Telefony z buildem 21 nie znają `days` ani `duration_min`: widzą takie wydarzenie w dniu startu.
  */
-import { minutesOf } from './format';
+import { addDays } from './civil-date';
+import { minutesOf, parseIsoDate } from './format';
+import { localToMs } from './local-time';
 
 /** Dzień wielodniowego wystąpienia: który z ilu (od 1). */
 export type DayPart = { day: number; days: number };
@@ -36,6 +40,22 @@ export function clockMinutes(start: string | null, end: string | null): number |
 
 /** Długość w minutach: zapisana (`duration`) albo z godzin; `null` bez końca albo bez godziny. */
 export const lengthMinutes = (start: string | null, end: string | null, duration: number | null = null) => (start === null || end === null ? null : (duration ?? clockMinutes(start, end)));
+
+/**
+ * Długość wystąpienia w dniu `date` (ISO) w minutach rzeczywistego czasu — przez zmianę czasu w Europe/Warsaw (local-time.ts,
+ * baza IANA: „Rule EU 1981 max - Mar lastSun 1:00u 1:00 S”, „Rule EU 1996 max - Oct lastSun 1:00u 0 -”, czyli ostatnia
+ * niedziela marca o godzinę krócej, października — dłużej). Koniec to początek + długość na zegarze. Wydarzenie w luce
+ * wiosennej (02:00–03:00 w dniu zmiany) wychodzi 0 min — wtedy długość na zegarze. `null` bez końca albo bez godziny.
+ */
+export function exactMinutes(date: string, start: string | null, end: string | null, duration: number | null): number | null {
+  const m = lengthMinutes(start, end, duration);
+  if (m === null) return null;
+  const day = parseIsoDate(date);
+  const at = (offset: number, min: number) => localToMs({ ...addDays(day, offset), hh: Math.floor(min / 60), mm: min % 60 });
+  const s = minutesOf(start!);
+  const real = (at(Math.floor((s + m) / DAY), (s + m) % DAY) - at(0, s)) / 60_000;
+  return real > 0 ? real : m;
+}
 
 /**
  * Ile dni kalendarzowych obejmuje wystąpienie: całodniowe — `days`, z godziną — od dnia startu do dnia końca. Koniec
@@ -60,6 +80,15 @@ export function storedDuration(start: string | null, end: string | null, duratio
   return duration === clockMinutes(start, end) ? null : duration;
 }
 
+/** Koniec o północy: „00:00” wydarzeń grup albo „24:00” wydarzeń z iPhone'a (calendar-sync.ts). */
+const atMidnight = (t: string) => hm(t) === '00:00' || hm(t) === '24:00';
+
+/**
+ * Ostatni dzień wielodniowego kończy się w ciągu dnia. Koniec o północy (pt. 18:00 – nd. 00:00) zajmuje ostatni dzień
+ * do końca — jak „24:00” wydarzeń z iPhone'a (audyt 3, N-118: dawniej „do 00:00” i „wolne” przez całą sobotę).
+ */
+const endsOnLastDay = (end: string | null, part: DayPart) => part.day === part.days && end !== null && !atMidnight(end);
+
 /**
  * Godziny tego dnia do kolejności i przerw w planie dnia (D122): pierwszy dzień od początku do północy („24:00”), ostatni
  * od północy („00:00”) do końca, środkowe — cały dzień. Całodniowe i jednodniowe bez zmian.
@@ -69,7 +98,7 @@ export function daySpan(start: string | null, end: string | null, part: DayPart 
   // Jednodniowe do północy („20:00–00:00”) — zajęte do końca dnia.
   if (part === null) return { start, end: endsNextDay(start, end) ? '24:00' : end };
   if (part.day === 1) return { start, end: '24:00' };
-  return { start: '00:00', end: part.day === part.days && end !== null ? end : '24:00' };
+  return { start: '00:00', end: endsOnLastDay(end, part) ? end! : '24:00' };
 }
 
 /**
@@ -80,9 +109,10 @@ export type DayWhen = { kind: 'allDay' } | { kind: 'time'; start: string; end: s
 
 export function dayWhen(start: string | null, end: string | null, part: DayPart | null): DayWhen {
   if (start === null) return { kind: 'allDay' };
-  if (part === null || (part.day === 1 && part.days === 2 && endsNextDay(start, end))) return { kind: 'time', start: hm(start), end: end === null ? null : hm(end) };
+  // Przez jedną noc („22:00–06:00”); dwa dni z końcem o północy (pt. 18:00 – nd. 00:00) to już „od 18:00”.
+  if (part === null || (part.day === 1 && part.days === 2 && endsNextDay(start, end) && !atMidnight(end!))) return { kind: 'time', start: hm(start), end: end === null ? null : hm(end) };
   if (part.day === 1) return { kind: 'from', start: hm(start) };
-  return part.day === part.days && end !== null ? { kind: 'until', end: hm(end) } : { kind: 'allDay' };
+  return endsOnLastDay(end, part) ? { kind: 'until', end: hm(end!) } : { kind: 'allDay' };
 }
 
 /** Kolejny dzień wielodniowego (bez przypomnienia, poza porannym podsumowaniem — przypomina się raz, przed startem). */
