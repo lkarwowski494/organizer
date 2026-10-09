@@ -41,17 +41,20 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-licenses"
     timeout: 10000
+# Pozycja z początku listy (lista jest alfabetyczna, ponad 80 pozycji): react-native jest blisko końca i Maestro
+# w 20 s przewijał tylko do ok. 20. pozycji (E2E 65, ca23c8a). Krój pisma z licencją SIL OFL, jak na ekranie.
 - scrollUntilVisible:
     element:
-      id: "license-react-native"
+      id: "license-@expo-google-fonts/atkinson-hyperlegible-next"
     direction: DOWN
-    timeout: 20000
+    timeout: 10000
 - tapOn:
-    id: "license-react-native"
+    id: "license-@expo-google-fonts/atkinson-hyperlegible-next"
 - extendedWaitUntil:
     visible:
       id: "license-text"
     timeout: 10000
+- assertVisible: "@expo-google-fonts/atkinson-hyperlegible-next"
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
