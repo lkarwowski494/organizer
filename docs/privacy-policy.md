@@ -151,10 +151,13 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
   z całą zawartością.**
 - To, co dodałeś w grupach wspólnych (zadania, wydarzenia, odpowiedzi o obecności, historia zmian), zostaje dla grupy,
   ale zamiast Twojego imienia widać „Usunięty użytkownik”.
+- Jeśli przy usuwaniu zaznaczysz **„Usuń też moje wpisy w grupach”**, zamiast tego zadania i rzeczy na listach zakupów,
+  które dodałeś w grupach wspólnych, Twoje wydarzenia, stałe zadania i odpowiedzi o obecności trafiają do kosza grup
+  (jak przy zwykłym usunięciu w aplikacji) i po 30 dniach są usuwane na stałe. Listy i wpisy innych osób zostają.
 - Przestają działać zaproszenia, które były tylko Twoje: kody łączące profil dziecka z kontem i dawne linki. Wspólny kod
   zaproszenia grupy (ten sam widzą właściciel i administratorzy) działa dalej, aż wygaśnie (najwyżej 24 godziny), ale nie
   jest już powiązany z Tobą — jako wystawiającego zapisujemy właściciela grupy. W grupie, która trafia do kosza, bo nie ma
-  komu jej przekazać, nie działa żaden kod.
+  komu jej przekazać, nie działa żaden kod. Tak samo z wyborem „Usuń też moje wpisy w grupach” i bez niego.
 - Grupę w koszu, której byłeś właścicielem, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje w koszu do
   końca tych samych 30 dni.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,

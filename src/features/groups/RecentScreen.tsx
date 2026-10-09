@@ -41,7 +41,9 @@ export function RecentScreen({ navigation }: Props) {
             <Body>{e.message}</Body>
             <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{when(e.at)}</Text>
           </View>
-          {e.state === 'undone' ? (
+          {e.state === 'pending' ? (
+            <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{strings['recent.pending']}</Text>
+          ) : e.state === 'undone' ? (
             <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{strings['recent.undone']}</Text>
           ) : e.state === 'lost' ? (
             <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings[`recent.lost.${e.lost ?? 'server'}`]}</Text>
@@ -58,7 +60,7 @@ export function RecentScreen({ navigation }: Props) {
               onPress={() => {
                 const r = undoRecent(e.id);
                 // Wynik od razu dla VoiceOvera (iOS nie ma regionów na żywo).
-                announce(r === 'stale' ? strings['recent.stale'] : strings['recent.undone']);
+                announce(strings[r === 'stale' ? 'recent.stale' : r === 'pending' ? 'recent.pending' : 'recent.undone']);
               }}
             />
           )}
