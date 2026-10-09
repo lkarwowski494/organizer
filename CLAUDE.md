@@ -21,8 +21,10 @@ Wszystko, czego aplikacja uczy albo co twierdzi (treść, liczby, zalecenia, reg
 wiedzy z danej dziedziny), musi mieć merytoryczne podstawy. Każde twierdzenie ma przeczytane źródło
 (adres i cytat), wybrane według hierarchii: rachunek i dane pierwotne, potem wyniki badań i narzędzi
 eksperckich, potem książki i publikacje uznanych autorów, na końcu uznane serwisy specjalistyczne.
-Wyższy szczebel wygrywa. Streszczenie z wyszukiwarki nie jest źródłem. Czego nie da się potwierdzić,
-trafia do otwartych pytań, nie do aplikacji. Kwestie merytoryczne w dziedzinie, w której właściciel nie
+Wyższy szczebel wygrywa. Streszczenie z wyszukiwarki nie jest źródłem. Najlepiej kilka niezależnych źródeł
+z różnych organizacji; twierdzenie oparte na jednym źródle oznaczamy „jedno źródło”. Czego nie da się potwierdzić,
+trafia do otwartych pytań, nie do aplikacji. Płatnych źródeł (podręczników, baz) nie kupujemy — szukamy darmowych.
+Aplikacja nie udziela porad medycznych; tam, gdzie chodzi o zdrowie, odsyła do specjalisty. Kwestie merytoryczne w dziedzinie, w której właściciel nie
 jest ekspertem, rozstrzyga ta hierarchia, nie on. Właściciela pytaj o sprawy produktowe (zakres, funkcje,
 wygląd, koszty, kolejność prac), zawsze z co najmniej dwiema opcjami. Każdą decyzję merytoryczną zapisz
 w rejestrze projektu z uzasadnieniem i odrzuconymi wariantami. Właściciel może ją zawetować.
@@ -35,6 +37,12 @@ ma w komentarzu adres źródła.
 - Przy każdej zmianie mechaniki, naprawie błędu czy decyzji architektonicznej: co najmniej dwie realne
   opcje z kompromisami; rekomendacja dozwolona, decyzja należy do właściciela. Jeśli alternatywy
   naprawdę nie ma — powiedz to wprost i dlaczego.
+- Gdy właściciel każe decydować samodzielnie (np. pod jego nieobecność): wybieraj opcję rekomendowaną, chyba że inna
+  jest ogólnie lepsza, a odradzana była tylko z powodu nakładu pracy — wtedy tę lepszą. Każdą decyzję zapisz z datą
+  w dokumentacji projektu (rejestr decyzji, `docs/adr/`).
+- Szacowanie czasu: podawaj czas pracy agenta (z pracą równoległą), nie typowego programisty. Osobno: na co się czeka
+  (CI, E2E, przegląd Apple, kolejka maszyn) i co wymaga czasu właściciela (decyzje, App Store Connect, testy na
+  telefonie). Nakład pracy agenta nie jest argumentem przeciw lepszej opcji.
 - Jedno źródło prawdy: wszystkie liczby i reguły w `src/config`. Nie kopiuj liczb do innych miejsc;
   generuj albo importuj. Limity SQL muszą zgadzać się z `src/config` (test kontraktowy).
 - „Udokumentowane” ≠ „zaimplementowane”. Przy wątpliwości uruchom i sprawdź.
@@ -50,7 +58,8 @@ ma w komentarzu adres źródła.
   migracje, ekrany, dostępność, wygląd, E2E, wydajność, bezpieczeństwo). Bez testów funkcja nie jest zrobiona.
 - Progi: logika (`src/domain`, `src/config`, `src/sync`, `src/data`) 100% pokrycia linii i gałęzi
   oraz ≥ 90% wykrytych mutacji; każdy ekran ma test RNTL, każda funkcja scenariusz E2E.
-- Błąd najpierw dostaje test, który go odtwarza, potem poprawkę.
+- Błąd najpierw dostaje test, który go odtwarza (najpierw czerwony), potem poprawkę. Pominięty rodzaj testu
+  przy nowej funkcji — tylko z zapisanym powodem.
 - Oczekiwania w korpusach liczy niezależna implementacja (inny język lub biblioteka), nie testowany kod.
 - Kod nieosiągalny usuń zamiast wyłączać z pokrycia; `istanbul ignore` tylko z uzasadnieniem w komentarzu.
 
@@ -108,20 +117,23 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 
 ## Treści cudze i nazwy innych firm (repozytorium jest publiczne; decyzja właściciela 9.10.2026)
 
-- Cytat z cudzego tekstu: krótki urywek (do ok. 300 znaków), tylko po to, żeby uzasadnić regułę, zawsze z adresem
+- Cytat z cudzego tekstu: krótki urywek (najwyżej 1–2 zdania), tylko po to, żeby uzasadnić regułę, zawsze z adresem
   źródła i autorem albo instytucją (art. 29 i 34 ustawy o prawie autorskim). Nie kopiujemy całych stron, tabel,
   grafik ani przykładowych tekstów; ten sam cytat w jednym miejscu, gdzie indziej odsyłacz.
 - Teksty aplikacji i opisy dla App Store piszemy sami. Nie tłumaczymy ich zdanie po zdaniu ze stron innych firm.
 - Grafiki, ikony i kroje: tylko własne albo na licencji pozwalającej na dystrybucję w aplikacji; licencja zapisana
   w repo, a biblioteki i kroje z paczki wymienione na ekranie „Licencje” (test kontraktowy).
 - Nowa zależność: sprawdź licencję. Bez GPL/AGPL/LGPL w paczce aplikacji i bez licencji nieznanej.
-- Nazwy innych firm i produktów (Apple, Google, Outlook) tylko opisowo („otwórz w Google Maps”), nigdy w nazwie
-  aplikacji, podtytule ani słowach kluczowych (App Review 2.3.7, 5.2.1); nazw innych platform mobilnych nie używamy
-  w tekstach aplikacji (2.3.10). W danych (np. słownik działów zakupów) nie używamy marek — tylko nazwy ogólne.
+- Nazw innych aplikacji i marek nie używamy w kodzie, komentarzach, tekstach aplikacji, danych (np. słownik działów
+  zakupów) ani w opisie w sklepie (App Review 2.3.7, 5.2.1, 2.3.10). Wyjątki (decyzja właściciela 9.10.2026):
+  nazwy platformy Apple, na której działa aplikacja (iPhone, kalendarz iPhone’a, Mapy Apple, „Zaloguj się przez
+  Apple”), oraz adresy źródeł w komentarzach (np. github.com/google/fonts). Opis zachowania innej platformy
+  w komentarzu piszemy ogólnie („poza iOS”).
 - Dane osobowe: w repo, testach, danych demo i zrzutach tylko zmyślone osoby i wpisy (Ala, Jan Kowalski,
   example.com). Zgłoszenia właściciela (zrzuty, wpisy z kalendarza) opisujemy po anonimizacji, bez prawdziwych imion,
   nazw kalendarzy i godzin zajęć (App Review 2.3.9). Prywatne adresy e-mail blokuje reguła gitleaks `personal-email`.
-- Badania konkurencji (opisy, ceny, zrzuty innych aplikacji) trzymamy na prywatnym Drive, nie w repozytorium.
+- Badania konkurencji i zebrane cudze treści (opisy, ceny, zrzuty innych aplikacji) trzymamy na Dysku Google
+  właściciela w folderze projektu, nie w repozytorium; w repo tylko własne wnioski z linkami.
 
 ## Audyty i wydania (decyzja właściciela 9.10.2026, obowiązuje we wszystkich jego aplikacjach do odwołania)
 
