@@ -31,7 +31,10 @@
    wpisywana sprawdza się dopiero w pełnym kształcie albo po wyjściu z pola (M-206) — `ui/DueFields.tsx`.
 5. **Zmiana dnia zadania powtarzanego (D181):** pytanie tylko, gdy zmienia się cykl: co tydzień — inny dzień tygodnia,
    co miesiąc — inny dzień miesiąca (termin już przeniesiony poza cykl nie pyta). „Tylko ten raz” trzyma cykl (D137),
-   „Też kolejne” zamienia dzień w regule (`cycleChange`).
+   „Też kolejne” zamienia dzień w regule (`cycleChange`). Audyt 3 (N-25): przeniesienie „Tylko ten raz” na wcześniej
+   zapisuje pierwotny dzień (`tasks.cycle_date`), a następny liczy się od niego — przeniesiony termin zastępuje swój dzień
+   cyklu (RFC 5545, RECURRENCE-ID), zamiast wracać drugi raz. Formularz nowego zadania przestawia regułę za zmienionym
+   dniem bez pytania, jak „Też kolejne” (N-125: zadania jeszcze nie ma).
 6. **Ostatni dzień miesiąca (PWD-37):** `BYMONTHDAY=-1`. RFC 5545 §3.3.10 (https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10):
    „Valid values are 1 to 31 or -31 to -1. For example, -10 represents the tenth to the last day of the month”;
    przykład „Monthly on the first and last day of the month … BYMONTHDAY=1,-1”. Opcja jest, gdy termin to ostatni dzień

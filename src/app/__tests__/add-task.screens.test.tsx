@@ -105,6 +105,17 @@ describe('„Więcej” — pełny formularz', () => {
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 
+  it('audyt 3 (N-125): „Co tydzień”, potem inny dzień — reguła idzie za dniem (jak „Też kolejne”)', async () => {
+    const { store } = await open();
+    await fireEvent.changeText(screen.getByTestId('quick-add'), 'Śmieci w poniedziałek');
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    await press(radio('Powtarzaj', 'Co tydzień'));
+    await pickDate('form-date', '2026-10-16'); // piątek
+    await press(screen.getByTestId('form-save'));
+    expect(store.dispatched.slice(-2)).toMatchObject([{ kind: 'create', set: { due_date: '2026-10-16' } }, { kind: 'patch', set: { repeat: 'FREQ=WEEKLY;BYDAY=FR' } }]);
+  });
+
   it('błędy: pusta nazwa, zła godzina; wspólna grupa bez osoby i terminu — dopisek (PW-18 b); „Bez terminu” czyści dzień; bez „Anuluj”', async () => {
     const { store } = await open();
     await press(screen.getByTestId('add-more'));

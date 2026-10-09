@@ -74,7 +74,7 @@ select is((select array_agg(cl.relname || '.' || a.attname order by 1) from pg_a
     and (a.atttypid in ('date'::regtype, 'time'::regtype) or (cl.relname, a.attname) in (('tasks', 'completed_at'), ('shopping_trips', 'done_at')))
     and not exists (select 1 from pg_constraint k where k.conrelid = cl.oid and k.conname = cl.relname || '_' || a.attname || '_range' and k.convalidated)),
   null, '16: żadna kolumna daty ani godziny bez ograniczenia zakresu');
-select is((select count(*)::int from pg_constraint where connamespace = 'public'::regnamespace and conname like '%\_range' and pg_get_constraintdef(oid) ~ '::(date|time)'), 19, '17: ograniczenia na wszystkich 19 kolumnach (17 dat i godzin, 2 chwile)');
+select is((select count(*)::int from pg_constraint where connamespace = 'public'::regnamespace and conname like '%\_range' and pg_get_constraintdef(oid) ~ '::(date|time)'), 20, '17: ograniczenia na wszystkich 20 kolumnach (18 dat i godzin — w tym tasks.cycle_date, 2 chwile)');
 
 -- ───────── N-2: klucz kolejności ─────────
 select pg_temp.as_user('00000000-0000-7000-8000-0000000101a1');

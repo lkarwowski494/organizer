@@ -3,7 +3,8 @@ import { uuidv5 } from '../ids';
 import type { Row } from '../sync-engine/client';
 import { asTask } from '../views/model';
 import { config } from '../../config';
-import { cycleChange, expiredRepeatOps, formatRepeat, keepCycle, missingRepeatOps, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
+import { copiesRepeats } from '../views';
+import { cycleChange, cycleDateOps, expiredRepeatOps, orphanRepeatOps, withUpcomingCopies, formatRepeat, keepCycle, missingRepeatOps, nextDue, nextId, parseRepeat, REPEAT_NAMESPACE, repeatOf, repeatOps, type Repeat, setRepeat } from '../views/task-repeat';
 
 const d = parseIsoDate;
 const iso = (c: { y: number; m: number; d: number }) => `${c.y}-${String(c.m).padStart(2, '0')}-${String(c.d).padStart(2, '0')}`;
@@ -188,6 +189,51 @@ describe('D133: powtarzanie po przeminięciu („Tylko tego dnia”)', () => {
   });
 });
 
+describe('audyt 3 (N-25): termin przeniesiony „Tylko ten raz” na wcześniej zastępuje swój dzień cyklu (RFC 5545 RECURRENCE-ID)', () => {
+  const row = (extra: Row = {}): Row => ({
+    id: 's', group_id: 'g', list_id: 'l', parent_id: null, title: 'Śmieci', note: null, sort_key: 'a0', assignee_member_id: null,
+    deadline_mode: 'own', due_date: '2026-10-19', due_time: null, rollover: true, repeat: 'FREQ=WEEKLY;BYDAY=MO', cycle_date: null, completed_at: null, deleted_at: null, ...extra,
+  });
+  const t = (extra: Row = {}) => ({ tasks: { s: row(extra) } as Record<string, Row>, lists: { l: { id: 'l', group_id: 'g', visibility: 'group', deleted_at: null } } as Record<string, Row> });
+
+  it('następny liczony od pierwotnego dnia, gdy przeniesiony jest wcześniej; później — od terminu', () => {
+    // pn. 19.10 przeniesiony na czw. 15.10 i zrobiony 15.10 → pn. 26.10, nie znów 19.10
+    expect(iso(nextDue({ kind: 'weekly', days: [0] }, d('2026-10-15'), d('2026-10-15'), d('2026-10-19')))).toBe('2026-10-26');
+    // co miesiąc 15.: przeniesiony na 10.10 → 15.11
+    expect(iso(nextDue({ kind: 'monthly', day: 15 }, d('2026-10-10'), d('2026-10-10'), d('2026-10-15')))).toBe('2026-11-15');
+    // przeniesiony na później — pierwotny dzień nic nie zmienia
+    expect(iso(nextDue({ kind: 'weekly', days: [0] }, d('2026-10-21'), d('2026-10-21'), d('2026-10-19')))).toBe('2026-10-26');
+    // zaległe zrobione po pierwotnym dniu — od dnia wykonania
+    expect(iso(nextDue({ kind: 'weekly', days: [0] }, d('2026-10-15'), d('2026-10-27'), d('2026-10-19')))).toBe('2026-11-02');
+  });
+
+  it('odhaczenie i D133 biorą pierwotny dzień z wiersza; kopia zaczyna bez niego', () => {
+    const x = t({ due_date: '2026-10-15', cycle_date: '2026-10-19' });
+    const ops = repeatOps(x, asTask(x.tasks.s!), d('2026-10-15'));
+    expect(ops[0]).toMatchObject({ kind: 'create', set: { due_date: '2026-10-26' } });
+    expect((ops[0] as { set: Row }).set.cycle_date).toBeUndefined();
+    const gone = t({ due_date: '2026-10-15', cycle_date: '2026-10-19', rollover: false });
+    expect(expiredRepeatOps(gone, d('2026-10-16'), () => true)[0]).toMatchObject({ set: { due_date: '2026-10-26' } });
+  });
+
+  it('zmiana terminu: „Tylko ten raz” na wcześniej zapamiętuje pierwotny dzień (raz), na później i „Też kolejne” — czyści', () => {
+    const r: Repeat = { kind: 'weekly', days: [0] };
+    const op = (cycle: string | null) => [{ kind: 'patch', entity: 'tasks', id: 's', set: { cycle_date: cycle } }];
+    expect(cycleDateOps(asTask(row()), r, '2026-10-15', true)).toEqual(op('2026-10-19'));
+    // drugi raz jeszcze wcześniej — dzień cyklu ten sam co za pierwszym razem
+    expect(cycleDateOps(asTask(row({ due_date: '2026-10-15', cycle_date: '2026-10-19' })), r, '2026-10-13', true)).toEqual([]);
+    expect(cycleDateOps(asTask(row({ due_date: '2026-10-15', cycle_date: '2026-10-19' })), r, '2026-10-21', true)).toEqual(op(null));
+    expect(cycleDateOps(asTask(row({ due_date: '2026-10-15', cycle_date: '2026-10-19' })), { kind: 'weekly', days: [3] }, '2026-10-15', false)).toEqual(op(null));
+    expect(cycleDateOps(asTask(row()), r, '2026-10-21', true)).toEqual([]);
+    expect(cycleDateOps(asTask(row()), { kind: 'monthly', day: 19 }, '2026-10-10', true)).toEqual(op('2026-10-19'));
+    // bez cyklu w kalendarzu albo bez własnego terminu — nic
+    expect(cycleDateOps(asTask(row()), { kind: 'daily' }, '2026-10-15', true)).toEqual([]);
+    expect(cycleDateOps(asTask(row()), { kind: 'after', unit: 'DAILY', interval: 2 }, '2026-10-15', true)).toEqual([]);
+    expect(cycleDateOps(asTask(row()), null, '2026-10-15', true)).toEqual([]);
+    expect(cycleDateOps(asTask(row({ deadline_mode: 'none', due_date: null })), r, '2026-10-15', true)).toEqual([]);
+  });
+});
+
 describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
   const g = (): Record<string, Record<string, Row>> => ({
     groups: { g: { id: 'g', name: 'Rodzina', kind: 'shared', deleted_at: null } },
@@ -210,6 +256,61 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     // Kopia odhaczona i usunięta — zostaje, jak jest.
     t.tasks![nextId('t1')] = { ...t.tasks![nextId('t1')]!, completed_at: done };
     expect(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))).toEqual([]);
+  });
+
+  it('audyt 3 (N-25): kopia z kosza wraca bez pierwotnego dnia z dawnego przeniesienia', () => {
+    const t = g();
+    t.tasks![nextId('t1')] = { ...t.tasks!.t1!, id: nextId('t1'), due_date: '2026-10-15', cycle_date: '2026-10-19', deleted_at: 'pending' };
+    expect(repeatOps(t, asTask(t.tasks!.t1!), d('2026-10-12'))[1]).toEqual({ kind: 'patch', entity: 'tasks', id: nextId('t1'), set: { due_date: '2026-10-19', due_time: null, cycle_date: null } });
+  });
+
+  it('audyt 3 (Q16 A, N-123): dziecko z kontem dokłada i zdejmuje następne swojej sprawy; cudzej — nie', () => {
+    const t = g();
+    t.group_members!.kid = { member_id: 'kid', group_id: 'g', user_id: 'u-kid', display_name: 'Tymek', role: 'child', deleted_at: null };
+    const can = copiesRepeats(t, 'u-kid');
+    expect(can(asTask(t.tasks!.t1!))).toBe(false); // zadanie Ali
+    t.tasks!.t1 = { ...t.tasks!.t1!, assignee_member_id: 'kid' };
+    expect(copiesRepeats(t, 'u-kid')(asTask(t.tasks!.t1!))).toBe(true);
+    expect(copiesRepeats(t, 'u')(asTask(t.tasks!.t1!))).toBe(true); // dorosły
+    expect(copiesRepeats(t, 'u-obcy')(asTask(t.tasks!.t1!))).toBe(false);
+    t.groups!.g = { ...t.groups!.g!, deleted_at: 'x' };
+    expect(copiesRepeats(t, 'u')(asTask(t.tasks!.t1!))).toBe(false); // grupa w koszu
+    expect(copiesRepeats({ ...t, groups: {} }, 'u')(asTask(t.tasks!.t1!))).toBe(false);
+  });
+
+  it('audyt 3 (N-123): następne, które zostało po cofnięciu odhaczenia na starszej wersji, znika — nietknięte, nie przy minionym „Tylko tego dnia”', () => {
+    const t = g();
+    const c = nextId('t1');
+    t.tasks![c] = { ...t.tasks!.t1!, id: c, due_date: '2026-10-19' };
+    t.tasks!.sub = { ...t.tasks!.t1!, id: 'sub', parent_id: c, repeat: null };
+    const all = () => true;
+    expect(orphanRepeatOps(t, d('2026-10-12'), all)).toEqual([{ kind: 'delete', entity: 'tasks', id: c }, { kind: 'delete', entity: 'tasks', id: 'sub' }]);
+    // Ten telefon nie może, usunięcie już odrzucone, poprzednie zrobione albo w koszu — nic.
+    expect(orphanRepeatOps(t, d('2026-10-12'), () => false)).toEqual([]);
+    expect(orphanRepeatOps(t, d('2026-10-12'), all, new Set([c]))).toEqual([]);
+    expect(orphanRepeatOps({ ...t, tasks: { ...t.tasks, t1: { ...t.tasks!.t1!, completed_at: done } } }, d('2026-10-12'), all)).toEqual([]);
+    expect(orphanRepeatOps({ ...t, tasks: { ...t.tasks, t1: { ...t.tasks!.t1!, deleted_at: 'x' } } }, d('2026-10-12'), all)).toEqual([]);
+    // Minione „Tylko tego dnia” ma następne z D133 — zostaje; dziś jeszcze trwa — znika.
+    const once = { ...t, tasks: { ...t.tasks, t1: { ...t.tasks!.t1!, rollover: false } } };
+    expect(orphanRepeatOps(once, d('2026-10-13'), all)).toEqual([]);
+    expect(orphanRepeatOps(once, d('2026-10-12'), all)).toHaveLength(2);
+    // Ruszone następne (odhaczone) zostaje; bez następnego, bez terminu — nic.
+    expect(orphanRepeatOps({ ...t, tasks: { ...t.tasks, [c]: { ...t.tasks![c]!, completed_at: done } } }, d('2026-10-12'), all)).toEqual([]);
+    expect(orphanRepeatOps(g(), d('2026-10-12'), all)).toEqual([]);
+    expect(orphanRepeatOps({ ...t, tasks: { ...t.tasks, t1: { ...t.tasks!.t1!, deadline_mode: 'none', due_date: null } } }, d('2026-10-12'), all)).toEqual([]);
+    expect(orphanRepeatOps({}, d('2026-10-12'), all)).toEqual([]);
+  });
+
+  it('audyt 3 (N-27): dane do planu przypomnień z następnymi, których jeszcze nie ma; wejściowe bez zmian', () => {
+    const t = g();
+    t.tasks!.t1 = { ...t.tasks!.t1!, repeat: 'FREQ=DAILY', rollover: false };
+    t.tasks!.t2 = { ...t.tasks!.t1!, id: 't2', repeat: 'FREQ=DAILY', rollover: true, completed_at: done };
+    const out = withUpcomingCopies(t, d('2026-10-12'), 3, (iso) => iso.slice(0, 10));
+    const c = nextId('t1');
+    expect([out.tasks![c]?.due_date, out.tasks![nextId(c)]?.due_date, out.tasks![nextId(nextId(c))]]).toEqual(['2026-10-13', '2026-10-14', undefined]);
+    expect(out.tasks![nextId('t2')]?.due_date).toBe('2026-10-13');
+    expect(Object.keys(t.tasks!)).toEqual(['t1', 't2']);
+    expect(withUpcomingCopies({}, d('2026-10-12'), 1, (iso) => iso)).toEqual({ tasks: {} });
   });
 
   it('T-3: kopia bez osoby usuniętej z grupy albo bez dostępu do listy; z dostępem — z osobą', () => {

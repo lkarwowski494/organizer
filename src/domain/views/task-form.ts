@@ -8,7 +8,7 @@
  *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
 import { LIST_NAMES } from '../../config/names.pl';
-import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
+import { type CivilDate, formatIsoDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
@@ -17,7 +17,7 @@ import { groupsView, listsView } from './index';
 import type { MentionTarget } from './mention';
 import type { Tables } from './model';
 import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
-import { type Repeat, setRepeat } from './task-repeat';
+import { cycleChange, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
   title: string;
@@ -132,6 +132,17 @@ export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
 export function formDate(f: TaskForm, today: CivilDate): CivilDate {
   const m = DATE.exec(f.date.trim());
   return m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3])) ? parseIsoDate(f.date.trim()) : today;
+}
+
+/**
+ * Zmiana dnia w formularzu (audyt 3, N-125): bez dnia nie ma godziny ani powtarzania; z powtarzaniem reguła idzie za
+ * dniem tak jak „Też kolejne” na ekranie zadania (cycleChange, D181) — bez pytania, bo zadania jeszcze nie ma. Inaczej
+ * pierwszy termin i cykl by się rozjechały (poniedziałek, a potem piątki).
+ */
+export function formDateChange(f: TaskForm, date: string, today: CivilDate): Partial<TaskForm> {
+  if (date === '') return { date: '', time: '', repeat: null };
+  const next = f.repeat ? cycleChange(f.repeat, formatIsoDate(formDate(f, today)), date) : null;
+  return next ? { date, repeat: next } : { date };
 }
 
 /** Operacje zapisu nowego zadania (formularz musi przejść `validateForm`). Zwraca też id zadania. */

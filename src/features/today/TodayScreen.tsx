@@ -19,12 +19,12 @@ import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
 import { localNow } from '../../domain/local-time';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
-import { groupsView } from '../../domain/views';
+import { copiesRepeats, groupsView } from '../../domain/views';
 import { timeLabel } from '../../domain/views/events';
 import { daySpan, isContinuation } from '../../domain/span';
 import { occurrenceRow } from '../../ui/when';
-import { rejectedCreateIds } from '../../domain/sync-engine/client';
-import { expiredRepeatOps, missingRepeatOps } from '../../domain/views/task-repeat';
+import { rejectedCreateIds, rejectedDeleteIds } from '../../domain/sync-engine/client';
+import { expiredRepeatOps, missingRepeatOps, orphanRepeatOps } from '../../domain/views/task-repeat';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import { closeHandoff, decideHandoff, declinedHandoffs, incomingHandoffs } from '../../domain/views/handoffs';
 import { HandoffInbox } from '../handoffs/HandoffInbox';
@@ -86,15 +86,17 @@ export function TodayScreen() {
 
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
   // D133: minione „tylko tego dnia” z powtarzaniem dostają następne (od dziś) — raz, ten sam identyfikator na każdym telefonie.
-  // Audyt 2: tylko w żywej grupie, w której nie jestem dzieckiem (T-2); odhaczone przez dziecko dostają następne
-  // tutaj (T-12); kopia odrzucona przez serwer nie wraca w każdym cyklu synchronizacji.
+  // Audyt 2: tylko w żywej grupie (T-2); odhaczone przez dziecko na starszej wersji dostają następne tutaj (T-12); kopia
+  // odrzucona przez serwer nie wraca w każdym cyklu synchronizacji. Audyt 3 (Q16 A, N-123): dziecko robi to samo dla
+  // swoich spraw, a następne, które zostało po cofnięciu odhaczenia na starszej wersji, znika (orphanRepeatOps).
   const rejectedIds = useMemo(() => rejectedCreateIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rejectedDeletes = useMemo(() => rejectedDeleteIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const canCreate = (g: string) => groups.some((x) => x.id === g && x.me.role !== 'child');
+    const canCreate = copiesRepeats(tables, userId);
     const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
-    const ops = [...expiredRepeatOps(tables, today, canCreate, rejectedIds), ...missingRepeatOps(tables, today, canCreate, local, rejectedIds)];
+    const ops = [...expiredRepeatOps(tables, today, canCreate, rejectedIds), ...missingRepeatOps(tables, today, canCreate, local, rejectedIds), ...orphanRepeatOps(tables, today, canCreate, rejectedDeletes)];
     if (ops.length) store.dispatch(ops);
-  }, [tables, today, groups, store, rejectedIds]);
+  }, [tables, today, userId, store, rejectedIds, rejectedDeletes]);
   // Pierwsze kroki (D79): przy pierwszym uruchomieniu na tym telefonie — wprowadzenie. Stan z chwili otwarcia
   // (useState): po nadaniu imienia sesja się zmienia, a ekran imienia sam przechodzi do wprowadzenia.
   const [askName] = useState(needsName);

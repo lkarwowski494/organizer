@@ -18,7 +18,7 @@
    - Karta zgody pokazuje się teraz każdemu, nie tylko osobom we wspólnej grupie.
 2. **Powtarzanie: kolejne zadanie zamiast przesuwania terminu.**
    - Odhaczenie tworzy następne zadanie ze stałym id (uuidv5), więc dwa telefony nie zrobią duplikatu. Odhaczone zostaje jako historia.
-   - Według kalendarza następny termin to pierwszy dzień reguły po późniejszym z: termin, dzień wykonania. Reguła to RRULE, ten sam podzbiór co wydarzenia. → Uzupełnione: następny termin powstaje też po przeminięciu „Tylko tego dnia” (D133), powtarzanie miesięczne pamięta dzień miesiąca (D137, oba ADR 0035), zmiana dnia pyta „Tylko ten raz / Też kolejne” (D181, ADR 0036), podzadania są kopiowane (D154, ADR 0041).
+   - Według kalendarza następny termin to pierwszy dzień reguły po późniejszym z: termin, dzień wykonania. Reguła to RRULE, ten sam podzbiór co wydarzenia. → Uzupełnione: następny termin powstaje też po przeminięciu „Tylko tego dnia” (D133), powtarzanie miesięczne pamięta dzień miesiąca (D137, oba ADR 0035), zmiana dnia pyta „Tylko ten raz / Też kolejne” (D181, ADR 0036), podzadania są kopiowane (D154, ADR 0041). Audyt 3: dziecko z kontem samo robi i zdejmuje następny termin swojej sprawy (Q16 A, wyjątek w `tasks_guard`), a plan przypomnień obejmuje następne, których telefon jeszcze nie dołożył (N-27).
    - Dni nieistniejące są pomijane zgodnie z RFC 5545, np. „co miesiąc 31.” przeskakuje luty.
    - Podzadania nie są kopiowane. → zmienione 8.10.2026 (decyzja właściciela, audyt 2): następne dostaje kopie podzadań (ADR 0024, dopisek).
    - Bez terminu nie ma powtarzania (ograniczenie w bazie). Zdjęcie terminu zdejmuje też regułę.

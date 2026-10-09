@@ -2,6 +2,7 @@ import * as fc from 'fast-check';
 
 import type { Row } from '../sync-engine/client';
 import { planReminders } from '../views/reminders';
+import { nextId } from '../views/task-repeat';
 
 const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
@@ -449,5 +450,27 @@ describe('start_date („widoczne od”) a przypomnienia na kolejne dni (audyt 2
     put(t, 'tasks', 'basen', { ...t.tasks!.paczka!, id: 'basen', title: 'basen', due_date: '2026-10-08', due_time: '17:00', start_date: '2026-10-08' });
     const r = planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: 'off' }, opts({ days: 2 }));
     expect(r.map((x) => x.id)).toEqual(['t|paczka|2026-10-07', 't|basen|2026-10-08', 'e|ev|2026-10-08|2026-10-08']);
+  });
+});
+
+describe('audyt 3 (N-27): następne zadania powtarzanego, którego jeszcze nie ma, też przypomina', () => {
+  it('„Leki 8:00, codziennie, tylko tego dnia” niezrobione dziś — przypomnienie jutro i pojutrze, zanim ktoś otworzy aplikację', () => {
+    const t = world();
+    put(t, 'tasks', 'leki', { ...t.tasks!.paczka!, id: 'leki', title: 'Leki', due_date: '2026-10-07', due_time: '08:00', rollover: false, repeat: 'FREQ=DAILY' });
+    const r = planReminders(t, ME, TODAY, NOW, { leadMin: 5, morning: 'off' }, opts()).filter((x) => x.title === 'Leki');
+    const first = nextId('leki');
+    expect(r.map((x) => [x.id, new Date(x.at).toISOString(), x.target])).toEqual([
+      [`t|${first}|2026-10-08`, '2026-10-08T05:55:00.000Z', { screen: 'task', id: first }],
+      [`t|${nextId(first)}|2026-10-09`, '2026-10-09T05:55:00.000Z', { screen: 'task', id: nextId(first) }],
+    ]);
+    // Dane same w sobie bez zmian (kopie są tylko w planie).
+    expect(t.tasks![first]).toBeUndefined();
+  });
+
+  it('odhaczone przez dziecko na starszej wersji (bez następnego) — następne przypomina od razu', () => {
+    const t = world();
+    put(t, 'tasks', 'lozko', { ...t.tasks!.paczka!, id: 'lozko', title: 'Łóżko', due_date: '2026-10-07', due_time: '19:00', repeat: 'FREQ=DAILY', completed_at: '2026-10-07T06:00:00Z' });
+    const r = planReminders(t, ME, TODAY, NOW, { leadMin: 10, morning: 'off' }, opts()).filter((x) => x.title === 'Łóżko');
+    expect(r.map((x) => x.id)).toEqual([`t|${nextId('lozko')}|2026-10-08`]);
   });
 });
