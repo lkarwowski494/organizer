@@ -24,11 +24,11 @@ import { Body, Button, Screen, syncAnnouncer, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
-import { setLiveSession } from './background';
+import { claimAccountDb, setLiveSession } from './background';
 import { localNow } from '../domain/local-time';
 import { storedReminderPlan } from './reminders';
 import { AppProvider, type AppServices, type Prefs } from './context';
-import { appVersion, ErrorBoundary, gatedReport, installGlobalHandler, reportsOn } from './diagnostics';
+import { appVersion, ErrorBoundary, gatedReport, installGlobalHandler, reportsOn, toClientError } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
 import { adoptMirrorOwned, removeMirrorCalendars } from './calendar-mirror';
@@ -161,6 +161,9 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
   const [epoch, setEpoch] = useState(0);
   const runtime = useMemo(() => {
+    // N-11: jeden pisarz — baza konta należy do ekranów od tej chwili (odświeżenie w tle przestaje zapisywać), zanim ją
+    // przeczytamy. Zajęcie na czas zamontowania odnawia efekt niżej (zwalnia je odmontowanie).
+    claimAccountDb(session.userId);
     const stored = readState(db, deps.newId());
     // M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy tego urządzenia) — nowy identyfikator od razu w bazie.
     const initial = deps.deviceClientId ? adoptDevice(stored, deps.deviceClientId.load(session.userId), deps.newId) : stored;
@@ -173,12 +176,16 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       newId: deps.newId,
       setTimer: deps.setTimer ?? defaultTimer,
       persist: (prev, next, now) => writeState(db, prev, next, now),
+      // N-1: wiersz z datą spoza zakresu pominięty przy pobraniu — zgłoszenie z nazwą pola, bez treści (D80).
+      onInvalidRows: (fields) => void reportError(toClientError(new Error(`pominięte wiersze: ${fields.join(', ')}`), 'error', 'sync', appVersion())).catch(() => {}),
       onPushed: (ops, res, st) => {
         const { y, m, d } = localNow(nowMs());
         waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))));
       },
     });
   }, [db, deps, epoch, session.userId, waker]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => claimAccountDb(session.userId), [runtime, session.userId]);
 
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
   useEffect(() => void reportSelfCheck(db, deps.prefs, { reportError }, appVersion()).catch(() => {}), [db, deps, reportError]);
@@ -254,10 +261,10 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   );
   useEffect(
     () =>
-      deps.subscribe([`user:${session.userId}`, ...groupIds.map((g) => `group:${g}`)], (topic, version) => {
-        const cursor = runtime.getSnapshot().state.cursors[topic.slice('group:'.length)] ?? 0;
-        runtime.event({ t: 'poke', fresh: version === null || version > cursor });
-      }),
+      deps.subscribe([`user:${session.userId}`, ...groupIds.map((g) => `group:${g}`)], (topic, version) =>
+        // N-100: własny sygnał po mojej wysyłce (wersja ≤ wersji z sync_push) nie jest „nowy”.
+        runtime.event({ t: 'poke', fresh: runtime.isFresh(topic.slice('group:'.length), version) }),
+      ),
     [deps, runtime, session.userId, groupIds],
   );
 
