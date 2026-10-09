@@ -152,7 +152,7 @@ describe('dodawanie na liście', () => {
     const { store } = await openList('lz');
     for (const text of ['mąka 1.5 kg', 'pizza 18.00', 'sok na sobotę']) {
       await write(text);
-      expect(screen.queryByLabelText(/^Rozpoznano/)).toBeNull();
+      expect(screen.queryByLabelText(/, rozpoznane$/)).toBeNull();
       await add();
       expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { list_id: 'lz', title: text, deadline_mode: 'none', due_date: null } });
     }

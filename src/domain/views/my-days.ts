@@ -11,7 +11,7 @@ import { effectiveDue } from '../deadlines';
 import { parseIsoDate } from '../format';
 import { agenda, type LessonBlock, type AgendaEntry } from './agenda';
 import { occurrenceResolver } from './event-rows';
-import { expandEvents, type Occurrence } from './events';
+import { expandEventDays, type Occurrence } from './events';
 import { assigneeName, concernsMeTask, groupsView, isExpired, liveMembers, type TodayItem, visibleOnItsDay } from './index';
 import { childOwner } from './child';
 import { asList, asTask, rows, type Tables } from './model';
@@ -89,7 +89,8 @@ export function myDays(t: Tables, userId: string, today: CivilDate, mode: RangeM
   // D127: lekcje dziecka (sam w nich nie jestem) — jeden wiersz na dziecko i dzień; wspólna lekcja rodzeństwa w wierszu
   // każdego z dzieci (audyt 2, E-15: plan każdego dziecka kompletny).
   const lessons = new Map<string, Map<string, LessonBlock>>();
-  for (const e of expandEvents(t, userId, from, to)) {
+  // D199: wielodniowe w każdym swoim dniu („dzień 2 z 5”).
+  for (const e of expandEventDays(t, userId, from, to)) {
     if (!e.concernsMe) continue;
     if (!e.lessonFor) {
       events.set(e.date, [...(events.get(e.date) ?? []), e]);

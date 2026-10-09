@@ -626,12 +626,13 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
  * (audyt 2, M-141). Etykieta VoiceOvera (M-263): tylko to, co widać (bez „powtarza się”, D129), dopiski słowami,
  * „minione” przy wyszarzonym.
  */
-export function EventRow({ title, time, length, line, group, onPress, testID, faded, extra, alert, expanded, hint }: { title: string; time: string | null; length?: string | null; line: number; group: string; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string; expanded?: boolean; hint?: string }) {
+/** `part` (D199) — który to dzień wielodniowego („dzień 2 z 5”, ui/when.ts). */
+export function EventRow({ title, time, length, part, line, group, onPress, testID, faded, extra, alert, expanded, hint }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string; expanded?: boolean; hint?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const actions = useSwipeAction();
   const when = time ?? strings['event.allDayLabel'];
-  const label = [title, when, length ? spoken(length) : null, group, extra ? spoken(extra) : null, alert, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
+  const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
   return (
     <Pressable
       testID={testID}
@@ -651,6 +652,7 @@ export function EventRow({ title, time, length, line, group, onPress, testID, fa
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
           {length ? `  ·  ${length}` : ''}
+          {part ? `  ·  ${part}` : ''}
           {'  ·  '}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
           {extra ? `  ·  ${extra}` : ''}
