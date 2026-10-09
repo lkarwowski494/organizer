@@ -277,10 +277,23 @@ describe('scenariusz: judo w poniedziałki 18:00 i soboty 10:00', () => {
     run(t, editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-11-20' })));
     expect(brief(range(t, '2026-11-20', '2026-11-20'))).toEqual(['2026-11-20 18:00 Judo Tymka']);
     expect(range(t, '2026-10-12', '2026-10-12')).toEqual([]);
-    // Audyt 8.10.2026: dalej niż okno rozwijania formularz nie pozwala (zniknęłoby z widoków).
+    // Audyt 8.10.2026: dalej niż MOVE_WINDOW_DAYS formularz nie pozwala.
     expect(moveTooFar('2026-10-12', '2026-12-13')).toBe(false);
     expect(moveTooFar('2026-10-12', '2026-12-14')).toBe(true);
     expect(moveTooFar('2026-10-12', '2026-08-10')).toBe(true);
+  });
+
+  it('przeniesione dalej niż okno formularza (stary klient, inne urządzenie) — w nowym dniu w każdym zakresie', () => {
+    // Fast-check (seed -253130834): przeniesienie o 70 dni wstecz liczyło się w planie przypomnień (zakres 14 dni),
+    // a w widoku tego jednego dnia nie — wynik zależał od szerokości zakresu.
+    const { t, mo } = dances();
+    run(t, editEvent(detail(t, mo), '2026-12-21', 'this', fields({ date: '2026-10-13' })));
+    run(t, editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2027-01-20' })));
+    expect(brief(range(t, '2026-10-13', '2026-10-13'))).toEqual(['2026-10-13 18:00 Judo Tymka']);
+    expect(brief(range(t, '2026-10-01', '2026-10-31').filter((x) => x.eventId === mo && x.date <= '2026-10-13'))).toEqual(['2026-10-05 18:00 Judo Tymka', '2026-10-13 18:00 Judo Tymka']);
+    expect(range(t, '2026-12-21', '2026-12-21')).toEqual([]);
+    expect(brief(range(t, '2027-01-20', '2027-01-20'))).toEqual(['2027-01-20 18:00 Judo Tymka']);
+    expect(range(t, '2027-01-20', '2027-01-20')[0]).toMatchObject({ occurrenceDate: '2026-10-12' });
   });
 
   it('„tylko to”: odwołanie jednych zajęć; ponowne odwołanie zmienionego wystąpienia patchuje wyjątek', () => {

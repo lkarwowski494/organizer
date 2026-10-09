@@ -6,7 +6,7 @@
 import { getStateFromPath, NavigationContainer } from '@react-navigation/native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 
 import { contrastPairs, groupLines, palettes, type Scheme } from '../../config/theme';
 import { inviteUrl, joinUrl } from '../../domain/invite-link';
@@ -57,12 +57,6 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
     re: /^etykieta „[^”]*” bez widocznych słów: (h|min|pon|wt|śr|czw|pt|sob|niedz)(, (h|min|pon|wt|śr|czw|pt|sob|niedz))*$/,
     why: 'M-263, N-65: skróty z dopisków aplikacji są w etykiecie słowami („1 h” → „1 godzina”, „śr.” → „środa”; spoken() w src/ui/a11y.ts), tytuł na początku etykiety jest widoczny; jak Sterowanie głosem dopasowuje takie etykiety — do sprawdzenia na iPhonie',
     max: 120,
-    hits: 0,
-  },
-  {
-    re: /^tekst „(Moje sprawy|Listy|Kalendarz|Grupy)” zmniejsza się do 0 pt \(adjustsFontSizeToFit, minimumFontScale < \d+ pt\)$/,
-    why: 'N-67 (paczka „Wygląd: pasek zakładek”, decyzja Q11): napis zakładki — rozmiar, plakietka i Large Content Viewer zmienia tamta paczka; reguła 16 pilnuje, żeby nie przybyło innych',
-    max: 408,
     hits: 0,
   },
   {
@@ -237,6 +231,8 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     ['zagnieżdżony tekst o słabym kontraście', () => <RN.View style={{ backgroundColor: P.ground }}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Grupa <RN.Text style={{ color: P.border }}>Rodzina</RN.Text></RN.Text></RN.View>, /^x: tekst „Rodzina”: kontrast 1\.\d\d:1/],
     ['dwa przyciski o tej samej etykiecie', () => <RN.View>{[1, 2].map((k) => <RN.Pressable key={k} accessibilityRole="button" accessibilityLabel="Przyjmij" style={{ minHeight: 44, width: 60 }} onPress={() => {}} />)}</RN.View>, /^x: 2× ta sama etykieta elementu dotykowego „Przyjmij”$/],
     ['szerokość z procentu w zagnieżdżonej karcie', () => <RN.View style={{ padding: 40 }}><RN.View style={{ paddingHorizontal: 30, borderWidth: 1 }}><RN.Pressable accessibilityRole="button" accessibilityLabel="9" style={{ width: `${100 / 7}%`, minHeight: 44 }} onPress={() => {}} /></RN.View></RN.View>, /^x: button „9” ma 35 pt szerokości$/],
+    ['N-67: stały rozmiar bez Large Content Viewer', () => <RN.Text allowFontScaling={false} style={{ color: P.ink, fontSize: 12 }}>Listy</RN.Text>, /^x: tekst „Listy” bez skalowania \(allowFontScaling=\{false\}\)$/],
+    ['N-67: Large Content Viewer z tytułem bez napisu', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Listy" accessibilityShowsLargeContentViewer accessibilityLargeContentTitle="Zakładka" style={{ minHeight: 44 }} onPress={() => {}}><RN.Text allowFontScaling={false} style={{ color: P.ink, fontSize: 12 }}>Listy</RN.Text></RN.Pressable>, /^x: tekst „Listy” bez skalowania \(allowFontScaling=\{false\}, tytuł Large Content Viewer bez tego napisu\)$/],
     ['adjustsFontSizeToFit bez minimumFontScale', () => <RN.Text numberOfLines={1} adjustsFontSizeToFit style={{ color: P.ink, fontSize: 12 }}>Moje sprawy</RN.Text>, /^x: tekst „Moje sprawy” zmniejsza się do 0 pt/],
     ['stan „rozwinięte” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Dzień" accessibilityState={{ expanded: true }} style={{ minHeight: 44 }} onPress={() => {}}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Dzień</RN.Text></RN.Pressable>, /^x: button „Dzień”: stan „expanded” — RN dopisuje angielskie słowo/],
     ['stan „zajęty” po angielsku', () => <RN.Pressable accessibilityRole="button" accessibilityLabel="Wyślij" accessibilityState={{ busy: false }} style={{ minHeight: 44 }} onPress={() => {}} />, /^x: button „Wyślij”: stan „busy”/],
@@ -300,6 +296,14 @@ describe('logowanie', () => {
     await fireEvent.press(screen.getByTestId('apple-sign-in'));
     expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeTruthy();
   });
+
+  it('N-72: komunikat po usunięciu konta, ogłaszany VoiceOverowi', async () => {
+    const spoken = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions').mockImplementation(() => {});
+    const { wrap } = setup({});
+    await render(wrap(<SignInScreen account={fakeAccount()} notice="Konto zostało usunięte." />));
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    expect(spoken.mock.calls.map((c) => c[0])).toContain('Konto zostało usunięte.');
+  });
 });
 
 describe('linki głębokie (D40)', () => {
@@ -325,7 +329,7 @@ describe('linki głębokie (D40)', () => {
     expect((await screen.findByTestId('invite-join-id')).props.value).toBe('482 913 507');
     expect(screen.getByTestId('invite-code').props.value).toBe('731 064');
     await fireEvent.press(screen.getByTestId('invite-accept'));
-    expect(s.account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Łukasz');
+    expect(s.account.joinGroup).toHaveBeenCalledWith('482913507', '731064', null); // niezmienione imię z konta zostaje po stronie serwera (audyt 3, N-164)
   });
 
   it('zaproszenie z linku otwiera ekran bez pola wklejania', async () => {
@@ -334,7 +338,7 @@ describe('linki głębokie (D40)', () => {
     expect(await screen.findByTestId('screen-invite')).toBeTruthy();
     expect(screen.queryByTestId('invite-input')).toBeNull();
     await fireEvent.press(screen.getByTestId('invite-accept'));
-    expect(s.account.acceptInvite).toHaveBeenCalledWith('ef'.repeat(32), 'Łukasz');
+    expect(s.account.acceptInvite).toHaveBeenCalledWith('ef'.repeat(32), null);
   });
 
   it('brakujące dane w trasie: ekrany pokazują błąd zamiast się wysypać', async () => {

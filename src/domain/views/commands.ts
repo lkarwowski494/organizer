@@ -41,14 +41,25 @@ export function patchTask(id: string, set: Partial<Pick<Task, 'title' | 'note' |
   return { kind: 'patch', entity: 'tasks', id, set };
 }
 
-/** Termin: `null` = bez terminu (przypięte), inaczej własny termin (D45: godzina opcjonalna). */
-export function setDue(id: string, due: { date: string; time: string | null } | null): NewOp {
+/** Godzina z bazy („18:00:00”) i z formularza („18:00”) to ta sama godzina. */
+export const sameTime = (a: string | null, b: string | null) => (a?.slice(0, 5) ?? null) === (b?.slice(0, 5) ?? null);
+
+/**
+ * Termin: `null` = bez terminu (przypięte), inaczej własny termin (D45: godzina opcjonalna). `was` — własny termin
+ * zadania w chwili zmiany (audyt 3, N-126; zmiany per pole, D2): wysyłam tylko zmienione pola, więc zmiana samej
+ * godziny nie cofa dnia zmienionego w tym czasie na drugim telefonie (i odwrotnie). Nowy dzień idzie z trybem „własny
+ * termin” — wygrywa nad „Bez terminu” z drugiego telefonu; sama godzina po „Bez terminu” jest odrzucana przez serwer
+ * (tasks_time_needs_date) i trafia do „Odrzuconych zmian”. Wołający wysyła tylko, gdy coś się zmieniło.
+ */
+export function setDue(id: string, due: { date: string; time: string | null } | null, was?: { date: string; time: string | null } | null): NewOp {
+  // Bez terminu nie ma powtarzania (D76; w bazie tasks_repeat_needs_due), więc zdjęcie terminu zdejmuje też regułę.
+  if (due === null) return { kind: 'patch', entity: 'tasks', id, set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } };
+  if (!was) return { kind: 'patch', entity: 'tasks', id, set: { deadline_mode: 'own', due_date: due.date, due_time: due.time } };
   return {
     kind: 'patch',
     entity: 'tasks',
     id,
-    // Bez terminu nie ma powtarzania (D76; w bazie tasks_repeat_needs_due), więc zdjęcie terminu zdejmuje też regułę.
-    set: due === null ? { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } : { deadline_mode: 'own', due_date: due.date, due_time: due.time },
+    set: { ...(due.date !== was.date ? { deadline_mode: 'own', due_date: due.date } : {}), ...(sameTime(due.time, was.time) ? {} : { due_time: due.time }) },
   };
 }
 

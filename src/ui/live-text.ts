@@ -7,11 +7,16 @@
  *  - niepoprawny tekst nie zapisuje się: pole wraca do zapisanej wartości, a pod nim jest komunikat (do następnej zmiany);
  *    przy zamknięciu ekranu niepoprawny tekst przepada. Domyślnie niepoprawny jest pusty (komunikat `empty`); `validate`
  *    zastępuje tę regułę, `allowEmpty` — pusty jest poprawny (notatka: pusta = bez notatki, `save('')`);
- *  - `drop()` porzuca edycję bez zapisu (np. gdy rzecz właśnie znika: wyjście z grupy, kosz).
+ *  - `drop()` porzuca edycję bez zapisu (np. gdy rzecz właśnie znika: wyjście z grupy, kosz);
+ *  - audyt 3 (N-139): przejście do innej aplikacji (AppState „inactive”/„background”) też zapisuje — iOS może zamknąć
+ *    aplikację w tle bez wyjścia z pola; pole zostaje w edycji. AppState w RN 0.86:
+ *    https://reactnative.dev/docs/0.86/appstate — „inactive … transitioning between foreground & background”,
+ *    „background … The app is running in the background”.
  * Bez przycisku „Zapisz”. `field` do rozłożenia w <Field>; `error` — tekst komunikatu albo null.
  * Formularze z „Zapisz” mają szkic na telefonie (app/form-draft.ts) — ta sama rodzina: zmienione pola, nie cały stan.
  */
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 export type LiveOptions = { empty?: string; validate?: (text: string) => string | null; allowEmpty?: boolean };
 type Live = { draft: string | null; current: string; save: (text: string) => void; o: LiveOptions };
@@ -41,6 +46,13 @@ export function useLiveText(current: string, save: (text: string) => void, o: Li
   });
   // Zamknięcie ekranu albo panelu: zapis tekstu z pola, z którego nie wyszło się wcześniej.
   useEffect(() => () => void commitOf(latest.current), []);
+  // Wyjście z aplikacji: zapis bez kończenia edycji (po powrocie piszę dalej; niepoprawny tekst czeka na wyjście z pola).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') commitOf(latest.current);
+    });
+    return () => sub.remove();
+  }, []);
   const end = () => {
     latest.current = { ...latest.current, draft: null };
     setDraft(null);

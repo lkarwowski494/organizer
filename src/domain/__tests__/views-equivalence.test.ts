@@ -75,7 +75,8 @@ const arbEvent = fc.record({
       cancelled: fc.boolean(),
       // Wyjątek dla daty, która nie jest (już) wystąpieniem serii — np. po zmianie reguły.
       stray: fc.boolean(),
-      move: fc.oneof(fc.integer({ min: -3, max: 3 }), fc.constantFrom(-70, -62, -61, -20, 20, 61, 62, 70)),
+      // Także dalej niż limit formularza (starszy klient, API) — widoki nie mogą zależeć od szerokości zakresu.
+      move: fc.oneof(fc.integer({ min: -3, max: 3 }), fc.constantFrom(-150, -70, -62, -61, -20, 20, 61, 62, 70, 150)),
     }),
     { maxLength: 2 },
   ),
@@ -322,37 +323,56 @@ const label = {
 const RUNS = { numRuns: 100 };
 
 describe('audyt 3, N-6 i N-16: wynik jak przed optymalizacją', () => {
+  // Plan przypomnień i wzorzec na tych samych danych; zwraca plan do dodatkowych sprawdzeń.
+  const checkPlan = (w: World, nowMin: number, leadMin: number, morning: string, travel: boolean, realTz: boolean) => {
+    const t = build(w);
+    const nowMs = toMs({
+      ...TODAY,
+      hh: Math.floor(nowMin / 60),
+      mm: nowMin % 60,
+    });
+    const opts = {
+      days: 14,
+      max: 64,
+      toMs,
+      localDate: realTz ? warsaw : utc,
+      label,
+      leaveFor: travel
+        ? (id: string, occ: string) =>
+            id.endsWith('1')
+              ? {
+                  at: toMs({ ...parseIsoDate(occ), hh: 7, mm: 0 }),
+                  body: 'Dojazd 20 min',
+                }
+              : null
+        : undefined,
+      scopeOf: (g: string) => (g === 'gf' && leadMin === 0 ? ('mine' as const) : ('all' as const)),
+    };
+    const s = { leadMin, morning };
+    const plan = planReminders(t, ME, TODAY, nowMs, s, opts);
+    expect(plan).toEqual(refPlanReminders(t, ME, TODAY, nowMs, s, opts));
+    return plan;
+  };
+
   it('plan przypomnień (14 dni)', () => {
     fc.assert(
       fc.property(arbWorld, fc.integer({ min: 0, max: 1439 }), fc.constantFrom(0, 30), fc.constantFrom('off', '08:00'), fc.boolean(), fc.boolean(), (w, nowMin, leadMin, morning, travel, realTz) => {
-        const t = build(w);
-        const nowMs = toMs({
-          ...TODAY,
-          hh: Math.floor(nowMin / 60),
-          mm: nowMin % 60,
-        });
-        const opts = {
-          days: 14,
-          max: 64,
-          toMs,
-          localDate: realTz ? warsaw : utc,
-          label,
-          leaveFor: travel
-            ? (id: string, occ: string) =>
-                id.endsWith('1')
-                  ? {
-                      at: toMs({ ...parseIsoDate(occ), hh: 7, mm: 0 }),
-                      body: 'Dojazd 20 min',
-                    }
-                  : null
-            : undefined,
-          scopeOf: (g: string) => (g === 'gf' && leadMin === 0 ? ('mine' as const) : ('all' as const)),
-        };
-        const s = { leadMin, morning };
-        expect(planReminders(t, ME, TODAY, nowMs, s, opts)).toEqual(refPlanReminders(t, ME, TODAY, nowMs, s, opts));
+        checkPlan(w, nowMin, leadMin, morning, travel, realTz);
       }),
       RUNS,
     );
+  });
+
+  it('plan przypomnień: termin przeniesiony o 70 dni wstecz na dziś (seed -253130834, po zawężeniu)', () => {
+    // Codzienna seria całodniowa od 90 dni temu; wystąpienie sprzed 70 dni naprzód przeniesione na dziś. Wcześniej plan
+    // liczył je w porannym podsumowaniu, a wzorzec (dzień po dniu) i widok dnia — nie; teraz stoi dziś wszędzie.
+    const ev = { rule: 2, start: -90, time: null, len: 15, days: 1 as const, group: false, audience: false, responsible: null, kind: 'event' as const, parts: [0], rsvpNo: null, deleted: false };
+    const w: World = { childMe: false, tasks: [], events: [{ ...ev, overrides: [{ k: 160, cancelled: false, stray: false, move: -70 }] }], tripDue: null, tripTime: false };
+    const plan = checkPlan(w, 0, 0, '08:00', false, false);
+    expect(plan[0]).toMatchObject({ id: 'm|2026-10-07', body: '2/0: Przeniesione, Wydarzenie 0' });
+    const t = build(w);
+    expect(t.event_overrides!['e0-o0']).toMatchObject({ occurrence_date: '2026-12-16', start_date: '2026-10-07' });
+    expect(myDays(t, ME, TODAY, 'day', TODAY, utc).days[0]!.entries.map((x) => (x.kind === 'event' ? x.event.title : x.kind))).toEqual(['Przeniesione', 'Wydarzenie 0']);
   });
 
   it('Moje sprawy (dzień, tydzień, miesiąc; dziś, wczoraj, za tydzień) i zagnieżdżenie dnia', () => {

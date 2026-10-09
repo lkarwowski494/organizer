@@ -28,11 +28,11 @@ export type Palette = {
   border: string;
   /** Obwódka pól do odhaczania: element sterujący, więc ≥ 3:1. */
   control: string;
-  /** Wyróżnienie aktywnej zakładki i przycisków-pigułek (motyw „Wstążki”, D72; kolor terakota, D74). */
-  accentBg: string;
+  /** Pilna linia „Wyjdź o …” w wierszu (D129; kolor terakota, D74). Wybrana zakładka ma od audytu 3 wzór zaznaczenia (N-68). */
   accentInk: string;
   ok: string;
   warnBg: string;
+  /** Obwódka i kropka stanu offline, obwódka banera filtra: ≥ 3:1 do warnBg, tła i karty (audyt 3, N-200). */
   warnBorder: string;
   warnInk: string;
   pendingInk: string;
@@ -50,11 +50,11 @@ export const palettes: Record<Scheme, Palette> = {
     inkTab: '#6E6152',
     border: '#E8DFD2',
     control: '#8A7A66',
-    accentBg: '#F6E3D8',
     accentInk: '#8F3412',
     ok: '#15803D',
     warnBg: '#FEF3C7',
-    warnBorder: '#F59E0B',
+    // N-200: #F59E0B miał 1,93:1 do warnBg (dekoracja, którą widać tylko z bliska); #B45309 — 4,51:1 (ten sam bursztyn, ciemniejszy).
+    warnBorder: '#B45309',
     warnInk: '#78350F',
     pendingInk: '#92400E',
     danger: '#B91C1C',
@@ -69,7 +69,6 @@ export const palettes: Record<Scheme, Palette> = {
     inkTab: '#AEA290',
     border: '#3A332A',
     control: '#A39684',
-    accentBg: '#4A2A1C',
     accentInk: '#F6C9B3',
     ok: '#22C55E',
     warnBg: '#3A2A0A',
@@ -142,16 +141,51 @@ export function contrastPairs(c: Palette): ContrastPair[] {
     { fg: c.danger, bg: c.surface, kind: 'TEXT', use: 'błąd na karcie' },
     { fg: c.inverseInk, bg: c.inverseBg, kind: 'TEXT', use: 'pole szybkiego dodawania' },
     { fg: c.inverseInk, bg: c.danger, kind: 'TEXT', use: 'plakietka „do potwierdzenia” na zakładce' },
-    { fg: c.accentInk, bg: c.accentBg, kind: 'TEXT', use: 'aktywna zakładka' },
-    { fg: c.inkTab, bg: c.accentBg, kind: 'TEXT', use: 'nieaktywna zakładka obok aktywnej' },
+    { fg: c.accentInk, bg: c.surface, kind: 'TEXT', use: '„Wyjdź o …” w wierszu na karcie' },
+    { fg: c.accentInk, bg: c.ground, kind: 'TEXT', use: '„Wyjdź o …” w wierszu na tle' },
     // Jeden wzór zaznaczenia (PW-52 A, D198): ciemne wypełnienie z jasnym napisem, odróżnione od karty i od tła.
-    { fg: c.surface, bg: c.ink, kind: 'TEXT', use: 'zaznaczony wybór (napis)' },
-    { fg: c.ink, bg: c.surface, kind: 'NON_TEXT', use: 'zaznaczony wybór na karcie' },
+    // Także wybrana zakładka (audyt 3, N-68; Q11 A): pigułka `ink` na pasku `surface`, napis `surface`.
+    { fg: c.surface, bg: c.ink, kind: 'TEXT', use: 'zaznaczony wybór i wybrana zakładka (napis)' },
+    { fg: c.ink, bg: c.surface, kind: 'NON_TEXT', use: 'zaznaczony wybór na karcie, pigułka wybranej zakładki na pasku' },
+    { fg: c.surface, bg: c.ink, kind: 'NON_TEXT', use: 'obwódka plakietki na pigułce wybranej zakładki' },
     { fg: c.ink, bg: c.ground, kind: 'NON_TEXT', use: 'zaznaczony wybór na tle, obwódka „dziś”' },
-    { fg: c.danger, bg: c.surface, kind: 'NON_TEXT', use: 'znacznik święta pod liczbą' },
+    { fg: c.danger, bg: c.surface, kind: 'NON_TEXT', use: 'znacznik święta pod liczbą, plakietka na pasku zakładek' },
+    { fg: c.warnBorder, bg: c.warnBg, kind: 'NON_TEXT', use: 'obwódka i kropka stanu offline, obwódka banera filtra (N-200)' },
+    { fg: c.warnBorder, bg: c.ground, kind: 'NON_TEXT', use: 'obwódka stanu offline i banera filtra na tle' },
+    { fg: c.warnBorder, bg: c.surface, kind: 'NON_TEXT', use: 'obwódka stanu offline na karcie' },
     { fg: c.surface, bg: c.ok, kind: 'TEXT', use: '✓ na odhaczonym polu (audyt 2, M-147)' },
   ];
 }
+
+/**
+ * Pasek zakładek (audyt 3, N-67, N-68; decyzja Q11 A z 9.10.2026).
+ *  - Napis stałej wielkości sizes.TAB (12 pt ≥ minimum 11 pt z HIG), bez zmniejszania (adjustsFontSizeToFit zmniejszał
+ *    „Moje sprawy” do 7,5 pt przy plakietce); na wąskim ekranie najwyżej LABEL_LINES linie. Dynamic Type zastępuje
+ *    Large Content Viewer (przytrzymanie zakładki pokazuje jej nazwę w powiększeniu), jak w systemowym pasku — Apple,
+ *    UILargeContentViewerInteraction (https://developer.apple.com/documentation/uikit/uilargecontentviewerinteraction):
+ *    „Rely on the large content viewer only in situations where items must remain small due to unavoidable design
+ *    constraints. For example, buttons in a tab bar remain small to leave more room for the main app content.”
+ *  - Plakietka w rogu pigułki (nie obok napisu, więc nie zabiera mu miejsca), z obwódką w kolorze paska.
+ *  - Wybrana zakładka: wzór zaznaczenia z D198 (pigułka `ink`, napis `surface`). Kontrast WCAG 2.1
+ *    (https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio, „(L1 + 0.05) / (L2 + 0.05)”), próg SC 1.4.11
+ *    (https://www.w3.org/TR/WCAG21/#non-text-contrast): „Visual information required to identify user interface
+ *    components and states” „at least 3:1 against adjacent color(s)”; Understanding 1.4.11: „any visual information
+ *    necessary to indicate state, such as whether a component is selected or focused must also ensure that the
+ *    information used to identify the control in that state has a minimum 3:1 contrast ratio”
+ *    (https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html). Dawna pigułka terakota miała 1,24–1,29:1.
+ */
+export const tabBar = {
+  BAR_PAD_H: 8,
+  PILL_PAD_H: 8,
+  PILL_PAD_V: 6,
+  PILL_RADIUS: 14,
+  LABEL_LINES: 2,
+  BADGE_MIN: 20,
+  BADGE_RING: 2,
+  /** Ile plakietka wystaje poza róg pigułki (w górę i w prawo). */
+  BADGE_OFFSET: 8,
+  colors: (c: Palette) => ({ bar: c.surface, pillOn: c.ink, inkOn: c.surface, inkOff: c.inkTab, badge: c.danger, badgeInk: c.inverseInk, badgeRing: c.surface }),
+} as const;
 
 export const fonts = {
   /** Nagłówki: Bricolage Grotesque, SIL OFL 1.1 (https://github.com/google/fonts/blob/main/ofl/bricolagegrotesque/OFL.txt). */
@@ -195,7 +229,7 @@ export const sizes = {
   CONTROL: 15,
   /** Liczba w kafelku siatki (dni, godziny, minuty). */
   TILE: 16,
-  /** Napis zakładki. */
+  /** Napis zakładki — stały, bez Dynamic Type (Large Content Viewer, tabBar niżej; N-67). */
   TAB: 12,
   /** Liczba na plakietce. */
   BADGE: 11,
