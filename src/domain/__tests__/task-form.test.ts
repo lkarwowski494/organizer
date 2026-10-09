@@ -18,14 +18,14 @@ function base(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('old', 'gf', 'u-old', 'Ola', 'member', 'x');
   m('mk', 'gk', ME, 'Łukasz');
   m('alicja', 'gk', 'u-al', 'Alicja');
   m('mc', 'gc', ME, 'Łukasz', 'child');
   const l = (id: string, gid: string, kind = 'tasks', name = id) => put(t, 'lists', id, { id, group_id: gid, kind, name, visibility: 'group', sort_key: 'a0', deleted_at: null });
   l('lp', ME);
-  l('lf', 'gf', 'tasks', 'Balet – Róża');
+  l('lf', 'gf', 'tasks', 'Szachy – Zosia');
   l('lf2', 'gf', 'tasks', 'Zadania');
   l('lz', 'gf', 'shopping', 'Zadania');
   put(t, 'tasks', 't1', { id: 't1', group_id: ME, list_id: 'lp', parent_id: null, title: 'Basen', note: 'czepek', sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-09', due_time: '19:00:00', repeat: null, completed_at: null, deleted_at: null });
@@ -39,7 +39,7 @@ describe('pełny formularz zadania (D90)', () => {
   it('grupy (bez tych, gdzie jestem dzieckiem), osoby bez usuniętych', () => {
     const t = base();
     expect(formGroups(t, ME).map((g) => g.id)).toEqual([ME, 'gf', 'gk']);
-    expect(formMembers(t, 'gf').map((m) => m.display_name)).toEqual(['Ala', 'Kuba', 'Łukasz']);
+    expect(formMembers(t, 'gf').map((m) => m.display_name)).toEqual(['Ala', 'Łukasz', 'Tymek']);
     put(t, 'group_members', 'nn', { member_id: 'nn', group_id: 'gk', user_id: 'u-n', deleted_at: null });
     expect(formMembers(t, 'gk').map((m) => m.display_name)).toEqual(['', 'Alicja', 'Łukasz']);
     expect(formMembers({}, 'gk')).toEqual([]);

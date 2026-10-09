@@ -46,12 +46,12 @@ describe('PW-2 i PWD-32 B w przypomnieniach i porannym podsumowaniu', () => {
     const t: T = {};
     put(t, 'groups', 'gk', { id: 'gk', name: 'Klasa', kind: 'shared', created_at: '2026-02-01T00:00:00Z', deleted_at: null });
     put(t, 'group_members', 'mk', { member_id: 'mk', group_id: 'gk', user_id: ME, display_name: 'Łukasz', role: 'member', deleted_at: null });
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gk', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gk', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gk', user_id: 'u-ala', display_name: 'Ala', role: 'owner', deleted_at: null });
     put(t, 'lists', 'l', { id: 'l', group_id: 'gk', kind: 'tasks', name: 'Szkoła', visibility: 'group', deleted_at: null });
     put(t, 'tasks', 'zbiorka', { id: 'zbiorka', group_id: 'gk', list_id: 'l', parent_id: null, title: 'Zbiórka', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-07', due_time: '17:00:00', completed_at: null, deleted_at: null, rollover: true });
     put(t, 'events', 'basen', { id: 'basen', group_id: 'gk', title: 'Basen', start_date: '2026-10-07', start_time: '18:00:00', end_time: null, rrule: null, audience: 'members', responsible_member_id: 'ala', deleted_at: null });
-    put(t, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gk', member_id: 'kuba', deleted_at: null });
+    put(t, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gk', member_id: 'tymek', deleted_at: null });
     return t;
   }
   it('„Wszystko”: wspólne zadanie przypomina; wydarzenie dziecka, które zawozi Ala — nie (tylko informacja w Moich sprawach)', () => {

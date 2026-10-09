@@ -47,7 +47,7 @@ Wykonanie (Claude; właściciel może zawetować):
 - **Nazwa i kolor kalendarza** nadążają za grupą (`ExpoCalendar.update` — modyfikowalne `title` i `color`, dokumentacja
   SDK 57); stan pamięta zapisany wygląd (`looks`).
 - **Wpis lustra** ma miejsce wydarzenia i w notatce dopisek „Dodane przez aplikację Organizer” (D173). Lekcje dziecka:
-  nazwa jak w Moich sprawach („Kuba: 6 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce; wspólna lekcja
+  nazwa jak w Moich sprawach („Tymek: 5 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce; wspólna lekcja
   rodzeństwa w bloku każdego dziecka.
 - **Przebieg** zmiany w trakcie nie gubi (drugi przebieg po zakończeniu) i kończy się po bieżącym kroku przy nowszych
   danych, wyłączeniu lustra albo wylogowaniu (stan zapisany po każdym kroku).

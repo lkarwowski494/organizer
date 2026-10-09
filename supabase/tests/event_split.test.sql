@@ -26,7 +26,7 @@ create function pg_temp.args(sid text, u text, d text, extra jsonb default '{}')
 $$;
 grant execute on function pg_temp.as_user(text), pg_temp.push(text, int, jsonb), pg_temp.split(text, int, jsonb), pg_temp.args(text, text, text, jsonb) to authenticated;
 
--- G: A (owner), B (członek), C (dziecko z kontem), Kuba (profil dziecka), R (członek, wyjdzie z grupy). Z ma swoją grupę.
+-- G: A (owner), B (członek), C (dziecko z kontem), Tymek (profil dziecka), R (członek, wyjdzie z grupy). Z ma swoją grupę.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000007e1');
 set local role authenticated;
 select public.create_group('77770000-0000-7000-8000-000000000001', 'Rodzina', '77770000-0000-7000-8000-0000000000a1', 'A');
@@ -37,10 +37,10 @@ select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
   ('77770000-0000-7000-8000-0000000000a2', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000007e2', 'B', 'member'),
   ('77770000-0000-7000-8000-0000000000a3', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000007e3', 'C', 'child'),
-  ('77770000-0000-7000-8000-0000000000a5', '77770000-0000-7000-8000-000000000001', null, 'Kuba', 'child'),
+  ('77770000-0000-7000-8000-0000000000a5', '77770000-0000-7000-8000-000000000001', null, 'Tymek', 'child'),
   ('77770000-0000-7000-8000-0000000000a6', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000007e5', 'R', 'member');
 
--- A: lista, chór (poniedziałki 17:00–18:00, A odpowiada, Kuba uczestnikiem), wyjątki, obecność, przekazanie, zadania, definicja.
+-- A: lista, chór (poniedziałki 17:00–18:00, A odpowiada, Tymek uczestnikiem), wyjątki, obecność, przekazanie, zadania, definicja.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000007e1');
 set local role authenticated;
 select pg_temp.push('77770000-0000-7000-8000-00000000c0a1', 1, '{"kind":"create","entity":"lists","id":"77770000-0000-7000-8000-0000000001f1","group_id":"77770000-0000-7000-8000-000000000001","set":{"kind":"tasks","name":"Dom","visibility":"group","sort_key":"a0"}}') = 'ok';

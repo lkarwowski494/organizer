@@ -24,7 +24,7 @@ describe('przenieś zaległe na dziś (D111)', () => {
   });
 
   it('decyzja właściciela z 8.10.2026: tylko moje — przypisane do mnie i z grupy osobistej; wspólne nieprzypisane i cudze zostają', () => {
-    const list = [task('osobiste'), task('moje', { group_id: 'gf', assignee_member_id: 'mf' }), task('wspólne', { group_id: 'gf' }), task('kuby', { group_id: 'gf', assignee_member_id: 'kuba' }), task('obca', { group_id: 'gx' })];
+    const list = [task('osobiste'), task('moje', { group_id: 'gf', assignee_member_id: 'mf' }), task('wspólne', { group_id: 'gf' }), task('tymka', { group_id: 'gf', assignee_member_id: 'tymek' }), task('obca', { group_id: 'gx' })];
     expect(movableOverdue(list, groups).map((x) => x.id)).toEqual(['osobiste', 'moje']);
   });
 

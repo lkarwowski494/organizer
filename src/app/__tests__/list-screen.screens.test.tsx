@@ -238,7 +238,7 @@ describe('limity długości (M-228)', () => {
     await press(await screen.findByTestId('group-gf'));
     expect((await screen.findByTestId('group-rename')).props.maxLength).toBe(200);
     expect(screen.getByTestId('child-name').props.maxLength).toBe(100);
-    await press(screen.getByTestId('member-kuba'));
+    await press(screen.getByTestId('member-tymek'));
     expect((await screen.findByTestId('member-name')).props.maxLength).toBe(100);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Wróć'));

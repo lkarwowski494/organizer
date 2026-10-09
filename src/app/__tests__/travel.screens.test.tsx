@@ -117,14 +117,14 @@ describe('dojazd (D115–D117)', () => {
   it('D160 (koordynator): wydarzenie tylko przez dziecko, dziecko „nie będzie” — bez „Wyjdź o” i bez liczenia dojazdu', async () => {
     const b = base();
     b.events!.basen = { ...b.events!.basen!, audience: 'members' };
-    put(b, 'event_participants', 'p-kuba', { id: 'p-kuba', event_id: 'basen', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(b, 'event_participants', 'p-tymek', { id: 'p-tymek', event_id: 'basen', member_id: 'tymek', deleted_at: null, version: 1 });
     const travel = fakeTravel();
     const s = setup({ base: b, prefs: memoryPrefs({ welcomeSeen: '1', travelEnabled: '1' }), travel });
     await s.renderApp(<RootStack />);
     await flush();
     expect(await screen.findByText(/Wyjdź o 16:30 · 25 min autem/)).toBeTruthy();
     const calls = travel.eta.mock.calls.length;
-    await act(async () => s.store.pull((x) => ({ ...x, event_rsvps: { r: { id: 'r', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'kuba', answer: 'no', deleted_at: null, version: 1 } } })));
+    await act(async () => s.store.pull((x) => ({ ...x, event_rsvps: { r: { id: 'r', group_id: 'gf', event_id: 'basen', occurrence_date: '2026-10-07', member_id: 'tymek', answer: 'no', deleted_at: null, version: 1 } } })));
     await waitFor(() => expect(screen.queryByText(/Wyjdź o/)).toBeNull());
     expect(travel.eta.mock.calls.length).toBe(calls);
   });

@@ -16,7 +16,7 @@ Zgłoszenie właściciela po pierwszym buildzie: grup nie da się edytować ani 
    - Cytaty z RFC są w `src/domain/rrule.ts`.
    - Rozwijanie sprawdza korpus 409 przypadków (przeliczone z `rrule.json` 8.10.2026; wcześniej podane tu 436 nie zgadzało się z plikiem) z niezależnej implementacji, python-dateutil 2.9.0.post0 (`scripts/gen-rrule-corpus.py`).
    - Odrzucone: biblioteka rrule.js. Liczy na `Date` w UTC, a my trzymamy daty cywilne Europe/Warsaw (R2). Zmiana czasu nie może przesuwać zajęć.
-2. **Różne godziny w różne dni to osobne serie.** Przykład: pon. 18:00 i sob. 12:00. Formularz pozwala dodać kilka terminów naraz, a każdy termin zapisuje się jako osobna seria.
+2. **Różne godziny w różne dni to osobne serie.** Przykład: pon. 18:00 i sob. 10:00. Formularz pozwala dodać kilka terminów naraz, a każdy termin zapisuje się jako osobna seria.
    - Powód: RFC 5545 daje serii jedną godzinę startu (DTSTART).
    - Odrzucone: jedna seria z listą godzin per dzień. To poza standardem i utrudniłoby późniejszy eksport do kalendarza.
 3. **Zmiana jednego wystąpienia to wiersz `event_overrides`**, którego kluczem jest data pierwotna. Wiersz może przenieść wystąpienie (dzień, godziny), zmienić tytuł albo je odwołać.

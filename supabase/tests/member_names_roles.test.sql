@@ -27,8 +27,8 @@ insert into public.group_members (member_id, group_id, user_id, display_name, ro
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');
 set local role authenticated;
 select lives_ok($$ insert into public.group_members (member_id, group_id, display_name, role)
-  values ('e0e00000-0000-7000-8000-0000000000f9', 'e0e00000-0000-7000-8000-000000000001', E' Ku\u202Eba\u200E\n', 'child') $$, '1: profil dziecka z RLO, LRM i nową linią');
-select is(pg_temp.name_of('e0e00000-0000-7000-8000-0000000000f9'), 'Kuba', '2: imię bez znaków sterujących i kierunkowych');
+  values ('e0e00000-0000-7000-8000-0000000000f9', 'e0e00000-0000-7000-8000-000000000001', E' Ty\u202Emek\u200E\n', 'child') $$, '1: profil dziecka z RLO, LRM i nową linią');
+select is(pg_temp.name_of('e0e00000-0000-7000-8000-0000000000f9'), 'Tymek', '2: imię bez znaków sterujących i kierunkowych');
 select lives_ok($$ insert into public.group_members (member_id, group_id, display_name, role)
   values ('e0e00000-0000-7000-8000-0000000000f8', 'e0e00000-0000-7000-8000-000000000001', E'Zosia \U0001F468\u200D\U0001F469\u200D\U0001F467 \u2764\uFE0F', 'child') $$, '3: emoji z łącznikiem ZWJ');
 select is(pg_temp.name_of('e0e00000-0000-7000-8000-0000000000f8'), E'Zosia \U0001F468\u200D\U0001F469\u200D\U0001F467 \u2764\uFE0F', '4: łącznik ZWJ i wariant emoji zostają');
@@ -63,7 +63,7 @@ select throws_ok($$ update public.group_members set display_name = 'Inna' where 
   'P0001', 'forbidden', '18: admin nie zmienia imienia członka z kontem');
 select throws_ok($$ update public.group_members set color = '#ff0000' where member_id = 'e0e00000-0000-7000-8000-0000000000f3' $$,
   'P0001', 'forbidden', '19: ani jego koloru');
-select lives_ok($$ update public.group_members set display_name = 'Jakub' where member_id = 'e0e00000-0000-7000-8000-0000000000f9' $$, '20: admin zmienia imię profilu dziecka');
+select lives_ok($$ update public.group_members set display_name = 'Tymoteusz' where member_id = 'e0e00000-0000-7000-8000-0000000000f9' $$, '20: admin zmienia imię profilu dziecka');
 select lives_ok($$ update public.group_members set display_name = 'Adaś' where member_id = 'e0e00000-0000-7000-8000-0000000000f2' $$, '21: admin zmienia swoje imię');
 reset role;
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');

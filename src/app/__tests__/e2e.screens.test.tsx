@@ -52,7 +52,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(await screen.findByLabelText(/^Oddać książki do biblioteki,/)).toBeTruthy();
     expect(screen.getByLabelText(/^Odebrać paczkę,/)).toBeTruthy();
     expect(screen.getByTestId(`today-event-${E2E_IDS.swimming}-2026-10-07`)).toBeTruthy();
-    expect(screen.getByLabelText(/^Basen Kuby, 17:00/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Basen Tymka, 17:00/)).toBeTruthy();
     expect(screen.queryByLabelText(/Umówić przegląd auta/)).toBeNull(); // zadanie Ali
     expect(screen.queryByTestId('whats-new')).toBeNull();
     expect(screen.queryByTestId('push-prompt')).toBeNull();

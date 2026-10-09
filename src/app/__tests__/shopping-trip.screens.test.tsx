@@ -52,7 +52,7 @@ describe('nowa lista zakupów', () => {
     expect(store.dispatched).toEqual([]);
     // Dzieci nie robią zakupów.
     const who = screen.getByLabelText('Kto robi zakupy');
-    expect(within(who).queryByLabelText('Kuba')).toBeNull();
+    expect(within(who).queryByLabelText('Tymek')).toBeNull();
     await press(within(who).getByLabelText('Ala'));
     await press(screen.getByLabelText('Jutro'));
     await setTime('trip-time', '18:30');

@@ -17,7 +17,7 @@ function base(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('mc', 'gc', ME, 'Łukasz', 'child');
   return t;
 }
@@ -39,7 +39,7 @@ describe('wydarzenie z szybkiego dodania (D98, D99)', () => {
 
   it('@imię: grupa i dorosła osoba odpowiedzialna; dziecko i grupa osobista — bez osoby; grupa jako dziecko — osobista', () => {
     expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'ala' })).toMatchObject({ groupId: 'gf', form: { responsibleId: 'ala' } });
-    expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'kuba' })!.form).toMatchObject({ responsibleId: null, audience: 'members', participantIds: ['kuba'] });
+    expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'tymek' })!.form).toMatchObject({ responsibleId: null, audience: 'members', participantIds: ['tymek'] });
     expect(q('zebranie 17-18', { groupId: 'gf', memberId: 'ala' })!.form).toMatchObject({ audience: 'group', participantIds: [] });
     expect(q('zebranie 17-18', { groupId: ME, memberId: ME })!.form.responsibleId).toBeNull();
     expect(q('zebranie 17-18', { groupId: 'gc' })!.groupId).toBe(ME);

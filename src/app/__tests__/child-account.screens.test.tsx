@@ -55,22 +55,22 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
   it('admin: kod przy profilu dziecka, wiadomość, „Nowy kod” i „Unieważnij kod”', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
     const s = await open();
-    await openMember('gf', 'kuba');
-    expect(screen.getByText(/Kuba może mieć własną aplikację/)).toBeTruthy();
+    await openMember('gf', 'tymek');
+    expect(screen.getByText(/Tymek może mieć własną aplikację/)).toBeTruthy();
     await press(screen.getByLabelText('Połącz z kontem dziecka'));
-    expect(s.account.createChildCode).toHaveBeenCalledWith('kuba');
+    expect(s.account.createChildCode).toHaveBeenCalledWith('tymek');
     expect(await screen.findByTestId('child-code-ready')).toBeTruthy();
-    expect(screen.getByText('Połączy konto z profilem: Kuba')).toBeTruthy();
+    expect(screen.getByText('Połączy konto z profilem: Tymek')).toBeTruthy();
     expect(screen.getByTestId('child-code').props.children).toBe('Kod: 615 290');
     expect(screen.getByText(/Działa raz\. Na telefonie dziecka: zaloguj się przez Apple/)).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     await press(screen.getByLabelText('Wyślij zaproszenie'));
     const msg = (share.mock.calls.at(-1)![0] as { message: string }).message;
-    expect(msg).toContain('profilem „Kuba” w grupie „Rodzina”');
+    expect(msg).toContain('profilem „Tymek” w grupie „Rodzina”');
     expect(msg).toContain('Zaloguj się w aplikacji przez Apple. Potem: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: 482 913 507\nKod: 615 290 (ważny do: czwartek, 8 października, 10:00, działa raz)');
     expect(msg).not.toContain('TestFlight');
     await press(screen.getByTestId('child-code-new'));
-    expect(s.account.renewChildCode).toHaveBeenCalledWith('kuba');
+    expect(s.account.renewChildCode).toHaveBeenCalledWith('tymek');
     expect(await screen.findByText('Kod: 903 417')).toBeTruthy();
     // D187: unieważnienie nieodwracalne — jedno pytanie (jak przy zaproszeniu do grupy).
     await press(screen.getByTestId('revoke'));
@@ -86,7 +86,7 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
     const live = jest.replaceProperty(config.invites as { LINK_LIVE: boolean }, 'LINK_LIVE', true);
     const tf = jest.replaceProperty(config.invites, 'TESTFLIGHT_LINK', 'https://testflight.apple.com/join/AbCd1234');
     await open();
-    await openMember('gf', 'kuba');
+    await openMember('gf', 'tymek');
     await press(screen.getByLabelText('Połącz z kontem dziecka'));
     await press(await screen.findByLabelText('Wyślij zaproszenie'));
     const msg = (share.mock.calls.at(-1)![0] as { message: string }).message;
@@ -102,7 +102,7 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
       createChildCode: jest.fn(async () => Promise.reject(new Error('invalid_member'))),
     });
     await open({ account });
-    await openMember('gf', 'kuba');
+    await openMember('gf', 'tymek');
     await press(screen.getByLabelText('Połącz z kontem dziecka'));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.queryByTestId('child-code-ready')).toBeNull();
@@ -121,7 +121,7 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
     const b = sampleBase();
     put(b, 'group_members', 'mf', { ...b.group_members!.mf!, role: 'member' });
     await open({ base: b });
-    await openMember('gf', 'kuba');
+    await openMember('gf', 'tymek');
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.queryByText(/Dziecko widzi swoje sprawy/)).toBeNull();
   });
@@ -130,14 +130,14 @@ describe('połączenie profilu dziecka z kontem (PW-14 B)', () => {
 describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () => {
   it('owner: admin / członek / dziecko dla osoby z kontem; dziecko z kontem może dorosnąć', async () => {
     const b = asOwner();
-    put(b, 'group_members', 'kuba', { ...b.group_members!.kuba!, user_id: 'u-kuba' });
+    put(b, 'group_members', 'tymek', { ...b.group_members!.tymek!, user_id: 'u-tymek' });
     const s = await open({ base: b });
-    await openMember('gf', 'kuba');
+    await openMember('gf', 'tymek');
     expect(screen.getByText('Rodzina · dziecko · ma własne konto')).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
     await press(screen.getByRole('radio', { name: 'Członek' }));
-    expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { role: 'member' } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { role: 'member' } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('member-ala'));
     await screen.findByTestId('screen-member');
@@ -147,9 +147,9 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
 
   it('admin nie widzi wyboru roli (serwer: forbidden:role)', async () => {
     const b = sampleBase();
-    put(b, 'group_members', 'kuba', { ...b.group_members!.kuba!, user_id: 'u-kuba' });
+    put(b, 'group_members', 'tymek', { ...b.group_members!.tymek!, user_id: 'u-tymek' });
     await open({ base: b });
-    await openMember('gf', 'kuba');
+    await openMember('gf', 'tymek');
     expect(screen.queryByRole('radiogroup', { name: 'Rola' })).toBeNull();
     // Opis zasad dziecka z kontem widać i bez wyboru roli.
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();

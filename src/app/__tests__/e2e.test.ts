@@ -12,7 +12,7 @@ const rowsOf = (s: E2eServer, cursors = {}) => s.pull({ cursors }, 1000).groups.
 const find = (s: E2eServer, id: string) => rowsOf(s).find((r) => r.row.id === id || r.row.member_id === id)?.row;
 
 describe('E2eServer', () => {
-  it('dane demo: dwie grupy, troje członków „Rodziny” (Kuba bez konta), lista zakupów i wydarzenie cykliczne', () => {
+  it('dane demo: dwie grupy, troje członków „Rodziny” (Tymek bez konta), lista zakupów i wydarzenie cykliczne', () => {
     const s = new E2eServer(e2eSeed(), () => NOW);
     const res = s.pull({ cursors: {} }, 1000);
     expect(res.groups.map((g) => g.group_id).sort()).toEqual([E2E_IDS.me, E2E_IDS.family].sort());
@@ -21,7 +21,7 @@ describe('E2eServer', () => {
     expect(members).toEqual([
       ['Łukasz', 'owner', E2E_IDS.me],
       ['Ala', 'member', E2E_IDS.ala],
-      ['Kuba', 'child', null],
+      ['Tymek', 'child', null],
     ]);
     expect(fam.rows.find((r) => r.e === 'events')!.row.rrule).toBe('FREQ=WEEKLY;BYDAY=WE');
     expect(fam.rows.some((r) => r.e === 'lists' && r.row.kind === 'shopping')).toBe(true);

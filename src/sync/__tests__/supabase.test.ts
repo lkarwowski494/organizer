@@ -139,14 +139,14 @@ describe('Supabase: konto', () => {
 
   it('kod profilu dziecka (PW-14 B): bieżący albo nowy, z linkiem jak kod grupy', async () => {
     const replies: RpcResult<unknown>[] = [
-      { data: { invite_id: 'c1', join_id: '482913507', code: '615290', expires_at: 'x', max_uses: 1, member_id: 'kuba' }, error: null, status: 200 },
-      { data: { invite_id: 'c2', join_id: '482913507', code: '903417', expires_at: 'y', max_uses: 1, member_id: 'kuba' }, error: null, status: 200 },
+      { data: { invite_id: 'c1', join_id: '482913507', code: '615290', expires_at: 'x', max_uses: 1, member_id: 'tymek' }, error: null, status: 200 },
+      { data: { invite_id: 'c2', join_id: '482913507', code: '903417', expires_at: 'y', max_uses: 1, member_id: 'tymek' }, error: null, status: 200 },
     ];
     const { client, calls } = fakeClient(() => replies.shift()!);
     const a = supabaseAccount(client, async () => ({ identityToken: null }));
-    expect(await a.createChildCode('kuba')).toEqual({ inviteId: 'c1', joinId: '482913507', code: '615290', url: `${config.invites.JOIN_LINK}?g=482913507&c=615290`, expiresAt: 'x' });
-    expect(await a.renewChildCode('kuba')).toEqual({ inviteId: 'c2', joinId: '482913507', code: '903417', url: `${config.invites.JOIN_LINK}?g=482913507&c=903417`, expiresAt: 'y' });
-    expect(calls).toEqual([{ fn: 'create_child_code', args: { member_id: 'kuba' } }, { fn: 'renew_child_code', args: { member_id: 'kuba' } }]);
+    expect(await a.createChildCode('tymek')).toEqual({ inviteId: 'c1', joinId: '482913507', code: '615290', url: `${config.invites.JOIN_LINK}?g=482913507&c=615290`, expiresAt: 'x' });
+    expect(await a.renewChildCode('tymek')).toEqual({ inviteId: 'c2', joinId: '482913507', code: '903417', url: `${config.invites.JOIN_LINK}?g=482913507&c=903417`, expiresAt: 'y' });
+    expect(calls).toEqual([{ fn: 'create_child_code', args: { member_id: 'tymek' } }, { fn: 'renew_child_code', args: { member_id: 'tymek' } }]);
   });
 
   it('wyciszenia: brak danych z serwera = pusta lista', async () => {
@@ -163,8 +163,8 @@ describe('Supabase: konto', () => {
     await expect(supabaseAccount(client, async () => ({ identityToken: 'x' })).signInWithApple()).rejects.toThrow('invalid');
     expect(auth.updateUser).not.toHaveBeenCalled();
     // Pierwsze logowanie: Apple podaje imię — trafia do profilu (O-036); bez imienia — profil bez zmian.
-    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: ' Łukasz ', familyName: 'Karwowski' } })).signInWithApple();
-    expect(auth.updateUser).toHaveBeenCalledWith({ data: { display_name: 'Łukasz', full_name: 'Łukasz Karwowski' } });
+    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: ' Jan ', familyName: 'Kowalski' } })).signInWithApple();
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { display_name: 'Jan', full_name: 'Jan Kowalski' } });
     await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: 'Ala', familyName: null } })).signInWithApple();
     expect(auth.updateUser).toHaveBeenLastCalledWith({ data: { display_name: 'Ala', full_name: 'Ala' } });
     await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: null } })).signInWithApple();

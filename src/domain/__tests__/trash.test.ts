@@ -19,7 +19,7 @@ function world(): T {
     put(t, 'group_members', id, { member_id: id, group_id: g, user_id: user, display_name: name, role, deleted_at: null, ...extra });
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('mc', 'gc', ME, 'Łukasz', 'child');
-  m('kuba', 'gf', null, 'Kuba', 'child', { deleted_at: ago(2) });
+  m('tymek', 'gf', null, 'Tymek', 'child', { deleted_at: ago(2) });
   const l = (id: string, g: string, name: string, extra: Row = {}) => put(t, 'lists', id, { id, group_id: g, kind: 'tasks', name, visibility: 'group', sort_key: 'a0', deleted_at: null, ...extra });
   l('dom', 'gf', 'Dom');
   l('zak', 'gf', 'Zakupy', { kind: 'shopping' });
@@ -52,7 +52,7 @@ describe('kosz (M-34, D151)', () => {
       ['event', 'ev', 30],
       ['item', 'mleko', 30],
       ['list', 'stara', 29],
-      ['member', 'kuba', 28],
+      ['member', 'tymek', 28],
       ['task', 't1', 27],
       ['task', 't2', 26],
       ['list', 'zak2', 20],
@@ -60,7 +60,7 @@ describe('kosz (M-34, D151)', () => {
     expect(v.at(-1)).toMatchObject({ shopping: true, tasks: 0 });
     expect(v.find((e) => e.id === 'stara')).toMatchObject({ title: 'Stara', groupName: 'Rodzina', tasks: 2, listName: null, entity: 'lists', shopping: false });
     expect(v.find((e) => e.id === 'mleko')).toMatchObject({ listName: 'Zakupy', entity: 'tasks' });
-    expect(v.find((e) => e.id === 'kuba')).toMatchObject({ title: 'Kuba', entity: 'group_members' });
+    expect(v.find((e) => e.id === 'tymek')).toMatchObject({ title: 'Tymek', entity: 'group_members' });
     expect(TRASH_KINDS).toEqual(['list', 'task', 'item', 'event', 'member']);
   });
 

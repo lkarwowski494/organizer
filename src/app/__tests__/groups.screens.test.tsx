@@ -116,29 +116,29 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
 
   it('imię osoby: bez edycji podąża za danymi i nic nie wysyła; moja zmiana zapisuje się przy wyjściu z ekranu', async () => {
     const s = await openGroup(await open());
-    await press(screen.getByTestId('member-kuba'));
+    await press(screen.getByTestId('member-tymek'));
     await screen.findByTestId('screen-member');
-    await remote(s, 'group_members', 'kuba', { display_name: 'Jakub' });
-    expect(screen.getByTestId('member-name').props.value).toBe('Jakub');
+    await remote(s, 'group_members', 'tymek', { display_name: 'Tymoteusz' });
+    expect(screen.getByTestId('member-name').props.value).toBe('Tymoteusz');
     await blur(screen.getByTestId('member-name'));
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-group');
     expect(s.store.dispatched).toEqual([]);
-    await press(screen.getByTestId('member-kuba'));
-    await type(await screen.findByTestId('member-name'), 'Kubuś');
-    await remote(s, 'group_members', 'kuba', { display_name: 'Jakub B.' });
-    expect(screen.getByTestId('member-name').props.value).toBe('Kubuś');
+    await press(screen.getByTestId('member-tymek'));
+    await type(await screen.findByTestId('member-name'), 'Tymuś');
+    await remote(s, 'group_members', 'tymek', { display_name: 'Tymoteusz B.' });
+    expect(screen.getByTestId('member-name').props.value).toBe('Tymuś');
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-group');
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Kubuś' } }]);
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { display_name: 'Tymuś' } }]);
   });
 
   it('imię osoby: wyjście z pola zapisuje raz; puste i za długie — komunikat bez zapisu (PW-20 A)', async () => {
     const s = await openGroup(await open());
-    await press(screen.getByTestId('member-kuba'));
-    await type(await screen.findByTestId('member-name'), 'Jakub');
+    await press(screen.getByTestId('member-tymek'));
+    await type(await screen.findByTestId('member-name'), 'Tymoteusz');
     await fireEvent(screen.getByTestId('member-name'), 'submitEditing');
-    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } }]);
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { display_name: 'Tymoteusz' } }]);
     await type(screen.getByTestId('member-name'), ' ');
     await blur(screen.getByTestId('member-name'));
     expect(screen.getByRole('alert').props.children).toBe('Wpisz imię.');
@@ -153,16 +153,16 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
 
   it('usunięcie osoby bez pytania, z paskiem „Cofnij”; niezapisane imię przepada (PW-35 A, PW-16 A)', async () => {
     const s = await openGroup(await open());
-    await press(screen.getByTestId('member-kuba'));
-    await type(await screen.findByTestId('member-name'), 'Kuba B.');
+    await press(screen.getByTestId('member-tymek'));
+    await type(await screen.findByTestId('member-name'), 'Tymek B.');
     await press(screen.getByTestId('remove-member'));
     await screen.findByTestId('screen-group');
-    expect(s.store.dispatched).toEqual([{ kind: 'delete', entity: 'group_members', id: 'kuba' }]);
-    expect(screen.queryByTestId('member-kuba')).toBeNull();
-    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto z grupy: Kuba')).toBeTruthy();
+    expect(s.store.dispatched).toEqual([{ kind: 'delete', entity: 'group_members', id: 'tymek' }]);
+    expect(screen.queryByTestId('member-tymek')).toBeNull();
+    expect(within(screen.getByTestId('undo-bar')).getByText('Usunięto z grupy: Tymek')).toBeTruthy();
     await press(screen.getByLabelText('Cofnij'));
-    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'kuba' }, { kind: 'restore', entity: 'group_members', id: 'kuba' }]);
-    expect(await screen.findByTestId('member-kuba')).toBeTruthy();
+    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'tymek' }, { kind: 'restore', entity: 'group_members', id: 'tymek' }]);
+    expect(await screen.findByTestId('member-tymek')).toBeTruthy();
   });
 
   it('admin zmienia imię profilu dziecka, ale nie osoby z kontem (PW-54 A)', async () => {
@@ -171,7 +171,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     await screen.findByTestId('screen-member');
     expect(screen.queryByTestId('member-name')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByTestId('member-kuba'));
+    await press(await screen.findByTestId('member-tymek'));
     expect(await screen.findByTestId('member-name')).toBeTruthy();
   });
 });
@@ -442,7 +442,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     expect(order).toEqual(['Zaproś jako administratora', 'Zaproś']);
     // Bez dzieci — „Zaproś” (członek) jak dotąd.
     const base = asOwner();
-    delete base.group_members!.kuba;
+    delete base.group_members!.tymek;
     await openGroup(await open({ base }));
     const plain = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako administratora');
     expect(plain).toEqual(['Zaproś', 'Zaproś jako administratora']);

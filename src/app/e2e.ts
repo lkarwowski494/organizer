@@ -40,7 +40,7 @@ export const E2E_IDS = {
   family: uuid(10),
   meInFamily: uuid(11),
   alaInFamily: uuid(12),
-  kuba: uuid(13),
+  tymek: uuid(13),
   personalList: uuid(20),
   homeList: uuid(21),
   shoppingList: uuid(22),
@@ -52,7 +52,7 @@ export const E2E_SESSION: Session = { userId: I.me, displayName: 'Łukasz' };
 
 type Seed = { e: Entity; row: Row };
 
-/** Dane startowe: grupa osobista i „Rodzina” (ja i Ala — dorośli, Kuba — profil dziecka bez konta). */
+/** Dane startowe: grupa osobista i „Rodzina” (ja i Ala — dorośli, Tymek — profil dziecka bez konta). */
 export function e2eSeed(): Seed[] {
   const at = '2026-09-01T08:00:00Z';
   const group = (id: string, name: string, kind: 'personal' | 'shared'): Seed => ({ e: 'groups', row: { id, name, kind, created_at: at, deleted_at: null } });
@@ -78,13 +78,13 @@ export function e2eSeed(): Seed[] {
     group(I.family, 'Rodzina', 'shared'),
     member(I.meInFamily, I.family, I.me, E2E_SESSION.displayName, 'owner'),
     member(I.alaInFamily, I.family, I.ala, 'Ala', 'member'),
-    member(I.kuba, I.family, null, 'Kuba', 'child'),
+    member(I.tymek, I.family, null, 'Tymek', 'child'),
     list(I.personalList, I.me, 'Moje', 'tasks'),
     list(I.homeList, I.family, 'Dom', 'tasks'),
     list(I.shoppingList, I.family, 'Zakupy', 'shopping'),
     task(I.personalList, I.me, 'Oddać książki do biblioteki', { deadline_mode: 'own', due_date: '2026-10-07' }),
     task(I.homeList, I.family, 'Odebrać paczkę', { deadline_mode: 'own', due_date: '2026-10-07', due_time: '18:00:00', assignee_member_id: I.meInFamily }),
-    task(I.homeList, I.family, 'Zapłacić za obiady Kuby', { deadline_mode: 'own', due_date: '2026-10-09', assignee_member_id: I.meInFamily }),
+    task(I.homeList, I.family, 'Zapłacić za obiady Tymka', { deadline_mode: 'own', due_date: '2026-10-09', assignee_member_id: I.meInFamily }),
     task(I.homeList, I.family, 'Umówić przegląd auta', { assignee_member_id: I.alaInFamily }),
     task(I.shoppingList, I.family, 'Chleb żytni'),
     task(I.shoppingList, I.family, '2 jogurty'),
@@ -92,7 +92,7 @@ export function e2eSeed(): Seed[] {
     {
       e: 'events',
       row: {
-        id: I.swimming, group_id: I.family, title: 'Basen Kuby', note: null, location: null, start_date: '2026-09-02', start_time: '17:00:00', end_time: '18:00:00',
+        id: I.swimming, group_id: I.family, title: 'Basen Tymka', note: null, location: null, start_date: '2026-09-02', start_time: '17:00:00', end_time: '18:00:00',
         rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'group', responsible_member_id: I.meInFamily, deleted_at: null,
       },
     },

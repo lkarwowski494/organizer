@@ -63,7 +63,7 @@ export type Occurrence = {
   assignedToMe: boolean;
   /**
    * PWD-32 B (decyzja właściciela 8.10.2026, audyt 2 M-301): wydarzenie dziecka z grupy, za które odpowiada ktoś inny —
-   * mnie (dorosłemu) nie dotyczy (D66), ale Moje sprawy pokazują je wyszarzone „Kuba: basen (zawozi Ala)”, bez
+   * mnie (dorosłemu) nie dotyczy (D66), ale Moje sprawy pokazują je wyszarzone „Tymek: basen (zawozi Ala)”, bez
    * przypomnień i lustra. Imiona dzieci-uczestników; `null`, gdy to nie ten przypadek.
    */
   childInfo: string[] | null;

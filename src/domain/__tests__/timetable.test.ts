@@ -14,7 +14,7 @@ function base(): T {
   const t: T = {};
   put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
   put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
-  put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+  put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
   return t;
 }
 const apply = (t: T, ops: NewOp[]) => {
@@ -29,14 +29,14 @@ const run2 = (t: T, ops: NewOp[]) => {
 };
 const lessonsOn = (t: T, from: string, to: string) => expandEvents(t, ME, parseIsoDate(from), parseIsoDate(to)).map((o) => `${o.date} ${o.title} ${o.startTime!.slice(0, 5)}`);
 const endsOn = (t: T, from: string, to: string) => expandEvents(t, ME, parseIsoDate(from), parseIsoDate(to)).map((o) => o.endTime!.slice(0, 5));
-const les = (t: T, id: string, over: Row, who = 'kuba') => {
+const les = (t: T, id: string, over: Row, who = 'tymek') => {
   put(t, 'events', id, { id, group_id: 'gf', title: id, start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, ...over });
   put(t, 'event_participants', `p-${id}`, { id: `p-${id}`, group_id: 'gf', event_id: id, member_id: who, deleted_at: null });
 };
 const L = (o: Partial<Lesson>): Lesson => ({ day: 0, title: 'Matematyka', start: '08:00', end: '08:45', week: 'both', ...o });
 let n = 0;
 const newId = () => `id${++n}`;
-const run = (lessons: Lesson[], thisWeek: 'A' | 'B' = 'A', until: string | null = null) => timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek, today, until, newId });
+const run = (lessons: Lesson[], thisWeek: 'A' | 'B' = 'A', until: string | null = null) => timetableOps({ groupId: 'gf', memberId: 'tymek', lessons, thisWeek, today, until, newId });
 
 describe('plan lekcji z tygodniami A/B (D112)', () => {
   it('co tydzień, tylko A i tylko B; ta sama lekcja w kilka dni = jedna seria; dziecko uczestnikiem', () => {
@@ -51,7 +51,7 @@ describe('plan lekcji z tygodniami A/B (D112)', () => {
     ]);
     const ev = Object.values(t.events!).find((e) => e.title === 'Basen')!;
     expect(ev).toMatchObject({ start_date: '2026-10-06', start_time: '10:00', end_time: '11:30', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU', audience: 'members', kind: 'lesson' });
-    expect(Object.values(t.event_participants!).every((p) => p.member_id === 'kuba')).toBe(true);
+    expect(Object.values(t.event_participants!).every((p) => p.member_id === 'tymek')).toBe(true);
   });
 
   it('bieżący tydzień to B: lekcja A od przyszłego tygodnia; „do dnia” kończy serię', () => {
@@ -69,14 +69,14 @@ describe('plan lekcji z tygodniami A/B (D112)', () => {
 });
 
 describe('edycja planu (D128)', () => {
-  const lesson = (t: T, id: string, over: Row, who = 'kuba') => {
+  const lesson = (t: T, id: string, over: Row, who = 'tymek') => {
     put(t, 'events', id, { id, group_id: 'gf', title: id, start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, ...over });
     put(t, 'event_participants', `p-${id}`, { id: `p-${id}`, event_id: id, member_id: who, deleted_at: null });
   };
 
   it('obecny plan: trwające serie lekcji tej osoby; A/B z tygodnia początku; wspólna data końca', () => {
     const t = apply(base(), (run([L({}), L({ day: 2 }), L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' }), L({ day: 1, title: 'Plastyka', start: '10:00', end: '11:30', week: 'B' })]) as { ops: NewOp[] }).ops);
-    const p = memberTimetable(t, 'gf', 'kuba', today);
+    const p = memberTimetable(t, 'gf', 'tymek', today);
     expect(p.lessons).toEqual([
       L({}),
       L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' }),
@@ -95,33 +95,33 @@ describe('edycja planu (D128)', () => {
     lesson(u, 'raz', { rrule: null });
     lesson(u, 'dzien', { rrule: 'FREQ=DAILY' });
     lesson(u, 'zla', { rrule: 'FREQ=NIE' });
-    put(u, 'event_participants', 'p-out', { id: 'p-out', event_id: 'zwykle', member_id: 'kuba', deleted_at: 'x' });
-    expect(memberTimetable(u, 'gf', 'kuba', today)).toEqual({ lessons: [], until: '', series: [], thisWeek: 'A', weekA: null });
+    put(u, 'event_participants', 'p-out', { id: 'p-out', event_id: 'zwykle', member_id: 'tymek', deleted_at: 'x' });
+    expect(memberTimetable(u, 'gf', 'tymek', today)).toEqual({ lessons: [], until: '', series: [], thisWeek: 'A', weekA: null });
     // Co 2 tygodnie: początek tydzień temu — B; dwa tygodnie temu — A; za tydzień — B. Bez BYDAY — dzień początku.
     lesson(u, 'b', { start_date: '2026-09-29', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20270625' });
     lesson(u, 'a', { start_date: '2026-09-21', rrule: 'FREQ=WEEKLY;INTERVAL=2;UNTIL=20270625' });
     lesson(u, 'z', { start_date: '2026-10-16', start_time: null, end_time: null, rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR;UNTIL=20270625' });
-    const q = memberTimetable(u, 'gf', 'kuba', today);
+    const q = memberTimetable(u, 'gf', 'tymek', today);
     expect(q.lessons.map((l) => [l.title, l.day, l.week, l.start])).toEqual([['a', 0, 'A', '08:00'], ['b', 1, 'B', '08:00'], ['z', 4, 'B', '']]);
     expect(q.until).toBe('2027-06-25');
     lesson(u, 'bez', {});
-    expect(memberTimetable(u, 'gf', 'kuba', today).until).toBe('');
+    expect(memberTimetable(u, 'gf', 'tymek', today).until).toBe('');
   });
 
   it('zapis: zmienione serie od jutra poleceniem „to i następne”, usunięta nierozpoczęta do kosza; cofnięcie przywraca', () => {
     const t = apply(base(), (run([L({}), L({ day: 2 }), L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' }), L({ day: 1, title: 'Plastyka', start: '10:00', end: '11:30', week: 'B' })]) as { ops: NewOp[] }).ops);
-    const p = memberTimetable(t, 'gf', 'kuba', today);
+    const p = memberTimetable(t, 'gf', 'tymek', today);
     const [mat, basen, plast] = ['Matematyka', 'Basen', 'Plastyka'].map((x) => Object.values(t.events!).find((e) => e.title === x)!.id as string);
     // Zmienione godziny końca (bez zmian seria zostałaby nietknięta — audyt 2, E-5).
     const lessons = p.lessons.filter((l) => l.title !== 'Plastyka').map((l) => ({ ...l, end: l.title === 'Basen' ? '11:45' : '08:50' }));
-    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
+    const r = timetableOps({ groupId: 'gf', memberId: 'tymek', lessons, thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
     if ('error' in r) throw new Error(r.error);
     // Matematyka pn. i śr. — od jutra (pt. 9.10) najbliższa pn. 12.10; Basen w tygodniu A — wt. 20.10; kotwica tygodnia A.
     expect(r.ops).toEqual([
       expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ event_id: mat, date: '2026-10-09', set: expect.objectContaining({ start_date: '2026-10-12', end_time: '08:50', rrule: 'FREQ=WEEKLY;BYDAY=MO,WE' }) }) }),
       expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ event_id: basen, set: expect.objectContaining({ start_date: '2026-10-20', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }) }) }),
       { kind: 'delete', entity: 'events', id: plast },
-      { kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-10-05' } },
+      { kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-10-05' } },
     ]);
     expect(r.series).toBe(2);
     run2(t, r.ops);
@@ -133,9 +133,9 @@ describe('edycja planu (D128)', () => {
     // Stary plan wraca, z Plastyką (tydzień B) w pn. 12.10.
     expect(endsOn(t, '2026-10-12', '2026-10-21')).toEqual(['08:45', '11:30', '08:45', '08:45', '11:30', '08:45']);
     expect(t.events![plast!]!.deleted_at).toBeNull();
-    expect(t.group_members!.kuba!.week_a).toBeNull();
+    expect(t.group_members!.tymek!.week_a).toBeNull();
     // Pusty plan przy edycji kończy plan (bez nowych serii).
-    const end = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: [], thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
+    const end = timetableOps({ groupId: 'gf', memberId: 'tymek', lessons: [], thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
     expect(end).toMatchObject({ series: 0 });
     expect((end as { ops: NewOp[] }).ops.every((o) => o.kind !== 'create')).toBe(true);
   });
@@ -144,20 +144,20 @@ describe('edycja planu (D128)', () => {
 describe('zapis planu bez zmian niczego nie rusza (audyt 2: E-5, E-27)', () => {
   const plan = () => apply(base(), (run([L({}), L({ day: 2 }), L({ day: 1, title: 'Basen', start: '10:00', end: '11:30', week: 'A' })]) as { ops: NewOp[] }).ops);
   const save = (t: T, lessons: Lesson[], extra: Partial<Parameters<typeof timetableOps>[0]> = {}) => {
-    const p = memberTimetable(t, 'gf', 'kuba', today);
-    return timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek: p.thisWeek, today, until: p.until || null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: '2026-10-05', ...extra });
+    const p = memberTimetable(t, 'gf', 'tymek', today);
+    return timetableOps({ groupId: 'gf', memberId: 'tymek', lessons, thisWeek: p.thisWeek, today, until: p.until || null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: '2026-10-05', ...extra });
   };
 
   it('ten sam plan: zero operacji (odwołane lekcje i zadania na terminach zostają)', () => {
     const t = plan();
-    const r = save(t, memberTimetable(t, 'gf', 'kuba', today).lessons);
+    const r = save(t, memberTimetable(t, 'gf', 'tymek', today).lessons);
     expect(r).toMatchObject({ ops: [], series: 2 });
     expect((r as { undo: (t: T) => NewOp[] }).undo(t)).toEqual([]);
   });
 
   it('zmiana jednej serii: tylko ona przechodzi do nowej od jutra', () => {
     const t = plan();
-    const lessons = memberTimetable(t, 'gf', 'kuba', today).lessons.map((l) => (l.title === 'Basen' ? { ...l, start: '10:15' } : l));
+    const lessons = memberTimetable(t, 'gf', 'tymek', today).lessons.map((l) => (l.title === 'Basen' ? { ...l, start: '10:15' } : l));
     const r = save(t, lessons);
     if ('error' in r) throw new Error(r.error);
     const basen = Object.values(t.events!).find((e) => e.title === 'Basen')!.id as string;
@@ -169,7 +169,7 @@ describe('zapis planu bez zmian niczego nie rusza (audyt 2: E-5, E-27)', () => {
     const [mat, basen] = ['Matematyka', 'Basen'].map((x) => Object.values(t.events!).find((e) => e.title === x)!);
     put(t, 'events', mat!.id as string, { ...mat!, rrule: `${mat!.rrule};UNTIL=20270625` });
     put(t, 'events', basen!.id as string, { ...basen!, rrule: `${basen!.rrule};UNTIL=20270130` });
-    const p = memberTimetable(t, 'gf', 'kuba', today);
+    const p = memberTimetable(t, 'gf', 'tymek', today);
     expect(p.until).toBe('');
     expect(save(t, p.lessons, { until: null, keepUntil: true })).toMatchObject({ ops: [], series: 2 });
     // Wpisana nowa data końca dotyczy wszystkich serii.
@@ -188,34 +188,34 @@ describe('tydzień A zapisany przy osobie (D171, audyt 2 M-15)', () => {
 
   it('szkoła nazywa ten tydzień B: przełącznik zamienia litery, lekcje zostają w swoich dniach (E-4)', () => {
     const t = basen();
-    const p = memberTimetable(t, 'gf', 'kuba', today);
+    const p = memberTimetable(t, 'gf', 'tymek', today);
     expect([p.thisWeek, p.weekA, p.lessons[0]!.week]).toEqual(['A', null, 'A']);
-    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: swapWeeks(p.lessons), thisWeek: 'B', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: p.weekA });
+    const r = timetableOps({ groupId: 'gf', memberId: 'tymek', lessons: swapWeeks(p.lessons), thisWeek: 'B', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: p.weekA });
     if ('error' in r) throw new Error(r.error);
-    expect(r.ops).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-09-28' } }]);
+    expect(r.ops).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-09-28' } }]);
     run2(t, r.ops);
     expect(lessonsOn(t, '2026-10-12', '2026-10-25')).toEqual(['2026-10-19 Basen 08:00']);
     // Litery stałe: w tym tygodniu B, za tydzień A — ta sama seria to zawsze B.
-    expect(memberTimetable(t, 'gf', 'kuba', today)).toMatchObject({ thisWeek: 'B', weekA: '2026-09-28', lessons: [{ week: 'B' }] });
-    expect(memberTimetable(t, 'gf', 'kuba', { y: 2026, m: 10, d: 15 })).toMatchObject({ thisWeek: 'A', lessons: [{ week: 'B' }] });
-    expect(r.undo(t)).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: null } }]);
+    expect(memberTimetable(t, 'gf', 'tymek', today)).toMatchObject({ thisWeek: 'B', weekA: '2026-09-28', lessons: [{ week: 'B' }] });
+    expect(memberTimetable(t, 'gf', 'tymek', { y: 2026, m: 10, d: 15 })).toMatchObject({ thisWeek: 'A', lessons: [{ week: 'B' }] });
+    expect(r.undo(t)).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: null } }]);
   });
 
   it('kotwica zgodna z przełącznikiem — bez zapisu; niezgodna — nowa; bez lekcji A/B — bez kotwicy; zła wartość = brak', () => {
     const t = basen();
-    const p = memberTimetable(t, 'gf', 'kuba', today);
-    const save = (thisWeek: 'A' | 'B', weekA: string | null, lessons = p.lessons) => (timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek, today, until: null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA }) as { ops: NewOp[] }).ops;
+    const p = memberTimetable(t, 'gf', 'tymek', today);
+    const save = (thisWeek: 'A' | 'B', weekA: string | null, lessons = p.lessons) => (timetableOps({ groupId: 'gf', memberId: 'tymek', lessons, thisWeek, today, until: null, newId, edit: { tables: t, userId: ME, series: p.series }, weekA }) as { ops: NewOp[] }).ops;
     // 21.09 to też tydzień A, jeśli 5.10 jest A (dwa tygodnie różnicy, przez granicę miesiąca).
     expect(save('A', '2026-09-21')).toEqual([]);
-    expect(save('B', '2026-09-21', swapWeeks(p.lessons))).toEqual([{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-09-28' } }]);
+    expect(save('B', '2026-09-21', swapWeeks(p.lessons))).toEqual([{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-09-28' } }]);
     // Tylko „co tydzień”: kotwica niepotrzebna.
-    expect(timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: [L({})], thisWeek: 'A', today, until: null, newId })).toMatchObject({ ops: [expect.objectContaining({ kind: 'create' }), expect.anything()] });
-    expect((timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: [L({})], thisWeek: 'A', today, until: null, newId }) as { ops: NewOp[] }).ops.some((o) => o.kind !== 'cmd' && o.entity === 'group_members')).toBe(false);
-    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, week_a: 'zle' });
-    expect(memberTimetable(t, 'gf', 'kuba', today).weekA).toBeNull();
+    expect(timetableOps({ groupId: 'gf', memberId: 'tymek', lessons: [L({})], thisWeek: 'A', today, until: null, newId })).toMatchObject({ ops: [expect.objectContaining({ kind: 'create' }), expect.anything()] });
+    expect((timetableOps({ groupId: 'gf', memberId: 'tymek', lessons: [L({})], thisWeek: 'A', today, until: null, newId }) as { ops: NewOp[] }).ops.some((o) => o.kind !== 'cmd' && o.entity === 'group_members')).toBe(false);
+    put(t, 'group_members', 'tymek', { ...t.group_members!.tymek!, week_a: 'zle' });
+    expect(memberTimetable(t, 'gf', 'tymek', today).weekA).toBeNull();
     // Rok z 53 tygodniami ISO (2026): kotwica z grudnia 2026 i styczeń 2027 — parzystość z różnicy dni.
-    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, week_a: '2026-12-28' });
-    expect(memberTimetable(t, 'gf', 'kuba', { y: 2027, m: 1, d: 6 }).thisWeek).toBe('B');
+    put(t, 'group_members', 'tymek', { ...t.group_members!.tymek!, week_a: '2026-12-28' });
+    expect(memberTimetable(t, 'gf', 'tymek', { y: 2027, m: 1, d: 6 }).thisWeek).toBe('B');
   });
 
   it('swapWeeks: A↔B, „co tydzień” bez zmian', () => {
@@ -224,7 +224,7 @@ describe('tydzień A zapisany przy osobie (D171, audyt 2 M-15)', () => {
 
   it('nowy plan: lekcje A/B zapisują kotwicę od razu', () => {
     const r = run([L({ week: 'B' })], 'B');
-    expect((r as { ops: NewOp[] }).ops.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { week_a: '2026-09-28' } });
+    expect((r as { ops: NewOp[] }).ops.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'tymek', set: { week_a: '2026-09-28' } });
   });
 });
 
@@ -234,9 +234,9 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
   const cancelled = (t: T, id: string, event: string, date: string, over: Row = {}) =>
     put(t, 'event_overrides', id, { id, group_id: 'gf', event_id: event, occurrence_date: date, cancelled: true, start_date: null, start_time: null, end_time: null, title: null, responsible_member_id: null, deleted_at: null, ...over });
   const save = (t: T, change: (l: Lesson) => Lesson | null, extra: Partial<Parameters<typeof timetableOps>[0]> = {}) => {
-    const p = memberTimetable(t, 'gf', 'kuba', today);
+    const p = memberTimetable(t, 'gf', 'tymek', today);
     const lessons = p.lessons.map(change).filter((l): l is Lesson => l !== null);
-    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons, thisWeek: p.thisWeek, today, until: p.until || null, keepUntil: true, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: p.weekA, ...extra });
+    const r = timetableOps({ groupId: 'gf', memberId: 'tymek', lessons, thisWeek: p.thisWeek, today, until: p.until || null, keepUntil: true, newId, edit: { tables: t, userId: ME, series: p.series }, weekA: p.weekA, ...extra });
     if ('error' in r) throw new Error(r.error);
     return r;
   };
@@ -264,7 +264,7 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
     expect(t.tasks!.cyrkiel!.event_id).toBe(nid);
     expect(due(nid, '2026-10-15')).toMatchObject({ date: '2026-10-15' });
     // Ponowne otwarcie tego samego dnia: tylko nowa seria (stara kończy się dziś).
-    expect(memberTimetable(t, 'gf', 'kuba', today).series.map((x) => x.id)).toEqual([nid]);
+    expect(memberTimetable(t, 'gf', 'tymek', today).series.map((x) => x.id)).toEqual([nid]);
     run2(t, r.undo(t));
     expect(lessonsOn(t, '2026-10-08', '2026-10-22')).toEqual(['2026-10-08 Matematyka 08:00', '2026-10-15 Matematyka 08:00', '2026-10-22 Matematyka 08:00']);
     expect(lessonsOn(t, '2026-11-12', '2026-11-12')).toEqual([]);
@@ -405,7 +405,7 @@ describe('zmiana planu zachowuje odwołania i zadania (audyt 2, M-14)', () => {
   it('memberTimetable: seria kończąca się dziś nie należy już do planu', () => {
     const t = base();
     les(t, 'dzis', { rrule: 'FREQ=WEEKLY;BYDAY=TH;UNTIL=20261008' });
-    expect(memberTimetable(t, 'gf', 'kuba', today).series).toEqual([]);
+    expect(memberTimetable(t, 'gf', 'tymek', today).series).toEqual([]);
   });
 });
 
@@ -420,8 +420,8 @@ describe('lekcja z rodzeństwem (audyt 2, E-26)', () => {
     return t;
   };
   const save = (t: T, lessons: (ls: Lesson[]) => Lesson[]) => {
-    const p = memberTimetable(t, 'gf', 'kuba', today);
-    const r = timetableOps({ groupId: 'gf', memberId: 'kuba', lessons: lessons(p.lessons), thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
+    const p = memberTimetable(t, 'gf', 'tymek', today);
+    const r = timetableOps({ groupId: 'gf', memberId: 'tymek', lessons: lessons(p.lessons), thisWeek: 'A', today, until: null, newId, edit: { tables: t, userId: ME, series: p.series } });
     if ('error' in r) throw new Error(r.error);
     return r;
   };
@@ -429,7 +429,7 @@ describe('lekcja z rodzeństwem (audyt 2, E-26)', () => {
 
   it('zmiana tylko dla tej osoby: seria trwa dla rodzeństwa, ta osoba dostaje nową; cofnięcie', () => {
     const t = twins();
-    expect(memberTimetable(t, 'gf', 'kuba', today).series[0]!.others).toEqual(['zosia']);
+    expect(memberTimetable(t, 'gf', 'tymek', today).series[0]!.others).toEqual(['zosia']);
     const r = save(t, (ls) => ls.map((l) => ({ ...l, start: '09:00', end: '09:45' })));
     run2(t, r.ops);
     const sib = splitId('basen', '2026-10-09');
@@ -437,7 +437,7 @@ describe('lekcja z rodzeństwem (audyt 2, E-26)', () => {
     expect(who(t, sib)).toEqual(['zosia']);
     expect(lessonsOn(t, '2026-10-15', '2026-10-15')).toEqual(['2026-10-15 Basen 08:00', '2026-10-15 Basen 09:00']);
     run2(t, r.undo(t));
-    expect(who(t, sib).sort()).toEqual(['kuba', 'zosia']);
+    expect(who(t, sib).sort()).toEqual(['tymek', 'zosia']);
     expect(lessonsOn(t, '2026-10-15', '2026-10-15')).toEqual(['2026-10-15 Basen 08:00']);
   });
 

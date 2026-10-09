@@ -14,8 +14,8 @@ function world(): T {
     put(t, 'group_members', id, { member_id: id, group_id: g, user_id: user, display_name: name, role, deleted_at: deleted });
   m('me', 'gf', 'u1', 'Łukasz', 'admin');
   m('ala', 'gf', 'u2', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
-  m('roza', 'gf', 'u3', 'Róża', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
+  m('zosia', 'gf', 'u3', 'Zosia', 'child');
   m('stary', 'gf', 'u9', 'Stary', 'member', '2026-01-01');
   m('mp', 'gp', 'u1', 'Łukasz', 'owner');
   const ev = { group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00', end_time: null, rrule: null, audience: 'group', deleted_at: null };
@@ -23,7 +23,7 @@ function world(): T {
   put(t, 'events', 'e2', { ...ev, id: 'e2', audience: 'members' });
   put(t, 'events', 'ep', { ...ev, id: 'ep', group_id: 'gp' });
   put(t, 'events', 'ex', { ...ev, id: 'ex', deleted_at: '2026-10-01' });
-  put(t, 'event_participants', 'p1', { id: 'p1', event_id: 'e2', member_id: 'kuba', deleted_at: null });
+  put(t, 'event_participants', 'p1', { id: 'p1', event_id: 'e2', member_id: 'tymek', deleted_at: null });
   put(t, 'event_participants', 'p2', { id: 'p2', event_id: 'e2', member_id: 'ala', deleted_at: '2026-10-01' });
   return t;
 }
@@ -38,24 +38,24 @@ describe('obecność (D124)', () => {
 
   it('cała grupa: ja pierwszy, potem za kogo odpowiadam, reszta po imieniu; usunięci pominięci', () => {
     const v = rsvpView(world(), 'u1', 'e1', '2026-10-07')!;
-    expect(v.people.map((p) => [p.name, p.me, p.canAnswer])).toEqual([['Łukasz', true, true], ['Kuba', false, true], ['Ala', false, false], ['Róża', false, false]]);
+    expect(v.people.map((p) => [p.name, p.me, p.canAnswer])).toEqual([['Łukasz', true, true], ['Tymek', false, true], ['Ala', false, false], ['Zosia', false, false]]);
     expect(v.counts).toEqual({ yes: 0, no: 0, maybe: 0, none: 4 });
     expect(v.groupId).toBe('gf');
   });
 
   it('odpowiedzi: utworzenie + przywrócenie + zmiana, potem sama zmiana; liczniki per termin', () => {
     const t = world();
-    const first = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'kuba', answer: 'no' });
+    const first = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'tymek', answer: 'no' });
     expect(first.map((o) => o.kind)).toEqual(['create', 'restore', 'patch']);
     apply(t, first);
     apply(t, answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'me', answer: 'yes' }));
-    const again = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'kuba', answer: 'maybe' });
-    expect(again).toEqual([{ kind: 'patch', entity: 'event_rsvps', id: rsvpId('e1', '2026-10-07', 'kuba'), set: { answer: 'maybe' } }]);
+    const again = answerOps(t, { groupId: 'gf', eventId: 'e1', date: '2026-10-07', memberId: 'tymek', answer: 'maybe' });
+    expect(again).toEqual([{ kind: 'patch', entity: 'event_rsvps', id: rsvpId('e1', '2026-10-07', 'tymek'), set: { answer: 'maybe' } }]);
     apply(t, again);
     put(t, 'event_rsvps', 'zle', { id: 'zle', event_id: 'e1', occurrence_date: '2026-10-07', member_id: 'ala', answer: 'perhaps', deleted_at: null });
-    put(t, 'event_rsvps', 'usun', { id: 'usun', event_id: 'e1', occurrence_date: '2026-10-07', member_id: 'roza', answer: 'yes', deleted_at: '2026-10-07' });
+    put(t, 'event_rsvps', 'usun', { id: 'usun', event_id: 'e1', occurrence_date: '2026-10-07', member_id: 'zosia', answer: 'yes', deleted_at: '2026-10-07' });
     const v = rsvpView(t, 'u1', 'e1', '2026-10-07')!;
-    expect(v.people.map((p) => [p.name, p.answer])).toEqual([['Łukasz', 'yes'], ['Kuba', 'maybe'], ['Ala', null], ['Róża', null]]);
+    expect(v.people.map((p) => [p.name, p.answer])).toEqual([['Łukasz', 'yes'], ['Tymek', 'maybe'], ['Ala', null], ['Zosia', null]]);
     expect(v.counts).toEqual({ yes: 1, no: 0, maybe: 1, none: 2 });
     expect(rsvpView(t, 'u1', 'e1', '2026-10-14')!.counts.none).toBe(4);
   });
@@ -73,33 +73,33 @@ describe('obecność (D124)', () => {
   });
 
   it('wybrane osoby: tylko uczestnicy; dziecko z kontem odpowiada tylko za siebie', () => {
-    expect(rsvpView(world(), 'u1', 'e2', '2026-10-07')!.people.map((p) => p.name)).toEqual(['Kuba']);
+    expect(rsvpView(world(), 'u1', 'e2', '2026-10-07')!.people.map((p) => p.name)).toEqual(['Tymek']);
     const v = rsvpView(world(), 'u3', 'e1', '2026-10-07')!;
-    expect(v.people.filter((p) => p.canAnswer).map((p) => p.name)).toEqual(['Róża']);
+    expect(v.people.filter((p) => p.canAnswer).map((p) => p.name)).toEqual(['Zosia']);
   });
 
   it('to samo imię: kolejność po identyfikatorze', () => {
     const t = world();
     put(t, 'group_members', 'ala0', { member_id: 'ala0', group_id: 'gf', user_id: 'u5', display_name: 'Ala', role: 'member', deleted_at: null });
-    expect(rsvpView(t, 'u1', 'e1', '2026-10-07')!.people.map((p) => p.memberId)).toEqual(['me', 'kuba', 'ala', 'ala0', 'roza']);
+    expect(rsvpView(t, 'u1', 'e1', '2026-10-07')!.people.map((p) => p.memberId)).toEqual(['me', 'tymek', 'ala', 'ala0', 'zosia']);
   });
 
   it('audyt 2 (E-2): „to i następne” przenosi odpowiedzi od tego dnia — wszystkich osób — do nowej serii, z tym samym identyfikatorem', () => {
     const t = world();
     put(t, 'events', 'ew', { group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'group', deleted_at: null, id: 'ew' });
     apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-07', memberId: 'me', answer: 'yes' }));
-    apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-14', memberId: 'kuba', answer: 'no' }));
+    apply(t, answerOps(t, { groupId: 'gf', eventId: 'ew', date: '2026-10-14', memberId: 'tymek', answer: 'no' }));
     // Odpowiedź innego dorosłego (Ala odpowiada sama, z drugiego telefonu).
     put(t, 'event_rsvps', rsvpId('ew', '2026-10-21', 'ala'), { id: rsvpId('ew', '2026-10-21', 'ala'), group_id: 'gf', event_id: 'ew', occurrence_date: '2026-10-21', member_id: 'ala', answer: 'no', deleted_at: null });
     const d = eventDetail(t, 'u1', 'ew')!;
     apply(t, editEvent(d, '2026-10-14', 'following', fieldsOf(d, '2026-10-14', 'following')));
     const sid = splitId('ew', '2026-10-14');
     expect(t.event_rsvps![rsvpId('ew', '2026-10-07', 'me')]!.event_id).toBe('ew');
-    expect(t.event_rsvps![rsvpId('ew', '2026-10-14', 'kuba')]!.event_id).toBe(sid);
+    expect(t.event_rsvps![rsvpId('ew', '2026-10-14', 'tymek')]!.event_id).toBe(sid);
     expect(rsvpView(t, 'u1', sid, '2026-10-21')!.people.find((p) => p.name === 'Ala')!.answer).toBe('no');
     // Odpowiedź na termin nowej serii trafia w ten sam (przeniesiony) wiersz.
-    expect(answerOps(t, { groupId: 'gf', eventId: sid, date: '2026-10-14', memberId: 'kuba', answer: 'yes' })).toEqual([
-      { kind: 'patch', entity: 'event_rsvps', id: rsvpId('ew', '2026-10-14', 'kuba'), set: { answer: 'yes' } },
+    expect(answerOps(t, { groupId: 'gf', eventId: sid, date: '2026-10-14', memberId: 'tymek', answer: 'yes' })).toEqual([
+      { kind: 'patch', entity: 'event_rsvps', id: rsvpId('ew', '2026-10-14', 'tymek'), set: { answer: 'yes' } },
     ]);
   });
 
@@ -126,14 +126,14 @@ describe('wyciszone terminy (PW-23, D160)', () => {
 
   it('dziecko jedynym uczestnikiem i „nie będzie” — wyciszone dla dorosłego; dla dziecka z kontem (rola child) — nie', () => {
     const t = world();
-    no(t, 'kuba');
+    no(t, 'tymek');
     expect([...silencedForMe(t, 'u1')]).toEqual(['e2|2026-10-07']);
     expect([...silencedForMe(t, 'u3')]).toEqual([]);
   });
 
   it('usunięty wyjątek z osobą odpowiedzialną nie liczy się; żywy — dotyczy jej wprost', () => {
     const t = world();
-    no(t, 'kuba');
+    no(t, 'tymek');
     put(t, 'event_overrides', 'o', { id: 'o', event_id: 'e2', occurrence_date: '2026-10-07', cancelled: false, responsible_member_id: 'me', deleted_at: '2026-10-06' });
     expect(silencedForMe(t, 'u1').size).toBe(1);
     t.event_overrides!.o = { ...t.event_overrides!.o!, deleted_at: null };
@@ -142,7 +142,7 @@ describe('wyciszone terminy (PW-23, D160)', () => {
 
   it('bez tabeli wydarzeń — nic', () => {
     const t = world();
-    no(t, 'kuba');
+    no(t, 'tymek');
     delete t.events;
     expect(silencedForMe(t, 'u1').size).toBe(0);
   });

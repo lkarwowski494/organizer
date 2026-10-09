@@ -436,17 +436,17 @@ describe('Edycja grup (D54–D56)', () => {
       store.pull((b) => ({ ...b, group_members: { ...b.group_members, mf: { ...b.group_members!.mf!, role: 'admin' }, ala: { ...b.group_members!.ala!, role: 'owner' } } })),
     );
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
-    await press(screen.getByTestId('member-kuba'));
+    await press(screen.getByTestId('member-tymek'));
     expect(screen.queryByTestId('make-owner')).toBeNull();
     expect(screen.queryByLabelText('Członek')).toBeNull();
-    await type(screen.getByTestId('member-name'), 'Jakub');
+    await type(screen.getByTestId('member-name'), 'Tymoteusz');
     await fireEvent(screen.getByTestId('member-name'), 'blur');
-    expectOps(store, [{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'group_members', id: 'tymek', set: { display_name: 'Tymoteusz' } }]);
     // PW-35 A, PW-16 A (decyzje właściciela z 8.10.2026): usunięcie bez pytania, z paskiem „Cofnij”.
     await press(screen.getByTestId('remove-member'));
-    expectOps(store, [{ kind: 'delete', entity: 'group_members', id: 'kuba' }]);
+    expectOps(store, [{ kind: 'delete', entity: 'group_members', id: 'tymek' }]);
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
-    expect(screen.getByText('Usunięto z grupy: Jakub')).toBeTruthy();
+    expect(screen.getByText('Usunięto z grupy: Tymoteusz')).toBeTruthy();
   });
 
   it('przekazanie własności bez sieci: komunikat; osoba, której już nie ma: błąd zamiast awarii', async () => {

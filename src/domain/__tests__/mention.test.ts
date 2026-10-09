@@ -17,7 +17,7 @@ function base(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('ania', 'gf', 'u-ania', 'Ania', 'member', '2026-05-01T00:00:00Z');
   m('mk', 'gk', ME, 'Łukasz');
   m('ala2', 'gk', 'u-ala2', 'Alicja Nowak');
@@ -30,7 +30,7 @@ function base(): T {
 describe('@imię w szybkim dodawaniu (D91)', () => {
   it('wyciąga pierwsze @słowo i zostawia resztę tekstu', () => {
     expect(extractMention('basen jutro 19.00 @Ala')).toEqual({ text: 'basen jutro 19.00', mention: { start: 18, end: 22, name: 'Ala' } });
-    expect(extractMention('@Kuba trening w piątek @Ala')).toEqual({ text: 'trening w piątek @Ala', mention: { start: 0, end: 5, name: 'Kuba' } });
+    expect(extractMention('@Tymek trening w piątek @Ala')).toEqual({ text: 'trening w piątek @Ala', mention: { start: 0, end: 6, name: 'Tymek' } });
     expect(extractMention('mail ala@x.pl')).toEqual({ text: 'mail ala@x.pl', mention: null });
     expect(extractMention('sam @ znak')).toEqual({ text: 'sam @ znak', mention: null });
   });
@@ -39,7 +39,7 @@ describe('@imię w szybkim dodawaniu (D91)', () => {
     const t = base();
     expect(mentionTargets(t, ME, 'ALA').map((x) => `${x.displayName}@${x.groupName}`)).toEqual(['Ala@Rodzina']);
     expect(mentionTargets(t, ME, 'al').map((x) => `${x.displayName}@${x.groupName}`)).toEqual(['Ala@Rodzina', 'Alicja Nowak@Klasa 2b']);
-    expect(mentionTargets(t, ME, 'kub')).toEqual([{ groupId: 'gf', groupName: 'Rodzina', memberId: 'kuba', displayName: 'Kuba' }]);
+    expect(mentionTargets(t, ME, 'tym')).toEqual([{ groupId: 'gf', groupName: 'Rodzina', memberId: 'tymek', displayName: 'Tymek' }]);
     expect(mentionTargets(t, ME, 'lucja').map((x) => x.memberId)).toEqual(['lucja']);
     expect(mentionTargets(t, ME, 'Łuk')).toEqual([]);
     expect(mentionTargets(t, ME, 'ania')).toEqual([]);

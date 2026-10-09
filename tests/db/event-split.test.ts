@@ -23,7 +23,7 @@ const U = { a: '00000000-0000-7000-8000-0000000008a1', b: '00000000-0000-7000-80
 type User = 'a' | 'b';
 const id = (prefix: string, n: number) => `88888888-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
 const G = id('000', 1);
-const M = { a: id('001', 1), b: id('001', 2), kuba: id('001', 3), r: id('001', 4) };
+const M = { a: id('001', 1), b: id('001', 2), tymek: id('001', 3), r: id('001', 4) };
 const LIST = id('002', 1);
 const E = id('003', 1);
 const DEF = id('004', 1);
@@ -31,7 +31,7 @@ const MONDAYS = ['2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02', '2026-1
 
 type Scenario = {
   overrides: { date: string; kind: 'cancel' | 'title' | 'time' | 'resp' | 'trash' }[];
-  rsvps: { date: string; who: 'a' | 'b' | 'kuba' }[];
+  rsvps: { date: string; who: 'a' | 'b' | 'tymek' }[];
   handoff: string | null;
   tasks: { date: string; done: boolean; copy: boolean }[];
   pre: string | null;
@@ -39,13 +39,13 @@ type Scenario = {
   date: string;
   days: string;
   time: string;
-  responsible: 'a' | 'b' | 'kuba' | 'r' | null;
-  participants: ('b' | 'kuba' | 'r')[];
+  responsible: 'a' | 'b' | 'tymek' | 'r' | null;
+  participants: ('b' | 'tymek' | 'r')[];
   lost: 'nearest' | 'unlink';
 };
 const scenario: fc.Arbitrary<Scenario> = fc.record({
   overrides: fc.uniqueArray(fc.record({ date: fc.constantFrom(...MONDAYS), kind: fc.constantFrom('cancel' as const, 'title' as const, 'time' as const, 'resp' as const, 'trash' as const) }), { selector: (o) => o.date, maxLength: 5 }),
-  rsvps: fc.uniqueArray(fc.record({ date: fc.constantFrom(...MONDAYS), who: fc.constantFrom('a' as const, 'b' as const, 'kuba' as const) }), { selector: (r) => `${r.date}|${r.who}`, maxLength: 6 }),
+  rsvps: fc.uniqueArray(fc.record({ date: fc.constantFrom(...MONDAYS), who: fc.constantFrom('a' as const, 'b' as const, 'tymek' as const) }), { selector: (r) => `${r.date}|${r.who}`, maxLength: 6 }),
   handoff: fc.option(fc.constantFrom(...MONDAYS, 'series'), { nil: null }),
   tasks: fc.array(fc.record({ date: fc.constantFrom(...MONDAYS), done: fc.boolean(), copy: fc.boolean() }), { maxLength: 5 }),
   pre: fc.option(fc.constantFrom(...MONDAYS), { nil: null }),
@@ -54,8 +54,8 @@ const scenario: fc.Arbitrary<Scenario> = fc.record({
   days: fc.constantFrom('MO', 'MO,WE', 'TU'),
   // D199: także całodniowa przez 2 dni i nocna (22:00–06:00) nowa seria.
   time: fc.constantFrom('17:00', '18:30', 'allDay2', 'night', 'trip'),
-  responsible: fc.constantFrom('a' as const, 'b' as const, 'kuba' as const, 'r' as const, null),
-  participants: fc.uniqueArray(fc.constantFrom('b' as const, 'kuba' as const, 'r' as const), { maxLength: 3 }),
+  responsible: fc.constantFrom('a' as const, 'b' as const, 'tymek' as const, 'r' as const, null),
+  participants: fc.uniqueArray(fc.constantFrom('b' as const, 'tymek' as const, 'r' as const), { maxLength: 3 }),
   lost: fc.constantFrom('nearest' as const, 'unlink' as const),
 });
 
@@ -101,14 +101,14 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
     const res: PullResponse = (await db.query(`select public.sync_pull($1::jsonb, $2, $3, $4::jsonb) r`, [JSON.stringify(req.cursors), 1000, req.schema_version, JSON.stringify(req.entities)])).rows[0].r;
     return onPullResponse(st, res, req);
   };
-  /** Grupa G: A (właściciel), B, Kuba (profil dziecka), R. */
+  /** Grupa G: A (właściciel), B, Tymek (profil dziecka), R. */
   async function family() {
     await as(null);
     await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test'), ($3, 'r@x.test')`, [U.a, U.b, U.r]);
     await as('a');
     await db.query(`select public.create_group($1, 'Rodzina', $2, 'A')`, [G, M.a]);
     await as(null);
-    await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name, role) values ($1, $4, $5, 'B', 'member'), ($2, $4, null, 'Kuba', 'child'), ($3, $4, $6, 'R', 'member')`, [M.b, M.kuba, M.r, G, U.b, U.r]);
+    await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name, role) values ($1, $4, $5, 'B', 'member'), ($2, $4, null, 'Tymek', 'child'), ($3, $4, $6, 'R', 'member')`, [M.b, M.tymek, M.r, G, U.b, U.r]);
   }
   /** Telefon (domyślnie B): pełne pobranie od zera. */
   async function phone(user: User = 'b'): Promise<ClientState> {
@@ -233,14 +233,14 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
       // Oba telefony mają ten sam stan, potem każdy offline zmienia termin 19.10 i uczestników.
       const [ta, tb] = [materialize(await phone('a')), materialize(await phone('b'))];
       const [da, dbb] = [eventDetail(ta, U.a, E)!, eventDetail(tb, U.b, E)!];
-      const kuba = (d: typeof da) => editEvent(d, '2026-10-12', 'all', { ...fieldsOf(d, '2026-10-12', 'all'), audience: 'members', participantIds: [M.kuba] });
-      await ok('a', [...cancelEvent(da, '2026-10-19', 'this'), ...kuba(da)]);
-      await ok('b', [...editEvent(dbb, '2026-10-19', 'this', { ...fieldsOf(dbb, '2026-10-19', 'this'), startTime: '16:00', endTime: '17:00' }), ...kuba(dbb)]);
+      const tymek = (d: typeof da) => editEvent(d, '2026-10-12', 'all', { ...fieldsOf(d, '2026-10-12', 'all'), audience: 'members', participantIds: [M.tymek] });
+      await ok('a', [...cancelEvent(da, '2026-10-19', 'this'), ...tymek(da)]);
+      await ok('b', [...editEvent(dbb, '2026-10-19', 'this', { ...fieldsOf(dbb, '2026-10-19', 'this'), startTime: '16:00', endTime: '17:00' }), ...tymek(dbb)]);
       await as(null);
       const o = await db.query(`select cancelled, start_time::text from public.event_overrides where event_id = $1`, [E]);
       expect(o.rows).toEqual([{ cancelled: true, start_time: '16:00:00' }]);
       const p = await db.query(`select member_id from public.event_participants where event_id = $1 and deleted_at is null`, [E]);
-      expect(p.rows).toEqual([{ member_id: M.kuba }]);
+      expect(p.rows).toEqual([{ member_id: M.tymek }]);
     } finally {
       await db.query('rollback');
     }

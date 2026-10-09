@@ -25,7 +25,7 @@ insert into public.group_members (member_id, group_id, user_id, display_name, ro
   ('44440000-0000-7000-8000-0000000000a2', '44440000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000f2', 'A', 'admin'),
   ('44440000-0000-7000-8000-0000000000a3', '44440000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000f3', 'M', 'member'),
   ('44440000-0000-7000-8000-0000000000a4', '44440000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000f4', 'C', 'child'),
-  ('44440000-0000-7000-8000-0000000000a5', '44440000-0000-7000-8000-000000000001', null, 'Kuba', 'child');
+  ('44440000-0000-7000-8000-0000000000a5', '44440000-0000-7000-8000-000000000001', null, 'Tymek', 'child');
 
 -- 1–5: kolor.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000f1');
@@ -42,7 +42,7 @@ select pg_temp.as_user('00000000-0000-7000-8000-0000000000f1');
 select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f1', 3, '{"kind":"patch","entity":"group_members","id":"44440000-0000-7000-8000-0000000000a3","set":{"role":"admin"}}'), 'ok', '6: owner nadaje admina');
 select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f1', 4, '{"kind":"patch","entity":"group_members","id":"44440000-0000-7000-8000-0000000000a3","set":{"role":"member"}}'), 'ok', '7: owner odbiera admina');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000f2');
-select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f2', 3, '{"kind":"patch","entity":"group_members","id":"44440000-0000-7000-8000-0000000000a5","set":{"display_name":"Jakub"}}'), 'ok', '8: admin zmienia imię dziecka');
+select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f2', 3, '{"kind":"patch","entity":"group_members","id":"44440000-0000-7000-8000-0000000000a5","set":{"display_name":"Tymoteusz"}}'), 'ok', '8: admin zmienia imię dziecka');
 select is(pg_temp.push('44440000-0000-7000-8000-00000000c0f2', 4, '{"kind":"delete","entity":"group_members","id":"44440000-0000-7000-8000-0000000000a5"}'), 'ok', '9: admin usuwa profil dziecka');
 
 -- 10–14: przekazanie własności.

@@ -28,7 +28,7 @@ export function JoinCodeCard(p: {
   code: JoinInvite;
   today: CivilDate;
   title: string;
-  /** Dla kogo kod („Dołączy jako: członek”, „Dla: Kuba”). */
+  /** Dla kogo kod („Dołączy jako: członek”, „Dla: Tymek”). */
   note: string;
   /** Opis pod kodem; dostaje ważność do pokazania na ekranie. */
   info: (until: string) => string;

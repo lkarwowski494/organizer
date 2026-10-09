@@ -20,11 +20,11 @@ describe('zgłoszenie błędu', () => {
   });
 
   it('audyt 2 (M-159): błąd kalendarza i dojazdu — tylko nazwa, kod i ramki stosu, bez treści z komunikatu', () => {
-    const e = Object.assign(new Error('Nie można zapisać „Basen Kuby” w kalendarzu Rodzina, ul. Wodna 1'), { code: 'E_CALENDAR_ERROR_UNKNOWN' });
+    const e = Object.assign(new Error('Nie można zapisać „Basen Tymka” w kalendarzu Rodzina, ul. Wodna 1'), { code: 'E_CALENDAR_ERROR_UNKNOWN' });
     e.stack = `Error: ${e.message}\n    at save (calendar.js:10:5)\n    at run (app.js:3:1)\n    at Rodzina, ul. Wodna 1`;
     expect(toClientError(e, 'error', 'calendar-mirror', 'v', { private: true })).toEqual({ kind: 'error', message: 'Error (E_CALENDAR_ERROR_UNKNOWN)', stack: '    at save (calendar.js:10:5)\n    at run (app.js:3:1)', screen: 'calendar-mirror', appVersion: 'v' });
     // Kod, który nie wygląda na kod (np. z treścią), pomijany; brak stosu — null; pusty komunikat nie chowa ramek.
-    expect(toClientError(Object.assign(new TypeError('x'), { code: 'Basen Kuby 17:00', stack: undefined }), 'error', null, 'v', { private: true })).toMatchObject({ message: 'TypeError', stack: null });
+    expect(toClientError(Object.assign(new TypeError('x'), { code: 'Basen Tymka 17:00', stack: undefined }), 'error', null, 'v', { private: true })).toMatchObject({ message: 'TypeError', stack: null });
     const bare = new Error('');
     bare.stack = 'Error\n    at a (b.js:1:1)';
     expect(toClientError(bare, 'error', null, 'v', { private: true }).stack).toBe('    at a (b.js:1:1)');

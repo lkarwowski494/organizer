@@ -13,4 +13,4 @@ select public.sync_push('f0f00000-0000-7000-8000-00000000c0d1', 1, '[
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 insert into public.group_members (member_id, group_id, user_id, display_name, role)
-  values ('f0f00000-0000-7000-8000-0000000000b2', 'f0f00000-0000-7000-8000-000000000001', null, 'Kuba', 'child');
+  values ('f0f00000-0000-7000-8000-0000000000b2', 'f0f00000-0000-7000-8000-000000000001', null, 'Tymek', 'child');

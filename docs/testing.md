@@ -69,7 +69,7 @@ python3 -I scripts/gen-quickadd-corpus.py > src/domain/__tests__/fixtures/quicka
 zalogowana osoba demo, „serwer” w pamięci z semantyką `sync_push`/`sync_pull` (wersje grup, kursory, duplikaty),
 świeża baza SQLite w pamięci przy każdym starcie, zegar od środy 7.10.2026 08:00 UTC (dalej płynie), wyłączone
 powiadomienia, kalendarz bez zapisu, bez dojazdu, wprowadzenie i „Co nowego” już obejrzane. Dane demo: grupa
-osobista i „Rodzina” (ja i Ala — dorośli, Kuba — profil dziecka bez konta), zadania, cotygodniowy „Basen Kuby” (środa
+osobista i „Rodzina” (ja i Ala — dorośli, Tymek — profil dziecka bez konta), zadania, cotygodniowy „Basen Tymka” (środa
 17:00–18:00) i lista „Zakupy”. Ekrany, pętla synchronizacji i baza działają naprawdę — atrapy mają tylko sieć i system.
 
 **Bezpieczeństwo flagi.** (1) Ustawia ją wyłącznie krok buildu w `e2e.yml` (i `scripts/e2e/build-ios.sh`); test

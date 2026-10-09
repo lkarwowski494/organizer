@@ -16,7 +16,7 @@ function base(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('mc', 'gc', ME, 'Łukasz', 'child');
   m('ala-c', 'gc', 'u-ala', 'Ala', 'owner');
   const l = (id: string, gid: string, name: string) => put(t, 'lists', id, { id, group_id: gid, kind: 'tasks', name, visibility: 'group', sort_key: 'a0', deleted_at: null });
@@ -25,7 +25,7 @@ function base(): T {
   const task = (id: string, extra: Row = {}) =>
     put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'lf', parent_id: null, title: id, note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'none', due_date: null, due_time: null, start_date: null, event_id: null, occurrence_date: null, rollover: true, repeat: null, completed_at: null, deleted_at: null, ...extra });
   task('t', { title: 'Prezent', note: 'dla babci', assignee_member_id: 'mf', deadline_mode: 'own', due_date: '2026-10-12', due_time: '18:00:00', rollover: false, repeat: 'FREQ=WEEKLY;BYDAY=MO' });
-  task('s1', { parent_id: 't', sort_key: 'a1', assignee_member_id: 'kuba', deadline_mode: 'inherit' });
+  task('s1', { parent_id: 't', sort_key: 'a1', assignee_member_id: 'tymek', deadline_mode: 'inherit' });
   task('s2', { parent_id: 't', sort_key: 'a2', assignee_member_id: 'ala', deadline_mode: 'own', due_date: '2026-10-10', completed_at: '2026-10-07T08:00:00Z' });
   task('s21', { parent_id: 's2', deadline_mode: 'inherit' });
   task('sx', { parent_id: 't', deleted_at: '2026-10-01T00:00:00Z' });

@@ -72,9 +72,9 @@ describe('lustro grup (D95)', () => {
     expect(sync.createCalendar).toHaveBeenCalledWith('Organizer – Rodzina', expect.stringMatching(/^#[0-9A-F]{6}$/));
     expect([...events.values()]).toEqual([{ calendarId: 'cal-1', title: 'Basen', start: new Date(Date.UTC(2026, 9, 9, 15, 0)) }]);
     expect(await runMirror(sync, local, t, ME, today)).toEqual({ created: 0, updated: 0, removed: 0 });
-    put(t, 'events', 'e1', { ...t.events!.e1!, title: 'Basen z Kubą' });
+    put(t, 'events', 'e1', { ...t.events!.e1!, title: 'Basen z Tymkiem' });
     expect(await runMirror(sync, local, t, ME, today)).toEqual({ created: 0, updated: 1, removed: 0 });
-    expect([...events.values()][0]!.title).toBe('Basen z Kubą');
+    expect([...events.values()][0]!.title).toBe('Basen z Tymkiem');
   });
 
   it('wydarzenie usunięte w aplikacji znika z iPhone’a; usunięte ręcznie w iPhonie — wraca; kalendarz usunięty ręcznie — nowy', async () => {

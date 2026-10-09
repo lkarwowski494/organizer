@@ -13,7 +13,7 @@ import { parseRule } from '../../src/domain/rrule';
 import { dbDescribe } from './db-gate';
 
 const U = { ala: '00000000-0000-7000-8000-0000000003c1', bartek: '00000000-0000-7000-8000-0000000003c2' } as const;
-const M = { ala: '99999999-0000-7000-8000-0000000003c1', bartek: '99999999-0000-7000-8000-0000000003c2', kuba: '99999999-0000-7000-8000-0000000003c3' } as const;
+const M = { ala: '99999999-0000-7000-8000-0000000003c1', bartek: '99999999-0000-7000-8000-0000000003c2', tymek: '99999999-0000-7000-8000-0000000003c3' } as const;
 type User = keyof typeof U;
 const G = '99999999-0000-7000-8000-0000000003c0';
 const DATE = '2026-10-12';
@@ -58,12 +58,12 @@ dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', (
       await as('ala');
       await db.query(`select public.create_group($1, 'Rodzina', $2, 'Ala')`, [G, M.ala]);
       await as(null);
-      await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name) values ($1, $2, $3, 'Bartek'), ($4, $2, null, 'Kuba')`, [M.bartek, G, U.bartek, M.kuba]);
-      await db.query(`update public.group_members set role = 'child' where member_id = $1`, [M.kuba]);
+      await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name) values ($1, $2, $3, 'Bartek'), ($4, $2, null, 'Tymek')`, [M.bartek, G, U.bartek, M.tymek]);
+      await db.query(`update public.group_members set role = 'child' where member_id = $1`, [M.tymek]);
 
       let a = initialState('99999999-0000-7000-8004-0000000003c1');
       let b = initialState('99999999-0000-7000-8004-0000000003c2');
-      const created = createEvent(G, { title: 'Basen', date: DATE, startTime: '17:00', endTime: '18:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: [M.kuba], responsibleId: null }, newId);
+      const created = createEvent(G, { title: 'Basen', date: DATE, startTime: '17:00', endTime: '18:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: [M.tymek], responsibleId: null }, newId);
       a = await sync('ala', apply(a, created.ops));
       b = await sync('bartek', b);
 
@@ -78,7 +78,7 @@ dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', (
       if (pullFirst) a = await sync('ala', a);
 
       const d = eventDetail(materialize(a), U.ala, created.id)!;
-      const mine = { ...loaded, title: 'Basen z Kubą' };
+      const mine = { ...loaded, title: 'Basen z Tymkiem' };
       // Kontrola: bez pól z chwili otwarcia zapis niesie też osobę i listę uczestników z formularza (nadpisałby Bartka).
       expect(editEvent(d, DATE, 'all', mine)[0]).toMatchObject({ set: { responsible_member_id: null } });
       a = await sync('ala', apply(a, editEvent(d, DATE, 'all', mine, loaded)));
@@ -87,11 +87,11 @@ dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', (
 
       for (const [who, s] of [['ala', a], ['bartek', b]] as const) {
         const t = materialize(s);
-        expect([who, t.events![created.id]]).toMatchObject([who, { title: 'Basen z Kubą', responsible_member_id: M.bartek }]);
-        expect([who, Object.values(t.event_participants!).filter((p) => p.deleted_at === null).map((p) => p.member_id).sort()]).toEqual([who, [M.ala, M.kuba].sort()]);
+        expect([who, t.events![created.id]]).toMatchObject([who, { title: 'Basen z Tymkiem', responsible_member_id: M.bartek }]);
+        expect([who, Object.values(t.event_participants!).filter((p) => p.deleted_at === null).map((p) => p.member_id).sort()]).toEqual([who, [M.ala, M.tymek].sort()]);
       }
       await as(null);
-      expect((await db.query(`select title, responsible_member_id from public.events where id = $1`, [created.id])).rows).toEqual([{ title: 'Basen z Kubą', responsible_member_id: M.bartek }]);
+      expect((await db.query(`select title, responsible_member_id from public.events where id = $1`, [created.id])).rows).toEqual([{ title: 'Basen z Tymkiem', responsible_member_id: M.bartek }]);
     } finally {
       await db.query('rollback');
     }

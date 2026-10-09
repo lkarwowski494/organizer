@@ -36,7 +36,7 @@ export function put(t: T, e: string, key: string, row: Row) {
   (t[e] ??= {})[key] = row;
 }
 
-/** Dane: grupa osobista, „Rodzina” (ja = admin, Ala = owner, Kuba = dziecko), „Klasa 2b” (ja = member). */
+/** Dane: grupa osobista, „Rodzina” (ja = admin, Ala = owner, Tymek = dziecko), „Klasa 2b” (ja = member). */
 export function sampleBase(): T {
   const t: T = {};
   put(t, 'groups', ME, { id: ME, name: 'Osobiste', kind: 'personal', created_at: '2026-01-01T00:00:00Z', deleted_at: null, version: 1 });
@@ -47,7 +47,7 @@ export function sampleBase(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('mk', 'gk', ME, 'Łukasz', 'member');
   m('kx', 'gk', 'u-x', 'Pani Ewa', 'owner');
   const l = (id: string, g: string, name: string, kind = 'tasks') =>

@@ -81,7 +81,7 @@ describe('ogłoszenia błędów i potwierdzeń (M-39)', () => {
     void services;
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText(/^Rodzina/));
-    await press(await screen.findByTestId('group-timetable-kuba'));
+    await press(await screen.findByTestId('group-timetable-tymek'));
     await press(await screen.findByTestId('lesson-add-2'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka');
     await setTime('lesson-end-0', '07:00');
@@ -357,7 +357,7 @@ describe('etykiety z kontekstem (M-264, M-265)', () => {
     const base = sampleBase();
     put(base, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Basen', note: null, start_date: '2026-10-08', start_time: '17:00:00', end_time: '18:00:00', rrule: null, audience: 'members', deleted_at: null, version: 1 });
     put(base, 'event_participants', 'p1', { id: 'p1', event_id: 'ev', group_id: 'gf', member_id: 'mf', deleted_at: null, version: 1 });
-    put(base, 'event_participants', 'p2', { id: 'p2', event_id: 'ev', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p2', { id: 'p2', event_id: 'ev', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
     await open(base);
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('day-2026-10-08'));

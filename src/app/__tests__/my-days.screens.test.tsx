@@ -188,13 +188,13 @@ describe('Moje sprawy: „Zrobione dziś”, „Bez terminu”, kolejność kart
     (Application as { nativeBuildVersion: string | null }).nativeBuildVersion = '13';
   });
 
-  it('PWD-32 B (M-301): wydarzenie dziecka, które prowadzi Ala — wyszarzone „Kuba: Basen” z osobą odpowiedzialną, bez „Wyjdź o”', async () => {
+  it('PWD-32 B (M-301): wydarzenie dziecka, które prowadzi Ala — wyszarzone „Tymek: Basen” z osobą odpowiedzialną, bez „Wyjdź o”', async () => {
     const base = sampleBase();
     put(base, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: null, audience: 'members', responsible_member_id: 'ala', deleted_at: null, version: 1 });
-    put(base, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
     await open(base);
-    expect(screen.getByLabelText(/^Kuba: Basen, 17:00–18:00, [^,]+, Rodzina, odpowiada: Ala, minione$/)).toBeTruthy();
-    expect(within(screen.getByTestId('today-event-basen-2026-10-07')).getByText('Kuba: Basen')).toBeTruthy();
+    expect(screen.getByLabelText(/^Tymek: Basen, 17:00–18:00, [^,]+, Rodzina, odpowiada: Ala, minione$/)).toBeTruthy();
+    expect(within(screen.getByTestId('today-event-basen-2026-10-07')).getByText('Tymek: Basen')).toBeTruthy();
   });
 });
 

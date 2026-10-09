@@ -29,7 +29,7 @@
    powtarzanych według kalendarza — od wykonania się nie da przewidzieć (PWD-15 A), zrobione zakupy przekreślone
    (PWD-11 A: tabela `shopping_trips`, wiersz na każde zakupy, retencja `config.retention.TRIP_DAYS` = 90 dni jak historia
    zmian; „Cofnij” usuwa wiersz).
-4. **Wydarzenie dziecka u drugiego rodzica (PWD-32 B):** wyszarzone „Kuba: Basen” z „odpowiada: Ala” (to samo słowo
+4. **Wydarzenie dziecka u drugiego rodzica (PWD-32 B):** wyszarzone „Tymek: Basen” z „odpowiada: Ala” (to samo słowo
    co przy osobie odpowiedzialnej, zamiast „zawozi”), bez przypomnień, lustra i dojazdu.
 5. **Potwierdzenia (PWD-4 A):** proste tak/nie — okno systemowe (wyjście z grupy, kosz grupy, wylogowanie); panel w
    ekranie tylko przy wyborze z kilku opcji albo dłuższym wyjaśnieniu (czyszczenie danych, usunięcie konta).
