@@ -150,7 +150,7 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
     const run = async (db) => {
       const out = [];
-      const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers(db, { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: 0 });
+      const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers(db, { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-10-09T03:00:00Z') });
       return { code, out: out.join('\n') };
     };
     const ok = await run([{ bytes: 10 }]);
@@ -161,6 +161,15 @@ describe('strażnik darmowych limitów (D185, M-78)', () => {
     const err = await run(503);
     assert.equal(err.code, 1);
     for (const o of [ok.out, warn.out, err.out]) assert.ok(!o.includes(TOKEN));
+    assert.ok(!ok.out.includes('Comiesięczny odczyt'));
+  });
+
+  it('1. dnia miesiąca przypomina o ręcznym odczycie egress i Realtime (N-83)', async () => {
+    const loadConfig = async () => ({ config: { SUPABASE_URL: `https://${REF}.supabase.co`, limits } });
+    const out = [];
+    const code = await main({ env: { SUPABASE_MONITOR_TOKEN: TOKEN }, fetchFn: fakeFetch(answers([{ bytes: 10 }], { result: [{ n: 1 }] })).fn, log: (s) => out.push(s), loadConfig, now: Date.parse('2026-11-01T03:00:00Z') });
+    assert.equal(code, 0);
+    assert.match(out.join('\n'), /::warning::Comiesięczny odczyt ręczny: panel Supabase → Usage \(egress, wiadomości Realtime/);
   });
 
   it('prawdziwe progi: src/config (jedno źródło prawdy) zawiera progi, których używa skrypt', async () => {
