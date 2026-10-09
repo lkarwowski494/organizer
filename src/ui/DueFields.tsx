@@ -17,7 +17,8 @@ import { TimeField } from './TimeField';
 
 export type DueExtra = { label: string; selected: boolean; onPress: () => void };
 
-export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel, extra }: { date: string; time: string; onDate: (iso: string) => void; onTime: (t: string) => void; today: CivilDate; testID: string; timeLabel?: string; extra?: DueExtra }) {
+/** `focusDate` — każda nowa wartość (> 0) przenosi fokus VoiceOvera na pole dnia (audyt 3, N-62). */
+export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel, extra, focusDate }: { date: string; time: string; onDate: (iso: string) => void; onTime: (t: string) => void; today: CivilDate; testID: string; timeLabel?: string; extra?: DueExtra; focusDate?: number }) {
   // „Inny dzień” bez wybranego dnia: zaznaczony do chwili wyboru (kalendarz rozwija się sam).
   const [other, setOther] = useState(0);
   const day = (k: number) => formatIsoDate(addDays(today, k));
@@ -43,7 +44,7 @@ export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel
         ]}
       />
       {/* Audyt 2: pole ma inną nazwę niż opcja „Inny dzień” — dwa elementy o jednej nazwie myliły VoiceOver i Sterowanie głosem. */}
-      <DateField label={strings['due.day']} value={date} onChange={(d) => (setOther(0), onDate(d))} today={today} testID={`${testID}-date`} openSignal={other} optional />
+      <DateField label={strings['due.day']} value={date} onChange={(d) => (setOther(0), onDate(d))} today={today} testID={`${testID}-date`} openSignal={other} optional focusSignal={focusDate} />
       <TimeField label={timeLabel ?? strings['common.timeOptional']} value={time} onChange={onTime} testID={`${testID}-time`} optional disabledNote={date === '' ? strings['due.timeNeedsDay'] : undefined} />
     </View>
   );

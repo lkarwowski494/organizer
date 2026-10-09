@@ -14,9 +14,11 @@ export const config = {
   /**
    * VoiceOver (audyt 2: M-44, M-269; src/ui/a11y.ts): po ilu ms przenosimy fokus na nowo pokazany element (widok musi być
    * już na ekranie) i jak długo po pokazaniu paska „Cofnij” ma on pierwszeństwo przed tytułem nowego ekranu (przejście
-   * na stosie trwa ok. 0,35 s). Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
+   * na stosie trwa ok. 0,35 s). SYNC_CALM_MS (audyt 3, N-198): powrót synchronizacji do normy po problemie (offline,
+   * błąd) ogłaszamy dopiero, gdy trwa tyle ms bez nowego problemu — przy „migającej” sieci (metro) bez ogłoszenia
+   * każdego przejścia. Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
    */
-  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500 },
+  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500, SYNC_CALM_MS: 10_000 },
 
   /**
    * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
@@ -310,7 +312,7 @@ export const config = {
    */
   invites: {
     /**
-     * Dołączanie jak w Zoom (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
+     * Dołączanie jak do wideospotkania (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
      * limit nieudanych prób osoby na godzinę. D140 odwrócona (8.10.2026): zamiast limitu na ID grupy (cudze próby
      * blokowały poprawny kod) kod przestaje działać po JOIN_FAILS_PER_CODE nieudanych próbach na swoje ID grupy — szansa
      * odgadnięcia ≤ 100 / 10^6 na kod (rachunek w migracji 20261008362000_join_codes_v2). SQL: private.join_* (test
@@ -355,8 +357,14 @@ export const config = {
    *    PUSH_MAX_AGE_H, test kontraktowy); CRON_HISTORY_DAYS — historia zadań pg_cron (private.cron_history_days)
    *    — audyt 2, M-154, D-23; wybory projektowe, bez źródła.
    *  - TRIP_DAYS — zrobione zakupy w Kalendarzu (PWD-11 A, public.shopping_trips), jak historia zmian.
+   * Tylko telefon (src/domain/sync-engine/retention.ts; audyt 3, N-89, N-93), wybory projektowe, bez źródła:
+   *  - PURGE_LAG_DAYS — zapas na to, że serwer sprząta raz na dobę: telefon usuwa nagrobki i zakupy najwcześniej dzień
+   *    po serwerze, nigdy przed nim;
+   *  - CLOCK_SLACK_DAYS — o ile „teraz” telefonu może wyprzedzać najnowszy wpis historii z serwera (zegar przestawiony
+   *    w przód nie kasuje historii); im mniej, tym mniejsza szkoda złego zegara, ale dłużej zostają stare wiersze
+   *    w grupach bez zmian.
    */
-  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90 },
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90, PURGE_LAG_DAYS: 1, CLOCK_SLACK_DAYS: 7 },
 
   /**
    * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy
@@ -392,7 +400,7 @@ export const config = {
 
   /**
    * Najniższa wersja iOS (D35, `ios.deploymentTarget` w app.json; test kontraktowy). Tyle wymaga Expo SDK 57: tabela
-   * „Support for Android and iOS versions” — „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
+   * obsługiwanych wersji systemów, wiersz „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
    * https://docs.expo.dev/versions/v57.0.0/), i tyle mają podspeci Expo (`:ios => '16.4'`, node_modules/expo/Expo.podspec).
    * Funkcje z iOS 17+ (zgoda tylko na zapis do kalendarza) mają na iOS 16 zachowanie zastępcze — src/app/device-calendar.ts.
    */

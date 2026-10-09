@@ -8,8 +8,8 @@ import { RootStack } from '../navigation';
 import { setup } from './harness';
 
 it.each([
-  ['Lista zakupów', 'screen-list', 'Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'],
-  ['Lista zadań', 'screen-list', 'Dom, Rodzina · Zadania · 3 otwarte'],
+  ['Lista zakupów', 'screen-list', 'Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'],
+  ['Lista zadań', 'screen-list', 'Dom, Rodzina, Zadania, 3 otwarte'],
 ])('%s: przewijany ekran dopasowuje się do klawiatury', async (_name, id, row) => {
   const s = setup();
   await s.renderApp(<RootStack />);

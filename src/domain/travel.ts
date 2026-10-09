@@ -1,26 +1,22 @@
 /**
  * Nawigacja i „wyjdź o” (D115–D117, ADR 0029).
- *  - „Nawiguj”: link do Map Apple albo Google Maps z celem i środkiem transportu.
+ *  - „Nawiguj”: link do Map Apple z celem i środkiem transportu (tylko Mapy Apple — ADR 0043).
  *    Mapy Apple, iOS 18.4+: https://maps.apple.com/directions?destination=…&mode=driving|walking|transit
  *    (https://developer.apple.com/documentation/mapkit/unified-map-urls); starsze iOS: ?daddr=…&dirflg=d|w|r
- *    (dawny opis Map Links: „Only the daddr parameter is required”). Google: https://www.google.com/maps/dir/?api=1
- *    &destination=…&travelmode=driving|walking|transit — otwiera aplikację, gdy jest zainstalowana
- *    (https://developers.google.com/maps/documentation/urls/get-started).
+ *    (dawny opis Map Links: „Only the daddr parameter is required”).
  *  - „Wyjdź o”: początek wydarzenia − czas dojazdu − zapas (config.travel.BUFFER_MIN), zaokrąglone w dół do minuty.
  */
 import { config } from '../config';
 import { type ScopeOf, occurrenceInScope, scopeAll } from './views/my-scope';
 
 export type TravelMode = 'driving' | 'transit' | 'walking';
-export type NavApp = 'apple' | 'google';
 export const TRAVEL_MODES: readonly TravelMode[] = ['driving', 'transit', 'walking'];
 
 const DIRFLG: Record<TravelMode, string> = { driving: 'd', transit: 'r', walking: 'w' };
 
 /** `iosVersion` jak Platform.Version na iOS („18.4”, „17.5.1”). */
-export function navigationUrl(app: NavApp, destination: string, mode: TravelMode, iosVersion: string): string {
+export function navigationUrl(destination: string, mode: TravelMode, iosVersion: string): string {
   const d = encodeURIComponent(destination.trim());
-  if (app === 'google') return `https://www.google.com/maps/dir/?api=1&destination=${d}&travelmode=${mode}`;
   const v = iosVersion.split('.').map((x) => Number(x) || 0);
   const unified = v[0]! * 100 + (v[1] ?? 0) >= 1804;
   return unified ? `https://maps.apple.com/directions?destination=${d}&mode=${mode}` : `https://maps.apple.com/?daddr=${d}&dirflg=${DIRFLG[mode]}`;

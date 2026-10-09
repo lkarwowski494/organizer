@@ -401,6 +401,21 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 describe('odporność synchronizacji (audyt 2, P2)', () => {
   const signedIn = (over: Partial<RootDeps['session']> = {}) => ({ current: async () => ({ userId: ME, displayName: 'Ala' }) as Session, onChange: () => () => {}, ...over });
 
+  it('N-1: wydarzenie z datą spoza zakresu z serwera — aplikacja działa, zgłoszenie z nazwą pola, bez treści', async () => {
+    const t = makeDeps({ session: signedIn() });
+    const pull = t.deps.transport.pull;
+    const bad = { e: 'events' as const, v: 2, row: { id: 'zle', group_id: ME, title: 'Tajne', start_date: 'infinity', start_time: null, end_time: null, rrule: null, version: 2, deleted_at: null } };
+    t.deps.transport = { ...t.deps.transport, pull: async (r, l) => {
+      const res = await pull(r, l);
+      return { ...res, groups: res.groups.map((g) => ({ ...g, rows: [...g.rows, bad] })) };
+    } };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-today');
+    await waitFor(() => expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error', screen: 'sync', message: 'Error: pominięte wiersze: events.start_date' })));
+    expect(JSON.stringify((t.deps.account.reportError as jest.Mock).mock.calls)).not.toContain('Tajne');
+    expect(screen.queryByTestId('screen-crash')).toBeNull();
+  });
+
   it('M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy) — nowy identyfikator, kolejka z kopii pod starym', async () => {
     const saved = new Map<string, string>();
     const t = makeDeps({ session: signedIn(), deviceClientId: { load: (u) => saved.get(u) ?? null, save: (u, id) => void saved.set(u, id) } });
@@ -431,7 +446,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     await waitFor(() => expect(t.pulls()).toBe(before + 1));
   });
 
-  it('audyt 2 (M-37): przejście w offline i powrót ogłaszane VoiceOverem (chip zmienia się po cichu)', async () => {
+  it('audyt 2 (M-37): przejście w offline i powrót ogłaszane VoiceOverem (chip zmienia się po cichu); powrót — po chwili spokoju (audyt 3, N-198)', async () => {
     let net: (online: boolean) => void = () => {};
     const t = makeDeps({ session: signedIn(), network: { subscribe: (fn) => ((net = fn), () => {}) } });
     await render(<Root deps={t.deps} fontsLoaded />);
@@ -440,9 +455,17 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     say.mockClear();
     await act(() => net(false));
     await waitFor(() => expect(say).toHaveBeenCalledWith('Offline', { queue: true }));
-    await act(() => net(true));
-    await waitFor(() => expect(say).toHaveBeenCalledTimes(2));
-    expect(say.mock.calls[1]![0]).toMatch(/^Zsynchronizowano|^Przed chwilą/);
+    jest.useFakeTimers();
+    try {
+      await act(() => net(true));
+      await act(async () => jest.advanceTimersByTime(config.a11y.SYNC_CALM_MS - 1));
+      expect(say).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(1));
+      expect(say).toHaveBeenCalledTimes(2);
+      expect(say.mock.calls[1]![0]).toMatch(/^Zsynchronizowano|^Przed chwilą/);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('M-10: bez połączenia (nieudane żądanie, np. captive portal) czyszczenie danych jest zablokowane', async () => {
