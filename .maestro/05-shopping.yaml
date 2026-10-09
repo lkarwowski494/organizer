@@ -24,6 +24,13 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN
     timeout: 10000
+# Wskaźnik jest w pierwszym wierszu ekranu, a po przewinięciu w dół poza ekranem — Maestro nie widzi elementów
+# spoza ekranu, więc najpierw powrót na górę (jak w 06).
+- scrollUntilVisible:
+    element:
+      id: "sync-chip"
+    direction: UP
+    timeout: 10000
 # Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
 - extendedWaitUntil:
     visible: "Stan synchronizacji: Przed chwilą"

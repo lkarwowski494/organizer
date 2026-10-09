@@ -13,7 +13,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Audyt 3 (N-84): na main każdy przebieg dobiega końca (przerwany zostawiał commity bez skanu sekretów do nocy);
+  # w PR nowszy commit przerywa starszy przebieg.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -56,17 +58,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
-          GITLEAKS_ENABLE_SUMMARY: true
-      # Reguły .gitleaks.toml na fałszywych sekretach tworzonych w czasie testu (audyt 2, M-195); gitleaks w PATH
-      # dopisał krok wyżej — ta sama wersja, którą skanuje repozytorium.
+      # gitleaks w przypiętej wersji z sumą SHA-256 (audyt 3, N-258; gitleaks-action pobierał go bez sumy).
+      - run: .github/scripts/install-gitleaks.sh
+      # Reguły .gitleaks.toml na fałszywych sekretach tworzonych w czasie testu (audyt 2, M-195).
       - name: reguły .gitleaks.toml
         run: .github/scripts/test-gitleaks-rules.sh
-      # gitleaks-action skanuje przy push tylko pierwszego rodzica bez scaleń — commity scalonej gałęzi przechodziły
-      # nieskanowane (audyt 2). Tu cały zakres pusha (albo PR), ze scaleniami; test skryptu na repozytorium tymczasowym.
+      # gitleaks-action skanował przy push tylko pierwszego rodzica bez scaleń — commity scalonej gałęzi przechodziły
+      # nieskanowane (audyt 2), a zmiany wniesione w samym scaleniu także w nocnym skanie (audyt 3, N-84). Tu cały zakres
+      # pusha (albo PR), ze scaleniami i diffem każdego scalenia; test skryptu na repozytorium tymczasowym.
       - name: test skanu zakresu
         run: .github/scripts/test-gitleaks-range.sh
       - name: skan całego zakresu pusha albo PR

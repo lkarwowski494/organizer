@@ -2,6 +2,7 @@
  * Korzeń aplikacji na atrapach: sesja, linki, baza (better-sqlite3), serwer (transport w pamięci),
  * sygnały Realtime i powrót na pierwszy plan — bez telefonu i bez sieci.
  */
+import { getStateFromPath } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo, AppState } from 'react-native';
 
@@ -15,6 +16,7 @@ import { refreshInBackground } from '../background';
 import { type RootDeps, Root, type Session } from '../Root';
 import { type ServerTables, serverVerdict } from '../../domain/server-rules';
 import { e2eLegacyPrefs } from '../e2e';
+import { linking } from '../navigation';
 import { fakeAccount } from './harness';
 
 // Oficjalna atrapa (react-native-safe-area-context/jest/mock): bez niej SafeAreaProvider czeka na wymiary ekranu z natywnej strony.
@@ -280,6 +282,26 @@ describe('korzeń aplikacji', () => {
     await t.signIn(null);
     await screen.findByTestId('screen-sign-in');
     await t.signIn({ userId: ME, displayName: 'Ala' });
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(screen.queryByTestId('screen-invite')).toBeNull();
+  });
+
+  it('N-37: każdy link (prawdziwa konfiguracja linking, bez initialState) kładzie ekran na zakładkach', () => {
+    for (const path of ['task/abc', 'list/l1', 'event/e1/2026-10-09', 'join?g=482913507&c=731064', 'j/?g=1&c=2', 'invite/t']) {
+      const routes = getStateFromPath(path, linking.config)?.routes.map((r) => r.name);
+      expect([path, routes?.length, routes?.[0]]).toEqual([path, 2, 'Tabs']);
+    }
+    expect(getStateFromPath('calendar', linking.config)?.routes.map((r) => r.name)).toEqual(['Tabs']);
+  });
+
+  it('N-37: aplikacja otwarta linkiem ma pod spodem zakładki; „Wróć” prowadzi do „Moich spraw”', async () => {
+    const t = makeDeps();
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await screen.findByTestId('screen-sign-in');
+    await t.openUrl('io.github.lkarwowski494.organizer://join?g=482913507&c=731064');
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    expect(await screen.findByTestId('screen-invite')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(screen.queryByTestId('screen-invite')).toBeNull();
   });
