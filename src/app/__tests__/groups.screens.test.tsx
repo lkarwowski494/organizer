@@ -272,7 +272,7 @@ describe('nowa grupa i dołączenie (audyt 2, R-16, R-27, R-38, R-39)', () => {
     await type(screen.getByTestId('invite-code'), '731 064');
     await type(screen.getByTestId('invite-input'), `Stare zaproszenie:\n${tok}`);
     await press(screen.getByTestId('invite-accept'));
-    expect(account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Łukasz');
+    expect(account.joinGroup).toHaveBeenCalledWith('482913507', '731064', null); // imię z konta niezmienione — po stronie serwera (audyt 3, N-164)
     expect(account.acceptInvite).not.toHaveBeenCalled();
   });
 });
@@ -441,7 +441,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
 
   it('PW-34 A: zdanie o rolach; w grupie z dziećmi pierwszy (główny) przycisk to „Zaproś jako administratora”', async () => {
     await openGroup(await open({ base: asOwner() }));
-    expect(screen.getByText('Administrator zaprasza, dodaje dzieci i zarządza osobami. Członek korzysta z list, zadań i wydarzeń.')).toBeTruthy();
+    expect(screen.getByText('Administrator zaprasza, dodaje dzieci i usuwa z grupy członków i dzieci. Role zmienia właściciel. Członek korzysta z list, zadań i wydarzeń.')).toBeTruthy();
     const order = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel).filter((l) => l === 'Zaproś' || l === 'Zaproś jako administratora');
     expect(order).toEqual(['Zaproś jako administratora', 'Zaproś']);
     // Bez dzieci — „Zaproś” (członek) jak dotąd.
@@ -584,5 +584,109 @@ describe('audyt 3: osoba usunięta z grupy (N-162, Q33 A)', () => {
     await screen.findByTestId('screen-groups');
     await act(async () => s.store.pull((b) => drop(b, 'gf')));
     expect(screen.queryByText('Nie należysz już do grupy Rodzina')).toBeNull();
+  });
+});
+
+describe('zaproszenia i dołączanie (audyt 3, PK-10)', () => {
+  const join = async () => {
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Dołącz do grupy'));
+    await type(await screen.findByTestId('invite-join-id'), '482913507');
+    await type(screen.getByTestId('invite-code'), '731064');
+  };
+
+  it('N-157: kod administratora u członka — „już jesteś w tej grupie” z rolą, „Otwórz grupę” zamiast „Dołącz”', async () => {
+    const account = fakeAccount({ joinGroup: jest.fn(async () => ({ groupId: 'gf', alreadyMember: { role: 'member', inviteRole: 'admin' } })) });
+    const s = await open({ account });
+    await join();
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText('Już jesteś w tej grupie (rola: członek). Ten kod nie zmienia roli — zmienia ją właściciel grupy.')).toBeTruthy();
+    expect(screen.queryByTestId('invite-accept')).toBeNull();
+    // Telefon nie zapamiętuje grupy jako ostatnio użytej — nic się nie zmieniło.
+    expect(s.services.local!.load('lastUsedGroup')).toBeNull();
+    await press(screen.getByRole('button', { name: 'Otwórz grupę' }));
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+
+  it('N-157: ta sama albo niższa rola kodu i serwer bez ról — samo „Już jesteś w tej grupie.”; zmiana kodu chowa komunikat', async () => {
+    const account = fakeAccount({
+      joinGroup: jest
+        .fn()
+        .mockResolvedValueOnce({ groupId: 'gf', alreadyMember: { role: 'admin', inviteRole: 'member' } })
+        .mockResolvedValueOnce({ groupId: 'gf', alreadyMember: { role: null, inviteRole: null } }) as jest.Mocked<ReturnType<typeof fakeAccount>>['joinGroup'],
+    });
+    await open({ account });
+    await join();
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText('Już jesteś w tej grupie.')).toBeTruthy();
+    await type(screen.getByTestId('invite-code'), '731065');
+    expect(screen.queryByText('Już jesteś w tej grupie.')).toBeNull();
+    await press(screen.getByTestId('invite-accept'));
+    expect(await screen.findByText('Już jesteś w tej grupie.')).toBeTruthy();
+    await type(screen.getByTestId('invite-join-id'), '482913508');
+    expect(screen.queryByText('Już jesteś w tej grupie.')).toBeNull();
+    expect(account.joinGroup).toHaveBeenCalledTimes(2);
+  });
+
+  it('N-164: konto bez imienia — puste pola „Twoje imię w grupie” z przykładem; wpisane imię idzie na serwer', async () => {
+    const account = fakeAccount();
+    await open({ account, session: { displayName: 'Ja', needsName: true } });
+    await join();
+    expect(screen.getByTestId('invite-name').props.value).toBe('');
+    expect(screen.getByTestId('invite-name').props.placeholder).toBe('np. „Ala” albo „Mama”');
+    await press(screen.getByTestId('invite-accept'));
+    expect(screen.getByText('Wpisz swoje imię w tej grupie.')).toBeTruthy();
+    expect(account.joinGroup).not.toHaveBeenCalled();
+    await type(screen.getByTestId('invite-name'), 'Ala');
+    await press(screen.getByTestId('invite-accept'));
+    expect(account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Ala');
+    await press(await screen.findByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Nowa grupa'));
+    expect(screen.getByTestId('group-my-name').props.value).toBe('');
+    expect(screen.getByTestId('group-my-name').props.placeholder).toBe('np. „Ala” albo „Mama”');
+  });
+
+  it('N-164: imię z konta zmienione przy dołączaniu idzie na serwer; niezmienione — nie (zostaje imię profilu dziecka albo dawne)', async () => {
+    const account = fakeAccount();
+    await open({ account });
+    await join();
+    expect(screen.getByTestId('invite-name').props.value).toBe('Łukasz');
+    await type(screen.getByTestId('invite-name'), 'Tata');
+    await press(screen.getByTestId('invite-accept'));
+    expect(account.joinGroup).toHaveBeenCalledWith('482913507', '731064', 'Tata');
+  });
+
+  it('N-163: „Dodaj dziecko” — pasek „Dodano dziecko: imię · grupa” z „Cofnij”, które usuwa profil', async () => {
+    const s = await openGroup(await open());
+    await type(screen.getByTestId('child-name'), 'Zosia');
+    await press(screen.getByTestId('add-child'));
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Dodano dziecko: Zosia · Rodzina')).toBeTruthy();
+    await press(screen.getByLabelText('Cofnij'));
+    expectOps(s.store, [
+      { kind: 'create', entity: 'group_members', id: 'new-1', group_id: 'gf', set: { member_id: 'new-1', display_name: 'Zosia', role: 'child' } },
+      { kind: 'delete', entity: 'group_members', id: 'new-1' },
+    ]);
+  });
+
+  it('N-163: limit zaproszeń — właściciel dostaje radę o zmianie ID, administrator — prośbę do właściciela; unieważnienie bez uprawnień', async () => {
+    const account = fakeAccount({ revokeInvite: jest.fn(async () => Promise.reject(new TransportError('server', 'not_found'))) });
+    const ok = account.createJoinCode.getMockImplementation()!;
+    account.createJoinCode.mockImplementationOnce(async () => Promise.reject(new TransportError('server', 'limit:invites'))).mockImplementation(ok);
+    await openGroup(await open({ account }));
+    await press(screen.getByTestId('invite'));
+    expect(await screen.findByText('Ta grupa ma już najwięcej aktywnych zaproszeń (20). Poczekaj, aż stare wygasną, albo poproś właściciela o zmianę ID grupy.')).toBeTruthy();
+    // revoke_invite zgłasza not_found także po odebraniu roli — „Nie masz do tego uprawnień”, nie „Coś poszło nie tak”.
+    await press(screen.getByTestId('invite'));
+    await screen.findByTestId('invite-ready');
+    await press(screen.getByTestId('revoke'));
+    await answerAlert('Unieważnij kod');
+    expect(await screen.findByText('Nie masz do tego uprawnień w tej grupie.')).toBeTruthy();
+  });
+
+  it('N-163: u właściciela limit zaproszeń radzi zmianę ID grupy', async () => {
+    const account = fakeAccount({ createJoinCode: jest.fn(async () => Promise.reject(new TransportError('server', 'limit:invites'))) });
+    await openGroup(await open({ account, base: asOwner() }));
+    await press(screen.getByTestId('invite'));
+    expect(await screen.findByText(/albo zmień ID grupy — stare kody przestaną działać\.$/)).toBeTruthy();
   });
 });

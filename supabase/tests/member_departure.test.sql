@@ -84,13 +84,14 @@ reset role;
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c1');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"delete","entity":"group_members","id":"d0d30000-0000-7000-8000-0000000000a2"}'), 'ok', '14: owner usuwa admina');
 select is((select removed_at from public.group_members where member_id = 'd0d30000-0000-7000-8000-0000000000a2'), pg_temp.del('group_members', 'd0d30000-0000-7000-8000-0000000000a2'), '15: ślad usunięcia (removed_at)');
-select is((select count(*)::int from public.invites where created_by = 'd0d30000-0000-7000-8000-0000000000a2' and revoked_at is null), 0, '16: zaproszenia usuniętej osoby przestają działać');
+-- Audyt 3, decyzja Q7 A (migracja 20261010100000): kod roli należy do grupy i zostaje, osobisty link — nie.
+select is((select array_agg(kind order by kind) from public.invites where created_by = 'd0d30000-0000-7000-8000-0000000000a2' and revoked_at is null), array['code'], '16: link usuniętej osoby przestaje działać, kod roli grupy zostaje');
 select isnt(pg_temp.del('lists', 'd0d30000-0000-7000-8000-0000000001b4'), null, '17: jej lista „Tylko ja” w koszu (cudza lista prywatna — zapis serwera)');
 select is((select count(*)::int from public.invites where created_by = 'd0d30000-0000-7000-8000-0000000000a1' and revoked_at is null), 1, '18: zaproszenia innych bez zmian');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"restore","entity":"group_members","id":"d0d30000-0000-7000-8000-0000000000a2"}'), 'ok', '19: „Cofnij” (przywrócenie przez ownera)');
 select is(pg_temp.del('group_members', 'd0d30000-0000-7000-8000-0000000000a2'), null, '20: admin z powrotem (ten sam member_id)');
 select is((select role from public.group_members where member_id = 'd0d30000-0000-7000-8000-0000000000a2'), 'admin', '21: z tą samą rolą');
-select is((select count(*)::int from public.invites where created_by = 'd0d30000-0000-7000-8000-0000000000a2' and revoked_at is null), 0, '22: unieważnione zaproszenia nie wracają (jeden aktywny kod na rolę, PW-41 A)');
+select is((select array_agg(kind order by kind) from public.invites where created_by = 'd0d30000-0000-7000-8000-0000000000a2' and revoked_at is null), array['code'], '22: unieważniony link nie wraca');
 select is(pg_temp.del('lists', 'd0d30000-0000-7000-8000-0000000001b4'), null, '23: lista „Tylko ja” wraca');
 select is((select removed_at from public.group_members where member_id = 'd0d30000-0000-7000-8000-0000000000a2'), null, '24: ślad usunięcia znika po powrocie');
 
