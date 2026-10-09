@@ -5,7 +5,7 @@ import { AccessibilityInfo } from 'react-native';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask } from '../../domain/views/commands';
 import { RootStack } from '../navigation';
-import { NOW, put, sampleBase, setup , pickDate, setTime } from './harness';
+import { expectOps, NOW, put, sampleBase, setup, pickDate, setTime } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -50,8 +50,22 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     expect(within(screen.getByTestId('undo-bar')).getByText('Przeniesiono do „Rodzina”: Basen')).toBeTruthy();
     await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
-    expect(store.dispatched.at(-5)).toEqual({ kind: 'restore', entity: 'tasks', id: created.id });
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'lists', id: (moved[0] as { id: string }).id });
+    // Utworzenie, podzadania z drugiego ekranu, przeniesienie (lista, kopie, oryginał do kosza) i cofnięcie (oryginał wraca, kopie i lista do kosza).
+    expectOps(store, [
+      { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00' } },
+      { kind: 'create', entity: 'tasks', id: 'sub-0', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 0', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
+      { kind: 'create', entity: 'tasks', id: 'sub-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: 'new-1', title: 'czepek 1', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } },
+      { kind: 'create', entity: 'lists', id: 'new-2', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } },
+      { kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'gf', set: { list_id: 'new-2', parent_id: null, title: 'Basen', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'own', due_date: '2026-10-08', due_time: '19:00', rollover: true } },
+      { kind: 'create', entity: 'tasks', id: 'new-4', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 0', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
+      { kind: 'create', entity: 'tasks', id: 'new-5', group_id: 'gf', set: { list_id: 'new-2', parent_id: 'new-3', title: 'czepek 1', note: null, sort_key: 'a0', assignee_member_id: null, deadline_mode: 'inherit', due_date: null, due_time: null, rollover: true } },
+      { kind: 'delete', entity: 'tasks', id: 'new-1' },
+      { kind: 'restore', entity: 'tasks', id: 'new-1' },
+      { kind: 'delete', entity: 'tasks', id: 'new-5' },
+      { kind: 'delete', entity: 'tasks', id: 'new-4' },
+      { kind: 'delete', entity: 'tasks', id: 'new-3' },
+      { kind: 'delete', entity: 'lists', id: 'new-2' },
+    ]);
   });
 
   it('podzadanie i zadanie w trakcie przekazania nie mają „Przenieś do grupy”', async () => {
@@ -153,14 +167,14 @@ describe('@imię', () => {
     expect(store.dispatched.length).toBe(before);
     await type('Zebranie jutro @al');
     await press(screen.getByText('Alicja · Klasa 2b'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'gk', set: { title: 'Zebranie', assignee_member_id: 'kala' } });
+    expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gk', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gk', set: { list_id: 'new-1', parent_id: null, title: 'Zebranie', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'kala' } }]);
     // Audyt 2 (M-169): nieznane „@zenek” nie trafia po cichu do Osobistych — pytanie; „Dodaj bez osoby” zostawia je w nazwie.
     const n = store.dispatched.length;
     await type('Zebranie jutro @zenek');
     expect(screen.getByText('Nie ma @zenek w Twoich grupach')).toBeTruthy();
     expect(store.dispatched.length).toBe(n);
     await press(screen.getByText('Dodaj bez osoby'));
-    expect(store.dispatched.at(-1)).toMatchObject({ group_id: 'u-me', set: { title: 'Zebranie @zenek' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zebranie @zenek', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     expect(screen.queryByTestId('mention-unknown')).toBeNull();
     // Zmiana tekstu chowa pytanie.
     await type('x @al');
@@ -217,7 +231,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen jutro 17–18');
     expect(screen.getByLabelText(/17–18/)).toBeTruthy();
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'events', group_id: 'u-me', set: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'u-me', set: { title: 'Basen', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'group', responsible_member_id: null } }]);
     const bar = screen.getByTestId('undo-bar');
     expect(within(bar).getByText('Dodano wydarzenie: Basen · Osobiste')).toBeTruthy();
     // D189: „Zmień” przy wydarzeniu otwiera od razu jego edycję.
@@ -231,9 +245,9 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Basen 17-18');
     await press(screen.getByLabelText(/17-18/));
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', set: { title: 'Basen 17-18' } });
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Basen 17-18', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await type('Zebranie jutro od 17 do 18 @ala');
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'events', group_id: 'gf', set: { title: 'Zebranie', responsible_member_id: 'ala' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-2', group_id: 'gf', set: { title: 'Zebranie', start_date: '2026-10-08', start_time: '17:00', end_time: '18:00', rrule: null, audience: 'group', responsible_member_id: 'ala' } }]);
     expect(screen.getByText('Dodano wydarzenie: Zebranie · Rodzina')).toBeTruthy();
   });
 

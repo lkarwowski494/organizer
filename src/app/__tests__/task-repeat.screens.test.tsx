@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { nextId } from '../../domain/views/task-repeat';
 import { RootStack } from '../navigation';
-import { answerAlert, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, put, sampleBase, setup } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -44,7 +44,7 @@ describe('powtarzanie zadania', () => {
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Oznacz jako zrobione: Leki'));
     await answerAlert('Zrobione');
-    expect(s.store.dispatched.slice(-1)).toEqual([expect.objectContaining({ kind: 'create', id: nextId('leki'), set: expect.objectContaining({ due_date: '2026-10-08', due_time: '08:00:00' }) })]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'leki', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'create', entity: 'tasks', id: nextId('leki'), group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Leki', note: null, sort_key: 'a0', assignee_member_id: 'mf', deadline_mode: 'own', due_date: '2026-10-08', due_time: '08:00:00', rollover: true, repeat: 'FREQ=DAILY' } }]);
     expect(screen.queryByLabelText(/^Otwórz: Leki/)).toBeNull();
   });
 
@@ -73,25 +73,25 @@ describe('powtarzanie zadania', () => {
     const ed = screen.getByTestId('repeat-editor');
     await press(within(ed).getByLabelText('Co tydzień'));
     // Termin 7.10.2026 to środa.
-    expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } }]);
     expect(screen.getByText('Po odhaczeniu pojawi się następne z kolejnym terminem.')).toBeTruthy();
     await press(screen.getByLabelText('W poniedziałek'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=MO,WE' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=MO,WE' } }]);
     await press(screen.getByLabelText('W poniedziałek'));
     await press(screen.getByLabelText('W środę'));
     // Ostatniego dnia nie da się odznaczyć.
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=WEEKLY;BYDAY=WE' } }]);
     await press(within(ed).getByLabelText('Co miesiąc'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=7' } }); // D137: dzień miesiąca z terminu
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=MONTHLY;BYMONTHDAY=7' } }]); // D137: dzień miesiąca z terminu
     await press(within(ed).getByLabelText('Codziennie'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'FREQ=DAILY' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'FREQ=DAILY' } }]);
     await press(within(ed).getByLabelText('Od wykonania'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=DAILY;INTERVAL=7' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'AFTER=DAILY;INTERVAL=7' } }]);
     await press(screen.getByLabelText('tygodnie'));
     await press(screen.getByLabelText('2'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: 'AFTER=WEEKLY;INTERVAL=2' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'AFTER=WEEKLY;INTERVAL=7' } }, { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: 'AFTER=WEEKLY;INTERVAL=2' } }]);
     await press(within(ed).getByLabelText('Nie'));
-    expect(store.dispatched.at(-1)).toMatchObject({ set: { repeat: null } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { repeat: null } }]);
   });
 
   it('bez terminu: podpowiedź zamiast wyboru', async () => {
@@ -110,10 +110,10 @@ describe('powtarzanie zadania', () => {
     const { store } = await openTask(base);
     await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     await answerAlert('Zrobione');
-    expect(store.dispatched.at(-2)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: expect.any(String) } });
-    expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', id: nextId('t-paczka'), set: { title: 'Odebrać paczkę', due_date: '2026-10-14', due_time: '18:00:00', repeat: 'FREQ=WEEKLY;BYDAY=WE' } });
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'create', entity: 'tasks', id: '1bd14f3b-20bb-58f7-a38a-b268e1648bab', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Odebrać paczkę', note: null, sort_key: 'a0', assignee_member_id: 'mf', deadline_mode: 'own', due_date: '2026-10-14', due_time: '18:00:00', rollover: true, repeat: 'FREQ=WEEKLY;BYDAY=WE' } }]);
+    expectOps(store, []);
     await press(screen.getByLabelText('Oznacz jako niezrobione: Odebrać paczkę'));
-    expect(store.dispatched.slice(-2)).toEqual([
+    expectOps(store, [
       { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: null } },
       { kind: 'delete', entity: 'tasks', id: nextId('t-paczka') },
     ]);
@@ -128,7 +128,7 @@ describe('powtarzanie zadania', () => {
     await press(screen.getByLabelText('Następny dzień'));
     await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
     await press(await screen.findByLabelText('Bez terminu'));
-    expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null, repeat: null } });
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'none', due_date: null, due_time: null, repeat: null } }]);
   });
 });
 

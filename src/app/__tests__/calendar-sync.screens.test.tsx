@@ -5,7 +5,7 @@ import { Linking } from 'react-native';
 import { config } from '../../config';
 import type { DeviceCalendarSync } from '../device-calendar';
 import { RootStack } from '../navigation';
-import { appStateEvents, put, sampleBase, setup } from './harness';
+import { expectOps, appStateEvents, put, sampleBase, setup } from './harness';
 
 jest.mock('expo-calendar', () => ({}));
 
@@ -281,7 +281,7 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.getByTestId('event-location').props.value).toBe('Przychodnia, ul. Zdrowa 2');
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
-    expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ group_id: 'gf', set: { title: 'Dentysta', start_date: '2026-10-07', start_time: '16:00', end_time: '17:00', location: 'Przychodnia, ul. Zdrowa 2' } });
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Dentysta', start_date: '2026-10-07', start_time: '16:00', end_time: '17:00', rrule: null, audience: 'group', responsible_member_id: null, location: 'Przychodnia, ul. Zdrowa 2' } }]);
     await screen.findByTestId('screen-today');
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     expect(screen.getByTestId('today-hidden-2026-10-07')).toBeTruthy();

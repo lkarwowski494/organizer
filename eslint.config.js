@@ -62,4 +62,18 @@ module.exports = defineConfig([
       'testing-library/render-result-naming-convention': 'off',
     },
   },
+  {
+    // M-156: operacje z ekranu sprawdzamy w całości (harness.expectOps: toEqual od poprzedniego sprawdzenia, nic po teście),
+    // nie częściowym toMatchObject na jednej operacji.
+    files: ['src/app/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='toMatchObject'] > MemberExpression.callee > CallExpression.object[callee.name='expect']:has(MemberExpression[property.name='dispatched'])",
+          message: 'Operacje sprawdzaj przez expectOps(store, [...]) z harness.tsx (dokładnie i wszystkie — audyt 2, M-156).',
+        },
+      ],
+    },
+  },
 ]);
