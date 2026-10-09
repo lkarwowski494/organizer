@@ -2,8 +2,11 @@ appId: io.github.lkarwowski494.organizer
 name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
 ---
 - runFlow: common/launch.yaml
-- tapOn:
-    id: "tab-Calendar"
+- runFlow:
+    file: common/open-tab.yaml
+    env:
+      TAB: "tab-Calendar"
+      SCREEN: "screen-calendar"
 # Przycisk na końcu treści: przewinięcie, aż będzie cały widoczny, i koniec ruchu przed dotknięciem (dotknięcie w trakcie
 # wyhamowywania nie otwierało formularza). Bez centerElement: przycisku na końcu treści nie da się przewinąć do środka
 # ekranu, więc Maestro przewijał do limitu czasu i zgłaszał „No visible element found” (E2E na main od 12c1ac0).
