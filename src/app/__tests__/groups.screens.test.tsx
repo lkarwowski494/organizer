@@ -690,3 +690,19 @@ describe('zaproszenia i dołączanie (audyt 3, PK-10)', () => {
     expect(await screen.findByText(/albo zmień ID grupy — stare kody przestaną działać\.$/)).toBeTruthy();
   });
 });
+
+describe('zmiana roli administratora i „Cofnij” (audyt 3, PK-11 — jak N-40)', () => {
+  it('owner zmienia admina na członka; „Cofnij” przywraca rolę administratora (serwer przywraca też jego zaproszenia osobiste)', async () => {
+    const s = await open({ base: asOwner() });
+    await openGroup(s);
+    await press(screen.getByTestId('member-ala'));
+    await press(await screen.findByRole('button', { name: 'Członek' }));
+    expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } }]);
+    const bar = within(await screen.findByTestId('undo-bar'));
+    expect(bar.getByText('Zmieniono rolę: Ala — członek')).toBeTruthy();
+    await press(bar.getByLabelText('Cofnij'));
+    // Zaproszenia (link, kody profili dzieci) przywraca wyzwalacz serwera — supabase/tests/role_undo_invites.test.sql.
+    expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'admin' } }]);
+    expect(s.store.rejected).toEqual([]);
+  });
+});

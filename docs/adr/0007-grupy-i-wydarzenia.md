@@ -103,6 +103,8 @@ części, z której otwarto termin. Teraz (migracja `20261010050000_series_chain
   Audyt 3 (N-40, migracja `20261010110000_member_restore.sql`): „Cofnij” i przywrócenie z kosza osób cofają całe
   usunięcie — przekazania (te, które nadal mają sens: rzecz wciąż u nadawcy, obie osoby w grupie), dostęp do list
   „Wybrane osoby”, zaproszenia osobiste i zakres Moich spraw. Powrót zaproszeniem przywraca tylko rzeczy samej osoby
-  (listy „Tylko ja”, zakres Moich spraw); dostęp i przekazania nadają ponownie inni.
+  (listy „Tylko ja”, zakres Moich spraw); dostęp i przekazania nadają ponownie inni. Tak samo „Cofnij” po zmianie roli
+  administratora na członka: odzyskanie roli przywraca zaproszenia osobiste unieważnione tą zmianą (migracja
+  `20261010110100_role_undo_invites.sql`).
 - **D54, kosz grupy (PWD-21 A):** członkowie widzą wpis „Grupa X w koszu (właściciel może przywrócić do: …)”;
   przywrócenie to przycisk „Przywróć” w wierszu z paskiem „Przywrócono · Cofnij”.
