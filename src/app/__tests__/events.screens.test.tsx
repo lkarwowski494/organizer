@@ -48,7 +48,10 @@ describe('Wydarzenia: dodawanie', () => {
     await press(screen.getByTestId('event-add-slot'));
     await press(screen.getByLabelText('W sobotę (Wariant 2)'));
     await setTime('event-start-1', '10:00');
+    expect(screen.queryByTestId('event-audience-info')).toBeNull();
     await press(screen.getByLabelText('Wybrane osoby'));
+    // Audyt 3 (N-46, Q13 C): wybór osób nie ukrywa wydarzenia przed resztą grupy — mówi to tekst przy wyborze.
+    expect(screen.getByText('Wydarzenie widzą wszyscy w grupie (w Kalendarzu). Wybór osób decyduje tylko, komu pokaże się w Moich sprawach.')).toBeTruthy();
     await press(screen.getByLabelText('Uczestnik: Tymek'));
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByTestId('screen-calendar')).toBeTruthy();

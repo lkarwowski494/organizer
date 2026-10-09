@@ -13,7 +13,7 @@ import { config } from '../../config';
 import type { JoinInvite } from '../../sync/account';
 import { remove, renameMember, restore, setRole } from '../../domain/views/commands';
 import { type NameError, validateName } from '../../domain/views/my-name';
-import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
+import { childRoleAllowed, groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ConfirmText, ErrorText, Field, GroupLine, META_SEP, MissingScreen, Screen, Segmented, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
@@ -95,15 +95,23 @@ export function MemberScreen({ route, navigation }: Props) {
           label={strings['member.role']}
           // setRole tylko dla innej osoby niż ja (owner) — jej rola nie jest „owner”.
           value={m.role as 'admin' | 'member' | 'child'}
-          onChange={(r) => store.dispatch(setRole(m.member_id, r))}
+          // Audyt 3 (Q6b A): zmiana roli z paskiem „Cofnij” (jak usunięcie osoby, D187) — przywraca poprzednią rolę.
+          onChange={(r) => {
+            const was = m.role as 'admin' | 'member' | 'child';
+            const op = setRole(m.member_id, r);
+            store.dispatch(op);
+            undo.show(strings['undo.roleChanged'](m.display_name, strings[`groups.role.${r}`]), { ops: [setRole(m.member_id, was)] }, { changed: [op] });
+          }}
+          // Audyt 3 (N-42, Q6b A): „Dziecko” tylko dla konta połączonego kodem profilu dziecka (serwer: forbidden:role).
           options={[
-            { value: 'admin', label: strings['member.roleOption.admin'] },
-            { value: 'member', label: strings['member.roleOption.member'] },
-            { value: 'child', label: strings['member.roleOption.child'] },
+            { value: 'admin' as const, label: strings['member.roleOption.admin'] },
+            { value: 'member' as const, label: strings['member.roleOption.member'] },
+            ...(childRoleAllowed(tables, m) ? [{ value: 'child' as const, label: strings['member.roleOption.child'] }] : []),
           ]}
         />
       ) : null}
       {can.setRole || (m.role === 'child' && m.user_id !== null) ? <Body muted>{strings['member.childRoleInfo']}</Body> : null}
+      {can.setRole && !childRoleAllowed(tables, m) ? <Body muted>{strings['member.childRoleLinkedOnly']}</Body> : null}
       {can.link && !childCode ? (
         <View style={{ gap: 8 }}>
           <Body muted>{strings['member.linkAbout'](m.display_name)}</Body>

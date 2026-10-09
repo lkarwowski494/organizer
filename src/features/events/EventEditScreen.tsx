@@ -296,6 +296,8 @@ export function EventEditScreen({ route, navigation }: Props) {
       {only || personal ? null : (
         <>
           <Segmented label={strings['event.audience']} value={form.audience} onChange={(audience) => set({ audience })} options={[{ value: 'group', label: strings['event.audience.group'] }, { value: 'members', label: strings['event.audience.members'] }]} />
+          {/* Audyt 3 (N-46, Q13 C): „Wybrane osoby” to nie prywatność — mówimy to przy wyborze. */}
+          {form.audience === 'members' ? <Body muted testID="event-audience-info">{strings['event.audienceInfo']}</Body> : null}
           {form.audience === 'members' ? (
             <PeopleToggles
               label={strings['event.who']}

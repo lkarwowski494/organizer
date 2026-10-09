@@ -186,6 +186,7 @@ describe('Ostatnie zmiany w bazie konta (D194 b)', () => {
     await press(within(bar()).getByLabelText('Cofnij'));
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText('Usuń: Rodzina'));
+    await answerAlert('Usuń grupę');
     await screen.findByText('Usunięto grupę: Rodzina');
     await restart(s, first);
     await press(await screen.findByLabelText('Grupy'));
@@ -321,6 +322,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(within(bar()).getByText('Usunięto: Basen')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Usuń: Rodzina'));
+    await answerAlert('Usuń grupę');
     expect(s.account.deleteGroup).toHaveBeenCalledWith('gf');
     expect(await screen.findByText('Usunięto grupę: Rodzina')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
@@ -334,6 +336,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     s.account.deleteGroup.mockRejectedValueOnce(new Error('Network request failed'));
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText('Usuń: Rodzina'));
+    await answerAlert('Usuń grupę');
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
     expect(screen.queryByTestId('undo-bar')).toBeNull();
   });
