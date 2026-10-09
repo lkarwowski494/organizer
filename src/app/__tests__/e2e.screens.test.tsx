@@ -83,7 +83,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(await screen.findByLabelText(/^Wywiadówka, 18:30/)).toBeTruthy();
   });
 
-  it('07 wydarzenie przez kilka dni (D199): „Kończy się”, „dzień 2 z 3” w Kalendarzu', async () => {
+  it('08 wydarzenie przez kilka dni (D199): „Kończy się”, „dzień 2 z 3” w Kalendarzu', async () => {
     await start().render();
     await screen.findByTestId('screen-today');
     await press(screen.getByTestId('tab-Calendar'));

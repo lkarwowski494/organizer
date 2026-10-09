@@ -1,5 +1,5 @@
 appId: io.github.lkarwowski494.organizer
-name: 07 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z 3” w Kalendarzu
+name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z 3” w Kalendarzu
 ---
 - runFlow: common/launch.yaml
 - tapOn:
@@ -52,4 +52,4 @@ name: 07 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     element: "Obóz, cały dzień, dzień 2 z 3.*"
     direction: DOWN
     timeout: 10000
-- takeScreenshot: 07-multi-day
+- takeScreenshot: 08-multi-day
