@@ -9,6 +9,7 @@ import { config } from '../config';
 import { LIST_NAMES } from '../config/names.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../config/quickadd.pl';
 import type { CivilDate } from '../domain/civil-date';
+import type { Entity } from '../domain/sync-engine/client';
 import { formatMinutes } from '../domain/format';
 import { plural } from '../domain/plural';
 
@@ -303,7 +304,8 @@ export const strings = {
   'lists.open': (n: number) => `${n} ${plural(n, { one: 'otwarte', few: 'otwarte', many: 'otwartych' })}`,
   'lists.done': 'Zrobione',
   'lists.inCart': 'W koszyku',
-  'lists.addItem': 'Dodaj produkt, np. „2 mleka”',
+  // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
+  'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
   // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
@@ -700,8 +702,9 @@ export const strings = {
   'rejected.cmd.split_event': (title: string) => `Zmiana „to i następne”: „${title}”`,
   'rejected.cmd.staple_add': 'Dodanie do stałych zakupów',
   'rejected.cmd.staple_remove': 'Usunięcie ze stałych zakupów',
-  'rejected.entity': (e: string) =>
-    (({ tasks: 'zadanie', lists: 'lista', events: 'wydarzenie', event_participants: 'uczestnik wydarzenia', event_overrides: 'zmiana terminu', event_task_series: 'stałe zadanie', event_rsvps: 'obecność', handoffs: 'przekazanie', object_members: 'dostęp do listy', group_members: 'osoba w grupie', groups: 'grupa', activity: 'historia' }) as Record<string, string>)[e] ?? e,
+  // Audyt 3 (N-92): mapa typu Record<Entity, …> — nowa encja bez polskiej nazwy nie przejdzie kompilacji.
+  'rejected.entity': (e: Entity) =>
+    (({ tasks: 'zadanie', lists: 'lista', events: 'wydarzenie', event_participants: 'uczestnik wydarzenia', event_overrides: 'zmiana terminu', event_task_series: 'stałe zadanie', event_rsvps: 'obecność', handoffs: 'przekazanie', object_members: 'dostęp do listy', group_members: 'osoba w grupie', groups: 'grupa', activity: 'historia', my_day_scopes: 'ustawienie Moich spraw', shopping_trips: 'zrobione zakupy' }) satisfies Record<Entity, string>)[e],
 
   'auth.title': 'Organizer',
   'auth.tagline': 'Sprawy rodziny i znajomych w jednym miejscu.',

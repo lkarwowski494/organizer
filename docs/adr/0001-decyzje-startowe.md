@@ -28,7 +28,7 @@ i raporty researchu w folderze „Organizer grup” na Google Drive.
 | D9 | Buildy | GitHub Actions + fastlane, repo publiczne po audycie → publiczne od 6.10.2026 (docs/audits/2026-10-06-przed-upublicznieniem.md) |
 | D10/D19/D34 | Dzieci | profile bez kont, pochwała zamiast punktów, tryb dziecka → D19 (pochwała) niezrobione — w kodzie nie ma pochwały, licznik serii D114 (ADR 0028) „nie ocenia ani nie nagradza”; konto dziecka przez połączenie profilu (D155, ADR 0035) |
 | D11/D22 | Model biznesowy | całkiem za darmo, bez reklam |
-| D12 | Usypianie Supabase | ruch rodziny + monitor dostępności → monitora jeszcze nie ma; zaplanowany jako nocny skrypt limitów z podtrzymaniem projektu (D185, ADR 0041) |
+| D12 | Usypianie Supabase | ruch rodziny + monitor dostępności → od 9.10.2026 nocny skrypt limitów z podtrzymaniem projektu (D185, ADR 0041) — działa po dodaniu sekretu `SUPABASE_MONITOR_TOKEN` przez właściciela; bez sekretu nic nie mierzy, a od 16.10.2026 oblewa nocny przebieg (docs/limits.md) |
 | D13–D16 | Terminy | dziedziczenie z wydarzenia (idzie za nim), pytanie przy odwołaniu, podzadania dziedziczą, bez terminu = przypięte na górze |
 | D17 | Widżet | Faza 1; w MVP app group + SQLite w kontenerze grupy → niezrobione: uprawnienie app group jest w app.json, ale baza konta leży w domyślnym katalogu aplikacji (`openDatabaseSync` bez katalogu kontenera); przy widżecie trzeba przenieść plik bazy |
 | D18 | Szybkie dodawanie | regułowy polski parser dat z etykietą do odklikania |
