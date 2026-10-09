@@ -33,10 +33,11 @@ import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
 import { AskPanel } from '../../ui/AskPanel';
-import { BackButton, Body, Button, Checkbox, ErrorText, Field, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Checkbox, ErrorText, Field, GroupLine, META_SEP, MissingScreen, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
+import { PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
@@ -96,10 +97,7 @@ export function TaskScreen({ route, navigation }: Props) {
 
   if (!task || !detail) {
     return (
-      <Screen testID="screen-task-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-task-missing" text={strings['missing.task']} onBack={() => navigation.goBack()} />
     );
   }
   // Usunięte gdzie indziej albo otwarte z linku do usuniętego (z tego ekranu usunięcie wraca z paskiem „Cofnij”, M-254).
@@ -176,7 +174,7 @@ export function TaskScreen({ route, navigation }: Props) {
     const p = personOf(tables, userId, memberId);
     return p ? [strings['who.task'](p)] : [];
   };
-  const groupLine = `${detail.list.groupName} · ${detail.list.name}${node?.due ? ` · ${formatDue(node.due, today)}` : ''}`;
+  const groupLine = [detail.list.name, ...(node?.due ? [formatDue(node.due, today)] : [])].join(META_SEP);
   const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
 
   return (
@@ -186,9 +184,7 @@ export function TaskScreen({ route, navigation }: Props) {
         {/* PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own). */}
         {canCheck(task) ? <Checkbox checked={task.completed_at !== null} onPress={() => actions.toggle(task)} label={`${task.completed_at ? strings['task.undone'] : strings['task.done']}: ${task.title}`} /> : null}
         {/* M-146: nagłówek ekranu dla VoiceOvera to nazwa zadania (z grupą i listą); wygląd bez zmian. */}
-        <Text accessibilityRole="header" accessibilityLabel={`${task.title}, ${groupLine}`} style={{ flex: 1, fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>
-          {groupLine}
-        </Text>
+        <GroupLine flex name={detail.list.groupName} line={detail.list.line} detail={groupLine} header={`${task.title}, ${detail.list.groupName}, ${groupLine.split(META_SEP).join(', ')}`} />
       </View>
       {lacksAddressee(tables, userId, task) ? <Text testID="task-no-addressee" style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings['task.noAddressee']}</Text> : null}
       {/* Dziecko (D34) tylko odhacza: bez pól, które serwer i tak odrzuci. */}
@@ -291,7 +287,7 @@ export function TaskScreen({ route, navigation }: Props) {
       ) : null}
       {canEdit ? (
         <View style={{ gap: 6 }}>
-          <Segmented
+          <PersonPicker
             label={strings['task.assignee']}
             value={task.assignee_member_id ?? ''}
             onChange={(v) => {

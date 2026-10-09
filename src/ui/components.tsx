@@ -6,7 +6,7 @@
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { NavigationContext } from '@react-navigation/native';
 import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -71,8 +71,11 @@ function useSwipeGroup(): SwipeGroup {
  *  - M-149: pod treścią ekranu stosu jest strefa wskaźnika Home (insets.bottom; na zakładkach zajmuje ją pasek zakładek),
  *    a przy widocznym pasku „Cofnij” — jeszcze jego wysokość, żeby ostatni przycisk dało się dotknąć;
  *  - M-294 (PWD-25 B): na iPadzie treść najwyżej layout.CONTENT_MAX_WIDTH szerokości, wyśrodkowana.
+ * `refresh` — „przeciągnij, by odświeżyć” (PWD-10 A, audyt 2 M-279; zakładki i ekran listy): RefreshControl z React Native
+ * (https://reactnative.dev/docs/refreshcontrol, właściwości `refreshing` i `onRefresh`). Kółko kręci się, dopóki trwa
+ * pobieranie (`refreshing`).
  */
-export function Screen({ children, scroll = true, testID }: { children: ReactNode; scroll?: boolean; testID?: string }) {
+export function Screen({ children, scroll = true, testID, refresh }: { children: ReactNode; scroll?: boolean; testID?: string; refresh?: { refreshing: boolean; onRefresh: () => void } }) {
   const { c, space, layout } = useTheme();
   const insets = useSafeAreaInsets();
   const swipe = useSwipeGroup();
@@ -93,7 +96,16 @@ export function Screen({ children, scroll = true, testID }: { children: ReactNod
         // its contentInset and scrollViewInsets when the Keyboard changes its size”
         // (https://reactnative.dev/docs/0.86/scrollview#automaticallyadjustkeyboardinsets-ios).
         <View style={style}>
-          <ScrollView testID={testID} style={style} contentContainerStyle={content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets onScrollBeginDrag={swipe.closeAll}>
+          <ScrollView
+            testID={testID}
+            style={style}
+            contentContainerStyle={content}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
+            onScrollBeginDrag={swipe.closeAll}
+            refreshControl={refresh ? <RefreshControl refreshing={refresh.refreshing} onRefresh={refresh.onRefresh} tintColor={c.inkMuted} accessibilityLabel={strings['common.refresh']} /> : undefined}
+          >
             {children}
           </ScrollView>
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: c.ground }} />
@@ -181,9 +193,9 @@ export function SectionTitle({ children }: { children: string }) {
   );
 }
 
-export function Body({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: object }) {
+export function Body({ children, muted, style, testID }: { children: ReactNode; muted?: boolean; style?: object; testID?: string }) {
   const { c, font, size } = useTheme();
-  return <Text style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
+  return <Text testID={testID} style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
 }
 
 /**
@@ -350,14 +362,20 @@ export function Checkbox({ checked, onPress, label, round = true }: { checked: b
   );
 }
 
+/** Jedyny separator pól w opisie wiersza (audyt 2, M-128): StationRow, EventRow, src/app/row-meta.ts. */
+export const META_SEP = '  ·  ';
+
 /**
- * Wiersz-stacja: odcinek linii grupy z kropką, tytuł, opis (grupa · termin · osoba) i pole do odhaczenia.
- * `depth` wcina podzadania; `faded` dla zrobionych.
+ * Wiersz-stacja: odcinek linii grupy z kropką, tytuł, opis (czas · grupa · osoba…) i pole do odhaczenia.
+ * `depth` wcina podzadania; zrobione — przekreślone. `when` — czas (godzina albo termin) na początku opisu, jak w EventRow
+ * (M-128). `readOnly` — bez pola odhaczania (blady przyszły termin zadania powtarzanego, zrobione zakupy w Kalendarzu).
  */
 export function StationRow(props: {
   title: string;
   line: number;
   group?: string;
+  when?: string;
+  readOnly?: boolean;
   meta?: string[];
   depth?: number;
   checked: boolean;
@@ -386,16 +404,19 @@ export function StationRow(props: {
   // Audyt 2 (M-263): VoiceOver zaczyna od tytułu, czyta widoczne dopiski (także „czeka na wysłanie”) słowami, a czynność
   // jest w podpowiedzi, nie w etykiecie. Wiersz bez otwierania (M-142) to zwykły element z etykietą — nie „wyszarzony”
   // przycisk.
-  const label = [props.title, props.alert, props.group, ...(props.meta ?? []).map(spoken), props.pending ? strings['lists.pendingItem'] : null].filter(Boolean).join(', ');
+  const label = [props.title, props.alert, props.when ? spoken(props.when) : null, props.group, ...(props.meta ?? []).map(spoken), props.pending ? strings['lists.pendingItem'] : null].filter(Boolean).join(', ');
   const body = (
     <>
-      <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done || props.readOnly ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
       {props.alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.danger }}>{props.alert}</Text> : null}
-      {props.group || props.meta?.length || props.pending ? (
+      {props.when || props.group || props.meta?.length || props.pending ? (
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
-          {props.group ? <Text style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text> : null}
-          {props.meta?.length ? `${props.group ? '  ' : ''}${props.meta.join('  ·  ')}` : ''}
-          {props.pending ? <Text style={{ fontFamily: font.text700, color: c.pendingInk }}>{`  ·  ${strings['lists.pendingItem']}`}</Text> : null}
+          {[
+            ...(props.when ? [<Text key="when" style={{ fontFamily: font.text700, color: c.ink }}>{props.when}</Text>] : []),
+            ...(props.group ? [<Text key="group" style={{ fontFamily: font.text700, color: l.ink }}>{props.group}</Text>] : []),
+            ...(props.meta ?? []),
+            ...(props.pending ? [<Text key="pending" style={{ fontFamily: font.text700, color: c.pendingInk }}>{strings['lists.pendingItem']}</Text>] : []),
+          ].flatMap((part, i) => (i === 0 ? [part] : [META_SEP, part]))}
         </Text>
       ) : null}
     </>
@@ -405,7 +426,7 @@ export function StationRow(props: {
     <View testID={props.testID} style={{ flexDirection: 'row', alignItems: 'stretch', minHeight: sub ? 52 : 60, marginLeft: Math.min(props.depth ?? 0, 3) * 22 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         {/* Wstążka grupy (D72): szeroka, zaokrąglona, z kropką w jaśniejszej obwódce. */}
-        <View style={{ position: 'absolute', top: 0, bottom: 0, width: sub ? 4 : 10, borderRadius: 5, backgroundColor: l.line, opacity: done ? 0.12 : 0.28 }} />
+        <View style={{ position: 'absolute', top: 0, bottom: 0, width: sub ? 4 : 10, borderRadius: 5, backgroundColor: l.line, opacity: done || props.readOnly ? 0.12 : 0.28 }} />
         {sub ? null : <View style={{ position: 'absolute', top: 11, width: 30, height: 30, borderRadius: 15, backgroundColor: done ? c.control : l.line, opacity: 0.22 }} />}
         <View style={{ marginTop: sub ? 18 : 16, width: sub ? 12 : 20, height: sub ? 12 : 20, borderRadius: 10, backgroundColor: done ? c.control : l.line }} />
       </View>
@@ -426,11 +447,34 @@ export function StationRow(props: {
           {body}
         </View>
       )}
-      {props.onToggle ? (
+      {props.onToggle && !props.readOnly ? (
         <View style={{ justifyContent: 'center' }}>
           <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Zwijana sekcja („Bez terminu (N)” w tygodniu i miesiącu, „Zrobione dziś (N)”, „Zrobione (N)” na ekranie wydarzenia —
+ * PWD-7 A, PWD-13 A): nagłówek jest przyciskiem ze stanem rozwinięcia dla VoiceOvera.
+ */
+export function Collapsible({ title, open, onToggle, children, testID }: { title: string; open: boolean; onToggle: () => void; children: ReactNode; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <View testID={testID}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={(open ? strings['section.hideA11y'] : strings['section.showA11y'])(title)}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET }}
+      >
+        <Text style={{ fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted }}>{title}</Text>
+        <Glyph name={open ? 'less' : 'more'} color={c.inkMuted} place="inline" />
+      </Pressable>
+      {open ? children : null}
     </View>
   );
 }
@@ -638,7 +682,7 @@ export function TokenChip({ text, onPress }: { text: string; onPress: () => void
  * na inny ekran (strzałka „›” obiecuje przejście, audyt 2: G-14, U-14).
  */
 export function NavRow({ title, subtitle, line, onPress, testID, chevron = true }: { title: string; subtitle?: string; line?: number; onPress: () => void; testID?: string; chevron?: boolean }) {
-  const { c, font, size, radius, line: lineOf } = useTheme();
+  const { c, font, size, radius } = useTheme();
   const actions = useSwipeAction();
   return (
     <Pressable
@@ -649,7 +693,7 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.ROW, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
     >
-      {line === undefined ? null : <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 5, borderColor: lineOf(line).line, backgroundColor: c.surface }} />}
+      {line === undefined ? null : <GroupMark line={line} />}
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.ink }}>{title}</Text>
         {subtitle ? <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{subtitle}</Text> : null}
@@ -725,11 +769,11 @@ export function EventRow({ title, time, length, part, line, group, onPress, test
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
-          {length ? `  ·  ${length}` : ''}
-          {part ? `  ·  ${part}` : ''}
-          {'  ·  '}
+          {length ? `${META_SEP}${length}` : ''}
+          {part ? `${META_SEP}${part}` : ''}
+          {META_SEP}
           <Text style={{ fontFamily: font.text700, color: l.ink }}>{group}</Text>
-          {extra ? `  ·  ${extra}` : ''}
+          {extra ? `${META_SEP}${extra}` : ''}
         </Text>
         {/* D129: „Wyjdź o …” — jedyna pilna informacja — w osobnej, wyróżnionej linii; „powtarza się” tylko w szczegółach. */}
         {alert ? <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.accentInk }}>{alert}</Text> : null}
@@ -780,6 +824,43 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
         })}
       </View>
     </View>
+  );
+}
+
+/** Znacznik grupy (audyt 2, M-252): jeden kształt — pierścień w kolorze linii — w wierszach, liniach grupy i na ekranie grupy. */
+export function GroupMark({ line, size: px = 18 }: { line: number; size?: number }) {
+  const { c, line: lineOf } = useTheme();
+  return <View style={{ width: px, height: px, borderRadius: px / 2, borderWidth: Math.round(px * 0.28), borderColor: lineOf(line).line, backgroundColor: c.surface }} />;
+}
+
+/**
+ * Linia grupy nad tytułem na ekranach szczegółów (audyt 2, M-252): jeden znacznik grupy (pierścień w kolorze linii, jak
+ * w wierszach nawigacji i na ekranie grupy), nazwa grupy w jej kolorze i jedna linia opisu. `header` — etykieta nagłówka
+ * VoiceOvera, gdy linia zastępuje nagłówek ekranu (zadanie, M-146).
+ */
+export function GroupLine({ name, line, detail, header, flex }: { name: string; line: number; detail?: string; header?: string; flex?: boolean }) {
+  const { c, font, size, line: lineOf } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: flex ? 1 : undefined }}>
+      <GroupMark line={line} />
+      <Text accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header} style={{ flex: 1, fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
+        <Text style={{ fontFamily: font.text700, color: lineOf(line).ink }}>{name}</Text>
+        {detail ? `${META_SEP}${detail}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Ekran rzeczy, której nie ma (usunięta, stary link, powiadomienie; audyt 2, M-131): „Wróć” i powód zamiast „Coś poszło nie
+ * tak. Spróbuj jeszcze raz.” — nie ma czego ponawiać.
+ */
+export function MissingScreen({ text, onBack, testID }: { text: string; onBack: () => void; testID: string }) {
+  return (
+    <Screen testID={testID}>
+      <BackButton onPress={onBack} />
+      <Body muted>{text}</Body>
+    </Screen>
   );
 }
 

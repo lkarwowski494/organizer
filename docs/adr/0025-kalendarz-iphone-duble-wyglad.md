@@ -15,7 +15,7 @@ kwadraciki prawie w każdym dniu siatki) i dublują wpisy wprowadzone w aplikacj
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - Kalendarze do wyboru są brane z pobranych wydarzeń (bez nowego wywołania iOS). Kalendarz bez wydarzeń w oknie odczytu nie ma czego ukrywać. Wybór zostaje na tym telefonie (prefs `calendarSkip`).
 - Dubel (`isDuplicate`, `src/domain/views/calendar-sync.ts`): słowa nazwy bez polskich znaków, co najmniej 4 litery, bez samych liczb.
-  - Parametry: `config.calendar.DUPLICATE_WINDOW_MIN` = 30, `DUPLICATE_MIN_WORD` = 4. To wybory projektowe bez źródła.
+  - Parametry: `config.calendar.DUPLICATE_WINDOW_MIN` = 30, `DUPLICATE_MIN_WORD` = 4. To wybory projektowe bez źródła. → `DUPLICATE_MIN_WORD` usunięty przez D173 (niżej).
   - Kolejne dni wydarzenia wielodniowego („cd.”) nigdy nie są dublami.
   - Dubel jest ukrywany na liście dnia (Moje sprawy, Kalendarz) i nie daje kropki w siatce.
 - Ryzyko: rzadko ukryje wydarzenie, które nie było dublem (ta sama godzina i wspólne słowo, np. „Basen”). Wtedy można wyłączyć… nic — ukrywanie nie ma wyłącznika. Otwarte pytanie: czy dać przełącznik „Ukrywaj duble” (decyzja produktowa, do właściciela, jeśli zdarzy się w praktyce).

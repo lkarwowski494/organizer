@@ -28,7 +28,7 @@ describe('lokalna baza: migracje', () => {
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     const tables = db.all<{ name: string }>("select name from sqlite_master where type = 'table' order by name").map((r) => r.name);
-    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_rsvps', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'object_members', 'pending_ops', 'rejected_ops', 'staged_rows', 'sync_state', 'tasks']);
+    expect(tables).toEqual(['activity', 'event_overrides', 'event_participants', 'event_rsvps', 'event_task_series', 'events', 'group_members', 'groups', 'handoffs', 'lists', 'my_day_scopes', 'object_members', 'pending_ops', 'rejected_ops', 'shopping_trips', 'staged_rows', 'sync_state', 'tasks']);
   });
 
   it('aktualizacja z wersji 1 dodaje tabele wydarzeń, stałych zadań serii i obecności i nie rusza istniejących danych', () => {
@@ -54,6 +54,25 @@ describe('lokalna baza: migracje', () => {
     db.run("insert into sync_state (key, value) values ('cursors', '{\"g1\":9}'), ('clientId', 'c1'), ('local:x', '1')");
     expect(migrate(db)).toBe(SCHEMA_VERSION);
     expect(db.all<{ key: string }>('select key from sync_state order by key').map((r) => r.key)).toEqual(['clientId', 'local:x']);
+  });
+
+  // Audyt 2 (M-272): aktualizacja z każdej wydanej wersji daje ten sam schemat co nowa baza i nie gubi kolejki.
+  const schemaOf = (db: ReturnType<typeof memoryDb>) =>
+    db.all<{ name: string; sql: string }>("select name, sql from sqlite_master where sql is not null order by name");
+  it.each(MIGRATIONS.slice(0, -1).map((m) => m.version))('aktualizacja z wersji %i daje schemat nowej bazy, kolejka zostaje', (v) => {
+    const fresh = memoryDb();
+    migrate(fresh);
+    const db = memoryDb();
+    db.transaction(() => {
+      for (const m of MIGRATIONS.slice(0, v)) db.exec(m.sql);
+      db.exec(`pragma user_version = ${v}`);
+    });
+    db.run("insert into pending_ops (seq, op_id, op) values (7, 'o7', '{}')");
+    db.run("insert into sync_state (key, value) values ('local:x', '1')");
+    expect(migrate(db)).toBe(SCHEMA_VERSION);
+    expect(schemaOf(db)).toEqual(schemaOf(fresh));
+    expect(db.all('select seq, op_id from pending_ops')).toEqual([{ seq: 7, op_id: 'o7' }]);
+    expect(db.all("select value from sync_state where key = 'local:x'")).toEqual([{ value: '1' }]);
   });
 
   it('tabele lustrzane = encje, które silnik wysyła serwerowi (audyt 2, M-58)', () => {

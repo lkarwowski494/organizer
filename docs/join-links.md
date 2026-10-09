@@ -10,7 +10,9 @@ Klikalny link `https://lkarwowski494.github.io/j/?g=…&c=…` wymaga dwóch kro
 4. W nowym repozytorium: **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
    gałąź `main`, katalog `/ (root)` → **Save**.
 
-Po tym kroku link w zaproszeniu otwiera stronę z ID, kodem i przyciskiem „Otwórz w aplikacji”.
+Po tym kroku strona otwiera się z ID, kodem i przyciskiem „Otwórz w aplikacji”. Do wiadomości z zaproszeniem link trafia
+dopiero po przestawieniu `config.invites.LINK_LIVE` na `true` i nowym buildzie (D141 — do tego czasu wiadomość ma tylko
+ID grupy i kod); zrobię to, gdy dasz znać, że strona działa.
 Koszt: zero (GitHub Pages dla repozytoriów publicznych).
 
 ## Krok 2. Otwieranie aplikacji prosto z linku (Apple Developer, ~1 min)

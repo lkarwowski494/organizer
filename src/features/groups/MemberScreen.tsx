@@ -15,7 +15,7 @@ import { remove, renameMember, restore, setRole } from '../../domain/views/comma
 import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ConfirmText, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ConfirmText, ErrorText, Field, GroupLine, META_SEP, MissingScreen, Screen, Segmented, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
 import { JoinCodeCard } from './JoinCodeCard';
@@ -60,10 +60,7 @@ export function MemberScreen({ route, navigation }: Props) {
 
   if (!d || !m) {
     return (
-      <Screen testID="screen-member-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-member-missing" text={strings['groups.error.member']} onBack={() => navigation.goBack()} />
     );
   }
   const can = transferred ? NONE : memberActions(d, m);
@@ -78,15 +75,16 @@ export function MemberScreen({ route, navigation }: Props) {
   return (
     <Screen testID="screen-member">
       <BackButton onPress={() => navigation.goBack()} />
+      {/* M-252: linia grupy jak na ekranach listy, zadania i wydarzenia (grupa w jej kolorze, rola osoby). */}
+      <GroupLine name={d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name} line={d.group.line} detail={[strings[`groups.role.${m.role}`], ...(m.role === 'child' && m.user_id !== null ? [strings['member.hasAccount']] : [])].join(META_SEP)} />
       <Title>{m.display_name}</Title>
-      <Body muted>{[d.group.kind === 'personal' ? strings['groups.personal'] : d.group.name, strings[`groups.role.${m.role}`], ...(m.role === 'child' && m.user_id !== null ? [strings['member.hasAccount']] : [])].join(' · ')}</Body>
       {/* D128: plan lekcji tylko przy dziecku. */}
       {d.group.kind === 'shared' && d.group.me.role !== 'child' && m.role === 'child' ? (
         <Button kind="secondary" label={strings['timetable.open']} testID="open-timetable" onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />
       ) : null}
       {can.rename ? (
         <View style={{ gap: 6 }}>
-          <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} testID="member-name" />
+          <Field label={strings['member.name']} {...name.field} maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" testID="member-name" />
           {name.error ? <ErrorText>{name.error}</ErrorText> : null}
           {/* Audyt 2 (P-67): imię w tej grupie a imię konta — gdzie zmienić to drugie. */}
           {m.user_id === userId ? <Body muted>{strings['member.nameHere']}</Body> : null}

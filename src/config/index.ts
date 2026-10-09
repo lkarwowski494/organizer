@@ -63,7 +63,7 @@ export const config = {
   rrule: { MAX_LENGTH: 200, INTERVAL_MAX: 99, COUNT_MAX: 1000 },
 
   /**
-   * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
+   * Wydarzenia. LOCATION_MAX_LENGTH (miejsce wydarzenia, ADR 0029): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
    * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
    * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
    * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
@@ -119,6 +119,15 @@ export const config = {
    */
   forms: { DRAFT_MAX_DAYS: 7 },
 
+  /**
+   * Zakres Moich spraw w dużej grupie (PW-2 A, audyt 2 M-35): od ilu osób grupa dostaje podpowiedź ustawienia „W Moich
+   * sprawach” (po dołączeniu i utworzeniu) — liczą się wszyscy członkowie, także dzieci. Wybór osoby z wyszukiwaniem
+   * (PWD-30 A, M-299): od ilu osób do wyboru zamiast rzędu przycisków. Wybory projektowe, bez źródła (rodzina mieści
+   * się poniżej obu progów, klasa i grupa znajomych — powyżej).
+   */
+  myDays: { LARGE_GROUP_MEMBERS: 10 },
+  people: { PICKER_SEARCH_FROM: 7 },
+
   /** Wybór godziny kafelkami (D125): krok minut. Wybór projektowy, bez źródła (inne minuty wpisuje się ręcznie). */
   time: { MINUTE_STEP: 5 },
 
@@ -145,7 +154,9 @@ export const config = {
 
   /**
    * Przypomnienia na telefonie (D75, decyzja właściciela z 7.10.2026): domyślnie 30 min przed sprawą z godziną
-   * i zbiorcze o 8:00 dla spraw bez godziny; osoba zmienia to w Ustawieniach. Wybory projektowe, bez źródła.
+   * i poranne podsumowanie o 8:00 — od D110 (ADR 0026) z całym dniem, nie tylko ze sprawami bez godziny; wydarzenie
+   * i zadanie z podzadaniami mają jedno zbiorcze przypomnienie (D134, ADR 0035). Osoba zmienia to w Ustawieniach.
+   * Wybory projektowe, bez źródła.
    */
   reminders: {
     LEAD_MIN: 30,
@@ -163,8 +174,11 @@ export const config = {
     /**
      * Najwyżej tyle zaplanowanych powiadomień naraz = limit iOS: „An app can have only a limited number of scheduled
      * notifications; the system keeps the soonest-firing 64 notifications (with automatically rescheduled notifications
-     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification — dokumentacja archiwalna:
-     * https://developer.apple.com/library/archive/documentation/iPhone/Reference/UILocalNotification_Class/index.html).
+     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification,
+     * https://developer.apple.com/documentation/uikit/uilocalnotification, przeczytane 9.10.2026; dawny adres archiwalny
+     * przekierowuje tutaj). Klasa jest przestarzała od iOS 10 na rzecz UNNotificationRequest; strony UNNotificationRequest,
+     * UNUserNotificationCenter.add i „Scheduling a notification locally from your app” (przeczytane tego dnia) liczby
+     * nie podają, więc to jedyna przeczytana liczba Apple.
      * Plan bierze najbliższe, więc nadmiar i tak by przepadł.
      */
     MAX_SCHEDULED: 64,
@@ -172,7 +186,9 @@ export const config = {
     MORNING_LIST_MAX: 4,
     /**
      * Przypomnienia bliższe niż tyle od chwili planowania pomijamy (audyt 2, N-7): iOS odrzuca wyzwalacz z odstępem ≤ 0
-     * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger), a datę ucina do sekundy.
+     * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger,
+     * https://developer.apple.com/documentation/usernotifications/untimeintervalnotificationtrigger/init(timeinterval:repeats:)),
+     * a datę ucina do sekundy.
      * 5 s — zapas na czas między policzeniem planu a zaplanowaniem; wybór projektowy.
      */
     SCHEDULE_MARGIN_MS: 5_000,
@@ -260,6 +276,11 @@ export const config = {
       lists: { sort_key: 'a0', staples: [], visibility: 'group' },
       tasks: { deadline_mode: 'none', rollover: true, sort_key: 'a0' },
     } as { readonly [entity: string]: { readonly [column: string]: unknown } },
+    /**
+     * „Przeciągnij, by odświeżyć” (PWD-10 A): najkrótszy czas kółka, żeby szybkie pobranie też dało znak. Wybór
+     * projektowy, bez źródła.
+     */
+    REFRESH_SPIN_MS: 600,
   },
 
   /**
@@ -314,8 +335,9 @@ export const config = {
    *  - PUSH_LOG_DAYS — dziennik wysłanych powiadomień (private.push_log_retention_days; musi być dłuższy niż
    *    PUSH_MAX_AGE_H, test kontraktowy); CRON_HISTORY_DAYS — historia zadań pg_cron (private.cron_history_days)
    *    — audyt 2, M-154, D-23; wybory projektowe, bez źródła.
+   *  - TRIP_DAYS — zrobione zakupy w Kalendarzu (PWD-11 A, public.shopping_trips), jak historia zmian.
    */
-  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7 },
+  retention: { ACTIVITY_DAYS: 90, HANDOFF_DAYS: 90, INVITE_DAYS: 30, ACCESS_EVENT_DAYS: 30, SYNC_CLIENT_DAYS: 180, JOIN_ATTEMPT_DAYS: 1, MAINTENANCE_RUN_DAYS: 90, PUSH_LOG_DAYS: 7, CRON_HISTORY_DAYS: 7, TRIP_DAYS: 90 },
 
   /**
    * Twarde limity na konto (decyzja właściciela z 8.10.2026, D183, PW-44 A; audyt 2, M-70): jedno konto nie zapełni bazy
@@ -341,12 +363,20 @@ export const config = {
   LOCALE: 'pl-PL',
   TIME_ZONE: 'Europe/Warsaw',
 
+  /**
+   * Najniższa wersja iOS (D35, `ios.deploymentTarget` w app.json; test kontraktowy). Tyle wymaga Expo SDK 57: tabela
+   * „Support for Android and iOS versions” — „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
+   * https://docs.expo.dev/versions/v57.0.0/), i tyle mają podspeci Expo (`:ios => '16.4'`, node_modules/expo/Expo.podspec).
+   * Funkcje z iOS 17+ (zgoda tylko na zapis do kalendarza) mają na iOS 16 zachowanie zastępcze — src/app/device-calendar.ts.
+   */
+  IOS_MIN: '16.4',
   /** Identyfikatory Apple (D36) — jawne, nie są sekretami. */
   BUNDLE_ID: 'io.github.lkarwowski494.organizer',
   APP_GROUP: 'group.io.github.lkarwowski494.organizer',
   /**
    * Projekt Supabase (D1, D41: „organizer”, Frankfurt). Adres jest jawny (trafia do aplikacji); klucz
-   * publikowalny podaje build w zmiennej EXPO_PUBLIC_SUPABASE_KEY — też jawny z założenia (RLS chroni dane),
+   * publikowalny podaje build w zmiennej EXPO_PUBLIC_SUPABASE_KEY (w ios-release.yml ze zmiennej środowiska
+   * `SUPABASE_PUBLISHABLE_KEY`, ADR 0006) — też jawny z założenia (RLS chroni dane),
    * ale trzymany poza repozytorium, żeby skanery sekretów nie miały fałszywych alarmów.
    */
   SUPABASE_URL: 'https://rkokujgrziaaxabtxnlo.supabase.co',

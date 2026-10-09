@@ -19,14 +19,15 @@ import { coveredDays, endDayOffset } from '../../domain/span';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
 import { checkOff, listsView } from '../../domain/views';
-import { affectedByCancel, attachedTasks, createEventTask, nextOccurrence, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
+import { affectedByCancel, createEventTask, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, timeLabel } from '../../domain/views/events';
 import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, MissingScreen, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
+import { useRowMeta } from '../../app/row-meta';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -40,7 +41,7 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
   const { tables, today } = useAppData();
-  const { c, font, line, size } = useTheme();
+  const { c, font, size } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
   const { eventId: linked, date: linkedDate } = route.params;
@@ -57,13 +58,12 @@ export function EventScreen({ route, navigation }: Props) {
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
   const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
+  const meta = useRowMeta();
+  const [doneOpen, setDoneOpen] = useState(false);
 
   if (!d || d.event.deleted_at !== null) {
     return (
-      <Screen testID="screen-event-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-event-missing" text={strings['missing.event']} onBack={() => navigation.goBack()} />
     );
   }
   // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
@@ -91,9 +91,28 @@ export function EventScreen({ route, navigation }: Props) {
   const responsibleRow = occ.responsibleId === null ? undefined : d.members.find((m) => m.member_id === occ.responsibleId);
   const responsible = responsibleRow ? (responsibleRow.user_id === userId ? strings['who.me'] : responsibleRow.display_name) : null;
   const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => (m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name));
-  const tasks = attachedTasks(tables, eventId, date);
+  // M-130: zadania tego terminu z własnym terminem i osobą (jak w Moich sprawach); zrobione — zwinięte (PWD-7 A).
+  const { open: tasks, done: doneTasks } = occurrenceTasks(tables, eventId, date);
   // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
   const canCheck = checkOff(tables, userId);
+  const taskRow = (t: (typeof tasks)[number]) => {
+    const m = meta.task({ ...t, line: d.line, groupName: d.groupName, listName: '', assignee: null }, occ.date);
+    return (
+      // Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34).
+      <SwipeRow key={t.id} title={t.title} enabled={d.canEdit} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
+        <StationRow
+          testID={`event-task-${t.id}`}
+          title={t.title}
+          line={d.line}
+          when={m.when}
+          meta={m.meta}
+          checked={t.completed_at !== null}
+          onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
+          onOpen={() => navigation.navigate('Task', { taskId: t.id })}
+        />
+      </SwipeRow>
+    );
+  };
   const rsvp = rsvpView(tables, userId, eventId, date);
   const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
@@ -154,10 +173,7 @@ export function EventScreen({ route, navigation }: Props) {
   return (
     <Screen testID="screen-event">
       <BackButton onPress={() => navigation.goBack()} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 20, height: 20, borderRadius: 5, backgroundColor: line(d.line).line }} />
-        <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: line(d.line).ink }}>{d.groupName}</Text>
-      </View>
+      <GroupLine name={d.groupName} line={d.line} />
       <Title>{occ.title}</Title>
       <Body>{when}</Body>
       {long ? (
@@ -219,20 +235,13 @@ export function EventScreen({ route, navigation }: Props) {
       {calendarMsg === 'saved' ? <StatusText>{strings['event.calendarSaved']}</StatusText> : calendarMsg === 'denied' ? <ErrorText>{strings['event.calendarDenied']}</ErrorText> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
-      {/* Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34). */}
-      {tasks.map((t) => (
-        <SwipeRow key={t.id} title={t.title} enabled={d.canEdit} onDelete={() => actions.remove(t)} testID={`swipe-${t.id}`}>
-          <StationRow
-            testID={`event-task-${t.id}`}
-            title={t.title}
-            line={d.line}
-            meta={[formatDue({ date: occ.date, time: occ.startTime }, today)]}
-            checked={false}
-            onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
-            onOpen={() => navigation.navigate('Task', { taskId: t.id })}
-          />
-        </SwipeRow>
-      ))}
+      {tasks.length === 0 && doneTasks.length === 0 ? <Body muted>{strings['event.noTasks']}</Body> : null}
+      {tasks.map((t) => taskRow(t))}
+      {doneTasks.length ? (
+        <Collapsible title={strings['event.tasksDone'](doneTasks.length)} open={doneOpen} onToggle={() => setDoneOpen(!doneOpen)} testID="event-tasks-done">
+          {doneTasks.map((t) => taskRow(t))}
+        </Collapsible>
+      ) : null}
       {defs.length ? (
         <View style={{ gap: 8 }}>
           <Body muted>{strings['event.seriesTasks']}</Body>

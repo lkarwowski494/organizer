@@ -17,7 +17,7 @@ Status: przyjęte. Commity: 9753bab, 617081d, dbb3390.
 2. **Baza telefonu osobna dla każdego konta** (`organizer-<userId>.db`). Po zmianie konta nic nie przecieka między osobami.
 
    Odrzucone: jedna baza czyszczona przy wylogowaniu. Jest ryzyko, że czyszczenie zostanie przerwane.
-3. **Klucz publikowalny Supabase przychodzi ze zmiennej środowiska `ios-release`** (`SUPABASE_PUBLISHABLE_KEY`), nie z repozytorium.
+3. **Klucz publikowalny Supabase przychodzi ze zmiennej środowiska `ios-release`** (`SUPABASE_PUBLISHABLE_KEY`; build podaje go aplikacji jako `EXPO_PUBLIC_SUPABASE_KEY`), nie z repozytorium.
    - Klucz jest jawny z założenia, dane chroni RLS.
    - Trzymamy go poza repozytorium, żeby skanery sekretów nie zgłaszały fałszywych alarmów.
    - Build nie startuje bez tej zmiennej.

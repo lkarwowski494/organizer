@@ -10,7 +10,7 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { type NameError, renameMeOps, validateName } from '../../domain/views/my-name';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Name'>;
@@ -54,9 +54,11 @@ export function NameScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-name">
+      {/* Audyt 2 (M-242): z Ustawień — „Wróć” jak na innych ekranach; przy starcie gest cofania jest wyłączony (navigation.tsx). */}
+      {asked ? null : <BackButton onPress={() => navigation.goBack()} />}
       <Title>{asked ? strings['name.askTitle'] : strings['name.title']}</Title>
       <Body muted>{strings['name.info']}</Body>
-      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" testID="name-field" />
+      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void save()} testID="name-field" />
       {error ? (
         <ErrorText>{ERRORS[error]}</ErrorText>
       ) : null}

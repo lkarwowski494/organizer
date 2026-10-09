@@ -28,6 +28,8 @@ const GLYPHS = {
   add: { sf: 'plus', text: '+' },
   more: { sf: 'chevron.down', text: '˅' },
   less: { sf: 'chevron.up', text: '˄' },
+  /** Wejście do Ustawień na górnym pasku zakładek (PW-28 A, D188). */
+  settings: { sf: 'gearshape', text: '⚙︎' },
 } as const;
 export type GlyphName = keyof typeof GLYPHS;
 

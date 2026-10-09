@@ -14,7 +14,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'Feedback'>;
 export function FeedbackScreen({ navigation }: Props) {
   const { account } = useServices();
   const [text, setText] = useState('');
-  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'limit' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'busy' | 'sent' | 'limit' | 'error' | 'empty'>('idle');
   const send = () => {
     setState('busy');
     account
@@ -30,7 +30,9 @@ export function FeedbackScreen({ navigation }: Props) {
       <Title>{strings['feedback.title']}</Title>
       <Body muted>{strings['feedback.info']}</Body>
       <Field label={strings['feedback.field']} value={text} onChangeText={(v) => (setText(v.slice(0, config.feedback.MAX_LENGTH)), setState('idle'))} multiline testID="feedback-text" />
-      <Button label={strings['feedback.send']} testID="feedback-send" disabled={text.trim() === ''} busy={state === 'busy'} onPress={send} />
+      {state === 'empty' ? <ErrorText testID="feedback-empty">{strings['feedback.empty']}</ErrorText> : null}
+      {/* PWD-5 A (M-274): pusty tekst — komunikat po naciśnięciu zamiast wyszarzonego przycisku. */}
+      <Button label={strings['feedback.send']} testID="feedback-send" busy={state === 'busy'} onPress={() => (text.trim() === '' ? setState('empty') : send())} />
       {state === 'sent' ? <StatusText>{strings['feedback.sent']}</StatusText> : null}
       {state === 'limit' || state === 'error' ? (
         <ErrorText>{strings[state === 'limit' ? 'feedback.limit' : 'feedback.error']}</ErrorText>

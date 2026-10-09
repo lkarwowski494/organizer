@@ -14,12 +14,12 @@ Wybór właściciela z listy kierunków: „Kalendarz w obie strony”.
    - Każdą można wyłączyć w Ustawieniach. Wyłączenie lustra usuwa kalendarze „Organizer” z iPhone'a.
    - „Dodaj do kalendarza” (D7) działa jak dotąd, z dostępem tylko do zapisu. Oba opisy uprawnień są w Info.plist (wtyczka expo-calendar ustawia jeden z nich, drugi dopisujemy w `ios.infoPlist`; test kontraktowy).
 2. **Moje wydarzenia** są tylko w pamięci ekranu: bez lokalnej bazy, kolejki i serwera.
-   - Okno: od 31 dni wstecz do 62 dni naprzód. Odświeżane przy każdym powrocie do aplikacji.
+   - Okno: od 31 dni wstecz do 62 dni naprzód (`config.calendar.READ_DAYS_BACK`, `READ_DAYS_AHEAD`). Odświeżane przy każdym powrocie do aplikacji.
    - Kalendarze lustra są pomijane, żeby nie było dubli.
    - Całodniowe wydarzenia mają daty w strefie telefonu. Wydarzenia z godziną zamieniamy na czas warszawski (R2).
 3. **Lustro:**
    - Każde wystąpienie to osobne wydarzenie bez reguły powtarzania, bo iPhone nie musi rozumieć naszych wyjątków.
-   - Okno: od 7 dni wstecz do 90 dni naprzód, najwyżej 500 wystąpień najbliższych dzisiejszej dacie.
+   - Okno: od 7 dni wstecz do 90 dni naprzód, najwyżej 500 wystąpień (`config.calendar.MIRROR_DAYS_BACK`, `MIRROR_DAYS_AHEAD`, `MIRROR_MAX`) najbliższych dzisiejszej dacie.
    - Nazwa zawiera osobę odpowiedzialną, w notatce jest nazwa grupy.
    - Stan (identyfikatory i skróty treści) jest w lokalnej bazie telefonu i zapisywany po każdym kroku, więc przerwanie nie zostawia dubli.
    - Kalendarz albo wydarzenie usunięte ręcznie w iPhonie zostaje odtworzone przy następnym przebiegu.

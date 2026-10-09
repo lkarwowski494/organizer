@@ -142,7 +142,7 @@ describe('historia zadania', () => {
     await openTask(base);
     const h = screen.getByTestId('task-history');
     const lines = within(h).getAllByText(/ · /).map((n) => [n.props.children].flat().map((x: unknown) => (typeof x === 'string' ? x : (x as { props: { children: string } }).props.children)).join(''));
-    expect(lines).toEqual(['Ktoś odhacza · dziś · 09:30', 'Ala zmienia: termin, powtarzanie, inne · dziś · 08:00', 'Ala dodaje · wczoraj · 18:05']);
+    expect(lines).toEqual(['Ktoś odhacza · dziś, 09:30', 'Ala zmienia: termin, powtarzanie, inne · dziś, 08:00', 'Ala dodaje · wczoraj, 18:05']);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText(/^Przynieść\ korki\ na\ trening(,|$)/));
     expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();

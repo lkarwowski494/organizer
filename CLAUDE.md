@@ -62,7 +62,8 @@ ma w komentarzu adres źródła.
   kontrola dostępu). Pull: kursor = wersja per grupa (D32). Realtime Broadcast wyłącznie jako sygnał bez treści
   spraw (numer wersji grupy albo znacznik zmiany dostępu).
 - Grupa jest kontenerem i granicą bezpieczeństwa; widoczność group/restricted/private (D3).
-- Każdy obiekt ma UUIDv7 nadawany na telefonie (`src/domain/ids.ts`, R3); zmiany wysyłane per pole.
+- Każdy obiekt ma UUIDv7 nadawany na telefonie (`src/domain/ids.ts`, R3); kopie stałych zadań serii i odpowiedzi
+  o obecności mają UUIDv5 liczony z treści, żeby dwa telefony nie zrobiły dubla; zmiany wysyłane per pole.
 - Członek grupy: `member_id` z opcjonalnym `user_id` (profile dzieci bez kont, D10/D34).
 - Podzadania do `config.MAX_TASK_DEPTH` (= 2, D4).
 
@@ -101,11 +102,13 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
   `permissions: contents: read` domyślnie, brak artefaktów z buildów wydania iOS (E2E publikuje tylko zrzuty ekranu
   i końcówkę logu — D170, 8.10.2026).
 - Commity podpisane adresem noreply: `336954459+lkarwowski494@users.noreply.github.com`.
-- Przed zmianą widoczności repo na publiczne: audyt całej historii (gitleaks + drugi skaner), e-maili
-  w commitach, ustawień workflow i logów przebiegów — wyniki do właściciela przed przełączeniem.
+- Repozytorium jest publiczne od 6.10.2026, po audycie całej historii (gitleaks + drugi skaner), e-maili w commitach,
+  ustawień workflow i logów przebiegów (`docs/audits/2026-10-06-przed-upublicznieniem.md`). Ten sam audyt — z wynikami
+  dla właściciela przed przełączeniem — przed upublicznieniem każdego innego repozytorium projektu.
 
 ## Koszty i limity (właściciel płaci tylko za Apple Developer)
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
-właściciela przy ok. 70% limitu. Progi są w `src/config` (`limits`) i `docs/limits.md`.
+właściciela przy ok. 70% limitu. Progi są w `src/config` (`limits`) i `docs/limits.md`;
+automat porównujący zużycie z progami (D185) jeszcze nie działa — sprawdzaj ręcznie.
 Repozytorium jest publiczne: standardowe maszyny GitHub Actions (także macOS) są bez opłat — „GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners” (https://docs.github.com/en/billing/concepts/product-billing/github-actions). Płatne „larger runners” — nie używamy.

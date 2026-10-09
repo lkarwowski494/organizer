@@ -14,6 +14,7 @@ import * as fc from 'fast-check';
 import { Client } from 'pg';
 
 import { applyOnServer, SYNC_ENTITIES, serverVerdict } from '../../src/domain/server-rules';
+import { scopeRowId } from '../../src/domain/views/my-scope';
 import { type Entity, type NewOp, type Row, rowKey } from '../../src/domain/sync-engine/client';
 import { dbDescribe } from './db-gate';
 
@@ -143,6 +144,9 @@ d('model reguł serwera = sync_push', () => {
       due_date: pick([null, '2026-10-09']),
       event_id: pick([id('c1'), id('ff')]),
       occurrence_date: pick(['2026-10-21', '2026-10-28']),
+      scope: pick(['all', 'mine']),
+      planned_date: pick([null, '2026-10-09']),
+      done_at: pick(['2026-10-08T10:00:00Z']),
       answer: pick(['yes', 'no']),
       status: pick(['accepted', 'declined', 'cancelled']),
       closed: fc.boolean(),
@@ -165,6 +169,8 @@ d('model reguł serwera = sync_push', () => {
       event_rsvps: ['event_id', 'occurrence_date', 'member_id', 'answer'],
       event_task_series: ['event_id', 'list_id', 'title'],
       handoffs: ['entity', 'entity_id', 'to_member'],
+      my_day_scopes: ['member_id', 'scope'],
+      shopping_trips: ['list_id', 'done_at'],
     };
     // Wartości poprawne dla ograniczeń CHECK (te model pomija — pilnują ich formularze i testy SQL): kolor grupy z palety,
     // zadanie bez pary wydarzenie–dzień, wyjątek bez godziny końca bez początku, termin i osoba tylko przy zakupach.
@@ -175,7 +181,10 @@ d('model reguł serwera = sync_push', () => {
     const patchable = (e: string) => SYNC_ENTITIES[e]!.patch.filter((c) => values[c] && !excluded.has(`${e}.${c}`));
     const entity = pick(Object.keys(SYNC_ENTITIES));
     const create = entity.chain((e) =>
-      fc.record({ kind: fc.constant('create' as const), entity: fc.constant(e as Entity), id: fc.constant(id('fe')), group_id: pick([G, G, G, G2, G3]), set: setFor(e)(required[e]!) }),
+      fc
+        .record({ kind: fc.constant('create' as const), entity: fc.constant(e as Entity), id: fc.constant(id('fe')), group_id: pick([G, G, G, G2, G3]), set: setFor(e)(required[e]!) })
+        // Zakres Moich spraw: id z member_id (UUIDv5) albo inny — invalid_id.
+        .chain((o) => (e === 'my_day_scopes' ? fc.constantFrom(o, { ...o, id: scopeRowId(String(o.set.member_id)) }) : fc.constant(o))),
     );
     const patch = entity.chain((e) =>
       fc.record({
@@ -214,7 +223,8 @@ d('model reguł serwera = sync_push', () => {
           if (JSON.stringify(pick(a)) !== JSON.stringify(pick(b))) mismatches.push(`${who} ${JSON.stringify(o)}: ${key} SQL ${JSON.stringify(pick(b))}, model ${JSON.stringify(pick(a))}`);
         }
       }),
-      { numRuns: 1500, seed: 20261008 },
+      // 2500: od P13b dwie encje więcej rozrzedzają losowanie (przy 1500 nie trafiało w deleted:list).
+      { numRuns: 2500, seed: 20261008 },
     );
     expect(mismatches.slice(0, 15)).toEqual([]);
     // Generator naprawdę trafia w reguły: przyjęte i różne odrzucenia.

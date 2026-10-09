@@ -28,4 +28,4 @@ buforowany i odnawiany co 20–60 minut (wymóg Apple: nie częściej niż co 20
 ## Co zostaje otwarte
 - Dostarczenie prawdziwego powiadomienia na iPhone (potrzebny token urządzenia z pierwszego buildu).
 - ~~Środowisko produkcyjne APNs~~ — potwierdzone 7.10.2026 (fetch, 400 BadDeviceToken).
-- Funkcja `apns-spike` do usunięcia z projektu Supabase (kod zostaje w repozytorium jako zapis spike'a).
+- Funkcja `apns-spike` do usunięcia z projektu Supabase (kod zostaje w repozytorium jako zapis spike'a). → Sprawdzone 8.10.2026: na produkcji jej nie ma (`OPTIONS /functions/v1/apns-spike` → 404 „Requested function was not found”, `notify-handoff` → 405).

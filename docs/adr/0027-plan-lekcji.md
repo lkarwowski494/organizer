@@ -4,14 +4,14 @@ Z porównania z Domownikiem (plan zajęć domownika z tygodniami A/B). Właścic
 „Plan osoby jako seria wydarzeń”. Odrzucone: osobny ekran planu bez wydarzeń; seria wydarzeń + tabela tygodnia.
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
-- **D112:** wejście z ekranu osoby (Grupy → grupa → osoba → „Plan lekcji”), tylko w grupie wspólnej i nie dla roli dziecka.
+- **D112:** wejście z ekranu osoby (Grupy → grupa → osoba → „Plan lekcji”), tylko w grupie wspólnej i nie dla roli dziecka. → Zmienione przez D128 (ADR 0035): przycisk tylko przy dzieciach, ekran pokazuje istniejący plan do edycji.
 - **Zapis:** lekcje pon.–pt. z godzinami i wyborem „Co tydzień / Tydzień A / Tydzień B” stają się zwykłymi wydarzeniami cyklicznymi.
-  - Osoba jest uczestnikiem, więc dziecko jako uczestnik dotyczy też dorosłych (D58).
+  - Osoba jest uczestnikiem, więc dziecko jako uczestnik dotyczy też dorosłych (D58). → Zmienione: lekcje bez obecności (D126) i u dorosłych jednym zwiniętym wierszem na dzień, bez przypomnień (D127, oba ADR 0035).
   - A/B = co 2 tygodnie (`INTERVAL=2`), liczone od pierwszego wystąpienia (RFC 5545, DTSTART).
-  - Który tydzień jest A, mówi użytkownik o bieżącym tygodniu.
+  - Który tydzień jest A, mówi użytkownik o bieżącym tygodniu. → Zmienione przez D171 (niżej): tydzień A zapisany przy osobie.
   - Ta sama lekcja w kilka dni to jedna seria.
   - Opcjonalnie „Do dnia”.
-  - Cofnięcie usuwa utworzone serie.
+  - Cofnięcie usuwa utworzone serie. → Zmienione przez D128 (ADR 0035) i M-14 (niżej): zapis zmienia plan od jutra, cofnięcie przywraca stary plan.
 - **Edycja potem:** każdą lekcję zmienia się jak wydarzenie (ten, następne, wszystkie — D57). Osobnej tabeli planu nie ma, zgodnie z wyborem.
 - **Otwarte pytanie:** daty końca roku szkolnego nie wpisujemy domyślnie. Zależy od rozporządzenia na dany rok, bez przeczytanego źródła; użytkownik podaje „Do dnia” sam.
 - Logika w `src/domain/views/timetable.ts`, ekran `src/features/groups/TimetableScreen.tsx`.

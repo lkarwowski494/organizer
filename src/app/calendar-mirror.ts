@@ -12,6 +12,7 @@ import { config } from '../config';
 import { type CivilDate, formatIsoDate } from '../domain/civil-date';
 import { calendarLook, emptyMirror, mirrorGroups, mirrorHash, mirrorItems, type MirrorItem, type MirrorState, planMirror } from '../domain/views/calendar-sync';
 import type { Tables } from '../domain/views/model';
+import type { ScopeOf } from '../domain/views/my-scope';
 import { strings } from '../i18n/strings.pl';
 import type { Prefs } from './context';
 import { type DeviceCalendar, type DeviceCalendarSync, draftOf, withMark } from './device-calendar';
@@ -78,7 +79,7 @@ export async function runMirror(
   t: Tables,
   userId: string,
   today: CivilDate,
-  opts: { owned?: MirrorOwned; alive?: () => boolean } = {},
+  opts: { owned?: MirrorOwned; alive?: () => boolean; scopeOf?: ScopeOf } = {},
 ): Promise<{ created: number; updated: number; removed: number }> {
   const alive = opts.alive ?? (() => true);
   const step = () => {
@@ -114,7 +115,7 @@ export async function runMirror(
     if (owned.some((x) => !wanted.includes(x)) || wanted.some((x) => !owned.includes(x))) await keep(wanted);
     const skip = new Set(loadSkip(local));
     const groups = mirrorGroups(t, userId, skip);
-    const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, strings['lessons.title']);
+    const items = mirrorItems(t, userId, today, config.calendar.MIRROR_DAYS_BACK, config.calendar.MIRROR_DAYS_AHEAD, skip, strings['lessons.title'], opts.scopeOf);
     const todayIso = formatIsoDate(today);
     const first = planMirror(items, state, groups, todayIso, config.calendar.MIRROR_MAX);
     for (const c of first.removeCalendars) {

@@ -126,7 +126,8 @@ function step(s: SchedulerState, e: SchedulerEvent, now: number): SchedulerState
       const at = now + backoffMs(failures);
       return {
         ...s, ...r, inflight: null, failures, lastError: e.error,
-        // Nieudane żądanie traktujemy jak brak sieci (captive portal: isInternetReachable na iOS kłamie). Błąd sieci
+        // Nieudane żądanie traktujemy jak brak sieci (captive portal: NetInfo `isInternetReachable` bywa nieznane — README
+        // @react-native-community/netinfo: „If unknown defaults to null” — albo spóźnione względem żądania). Błąd sieci
         // wstrzymuje oba kierunki — inaczej po nieudanej wysyłce od razu szło nieudane pobranie (audyt 2, M-10).
         ...(e.error === 'network'
           ? { pushNotBefore: at, pullNotBefore: at, needPull: s.needPull || e.what === 'pull' }

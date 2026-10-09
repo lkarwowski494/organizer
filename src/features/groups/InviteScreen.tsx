@@ -40,7 +40,10 @@ export function InviteScreen({ route, navigation }: Props) {
     }
   };
 
+  // PWD-5 A (M-274): przycisk aktywny (poza wysyłaniem) — po naciśnięciu komunikat, czego brakuje.
   const accept = async () => {
+    if (!ready) return setError(strings['invite.error.missing']);
+    if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
     setBusy(true);
     setError(null);
     try {
@@ -66,9 +69,9 @@ export function InviteScreen({ route, navigation }: Props) {
           <Field label={strings['invite.paste']} value={paste} onChangeText={onPaste} autoCapitalize="none" autoCorrect={false} multiline testID="invite-input" />
         </>
       )}
-      <Field label={strings['groups.myName']} value={me} onChangeText={setMe} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" testID="invite-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="join" onSubmitEditing={() => void accept()} testID="invite-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button label={strings['invite.accept']} onPress={accept} disabled={me.trim() === '' || !ready} busy={busy} testID="invite-accept" />
+      <Button label={strings['invite.accept']} onPress={accept} busy={busy} testID="invite-accept" />
     </Screen>
   );
 }

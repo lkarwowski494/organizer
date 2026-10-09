@@ -19,6 +19,7 @@ import { strings } from '../../i18n/strings.pl';
 import { AskPanel } from '../../ui/AskPanel';
 import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
+import { PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
 import { RepeatEditor } from './RepeatEditor';
 
@@ -58,6 +59,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
   useAnnounce(p.kindSwitch ? strings['form.newTitle'] : null);
   const groups = formGroups(tables, userId);
   const members = formMembers(tables, form.groupId);
+  const [initialEmpty] = useState(() => form.title === '');
 
   const save = () => {
     const e = validateForm(tables, userId, form);
@@ -101,7 +103,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
           { value: 'routine', label: strings['form.kind.routine'], hint: strings['form.kind.routineHint'] },
         ]}
       />
-      <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} testID="form-title" />
+      {/* M-247: kursor w pierwszym polu, gdy formularz jest pusty (z „Więcej” tekst już jest). */}
+      <Field label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} returnKeyType="done" testID="form-title" />
       {choices.length && initial.mention ? (
         <AskPanel
           testID="mention-choices"
@@ -117,7 +120,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
       <DueFields date={form.date} time={form.time} onDate={(v) => set(v === '' ? { date: '', time: '', repeat: null } : { date: v })} onTime={(v) => set({ time: v })} today={today} testID="form" />
-      <Segmented
+      <PersonPicker
         label={strings['task.assignee']}
         value={form.assigneeId ?? ''}
         onChange={(v) => set({ assigneeId: v === '' ? null : v })}

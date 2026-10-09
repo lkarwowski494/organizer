@@ -3,9 +3,10 @@
  * (np. pon. 18:00 i sob. 12:00) — każdy staje się osobną serią (src/domain/views/event-form.ts).
  * „Tylko to” zmienia nazwę, dzień i godzinę jednego wystąpienia; powtarzanie i uczestnicy należą do serii.
  */
+import { usePreventRemove } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { type TextInput, View } from 'react-native';
 
 import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
@@ -14,18 +15,23 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
+import { materialize } from '../../domain/sync-engine/client';
+import { startGroup } from '../../domain/views/default-group';
+import { useDefaultGroup } from '../../app/default-group';
 import { formatDateInline, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { coveredDays, endsNextDay } from '../../domain/span';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
-import { createEvent, editEvent, eventDetail, fieldsOf, moveTooFar } from '../../domain/views/events';
+import { createEvent, editEvent, eventDetail, expandEvents, fieldsOf, moveTooFar } from '../../domain/views/events';
+import { occurrenceOwner } from '../../domain/views/event-rows';
 import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, CardTitle, ErrorText, Field, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
+import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
 import { SeriesPreview } from './SeriesPreview';
 
@@ -44,7 +50,10 @@ export function EventEditScreen({ route, navigation }: Props) {
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
   const added = useAdded();
   const occurrence = route.params.date ?? formatIsoDate(today);
-  const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : (groups[0]?.id ?? '')));
+  // PW-37 A (M-118, D191): nowe wydarzenie bez wskazanej grupy (także „Dodaj do grupy” z kalendarza iPhone'a) startuje
+  // z „Grupy domyślnej”, jak szybkie dodawanie; zapis zapamiętuje grupę jako ostatnio użytą.
+  const defaultGroup = useDefaultGroup();
+  const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : (startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? '')));
   const [form, setForm] = useState<EventForm>(() => {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
@@ -63,6 +72,13 @@ export function EventEditScreen({ route, navigation }: Props) {
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
+  // Audyt 2 (M-242): w podglądzie zmian serii gest cofania (i „Wróć” systemowe) wraca do edycji, jak przycisk
+  // „Wróć do edycji” — nie zamyka formularza. Native stack blokuje wtedy na iOS zamknięcie gestem (preventNativeDismiss,
+  // @react-navigation/native-stack, NativeStackView.native.tsx) i wywołuje callback.
+  // Zapis z podglądu wychodzi z ekranu naprawdę (`leaving`) — wtedy przepuszczamy zatrzymaną akcję nawigacji.
+  const leaving = useRef(false);
+  const locationField = useRef<TextInput>(null);
+  usePreventRemove(preview !== null, ({ data }) => (leaving.current ? navigation.dispatch(data.action) : setPreview(null)));
   const members = useMemo(() => groupDetail(tables, userId, groupId)?.members ?? [], [tables, userId, groupId]);
   const personal = groups.find((g) => g.id === groupId)?.kind === 'personal';
   // D66: osobą odpowiedzialną jest tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
@@ -81,10 +97,7 @@ export function EventEditScreen({ route, navigation }: Props) {
 
   if (eventId && (!detail || !detail.canEdit)) {
     return (
-      <Screen testID="screen-event-edit-missing">
-        <BackButton onPress={() => navigation.goBack()} />
-        <Body muted>{strings['common.error']}</Body>
-      </Screen>
+      <MissingScreen testID="screen-event-edit-missing" text={strings['missing.event']} onBack={() => navigation.goBack()} />
     );
   }
   if (!eventId && groups.length === 0) {
@@ -119,6 +132,7 @@ export function EventEditScreen({ route, navigation }: Props) {
       // D189: „Dodano wydarzenie: … · Cofnij”.
       const g = groups.find((x) => x.id === groupId);
       added(strings['form.addedEvent'](r.fields[0]!.title, g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));
+      defaultGroup.remember(groupId);
       navigation.goBack();
     } else {
       const was = loadedForm ? normalized(loadedForm) : null;
@@ -131,8 +145,18 @@ export function EventEditScreen({ route, navigation }: Props) {
     // Szkic znika dopiero przy zapisie — „Wróć” z podglądu zmian serii go nie gubi (D179).
     draft.saved();
     store.dispatch(ops);
-    // Ekran wystąpienia za nami może już nie istnieć (np. seria skończyła się dzień wcześniej) — wracamy dalej.
-    navigation.pop(2);
+    leaving.current = true;
+    // Audyt 2 (M-246): po zmianie wracamy do szczegółów wystąpienia, gdy ono nadal istnieje (także przeniesione do nowej
+    // serii po „to i następne” — ekran wydarzenia sam trafia do właściciela terminu); gdy zniknęło (np. seria skończyła
+    // się wcześniej) — o ekran dalej, zamiast pokazywać „Tego wydarzenia już nie ma”.
+    const state = navigation.getState();
+    const below = state.routes[state.index - 1];
+    const after = materialize(store.getSnapshot().state);
+    const owner = occurrenceOwner(after, eventId!, occurrence);
+    const d = parseIsoDate(occurrence);
+    const exists = expandEvents(after, userId, addDays(d, -config.events.MOVE_WINDOW_DAYS), addDays(d, config.events.MOVE_WINDOW_DAYS)).some((o) => o.eventId === owner && o.occurrenceDate === occurrence);
+    if (below?.name === 'Event' && !exists) navigation.pop(2);
+    else navigation.goBack();
   };
 
   if (preview && detail) {
@@ -184,10 +208,11 @@ export function EventEditScreen({ route, navigation }: Props) {
       {!detail && groups.length > 1 ? (
         <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
+      {/* M-247: kursor w pierwszym polu pustego formularza tworzenia; M-243: Return przechodzi do miejsca. */}
+      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} autoFocus={!detail && !prefilled} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => locationField.current?.focus()} testID="event-title" />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
-        <Field label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
+        <Field ref={locationField} label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
       )}
       {/* Audyt 2: w serii „to i następne” zaczyna się od tego wystąpienia (E-6, napis wyżej), a „wszystkie” — od początku
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
@@ -272,7 +297,7 @@ export function EventEditScreen({ route, navigation }: Props) {
         <>
           <Segmented label={strings['event.audience']} value={form.audience} onChange={(audience) => set({ audience })} options={[{ value: 'group', label: strings['event.audience.group'] }, { value: 'members', label: strings['event.audience.members'] }]} />
           {form.audience === 'members' ? (
-            <Toggles
+            <PeopleToggles
               label={strings['event.who']}
               values={form.participantIds}
               onChange={(participantIds) => set({ participantIds })}
@@ -283,7 +308,7 @@ export function EventEditScreen({ route, navigation }: Props) {
       )}
 
       {adults.length ? (
-        <Segmented
+        <PersonPicker
           label={strings['event.responsible']}
           value={form.responsibleId ?? ''}
           onChange={(v) => set({ responsibleId: v === '' ? null : v })}

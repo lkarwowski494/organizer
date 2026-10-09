@@ -9,6 +9,7 @@
  *  - „Wyjdź o”: początek wydarzenia − czas dojazdu − zapas (config.travel.BUFFER_MIN), zaokrąglone w dół do minuty.
  */
 import { config } from '../config';
+import { type ScopeOf, occurrenceInScope, scopeAll } from './views/my-scope';
 
 export type TravelMode = 'driving' | 'transit' | 'walking';
 export type NavApp = 'apple' | 'google';
@@ -42,17 +43,19 @@ export type TravelTarget = { key: string; eventId: string; title: string; locati
  * Wydarzenia, dla których liczymy dojazd (D116): te, które mnie dotyczą, z miejscem i godziną, zaczynające się od teraz
  * do config.travel.AHEAD_HOURS naprzód — także jutro po północy (audyt 2, M-211: wieczorem „Czas wyjść” na 0:30);
  * najbliższe config.travel.MAX_EVENTS (MapKit dławi zbyt wiele zapytań).
- * `skip` — terminy wyciszone (`<id wydarzenia>|<data wystąpienia>`): moje „nie będę” (PW-23) i dzieci, które nie będą (D160).
+ * `skip` — terminy wyciszone (`<id wydarzenia>|<data wystąpienia>`): moje „nie będę” (PW-23) i dzieci, które nie będą (D160);
+ * `scopeOf` — zakres Moich spraw w grupach (PW-2): dojazd tylko do tego, co stoi w Moich sprawach.
  */
 export function travelTargets(
-  occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean }[],
+  occ: readonly { eventId: string; occurrenceDate: string; date: string; startTime: string | null; title: string; location: string | null; concernsMe: boolean; assignedToMe: boolean; groupId: string }[],
   nowMs: number,
   toMs: (date: string, time: string) => number,
   modeFor: (eventId: string) => TravelMode,
   skip: ReadonlySet<string> = new Set(),
+  scopeOf: ScopeOf = scopeAll,
 ): TravelTarget[] {
   return occ
-    .filter((o) => o.concernsMe && o.startTime !== null && o.location !== null && o.location.trim() !== '' && !skip.has(`${o.eventId}|${o.occurrenceDate}`))
+    .filter((o) => occurrenceInScope(o, scopeOf) && o.startTime !== null && o.location !== null && o.location.trim() !== '' && !skip.has(`${o.eventId}|${o.occurrenceDate}`))
     .map((o) => ({ key: `${o.eventId}|${o.occurrenceDate}`, eventId: o.eventId, title: o.title, location: o.location!.trim(), startMs: toMs(o.date, o.startTime!.slice(0, 5)), mode: modeFor(o.eventId) }))
     .filter((t) => t.startMs > nowMs && t.startMs <= nowMs + config.travel.AHEAD_HOURS * 3_600_000)
     .sort((a, b) => a.startMs - b.startMs || a.key.localeCompare(b.key))
