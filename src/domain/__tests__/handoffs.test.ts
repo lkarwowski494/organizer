@@ -127,8 +127,8 @@ describe('„Do potwierdzenia” bez spraw już zrobionych albo usuniętych (aud
     put(t, 'tasks', 't2', { id: 't2', group_id: 'gf', list_id: 'l', title: 'Śmieci', completed_at: '2026-10-07T08:00:00Z', deleted_at: null });
     put(t, 'tasks', 't3', { id: 't3', group_id: 'gf', list_id: 'l', title: 'Rower', completed_at: null, deleted_at: '2026-10-07T08:00:00Z' });
     put(t, 'events', 'e2', { id: 'e2', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-09', deleted_at: '2026-10-07T08:00:00Z' });
-    put(t, 'lists', 'z1', { id: 'z1', group_id: 'gf', kind: 'shopping', name: 'Biedronka', deleted_at: '2026-10-07T08:00:00Z' });
-    put(t, 'lists', 'z2', { id: 'z2', group_id: 'gf', kind: 'shopping', name: 'Lidl', deleted_at: null });
+    put(t, 'lists', 'z1', { id: 'z1', group_id: 'gf', kind: 'shopping', name: 'Bazar', deleted_at: '2026-10-07T08:00:00Z' });
+    put(t, 'lists', 'z2', { id: 'z2', group_id: 'gf', kind: 'shopping', name: 'Kiosk', deleted_at: null });
     const h = (id: string, entity: string, entity_id: string) => put(t, 'handoffs', id, { id, group_id: 'gf', entity, entity_id, occurrence_date: null, from_member: 'mm', to_member: 'mf', status: 'pending' });
     h('h-ok', 'tasks', 't1');
     h('h-done', 'tasks', 't2');

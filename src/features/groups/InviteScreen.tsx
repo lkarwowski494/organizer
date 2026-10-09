@@ -1,5 +1,5 @@
 /**
- * Dołączenie do grupy (D92–D94): ID grupy + kod (jak w Zoom), link z ID i kodem albo wklejona wiadomość. Stare
+ * Dołączenie do grupy (D92–D94): ID grupy + kod (jak przy dołączaniu do wideospotkania), link z ID i kodem albo wklejona wiadomość. Stare
  * zaproszenia z 64-znakowym kodem nadal działają (wklejone albo z linku invite/<token>).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';

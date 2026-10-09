@@ -3,6 +3,8 @@
  * Sprawdza dane demo, teksty i testID, na których opierają się scenariusze — zanim pójdą na symulator w e2e.yml.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Alert } from 'react-native';
 
 import { memoryDb } from '../../data/__tests__/sqlite';
@@ -57,6 +59,20 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(screen.queryByTestId('whats-new')).toBeNull();
     expect(screen.queryByTestId('push-prompt')).toBeNull();
     expect(screen.queryByTestId('screen-welcome')).toBeNull();
+  });
+
+  it('audyt dostępności (D186): początki etykiet z e2e/a11y/AccessibilityAuditTests.swift są na „Moich sprawach”', async () => {
+    // Swift szuka wiersza po początku etykiety (label BEGINSWITH). Po M-263 etykieta zaczyna się od tytułu, bez „Otwórz: ”
+    // — stary początek w Swift oblewał wszystkie 14 ekranów audytu („brak danych demo”), choć dane demo były.
+    const swift = readFileSync(join(__dirname, '../../../e2e/a11y/AccessibilityAuditTests.swift'), 'utf8');
+    const prefixes = [...swift.matchAll(/label\(beginsWith: "([^"]+)"\)/g)].map((m) => m[1]!);
+    expect(prefixes).toEqual(['Oddać książki do biblioteki,', 'Odebrać paczkę,']);
+    await start().render();
+    await screen.findByTestId('screen-today');
+    for (const p of prefixes) {
+      const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(await screen.findAllByLabelText(new RegExp(`^${escaped}`))).not.toHaveLength(0);
+    }
   });
 
   it('02 szybkie dodanie „Kupić mleko jutro” — widać jutro', async () => {

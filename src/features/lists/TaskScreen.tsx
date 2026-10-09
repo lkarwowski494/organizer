@@ -33,6 +33,7 @@ import { TaskHistory } from './TaskHistory';
 import { attachOps, relinkOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { OccurrencePicker } from '../events/OccurrencePicker';
 import { strings } from '../../i18n/strings.pl';
+import { useClosedPanel } from '../../ui/a11y';
 import { AskPanel } from '../../ui/AskPanel';
 import { BackButton, Body, Button, Checkbox, ErrorText, Field, GroupLine, META_SEP, MissingScreen, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
@@ -97,6 +98,11 @@ export function TaskScreen({ route, navigation }: Props) {
   const [picking, setPicking] = useState(false);
   const [handing, setHanding] = useState(false);
   const [moving, setMoving] = useState(false);
+  // Audyt 3 (N-62): po zamknięciu panelu fokus VoiceOvera wraca na przycisk, który go otworzył; po pytaniu o cykl — na dzień.
+  const handBack = useClosedPanel(handing) !== null;
+  const moveBack = useClosedPanel(moving) !== null;
+  const [dueFocus, setDueFocus] = useState(0);
+  const closeCycle = () => (setCycleAsk(null), setDueFocus((k) => k + 1));
 
   if (!task || !detail) {
     return (
@@ -225,6 +231,7 @@ export function TaskScreen({ route, navigation }: Props) {
           onTime={(t) => changeDue({ time: t })}
           today={today}
           testID="task"
+          focusDate={dueFocus}
           extra={task.parent_id !== null ? { label: strings['task.dueInherit'], selected: task.deadline_mode === 'inherit' && edit.date === undefined, onPress: inherit } : undefined}
         />
       ) : null}
@@ -234,10 +241,10 @@ export function TaskScreen({ route, navigation }: Props) {
           testID="cycle-ask"
           title={strings['repeat.cycleAsk']}
           options={[
-            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!)), setCycleAsk(null)) },
-            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next), setCycleAsk(null)) },
+            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!)), closeCycle()) },
+            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next), closeCycle()) },
           ]}
-          onCancel={() => setCycleAsk(null)}
+          onCancel={closeCycle}
         />
       ) : null}
       {canEdit && task.deadline_mode !== 'none' && !linked ? (
@@ -311,7 +318,7 @@ export function TaskScreen({ route, navigation }: Props) {
         waiting ? (
           <View style={{ gap: 8 }}>
             <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
-            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} a11yFocus={handBack} />
           </View>
         ) : handing ? (
           <HandoffPicker
@@ -324,7 +331,7 @@ export function TaskScreen({ route, navigation }: Props) {
           />
         ) : task.completed_at === null ? (
           // Zrobionego nie ma czego przekazywać (serwer: „nieaktualne”); powtarzane przekazuje się od następnego terminu.
-          <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} />
+          <Button kind="secondary" label={strings['handoff.giveTask']} testID="handoff-start" onPress={() => setHanding(true)} a11yFocus={handBack} />
         ) : null
       ) : null}
       {targets.length ? (
@@ -349,7 +356,7 @@ export function TaskScreen({ route, navigation }: Props) {
             onCancel={() => setMoving(false)}
           />
         ) : (
-          <Button kind="secondary" label={strings['task.move']} testID="task-move" onPress={() => setMoving(true)} />
+          <Button kind="secondary" label={strings['task.move']} testID="task-move" onPress={() => setMoving(true)} a11yFocus={moveBack} />
         )
       ) : null}
       {depth < config.MAX_TASK_DEPTH ? (

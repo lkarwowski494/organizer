@@ -15,14 +15,14 @@ describe('pole godziny (D125)', () => {
     expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: 'Wybierz godzinę' });
     await press(screen.getByTestId('routine-start'));
     expect(screen.getByTestId('routine-start-panel')).toBeTruthy();
-    expect(screen.getByTestId('routine-start').props.accessibilityState).toMatchObject({ expanded: true });
+    expect(screen.getByTestId('routine-start').props.accessibilityValue.text).toMatch(/, rozwinięte$/);
     // Minuty przed godziną: południe jako domyślna godzina.
     await press(screen.getByLabelText('Minuty 15'));
     expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: '12:15' });
     expect(screen.queryByTestId('routine-start-panel')).toBeNull();
     await press(screen.getByTestId('routine-start'));
     await press(screen.getByLabelText('Godzina 07'));
-    expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: '07:15' });
+    expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: '07:15, rozwinięte' });
     expect(screen.getByLabelText('Godzina 07').props.accessibilityState).toMatchObject({ selected: true });
     await press(screen.getByTestId('routine-start-m-30'));
     expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: '07:30' });
@@ -34,14 +34,14 @@ describe('pole godziny (D125)', () => {
     await press(screen.getByTestId('routine-end'));
     expect(screen.queryByTestId('routine-end-clear')).toBeNull();
     await press(screen.getByTestId('routine-end-h-08'));
-    expect(screen.getByLabelText('Koniec (opcjonalnie)').props.accessibilityValue).toEqual({ text: '08:00' });
+    expect(screen.getByLabelText('Koniec (opcjonalnie)').props.accessibilityValue).toEqual({ text: '08:00, rozwinięte' });
     await press(screen.getByTestId('routine-end-clear'));
     expect(screen.getByLabelText('Koniec (opcjonalnie)').props.accessibilityValue).toEqual({ text: 'Wybierz godzinę' });
     expect(screen.queryByTestId('routine-end-panel')).toBeNull();
     // Inna minuta ręcznie.
     await press(screen.getByTestId('routine-end'));
     await fireEvent.changeText(screen.getByTestId('routine-end-manual'), '08:07');
-    expect(screen.getByLabelText('Koniec (opcjonalnie)').props.accessibilityValue).toEqual({ text: '08:07' });
+    expect(screen.getByLabelText('Koniec (opcjonalnie)').props.accessibilityValue).toEqual({ text: '08:07, rozwinięte' });
     expect(screen.getByTestId('routine-end-manual').props.keyboardType).toBe('numbers-and-punctuation');
   });
 });

@@ -85,19 +85,19 @@ describe('kalendarz iPhone’a (D7)', () => {
 
   it('audyt 3 (N-58): kalendarz lustra na koncie domyślnym, a gdy się nie da — iCloud, potem „Na moim iPhonie”', async () => {
     const sync = expoDeviceCalendar.sync!;
-    const gmail = { id: 's-g', type: 'caldav', name: 'Gmail' };
+    const other = { id: 's-g', type: 'caldav', name: 'Poczta' };
     const icloud = { id: 's-i', type: 'caldav', name: 'iCloud' };
     const phone = { id: 's-l', type: 'local', name: 'Default' };
-    (getDefaultCalendarSync as jest.Mock).mockReturnValue({ source: gmail });
-    (getSourcesSync as jest.Mock).mockReturnValue([phone, gmail, icloud]);
+    (getDefaultCalendarSync as jest.Mock).mockReturnValue({ source: other });
+    (getSourcesSync as jest.Mock).mockReturnValue([phone, other, icloud]);
     const make = createCalendar as jest.Mock;
     make.mockResolvedValueOnce({ id: 'cal-1' });
     expect(await sync.createCalendar('Organizer – Dom', '#123456')).toBe('cal-1');
-    expect(make).toHaveBeenLastCalledWith({ title: 'Organizer – Dom', color: '#123456', entityType: 'event', source: gmail, sourceId: 's-g', name: 'Organizer – Dom' });
-    make.mockClear().mockRejectedValueOnce(new Error('gmail')).mockResolvedValueOnce({ id: 'cal-2' });
+    expect(make).toHaveBeenLastCalledWith({ title: 'Organizer – Dom', color: '#123456', entityType: 'event', source: other, sourceId: 's-g', name: 'Organizer – Dom' });
+    make.mockClear().mockRejectedValueOnce(new Error('other')).mockResolvedValueOnce({ id: 'cal-2' });
     expect(await sync.createCalendar('Organizer – Dom', '#123456')).toBe('cal-2');
     expect(make.mock.calls.map((c) => c[0].sourceId)).toEqual(['s-g', 's-i']);
-    make.mockClear().mockRejectedValueOnce(new Error('gmail')).mockRejectedValueOnce(new Error('icloud')).mockRejectedValueOnce(new Error('lokalne'));
+    make.mockClear().mockRejectedValueOnce(new Error('other')).mockRejectedValueOnce(new Error('icloud')).mockRejectedValueOnce(new Error('lokalne'));
     await expect(sync.createCalendar('Organizer – Dom', '#123456')).rejects.toThrow('lokalne');
     expect(make.mock.calls.map((c) => c[0].sourceId)).toEqual(['s-g', 's-i', 's-l']);
     // Bez kalendarza domyślnego — od iCloud; bez żadnego konta — błąd.

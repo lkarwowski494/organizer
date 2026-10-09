@@ -5,7 +5,7 @@
  */
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { NavigationContext } from '@react-navigation/native';
-import { createContext, type ReactNode, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, type ReactNode, type Ref, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,7 +13,7 @@ import { config } from '../config';
 import { fontScale } from '../config/theme';
 import type { Indicator } from '../domain/sync-engine/scheduler';
 import { strings } from '../i18n/strings.pl';
-import { announce, focusScreenTitle, spoken, useA11yFocus } from './a11y';
+import { announce, buttonA11y, focusScreenTitle, spoken, useA11yFocus } from './a11y';
 import { Glyph } from './glyph';
 import { useTheme } from './theme';
 import { useUndoBarHeight } from './undo';
@@ -134,6 +134,19 @@ export function Title({ children, a11yFocus, role = 'TITLE' }: { children: strin
   const { c, font, size } = useTheme();
   const pt = size[role];
   const ref = useA11yFocus<Text>(null, !!a11yFocus);
+  useScreenTitleFocus(ref);
+  return (
+    <Text ref={ref} accessibilityRole="header" maxFontSizeMultiplier={titleScale(pt)} style={{ fontFamily: font.display800, fontSize: pt, lineHeight: pt * fontScale.TITLE_LEADING, letterSpacing: role === 'BRAND' ? -1.5 : -1, color: c.ink }}>
+      {children}
+    </Text>
+  );
+}
+
+/**
+ * Fokus VoiceOvera na nagłówku ekranu po wejściu na ekran (M-269) — wspólne dla Title i nagłówków, które go zastępują
+ * (linia grupy na ekranie zadania, ekran „brak obiektu” — audyt 3, N-63).
+ */
+function useScreenTitleFocus(ref: RefObject<Text | null>) {
   const navigation = useContext(NavigationContext);
   useEffect(() => {
     if (!navigation) return;
@@ -151,11 +164,6 @@ export function Title({ children, a11yFocus, role = 'TITLE' }: { children: strin
     }
     return () => (subs.forEach((u) => u()), cancel());
   }, [navigation, ref]);
-  return (
-    <Text ref={ref} accessibilityRole="header" maxFontSizeMultiplier={titleScale(pt)} style={{ fontFamily: font.display800, fontSize: pt, lineHeight: pt * fontScale.TITLE_LEADING, letterSpacing: role === 'BRAND' ? -1.5 : -1, color: c.ink }}>
-      {children}
-    </Text>
-  );
 }
 
 /**
@@ -193,9 +201,10 @@ export function SectionTitle({ children }: { children: string }) {
   );
 }
 
-export function Body({ children, muted, style, testID }: { children: ReactNode; muted?: boolean; style?: object; testID?: string }) {
+/** `a11yLabel` — wersja do czytania przez VoiceOver, gdy tekst z aplikacji ma symbole („·”, „1 h”, „śr.”; N-65). */
+export function Body({ children, muted, style, testID, a11yLabel }: { children: ReactNode; muted?: boolean; style?: object; testID?: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
-  return <Text testID={testID} style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
+  return <Text testID={testID} accessibilityLabel={a11yLabel} style={[{ fontFamily: font.text400, fontSize: size.BODY, color: muted ? c.inkMuted : c.ink, lineHeight: size.BODY * 1.3 }, style]}>{children}</Text>;
 }
 
 /**
@@ -225,9 +234,20 @@ export function Card({ children, kind = 'card', testID, style }: { children: Rea
   );
 }
 
-/** Nagłówek okresu (miesiąc, tydzień, dzień) — ten sam rozmiar w Kalendarzu, Moich sprawach i mini kalendarzu (M-152). */
-export function PeriodTitle({ children, testID }: { children: ReactNode; testID?: string }) {
+/**
+ * Nagłówek okresu (miesiąc, tydzień, dzień) — ten sam rozmiar w Kalendarzu, Moich sprawach i mini kalendarzu (M-152).
+ * Zmiana okresu (strzałki, „Dziś”, przełącznik Dzień/Tydzień) jest ogłaszana (audyt 3, N-60; WCAG 2.2 SC 4.1.3 „Status
+ * Messages”): fokus zostaje na strzałce, której etykieta się nie zmienia, więc bez ogłoszenia VoiceOver milczy.
+ * Pierwsze pokazanie — bez ogłoszenia (wejście na ekran czyta tytuł ekranu).
+ */
+export function PeriodTitle({ children, testID }: { children: string; testID?: string }) {
   const { c, font, size } = useTheme();
+  const shown = useRef(children);
+  useEffect(() => {
+    if (shown.current === children) return;
+    shown.current = children;
+    announce(children);
+  }, [children]);
   return (
     <Text accessibilityRole="header" testID={testID} style={{ flex: 1, textAlign: 'center', fontFamily: font.display700, fontSize: size.PERIOD, color: c.ink }}>
       {children}
@@ -247,18 +267,30 @@ export function PeriodArrow({ dir, label, onPress, testID }: { dir: -1 | 1; labe
 
 /**
  * Komunikat o błędzie pod polem albo przyciskiem: czerwony i ogłaszany przez VoiceOver, gdy się pojawi albo zmieni
- * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla Androida i testów). Jeden wygląd wszędzie:
+ * (audyt 2, M-39: rola „alert” na iOS niczego nie ogłasza — zostaje dla innych platform i testów). Jeden wygląd wszędzie:
  * rozmiar i krój z motywu (M-152).
  */
-export function ErrorText({ children, testID, silent }: { children: string; testID?: string; silent?: boolean }) {
+export function ErrorText({ children, testID, silent, attempt }: { children: string; testID?: string; silent?: boolean; attempt?: number }) {
   const { c, font, size } = useTheme();
   // `silent` — ten sam błąd ogłasza już inny napis (np. „Popraw lekcję…” przy „Zapisz”), bez dwóch ogłoszeń naraz.
-  useEffect(() => (silent ? undefined : announce(children)), [children, silent]);
+  // `attempt` — licznik prób z useFormError: ten sam błąd przy kolejnym „Zapisz” jest znów ogłaszany (audyt 3, N-194).
+  useEffect(() => (silent ? undefined : announce(children)), [children, silent, attempt]);
   return (
     <Text accessibilityRole="alert" testID={testID} style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>
       {children}
     </Text>
   );
+}
+
+/**
+ * Błąd formularza z licznikiem prób (audyt 3, N-194): każde ustawienie błędu (także tego samego przy drugim „Zapisz”)
+ * zwiększa licznik, który ErrorText dostaje w `attempt` — bez tego React pomija ten sam stan i VoiceOver milczy, a osoba
+ * myśli, że przycisk nie działa. Wyczyszczenie (null) licznika nie zmienia.
+ */
+export function useFormError<T>(): [T | null, (e: T | null) => void, number] {
+  const [state, setState] = useState<{ e: T | null; n: number }>({ e: null, n: 0 });
+  const set = useCallback((e: T | null) => setState((s) => (e !== null ? { e, n: s.n + 1 } : s.e === null ? s : { e: null, n: s.n })), []);
+  return [state.e, set, state.n];
 }
 
 /** Potwierdzenie albo stan po czynności („Dodano do kalendarza”, „Wysłano”): zwykły tekst ogłaszany jak błąd (M-39). */
@@ -294,10 +326,44 @@ const PROBLEM: ReadonlySet<Indicator['state']> = new Set(['offline', 'error', 'a
  * „zaktualizuj”) albo zmianę problemu i powrót do normy (zsynchronizowano / czeka) — nie każde „synchronizuję”.
  * `last` — stan z ostatniego ogłoszenia albo ostatni zwykły stan.
  */
-export function syncAnnouncement(last: Indicator['state'], next: Indicator, nowMs: number): { text: string | null; last: Indicator['state'] } {
-  if (next.state === 'syncing') return { text: null, last };
-  const say = PROBLEM.has(next.state) ? next.state !== last : PROBLEM.has(last);
-  return { text: say ? spoken(indicatorLabel(next, nowMs)) : null, last: next.state };
+export function syncAnnouncement(last: Indicator['state'], next: Indicator, nowMs: number): { text: string | null; last: Indicator['state']; calm: boolean } {
+  if (next.state === 'syncing') return { text: null, last, calm: false };
+  const problem = PROBLEM.has(next.state);
+  const say = problem ? next.state !== last : PROBLEM.has(last);
+  return { text: say ? spoken(indicatorLabel(next, nowMs)) : null, last: next.state, calm: say && !problem };
+}
+
+/**
+ * Ogłaszanie stanu synchronizacji (audyt 3, N-198): wejście w problem — od razu; powrót do normy — dopiero po
+ * config.a11y.SYNC_CALM_MS bez nowego problemu. Problem, który wrócił w tym czasie, nie jest ogłaszany drugi raz
+ * (powrotu też nie było). `read` — bieżący wskaźnik, `now` — zegar, `say` — ogłoszenie (announce).
+ */
+export function syncAnnouncer(read: () => Indicator, now: () => number, say: (text: string | null) => void): { update: () => void; stop: () => void } {
+  let last = read().state;
+  let calm: ReturnType<typeof setTimeout> | null = null;
+  const stop = () => {
+    if (calm) clearTimeout(calm);
+    calm = null;
+  };
+  const update = () => {
+    const i = read();
+    const r = syncAnnouncement(last, i, now());
+    if (PROBLEM.has(i.state)) stop();
+    if (!r.calm) {
+      last = r.last;
+      return say(r.text);
+    }
+    if (calm) return;
+    calm = setTimeout(() => {
+      calm = null;
+      const later = syncAnnouncement(last, read(), now());
+      if (later.calm) {
+        last = later.last;
+        say(later.text);
+      }
+    }, config.a11y.SYNC_CALM_MS);
+  };
+  return { update, stop };
 }
 
 /**
@@ -350,8 +416,7 @@ export function Checkbox({ checked, onPress, label, round = true }: { checked: b
   const { c, size, radius } = useTheme();
   return (
     <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
+      {...buttonA11y({ selected: checked })}
       accessibilityLabel={label}
       onPress={onPress}
       style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: round ? size.TOUCH_TARGET / 2 : radius.FIELD, borderWidth: 2, borderColor: checked ? c.ok : c.control, backgroundColor: checked ? c.ok : c.surface, alignItems: 'center', justifyContent: 'center' }}
@@ -404,7 +469,8 @@ export function StationRow(props: {
   // Audyt 2 (M-263): VoiceOver zaczyna od tytułu, czyta widoczne dopiski (także „czeka na wysłanie”) słowami, a czynność
   // jest w podpowiedzi, nie w etykiecie. Wiersz bez otwierania (M-142) to zwykły element z etykietą — nie „wyszarzony”
   // przycisk.
-  const label = [props.title, props.alert, props.when ? spoken(props.when) : null, props.group, ...(props.meta ?? []).map(spoken), props.pending ? strings['lists.pendingItem'] : null].filter(Boolean).join(', ');
+  // Audyt 3 (N-65): ostrzeżenie też słowami (dopisek z aplikacji).
+  const label = [props.title, props.alert ? spoken(props.alert) : null, props.when ? spoken(props.when) : null, props.group, ...(props.meta ?? []).map(spoken), props.pending ? strings['lists.pendingItem'] : null].filter(Boolean).join(', ');
   const body = (
     <>
       <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: done || props.readOnly ? c.inkMuted : c.ink, textDecorationLine: done ? 'line-through' : 'none' }}>{props.title}</Text>
@@ -432,10 +498,9 @@ export function StationRow(props: {
       </View>
       {props.onOpen ? (
         <Pressable
-          accessibilityRole="button"
+          {...buttonA11y({ expanded: props.expanded })}
           accessibilityLabel={label}
           accessibilityHint={props.openHint ?? strings['task.openHint']}
-          accessibilityState={props.expanded === undefined ? undefined : { expanded: props.expanded }}
           {...actions}
           onPress={props.onOpen}
           style={bodyStyle}
@@ -465,9 +530,8 @@ export function Collapsible({ title, open, onToggle, children, testID }: { title
   return (
     <View testID={testID}>
       <Pressable
-        accessibilityRole="button"
+        {...buttonA11y({ expanded: open })}
         accessibilityLabel={(open ? strings['section.hideA11y'] : strings['section.showA11y'])(title)}
-        accessibilityState={{ expanded: open }}
         onPress={onToggle}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET }}
       >
@@ -559,10 +623,9 @@ export function Button({ label, onPress, kind = 'primary', disabled, testID, a11
     <Pressable
       ref={ref}
       testID={testID}
-      accessibilityRole="button"
+      {...buttonA11y({ disabled: off, busy })}
       accessibilityLabel={a11yLabel ?? label}
       accessibilityHint={a11yHint}
-      accessibilityState={{ disabled: off, busy: !!busy }}
       disabled={off}
       onPress={onPress}
       style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: radius.PILL, paddingHorizontal: 18, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bg, borderWidth: kind === 'primary' ? 0 : 1, borderColor: kind === 'danger' ? c.danger : c.border, opacity: off ? 0.5 : 1 }}
@@ -583,6 +646,21 @@ function LengthNote({ value, max }: { value: string | undefined; max: number | u
   return <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['common.maxLength'](max)}</Text>;
 }
 
+/**
+ * Widoczny podpis pola (Field, DateField, TimeField). Pole ma tę samą etykietę, więc podpis jest ukryty przed VoiceOverem —
+ * inaczej każdy podpis to osobny przystanek przed polem („Tytuł”, potem „Tytuł, Odebrać paczkę, pole tekstowe”; audyt 3,
+ * N-195). RN 0.86: „setting accessibilityElementsHidden to true on view B causes VoiceOver to ignore the B view”
+ * (https://reactnative.dev/docs/0.86/accessibility#accessibilityelementshidden-ios).
+ */
+export function FieldCaption({ children }: { children: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>
+      {children}
+    </Text>
+  );
+}
+
 /** `ref` — pole tekstowe (React 19: ref jak zwykły props), np. żeby przejść do pola z karty „Następne kroki”. */
 /**
  * `a11yFocus` — fokus VoiceOvera na polu po jego pojawieniu (panel w miejscu zaczyna się od pola, M-44); wtedy bez `ref`.
@@ -596,7 +674,7 @@ export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { la
   const numeric = input.keyboardType === 'number-pad' || input.keyboardType === 'decimal-pad';
   return (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
+      <FieldCaption>{label}</FieldCaption>
       <TextInput
         ref={a11yFocus ? own : ref}
         accessibilityLabel={label}
@@ -623,7 +701,8 @@ export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { la
  * Pole szybkiego dodawania (D18): biała pigułka z okrągłym przyciskiem „Dodaj” w kolorze akcentu (D72). Tytuł zadania
  * i pozycji zakupów ma limit z SQL (config.lengths.TASK_TITLE; audyt 2, M-228).
  */
-export function QuickAddField({ value, onChangeText, onSubmit, placeholder, children }: { value: string; onChangeText: (s: string) => void; onSubmit: () => void; placeholder: string; children?: ReactNode }) {
+/** `inputRef` — pole tekstowe, np. żeby fokus VoiceOvera wrócił do niego po „Anuluj” w pytaniu pod polem (audyt 3, N-62). */
+export function QuickAddField({ value, onChangeText, onSubmit, placeholder, children, inputRef }: { value: string; onChangeText: (s: string) => void; onSubmit: () => void; placeholder: string; children?: ReactNode; inputRef?: Ref<TextInput> }) {
   const { c, font, size } = useTheme();
   // D102: po dodaniu klawiatura znika (także po „+”, nie tylko po klawiszu zatwierdzenia).
   const submit = () => {
@@ -634,6 +713,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingLeft: 18, paddingRight: 5, borderRadius: 27, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
         <TextInput
+          ref={inputRef}
           testID="quick-add"
           accessibilityLabel={strings['quick.label']}
           value={value}
@@ -688,7 +768,8 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      // Audyt 3 (N-65): podpis budowany przez aplikację („3 osoby · administrator”, „Co tydzień: śr. · 17:00”) słowami.
+      accessibilityLabel={subtitle ? `${title}, ${spoken(subtitle)}` : title}
       {...actions}
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 14, borderRadius: radius.ROW, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}
@@ -713,7 +794,8 @@ export function NavRow({ title, subtitle, line, onPress, testID, chevron = true 
 export function Segmented<T extends string>({ value, options, onChange, label, a11yLabel, contextual }: { value: T; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; label: string; a11yLabel?: string; contextual?: boolean }) {
   const { c, font, size } = useTheme();
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
+    // Bez roli „radiogroup” (na iOS bez cechy, N-9); etykieta grupy dla testów, opcje mówią ją same przy `contextual`.
+    <View accessibilityLabel={a11yLabel ?? label} style={{ gap: 6 }}>
       <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {options.map((o) => {
@@ -721,8 +803,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
           return (
             <Pressable
               key={o.value}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
+              {...buttonA11y({ selected: on })}
               accessibilityLabel={contextual ? `${o.label}, ${a11yLabel ?? label}` : o.label}
               accessibilityHint={o.hint}
               onPress={() => onChange(o.value)}
@@ -750,14 +831,14 @@ export function EventRow({ title, time, length, part, line, group, onPress, test
   const l = lineOf(line);
   const actions = useSwipeAction();
   const when = time ?? strings['common.allDay'];
-  const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
+  // Audyt 3 (N-65): „Wyjdź o 16:20 · 35 min autem” słowami.
+  const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert ? spoken(alert) : null, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      {...buttonA11y({ expanded })}
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={expanded === undefined ? undefined : { expanded }}
       {...actions}
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}
@@ -811,8 +892,7 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
           return (
             <Pressable
               key={String(o.value)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: on }}
+              {...buttonA11y({ selected: on })}
               accessibilityLabel={o.a11y ?? o.label}
               onPress={() => onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])}
               style={{ minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
@@ -843,11 +923,28 @@ export function GroupLine({ name, line, detail, header, flex }: { name: string; 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: flex ? 1 : undefined }}>
       <GroupMark line={line} />
-      <Text accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header} style={{ flex: 1, fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
-        <Text style={{ fontFamily: font.text700, color: lineOf(line).ink }}>{name}</Text>
-        {detail ? `${META_SEP}${detail}` : ''}
-      </Text>
+      {header ? (
+        <HeaderLine header={header} name={name} detail={detail} ink={lineOf(line).ink} />
+      ) : (
+        <Text style={{ flex: 1, fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
+          <Text style={{ fontFamily: font.text700, color: lineOf(line).ink }}>{name}</Text>
+          {detail ? `${META_SEP}${detail}` : ''}
+        </Text>
+      )}
     </View>
+  );
+}
+
+/** Linia grupy jako nagłówek ekranu: fokus VoiceOvera po wejściu na ekran, jak tytuł (audyt 3, N-63). */
+function HeaderLine({ header, name, detail, ink }: { header: string; name: string; detail?: string; ink: string }) {
+  const { c, font, size } = useTheme();
+  const ref = useRef<Text>(null);
+  useScreenTitleFocus(ref);
+  return (
+    <Text ref={ref} accessibilityRole="header" accessibilityLabel={header} style={{ flex: 1, fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
+      <Text style={{ fontFamily: font.text700, color: ink }}>{name}</Text>
+      {detail ? `${META_SEP}${detail}` : ''}
+    </Text>
   );
 }
 
@@ -859,8 +956,20 @@ export function MissingScreen({ text, onBack, testID }: { text: string; onBack: 
   return (
     <Screen testID={testID}>
       <BackButton onPress={onBack} />
-      <Body muted>{text}</Body>
+      <MissingText>{text}</MissingText>
     </Screen>
+  );
+}
+
+/** Powód na ekranie „brak obiektu” to jego nagłówek: VoiceOver zaczyna od niego, nie od „Wróć” (audyt 3, N-63). */
+function MissingText({ children }: { children: string }) {
+  const { c, font, size } = useTheme();
+  const ref = useRef<Text>(null);
+  useScreenTitleFocus(ref);
+  return (
+    <Text ref={ref} accessibilityRole="header" style={{ fontFamily: font.text400, fontSize: size.BODY, color: c.inkMuted, lineHeight: size.BODY * 1.3 }}>
+      {children}
+    </Text>
   );
 }
 

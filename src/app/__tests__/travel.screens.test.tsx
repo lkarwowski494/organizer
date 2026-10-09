@@ -77,7 +77,7 @@ describe('dojazd (D115–D117)', () => {
     expect(prefs.m.get('travelMode')).toBeUndefined();
   });
 
-  it('Ustawienia: włączenie prosi o zgodę; odmowa — wskazówka; środek domyślny i aplikacja nawigacji', async () => {
+  it('Ustawienia: włączenie prosi o zgodę; odmowa — wskazówka; środek domyślny; bez wyboru aplikacji map (ADR 0043)', async () => {
     const travel = fakeTravel({ status: jest.fn(async () => 'undetermined' as const), request: jest.fn(async () => false) });
     const { prefs } = await open(travel, memoryPrefs({ welcomeSeen: '1' }));
     expect(screen.queryByText(/Wyjdź o/)).toBeNull();
@@ -95,8 +95,8 @@ describe('dojazd (D115–D117)', () => {
     expect(prefs.m.get('travelEnabled')).toBe('1');
     await press(within(within(box).getByLabelText('Domyślny dojazd')).getByLabelText('Komunikacją'));
     expect(prefs.m.get('travelMode')).toBe('transit');
-    await press(within(within(box).getByLabelText('Nawiguj w')).getByLabelText('Google Maps'));
-    expect(prefs.m.get('navApp')).toBe('google');
+    // „Nawiguj” otwiera zawsze Mapy Apple — w Ustawieniach nie ma już wyboru aplikacji.
+    expect(within(box).queryByLabelText('Nawiguj w')).toBeNull();
     await toggle(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń'), false);
     expect(prefs.m.get('travelEnabled')).toBe('0');
   });
@@ -152,7 +152,7 @@ describe('dojazd (D115–D117)', () => {
     }
   });
 
-  it('zapisane ustawienia wczytane; Google Maps; nieznany adres — bez czasu; błąd — zgłoszony raz', async () => {
+  it('zapisane ustawienia wczytane; dawny wybór innych map (build 21–22) — Mapy Apple; nieznany adres — bez czasu; błąd — zgłoszony raz', async () => {
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const travel = fakeTravel({ geocode: jest.fn(async () => null) });
     await open(travel, memoryPrefs({ welcomeSeen: '1', travelEnabled: '1', travelMode: 'transit', navApp: 'google' }));
@@ -160,7 +160,7 @@ describe('dojazd (D115–D117)', () => {
     expect(screen.queryByText(/Wyjdź o/)).toBeNull();
     await press(screen.getByLabelText(/^Basen, 17:00–18:00/));
     await press(await screen.findByTestId('navigate'));
-    expect(openUrl).toHaveBeenLastCalledWith('https://www.google.com/maps/dir/?api=1&destination=Basen%20Delfin%2C%20ul.%20Wodna%201&travelmode=transit');
+    expect(openUrl).toHaveBeenLastCalledWith(expect.stringMatching(/^https:\/\/maps\.apple\.com\/.*Basen%20Delfin%2C%20ul\.%20Wodna%201&(mode=transit|dirflg=r)$/));
     const broken = fakeTravel({ position: jest.fn(async () => Promise.reject(new Error('kCLErrorDomain'))) });
     const s = await open(broken);
     await flush();

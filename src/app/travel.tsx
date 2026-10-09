@@ -1,7 +1,8 @@
 /**
- * Dojazd do najbliższych wydarzeń (D116, D117; ADR 0029; okno AHEAD_HOURS także po północy — audyt 2, M-211): ustawienia konta na tym telefonie (D175; środek transportu, aplikacja
- * nawigacji, włączenie), zmiana środka przy wydarzeniu (tylko u mnie), czas dojazdu z Map Apple odświeżany co
- * config.travel.REFRESH_MIN minut i przy powrocie do aplikacji, „Wyjdź o …” i „Nawiguj”.
+ * Dojazd do najbliższych wydarzeń (D116, D117; ADR 0029; okno AHEAD_HOURS także po północy — audyt 2, M-211): ustawienia konta na tym telefonie (D175; środek transportu,
+ * włączenie), zmiana środka przy wydarzeniu (tylko u mnie), czas dojazdu z Map Apple odświeżany co
+ * config.travel.REFRESH_MIN minut i przy powrocie do aplikacji, „Wyjdź o …” i „Nawiguj” (zawsze Mapy Apple — ADR 0043;
+ * dawny wybór innych map z buildów 21–22 nie jest czytany, a account-prefs go usuwa).
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
@@ -10,7 +11,7 @@ import { config } from '../config';
 import { addDays } from '../domain/civil-date';
 import { parseIsoDate } from '../domain/format';
 import { type CivilDate } from '../domain/civil-date';
-import { departureMs, type GeoCache, geoLookup, geoStore, isTravelMode, type NavApp, navigationUrl, readGeoCache, readTravelResults, type TravelMode, type TravelResult, travelInfoFor, type TravelTarget, travelTargets } from '../domain/travel';
+import { departureMs, type GeoCache, geoLookup, geoStore, isTravelMode, navigationUrl, readGeoCache, readTravelResults, type TravelMode, type TravelResult, travelInfoFor, type TravelTarget, travelTargets } from '../domain/travel';
 import type { Tables } from '../domain/views/model';
 import { expandEvents } from '../domain/views/events';
 import { silencedForMe } from '../domain/views/rsvp';
@@ -23,7 +24,6 @@ import { appVersion, toClientError } from './diagnostics';
 
 export const TRAVEL_ON = 'travelEnabled';
 export const TRAVEL_MODE = 'travelMode';
-export const NAV_APP = 'navApp';
 const MODES_KEY = 'travelModes';
 const GEO_KEY = 'travelGeo';
 /** Ostatnie wyniki dojazdu (D159): z nich „Czas wyjść” planuje się także w tle, bez pytania o położenie. */
@@ -36,10 +36,8 @@ type Api = {
   enabled: boolean;
   status: 'granted' | 'denied' | 'undetermined' | null;
   mode: TravelMode;
-  navApp: NavApp;
   setEnabled(on: boolean): Promise<void>;
   setMode(m: TravelMode): void;
-  setNavApp(a: NavApp): void;
   modeFor(eventId: string): TravelMode;
   setEventMode(eventId: string, m: TravelMode | null): void;
   info(eventId: string, occurrenceDate: string): TravelInfo | null;
@@ -56,8 +54,8 @@ type Api = {
 
 const noop = () => {};
 const Ctx = createContext<Api>({
-  available: false, enabled: false, status: null, mode: 'driving', navApp: 'apple',
-  setEnabled: async () => {}, setMode: noop, setNavApp: noop, modeFor: () => 'driving', setEventMode: noop, info: () => null, notFound: () => false, requestPermission: async () => {}, navigate: noop,
+  available: false, enabled: false, status: null, mode: 'driving',
+  setEnabled: async () => {}, setMode: noop, modeFor: () => 'driving', setEventMode: noop, info: () => null, notFound: () => false, requestPermission: async () => {}, navigate: noop,
   scheduled: () => false, openSettings: noop,
 });
 export const useTravel = () => useContext(Ctx);
@@ -101,7 +99,6 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabledState] = useState(false);
   const [status, setStatus] = useState<Api['status']>(null);
   const [mode, setModeState] = useState<TravelMode>('driving');
-  const [navApp, setNavAppState] = useState<NavApp>('apple');
   // Zmiany środka transportu przy wydarzeniach — tylko na tym telefonie (lokalna baza).
   const [overrides, setOverrides] = useState<Record<string, TravelMode>>(() => (local ? savedModes(local) : {}));
   const [results, setResults] = useState<Record<string, TravelResult>>({});
@@ -114,13 +111,12 @@ export function TravelProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!available) return;
     let live = true;
-    Promise.all([travel!.status(), prefs!.get(TRAVEL_ON), prefs!.get(TRAVEL_MODE), prefs!.get(NAV_APP)])
-      .then(([s, on, m, a]) => {
+    Promise.all([travel!.status(), prefs!.get(TRAVEL_ON), prefs!.get(TRAVEL_MODE)])
+      .then(([s, on, m]) => {
         if (!live) return;
         setStatus(s);
         setEnabledState(on === '1');
         if (isTravelMode(m)) setModeState(m);
-        if (a === 'google') setNavAppState('google');
       })
       .catch(() => {});
     // Powrót do aplikacji: dojazd od nowa, a zgoda na lokalizację mogła się zmienić w Ustawieniach iPhone'a (audyt 2, N-21).
@@ -204,7 +200,6 @@ export function TravelProvider({ children }: { children: ReactNode }) {
       enabled,
       status,
       mode,
-      navApp,
       setEnabled: async (on) => {
         if (on && travel && status !== 'granted') {
           const ok = await travel.request().catch(() => false);
@@ -215,7 +210,6 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         prefs?.set(TRAVEL_ON, on ? '1' : '0').catch(() => {});
       },
       setMode: (m) => (setModeState(m), prefs?.set(TRAVEL_MODE, m).catch(() => {})),
-      setNavApp: (a) => (setNavAppState(a), prefs?.set(NAV_APP, a).catch(() => {})),
       modeFor,
       setEventMode: (eventId, m) => {
         const next = { ...overrides };
@@ -231,10 +225,10 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         const ok = await travel.request().catch(() => false);
         setStatus(ok ? 'granted' : await travel.status().catch(() => 'denied' as const));
       },
-      navigate: (location, eventId) => void Linking.openURL(navigationUrl(navApp, location, modeFor(eventId), String(Platform.Version))).catch(() => {}),
+      navigate: (location, eventId) => void Linking.openURL(navigationUrl(location, modeFor(eventId), String(Platform.Version))).catch(() => {}),
       scheduled: (eventId, occurrenceDate) => targets.some((t) => t.key === `${eventId}|${occurrenceDate}`),
       openSettings: () => void Linking.openSettings().catch(() => {}),
     };
-  }, [available, enabled, status, mode, navApp, modeFor, overrides, results, missing, targets, travel, prefs, local]);
+  }, [available, enabled, status, mode, modeFor, overrides, results, missing, targets, travel, prefs, local]);
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
