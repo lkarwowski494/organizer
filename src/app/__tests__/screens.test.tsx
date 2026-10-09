@@ -130,7 +130,7 @@ describe('Listy i zadania', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'own', due_date: '2026-10-09' } });
     const sent = store.dispatched.length;
     await setTime('task-time', '25:00');
-    expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
+    expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     expect(store.dispatched).toHaveLength(sent);
     await press(screen.getByLabelText('Ala'));
     expect(store.dispatched.at(-1)).toMatchObject({ set: { assignee_member_id: 'ala' } });
@@ -142,7 +142,7 @@ describe('Listy i zadania', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', set: { parent_id: 't-kwiaty', deadline_mode: 'inherit' } });
     expect(await screen.findByText('wstążka')).toBeTruthy();
     await setTime('task-time', '17:30');
-    expect(screen.queryByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeNull();
+    expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
     // Notatka bez wyjścia z pola — zapis przy opuszczeniu ekranu.
     await type(screen.getByTestId('task-note'), 'tulipany');
     await press(screen.getByLabelText('Wróć'));
@@ -217,7 +217,7 @@ describe('Grupy', () => {
     await press(await screen.findByTestId('group-gf'));
     expect(await screen.findByText('Rodzina')).toBeTruthy();
     expect(screen.getByLabelText('Ala, właściciel')).toBeTruthy();
-    expect(screen.queryByLabelText('Zaproś jako admina')).toBeNull();
+    expect(screen.queryByLabelText('Zaproś jako administratora')).toBeNull();
     await press(screen.getByTestId('invite'));
     // D92–D94: ID grupy + 6-cyfrowy kod na 24 h, link https w wiadomości.
     expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'member');
@@ -273,7 +273,7 @@ describe('Grupy', () => {
     const { account } = await open({ base });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
-    await press(await screen.findByLabelText('Zaproś jako admina'));
+    await press(await screen.findByLabelText('Zaproś jako administratora'));
     expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'admin');
     // Owner może zmienić ID grupy (z potwierdzeniem); kod znika, bo przestał działać.
     expect(screen.getByTestId('invite-ready')).toBeTruthy();
@@ -415,7 +415,7 @@ describe('Edycja grup (D54–D56)', () => {
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByTestId('member-ala'));
     expect(await screen.findByTestId('screen-member')).toBeTruthy();
-    await press(screen.getByLabelText('członek'));
+    await press(screen.getByLabelText('Członek'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'member' } });
     await press(screen.getByTestId('make-owner'));
     expect(screen.getByText(/Ala zostanie właścicielem grupy/)).toBeTruthy();
@@ -430,7 +430,7 @@ describe('Edycja grup (D54–D56)', () => {
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
     await press(screen.getByTestId('member-kuba'));
     expect(screen.queryByTestId('make-owner')).toBeNull();
-    expect(screen.queryByLabelText('członek')).toBeNull();
+    expect(screen.queryByLabelText('Członek')).toBeNull();
     await type(screen.getByTestId('member-name'), 'Jakub');
     await fireEvent(screen.getByTestId('member-name'), 'blur');
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { display_name: 'Jakub' } });

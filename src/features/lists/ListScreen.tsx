@@ -104,7 +104,8 @@ export function ListScreen({ route, navigation }: Props) {
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
   const trip = asTrip(tables.lists?.[list.id] ?? {});
   const adults = tripAdults(tables, list.group_id);
-  const who = adults.find((m) => m.member_id === trip.responsibleId)?.display_name ?? null;
+  // Audyt 2 (U-30): jak w wierszu zakupów w Moich sprawach („dla Ciebie”, „dla: Ala”).
+  const who = adults.some((m) => m.member_id === trip.responsibleId) ? personOf(tables, userId, trip.responsibleId) : null;
   // Audyt 2 (R-3): do wyboru tylko ci, którzy widzą listę. M-22: osoba usunięta z grupy (albo bez dostępu) to „Nikt
   // konkretny” (D132) — edytor nie dostaje wartości spoza swoich opcji.
   const pickable = adults.filter((m) => memberCanSeeList(tables, m.member_id, list.id));

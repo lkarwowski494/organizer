@@ -136,12 +136,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
     expect(screen.getByText('Rodzina · dziecko · ma własne konto')).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
-    await press(screen.getByRole('radio', { name: 'członek' }));
+    await press(screen.getByRole('radio', { name: 'Członek' }));
     expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'kuba', set: { role: 'member' } });
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('member-ala'));
     await screen.findByTestId('screen-member');
-    await press(screen.getByRole('radio', { name: 'dziecko' }));
+    await press(screen.getByRole('radio', { name: 'Dziecko' }));
     expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'child' } });
   });
 
@@ -199,6 +199,6 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: childBase() });
     await openGroup('gk');
     expect(screen.queryByTestId('leave')).toBeNull();
-    expect(screen.getByText('Z tej grupy wypisuje Cię właściciel albo admin.')).toBeTruthy();
+    expect(screen.getByText('Z tej grupy wypisuje Cię właściciel albo administrator.')).toBeTruthy();
   });
 });
