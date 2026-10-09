@@ -193,7 +193,7 @@ describe('Moje sprawy: „Zrobione dziś”, „Bez terminu”, kolejność kart
     put(base, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: null, audience: 'members', responsible_member_id: 'ala', deleted_at: null, version: 1 });
     put(base, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
     await open(base);
-    expect(screen.getByLabelText(/^Kuba: Basen, 17:00–18:00, 1 h, Rodzina, odpowiada: Ala$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Kuba: Basen, 17:00–18:00, [^,]+, Rodzina, odpowiada: Ala, minione$/)).toBeTruthy();
     expect(within(screen.getByTestId('today-event-basen-2026-10-07')).getByText('Kuba: Basen')).toBeTruthy();
   });
 });
@@ -229,7 +229,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     await press(screen.getByTestId('day-2026-10-05'));
     expect(within(screen.getByTestId('cal-stare')).getByText('zaległe od 2 dni')).toBeTruthy();
     expect(within(screen.getByTestId('cal-minelo')).getByText('minęło')).toBeTruthy();
-    expect(screen.getByLabelText(/^Otwórz: Wynieść śmieci, Osobiste, zrobione wczoraj$/)).toBeTruthy();
+    expect(screen.getByLabelText('Wynieść śmieci, Osobiste, zrobione wczoraj')).toBeTruthy();
   });
 
   it('PWD-15 A (M-284): blade kolejne terminy zadania powtarzanego — bez odhaczania, otwierają zadanie', async () => {
@@ -240,7 +240,8 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     const next = screen.getByTestId('cal-next-smieci-2026-10-14');
     expect(within(next).queryByRole('checkbox')).toBeNull();
     expect(within(next).getByText(/kolejny termin/)).toBeTruthy();
-    await press(screen.getByLabelText(/^Kolejny termin: Śmieci\. Otwórz zadanie/));
+    expect(within(next).getByRole('button').props.accessibilityHint).toBe('Otwiera zadanie, z którego wynika ten termin');
+    await press(within(next).getByRole('button'));
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
   });
 

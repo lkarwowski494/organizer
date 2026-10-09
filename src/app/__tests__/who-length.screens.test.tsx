@@ -22,11 +22,11 @@ describe('kto i jak długo (D119, D120)', () => {
     await screen.findByTestId('screen-today');
     expect(within(screen.getByTestId('today-t-paczka')).getByText(/dla Ciebie/)).toBeTruthy();
     // Audyt 8.10.2026: VoiceOver czyta cały wiersz, nie tylko tytuł.
-    expect(screen.getByLabelText('Otwórz: Odebrać paczkę, 18:00, Rodzina, dla Ciebie')).toBeTruthy();
-    expect(screen.getByLabelText(/^Zebranie, 19:00–19:45, 45 min, Rodzina, Ty odpowiadasz$/)).toBeTruthy();
+    expect(screen.getByLabelText('Odebrać paczkę, 18:00, Rodzina, dla Ciebie')).toBeTruthy();
+    expect(screen.getByLabelText(/^Zebranie, 19:00–19:45, 45 minut, Rodzina, Ty odpowiadasz$/)).toBeTruthy();
     expect(within(screen.getByTestId('today-t-korki')).queryByText(/dla:/)).toBeNull(); // nikt nieprzypisany
     expect(screen.queryByTestId('today-event-ev1-2026-10-07')).toBeNull(); // odpowiada Ala, nie dotyczy mnie
-    expect(screen.getByLabelText(/^Zebranie, 19:00–19:45, 45 min, Rodzina/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Zebranie, 19:00–19:45, 45 minut, Rodzina/)).toBeTruthy();
     const zebranie = screen.getByTestId('today-event-ev2-2026-10-07');
     expect(within(zebranie).getByText(/45 min/)).toBeTruthy();
     expect(within(zebranie).getByText(/Ty odpowiadasz/)).toBeTruthy();

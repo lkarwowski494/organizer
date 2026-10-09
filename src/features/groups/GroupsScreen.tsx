@@ -5,15 +5,14 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { groupDetail, type GroupItem, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Button, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
+import { Button, ErrorText, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
-import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { groupErrorText } from './server-errors';
 import { TrashSection } from './TrashSection';
@@ -21,7 +20,6 @@ import { TrashSection } from './TrashSection';
 export function GroupsScreen() {
   const { userId, account, store } = useServices();
   const { tables } = useAppData();
-  const { c, font } = useTheme();
   const undo = useUndo();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
@@ -63,7 +61,7 @@ export function GroupsScreen() {
           </SwipeRow>
         ))}
       </View>
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button label={strings['groups.new']} onPress={() => nav.navigate('NewGroup')} />
       <Button kind="secondary" label={strings['groups.join']} onPress={() => nav.navigate('Invite', {})} />
       <NavRow title={strings['recent.title']} testID="open-recent" onPress={() => nav.navigate('Recent')} />

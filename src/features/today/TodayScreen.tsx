@@ -50,6 +50,7 @@ import { useMyScope } from '../../app/my-scope';
 import { type RowTask, useRowMeta } from '../../app/row-meta';
 import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
+import { announce } from '../../ui/a11y';
 import { useTheme } from '../../ui/theme';
 
 const MODES: RangeMode[] = ['day', 'week', 'month'];
@@ -298,10 +299,10 @@ export function TodayScreen() {
           time={timeLabel(b.start, b.end)}
           line={b.line}
           group={groupLabel(b.groupId, b.groupName)}
-          recurring={false}
-          extra={open ? strings['lessons.hide'] : strings['lessons.show']}
+          expanded={open}
+          hint={open ? strings['lessons.hideHint'] : strings['lessons.showHint']}
           faded={past}
-          onPress={() => setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key])}
+          onPress={() => (setOpenLessons(open ? openLessons.filter((k) => k !== x.key) : [...openLessons, x.key]), open || announce(strings['lessons.shown'](b.lessons.length)))}
         />
         {open ? b.lessons.map((l) => entryRow({ kind: 'event', key: `${x.key}-${l.eventId}`, event: l }, past, b.lessons[0]!.date)) : null}
       </Fragment>
@@ -323,7 +324,6 @@ export function TodayScreen() {
         {...occurrenceRow(x.event)}
         line={x.event.line}
         group={groupLabel(x.event.groupId, x.event.groupName)}
-        recurring={x.event.recurring}
         alert={info ? undefined : m.alert}
         extra={m.extra}
         faded={past || !!info}

@@ -11,10 +11,10 @@
  * Ekran podaje wartości pól i ich settery — nie musi zmieniać swojego stanu na jeden obiekt.
  */
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
 
 import { changedFields, decodeDraft, encodeDraft } from '../domain/drafts';
 import { strings } from '../i18n/strings.pl';
+import { announce } from '../ui/a11y';
 import { Body, Button } from '../ui/components';
 import { useServices } from './context';
 
@@ -74,6 +74,6 @@ export function DraftNote({ draft }: { draft: { restored: boolean; discard: () =
 /** Ogłoszenie VoiceOvera po otwarciu ekranu (np. tytuł formularza po przełączeniu „Rodzaj”, M-255); null — nic. */
 export function useAnnounce(text: string | null) {
   useEffect(() => {
-    if (text) AccessibilityInfo.announceForAccessibility(text);
+    announce(text);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }

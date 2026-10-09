@@ -61,7 +61,7 @@ describe('Wydarzenia: dodawanie', () => {
     expect(created(ops, 'events').every((o) => o.group_id === 'gf')).toBe(true);
     // Sobota 10.10 w kalendarzu: wydarzenie z linią grupy.
     await press(screen.getByTestId('day-2026-10-10'));
-    expect(screen.getByLabelText('Tańce Kuby, 12:00, Rodzina, powtarza się')).toBeTruthy();
+    expect(screen.getByLabelText('Tańce Kuby, 12:00, Rodzina')).toBeTruthy();
     expect(screen.getByTestId('day-2026-10-12').props.accessibilityLabel).toMatch(/1 wydarzenie/);
   });
 
@@ -141,7 +141,7 @@ describe('Wydarzenia: dodawanie', () => {
 describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
   async function openDances() {
     const s = await open();
-    expect(screen.getByLabelText('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')).toBeTruthy(); // dziecko uczestnikiem → dotyczy mnie
+    expect(screen.getByLabelText('Tańce, 17:00–18:00, 1 godzina, Rodzina')).toBeTruthy(); // dziecko uczestnikiem → dotyczy mnie
     await press(screen.getByTestId('today-event-ev-tance-2026-10-07'));
     await screen.findByTestId('screen-event');
     return s;
@@ -176,7 +176,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
       { kind: 'create', entity: 'event_overrides', id: oid, group_id: 'gf', set: { event_id: 'ev-tance', occurrence_date: '2026-10-07', start_date: null, start_time: '16:00', end_time: '17:00', title: null, responsible_member_id: null, cancelled: false } },
       { kind: 'patch', entity: 'event_overrides', id: oid, set: { start_time: '16:00', end_time: '17:00' } },
     ]);
-    expect(screen.getByLabelText('Tańce, 16:00–17:00, 1 h, Rodzina, powtarza się')).toBeTruthy();
+    expect(screen.getByLabelText('Tańce, 16:00–17:00, 1 godzina, Rodzina')).toBeTruthy();
   });
 
   it('D136: „tylko to” na cały dzień — znacznik w wyjątku, w Moich sprawach bez godziny', async () => {
@@ -260,7 +260,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
         },
       },
     ]);
-    expect(screen.getByLabelText('Tańce, 18:00, Rodzina, powtarza się')).toBeTruthy();
+    expect(screen.getByLabelText('Tańce, 18:00, Rodzina')).toBeTruthy();
   });
 
   it('„wszystkie”: zmiana dnia na czwartek — Moje sprawy: jutro', async () => {

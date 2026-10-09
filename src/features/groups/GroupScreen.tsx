@@ -17,7 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
-import { BackButton, GroupMark, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
 import { useUndo } from '../../ui/undo';
@@ -217,7 +217,7 @@ export function GroupScreen({ route, navigation }: Props) {
           }
         />
       ) : null}
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
           {/* PWD-5 A (M-274): przycisk zawsze aktywny, komunikat przy polu; M-243: Return dodaje. */}

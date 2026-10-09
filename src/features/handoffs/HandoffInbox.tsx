@@ -31,10 +31,10 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
           strings['handoff.incoming'](h.otherName, titleOf(h)),
           <>
             <View style={{ flex: 1 }}>
-              <Button label={strings['handoff.accept']} testID={`handoff-accept-${h.id}`} onPress={() => onDecide(h, true)} />
+              <Button label={strings['handoff.accept']} a11yLabel={strings['handoff.acceptA11y'](titleOf(h))} testID={`handoff-accept-${h.id}`} onPress={() => onDecide(h, true)} />
             </View>
             <View style={{ flex: 1 }}>
-              <Button kind="secondary" label={strings['handoff.decline']} testID={`handoff-decline-${h.id}`} onPress={() => onDecide(h, false)} />
+              <Button kind="secondary" label={strings['handoff.decline']} a11yLabel={strings['handoff.declineA11y'](titleOf(h))} testID={`handoff-decline-${h.id}`} onPress={() => onDecide(h, false)} />
             </View>
           </>,
         ),
@@ -44,7 +44,7 @@ export function HandoffInbox({ incoming, declined, today, onDecide, onClose }: {
           h,
           strings['handoff.declined'](h.otherName, titleOf(h)),
           <View style={{ flex: 1 }}>
-            <Button kind="secondary" label={strings['handoff.ok']} testID={`handoff-ok-${h.id}`} onPress={() => onClose(h)} />
+            <Button kind="secondary" label={strings['handoff.ok']} a11yLabel={strings['handoff.okA11y'](titleOf(h))} testID={`handoff-ok-${h.id}`} onPress={() => onClose(h)} />
           </View>,
         ),
       )}

@@ -11,7 +11,7 @@ async function openTask(base = sampleBase(), title = 'Odebrać paczkę') {
   const s = setup({ base });
   await s.renderApp(<RootStack />);
   await screen.findByTestId('screen-today');
-  await press(screen.getByLabelText(new RegExp(`^Otwórz: ${title}(,|$)`)));
+  await press(screen.getByLabelText(new RegExp(`^${title}(,|$)`)));
   await screen.findByTestId('screen-task');
   return s;
 }
@@ -24,7 +24,7 @@ describe('powtarzanie zadania', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     expect(s.store.dispatched).toEqual([expect.objectContaining({ kind: 'create', id: nextId('leki'), set: expect.objectContaining({ due_date: '2026-10-07', title: 'Leki' }) })]);
-    expect(await screen.findByLabelText(/^Otwórz: Leki/)).toBeTruthy();
+    expect(await screen.findByLabelText(/^Leki/)).toBeTruthy();
   });
 
   it('audyt 2 (T-19): minione „od wykonania” dostaje następne na dziś, nie na wczoraj + interwał', async () => {
@@ -34,7 +34,7 @@ describe('powtarzanie zadania', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     expect(s.store.dispatched).toEqual([expect.objectContaining({ kind: 'create', id: nextId('podlac'), set: expect.objectContaining({ due_date: '2026-10-07', repeat: 'AFTER=WEEKLY;INTERVAL=1' }) })]);
-    expect(await screen.findByLabelText(/^Otwórz: Podlać kwiaty/)).toBeTruthy();
+    expect(await screen.findByLabelText(/^Podlać kwiaty/)).toBeTruthy();
   });
 
   it('decyzja właściciela z 8.10.2026: zaległe „codziennie” odhaczone dziś — następne jutro, bez osobnego na dziś', async () => {
@@ -45,7 +45,7 @@ describe('powtarzanie zadania', () => {
     await press(await screen.findByLabelText('Oznacz jako zrobione: Leki'));
     await answerAlert('Zrobione');
     expect(s.store.dispatched.slice(-1)).toEqual([expect.objectContaining({ kind: 'create', id: nextId('leki'), set: expect.objectContaining({ due_date: '2026-10-08', due_time: '08:00:00' }) })]);
-    expect(screen.queryByLabelText(/^Otwórz: Leki/)).toBeNull();
+    expect(screen.queryByLabelText(/^Leki/)).toBeNull();
   });
 
   it('audyt 2 (T-12): dziecko odhacza zadanie powtarzane bez kopii (serwer by ją odrzucił)', async () => {
@@ -98,7 +98,7 @@ describe('powtarzanie zadania', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    await press(screen.getByLabelText(/^Otwórz:\ Oddać\ książki\ do\ biblioteki(,|$)/));
+    await press(screen.getByLabelText(/^Oddać\ książki\ do\ biblioteki(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('repeat-editor')).toBeNull();
     expect(screen.getByText('Ustaw termin, żeby zadanie mogło się powtarzać.')).toBeTruthy();
@@ -126,7 +126,7 @@ describe('powtarzanie zadania', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Następny dzień'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
+    await press(await screen.findByLabelText(/^Kupić\ kwiaty(,|$)/));
     await press(await screen.findByLabelText('Bez terminu'));
     expect(s.store.dispatched.at(-1)).toMatchObject({ set: { deadline_mode: 'none', due_date: null, repeat: null } });
   });
@@ -144,7 +144,7 @@ describe('historia zadania', () => {
     const lines = within(h).getAllByText(/ · /).map((n) => [n.props.children].flat().map((x: unknown) => (typeof x === 'string' ? x : (x as { props: { children: string } }).props.children)).join(''));
     expect(lines).toEqual(['Ktoś odhacza · dziś, 09:30', 'Ala zmienia: termin, powtarzanie, inne · dziś, 08:00', 'Ala dodaje · wczoraj, 18:05']);
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
+    await press(await screen.findByLabelText(/^Przynieść\ korki\ na\ trening(,|$)/));
     expect(within(await screen.findByTestId('task-history')).getByText('Brak zmian.')).toBeTruthy();
     // Audyt 2 (M-62): ekran mówi, jak daleko sięga historia.
     expect(within(screen.getByTestId('task-history')).getByText('Zmiany z ostatnich 90 dni.')).toBeTruthy();

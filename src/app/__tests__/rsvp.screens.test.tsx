@@ -24,18 +24,18 @@ describe('obecność (D124)', () => {
     const box = await screen.findByTestId('rsvp');
     expect(within(box).getByText('Bez odpowiedzi: 3')).toBeTruthy();
     expect(within(box).queryByLabelText('Ala')).toBeNull(); // za dorosłego nie
-    await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Będę'));
+    await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText(/^Będę(,|$)/));
     // Audyt 2 (E-25): nowy wiersz — utworzenie, przywrócenie (gdyby serwer miał go w koszu) i zmiana.
     expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'restore', 'patch']);
     expect(s.store.dispatched[0]).toMatchObject({ entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), group_id: 'gf', set: { member_id: 'mf', answer: 'yes', occurrence_date: '2026-10-07' } });
-    await press(within(within(box).getByLabelText('Kuba')).getByLabelText('Nie będzie'));
+    await press(within(within(box).getByLabelText('Kuba')).getByLabelText(/^Nie będzie(,|$)/));
     expect(within(box).getByText('Tak: Ty')).toBeTruthy();
     expect(within(box).getByText('Nie: Kuba')).toBeTruthy();
     expect(within(box).getByText('Bez odpowiedzi: 1')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Może'));
+    await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText(/^Może(,|$)/));
     expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), set: { answer: 'maybe' } });
     expect(within(box).getByText('Może: Ty')).toBeTruthy();
-    expect(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText('Może').props.accessibilityState).toMatchObject({ selected: true });
+    expect(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText(/^Może(,|$)/).props.accessibilityState).toMatchObject({ selected: true });
     await press(screen.getByLabelText('Wróć'));
     expect(within(await screen.findByTestId('today-event-ev1-2026-10-07')).getByText(/1 może, 1 nie/)).toBeTruthy();
     await press(screen.getByLabelText('Kalendarz'));

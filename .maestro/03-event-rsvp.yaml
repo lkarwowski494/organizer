@@ -9,9 +9,9 @@ name: 03 Wydarzenie cykliczne — odpowiedź „Będę”
       id: "screen-event"
     timeout: 10000
 - scrollUntilVisible:
-    element: "Będę"
+    element: "Będę, Twoja odpowiedź"
     direction: DOWN
     timeout: 10000
-- tapOn: "Będę"
+- tapOn: "Będę, Twoja odpowiedź"
 - assertVisible: "Tak: Ty"
 - takeScreenshot: 03-event-rsvp
