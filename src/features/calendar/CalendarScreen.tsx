@@ -19,7 +19,9 @@ import { calendarMonth, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { splitDuplicates } from '../../domain/views/calendar-sync';
-import { eventsByDate, lengthLabel, timeLabel } from '../../domain/views/events';
+import { eventsByDate } from '../../domain/views/events';
+import { daySpan, isContinuation } from '../../domain/span';
+import { occurrenceRow } from '../../ui/when';
 import { personOf } from '../../domain/views/who';
 import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -67,7 +69,7 @@ export function CalendarScreen() {
             x.kind === 'event' ? (
               // Audyt 2 (M-239): termin przesuwa się jak w Moich sprawach — jednorazowe „Usuń”, termin serii „Odwołaj”.
               <SwipeRow key={x.key} title={x.event.title} enabled={roles.get(x.event.groupId)?.role !== 'child'} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => eventActions.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-cal-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
-              <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} time={timeLabel(x.event.startTime, x.event.endTime)} length={lengthLabel(x.event.startTime, x.event.endTime)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} {...occurrenceRow(x.event)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
               </SwipeRow>
             ) : x.task.trip ? (
               <StationRow
@@ -93,12 +95,12 @@ export function CalendarScreen() {
                   meta={[...(n.parent ? [strings['nest.parent'](n.parent.title, n.parent.kind === 'event')] : []), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : []), formatDue(x.task.due!, today), ...who(x.task.assignee_member_id, 'who.task')]} checked={x.task.completed_at !== null} onToggle={() => actions.toggle(x.task)} onOpen={() => nav.navigate('Task', { taskId: x.task.id })} />
               </SwipeRow>
             );
-  const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? { start: x.event.startTime, end: x.event.endTime } : { start: x.task.due?.time ?? null, end: null });
+  const spanOf = ({ entry: x }: { entry: PlainEntry }): Span => (x.kind === 'event' ? daySpan(x.event.startTime, x.event.endTime, x.event.part) : { start: x.task.due?.time ?? null, end: null });
   // D95: moje wydarzenia z iPhone'a (tylko na tym telefonie).
   // D173: bez dubli wpisów aplikacji z tego samego dnia; ukryte — w wierszu „Ukryto N” pod dniem.
   const allDevice = useDeviceCalendar().days;
   const deviceSplit = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
-    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime }))]);
+    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime, continued: isContinuation(e.part) }))]);
   const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) => deviceSplit(date, items).shown;
   const daySplit = day ? deviceSplit(day.date, day.items) : { shown: [], hidden: [] };
   const dayDevice = daySplit.shown;
