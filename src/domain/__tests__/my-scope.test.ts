@@ -1,4 +1,4 @@
-import { occurrenceInScope, parseScopes, scopeAll, scopeLookup } from '../views/my-scope';
+import { occurrenceInScope, parseScopes, scopeAll, scopeLookup, scopeRowId, scopesOf, setScopeOps } from '../views/my-scope';
 import { planReminders } from '../views/reminders';
 import type { Row } from '../sync-engine/client';
 
@@ -17,6 +17,21 @@ describe('PW-2: zapis i odczyt zakresu Moich spraw', () => {
     expect([occurrenceInScope(o, () => 'all'), occurrenceInScope(o, () => 'mineAndEvents'), occurrenceInScope(o, () => 'mine')]).toEqual([true, true, false]);
     expect(occurrenceInScope({ ...o, assignedToMe: true }, () => 'mine')).toBe(true);
     expect(occurrenceInScope({ ...o, concernsMe: false, assignedToMe: true }, () => 'all')).toBe(false);
+  });
+});
+
+describe('PW-2: zapis zakresu na koncie (my_day_scopes)', () => {
+  it('nowy wiersz z id z member_id; istniejący — zmiana pola; w koszu — przywrócenie i zmiana; odczyt tylko moich', () => {
+    const id = scopeRowId('mk');
+    expect(setScopeOps({}, 'gk', 'mk', 'mine')).toEqual([{ kind: 'create', entity: 'my_day_scopes', id, group_id: 'gk', set: { member_id: 'mk', scope: 'mine' } }]);
+    const t = { my_day_scopes: { [id]: { id, group_id: 'gk', member_id: 'mk', scope: 'mine', deleted_at: null } } };
+    expect(setScopeOps(t, 'gk', 'mk', 'all')).toEqual([{ kind: 'patch', entity: 'my_day_scopes', id, set: { scope: 'all' } }]);
+    const gone = { my_day_scopes: { [id]: { ...t.my_day_scopes[id]!, deleted_at: 'x' } } };
+    expect(setScopeOps(gone, 'gk', 'mk', 'mine')).toEqual([{ kind: 'restore', entity: 'my_day_scopes', id }, { kind: 'patch', entity: 'my_day_scopes', id, set: { scope: 'mine' } }]);
+    const mine = new Map([['gk', { member_id: 'mk' }], ['gf', { member_id: 'mf' }]]);
+    const all = { my_day_scopes: { a: { id: 'a', group_id: 'gk', member_id: 'mk', scope: 'mine', deleted_at: null }, b: { id: 'b', group_id: 'gf', member_id: 'inny', scope: 'mine', deleted_at: null }, c: { id: 'c', group_id: 'gf', member_id: 'mf', scope: 'all', deleted_at: null }, d: { id: 'd', group_id: 'gx', member_id: 'mx', scope: 'mine', deleted_at: 'x' } } };
+    expect(scopesOf(all, mine)).toEqual({ gk: 'mine' });
+    expect(scopesOf(gone, mine)).toEqual({});
   });
 });
 

@@ -219,6 +219,8 @@ describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
     trip('t2', 'a', { planned_date: '2026-10-06', done_at: '2026-10-07T18:00:00Z' });
     trip('t1', 'a', { done_at: '2026-10-07T23:30:00Z' });
     trip('t0', 'a', { planned_date: '2026-10-06', done_at: '2026-10-06T09:00:00Z' });
+    // Ta sama chwila — kolejność po id.
+    trip('t00', 'a', { planned_date: '2026-10-06', done_at: '2026-10-06T09:00:00Z' });
     trip('tx', 'a', { deleted_at: '2026-10-07T19:00:00Z' });
     trip('ty', 'c', {});
     trip('tz', 'nie-ma', {});
@@ -226,11 +228,12 @@ describe('PWD-11 A (M-280): zrobione zakupy w Kalendarzu', () => {
     const r = doneTrips(t, groups(t), local);
     expect(r.map((x) => [x.id, x.trip.listId, x.due, x.completed_at, x.assignee_member_id])).toEqual([
       ['t0', 'a', { date: '2026-10-06', time: null }, '2026-10-06T09:00:00Z', null],
+      ['t00', 'a', { date: '2026-10-06', time: null }, '2026-10-06T09:00:00Z', null],
       ['t2', 'a', { date: '2026-10-06', time: null }, '2026-10-07T18:00:00Z', null],
       ['t1', 'a', { date: '2026-10-08', time: null }, '2026-10-07T23:30:00Z', null],
     ]);
     const cal = calendarMonth(t, ME, 2026, 10, { today: { y: 2026, m: 10, d: 7 }, localDate: local });
-    expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.doneOn])).toEqual([['t0', null], ['t2', '2026-10-07']]);
+    expect(cal.find((d) => d.date === '2026-10-06')!.items.map((x) => [x.id, x.doneOn])).toEqual([['t0', null], ['t00', null], ['t2', '2026-10-07']]);
     // M-129: niezrobione zakupy po terminie — „zaległe” jak zadanie; dzisiejsze — nie.
     put(t, 'lists', 'e', list('e', 'gf', { name: 'Lidl', due_date: '2026-10-05', responsible_member_id: 'mf' }));
     put(t, 'lists', 'f', list('f', 'gf', { name: 'Rossmann', due_date: '2026-10-07', responsible_member_id: 'mf' }));

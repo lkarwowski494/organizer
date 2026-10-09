@@ -963,9 +963,9 @@ export const strings = {
   'common.error': 'Coś poszło nie tak. Spróbuj jeszcze raz.',
   'common.refresh': 'Odśwież',
   // Audyt 2 (M-131): rzeczy, której nie ma (usunięta, stary link, powiadomienie) — bez „Spróbuj jeszcze raz”.
-  'missing.task': 'Tego zadania już nie ma — ktoś je usunął albo straciłeś do niego dostęp.',
-  'missing.list': 'Tej listy już nie ma — ktoś ją usunął albo straciłeś do niej dostęp.',
-  'missing.event': 'Tego wydarzenia już nie ma — ktoś je usunął albo straciłeś do niego dostęp.',
+  'missing.task': 'Tego zadania już nie ma — ktoś je usunął albo nie masz już do niego dostępu.',
+  'missing.list': 'Tej listy już nie ma — ktoś ją usunął albo nie masz już do niej dostępu.',
+  'missing.event': 'Tego wydarzenia już nie ma — ktoś je usunął albo nie masz już do niego dostępu.',
   'missing.group': 'Tej grupy już nie ma — ktoś ją usunął albo już do niej nie należysz.',
   'missing.member': 'Tej osoby nie ma już w grupie.',
   // PW-2 A (M-35, D149): zakres Moich spraw w grupie.
