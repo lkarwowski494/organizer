@@ -13,8 +13,9 @@ EN (dla recenzji Apple):
 
 **Feedback Email:** adres, na który testerzy mają pisać — wybierz sam (do repozytorium go nie wpisuję).
 
-**Privacy Policy URL:** link do `docs/privacy-policy.md` w publicznym repozytorium
-(https://github.com/lkarwowski494/organizer/blob/main/docs/privacy-policy.md) — po Twoim zatwierdzeniu treści.
+**Privacy Policy URL:** https://lkarwowski494.github.io/privacy/ (`config.privacy.POLICY_URL`; strona generowana
+z `docs/privacy-policy.md`, ADR 0044) — po Twoim zatwierdzeniu treści i publikacji katalogu `site/` na GitHub Pages
+(ten sam adres otwiera link „Polityka prywatności” w aplikacji).
 
 ## 2. Beta App Review Information
 - Contact: imię, nazwisko, telefon, e-mail — Twoje dane (tylko w App Store Connect).

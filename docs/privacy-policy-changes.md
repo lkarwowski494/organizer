@@ -61,9 +61,12 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
 
 ## Do potwierdzenia przez właściciela
 
-1. **Kontakt:** w polityce nadal „adres z TestFlight”. Przed publikacją potrzebny jawny adres e-mail.
+1. **Kontakt:** w polityce nadal „adres z TestFlight”. Przed publikacją potrzebny jawny adres e-mail. → Audyt 3 (Q4 A): administrator
+   z imieniem i nazwiskiem (`config.privacy.CONTROLLER`); osobny adres — `config.privacy.CONTACT_EMAIL`, dziś `null`
+   (akcja właściciela), do tego czasu „Wyślij uwagę” i adres z TestFlight. Niżej „audyt 3 — PK-25”.
 2. **RODO:** polityka nie podaje podstaw prawnych ani prawa skargi do PUODO. Nie dopisałem ich, bo to sprawa prawna, a nie
-   kodu. Czy dodać przed publikacją (i na czyjej podstawie)?
+   kodu. Czy dodać przed publikacją (i na czyjej podstawie)? → Audyt 3 (Q4 A): dopisane według RODO art. 13 i 14, bez prawnika
+   (koszt — decyzja właściciela). Niżej „audyt 3 — PK-25”.
 3. **Komunikaty błędów są dowolnym tekstem** (`toClientError` w `src/app/diagnostics.tsx`, `err.message`). → Dla
    kalendarza i dojazdu rozwiązane w kodzie (M-159, niżej „kalendarz iPhone'a i dojazd”, pkt 4). Kod nie dołącza danych z tabel,
    ale nie da się zagwarantować, że np. komunikat geokodera albo MapKit (`TravelTimeModule.swift`, `localizedDescription`)
@@ -84,7 +87,8 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    (`setMyName` w `src/sync/supabase.ts` zmienia tylko `display_name`). Usuwane z kontem. Czy w ogóle zapisywać nazwisko?
 9. **Adres e-mail przy logowaniu przez Apple** i dzienniki platformy (adresy IP, logi zapytań i logowania) przechowuje
    Supabase Auth i Supabase według własnych zasad. Nasz kod tego nie konfiguruje, więc w polityce nie podałem terminów.
-   Do sprawdzenia w dokumentacji Supabase przed publikacją.
+   Do sprawdzenia w dokumentacji Supabase przed publikacją. → Audyt 3: plan Free — „Log retention (API & Database): 1 day”,
+   „Auth Audit Logs: 1 hour” (https://supabase.com/pricing); w polityce „Dzienniki serwera”.
 10. **Lustro kalendarza na iCloud albo innym koncie:** kalendarze „Organizer” powstają na koncie domyślnego kalendarza
     (`getDefaultCalendarSync().source` w `src/app/device-calendar.ts`, komentarz: „zwykle iCloud”). Wydarzenia grup trafiają więc do tego dostawcy.
     Napisałem to wprost. Do akceptu.
@@ -167,3 +171,37 @@ ostatnia migracja, która ją tworzy albo zmienia (`grep -l "function private.<n
    zmianą dostępu, bez treści spraw (`realtime.send` w migracjach synchronizacji); imię w `public.profiles`.
 6. **„Nawiguj”** otwiera Mapy Apple (`navigationUrl` w `src/domain/travel.ts`); wybór map innej firmy i strona map
    w przeglądarce usunięte 9.10.2026 (ADR 0043).
+
+## Zmiany z audytu 3 — PK-25: zgody, RODO, dokładność (9.10.2026), do akceptu
+Decyzje i źródła: ADR 0044. Test kontraktowy `src/config/__tests__/privacy-policy.contract.test.ts` sprawdza stronę,
+liczby z `src/config`, administratora, opis każdej tabeli z migracji i konwencje tekstów.
+1. **Strona polityki** (N-75, Q4 A): `site/privacy/index.html` generowana z `docs/privacy-policy.md`
+   (`scripts/site/privacy-html.cjs`), adres `config.privacy.POLICY_URL`; link w Ustawieniach → Konto i dane i na ekranie
+   logowania (`src/features/settings/SettingsScreen.tsx`, `src/features/auth/SignInScreen.tsx`). Notatka dla zespołu
+   (dawny nagłówek „Szkic do zatwierdzenia”) jest komentarzem HTML — nie trafia na stronę.
+2. **Raporty błędów z przełącznikiem** (N-74, Q3 A): „Wysyłaj raporty błędów” — `gatedReport` i `useErrorReports`
+   w `src/app/diagnostics.tsx`, klucz `local:errorReports`; podstawa: prawnie uzasadniony interes, przełącznik = sprzeciw.
+3. **RODO art. 13 i 14** (N-76): administrator, podstawy przy każdym rodzaju danych, „Komu przekazujemy dane” (Supabase
+   Pte. Ltd. — DPA, podwykonawcy; Apple — APNs, logowanie, MapKit, iCloud), przekazanie poza EOG (standardowe klauzule
+   umowne), „Twoje prawa” (pełna lista, skarga do Prezesa UODO, dobrowolność, brak zautomatyzowanych decyzji), dane osób
+   wpisanych przez innych (źródło i podstawa).
+4. **Konto dziecka** (N-229): kto łączy, co dziecko widzi i robi, kto je wypisuje, podstawa (D155 w ADR 0035,
+   `member.childRoleInfo`).
+5. **Dokładność wobec kodu** (N-77):
+   - zrobione zakupy (lista, na kiedy, kiedy, kto; 90 dni) i ustawienie „W Moich sprawach” (tylko to konto, znika po
+     wyjściu z grupy i z kontem): `public.shopping_trips`, `public.my_day_scopes`, `private.member_scope_cleanup`
+     (`20261008570000_my_scopes_trips.sql`);
+   - stałe zadania wydarzeń, osoby, których wydarzenie dotyczy, zmiany pojedynczych terminów (`event_task_series`,
+     `event_participants`, `event_overrides`); liczniki limitów (`private.rate_counters`, kasowane z kontem); kody
+     odrzuconych zmian (`private.sync_rejections`); zapis zmian dostępu 30 dni (`config.retention.ACCESS_EVENT_DAYS`);
+   - dzienniki serwera (plan Free: 1 dzień, logowania 1 godzina, https://supabase.com/pricing);
+   - plik bazy konta w kopii zapasowej iPhone’a: expo-sqlite trzyma bazy w `documentDirectory/SQLite`
+     (`node_modules/expo-sqlite/ios/SQLiteModule.swift`), a Apple o katalogu Documents: „The contents of this directory
+     are backed up by iTunes and iCloud.” (File System Programming Guide, https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html);
+   - pęk kluczy: sesja, token powiadomień, `signOutJobs` (stara sesja po wylogowaniu bez internetu), `clientId.<userId>`
+     — od teraz usuwany przy usunięciu konta (`removeDb` w `src/app/wiring.ts`), identyfikatory kalendarzy lustra;
+   - błąd planowania przypomnień zgłaszany bez komunikatu (`{ private: true }` w `src/app/reminders.tsx`);
+   - forma neutralna płciowo, „administrator”, „podpięte”, apostrof ’, ścieżka Ustawienia → Konto i dane → Usuń konto,
+     kolejność „Będę / Może / Nie będę”, kod zamiast linku w zaproszeniach (`config.invites.LINK_LIVE` = false);
+   - jak cofnąć zgody iOS (Ustawienia iPhone’a → Organizer) i wyłączyć raporty (wymóg Apple 5.1.1(i): „describe how
+     a user can revoke consent”).
