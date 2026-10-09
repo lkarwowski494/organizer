@@ -1,2 +1,4 @@
 # Fałszywy alarm: szablon PEM w teście (klucz generowany w teście, nie sekret); poprawione w następnym commicie.
 b66dbd4dc9717f2cbe0585c792aebd1ef7395294:supabase/functions/notify-handoff/handler_test.ts:apple-p8-private-key:17
+# Do czasu przepisania historii (decyzja właściciela 9.10.2026, A+C): adres prywatny w starym commicie, usunięty z bieżących plików.
+581d3b78793b759eb5c2978563e964355291f962:src/domain/__tests__/my-name.test.ts:personal-email:13
