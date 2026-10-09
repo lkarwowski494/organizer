@@ -28,6 +28,7 @@ import { config } from '../config';
 import { applyOp, type NewOp, type Op, type Row } from './sync-engine/client';
 import { type MoveArgs, moveCmdSteps, type MoveStep } from './task-move-cmd';
 import { overrideId } from './views/events';
+import { nextId } from './views/task-repeat';
 import { scopeRowId } from './views/my-scope';
 
 export type ServerTables = { readonly [entity: string]: { readonly [key: string]: Row } | undefined };
@@ -41,8 +42,8 @@ export const SYNC_ENTITIES: { readonly [entity: string]: Spec } = {
   lists: { pk: 'id', insert: ['id', 'group_id', 'kind', 'name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], patch: ['name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], softDelete: true },
   tasks: {
     pk: 'id',
-    insert: ['id', 'group_id', 'list_id', 'parent_id', 'title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'series_id', 'repeat', 'category'],
-    patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category'],
+    insert: ['id', 'group_id', 'list_id', 'parent_id', 'title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'series_id', 'repeat', 'category', 'cycle_date'],
+    patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category', 'cycle_date'],
     softDelete: true,
   },
   events: { pk: 'id', insert: ['id', 'group_id', 'title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'kind', 'days', 'duration_min'], patch: ['title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'days', 'duration_min'], softDelete: true },
@@ -122,14 +123,14 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
   if (!me) reject('forbidden');
   const m = me!;
   if (old) {
-    const changed = Object.keys({ ...row, ...old }).some((k) => k !== 'completed_at' && k !== 'completed_by' && k !== 'version' && !same(row[k], old[k]));
-    if (m.role === 'child' && changed) reject('forbidden:child');
+    const changed = Object.keys({ ...row, ...old }).filter((k) => k !== 'completed_at' && k !== 'completed_by' && k !== 'version' && !same(row[k], old[k]));
+    if (m.role === 'child' && changed.length > 0 && !childRepeatUpdateOk(t, changed, old, m.member_id)) reject('forbidden:child');
     if (m.role === 'child' && !same(row.completed_at, old.completed_at) && !childOwnsTask(t, String(old.id), m.member_id)) reject('forbidden:not_own');
     if (old.deleted_at != null && row.deleted_at == null && row.parent_id != null && t.tasks?.[String(row.parent_id)]?.deleted_at != null) reject('deleted:parent');
   }
   const l = t.lists?.[String(row.list_id)];
   // D34 z wyjątkiem Q6d A (audyt 3, 20261010120000): dziecko dopisuje tylko produkt — pozycję główną listy zakupów.
-  if (!old && m.role === 'child' && !(l?.kind === 'shopping' && childItem(row))) reject('forbidden:child');
+  if (!old && m.role === 'child' && !(l?.kind === 'shopping' && childItem(row)) && !childRepeatInsertOk(t, row, m.member_id)) reject('forbidden:child');
   if (!l || l.group_id !== row.group_id) return reject('invalid_list');
   if (l.deleted_at != null && row.deleted_at == null) reject('deleted:list');
   if (!memberCanSeeList(t, m.member_id, l)) reject('forbidden');
@@ -145,6 +146,54 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
 /** Pozycja dopisana przez dziecko: bez osoby, terminu, wydarzenia, serii, powtarzania, notatki i odhaczenia. */
 const CHILD_ITEM_EMPTY = ['parent_id', 'assignee_member_id', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'series_id', 'repeat', 'note'];
 const childItem = (row: Row) => (row.deadline_mode ?? 'none') === 'none' && CHILD_ITEM_EMPTY.every((k) => row[k] == null);
+
+/** private.repeat_source (20261010070000): poprzednie zadanie łańcucha, którego następnym terminem jest wiersz `id`. */
+function repeatSource(t: ServerTables, id: string, list: unknown, parent: unknown): Row | undefined {
+  const tasks = rowsOf(t, 'tasks');
+  if (parent == null) return tasks.find((x) => x.list_id === list && x.parent_id == null && x.repeat != null && x.id !== id && nextId(String(x.id)) === id);
+  const sp = t.tasks?.[String(parent)] && repeatSource(t, String(parent), list, t.tasks[String(parent)]!.parent_id);
+  return sp ? tasks.find((x) => x.parent_id === sp.id && nextId(String(x.id)) === id) : undefined;
+}
+
+/** private.child_repeat_copy: zadanie główne `r` jest następnym terminem sprawy dziecka `me` — poprzednie albo nic. */
+function childRepeatCopy(t: ServerTables, r: Row, me: string): Row | undefined {
+  if (r.parent_id != null) return undefined;
+  const src = repeatSource(t, String(r.id), r.list_id, null);
+  return src && childOwnsTask(t, String(src.id), me) ? src : undefined;
+}
+
+/** private.task_root: zadanie główne nad wierszem (najwyżej 8 kroków). */
+function taskRoot(t: ServerTables, r: Row): Row | undefined {
+  let cur: Row | undefined = r;
+  for (let step = 0; cur && cur.parent_id != null && step < 8; step++) cur = t.tasks?.[String(cur.parent_id)];
+  return cur;
+}
+
+/** private.child_repeat_insert_ok (Q16 A, audyt 3: N-123): dziecko zakłada następny termin swojej sprawy jak copyOps. */
+function childRepeatInsertOk(t: ServerTables, r: Row, me: string): boolean {
+  let s: Row | undefined;
+  if (r.parent_id == null) s = childRepeatCopy(t, r, me);
+  else {
+    const root = taskRoot(t, t.tasks?.[String(r.parent_id)] ?? {});
+    if (!root?.id || !childRepeatCopy(t, root, me)) return false;
+    s = repeatSource(t, String(r.id), r.list_id, r.parent_id);
+  }
+  if (!s) return false;
+  const mode = r.deadline_mode ?? 'none';
+  return (
+    same(r.title, s.title) && same(r.note, s.note) && (r.sort_key ?? 'a0') === (s.sort_key ?? 'a0') && (r.assignee_member_id == null || r.assignee_member_id === s.assignee_member_id) &&
+    (r.rollover ?? true) === (s.rollover ?? true) && ['start_date', 'completed_at', 'event_id', 'occurrence_date', 'series_id', 'category', 'cycle_date'].every((k) => r[k] == null) &&
+    (r.parent_id == null ? mode === 'own' && r.due_date != null && same(r.due_time, s.due_time) && r.repeat != null : r.repeat == null && mode !== 'event' && (r.due_time == null || r.due_time === s.due_time))
+  );
+}
+
+/** private.child_repeat_update_ok: zdjęcie i przywrócenie następnego (z podzadaniami), jego termin — nietkniętego. */
+function childRepeatUpdateOk(t: ServerTables, changed: string[], o: Row, me: string): boolean {
+  const allowed = o.parent_id == null ? ['deleted_at', 'due_date', 'due_time', 'cycle_date'] : ['deleted_at'];
+  if (!changed.every((k) => allowed.includes(k)) || (o.parent_id == null && o.completed_at != null)) return false;
+  const root = taskRoot(t, o);
+  return !!root && !!childRepeatCopy(t, root, me);
+}
 
 function tasksEventGuard(t: ServerTables, row: Row, old: Row | null) {
   // Seria tylko przy utworzeniu (series_id nie ma wśród kolumn do zmiany).

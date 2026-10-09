@@ -14,7 +14,7 @@ type Fields = { readonly date?: readonly string[]; readonly time?: readonly stri
 export const CHECKED_FIELDS: { readonly [e in Entity]?: Fields } = {
   group_members: { date: ['week_a'] },
   lists: { date: ['due_date'], time: ['due_time'] },
-  tasks: { date: ['due_date', 'start_date', 'occurrence_date'], time: ['due_time'], instant: ['completed_at'] },
+  tasks: { date: ['due_date', 'start_date', 'occurrence_date', 'cycle_date'], time: ['due_time'], instant: ['completed_at'] },
   events: { date: ['start_date'], time: ['start_time', 'end_time'] },
   event_overrides: { date: ['occurrence_date', 'start_date'], time: ['start_time', 'end_time'] },
   event_rsvps: { date: ['occurrence_date'] },
