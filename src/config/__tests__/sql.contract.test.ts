@@ -80,6 +80,7 @@ describe('src/config zgodny z SQL', () => {
     ['write_bytes_per_day', config.quotas.WRITE_BYTES_PER_DAY],
     ['wake_min_gap_min', config.wake.MIN_GAP_MIN],
     ['wake_max_groups', config.wake.MAX_GROUPS],
+    ['wake_left_grace_min', config.wake.LEFT_GRACE_MIN],
   ])('private.%s() = %d', (name, value) => {
     expect(sqlConstant(name)).toBe(value);
   });

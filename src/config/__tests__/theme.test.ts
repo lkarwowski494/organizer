@@ -1,5 +1,6 @@
 import { contrastRatio } from '../../domain/contrast';
-import { contrastMin, contrastPairs, fontScale, groupLines, highContrastPairs, layout, paletteOf, palettes, radius, type Scheme, sizes } from '../theme';
+import { contrastMin, contrastPairs, fontScale, groupLines, highContrastPairs, layout, paletteOf, palettes, radius, type Scheme, sizes, tabBar } from '../theme';
+import corpus from './fixtures/theme-contrast.json';
 
 const schemes: Scheme[] = ['light', 'dark'];
 
@@ -31,6 +32,66 @@ describe.each(schemes)('motyw „Wstążki”, tryb %s, spełnia progi czytelno�
 
   it('osiem różnych linii', () => {
     expect(new Set(groupLines.map((g) => g[scheme].line)).size).toBe(8);
+  });
+});
+
+/**
+ * Audyt 3 (N-68, N-200): progi sprawdzane na wartościach z NIEZALEŻNEJ implementacji (scripts/gen-theme-contrast-corpus.py,
+ * Python czyta kolory wprost z theme.ts; aktualność korpusu pilnuje `npm run check:corpus`) — we wszystkich motywach.
+ */
+describe.each([
+  ['light', false],
+  ['dark', false],
+  ['light', true],
+  ['dark', true],
+] as [Scheme, boolean][])('korpus kontrastu motywu %s (Zwiększ kontrast: %s)', (scheme, increased) => {
+  const p = paletteOf(scheme, increased);
+  const table = (corpus as Record<string, Record<string, number>>)[`${scheme}${increased ? '+hc' : ''}`]!;
+  const ratio = (a: string, b: string) => table[[a.toUpperCase(), b.toUpperCase()].sort().join(' ')];
+  const pairs = [
+    ...contrastPairs(p),
+    ...(increased ? highContrastPairs(p) : []),
+    ...groupLines.flatMap((g) => [p.ground, p.surface].flatMap((bg) => [
+      { fg: g[scheme].line, bg, kind: 'NON_TEXT' as const, use: `linia ${g.key}` },
+      { fg: g[scheme].ink, bg, kind: 'TEXT' as const, use: `nazwa grupy ${g.key}` },
+    ])),
+  ];
+
+  it.each(pairs.map((x) => [`${x.use} (${x.fg} na ${x.bg})`, x]))('%s', (_use, x) => {
+    const expected = ratio(x.fg, x.bg);
+    expect(expected).toBeDefined();
+    expect(expected).toBeGreaterThanOrEqual(contrastMin[x.kind]);
+    expect(contrastRatio(x.fg, x.bg)).toBeCloseTo(expected!, 8);
+  });
+
+  it('wybrana zakładka (N-68): pigułka ≥ 3:1 do paska, napis ≥ 4,5:1 do pigułki, napis niewybranej ≥ 4,5:1 do paska', () => {
+    const t = tabBar.colors(p);
+    expect(ratio(t.pillOn, t.bar)).toBeGreaterThanOrEqual(contrastMin.NON_TEXT);
+    expect(ratio(t.inkOn, t.pillOn)).toBeGreaterThanOrEqual(contrastMin.TEXT);
+    expect(ratio(t.inkOff, t.bar)).toBeGreaterThanOrEqual(contrastMin.TEXT);
+    expect(ratio(t.badgeRing, t.pillOn)).toBeGreaterThanOrEqual(contrastMin.NON_TEXT);
+  });
+
+  it('stan offline i baner filtra (N-200): obwódka i kropka ≥ 3:1 do tła stanu, tła ekranu i karty', () => {
+    for (const bg of [p.warnBg, p.ground, p.surface]) expect(ratio(p.warnBorder, bg)).toBeGreaterThanOrEqual(contrastMin.NON_TEXT);
+  });
+});
+
+describe('pasek zakładek (N-67, Q11 A)', () => {
+  /**
+   * Najszerszy napis „Moje sprawy” w Atkinson Hyperlegible Next 700 przy 12 pt: 70,3 pt (suma szerokości glifów z tabeli
+   * hmtx pliku AtkinsonHyperlegibleNext_700Bold.ttf, fontTools, unitsPerEm 1000). Na iPhonie 375 pt mieści się w jednej
+   * linii; węższy ekran (Slide Over 320 pt) łamie napis na dwie linie zamiast go zmniejszać.
+   */
+  const WIDEST_LABEL_PT = 70.3;
+  const room = (screenWidth: number) => (screenWidth - 2 * tabBar.BAR_PAD_H) / 4 - 2 * tabBar.PILL_PAD_H;
+
+  it('napis 12 pt (≥ minimum HIG 11 pt) mieści się w jednej linii od 375 pt szerokości ekranu', () => {
+    expect(sizes.TAB).toBe(12);
+    expect(sizes.TAB).toBeGreaterThanOrEqual(sizes.MIN_TEXT);
+    expect(room(375)).toBeGreaterThanOrEqual(WIDEST_LABEL_PT);
+    expect(room(320)).toBeLessThan(WIDEST_LABEL_PT);
+    expect(tabBar.LABEL_LINES).toBe(2);
   });
 });
 
