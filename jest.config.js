@@ -27,6 +27,7 @@ module.exports = {
     './src/app/e2e.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/features/groups/dates.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/features/groups/server-errors.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/ui/when.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/app/': { lines: 85, branches: 74, functions: 72, statements: 82 },
     './src/features/': { lines: 97, branches: 95, functions: 94, statements: 97 },
     './src/ui/': { lines: 99, branches: 96, functions: 94, statements: 98 },
