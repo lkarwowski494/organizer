@@ -3,8 +3,8 @@
  * zrobione na dole („W koszyku” dla zakupów). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { type ReactNode, useMemo, useState } from 'react';
+import { Pressable, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import type { NewOp } from '../../domain/sync-engine/client';
@@ -22,6 +22,7 @@ import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
+import { buttonA11y, useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, MissingScreen, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
@@ -51,7 +52,7 @@ function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string;
   const meta = strings['lists.expiredRun'](count);
   // Audyt 2 (M-141): jak wiersz lekcji — stan i czynność dla VoiceOvera, na ekranie ˅/˄ zamiast „dotknij, by…”.
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta}`} accessibilityHint={strings[open ? 'lists.runHideHint' : 'lists.runShowHint']} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
+    <Pressable testID={testID} {...buttonA11y({ expanded: open })} accessibilityLabel={`${title}, ${meta}`} accessibilityHint={strings[open ? 'lists.runHideHint' : 'lists.runShowHint']} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.control }} />
       </View>
@@ -62,6 +63,17 @@ function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string;
       <Glyph name={open ? 'less' : 'more'} color={c.inkMuted} />
     </Pressable>
   );
+}
+
+/**
+ * Sekcja zakupów: karta, a przy planowaniu — pola na tle ekranu, jak w formularzu nowej listy. W karcie mini kalendarz
+ * miał dni po 39–41 pt (karta i panel zabierają szerokość; Apple HIG: „Default control size 44x44 pt”), na tle ekranu —
+ * 44 pt przy 375 pt szerokości (audyt 3, N-193).
+ */
+function TripBox({ editing, children }: { editing: boolean; children: ReactNode }) {
+  const { space } = useTheme();
+  if (editing) return <View testID="trip" style={{ gap: space.CARD_GAP }}>{children}</View>;
+  return <Card testID="trip">{children}</Card>;
 }
 
 export function ListScreen({ route, navigation }: Props) {
@@ -77,6 +89,10 @@ export function ListScreen({ route, navigation }: Props) {
   const [planning, setPlanning] = useState<TripDraft | null>(null);
   const [planTried, setPlanTried] = useState(false);
   const [handing, setHanding] = useState(false);
+  // Audyt 3 (N-62): po zamknięciu panelu fokus VoiceOvera wraca na przycisk, który go otworzył (albo do pola po „Anuluj”).
+  const handBack = useClosedPanel(handing) !== null;
+  const [askCancelled, setAskCancelled] = useState(0);
+  const quickInput = useA11yFocus<TextInput>(askCancelled, askCancelled > 0);
   const [picking, setPicking] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
   const [openRuns, setOpenRuns] = useState<string[]>([]);
@@ -237,7 +253,7 @@ export function ListScreen({ route, navigation }: Props) {
       <Title>{list.name}</Title>
       <GroupLine name={list.groupName} line={list.line} detail={listMarks(list, detail.open.length).join(META_SEP)} />
       {shopping && canDelete ? (
-        <Card testID="trip">
+        <TripBox editing={!!planning}>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {planning ? (
             <>
@@ -265,7 +281,7 @@ export function ListScreen({ route, navigation }: Props) {
                 waiting ? (
                   <>
                     <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
-                    <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+                    <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} a11yFocus={handBack} />
                   </>
                 ) : handing ? (
                   <HandoffPicker
@@ -277,7 +293,7 @@ export function ListScreen({ route, navigation }: Props) {
                     onCancel={() => setHanding(false)}
                   />
                 ) : (
-                  <Button kind="secondary" label={strings['trip.giveTrip']} testID="handoff-start" onPress={() => setHanding(true)} />
+                  <Button kind="secondary" label={strings['trip.giveTrip']} testID="handoff-start" onPress={() => setHanding(true)} a11yFocus={handBack} />
                 )
               ) : null}
             </>
@@ -287,12 +303,12 @@ export function ListScreen({ route, navigation }: Props) {
               <Button kind="secondary" label={strings['trip.plan']} testID="trip-plan" onPress={() => setPlanning({ date: '', time: '', responsibleId: null })} />
             </>
           )}
-        </Card>
+        </TripBox>
       ) : null}
       {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} onRemove={dropStaple} /> : null}
       {/* Dziecko (D34) tylko odhacza — bez dodawania i usuwania listy. */}
       {canDelete ? (
-        <QuickAddField value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
+        <QuickAddField inputRef={quickInput} value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (
             <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
@@ -306,7 +322,7 @@ export function ListScreen({ route, navigation }: Props) {
           testID="mention-choices"
           title={strings['mention.ask'](ask.r.name)}
           options={ask.r.targets.map((t) => ({ key: t.memberId, label: t.displayName, onPress: () => proceed({ ...ask.answers, person: t }) }))}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : ask?.r.kind === 'unknown' ? (
         <AskPanel
@@ -314,7 +330,7 @@ export function ListScreen({ route, navigation }: Props) {
           title={strings['mention.unknownList'](ask.r.name)}
           body={strings['mention.unknownInfo'](ask.r.name)}
           options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
-          onCancel={() => setAsk(null)}
+          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
         />
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}

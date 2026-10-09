@@ -21,7 +21,7 @@ import { type Lesson, type LostChoice, memberTimetable, swapWeeks, timetableOps,
 import { SeriesPreview } from '../events/SeriesPreview';
 import { strings } from '../../i18n/strings.pl';
 import { useUndo } from '../../ui/undo';
-import { BackButton, Body, Button, Card, ErrorText, Field, MissingScreen, Screen, SectionTitle, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, Field, MissingScreen, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
@@ -43,7 +43,7 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [lessons, setLessons] = useState<Lesson[]>(plan.lessons);
   const [thisWeek, setThisWeek] = useState<'A' | 'B'>(plan.thisWeek);
   const [until, setUntil] = useState(plan.until);
-  const [error, setError] = useState<{ text: string; index: number } | null>(null);
+  const [error, setError, attempt] = useFormError<{ text: string; index: number }>();
   const [preview, setPreview] = useState<SeriesEffects | null>(null);
   const [lostChoice, setLostChoice] = useState<LostChoice>('nearest');
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisany plan (app/form-draft); nakłada się
@@ -127,6 +127,8 @@ export function TimetableScreen({ route, navigation }: Props) {
                 <Segmented
                   label={strings['timetable.week']}
                   a11yLabel={a11y(strings['timetable.week'])}
+                  // Audyt 3 (N-196): te same opcje co przełącznik „Ten tydzień to…” — opcja mówi, której lekcji dotyczy.
+                  contextual
                   value={l.week}
                   onChange={(week: Week) => set(i, { week })}
                   options={[
@@ -145,7 +147,7 @@ export function TimetableScreen({ route, navigation }: Props) {
         </View>
       ))}
       <DateField label={strings['timetable.until']} value={until} onChange={setUntil} today={today} testID="timetable-until" optional />
-      {error ? <ErrorText>{error.index >= 0 ? strings['timetable.fixLesson'](lessonNo(error.index), WEEKDAYS_NOMINATIVE[lessons[error.index]!.day]!, error.text) : error.text}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{error.index >= 0 ? strings['timetable.fixLesson'](lessonNo(error.index), WEEKDAYS_NOMINATIVE[lessons[error.index]!.day]!, error.text) : error.text}</ErrorText> : null}
       <Button label={strings['timetable.save']} onPress={() => save()} testID="timetable-save" />
     </Screen>
   );

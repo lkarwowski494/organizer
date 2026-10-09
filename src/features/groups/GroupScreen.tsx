@@ -17,6 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
+import { buttonA11y } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
@@ -233,7 +234,7 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {d.canSetColor ? (
-        <View accessibilityRole="radiogroup" accessibilityLabel={strings['groups.color']} style={{ gap: 8 }}>
+        <View style={{ gap: 8 }}>
           <SectionTitle>{strings['groups.color']}</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {groupLines.map((g, i) => {
@@ -241,8 +242,7 @@ export function GroupScreen({ route, navigation }: Props) {
               return (
                 <Pressable
                   key={g.key}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
+                  {...buttonA11y({ selected: on })}
                   accessibilityLabel={strings['groups.colorA11y'](g.key)}
                   onPress={() => store.dispatch(setGroupColor(d.group.id, g.key))}
                   style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: on ? 3 : 0, borderColor: c.ink }}

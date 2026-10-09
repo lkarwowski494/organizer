@@ -28,6 +28,12 @@ import type { DeviceCalendar } from '../device-calendar';
 import type { DevicePush } from '../push';
 
 export const ME = 'u-me';
+/**
+ * Pole odhaczenia zadania albo pozycji zakupów (audyt 3, N-9: rola „button” ze stanem `selected`, nie „checkbox”) —
+ * nazwa przycisku zaczyna się od czynności.
+ */
+export const TOGGLE_BOX = /^(Oznacz jako (nie)?zrobione|Włóż do koszyka|Wyjmij z koszyka): /;
+
 export const NOW: LocalDateTime = { y: 2026, m: 10, d: 7, hh: 10, mm: 0 };
 
 type T = { [e: string]: { [id: string]: Row } };

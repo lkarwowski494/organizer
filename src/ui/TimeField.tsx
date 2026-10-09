@@ -15,7 +15,8 @@ import { Keyboard, Pressable, Text, View } from 'react-native';
 
 import { config } from '../config';
 import { strings } from '../i18n/strings.pl';
-import { Card, Field } from './components';
+import { buttonA11y, useA11yFocus, useClosedPanel } from './a11y';
+import { Card, Field, FieldCaption } from './components';
 import { useTheme } from './theme';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -26,9 +27,15 @@ const parts = (v: string) => /^(\d{1,2}):(\d{2})$/.exec(v.trim());
 /** `a11yLabel` — etykieta VoiceOver z kontekstem, gdy kilka pól na ekranie ma ten sam napis (audyt 2, M-145). */
 export type TimeFieldProps = { label: string; value: string; onChange: (v: string) => void; testID: string; optional?: boolean; a11yLabel?: string; disabledNote?: string };
 
-/** Pole (przycisk z godziną) i jego panel kafelków — osobno, żeby para pól miała jeden panel pod spodem. */
-function useTimeField({ label, value, onChange, testID, optional, a11yLabel, disabledNote }: TimeFieldProps, open: boolean, setOpen: (o: boolean) => void): { field: ReactNode; panel: ReactNode } {
+/**
+ * Pole (przycisk z godziną) i jego panel kafelków — osobno, żeby para pól miała jeden panel pod spodem.
+ * Audyt 3 (N-62): po zwinięciu panelu (minuta, „Bez godziny”, drugie dotknięcie pola) fokus VoiceOvera wraca na pole;
+ * `elsewhere` — panel zwinął się, bo otwarto drugie pole pary (ono ma już fokus).
+ */
+function useTimeField({ label, value, onChange, testID, optional, a11yLabel, disabledNote }: TimeFieldProps, open: boolean, setOpen: (o: boolean) => void, elsewhere = false): { field: ReactNode; panel: ReactNode } {
   const { c, font, size, radius, fontScale } = useTheme();
+  const closed = useClosedPanel(open) !== null;
+  const ref = useA11yFocus<View>(open, closed && !open && !elsewhere);
   // Ręczne wpisywanie: tekst w polu, dopóki nie ma pełnej godziny albo nie wyjdę z pola (M-206).
   const [typed, setTyped] = useState<string | null>(null);
   const type = (v: string) => {
@@ -55,7 +62,7 @@ function useTimeField({ label, value, onChange, testID, optional, a11yLabel, dis
       style={{ width: `${100 / 6}%`, minHeight: size.TOUCH_TARGET, padding: 2 }}
     >
       <View testID={`${id}-tile`} style={{ flex: 1, minHeight: size.TOUCH_TARGET - 4, borderRadius: radius.FIELD, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? c.ink : 'transparent' }}>
-        <Text numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: selected ? font.text700 : font.text400, fontSize: size.TILE, color: selected ? c.surface : c.ink }}>{text}</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={size.MIN_TEXT / size.TILE} maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: selected ? font.text700 : font.text400, fontSize: size.TILE, color: selected ? c.surface : c.ink }}>{text}</Text>
       </View>
     </Pressable>
   );
@@ -63,14 +70,14 @@ function useTimeField({ label, value, onChange, testID, optional, a11yLabel, dis
 
   const field = (
     <View style={{ gap: 6 }}>
-      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>{label}</Text>
+      <FieldCaption>{label}</FieldCaption>
       <Pressable
-        accessibilityRole="button"
+        ref={ref}
         // Audyt 2 (M-144, M-141): etykieta to sam podpis, wartość raz; podpowiedź — co zrobi dotknięcie.
+        {...buttonA11y({ expanded: open && !disabled, disabled }, shown)}
         accessibilityLabel={a11yLabel ?? label}
-        accessibilityState={{ expanded: open && !disabled, disabled }}
-        accessibilityValue={{ text: shown }}
-        accessibilityHint={disabledNote ?? strings[open ? 'time.closeHint' : 'time.openHint']}
+        // Audyt 3 (N-199): przy nieaktywnym polu powód czyta widoczna notka pod polem — bez podpowiedzi, żeby nie dwa razy.
+        accessibilityHint={disabled ? undefined : strings[open ? 'time.closeHint' : 'time.openHint']}
         testID={testID}
         disabled={disabled}
         onPress={() => (Keyboard.dismiss(), setOpen(!open))}
@@ -117,8 +124,8 @@ export function TimeField(props: TimeFieldProps) {
 /** „Początek” i „Koniec” obok siebie z jednym panelem kafelków na pełnej szerokości pod parą (M-45, D195). */
 export function TimeFieldPair({ start, end }: { start: TimeFieldProps; end: TimeFieldProps }) {
   const [open, setOpen] = useState<'start' | 'end' | null>(null);
-  const a = useTimeField(start, open === 'start', (o) => setOpen(o ? 'start' : null));
-  const b = useTimeField(end, open === 'end', (o) => setOpen(o ? 'end' : null));
+  const a = useTimeField(start, open === 'start', (o) => setOpen(o ? 'start' : null), open === 'end');
+  const b = useTimeField(end, open === 'end', (o) => setOpen(o ? 'end' : null), open === 'start');
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', gap: 10 }}>

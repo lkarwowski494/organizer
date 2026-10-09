@@ -69,8 +69,8 @@ describe('licznik listy (M-83)', () => {
     put(b, 'tasks', 'pozniej', { ...b.tasks!['t-kwiaty']!, id: 'pozniej', title: 'Opony', deadline_mode: 'none', due_date: null, start_date: '2026-10-20' });
     await open(b);
     await press(screen.getByLabelText('Listy'));
-    expect(await screen.findByLabelText('Dom, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
-    expect(screen.getByLabelText('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia')).toBeTruthy();
+    expect(await screen.findByLabelText('Dom, Rodzina, Zadania, 3 otwarte')).toBeTruthy();
+    expect(screen.getByLabelText('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia')).toBeTruthy();
     await press(screen.getByTestId('list-lf'));
     await screen.findByTestId('screen-list');
     expect(screen.getByText(/3 otwarte/)).toBeTruthy();
@@ -116,8 +116,8 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     await openList('lz');
     expect(within(screen.getByTestId('trip')).getByText(/nikt konkretny/)).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
-    expect(screen.getByRole('radio', { name: 'Nikt konkretny' }).props.accessibilityState.selected).toBe(true);
-    expect(screen.queryByRole('radio', { name: 'Ala' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Nikt konkretny' }).props.accessibilityState.selected).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Ala' })).toBeNull();
   });
 
   it('M-224: „Dodaj do stałych” z panelu pozycji przy pełnej liście — komunikat, panel zostaje', async () => {
@@ -203,8 +203,9 @@ describe('nowa lista (M-237)', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByLabelText('Nowa lista'));
     await screen.findByTestId('screen-new-list');
-    expect(screen.getByLabelText('Rodzaj listy').props.accessibilityRole).toBe('radiogroup');
-    expect(screen.getByRole('radio', { name: 'Zadania' }).props.accessibilityState.selected).toBe(true);
+    // Audyt 3 (N-9): bez roli „radiogroup” (na iOS bez cechy); opcje to przyciski ze stanem „wybrane”.
+    expect(screen.getByLabelText('Rodzaj listy').props.accessibilityRole).toBeUndefined();
+    expect(screen.getByRole('button', { name: 'Zadania' }).props.accessibilityState.selected).toBe(true);
   });
 });
 
@@ -295,7 +296,7 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-lists');
     expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lf', set: { name: 'Dom 2' } }]);
-    expect(screen.getByLabelText('Dom 2, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
+    expect(screen.getByLabelText('Dom 2, Rodzina, Zadania, 3 otwarte')).toBeTruthy();
   });
 
   it('dziecko nie zmienia nazwy listy', async () => {
@@ -327,7 +328,7 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     // Zmiana nazwy, potem wybór działu (panel się zamyka) — oba zapisane.
     await press(screen.getByLabelText(/^Chleb razowy(,|$)/));
     await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Bułki');
-    await press(within(screen.getByTestId('item-panel')).getByRole('radio', { name: 'Pieczywo' }));
+    await press(within(screen.getByTestId('item-panel')).getByRole('button', { name: 'Pieczywo' }));
     expectOps(store, [
       { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { category: 'bakery' } },
       { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Bułki' } },
@@ -339,8 +340,8 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     put(b, 'lists', 'lprv', { ...b.lists!.lf!, id: 'lprv', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf' });
     await open(b);
     await press(screen.getByLabelText('Listy'));
-    expect(await screen.findByLabelText('Prezenty, Rodzina · Zadania · Tylko ja · 0 otwartych')).toBeTruthy();
-    expect(screen.getByLabelText('Dom, Rodzina · Zadania · 3 otwarte')).toBeTruthy();
+    expect(await screen.findByLabelText('Prezenty, Rodzina, Zadania, Tylko ja, 0 otwartych')).toBeTruthy();
+    expect(screen.getByLabelText('Dom, Rodzina, Zadania, 3 otwarte')).toBeTruthy();
     await press(screen.getByTestId('list-lprv'));
     await screen.findByTestId('screen-list');
     // Domyślne porównanie tekstu w RNTL zwija spacje („  ·  ” → „ · ”).
@@ -348,7 +349,7 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
-    expect(await screen.findByLabelText('Prezenty, Tylko ja · 0 otwartych')).toBeTruthy();
+    expect(await screen.findByLabelText('Prezenty, Tylko ja, 0 otwartych')).toBeTruthy();
   });
 });
 
@@ -430,9 +431,9 @@ describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
     for (const x of ids.slice(0, 4)) expect(screen.queryByTestId(`task-${x}`)).toBeNull();
     const run = screen.getByLabelText('Leki, 4 razy minęło');
     expect(run.props.accessibilityHint).toBe('Pokazuje minione kopie');
-    expect(run.props.accessibilityState.expanded).toBe(false);
+    expect(run.props.accessibilityValue.text).toBeUndefined();
     await press(run);
-    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityValue).toEqual({ text: 'rozwinięte' });
     expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityHint).toBe('Chowa minione kopie');
     for (const x of ids.slice(0, 4)) expect(within(screen.getByTestId(`task-${x}`)).getByText(/minęło/)).toBeTruthy();
     expect(screen.getByTestId(`task-${ids[0]}`).props.style.marginLeft).toBe(22);
