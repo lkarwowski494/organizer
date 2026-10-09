@@ -117,7 +117,7 @@ describe('odwołanie spotkania z zadaniami (D14)', () => {
     await openEvent();
     await press(screen.getByTestId('event-cancel'));
     await press(screen.getByTestId('scope-this'));
-    expect(screen.getByText('1 zadanie jest podpięte do odwoływanych wydarzeń. Co z nim?')).toBeTruthy();
+    expect(screen.getByText('1 zadanie jest podpięte do odwoływanych terminów. Co z nim?')).toBeTruthy();
     await press(screen.getByLabelText('Anuluj'));
     expect(store.dispatched).toHaveLength(0);
     await press(screen.getByTestId('event-cancel'));

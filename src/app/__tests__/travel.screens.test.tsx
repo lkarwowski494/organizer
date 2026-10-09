@@ -67,11 +67,11 @@ describe('dojazd (D115–D117)', () => {
     expect(within(box).getByText('Basen Delfin, ul. Wodna 1')).toBeTruthy();
     await press(within(box).getByTestId('navigate'));
     expect(openUrl).toHaveBeenCalledWith(expect.stringContaining('Basen%20Delfin%2C%20ul.%20Wodna%201'));
-    await press(radio('Jak tam dotrę (tylko u mnie)', 'Pieszo'));
+    await press(radio('Twój dojazd (widzisz tylko Ty)', 'Pieszo'));
     await waitFor(() => expect(travel.eta).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), 'walking', expect.any(Number)));
     await press(within(box).getByTestId('navigate'));
     expect(openUrl).toHaveBeenLastCalledWith(expect.stringMatching(/mode=walking|dirflg=w/));
-    await press(radio('Jak tam dotrę (tylko u mnie)', 'Autem'));
+    await press(radio('Twój dojazd (widzisz tylko Ty)', 'Autem'));
     // Adres zapamiętany — bez drugiego geokodowania.
     expect(travel.geocode).toHaveBeenCalledTimes(1);
     expect(prefs.m.get('travelMode')).toBeUndefined();
@@ -93,7 +93,7 @@ describe('dojazd (D115–D117)', () => {
     await toggle(within(box).getByLabelText('Czas dojazdu do najbliższych wydarzeń'), true);
     await flush();
     expect(prefs.m.get('travelEnabled')).toBe('1');
-    await press(within(within(box).getByLabelText('Zwykle jadę')).getByLabelText('Komunikacją'));
+    await press(within(within(box).getByLabelText('Domyślny dojazd')).getByLabelText('Komunikacją'));
     expect(prefs.m.get('travelMode')).toBe('transit');
     await press(within(within(box).getByLabelText('Nawiguj w')).getByLabelText('Google Maps'));
     expect(prefs.m.get('navApp')).toBe('google');
