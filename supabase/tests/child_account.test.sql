@@ -8,7 +8,7 @@ insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000c1', 'o@x.test'),
   ('00000000-0000-7000-8000-0000000000c2', 'a@x.test'),
   ('00000000-0000-7000-8000-0000000000c3', 'm@x.test'),
-  ('00000000-0000-7000-8000-0000000000c4', 'kuba@x.test'),
+  ('00000000-0000-7000-8000-0000000000c4', 'tymek@x.test'),
   ('00000000-0000-7000-8000-0000000000c5', 'x@x.test');
 create function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, true) $$;
 create table pg_temp.c (k text primary key, v jsonb);
@@ -20,8 +20,8 @@ create function pg_temp.push(client text, seq int, op jsonb) returns text langua
 $$;
 grant execute on all functions in schema pg_temp to authenticated;
 
--- G: C1 owner (a1), C2 admin (a2), C3 member (a3); profile dzieci bez konta: Kuba (b1), Zosia (b2), Ola (b3).
--- Lista „Dom” z zadaniem Kuby i lista zakupów z terminem; wydarzenie z Kubą jako uczestnikiem.
+-- G: C1 owner (a1), C2 admin (a2), C3 member (a3); profile dzieci bez konta: Tymek (b1), Zosia (b2), Ola (b3).
+-- Lista „Dom” z zadaniem Tymka i lista zakupów z terminem; wydarzenie z Tymkiem jako uczestnikiem.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c1');
 set local role authenticated;
 select public.create_group('c0c00000-0000-7000-8000-000000000001', 'Rodzina', 'c0c00000-0000-7000-8000-0000000000a1', 'Ola');
@@ -30,7 +30,7 @@ select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
   ('c0c00000-0000-7000-8000-0000000000a2', 'c0c00000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000c2', 'Adam', 'admin'),
   ('c0c00000-0000-7000-8000-0000000000a3', 'c0c00000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000c3', 'Marta', 'member'),
-  ('c0c00000-0000-7000-8000-0000000000b1', 'c0c00000-0000-7000-8000-000000000001', null, 'Kuba', 'child'),
+  ('c0c00000-0000-7000-8000-0000000000b1', 'c0c00000-0000-7000-8000-000000000001', null, 'Tymek', 'child'),
   ('c0c00000-0000-7000-8000-0000000000b2', 'c0c00000-0000-7000-8000-000000000001', null, 'Zosia', 'child'),
   ('c0c00000-0000-7000-8000-0000000000b3', 'c0c00000-0000-7000-8000-000000000001', null, 'Ola', 'child');
 insert into public.lists (id, group_id, kind, name, owner_member_id) values
@@ -96,10 +96,10 @@ reset role;
 select is((select uses from public.invites where id = (select (v ->> 'invite_id')::uuid from pg_temp.c where k = 'k2')), 0, '15: kod nie zużyty');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c4');
 set local role authenticated;
-insert into pg_temp.c values ('j', public.join_group(pg_temp.jid(), pg_temp.code('k2'), 'Kuba K.'));
+insert into pg_temp.c values ('j', public.join_group(pg_temp.jid(), pg_temp.code('k2'), 'Tymek K.'));
 select is((select v ->> 'member_id' from pg_temp.c where k = 'j'), 'c0c00000-0000-7000-8000-0000000000b1', '16: konto dziecka to ten sam member_id co profil');
 select is(private.my_role('c0c00000-0000-7000-8000-000000000001'), 'child', '17: z rolą dziecko');
-select is((select display_name from public.group_members where member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 'Kuba K.', '18: imię wpisane przy dołączaniu (jak przy powrocie, R-25)');
+select is((select display_name from public.group_members where member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 'Tymek K.', '18: imię wpisane przy dołączaniu (jak przy powrocie, R-25)');
 select is((select count(*)::int from public.tasks where assignee_member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 2, '19: zadania profilu zostają i są widoczne dziecku');
 select is((select count(*)::int from public.event_participants where member_id = 'c0c00000-0000-7000-8000-0000000000b1'), 1, '20: udział w wydarzeniach też');
 select is((select count(*)::int from public.group_members where group_id = 'c0c00000-0000-7000-8000-000000000001' and deleted_at is null), 5, '21: bez nowego wiersza członka');
@@ -183,7 +183,7 @@ insert into pg_temp.c values ('e', public.create_child_code('c0c00000-0000-7000-
 reset role;
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000c4');
 set local role authenticated;
-select is(public.join_group(pg_temp.jid(), pg_temp.code('e'), 'Kuba') ->> 'error', 'invite_child_account', '45: dziecko z kontem nie przejmie drugiego profilu');
+select is(public.join_group(pg_temp.jid(), pg_temp.code('e'), 'Tymek') ->> 'error', 'invite_child_account', '45: dziecko z kontem nie przejmie drugiego profilu');
 -- Usunięcie konta dziecka (wymóg App Store) działa mimo zakazu wyjścia: robi je serwer.
 reset role;
 select pg_temp.as_user('');

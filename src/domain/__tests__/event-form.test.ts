@@ -17,14 +17,14 @@ const rules = (s: EventForm) => ok(s).map((f) => (f.rule ? formatRule({ ...f.rul
 describe('formularz wydarzenia', () => {
   it('pusty formularz: dzień tygodnia z daty, cała grupa albo wskazane osoby', () => {
     expect(emptyForm('2026-10-10')).toMatchObject({ slots: [{ days: [5], start: '', end: '' }], repeat: 'none', interval: '1', ends: 'never', audience: 'group', participantIds: [] });
-    expect(emptyForm('2026-10-10', ['kuba'])).toMatchObject({ audience: 'members', participantIds: ['kuba'] });
+    expect(emptyForm('2026-10-10', ['tymek'])).toMatchObject({ audience: 'members', participantIds: ['tymek'] });
   });
 
   it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
-    const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
+    const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['tymek'] }));
     expect(fields).toEqual([
-      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1, durationMin: null },
-      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1, durationMin: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['tymek'], responsibleId: null, location: null, days: 1, durationMin: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['tymek'], responsibleId: null, location: null, days: 1, durationMin: null },
     ]);
   });
 
@@ -42,7 +42,7 @@ describe('formularz wydarzenia', () => {
   });
 
   it('cały dzień: bez godzin (pola godzin ignorowane); cała grupa: bez listy uczestników', () => {
-    expect(ok(form({ allDay: true, slots: [{ days: [0], start: 'zła', end: 'zła' }], participantIds: ['kuba'] }))[0]).toMatchObject({ startTime: null, endTime: null, participantIds: [] });
+    expect(ok(form({ allDay: true, slots: [{ days: [0], start: 'zła', end: 'zła' }], participantIds: ['tymek'] }))[0]).toMatchObject({ startTime: null, endTime: null, participantIds: [] });
   });
 
   it.each<[Partial<EventForm>, string]>([

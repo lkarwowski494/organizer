@@ -42,8 +42,8 @@ describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
-    await press(await screen.findByTestId('group-timetable-kuba'));
-    expect(await screen.findByText('Plan lekcji — Kuba')).toBeTruthy();
+    await press(await screen.findByTestId('group-timetable-tymek'));
+    expect(await screen.findByText('Plan lekcji — Tymek')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('group-add-routine'));
     await screen.findByTestId('screen-routine');
@@ -61,7 +61,7 @@ describe('rutyny (D113)', () => {
     await press(screen.getByTestId('routine-save'));
     expect(screen.getByText('Wpisz nazwę rutyny.')).toBeTruthy();
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
-    await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek Kuby');
+    await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek Tymka');
     await setTime('routine-start', '07:00');
     await press(screen.getByTestId('routine-save'));
     expect(screen.getByText('Dodaj co najmniej jeden krok.')).toBeTruthy();
@@ -70,14 +70,14 @@ describe('rutyny (D113)', () => {
     await fireEvent.changeText(screen.getByTestId('routine-step-1'), 'Plecak');
     await press(screen.getByTestId('routine-add-step'));
     await press(screen.getAllByText('Usuń')[2]!);
-    await press(screen.getByLabelText('Uczestnik: Kuba'));
+    await press(screen.getByLabelText('Uczestnik: Tymek'));
     await press(screen.getByLabelText('W sobotę'));
     await press(screen.getByTestId('routine-save'));
     const ev = s.store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events');
-    expect(ev).toMatchObject({ group_id: 'gf', set: { title: 'Poranek Kuby', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA', audience: 'members' } });
+    expect(ev).toMatchObject({ group_id: 'gf', set: { title: 'Poranek Tymka', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA', audience: 'members' } });
     expect(s.store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'event_task_series').map((o) => (o as unknown as { set: { title: string } }).set.title)).toEqual(['Zęby', 'Plecak']);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano rutynę: Poranek Kuby')).toBeTruthy();
+    expect(within(bar).getByText('Dodano rutynę: Poranek Tymka')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Audyt 2 (E-3): definicje kroków, wydarzenie i nowa (pusta) lista; kopie kroków też, jeśli już powstały.
     expect(s.store.dispatched.slice(-4).map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['delete', 'event_task_series'], ['delete', 'event_task_series'], ['delete', 'events'], ['delete', 'lists']]);

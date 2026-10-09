@@ -37,7 +37,7 @@ describe('działy zakupów (D85)', () => {
     ['chleb żytni', 'bakery'],
     ['ser żółty', 'dairy'],
     ['serwetki', 'household'],
-    ['żelki Haribo', 'sweets'],
+    ['żelki owocowe', 'sweets'],
     ['żel pod prysznic', 'hygiene'],
     ['papier toaletowy x8', 'hygiene'],
     ['mleko modyfikowane', 'baby'],
@@ -57,6 +57,13 @@ describe('działy zakupów (D85)', () => {
     ['Masło orzechowe', 'pantry'],
     ['2 słoiki masła orzechowego', 'pantry'],
     ['masło', 'dairy'],
+    // Słownik bez nazw marek: ogólne nazwy produktów (krem czekoladowy przed „krem*” z kosmetyków — dłuższy wpis).
+    ['krem czekoladowy', 'pantry'],
+    ['krem do rąk', 'hygiene'],
+    ['mleczko do czyszczenia', 'household'],
+    ['paracetamol 500', 'hygiene'],
+    ['ibuprofen', 'hygiene'],
+    ['karma mokra dla psa', 'pets'],
     ['coś dziwnego', 'other'],
   ])('%s → %s', (name, cat) => expect(guessCategory(name)).toBe(cat));
 
@@ -66,6 +73,11 @@ describe('działy zakupów (D85)', () => {
     expect(SHOPPING_CATEGORIES.at(-1)!.key).toBe('other');
     expect(Object.keys(SHOPPING_KEYWORDS).sort()).toEqual(SHOPPING_CATEGORIES.map((c) => c.key).filter((k) => k !== 'other').sort());
     expect(categoryName('dairy')).toBe('Nabiał i jaja');
+  });
+
+  it('słownik bez nazw marek — tylko ogólne nazwy produktów', () => {
+    const brands = /^(pepsi|sprite|fanta|pampers|domestos|cif|ludwik|whiskas|pedigree|felix|nutell|apap|ibuprom|haribo)/;
+    expect(Object.values(SHOPPING_KEYWORDS).flat().filter((k) => brands.test(k))).toEqual([]);
   });
 
   it('pamięć grupy: najnowszy ręczny wybór dla tej samej nazwy; inne grupy i listy zadań nie liczą się, usunięte — tak (M-110)', () => {

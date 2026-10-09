@@ -50,7 +50,7 @@ describe('zaległe na dziś (D111)', () => {
     const base = sampleBase();
     put(base, 'tasks', 'moje', { ...base.tasks!['t-paczka']!, id: 'moje', title: 'Zapłacić za prąd', due_date: '2026-10-05', due_time: null });
     put(base, 'tasks', 'wspolne', { ...base.tasks!['t-kwiaty']!, id: 'wspolne', title: 'Wynieść karton', due_date: '2026-10-05' });
-    put(base, 'tasks', 'kuby', { ...base.tasks!['t-kwiaty']!, id: 'kuby', title: 'Spakować plecak', due_date: '2026-10-05', assignee_member_id: 'kuba' });
+    put(base, 'tasks', 'tymka', { ...base.tasks!['t-kwiaty']!, id: 'tymka', title: 'Spakować plecak', due_date: '2026-10-05', assignee_member_id: 'tymek' });
     const s = setup({ base });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');

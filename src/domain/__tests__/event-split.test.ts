@@ -8,13 +8,13 @@ import { applyOp, type Op, type Row } from '../sync-engine/client';
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, id: string, row: Row) => ((t[e] ??= {})[id] = row);
 
-/** Rodzina: ja (dorosły), Ala (dorosła), Kuba (dziecko), Ola (usunięta z grupy); chór w poniedziałki od 5.10. */
+/** Rodzina: ja (dorosły), Ala (dorosła), Tymek (dziecko), Ola (usunięta z grupy); chór w poniedziałki od 5.10. */
 function world(): T {
   const t: T = {};
   const m = (id: string, role: string, deleted: string | null = null) => put(t, 'group_members', id, { member_id: id, group_id: 'gf', user_id: null, display_name: id, role, deleted_at: deleted });
   m('me', 'admin');
   m('ala', 'member');
-  m('kuba', 'child');
+  m('tymek', 'child');
   m('ola', 'member', '2026-10-01T00:00:00Z');
   put(t, 'group_members', 'obcy', { member_id: 'obcy', group_id: 'gx', role: 'member', deleted_at: null });
   put(t, 'events', 'chor', { id: 'chor', group_id: 'gf', title: 'Chór', note: 'Nuty w teczce', start_date: '2026-10-05', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: 'me', location: null, kind: 'lesson', split_from: null, deleted_at: null });
@@ -81,9 +81,9 @@ describe('podział serii na telefonie (applySplit)', () => {
   });
 
   it('osoba odpowiedzialna spoza grupy albo dziecko → nikt konkretny (D132); uczestnicy tylko z grupy', () => {
-    for (const who of ['ola', 'kuba', 'obcy', null]) expect(split(world(), args({ set: set({ responsible_member_id: who }) })).events![S]!.responsible_member_id).toBeNull();
-    const t = split(world(), args({ set: set({ audience: 'members' }), participants: [{ id: 'p-kuba', member_id: 'kuba' }, { id: 'p-ola', member_id: 'ola' }, { id: 'p-obcy', member_id: 'obcy' }] }));
-    expect(t.event_participants).toEqual({ 'p-kuba': { id: 'p-kuba', group_id: 'gf', event_id: S, member_id: 'kuba', deleted_at: null } });
+    for (const who of ['ola', 'tymek', 'obcy', null]) expect(split(world(), args({ set: set({ responsible_member_id: who }) })).events![S]!.responsible_member_id).toBeNull();
+    const t = split(world(), args({ set: set({ audience: 'members' }), participants: [{ id: 'p-tymek', member_id: 'tymek' }, { id: 'p-ola', member_id: 'ola' }, { id: 'p-obcy', member_id: 'obcy' }] }));
+    expect(t.event_participants).toEqual({ 'p-tymek': { id: 'p-tymek', group_id: 'gf', event_id: S, member_id: 'tymek', deleted_at: null } });
   });
 
   it('od dnia podziału przechodzą: wyjątki (bez porzuconych), obecność wszystkich, przekazania, zadania (też zrobione), definicje', () => {
@@ -163,7 +163,7 @@ describe('podział serii na telefonie (applySplit)', () => {
   });
 
   it('polecenie powtórzone (drugi telefon, ten sam termin): wartości nowej serii jak przy zmianie całości, bez ponownego dzielenia', () => {
-    const t = split(world(), args({ set: set({ audience: 'members' }), participants: [{ id: 'p-kuba', member_id: 'kuba' }] }));
+    const t = split(world(), args({ set: set({ audience: 'members' }), participants: [{ id: 'p-tymek', member_id: 'tymek' }] }));
     put(t, 'event_participants', 'p-ala', { id: 'p-ala', group_id: 'gf', event_id: S, member_id: 'ala', deleted_at: 'x' });
     put(t, 'event_participants', 'p-ola', { id: 'p-ola', group_id: 'gf', event_id: S, member_id: 'ola', deleted_at: 'x' });
     put(t, 'event_overrides', 'o26', { id: 'o26', group_id: 'gf', event_id: 'chor', occurrence_date: '2026-10-26', deleted_at: null });
@@ -173,7 +173,7 @@ describe('podział serii na telefonie (applySplit)', () => {
     expect(t.events![S]).toMatchObject({ title: 'Chór — nowa sala', start_time: '19:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261231', split_from: 'chor' });
     expect(t.event_overrides!.o26!.event_id).toBe('chor');
     const parts = Object.fromEntries(Object.values(t.event_participants!).map((p) => [p.member_id, p.deleted_at]));
-    expect(parts).toEqual({ kuba: 'pending', ala: null, ola: 'x', me: null }); // Ola nie wraca — nie ma jej w grupie
+    expect(parts).toEqual({ tymek: 'pending', ala: null, ola: 'x', me: null }); // Ola nie wraca — nie ma jej w grupie
     expect(t.event_participants!['p-me']).toMatchObject({ event_id: S });
     expect(t.event_participants!['p-ala2']).toBeUndefined(); // Ala wraca na swoim wierszu
   });

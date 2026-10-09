@@ -13,7 +13,7 @@ create function pg_temp.push(client text, seq int, op jsonb) returns text langua
 $$;
 grant execute on function pg_temp.as_user(text), pg_temp.push(text, int, jsonb) to authenticated;
 
--- Rodzina: Łukasz (owner, A), Magdalena (member, M), O (member), Kuba (dziecko bez konta).
+-- Rodzina: Łukasz (owner, A), Magdalena (member, M), O (member), Tymek (dziecko bez konta).
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');
 set local role authenticated;
 select public.create_group('77770000-0000-7000-8000-000000000001', 'Rodzina', '77770000-0000-7000-8000-0000000000a1', 'Łukasz');
@@ -22,7 +22,7 @@ select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
   ('77770000-0000-7000-8000-0000000000a2', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000e2', 'Magdalena', 'member'),
   ('77770000-0000-7000-8000-0000000000a3', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000e3', 'O', 'member'),
-  ('77770000-0000-7000-8000-0000000000a5', '77770000-0000-7000-8000-000000000001', null, 'Kuba', 'child');
+  ('77770000-0000-7000-8000-0000000000a5', '77770000-0000-7000-8000-000000000001', null, 'Tymek', 'child');
 
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000e1');
 set local role authenticated;

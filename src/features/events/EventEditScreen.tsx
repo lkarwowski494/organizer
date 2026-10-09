@@ -58,7 +58,7 @@ export function EventEditScreen({ route, navigation }: Props) {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
     // PWD-33 (D200): kopia wydarzenia z iPhone'a — nazwa, dzień, godziny i miejsce do poprawienia przed zapisem.
-    // Audyt 2 (M-255): dziecko z „@Kuba” przechodzi jako uczestnik, jak w szybkim dodaniu (quickEvent).
+    // Audyt 2 (M-255): dziecko z „@Tymek” przechodzi jako uczestnik, jak w szybkim dodaniu (quickEvent).
     const { title, start, end, responsibleId, location, allDay, participantIds, endDate } = route.params;
     const f = emptyForm(occurrence, participantIds ?? []);
     const adult = responsibleId && groups.find((g) => g.id === groupId)?.kind !== 'personal' && (groupDetail(tables, userId, groupId)?.members ?? []).some((m) => m.member_id === responsibleId && m.role !== 'child');

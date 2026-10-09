@@ -39,7 +39,7 @@ export const NEW_LIST_NAME = LIST_NAMES.GENERAL;
 
 /**
  * Ogólna lista zadań grupy (D97): tu trafia zadanie bez wybranej listy. Osobista — pierwsza lista zadań (jak dotąd),
- * wspólna — lista „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Balet – Róża”) wybiera się na liście.
+ * wspólna — lista „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Szachy – Zosia”) wybiera się na liście.
  */
 export function generalList(t: Tables, userId: string, groupId: string, newId: () => string): { listId: string; ops: NewOp[] } {
   // Audyt 2 (R-6): tylko lista całej grupy — na prywatną „Zadania” zadanie z @imię innej osoby serwer by odrzucił.

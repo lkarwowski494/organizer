@@ -1,5 +1,5 @@
 /**
- * Wydarzenia przez prawdziwą nawigację: dodanie serii z dwoma terminami (pon. 18:00 i sob. 12:00), zmiana jednego
+ * Wydarzenia przez prawdziwą nawigację: dodanie serii z dwoma terminami (pon. 18:00 i sob. 10:00), zmiana jednego
  * wystąpienia, „to i następne”, „wszystkie”, odwołanie, usunięcie jednorazowego, Moje sprawy, kalendarz, grupa.
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
@@ -16,11 +16,11 @@ const type = (el: Parameters<typeof fireEvent.changeText>[0], text: string) => f
 function event(base: ReturnType<typeof sampleBase>, id: string, extra: Row = {}) {
   put(base, 'events', id, { id, group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', deleted_at: null, version: 1, ...extra });
 }
-/** Seria w środy 17:00 dla Kuby (dziecko) — dotyczy mnie jako dorosłego (D58). */
+/** Seria w środy 17:00 dla Tymka (dziecko) — dotyczy mnie jako dorosłego (D58). */
 function withDances() {
   const base = sampleBase();
   event(base, 'ev-tance');
-  put(base, 'event_participants', 'p1', { id: 'p1', event_id: 'ev-tance', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+  put(base, 'event_participants', 'p1', { id: 'p1', event_id: 'ev-tance', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
   return base;
 }
 async function open(base = withDances()) {
@@ -32,13 +32,13 @@ async function open(base = withDances()) {
 const created = (ops: NewOp[], entity: string) => ops.filter((o) => o.kind === 'create' && o.entity === entity) as Extract<NewOp, { kind: 'create' }>[];
 
 describe('Wydarzenia: dodawanie', () => {
-  it('scenariusz właściciela: tańce Kuby w poniedziałki 18:00 i soboty 12:00 — dwie serie, jeden zapis', async () => {
+  it('scenariusz: judo Tymka w poniedziałki 18:00 i soboty 10:00 — dwie serie, jeden zapis', async () => {
     const { store } = await open(sampleBase());
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-event'));
     await screen.findByTestId('screen-event-edit');
     await press(screen.getByLabelText('Rodzina'));
-    await type(screen.getByTestId('event-title'), 'Tańce Kuby');
+    await type(screen.getByTestId('event-title'), 'Judo Tymka');
     await press(screen.getByLabelText('Co tydzień'));
     expect(screen.getByLabelText('W środę').props.accessibilityState.checked).toBe(true); // dzień z kalendarza
     await press(screen.getByLabelText('W środę'));
@@ -47,21 +47,21 @@ describe('Wydarzenia: dodawanie', () => {
     await setTime('event-end-0', '19:00');
     await press(screen.getByTestId('event-add-slot'));
     await press(screen.getByLabelText('W sobotę (Wariant 2)'));
-    await setTime('event-start-1', '12:00');
+    await setTime('event-start-1', '10:00');
     await press(screen.getByLabelText('Wybrane osoby'));
-    await press(screen.getByLabelText('Uczestnik: Kuba'));
+    await press(screen.getByLabelText('Uczestnik: Tymek'));
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByTestId('screen-calendar')).toBeTruthy();
     const ops = store.dispatched;
     expect(created(ops, 'events').map((o) => o.set)).toEqual([
-      { title: 'Tańce Kuby', start_date: '2026-10-12', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null },
-      { title: 'Tańce Kuby', start_date: '2026-10-10', start_time: '12:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=SA', audience: 'members', responsible_member_id: null },
+      { title: 'Judo Tymka', start_date: '2026-10-12', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null },
+      { title: 'Judo Tymka', start_date: '2026-10-10', start_time: '10:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=SA', audience: 'members', responsible_member_id: null },
     ]);
-    expect(created(ops, 'event_participants').map((o) => o.set.member_id)).toEqual(['kuba', 'kuba']);
+    expect(created(ops, 'event_participants').map((o) => o.set.member_id)).toEqual(['tymek', 'tymek']);
     expect(created(ops, 'events').every((o) => o.group_id === 'gf')).toBe(true);
     // Sobota 10.10 w kalendarzu: wydarzenie z linią grupy.
     await press(screen.getByTestId('day-2026-10-10'));
-    expect(screen.getByLabelText('Tańce Kuby, 12:00, Rodzina')).toBeTruthy();
+    expect(screen.getByLabelText('Judo Tymka, 10:00, Rodzina')).toBeTruthy();
     expect(screen.getByTestId('day-2026-10-12').props.accessibilityLabel).toMatch(/1 wydarzenie/);
   });
 
@@ -151,7 +151,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
     await openDances();
     expect(screen.getByText('Środa, 7 października · 17:00–18:00 · 1 h')).toBeTruthy();
     expect(screen.getByText('Co tydzień: śr.')).toBeTruthy();
-    expect(within(screen.getByTestId('screen-event')).getAllByText('Kuba').length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId('screen-event')).getAllByText('Tymek').length).toBeGreaterThan(0);
   });
 
   it('„tylko to”: przeniesienie na 16:00 — wyjątek, Moje sprawy pokazuje nową godzinę', async () => {
@@ -254,7 +254,7 @@ describe('Wydarzenia: zmiana i odwołanie (D57)', () => {
           event_id: 'ev-tance',
           date: '2026-10-07',
           set: { title: 'Tańce', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', responsible_member_id: null, location: null, days: 1, duration_min: null },
-          participants: [{ id: participantId(sid, 'kuba'), member_id: 'kuba' }],
+          participants: [{ id: participantId(sid, 'tymek'), member_id: 'tymek' }],
           drop_overrides: [],
           tasks: [],
         },
@@ -522,7 +522,7 @@ describe('osoba odpowiedzialna (D66)', () => {
     await type(screen.getByTestId('event-title'), 'Logopeda');
     await setTime('event-start-0', '18:00');
     expect(screen.getByLabelText('Osoba odpowiedzialna')).toBeTruthy();
-    expect(within(screen.getByLabelText('Osoba odpowiedzialna')).queryByLabelText('Kuba')).toBeNull();
+    expect(within(screen.getByLabelText('Osoba odpowiedzialna')).queryByLabelText('Tymek')).toBeNull();
     await press(within(screen.getByLabelText('Osoba odpowiedzialna')).getByLabelText('Ala'));
     await press(screen.getByTestId('event-save'));
     expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Logopeda', start_date: '2026-10-07', start_time: '18:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: 'ala' } }]);

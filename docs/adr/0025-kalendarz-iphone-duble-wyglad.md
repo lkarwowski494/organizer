@@ -1,8 +1,8 @@
 # 0025. Wydarzenia z iPhone'a: wybór kalendarzy, ukrywanie dubli, wygląd; pas pod zegarem (8.10.2026)
 
 Zgłoszenie właściciela (zrzut Kalendarza): wydarzenia z iPhone'a wyglądają dziwnie (kwadracik jak pole wyboru, szare
-kwadraciki prawie w każdym dniu siatki) i dublują wpisy wprowadzone w aplikacji („Dzieci – basen” z kalendarza
-„Łukasz Karwowski” obok zadania „Kuba i Róża – Basen”). Do tego treść przewija się pod zegarem i baterią.
+kwadraciki prawie w każdym dniu siatki) i dublują wpisy wprowadzone w aplikacji (ten sam wpis z innego kalendarza
+iPhone'a obok zadania w aplikacji, np. „Dzieci – judo” obok „Tymek i Zosia – Judo”). Do tego treść przewija się pod zegarem i baterią.
 
 ## Decyzje produktowe (właściciel, 8.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |

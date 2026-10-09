@@ -34,7 +34,7 @@ describe('podzadania w planie dnia (D104)', () => {
   it('D127: zwinięte lekcje — bez rodzica i licznika', () => {
     const t: T = {};
     task(t, 'a');
-    expect(view(nestEntries([{ kind: 'lessons' as const, key: 'l-kuba' }, tk(t, 'a')], t))).toEqual([['l-kuba', 0, null, null], ['a', 0, null, null]]);
+    expect(view(nestEntries([{ kind: 'lessons' as const, key: 'l-tymek' }, tk(t, 'a')], t))).toEqual([['l-tymek', 0, null, null], ['a', 0, null, null]]);
   });
   it('rodzic spoza dnia — dopisek; rodzic usunięty albo nieznany — bez dopisku; cykl nic nie gubi', () => {
     const t: T = {};

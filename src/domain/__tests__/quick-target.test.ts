@@ -5,7 +5,7 @@ const ME = 'u-me';
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
 
-/** Osobista, „Rodzina” (ja admin; Ala, Kuba-dziecko), „Klasa 2b” (ja; Alicja), „Babcia” (ja dzieckiem; Ala). */
+/** Osobista, „Rodzina” (ja admin; Ala, Tymek-dziecko), „Klasa 2b” (ja; Alicja), „Babcia” (ja dzieckiem; Ala). */
 function base(): T {
   const t: T = {};
   const g = (id: string, name: string, kind: string, created: string) => put(t, 'groups', id, { id, name, kind, created_at: created, deleted_at: null });
@@ -18,7 +18,7 @@ function base(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('ala', 'gf', 'u-ala', 'Ala', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('mk', 'gk', ME, 'Łukasz');
   m('alicja', 'gk', 'u-al', 'Alicja');
   m('jan', 'gk', 'u-jan', 'Jan');
@@ -137,7 +137,7 @@ describe('pole dodawania na liście zadań: „@imię” i „@ja” (spójnie z
   const q = (listId: string, text: string, answers = {}) => resolveListQuick(lists(), ME, listId, text, answers);
 
   it('osoba z grupy listy, która ją widzi; „@” znika z nazwy (spacjami, jak w Moich sprawach)', () => {
-    expect(q('lf', 'basen @Kuba jutro')).toEqual({ kind: 'ok', memberId: 'kuba', body: 'basen       jutro' });
+    expect(q('lf', 'basen @Tymek jutro')).toEqual({ kind: 'ok', memberId: 'tymek', body: 'basen        jutro' });
     // Alicja z innej grupy (Klasa 2b) się nie liczy — tylko grupa listy.
     expect(q('lf', 'zebranie @al')).toEqual({ kind: 'many', name: 'al', targets: [expect.objectContaining({ memberId: 'ala' }), expect.objectContaining({ memberId: 'alek' })] });
     expect(q('lf', 'zebranie @al', { person: { groupId: 'gf', groupName: 'Rodzina', memberId: 'alek', displayName: 'Alek' } })).toMatchObject({ kind: 'ok', memberId: 'alek' });

@@ -2,7 +2,7 @@
  * Ilość w nazwie pozycji zakupów (D77): „mleko 2”, „2 mleka”, „jabłka 1,5 kg”, „jajka x10”, „woda 6 szt.”.
  * „x” to krotność (×2). Tylko do wyświetlania — w bazie zostaje to, co wpisała osoba (bez nowej kolumny i bez ryzyka złego odczytu).
  * Liczba z przecinkiem albo kropką; jednostka z listy (src/config/quantity.pl.ts). Bez jednostki — tylko liczba
- * całkowita 1–99 (żeby „Pepsi 0,5” albo „mleko 3,2%” nie zostały rozpoznane jako ilość). Zakres 1–99 i krotność
+ * całkowita 1–99 (żeby „Cola 0,5” albo „mleko 3,2%” nie zostały rozpoznane jako ilość). Zakres 1–99 i krotność
  * „x” do 3 cyfr to wybory projektowe, bez źródła; jednostki mają źródło w src/config/quantity.pl.ts.
  */
 import { QUANTITY_UNITS } from '../config/quantity.pl';

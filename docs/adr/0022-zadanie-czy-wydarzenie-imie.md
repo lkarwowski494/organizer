@@ -1,6 +1,6 @@
 # 0022. Formularz: zadanie albo wydarzenie, bez wyboru listy; imię zamiast adresu e-mail (8.10.2026)
 
-Zgłoszenie właściciela (zrzut formularza „Nowe zadanie”): 1) „Lista” myli — „Balet – Róża” nie ma nic wspólnego
+Zgłoszenie właściciela (zrzut formularza „Nowe zadanie”): 1) „Lista” myli — „Szachy – Zosia” nie ma nic wspólnego
 z zadaniem „Dzisiaj”; 2) brak czasu trwania; 3) brak wyboru, czy to zadanie, czy wydarzenie. Do tego Claude zauważył
 w grupach imiona z początku adresu e-mail („jan.kowalski85”).
 
@@ -15,7 +15,7 @@ w grupach imiona z początku adresu e-mail („jan.kowalski85”).
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 1. **Gdzie trafia zadanie bez listy (D97):** ogólna lista grupy (`generalList`).
    - Grupa osobista: pierwsza lista zadań, a gdy jej nie ma, nowa „Moje zadania” (jak dotąd).
-   - Grupa wspólna: lista o nazwie „Zadania”, a gdy jej nie ma, powstaje. Wcześniej trafiało na pierwszą listę zadań grupy (np. „Balet – Róża”) — to był powód zgłoszenia.
+   - Grupa wspólna: lista o nazwie „Zadania”, a gdy jej nie ma, powstaje. Wcześniej trafiało na pierwszą listę zadań grupy (np. „Szachy – Zosia”) — to był powód zgłoszenia.
    - „Zmień” w tej samej grupie zostawia zadanie na jego liście. Zmiana grupy daje kopię na ogólnej liście nowej grupy (jak w ADR 0019).
    - Na listę tematyczną dodaje się z ekranu tej listy (bez zmian).
    - Odrzucone: pierwsza lista grupy (powód zgłoszenia), pytanie o listę przy pierwszym dodaniu w grupie.

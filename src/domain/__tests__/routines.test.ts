@@ -15,7 +15,7 @@ function base(): T {
   const t: T = {};
   put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-01-01T00:00:00Z', deleted_at: null });
   put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
-  put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+  put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
   return t;
 }
 const apply = (t: T, ops: NewOp[]) => {
@@ -28,14 +28,14 @@ const apply = (t: T, ops: NewOp[]) => {
 let n = 0;
 const newId = () => `id${++n}`;
 const make = (o: Partial<Parameters<typeof routineOps>[0]> = {}) =>
-  routineOps({ tables: base(), userId: ME, groupId: 'gf', title: 'Poranek Kuby', days: [0, 1, 2, 3, 4], start: '07:00', end: '07:30', participantIds: ['kuba'], steps: ['Zęby', ' ', 'Ubranie', 'Plecak'], today, newId, ...o });
+  routineOps({ tables: base(), userId: ME, groupId: 'gf', title: 'Poranek Tymka', days: [0, 1, 2, 3, 4], start: '07:00', end: '07:30', participantIds: ['tymek'], steps: ['Zęby', ' ', 'Ubranie', 'Plecak'], today, newId, ...o });
 
 describe('rutyny (D113)', () => {
   it('wydarzenie cykliczne z osobą, kroki jako stałe zadania serii na ogólnej liście; co dzień = DAILY', () => {
     const r = make();
     if ('error' in r) throw new Error(r.error);
     const t = apply(base(), r.ops);
-    expect(t.events![r.eventId]).toMatchObject({ title: 'Poranek Kuby', start_date: '2026-10-08', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', audience: 'members', kind: 'routine' });
+    expect(t.events![r.eventId]).toMatchObject({ title: 'Poranek Tymka', start_date: '2026-10-08', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', audience: 'members', kind: 'routine' });
     expect(Object.values(t.event_task_series!).map((s) => s.title)).toEqual(['Zęby', 'Ubranie', 'Plecak']);
     expect(Object.values(t.lists!).map((l) => l.name)).toEqual(['Zadania']);
     // Telefon dokłada kroki na wystąpienia.

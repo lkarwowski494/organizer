@@ -39,7 +39,7 @@ select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role, created_at) values
   ('77770000-0000-7000-8000-0000000001c1', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000c1', 'Celina', 'member', now() - interval '20 days'),
   ('77770000-0000-7000-8000-0000000001b1', '77770000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000b1', 'Bartek', 'admin', now() - interval '10 days'),
-  ('77770000-0000-7000-8000-0000000001e9', '77770000-0000-7000-8000-000000000001', null, 'Kuba', 'child', now() - interval '30 days');
+  ('77770000-0000-7000-8000-0000000001e9', '77770000-0000-7000-8000-000000000001', null, 'Tymek', 'child', now() - interval '30 days');
 
 -- Zawartość od A: lista wspólna z zadaniem, lista prywatna, zmiana własnej nazwy, zaproszenie; B też wystawia zaproszenie.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a1');
@@ -72,7 +72,7 @@ select pg_temp.push('77770000-0000-7000-8000-00000000ccd1', 3, '{"kind":"create"
 reset role;
 select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
-  ('77770000-0000-7000-8000-0000000002e9', '77770000-0000-7000-8000-000000000002', null, 'Kuba', 'child'),
+  ('77770000-0000-7000-8000-0000000002e9', '77770000-0000-7000-8000-000000000002', null, 'Tymek', 'child'),
   ('77770000-0000-7000-8000-0000000002f3', '77770000-0000-7000-8000-000000000002', '00000000-0000-7000-8000-0000000000f3', 'Julek', 'child');
 
 -- ── G4: owner E, sami memberzy: F (dłuższy staż), H (krótszy).

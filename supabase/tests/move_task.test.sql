@@ -53,7 +53,7 @@ select is(pg_temp.mv(21, '66660000-0000-7000-8000-00000000000e', null), 'deleted
 -- Dziecko (konto z rolą child) nie przenosi.
 reset role;
 select set_config('request.jwt.claim.sub', '', true);
-insert into public.group_members (member_id, group_id, user_id, display_name, role) values (gen_random_uuid(), '66660000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000ab', 'Kuba', 'child');
+insert into public.group_members (member_id, group_id, user_id, display_name, role) values (gen_random_uuid(), '66660000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000ab', 'Tymek', 'child');
 select set_config('request.jwt.claim.sub', '00000000-0000-7000-8000-0000000000ab', true);
 set local role authenticated;
 select is((public.sync_push('66660000-0000-7000-8000-0000000000c2', 1, '[{"seq":1,"kind":"cmd","cmd":"move_task","args":{"id":"66660000-0000-7000-8000-00000000000a"}}]') -> 'results' -> 0 ->> 'code'), 'forbidden', '20: dziecko nie przenosi');

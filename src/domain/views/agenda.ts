@@ -7,7 +7,7 @@ import { daySpan } from '../span';
 import type { Occurrence } from './events';
 import type { TodayItem } from './index';
 
-/** D127: lekcje dziecka jednego dnia jako jeden wiersz („Kuba: 6 lekcji, 8:00–13:30”), rozwijany do pojedynczych. */
+/** D127: lekcje dziecka jednego dnia jako jeden wiersz („Tymek: 5 lekcji, 8:00–12:35”), rozwijany do pojedynczych. */
 export type LessonBlock = { memberId: string; name: string; groupId: string; groupName: string; line: number; start: string | null; end: string | null; lessons: Occurrence[] };
 
 /** Wpis kalendarza (bez zwijania lekcji). */

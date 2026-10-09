@@ -12,7 +12,7 @@ describe('szkic formularza (D179, audyt 2 M-123)', () => {
     const a: F = { title: 'Basen', days: [0, 2], who: null };
     expect(changedFields(a, { ...a })).toEqual({});
     expect(changedFields(a, { ...a, days: [0, 2] })).toEqual({});
-    expect(changedFields(a, { ...a, title: 'Basen Kuby', who: 'kuba' })).toEqual({ title: 'Basen Kuby', who: 'kuba' });
+    expect(changedFields(a, { ...a, title: 'Basen Tymka', who: 'tymek' })).toEqual({ title: 'Basen Tymka', who: 'tymek' });
     expect(changedFields(a, { ...a, days: [0] })).toEqual({ days: [0] });
   });
 

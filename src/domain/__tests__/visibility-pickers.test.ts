@@ -14,7 +14,7 @@ function world(): T {
     group_members: {
       mf: { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null },
       ala: { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', display_name: 'Ala', role: 'member', deleted_at: null },
-      kuba: { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null },
+      tymek: { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null },
     },
     lists: {
       prez: { id: 'prez', group_id: 'gf', kind: 'tasks', name: 'Zadania', visibility: 'private', owner_member_id: 'mf', sort_key: 'a0', deleted_at: null },
@@ -30,7 +30,7 @@ describe('wybór osoby a widoczność listy', () => {
   it('lista prywatna: do przypisania tylko ja; lista całej grupy: wszyscy (także dziecko)', () => {
     const t = world();
     expect(listDetail(t, ME, 'prez', today)!.members.map((m) => m.member_id)).toEqual(['mf']);
-    expect(listDetail(t, ME, 'dom', today)!.members.map((m) => m.member_id).sort()).toEqual(['ala', 'kuba', 'mf']);
+    expect(listDetail(t, ME, 'dom', today)!.members.map((m) => m.member_id).sort()).toEqual(['ala', 'mf', 'tymek']);
   });
 
   it('kto robi zakupy i komu przekazać: tylko osoby widzące listę', () => {

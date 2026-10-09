@@ -23,7 +23,7 @@
    - Podzadania nie są kopiowane. → zmienione 8.10.2026 (decyzja właściciela, audyt 2): następne dostaje kopie podzadań (ADR 0024, dopisek).
    - Bez terminu nie ma powtarzania (ograniczenie w bazie). Zdjęcie terminu zdejmuje też regułę.
    - Odrzucone: przesuwanie terminu tego samego zadania. Traci historię i daje konflikty przy synchronizacji.
-3. **Ilości są tylko wyświetlaniem** (parseQuantity): w bazie zostaje to, co wpisano. Bez jednostki rozpoznajemy tylko liczby 1–99, żeby „mleko 3,2%” czy „Pepsi 0,5” nie stały się ilością.
+3. **Ilości są tylko wyświetlaniem** (parseQuantity): w bazie zostaje to, co wpisano. Bez jednostki rozpoznajemy tylko liczby 1–99, żeby „mleko 3,2%” czy „Cola 0,5” nie stały się ilością.
 4. **Kalendarz pokazuje wszystkie zaplanowane zakupy grupy**, tak jak zadania grupy. „Dotyczy mnie” pokazuje tylko moje.
 5. **O-036:**
    - imię z Apple (tylko przy pierwszym logowaniu) trafia do profilu;

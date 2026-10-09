@@ -17,7 +17,7 @@ function base() {
 }
 
 describe('obecność (D124)', () => {
-  it('odpowiadam za siebie i za Kubę; podsumowanie; licznik w „Moich sprawach”', async () => {
+  it('odpowiadam za siebie i za Tymka; podsumowanie; licznik w „Moich sprawach”', async () => {
     const s = setup({ base: base() });
     await s.renderApp(<RootStack />);
     await press(await screen.findByLabelText(/^Basen, 17:00/));
@@ -28,16 +28,16 @@ describe('obecność (D124)', () => {
     // Audyt 2 (E-25): nowy wiersz — utworzenie, przywrócenie (gdyby serwer miał go w koszu) i zmiana.
     expect(s.store.dispatched.map((o) => o.kind)).toEqual(['create', 'restore', 'patch']);
     expectOps(s.store, [{ kind: 'create', entity: 'event_rsvps', id: '8254b737-1fee-5bf5-86a2-c7cf56b320d9', group_id: 'gf', set: { event_id: 'ev1', occurrence_date: '2026-10-07', member_id: 'mf', answer: 'yes' } }, { kind: 'restore', entity: 'event_rsvps', id: '8254b737-1fee-5bf5-86a2-c7cf56b320d9' }, { kind: 'patch', entity: 'event_rsvps', id: '8254b737-1fee-5bf5-86a2-c7cf56b320d9', set: { answer: 'yes' } }]);
-    await press(within(within(box).getByLabelText('Kuba')).getByLabelText(/^Nie będzie(,|$)/));
+    await press(within(within(box).getByLabelText('Tymek')).getByLabelText(/^Nie będzie(,|$)/));
     expect(within(box).getByText('Tak: Ty')).toBeTruthy();
-    expect(within(box).getByText('Nie: Kuba')).toBeTruthy();
+    expect(within(box).getByText('Nie: Tymek')).toBeTruthy();
     expect(within(box).getByText('Bez odpowiedzi: 1')).toBeTruthy();
     await press(within(within(box).getByLabelText('Twoja odpowiedź')).getByLabelText(/^Może(,|$)/));
-    const kuba = rsvpId('ev1', '2026-10-07', 'kuba');
+    const tymek = rsvpId('ev1', '2026-10-07', 'tymek');
     expectOps(s.store, [
-      { kind: 'create', entity: 'event_rsvps', id: kuba, group_id: 'gf', set: { event_id: 'ev1', occurrence_date: '2026-10-07', member_id: 'kuba', answer: 'no' } },
-      { kind: 'restore', entity: 'event_rsvps', id: kuba },
-      { kind: 'patch', entity: 'event_rsvps', id: kuba, set: { answer: 'no' } },
+      { kind: 'create', entity: 'event_rsvps', id: tymek, group_id: 'gf', set: { event_id: 'ev1', occurrence_date: '2026-10-07', member_id: 'tymek', answer: 'no' } },
+      { kind: 'restore', entity: 'event_rsvps', id: tymek },
+      { kind: 'patch', entity: 'event_rsvps', id: tymek, set: { answer: 'no' } },
       { kind: 'patch', entity: 'event_rsvps', id: rsvpId('ev1', '2026-10-07', 'mf'), set: { answer: 'maybe' } },
     ]);
     expect(within(box).getByText('Może: Ty')).toBeTruthy();

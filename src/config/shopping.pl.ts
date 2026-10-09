@@ -14,7 +14,7 @@
  * z nasion orzachy podziemnej (tzw. orzeszków ziemnych)” (https://pl.wikipedia.org/wiki/Masło_orzechowe); „Peanut butter
  * is the food prepared by grinding one of the shelled and roasted peanut ingredients” (21 CFR 164.150(a),
  * https://www.law.cornell.edu/cfr/text/21/164.150). Dział „Spiżarnia” jak inne pasty do pieczywa w słowniku (dżem, miód,
- * nutella) — konwencja słownika, nie twierdzenie o układzie sklepu. Tofu i napoje roślinne („mleko owsiane”) — otwarte
+ * krem czekoladowy) — konwencja słownika, nie twierdzenie o układzie sklepu. Tofu i napoje roślinne („mleko owsiane”) — otwarte
  * pytanie (O-059: brak przeczytanego źródła o dziale w polskich sklepach).
  */
 export const SHOPPING_CATEGORIES = [
@@ -68,7 +68,7 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'makaron*', 'spaghetti', 'penne', 'ryż', 'ryżu', 'kasz*', 'mąk*', 'cukier', 'cukru', 'sól', 'soli', 'pieprz*', 'przypraw*',
     'olej*', 'oliw*', 'ocet', 'octu', 'musztard*', 'ketchup*', 'majonez*', 'sos*', 'koncentrat*', 'passat*', 'pomidory w puszce',
     'konserw*', 'puszk*', 'fasola', 'fasoli', 'ciecierzyc*', 'soczewic*', 'groch', 'płatki', 'płatków', 'musli', 'müsli', 'granol*',
-    'owsiank*', 'kawa', 'kawy', 'kawę', 'herbat*', 'kakao', 'miód', 'miodu', 'dżem*', 'konfitur*', 'nutell*', 'drożdże',
+    'owsiank*', 'kawa', 'kawy', 'kawę', 'herbat*', 'kakao', 'miód', 'miodu', 'dżem*', 'konfitur*', 'krem czekoladow*', 'drożdże',
     'proszek do pieczenia', 'bułka tarta', 'kisiel*', 'galaretk*', 'rosół', 'kostk*', 'bulion*', 'zupk*', 'zup*', 'orzech*',
     'migdał*', 'rodzynk*', 'słonecznik*', 'pestk*', 'siemię', 'oliwk*', 'ogórki konserwowe', 'korniszon*', 'ketchupu', 'chrzan*',
     'curry', 'papryka słodka', 'cynamon*', 'wanili*', 'żelatyn*', 'skrobi*', 'kukurydza w puszce', 'tuńczyk w puszce', 'hummus*',
@@ -80,17 +80,17 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'delicj*', 'biszkopt*', 'chrupk*', 'prażynk*', 'orzeszki',
   ],
   drinks: [
-    'woda', 'wody', 'wodę', 'wód', 'sok', 'soki', 'soku', 'soków', 'napój', 'napoje', 'napoju', 'cola', 'coli', 'colę', 'pepsi',
-    'sprite', 'fanta', 'oranżad*', 'lemoniad*', 'piwo', 'piwa', 'wino', 'wina', 'wódk*', 'syrop*', 'izoton*', 'energetyk*',
+    'woda', 'wody', 'wodę', 'wód', 'sok', 'soki', 'soku', 'soków', 'napój', 'napoje', 'napoju', 'cola', 'coli', 'colę',
+    'oranżad*', 'lemoniad*', 'piwo', 'piwa', 'wino', 'wina', 'wódk*', 'syrop*', 'izoton*', 'energetyk*',
     'kompot*', 'nektar*', 'tonik*', 'cydr*', 'prosecco', 'szampan*',
   ],
   baby: [
-    'pieluch*', 'pieluszk*', 'pampers*', 'chusteczki nawilżane', 'kaszka', 'kaszki', 'kaszkę', 'słoiczk*', 'mleko modyfikowane',
+    'pieluch*', 'pieluszk*', 'chusteczki nawilżane', 'kaszka', 'kaszki', 'kaszkę', 'słoiczk*', 'mleko modyfikowane',
     'smoczek', 'smoczki', 'butelka dla dziecka', 'nawilżane',
   ],
   household: [
     'papier', 'papieru', 'ręcznik*', 'ręczniki papierowe', 'worki', 'worków', 'woreczk*', 'folia', 'folii', 'folię', 'płyn*',
-    'proszek', 'proszku', 'kapsułk*', 'tabletk*', 'zmywark*', 'domestos*', 'cif', 'ludwik*', 'gąbk*', 'gąbek', 'ściereczk*',
+    'proszek', 'proszku', 'kapsułk*', 'tabletk*', 'zmywark*', 'mleczko do czyszczenia', 'gąbk*', 'gąbek', 'ściereczk*',
     'ścierk*', 'zapałki', 'świeczk*', 'świec*', 'baterie', 'baterii', 'żarówk*', 'odplamiacz*', 'wybielacz*', 'odkamieniacz*',
     'mop*', 'miotł*', 'serwetk*', 'serwetek', 'zmiękczacz*', 'płukank*', 'odświeżacz*', 'środek*',
     'rękawiczk*', 'aluminiow*', 'pergamin*', 'sól do zmywarki', 'nabłyszczacz*', 'worki na śmieci',
@@ -99,7 +99,7 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'szampon*', 'odżywk*', 'mydł*', 'mydełk*', 'żel*', 'pasta do zębów', 'szczoteczk*', 'nić dentystyczn*', 'dezodorant*',
     'antyperspirant*', 'krem*', 'balsam*', 'podpaski', 'podpasek', 'tampon*', 'wkładki', 'patyczki', 'waciki', 'wacików',
     'maszynk*', 'pianka do golenia', 'golenia', 'kosmetyk*', 'płyn do płukania ust', 'perfum*', 'plastr*', 'tabletki na',
-    'witamin*', 'leki', 'lek', 'apap', 'ibuprom', 'chusteczki', 'chusteczki higieniczne', 'papier toaletowy', 'toaletow*', 'higieniczn*',
+    'witamin*', 'leki', 'lek', 'paracetamol*', 'ibuprofen*', 'chusteczki', 'chusteczki higieniczne', 'papier toaletowy', 'toaletow*', 'higieniczn*',
   ],
-  pets: ['karm*', 'żwirek', 'żwirku', 'dla psa', 'dla kota', 'psa', 'kota', 'kotów', 'psów', 'whiskas', 'pedigree', 'felix', 'przysmak* dla'],
+  pets: ['karm*', 'żwirek', 'żwirku', 'dla psa', 'dla kota', 'psa', 'kota', 'kotów', 'psów', 'przysmak* dla'],
 };

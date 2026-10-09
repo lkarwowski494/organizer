@@ -195,8 +195,8 @@ export const emptyMirror = (): MirrorState => ({ calendars: {}, events: {} });
 /**
  * Co powinno być w lustrze (D174): wystąpienia, które mnie dotyczą (Occurrence.concernsMe — jak Moje sprawy), z grup
  * spoza `skip`, z osobą odpowiedzialną w nazwie i miejscem. Lekcje dziecka, w których sam nie jestem (D127), jednym
- * wpisem na dziecko i dzień: nazwa jak wiersz w Moich sprawach (`lessonTitle` = strings['lessons.title'], „Kuba:
- * 6 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce.
+ * wpisem na dziecko i dzień: nazwa jak wiersz w Moich sprawach (`lessonTitle` = strings['lessons.title'], „Tymek:
+ * 5 lekcji”), od pierwszej do ostatniej lekcji, lista lekcji w notatce.
  */
 export function mirrorItems(
   t: Tables,

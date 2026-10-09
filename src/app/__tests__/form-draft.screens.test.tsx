@@ -109,7 +109,7 @@ describe('szkic formularza na telefonie (D179)', () => {
     const openTimetable = async () => {
       await press(screen.getByLabelText('Grupy'));
       await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
-      await press(await screen.findByLabelText('Kuba, dziecko'));
+      await press(await screen.findByLabelText('Tymek, dziecko'));
       await press(await screen.findByTestId('open-timetable'));
       await screen.findByTestId('screen-timetable');
     };
@@ -126,13 +126,13 @@ describe('szkic formularza na telefonie (D179)', () => {
   it('plan lekcji z podglądem zmian (M-14): „Wróć do edycji” i wyjście nie gubią szkicu; zapis z podglądu go czyści', async () => {
     const base = sampleBase();
     put(base, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-09-07', start_time: '08:00:00', end_time: '08:45:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', kind: 'lesson', deleted_at: null, version: 1 });
-    put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'kuba', deleted_at: null, version: 1 });
+    put(base, 'event_participants', 'p-mat', { id: 'p-mat', event_id: 'mat', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
     put(base, 'tasks', 'zeszyt', { ...base.tasks!['t-paczka']!, id: 'zeszyt', title: 'Kupić zeszyt', deadline_mode: 'event', due_date: null, due_time: null, assignee_member_id: null, event_id: 'mat', occurrence_date: '2026-10-12' });
     const s = await start(base);
     const openTimetable = async () => {
       await press(screen.getByLabelText('Grupy'));
       await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
-      await press(await screen.findByLabelText('Kuba, dziecko'));
+      await press(await screen.findByLabelText('Tymek, dziecko'));
       await press(await screen.findByTestId('open-timetable'));
       await screen.findByTestId('screen-timetable');
     };
@@ -152,7 +152,7 @@ describe('szkic formularza na telefonie (D179)', () => {
     await press(screen.getByTestId('timetable-save'));
     await press(await screen.findByTestId('timetable-preview-save'));
     expect(s.store.dispatched.some((o) => o.kind === 'cmd')).toBe(true);
-    expect(s.services.local!.load(draftKey(ME, 'timetable:gf:kuba'))).toBeNull();
+    expect(s.services.local!.load(draftKey(ME, 'timetable:gf:tymek'))).toBeNull();
   });
 });
 

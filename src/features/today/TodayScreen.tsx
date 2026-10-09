@@ -314,7 +314,7 @@ export function TodayScreen() {
     if (x.kind === 'lessons') return lessonsRow(x, past);
     if (x.kind !== 'event') return taskRow(x.task, x.key, day, n);
     const m = meta.event(x.event, n);
-    // PWD-32 B: wydarzenie dziecka, za które odpowiada ktoś inny — wyszarzone „Kuba: Basen”, z osobą odpowiedzialną.
+    // PWD-32 B: wydarzenie dziecka, za które odpowiada ktoś inny — wyszarzone „Tymek: Basen”, z osobą odpowiedzialną.
     const info = !x.event.concernsMe && x.event.childInfo;
     return (
       // Audyt 2 (M-239): termin przesuwa się jak zadanie — jednorazowe „Usuń”, termin serii „Odwołaj” (tylko ten, D57).

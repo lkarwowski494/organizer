@@ -6,7 +6,7 @@ potem z upoważnienia właściciela: ADR 0041.
 | ID | Sprawa (audyt) | Decyzja | Odrzucone |
 |---|---|---|---|
 | D126 | A. Obecność przy rutynach i lekcjach | Bez obecności przy rutynach (wydarzenie ze stałymi krokami) i lekcjach z planu lekcji | Przełącznik przy wydarzeniu; zostaje |
-| D127 | B. Lekcje zalewają Moje sprawy dorosłych | Jeden wiersz na dzień na dziecko („Kuba: 6 lekcji 8:00–13:30”, rozwijany); w Kalendarzu lekcje osobno | Tylko w Kalendarzu; zostaje |
+| D127 | B. Lekcje zalewają Moje sprawy dorosłych | Jeden wiersz na dzień na dziecko („Tymek: 5 lekcji 8:00–12:35”, rozwijany); w Kalendarzu lekcje osobno | Tylko w Kalendarzu; zostaje |
 | D128 | B'. Ponowne otwarcie planu lekcji dubluje lekcje | Ekran planu pokazuje istniejące lekcje do edycji; przycisk tylko przy dzieciach | Ostrzeżenie przed zapisem |
 | D129 | C. Przeładowany wiersz | „Wyjdź o” w osobnej, wyróżnionej linii; bez „powtarza się”; obecność w wierszu tylko przy „nie” | Tylko bez „powtarza się”; zostaje |
 | D130 | D. Zapis zadania | Każda zmiana zapisuje się od razu (tytuł/notatka po wyjściu z pola), bez „Zapisz” | „Zapisz” + pytanie przy wyjściu |
@@ -35,7 +35,7 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   oznaczać je wstecz po uczestniku-dziecku i powtarzaniu co tydzień).
 - **D127.** Zwijane tylko lekcje, w których sam nie uczestniczę, a uczestnikiem jest dziecko; blok od pierwszego
   początku do ostatniego końca. Zwinięte lekcje nie mają przypomnień ani miejsca w porannym podsumowaniu. Odrzucone:
-  jedno przypomnienie „Kuba: lekcje od 8:00” (codzienny szum).
+  jedno przypomnienie „Tymek: lekcje od 8:00” (codzienny szum).
 - **D128.** Zapis kończy stare serie przed dziś (UNTIL = wczoraj, nierozpoczęte do kosza), nowe zaczynają się od
   pierwszego pasującego dnia od dziś; cofnięcie przywraca stary plan. Odrzucone: zmiana serii w miejscu (gubiłaby
   minione terminy, do których są przypięte zadania i obecność) i cięcie od poniedziałku (zmieniałoby minione dni tygodnia).

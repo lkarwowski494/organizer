@@ -105,9 +105,9 @@ describe('lekcje dziecka bez przypomnień (D127)', () => {
     const t: T = {};
     put(t, 'groups', 'gf', { id: 'gf', name: 'Rodzina', kind: 'shared', created_at: '2026-02-01T00:00:00Z', deleted_at: null });
     put(t, 'group_members', 'mf', { member_id: 'mf', group_id: 'gf', user_id: ME, display_name: 'Łukasz', role: 'admin', deleted_at: null });
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'events', 'mat', { id: 'mat', group_id: 'gf', title: 'Matematyka', start_date: '2026-10-08', start_time: '08:00:00', end_time: '08:45:00', rrule: null, audience: 'members', kind: 'lesson', deleted_at: null });
-    put(t, 'event_participants', 'p', { id: 'p', event_id: 'mat', member_id: 'kuba', deleted_at: null });
+    put(t, 'event_participants', 'p', { id: 'p', event_id: 'mat', member_id: 'tymek', deleted_at: null });
     expect(planReminders(t, ME, TODAY, NOW, { leadMin: 30, morning: '07:00' }, opts())).toEqual([]);
     // Ta sama lekcja jako zwykłe wydarzenie dziecka — przypomnienie jest.
     put(t, 'events', 'mat', { ...t.events!.mat!, kind: 'event' });
@@ -262,11 +262,11 @@ describe('poranne podsumowanie na kolejne dni liczy zaległe (audyt 2: T-21, N-1
 describe('„Nie będę” wycisza przypomnienia tego terminu (PW-23, decyzja właściciela 8.10.2026)', () => {
   function world4(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'events', 'grill', { id: 'grill', group_id: 'gf', title: 'Grill', start_date: '2026-10-08', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', deleted_at: null });
-    // Basen Kuby — dotyczy mnie przez dziecko (D58).
-    put(t, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen Kuby', start_date: '2026-10-08', start_time: '16:00:00', end_time: null, rrule: null, audience: 'members', deleted_at: null });
-    put(t, 'event_participants', 'pb', { id: 'pb', event_id: 'basen', member_id: 'kuba', deleted_at: null });
+    // Basen Tymka — dotyczy mnie przez dziecko (D58).
+    put(t, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen Tymka', start_date: '2026-10-08', start_time: '16:00:00', end_time: null, rrule: null, audience: 'members', deleted_at: null });
+    put(t, 'event_participants', 'pb', { id: 'pb', event_id: 'basen', member_id: 'tymek', deleted_at: null });
     // Zadanie wystąpienia grilla z własną godziną.
     put(t, 'tasks', 'kielbasa', { id: 'kielbasa', group_id: 'gf', list_id: 'l', parent_id: null, title: 'kiełbasa', assignee_member_id: 'mf', deadline_mode: 'own', due_date: '2026-10-08', due_time: '15:00', event_id: 'grill', occurrence_date: '2026-10-08', completed_at: null, deleted_at: null, rollover: true });
     return t;
@@ -279,7 +279,7 @@ describe('„Nie będę” wycisza przypomnienia tego terminu (PW-23, decyzja w�
   it('moje „nie”: bez „Czas wyjść”, bez „30 min przed”, bez miejsca w porannym; zadanie terminu przypomina samo', () => {
     const before = run(world4());
     expect(before.filter((x) => x.id.includes('grill')).map((x) => x.id)).toEqual(['l|grill|2026-10-08|2026-10-08']);
-    // 8: zaległe rachunek, paczka, rano; kwiaty; 15:00 kiełbasa (własne, wcześniej niż wyjście), 16:00 Basen Kuby, 18:00 Grill, 18:00 Tańce.
+    // 8: zaległe rachunek, paczka, rano; kwiaty; 15:00 kiełbasa (własne, wcześniej niż wyjście), 16:00 Basen Tymka, 18:00 Grill, 18:00 Tańce.
     expect(before.find((x) => x.id === 'm|2026-10-08')!.body).toBe('8/3: rachunek, paczka, rano, kwiaty i 4 więcej');
     const t = world4();
     answer(t, 'r1', 'grill', 'mf', 'no');
@@ -298,7 +298,7 @@ describe('„Nie będę” wycisza przypomnienia tego terminu (PW-23, decyzja w�
     }
     const t = world4();
     answer(t, 'r2', 'grill', 'ala', 'no'); // cudza odpowiedź
-    answer(t, 'r3', 'basen', 'kuba', 'maybe'); // dziecko „może” — przypomnienie zostaje
+    answer(t, 'r3', 'basen', 'tymek', 'maybe'); // dziecko „może” — przypomnienie zostaje
     answer(t, 'r4', 'grill', 'mf', 'no', { occurrence_date: '2026-10-15' }); // inny termin
     answer(t, 'r5', 'grill', 'mf', 'no', { group_id: 'obca' }); // spoza moich grup
     const r = run(t);
@@ -312,12 +312,12 @@ describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D1
     const t = world();
     const kid = (id: string, user: string | null, deleted: string | null = null) =>
       put(t, 'group_members', id, { member_id: id, group_id: 'gf', user_id: user, display_name: id, role: 'child', deleted_at: deleted });
-    kid('kuba', null);
+    kid('tymek', null);
     kid('ola', 'u-ola'); // dziecko z kontem odpowiada samo — liczy się tak samo
     kid('stary', null, '2026-01-01');
     put(t, 'group_members', 'ala', { member_id: 'ala', group_id: 'gf', user_id: 'u-ala', display_name: 'Ala', role: 'member', deleted_at: null });
     put(t, 'events', 'basen', { id: 'basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-08', start_time: '16:00:00', end_time: null, rrule: 'FREQ=WEEKLY', audience: 'members', responsible_member_id: null, deleted_at: null });
-    for (const m of ['kuba', 'ola', 'stary', 'ala']) put(t, 'event_participants', `p-${m}`, { id: `p-${m}`, event_id: 'basen', member_id: m, deleted_at: null });
+    for (const m of ['tymek', 'ola', 'stary', 'ala']) put(t, 'event_participants', `p-${m}`, { id: `p-${m}`, event_id: 'basen', member_id: m, deleted_at: null });
     return t;
   }
   const no = (t: T, member: string, date = '2026-10-08', extra: Row = {}) =>
@@ -329,14 +329,14 @@ describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D1
   it('każde dziecko „nie będzie”: bez „Czas wyjść” i bez „N min przed”; dorosły uczestnik obok nie zmienia', () => {
     expect(basen(world6())).toEqual(['l|basen|2026-10-08|2026-10-08']);
     const t = world6();
-    no(t, 'kuba');
+    no(t, 'tymek');
     expect(basen(t)).toEqual(['l|basen|2026-10-08|2026-10-08']); // Ola jeszcze nie odpowiedziała
     no(t, 'ola');
     expect(basen(t)).toEqual([]);
   });
 
   it('bez wyciszenia: jestem uczestnikiem, odpowiadam za termin, „nie” usunięte albo na inny dzień, dorosły (ja) jako dziecko', () => {
-    const both = (t: T) => (no(t, 'kuba'), no(t, 'ola'), t);
+    const both = (t: T) => (no(t, 'tymek'), no(t, 'ola'), t);
     const me = both(world6());
     put(me, 'event_participants', 'p-me', { id: 'p-me', event_id: 'basen', member_id: 'mf', deleted_at: null });
     expect(basen(me)).toHaveLength(1);
@@ -344,11 +344,11 @@ describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D1
     put(resp, 'event_overrides', 'o', { id: 'o', event_id: 'basen', occurrence_date: '2026-10-08', cancelled: false, responsible_member_id: 'mf', deleted_at: null });
     expect(basen(resp)).toHaveLength(1);
     const gone = world6();
-    no(gone, 'kuba');
+    no(gone, 'tymek');
     no(gone, 'ola', '2026-10-08', { deleted_at: '2026-10-07T09:00:00Z' });
     expect(basen(gone)).toHaveLength(1);
     const other = world6();
-    no(other, 'kuba', '2026-10-15');
+    no(other, 'tymek', '2026-10-15');
     no(other, 'ola', '2026-10-15');
     expect(basen(other)).toHaveLength(1);
   });
@@ -356,28 +356,28 @@ describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D1
   it('osoba odpowiedzialna usunięta z grupy (D132) nie blokuje wyciszenia; wydarzenie całej grupy i nieznane — bez zmian', () => {
     const t = world6();
     t.events!.basen = { ...t.events!.basen!, responsible_member_id: 'stary' };
-    no(t, 'kuba');
+    no(t, 'tymek');
     no(t, 'ola');
     expect(basen(t)).toEqual([]);
     const all = world6();
     all.events!.basen = { ...all.events!.basen!, audience: 'group' };
-    no(all, 'kuba');
+    no(all, 'tymek');
     no(all, 'ola');
     expect(basen(all)).toHaveLength(1);
     const unknown = world6();
-    put(unknown, 'event_rsvps', 'x', { id: 'x', group_id: 'gf', event_id: 'nieznane', occurrence_date: '2026-10-08', member_id: 'kuba', answer: 'no', deleted_at: null });
+    put(unknown, 'event_rsvps', 'x', { id: 'x', group_id: 'gf', event_id: 'nieznane', occurrence_date: '2026-10-08', member_id: 'tymek', answer: 'no', deleted_at: null });
     expect(basen(unknown)).toHaveLength(1);
   });
 
   it('bez dziecka wśród uczestników i w obcej grupie — bez wyciszenia', () => {
     const t = world6();
-    for (const m of ['kuba', 'ola']) t.event_participants![`p-${m}`] = { ...t.event_participants![`p-${m}`]!, deleted_at: '2026-10-01' };
+    for (const m of ['tymek', 'ola']) t.event_participants![`p-${m}`] = { ...t.event_participants![`p-${m}`]!, deleted_at: '2026-10-01' };
     // Bez dzieci wydarzenie mnie nie dotyczy (D58) — tu tylko pilnujemy, że „nie” Ali nic nie wycisza.
     no(t, 'ala');
     expect(run(t).some((x) => x.id.includes('basen'))).toBe(false);
     const foreign = world6();
     foreign.events!.basen = { ...foreign.events!.basen!, group_id: 'obca' };
-    no(foreign, 'kuba');
+    no(foreign, 'tymek');
     no(foreign, 'ola');
     expect(basen(foreign)).toEqual([]);
   });
@@ -386,7 +386,7 @@ describe('termin tylko przez dzieci, żadne nie będzie — bez przypomnień (D1
     const t = world6();
     t.group_members!.mf = { ...t.group_members!.mf!, role: 'child' };
     put(t, 'event_participants', 'p-me', { id: 'p-me', event_id: 'basen', member_id: 'mf', deleted_at: null });
-    no(t, 'kuba');
+    no(t, 'tymek');
     no(t, 'ola');
     expect(basen(t)).toHaveLength(1);
   });
@@ -421,8 +421,8 @@ describe('„Czas wyjść” już minął, a wydarzenie jeszcze nie — od razu 
 describe('zadanie dziecka bez konta przypomina dorosłym (decyzja właściciela z 8.10.2026, PW-1)', () => {
   function family(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
-    const task = (id: string, extra: Row) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', parent_id: null, title: id, assignee_member_id: 'kuba', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, completed_at: null, deleted_at: null, rollover: true, ...extra });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
+    const task = (id: string, extra: Row) => put(t, 'tasks', id, { id, group_id: 'gf', list_id: 'l', parent_id: null, title: id, assignee_member_id: 'tymek', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, completed_at: null, deleted_at: null, rollover: true, ...extra });
     task('plecak', { due_time: '20:00' });
     task('zeszyt', { due_date: '2026-10-05' });
     return t;
@@ -431,7 +431,7 @@ describe('zadanie dziecka bez konta przypomina dorosłym (decyzja właściciela 
 
   it('przypomnienie z imieniem dziecka (jak „dla: …” w wierszu, D119); poranne liczy także zaległe dziecka', () => {
     const r = planReminders(family(), ME, TODAY, NOW, { leadMin: 30, morning: '08:00' }, opts({ label: { ...opts().label, who } }));
-    expect(r.find((x) => x.id === 't|plecak|2026-10-08')).toMatchObject({ title: 'plecak', body: '20:00 · Rodzina · dla: Kuba' });
+    expect(r.find((x) => x.id === 't|plecak|2026-10-08')).toMatchObject({ title: 'plecak', body: '20:00 · Rodzina · dla: Tymek' });
     // Moje zadanie bez dopisku (jak dotąd).
     expect(r.find((x) => x.id === 't|paczka|2026-10-07')!.body).toBe('17:30 · Rodzina');
     // Jutro z zaległymi (M-88): rachunek, zeszyt (dziecka), paczka, rano; kwiaty, 18:00 Tańce, 20:00 plecak.

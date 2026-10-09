@@ -25,7 +25,7 @@ function world(): T {
   m(ME, ME, ME, 'Łukasz', 'owner');
   m('mf', 'gf', ME, 'Łukasz', 'admin');
   m('mm', 'gf', 'u-m', 'Magdalena', 'owner');
-  m('kuba', 'gf', null, 'Kuba', 'child');
+  m('tymek', 'gf', null, 'Tymek', 'child');
   m('babcia', 'gf', null, 'Babcia', 'member');
   m('dawny', 'gf', 'u-d', 'Dawny', 'member', { deleted_at: 'x' });
   return t;

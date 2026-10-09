@@ -185,28 +185,28 @@ describe('lista: minione bez odhaczenia w sekcji zrobionych (D61)', () => {
 describe('lekcje dziecka jednym wierszem (D127)', () => {
   function school(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: null, display_name: 'Ola', role: 'child', deleted_at: null });
     const lesson = (id: string, who: string, start: string | null, end: string | null, over: Row = {}) => {
       ev(t, id, '2026-10-05', { group_id: 'gf', start_time: start, end_time: end, rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', kind: 'lesson', ...over });
       put(t, 'event_participants', `p-${id}`, { id: `p-${id}`, event_id: id, member_id: who, deleted_at: null });
     };
-    lesson('mat', 'kuba', '08:00:00', '08:45:00');
-    lesson('pol', 'kuba', '09:00:00', null);
-    lesson('wf', 'kuba', '12:45:00', '13:30:00');
+    lesson('mat', 'tymek', '08:00:00', '08:45:00');
+    lesson('pol', 'tymek', '09:00:00', null);
+    lesson('wf', 'tymek', '12:45:00', '13:30:00');
     lesson('ang', 'ola', '10:00:00', '10:45:00');
     // Zwykłe wydarzenie dziecka (nie lekcja) zostaje osobno.
     ev(t, 'basen', '2026-10-07', { group_id: 'gf', audience: 'members' });
-    put(t, 'event_participants', 'p-basen', { id: 'p-basen', event_id: 'basen', member_id: 'kuba', deleted_at: null });
+    put(t, 'event_participants', 'p-basen', { id: 'p-basen', event_id: 'basen', member_id: 'tymek', deleted_at: null });
     return t;
   }
 
   it('dorosły spoza lekcji: jeden wiersz na dziecko i dzień, od pierwszej do ostatniej lekcji', () => {
     const v = myDays(school(), ME, TODAY, 'day', TODAY, local);
-    expect(keys({ ...v, days: v.days })).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 l-ola-2026-10-07 e-basen-2026-10-07']);
+    expect(keys({ ...v, days: v.days })).toEqual(['2026-10-07 (dziś): l-tymek-2026-10-07 l-ola-2026-10-07 e-basen-2026-10-07']);
     const blocks = v.days[0]!.entries.flatMap((e) => (e.kind === 'lessons' ? [e.block] : []));
     expect(blocks.map((b) => [b.name, b.start, b.end, b.lessons.map((l) => l.title), b.groupName])).toEqual([
-      ['Kuba', '08:00', '13:30', ['mat', 'pol', 'wf'], 'Rodzina'],
+      ['Tymek', '08:00', '13:30', ['mat', 'pol', 'wf'], 'Rodzina'],
       ['Ola', '10:00', '10:45', ['ang'], 'Rodzina'],
     ]);
   });
@@ -216,8 +216,8 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     put(t, 'event_participants', 'p-mat-ola', { id: 'p-mat-ola', event_id: 'mat', member_id: 'ola', deleted_at: null });
     const blocks = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.flatMap((e) => (e.kind === 'lessons' ? [e.block] : []));
     expect(blocks.map((b) => [b.name, b.start, b.end, b.lessons.map((l) => l.title)])).toEqual([
-      ['Kuba', '08:00', '13:30', ['mat', 'pol', 'wf']],
       ['Ola', '08:00', '10:45', ['mat', 'ang']],
+      ['Tymek', '08:00', '13:30', ['mat', 'pol', 'wf']],
     ]);
   });
 
@@ -226,16 +226,16 @@ describe('lekcje dziecka jednym wierszem (D127)', () => {
     put(t, 'events', 'wf', { ...t.events!.wf!, start_time: null, end_time: null });
     put(t, 'events', 'pol', { ...t.events!.pol!, start_time: null });
     put(t, 'events', 'mat', { ...t.events!.mat!, start_time: null, end_time: null });
-    const b = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.find((e) => e.kind === 'lessons' && e.block.name === 'Kuba');
+    const b = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.find((e) => e.kind === 'lessons' && e.block.name === 'Tymek');
     expect(b).toMatchObject({ block: { start: null, end: null } });
     // Zapisany jako uczestnik lekcji Oli — ta lekcja nie zwija się.
     put(t, 'event_participants', 'p-ang-me', { id: 'p-ang-me', event_id: 'ang', member_id: 'mf', deleted_at: null });
-    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 e-ang-2026-10-07 e-basen-2026-10-07']);
-    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, user_id: 'u-kuba' });
+    expect(keys(myDays(t, ME, TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): l-tymek-2026-10-07 e-ang-2026-10-07 e-basen-2026-10-07']);
+    put(t, 'group_members', 'tymek', { ...t.group_members!.tymek!, user_id: 'u-tymek' });
     // Audyt 2 (N-38): dziecko z kontem — jego lekcje zwijają się jak u dorosłych (D127), bez przypomnień przed każdą.
-    const kid = myDays(t, 'u-kuba', TODAY, 'day', TODAY, local);
-    expect(keys(kid)).toEqual(['2026-10-07 (dziś): l-kuba-2026-10-07 e-basen-2026-10-07']);
-    expect(kid.days[0]!.entries.find((e) => e.kind === 'lessons')).toMatchObject({ block: { memberId: 'kuba', lessons: [{ title: 'mat' }, { title: 'pol' }, { title: 'wf' }] } });
+    const kid = myDays(t, 'u-tymek', TODAY, 'day', TODAY, local);
+    expect(keys(kid)).toEqual(['2026-10-07 (dziś): l-tymek-2026-10-07 e-basen-2026-10-07']);
+    expect(kid.days[0]!.entries.find((e) => e.kind === 'lessons')).toMatchObject({ block: { memberId: 'tymek', lessons: [{ title: 'mat' }, { title: 'pol' }, { title: 'wf' }] } });
     expect(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local).days[0]!.entries).toEqual([]);
   });
 });
@@ -262,22 +262,22 @@ describe('lista „Tylko ja” jak grupa osobista (decyzja właściciela z 8.10.
 describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 — jak wydarzenie z dzieckiem, D58)', () => {
   function family(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'group_members', 'ola', { member_id: 'ola', group_id: 'gf', user_id: 'u-ola', display_name: 'Ola', role: 'child', deleted_at: null });
-    task(t, 'plecak', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_time: '20:00' });
-    task(t, 'pokój', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', deadline_mode: 'none', due_date: null });
-    task(t, 'zeszyt', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_date: '2026-10-05' });
+    task(t, 'plecak', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', due_time: '20:00' });
+    task(t, 'pokój', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', deadline_mode: 'none', due_date: null });
+    task(t, 'zeszyt', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', due_date: '2026-10-05' });
     task(t, 'oli', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'ola', deadline_mode: 'none', due_date: null });
     return t;
   }
 
   it('dorosły grupy: z terminem, przypięte i zaległe — z imieniem dziecka; jutro w swoim dniu', () => {
     const t = family();
-    task(t, 'basen', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba', due_date: '2026-10-08' });
+    task(t, 'basen', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek', due_date: '2026-10-08' });
     const v = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect(keys(v)).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
-    expect(v.pinned.map((x) => [x.id, x.assignee])).toEqual([['pokój', 'Kuba']]);
-    expect(v.days[0]!.entries.map((e) => (e.kind === 'overdue' || e.kind === 'task' ? e.task.assignee : null))).toEqual(['Kuba', 'Kuba']);
+    expect(v.pinned.map((x) => [x.id, x.assignee])).toEqual([['pokój', 'Tymek']]);
+    expect(v.days[0]!.entries.map((e) => (e.kind === 'overdue' || e.kind === 'task' ? e.task.assignee : null))).toEqual(['Tymek', 'Tymek']);
     expect(keys(myDays(t, ME, TODAY, 'day', D('2026-10-08'), local))).toEqual(['2026-10-08: t-basen']);
     // Ten sam widok u drugiego dorosłego; dawny układ sekcji (todayView) — ta sama reguła.
     expect(keys(myDays(t, 'u-ala', TODAY, 'day', TODAY, local))).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
@@ -293,8 +293,8 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 —
     expect([keys(asChild), asChild.pinned]).toEqual([['2026-10-07 (dziś): '], []]);
     const u = family();
     put(u, 'lists', 'lr', { id: 'lr', group_id: 'gf', kind: 'tasks', name: 'Prezent', visibility: 'restricted', owner_member_id: 'ala', sort_key: 'a1', deleted_at: null });
-    put(u, 'object_members', 'lr:kuba', { scope_entity: 'lists', scope_id: 'lr', member_id: 'kuba', group_id: 'gf', deleted_at: null });
-    task(u, 'niespodzianka', { group_id: 'gf', list_id: 'lr', assignee_member_id: 'kuba', deadline_mode: 'none', due_date: null });
+    put(u, 'object_members', 'lr:tymek', { scope_entity: 'lists', scope_id: 'lr', member_id: 'tymek', group_id: 'gf', deleted_at: null });
+    task(u, 'niespodzianka', { group_id: 'gf', list_id: 'lr', assignee_member_id: 'tymek', deadline_mode: 'none', due_date: null });
     expect(myDays(u, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['pokój']);
     put(u, 'object_members', 'lr:mf', { scope_entity: 'lists', scope_id: 'lr', member_id: 'mf', group_id: 'gf', deleted_at: null });
     expect(myDays(u, ME, TODAY, 'day', TODAY, local).pinned.map((x) => x.id)).toEqual(['niespodzianka', 'pokój']);
@@ -302,7 +302,7 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 —
 
   it('dziecko usunięte z grupy (D132): jak nieprzypisane — z terminem u wszystkich, bez terminu u nikogo', () => {
     const t = family();
-    put(t, 'group_members', 'kuba', { ...t.group_members!.kuba!, deleted_at: '2026-10-07T09:00:00Z' });
+    put(t, 'group_members', 'tymek', { ...t.group_members!.tymek!, deleted_at: '2026-10-07T09:00:00Z' });
     const v = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect(keys(v)).toEqual(['2026-10-07 (dziś): o-zeszyt t-plecak']);
     expect(v.pinned).toEqual([]);
@@ -314,7 +314,7 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1 —
       const t = family();
       put(t, 'group_members', 'mf', { ...t.group_members!.mf!, role });
       ev(t, 'trening', '2026-10-07', { group_id: 'gf', audience: 'members', start_time: '18:00:00' });
-      put(t, 'event_participants', 'p-trening', { id: 'p-trening', event_id: 'trening', member_id: 'kuba', deleted_at: null });
+      put(t, 'event_participants', 'p-trening', { id: 'p-trening', event_id: 'trening', member_id: 'tymek', deleted_at: null });
       const entries = myDays(t, ME, TODAY, 'day', TODAY, local).days[0]!.entries.map((e) => e.key);
       expect([role, entries.includes('t-plecak')]).toEqual([role, entries.includes('e-trening-2026-10-07')]);
       expect([role, entries.includes('t-plecak')]).toEqual([role, role !== 'child']);
@@ -377,12 +377,12 @@ describe('niezrobione podzadania zrobionego zadania (decyzja właściciela z 8.1
 describe('PW-2 (M-35): zakres Moich spraw w grupie', () => {
   function big(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     put(t, 'lists', 'lpriv', { id: 'lpriv', group_id: 'gf', kind: 'tasks', name: 'Moje w rodzinie', visibility: 'private', owner_member_id: 'mf', sort_key: 'a1', deleted_at: null });
     put(t, 'lists', 'lz', { id: 'lz', group_id: 'gf', kind: 'shopping', name: 'Biedronka', visibility: 'group', sort_key: 'a2', deleted_at: null, due_date: '2026-10-07', responsible_member_id: null });
     task(t, 'wspolne', { group_id: 'gf', list_id: 'lf' });
     task(t, 'moje', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'mf' });
-    task(t, 'kuby', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'kuba' });
+    task(t, 'tymka', { group_id: 'gf', list_id: 'lf', assignee_member_id: 'tymek' });
     task(t, 'prywatne', { group_id: 'gf', list_id: 'lpriv' });
     task(t, 'osobiste', {});
     ev(t, 'zebranie', '2026-10-07', { group_id: 'gf' });
@@ -395,14 +395,14 @@ describe('PW-2 (M-35): zakres Moich spraw w grupie', () => {
   const day = (t: T, scope: 'all' | 'mineAndEvents' | 'mine') => myDays(t, ME, TODAY, 'day', TODAY, local, (g) => (g === 'gf' ? scope : 'all')).days[0]!.entries.map((e) => e.key);
 
   it('Wszystko — jak dotąd (D89)', () => {
-    expect(day(big(), 'all')).toEqual(['t-lz', 't-kuby', 't-moje', 't-osobiste', 't-prywatne', 't-wspolne', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
+    expect(day(big(), 'all')).toEqual(['t-lz', 't-moje', 't-osobiste', 't-prywatne', 't-tymka', 't-wspolne', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']);
   });
 
   it('Przypisane do mnie i wydarzenia: bez wspólnych nieprzypisanych, zadań dziecka i zakupów bez osoby; wydarzenia zostają', () => {
     const k = day(big(), 'mineAndEvents');
     expect(k).toEqual(expect.arrayContaining(['t-moje', 't-prywatne', 't-osobiste', 'e-zebranie-2026-10-07', 'e-dyzur-2026-10-07', 'e-wycieczka-2026-10-07', 'e-osobiste-ev-2026-10-07']));
     expect(k).not.toEqual(expect.arrayContaining(['t-wspolne']));
-    expect(k.filter((x) => ['t-wspolne', 't-kuby', 't-lz'].includes(x))).toEqual([]);
+    expect(k.filter((x) => ['t-wspolne', 't-tymka', 't-lz'].includes(x))).toEqual([]);
   });
 
   it('Tylko przypisane do mnie: z wydarzeń tylko moja odpowiedzialność i imienny udział; grupa osobista bez zmian', () => {
@@ -434,15 +434,15 @@ describe('PWD-7 A (M-276): odhaczone dziś — osobno, w „Zrobione dziś”', 
 describe('PWD-32 B (M-301): wydarzenie dziecka, za które odpowiada ktoś inny', () => {
   function kid(): T {
     const t = world();
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     ev(t, 'basen', '2026-10-07', { group_id: 'gf', audience: 'members', responsible_member_id: 'ala' });
-    put(t, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'kuba', deleted_at: null });
+    put(t, 'event_participants', 'pk', { id: 'pk', event_id: 'basen', group_id: 'gf', member_id: 'tymek', deleted_at: null });
     return t;
   }
   it('stoi informacyjnie (concernsMe false, childInfo z imieniem); w „Tylko przypisane do mnie” — nie', () => {
     const v = myDays(kid(), ME, TODAY, 'day', TODAY, local);
     const e = v.days[0]!.entries.find((x) => x.kind === 'event');
-    expect(e?.kind === 'event' && [e.event.concernsMe, e.event.childInfo, e.event.responsibleName]).toEqual([false, ['Kuba'], 'Ala']);
+    expect(e?.kind === 'event' && [e.event.concernsMe, e.event.childInfo, e.event.responsibleName]).toEqual([false, ['Tymek'], 'Ala']);
     expect(myDays(kid(), ME, TODAY, 'day', TODAY, local, () => 'mine').days[0]!.entries).toEqual([]);
     expect(myDays(kid(), ME, TODAY, 'day', TODAY, local, () => 'mineAndEvents').days[0]!.entries).toHaveLength(1);
   });
@@ -473,9 +473,9 @@ describe('PW-38 A (M-119): filtr grup', () => {
     expect([f.pinned.map((x) => x.id), f.doneToday.map((x) => x.id)]).toEqual([['bez'], []]);
     expect(keys(onlyGroups(myDays(t, ME, TODAY, 'day', D('2026-10-09'), local), new Set(['gf']), 'day'))).toEqual(['2026-10-09: ']);
     // Lekcje dziecka (D127) należą do grupy dziecka.
-    put(t, 'group_members', 'kuba', { member_id: 'kuba', group_id: 'gf', user_id: null, display_name: 'Kuba', role: 'child', deleted_at: null });
+    put(t, 'group_members', 'tymek', { member_id: 'tymek', group_id: 'gf', user_id: null, display_name: 'Tymek', role: 'child', deleted_at: null });
     ev(t, 'matma', '2026-10-07', { group_id: 'gf', kind: 'lesson', audience: 'members', start_time: '08:00:00' });
-    put(t, 'event_participants', 'pm', { id: 'pm', event_id: 'matma', group_id: 'gf', member_id: 'kuba', deleted_at: null });
+    put(t, 'event_participants', 'pm', { id: 'pm', event_id: 'matma', group_id: 'gf', member_id: 'tymek', deleted_at: null });
     const day = myDays(t, ME, TODAY, 'day', TODAY, local);
     expect(onlyGroups(day, new Set(['gf']), 'day').days[0]!.entries.map((e) => e.kind)).toContain('lessons');
     expect(onlyGroups(day, new Set(['gp']), 'day').days[0]!.entries.map((e) => e.kind)).not.toContain('lessons');

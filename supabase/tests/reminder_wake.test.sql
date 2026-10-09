@@ -28,7 +28,7 @@ reset role;
 select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
   ('eeee0000-0000-7000-8000-0000000000b2', 'eeee0000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000000a2', 'Magdalena', 'member'),
-  ('eeee0000-0000-7000-8000-0000000000b4', 'eeee0000-0000-7000-8000-000000000001', null, 'Kuba', 'child');
+  ('eeee0000-0000-7000-8000-0000000000b4', 'eeee0000-0000-7000-8000-000000000001', null, 'Tymek', 'child');
 insert into public.push_tokens (token, user_id, env) values
   (repeat('aa', 32), '00000000-0000-7000-8000-0000000000a1', 'production'),
   (repeat('bb', 32), '00000000-0000-7000-8000-0000000000a1', 'sandbox'),

@@ -312,9 +312,9 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     // Grupa osobista i grupa, w której nie jestem właścicielem, nie przesuwają się.
     expect(screen.queryByLabelText('Usuń: Klasa 2b')).toBeNull();
     await press(await screen.findByTestId('group-gf'));
-    await press(await screen.findByLabelText('Usuń: Kuba'));
-    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'kuba' }]);
-    expect(within(bar()).getByText('Usunięto z grupy: Kuba')).toBeTruthy();
+    await press(await screen.findByLabelText('Usuń: Tymek'));
+    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'tymek' }]);
+    expect(within(bar()).getByText('Usunięto z grupy: Tymek')).toBeTruthy();
     expect(screen.queryByLabelText('Usuń: Łukasz')).toBeNull(); // siebie nie
     await press(screen.getByLabelText('Usuń: Basen'));
     expectOps(s.store, [{ kind: 'delete', entity: 'events', id: 'ev-co' }]);

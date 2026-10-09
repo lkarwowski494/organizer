@@ -14,7 +14,7 @@ describe('ilość w pozycji zakupów (D77)', () => {
     ['woda 6 szt.', 'woda', '6 szt.'],
     ['ser 20 dag', 'ser', '20 dag'],
     ['śmietana 200 ML', 'śmietana', '200 ml'],
-    ['Pepsi 0,5', 'Pepsi 0,5', null],
+    ['Cola 0,5', 'Cola 0,5', null],
     ['mleko 3,2%', 'mleko 3,2%', null],
     ['chleb', 'chleb', null],
     ['7 days', 'days', '7'],

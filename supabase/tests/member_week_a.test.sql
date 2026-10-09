@@ -27,7 +27,7 @@ select has_column('public', 'group_members', 'week_a', '1: kolumna week_a');
 select ok((select 'week_a' = any (patch_cols) and not ('week_a' = any (insert_cols)) from private.sync_entities where entity = 'group_members'), '2: tylko zmiana przez synchronizację');
 select ok(has_column_privilege('authenticated', 'public.group_members', 'week_a', 'UPDATE'), '3: authenticated może zmieniać week_a');
 
--- G: O owner (f1), M członek (f2), C dziecko z kontem (f3), profil dziecka Kuba (f9). X spoza grupy.
+-- G: O owner (f1), M członek (f2), C dziecko z kontem (f3), profil dziecka Tymek (f9). X spoza grupy.
 select pg_temp.as_user('00000000-0000-7000-8000-0000000043e1');
 set local role authenticated;
 select public.create_group('43430000-0000-7000-8000-000000000001', 'G', '43430000-0000-7000-8000-0000000000f1', 'O');
@@ -36,7 +36,7 @@ select pg_temp.as_user('');
 insert into public.group_members (member_id, group_id, user_id, display_name, role) values
   ('43430000-0000-7000-8000-0000000000f2', '43430000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000043e2', 'M', 'member'),
   ('43430000-0000-7000-8000-0000000000f3', '43430000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-0000000043e3', 'C', 'child'),
-  ('43430000-0000-7000-8000-0000000000f9', '43430000-0000-7000-8000-000000000001', null, 'Kuba', 'child');
+  ('43430000-0000-7000-8000-0000000000f9', '43430000-0000-7000-8000-000000000001', null, 'Tymek', 'child');
 
 select pg_temp.as_user('00000000-0000-7000-8000-0000000043e2');
 set local role authenticated;

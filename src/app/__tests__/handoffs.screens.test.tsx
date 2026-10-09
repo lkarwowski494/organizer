@@ -26,7 +26,7 @@ describe('przekazanie zadania', () => {
     await screen.findByTestId('screen-task');
     await press(screen.getByTestId('handoff-start'));
     const picker = screen.getByTestId('handoff-picker');
-    // Kuba (dziecko bez konta) i ja nie jesteśmy na liście.
+    // Tymek (dziecko bez konta) i ja nie jesteśmy na liście.
     expect(within(picker).getAllByRole('button').map((b) => b.props.accessibilityLabel)).toEqual(['Przekaż: Ala', 'Anuluj']);
     await press(within(picker).getByLabelText('Anuluj'));
     expect(screen.queryByTestId('handoff-picker')).toBeNull();

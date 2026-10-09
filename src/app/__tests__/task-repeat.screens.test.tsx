@@ -61,7 +61,7 @@ describe('powtarzanie zadania', () => {
 
   it('audyt 2 (T-12): telefon dorosłego dokłada następne po odhaczeniu przez dziecko — od dnia odhaczenia', async () => {
     const adult = sampleBase();
-    put(adult, 'tasks', 'smieci', { ...adult.tasks!['t-paczka']!, id: 'smieci', title: 'Śmieci', assignee_member_id: 'kuba', due_date: '2026-10-07', due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=WE', completed_at: '2026-10-07T07:00:00Z' });
+    put(adult, 'tasks', 'smieci', { ...adult.tasks!['t-paczka']!, id: 'smieci', title: 'Śmieci', assignee_member_id: 'tymek', due_date: '2026-10-07', due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=WE', completed_at: '2026-10-07T07:00:00Z' });
     const a = setup({ base: adult });
     await a.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');

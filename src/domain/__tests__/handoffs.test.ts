@@ -30,7 +30,7 @@ function world(): T {
   m('mf', ME, 'Łukasz', 'admin');
   m('mm', 'u-m', 'Magdalena', 'owner');
   m('ma', 'u-a', 'Ala', 'member');
-  m('kuba', null, 'Kuba', 'child');
+  m('tymek', null, 'Tymek', 'child');
   m('dawny', 'u-d', 'Dawny', 'member', { deleted_at: 'x' });
   put(t, 'tasks', 't1', { id: 't1', group_id: 'gf', list_id: 'l', title: 'Logopeda' });
   put(t, 'events', 'e1', { id: 'e1', group_id: 'gf', title: 'Tańce', start_date: '2026-10-05' });
@@ -84,7 +84,7 @@ describe('przekazanie odpowiedzialności (D70)', () => {
     run(t, [decideHandoff('h3', false), closeHandoff('h4'), closeHandoff('h7')]);
     expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['h2']);
     expect(declinedHandoffs(t, ME)).toEqual([]);
-    put(t, 'handoffs', 'h6', { id: 'h6', group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'mm', to_member: 'kuba', status: 'pending' });
+    put(t, 'handoffs', 'h6', { id: 'h6', group_id: 'gf', entity: 'tasks', entity_id: 't1', from_member: 'mm', to_member: 'tymek', status: 'pending' });
     expect(incomingHandoffs(t, ME).map((h) => h.id)).toEqual(['h2']);
     expect(handoffKey('events', 'e1', '2026-10-12')).toBe('events|e1|2026-10-12');
   });
