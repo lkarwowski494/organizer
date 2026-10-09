@@ -331,7 +331,7 @@ export function ListScreen({ route, navigation }: Props) {
         <QuickAddField inputRef={quickInput} value={text} onChangeText={(v) => (setText(v), setIgnore([]), setError(null), setAsk(null), setDup(null))} onSubmit={submit} placeholder={shopping ? strings['lists.addItem'] : strings['lists.addTask']}>
           {tag ? <Body muted>{strings['lists.tagHint'](tag)}</Body> : null}
           {parsed ? (
-            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
+            <QuickAddExtras preview={{ tokens: parsed.tokens, event: false, unrecognizedDay: parsed.unrecognizedDay, farDate: parsed.farDate }} error={error} onUnclick={(t) => setIgnore([...ignore, { start: t.start, end: t.end }])} />
           ) : (
             <Suggestions names={suggestions(tables, list.group_id, list.id, text)} onPick={(name) => add(name)} />
           )}
