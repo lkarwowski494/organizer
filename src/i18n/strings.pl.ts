@@ -1,6 +1,8 @@
 /**
  * Wszystkie teksty interfejsu w jednym miejscu (D30).
  * Klucze w notacji kropkowej, żeby ewentualne przejście na i18next było mechaniczne.
+ * Jeden klucz na jedno pojęcie (audyt 2, U-60): ten sam tekst pod dwoma kluczami tylko przy innym znaczeniu — lista
+ * wyjątków z powodami w src/app/__tests__/texts.test.ts; wspólne teksty to klucze `common.*`.
  */
 import { WEEKDAYS_ABBREVIATED } from '../config/calendar.pl';
 import { config } from '../config';
@@ -35,7 +37,6 @@ export const strings = {
 
   'today.title': 'Moje sprawy',
   'today.pinned': 'Przypięte',
-  'today.today': 'Dziś',
   // Audyt 2 (M-23, U-45): przykłady, które parser rozumie jednoznacznie, i to zadania, nie zakupy.
   'today.empty': 'Na dziś nic. Dodaj coś polem powyżej, np. „rachunek za prąd w piątek” albo „dentysta jutro o 17”.',
   'today.noDue': 'bez terminu',
@@ -49,14 +50,14 @@ export const strings = {
   'today.next.week': 'Następny tydzień',
   'today.prev.month': 'Poprzedni miesiąc',
   'today.next.month': 'Następny miesiąc',
-  'today.goToday': 'Dziś',
   'today.emptyRange': 'Nic tu nie ma.',
   'today.pastInfo': 'Minęło: zrobione i wydarzenia. Niezrobione z terminem przeszły na dziś; te „tylko tego dnia” i kroki rutyn minęły.',
 
   'quick.label': 'Szybkie dodawanie',
   'quick.placeholder': 'np. „dentysta jutro o 17”',
-  'quick.add': 'Dodaj',
-  'quick.chipA11y': (text: string) => `Rozpoznano: ${text}. Dotknij, żeby zostawić w tytule`,
+  // Audyt 2 (M-263, A-48): etykieta zaczyna się od widocznego tekstu, czynność w podpowiedzi (bez „Dotknij” — gest VoiceOvera jest inny).
+  'quick.chipA11y': (text: string) => `${text}, rozpoznane`,
+  'quick.chipHint': 'Usuwa rozpoznanie, tekst zostaje w tytule',
   // Audyt 2 (M-256): zakres godzin zmienia rodzaj wpisu (D99) — mówimy to przed dodaniem.
   'quick.isEvent': 'Zakres godzin — dodasz wydarzenie, nie zadanie.',
   // Audyt 2 (M-23): dzień nazwany, ale nierozpoznany — bez zgadywania dnia z samej godziny.
@@ -93,7 +94,6 @@ export const strings = {
   'rsvp.other.yes': 'Będzie',
   'rsvp.other.maybe': 'Może',
   'rsvp.other.no': 'Nie będzie',
-  'rsvp.you': 'Ty',
   // Audyt 2 (U-39): bez „Będą: Ala” dla jednej osoby — jak licznik w wierszu („2 tak, 1 nie”).
   'rsvp.list.yes': (names: string) => `Tak: ${names}`,
   'rsvp.list.maybe': (names: string) => `Może: ${names}`,
@@ -109,6 +109,8 @@ export const strings = {
   'time.manual': 'Inna godzina',
   'time.manualHint': 'GG:MM',
   'time.clear': 'Bez godziny',
+  'time.openHint': 'Rozwija wybór godziny',
+  'time.closeHint': 'Zwija wybór godziny',
   // D122: przerwa w widoku dnia.
   'day.gap': (length: string) => `wolne ${length}`,
   'day.gapA11y': (length: string) => `Wolne ${length}`,
@@ -117,7 +119,8 @@ export const strings = {
   // Audyt 2 (U-30): ja na listach osób (członkowie, uczestnicy, osoba odpowiedzialna) — jak „Ty” przy obecności.
   'who.me': 'Ty',
   'who.meSuffix': (name: string) => `${name} (Ty)`,
-  'task.open': (title: string) => `Otwórz: ${title}`,
+  // Audyt 2 (M-263): czynność wiersza w podpowiedzi VoiceOvera, etykieta zaczyna się od tytułu.
+  'task.openHint': 'Otwiera zadanie',
   'task.title': 'Tytuł',
   'form.newTitle': 'Nowe zadanie',
   'form.more': 'Więcej',
@@ -130,12 +133,11 @@ export const strings = {
   'form.kind.routineHint': 'Otwiera formularz rutyny, wpisana nazwa i grupa zostają',
   // Audyt 2 (PWD-26): rutyna także z pełnego formularza dodawania.
   'form.kind.routine': 'Rutyna',
-  'form.group': 'Grupa',
   'form.noDate': 'Bez terminu',
-  'form.today': 'Dziś',
   'form.tomorrow': 'Jutro',
   'due.when': 'Kiedy',
   'due.other': 'Inny dzień',
+  'due.day': 'Dzień',
   'due.timeNeedsDay': 'Najpierw wybierz dzień.',
   'form.save': 'Zapisz zadanie',
   // Audyt 2 (T-33): kopia w innej grupie nie ma podzadań — mówimy, ile pójdzie do kosza razem z oryginałem.
@@ -144,8 +146,11 @@ export const strings = {
   'form.error.repeatNeedsDate': 'Ustaw termin, żeby zadanie mogło się powtarzać.',
   // Audyt 2 (U-57): z rodzajem, jak „Dodano wydarzenie” i „Dodano listę”.
   'form.added': (title: string, group: string) => `Dodano zadanie: ${title} · ${group}`,
-  'form.change': 'Zmień',
   'date.pick': 'Wybierz dzień',
+  // Audyt 2 (M-125): jak „Bez godziny” — czyści dzień w każdym polu daty, które może być puste.
+  'date.clear': 'Bez dnia',
+  'date.openHint': 'Rozwija kalendarz',
+  'date.closeHint': 'Zwija kalendarz',
   'reset.title': 'Dane na telefonie',
   'reset.info': 'Usuwa kopię danych na tym iPhonie i pobiera wszystko na nowo z serwera — pomaga, gdy widzisz stare albo dziwne wpisy z poprzednich wersji. Na serwerze nic nie znika, grupy i ich członkowie zostają.',
   'reset.start': 'Wyczyść dane na telefonie',
@@ -172,8 +177,6 @@ export const strings = {
   'travel.lateBody': (min: number) => `Masz ${formatMinutes(min)} spóźnienia — wyjdź teraz`,
   'travel.section': 'Dojazd',
   'travel.enabled': 'Czas dojazdu do najbliższych wydarzeń',
-  'travel.on': 'Włączony',
-  'travel.off': 'Wyłączony',
   'travel.defaultMode': 'Domyślny dojazd',
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
@@ -194,13 +197,11 @@ export const strings = {
   'routine.add': 'Dodaj rutynę',
   'routine.title': 'Nowa rutyna',
   'routine.info': 'Rutyna to stałe kroki o stałej porze, np. „Poranek Kuby”: zęby, ubranie, plecak. Kroki pojawiają się w wybrane dni pod rutyną; niezrobione po dniu znikają, a licznik „N razy z rzędu” pokazuje, ile razy z rzędu wszystko było zrobione.',
-  'routine.name': 'Nazwa',
   'routine.namePlaceholder': 'np. Poranek Kuby',
   'routine.who': 'Dla kogo (opcjonalnie)',
   'routine.steps': 'Kroki',
   'routine.step': (n: number) => `Krok ${n}`,
   'routine.addStep': 'Dodaj krok',
-  'routine.removeStep': 'Usuń',
   'routine.removeStepA11y': (n: number) => `Usuń krok ${n}`,
   'routine.save': 'Zapisz rutynę',
   'routine.saved': (title: string) => `Dodano rutynę: ${title}`,
@@ -226,6 +227,8 @@ export const strings = {
   'timetable.lessonA11y': (n: number, day: string) => `Lekcja ${n}, ${day}`,
   'timetable.fieldA11y': (field: string, n: number, day: string) => `${field}, lekcja ${n}, ${day}`,
   'timetable.removeA11y': (n: number, day: string) => `Usuń lekcję ${n}, ${day}`,
+  // Audyt 2 (M-39, A-21): który wpis poprawić — przy „Zapisz”, daleko od karty lekcji.
+  'timetable.fixLesson': (n: number, day: string, error: string) => `Popraw lekcję ${n}, ${day}: ${error}`,
   'timetable.until': 'Do dnia (opcjonalnie, np. koniec roku szkolnego)',
   'timetable.save': 'Zapisz plan',
   'timetable.empty': 'Dodaj co najmniej jedną lekcję.',
@@ -233,20 +236,26 @@ export const strings = {
   'lessons.title': (name: string, n: number) => `${name}: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
   // Audyt 2 (N-38): moje lekcje (dziecko z kontem) — jak u dorosłych, bez imienia.
   'lessons.mine': (n: number) => `${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
-  'lessons.show': 'dotknij, by zobaczyć lekcje',
-  'lessons.hide': 'dotknij, by zwinąć',
+  // Audyt 2 (M-141): czynność rozwinięcia w podpowiedzi VoiceOvera; na ekranie znak ˅/˄ zamiast instrukcji.
+  'lessons.showHint': 'Pokazuje lekcje',
+  'lessons.hideHint': 'Chowa lekcje',
+  'lessons.shown': (n: number) => `Pokazano ${n} ${plural(n, { one: 'lekcję', few: 'lekcje', many: 'lekcji' })}`,
   'timetable.error.title': 'Wpisz nazwę lekcji.',
   'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
   'timetable.saved': (n: number) => `Dodano plan lekcji: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })} w tygodniu`,
   'device.calendarsInfo': 'Które kalendarze iPhone’a pokazywać w aplikacji. Wyłącz te, które prowadzisz już w grupach. Wydarzenie o tej samej nazwie co wpis z aplikacji (ten sam dzień, podobna godzina) albo dodane przez Organizer jest ukrywane jako dubel — pod listą dnia widać, ile ukryto.',
   'nest.progress': (done: number, total: number) => `${done}/${total} zrobione`,
   'nest.parent': (title: string, event: boolean) => `↳ ${title}${event ? ' (wydarzenie)' : ''}`,
+  // Audyt 2 (M-263, A-42): dopiski wierszy słowami dla VoiceOvera (src/ui/a11y.ts `spoken`) — bez „↳”, „2/3”, „h”, „·”.
+  'spoken.parent': 'podzadanie: ',
+  'spoken.progress': (done: number, total: number) => `${done} z ${total} zrobione`,
+  'spoken.hours': (n: number) => `${n} ${plural(n, { one: 'godzina', few: 'godziny', many: 'godzin' })}`,
+  'spoken.minutes': (n: number) => `${n} ${plural(n, { one: 'minuta', few: 'minuty', many: 'minut' })}`,
   'name.askTitle': 'Jak masz na imię?',
   'name.title': 'Twoje imię',
   'name.info': 'Tak zobaczą Cię inni w grupach. Imię ustawione w konkretnej grupie (np. „Tata”) zostaje — zmienisz je w grupie, dotykając siebie na liście osób.',
   'name.field': 'Imię',
   'name.save': 'Zapisz imię',
-  'name.later': 'Nie teraz',
   'name.error.empty': 'Wpisz imię.',
   'name.error.tooLong': (max: number) => `Imię może mieć najwyżej ${max} ${plural(max, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
   'form.addedEvent': (title: string, group: string) => `Dodano wydarzenie: ${title} · ${group}`,
@@ -270,22 +279,16 @@ export const strings = {
   'task.moveAsk': 'Do której grupy przenieść?',
   'task.moveInfo': 'Zadanie trafi z podzadaniami na ogólną listę wybranej grupy. Osoby spoza tej grupy przestaną je widzieć.',
   'task.moved': (title: string, group: string) => `Przeniesiono do „${group}”: ${title}`,
-  'task.assigneeNone': 'Nikt konkretny',
   'task.subtasks': 'Podzadania',
   'task.addSubtask': 'Dodaj podzadanie',
   'task.delete': 'Usuń zadanie',
   'task.restore': 'Cofnij usunięcie',
   'task.deleted': 'Zadanie usunięte',
-  'task.dueTime': 'Godzina (opcjonalnie)',
-  'task.invalidDate': 'Wybierz dzień w kalendarzu.',
-  'task.invalidTime': 'Sprawdź godzinę (GG:MM).',
 
-  'lists.title': 'Listy',
   'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów albo listy „Dom”.',
   'lists.new': 'Nowa lista',
   'lists.newShopping': 'Nowa lista zakupów',
   'lists.name': 'Nazwa listy',
-  'lists.group': 'Grupa',
   'lists.kind.tasks': 'Zadania',
   'lists.kind.shopping': 'Zakupy',
   'lists.kindLabel': 'Rodzaj listy',
@@ -307,14 +310,17 @@ export const strings = {
     `Usunąć listę „${name}” i ${n} ${shopping ? plural(n, { one: 'pozycję', few: 'pozycje', many: 'pozycji' }) : plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}? Wrócą razem z listą, jeśli przywrócisz ją z kosza.`,
   'lists.expired': 'minęło',
   'lists.expiredRun': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} minęło`,
-  'lists.runShow': 'dotknij, by zobaczyć',
-  'lists.runHide': 'dotknij, by zwinąć',
+  // Audyt 2 (M-141): czynność rozwinięcia w podpowiedzi VoiceOvera, jak przy lekcjach.
+  'lists.runShowHint': 'Pokazuje minione kopie',
+  'lists.runHideHint': 'Chowa minione kopie',
+  'device.hiddenShowHint': 'Pokazuje ukryte duble',
+  'device.hiddenHideHint': 'Chowa ukryte duble',
   'lists.noAddressee': 'bez osoby i terminu — nikt tego nie widzi w Moich sprawach',
   'today.moveOverdue': (n: number) => `Przenieś zaległe na dziś (${n})`,
   'today.movedOverdue': (n: number) => `Przeniesiono na dziś: ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}`,
   'today.overdueDays': (n: number) => (n === 1 ? 'zaległe od wczoraj' : `zaległe od ${n} dni`),
   'lists.pendingItem': 'czeka na wysłanie',
-  'shop.editItem': (item: string) => `Zmień pozycję: ${item}`,
+  'shop.editHint': 'Pokazuje nazwę, dział i stałe zakupy',
   'shop.itemName': 'Nazwa i ilość',
   'shop.categoryHint': 'Wybór zapamiętamy w tej grupie dla tej nazwy.',
   'shop.category': 'Dział',
@@ -327,9 +333,10 @@ export const strings = {
   'shop.staplesAll': 'Wszystkie stałe zakupy są już na liście.',
   'shop.staplesAdd': (n: number) => `Dodaj stałe (${n})`,
   'shop.staplesEdit': 'Zmień stałe',
-  'shop.done': 'Gotowe',
+  // Audyt 2 (M-268): pasek nad klawiaturą numeryczną (nie ma ona klawisza zatwierdzenia).
+  // „Gotowe” kończy edycję: chowa klawiaturę albo zamyka panel, w którym wybór zapisał się od razu (docs/glossary.md).
+  'common.finish': 'Gotowe',
   'shop.stapleName': 'Nowa stała pozycja, np. „mleko”',
-  'shop.stapleSave': 'Dodaj',
   'shop.stapleRemove': (name: string) => `Usuń ze stałych: ${name}`,
   'shop.stapleError.empty': 'Wpisz nazwę.',
   'shop.stapleError.duplicate': 'Ta pozycja już jest na liście stałych.',
@@ -338,20 +345,16 @@ export const strings = {
   'shop.put': (name: string) => `Włóż do koszyka: ${name}`,
   'shop.takeOut': (name: string) => `Wyjmij z koszyka: ${name}`,
 
-  'calendar.title': 'Kalendarz',
-  'calendar.prev': 'Poprzedni miesiąc',
-  'calendar.next': 'Następny miesiąc',
-  'calendar.dayA11y': (date: string, n: number, holiday: string | null, events = 0) =>
-    `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}`,
+  'calendar.dayA11y': (date: string, n: number, holiday: string | null, events = 0, device = 0) =>
+    `${date}${holiday ? `, ${holiday}` : ''}${events ? `, ${events} ${plural(events, { one: 'wydarzenie', few: 'wydarzenia', many: 'wydarzeń' })}` : ''}${n ? `, ${n} ${plural(n, { one: 'zadanie', few: 'zadania', many: 'zadań' })}` : ''}${device ? `, ${device} z kalendarza iPhone’a` : ''}`,
+  /** Dzisiejszy dzień w siatce Kalendarza i mini kalendarza — VoiceOver mówi „dziś” (audyt 2, M-140). */
+  'calendar.todayA11y': (label: string) => `Dziś, ${label}`,
   'calendar.empty': 'Tego dnia nic nie ma.',
   'calendar.addEvent': 'Dodaj wydarzenie',
 
   'event.new': 'Nowe wydarzenie',
   'event.edit': 'Zmień wydarzenie',
-  'event.title': 'Nazwa',
   'event.titlePlaceholder': 'np. Tańce',
-  'event.group': 'Grupa',
-  'event.date': 'Dzień',
   'event.firstDate': 'Od dnia',
   'event.when': 'Pora',
   'event.allDay': 'Cały dzień',
@@ -431,14 +434,10 @@ export const strings = {
   'event.error.location': `Miejsce może mieć najwyżej ${config.events.LOCATION_MAX_LENGTH} ${plural(config.events.LOCATION_MAX_LENGTH, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
   'event.error.until': 'Ostatni dzień musi być poprawną datą, nie wcześniejszą niż pierwszy termin serii.',
   'event.error.participants': 'Wybierz co najmniej jedną osobę.',
-  'event.allDayLabel': 'cały dzień',
   'event.oneOff': 'Jednorazowe',
-  'event.whoAll': 'Cała grupa',
   'event.who': 'Kto',
   'event.responsible': 'Osoba odpowiedzialna',
-  'event.responsibleNone': 'Nikt konkretny',
   'event.responsibleIs': (name: string) => `Osoba odpowiedzialna: ${name}`,
-  'event.change': 'Zmień',
   'event.cancel': 'Odwołaj',
   'event.delete': 'Usuń wydarzenie',
   'event.scopeQuestionEdit': 'Co zmienić?',
@@ -453,7 +452,8 @@ export const strings = {
   'event.restore': 'Przywróć termin',
   'event.missingInfo': 'Tego terminu nie ma już w serii (zmieniła się albo skończyła).',
   'event.readOnly': 'Dzieci nie zmieniają wydarzeń.',
-  'event.rowA11y': (title: string, when: string, group: string, recurring: boolean) => `${title}, ${when}, ${group}${recurring ? ', powtarza się' : ''}`,
+  // Audyt 2 (M-263): minione wydarzenie jest tylko wyszarzone — VoiceOver mówi to słowem.
+  'event.pastA11y': 'minione',
   'event.groupEvents': 'Wydarzenia grupy',
   'event.noGroupEvents': 'Brak wydarzeń. Dodaj np. zajęcia, które powtarzają się co tydzień.',
   'event.next': (date: string) => `najbliżej: ${date}`,
@@ -502,7 +502,6 @@ export const strings = {
   'task.openEvent': 'Otwórz wydarzenie',
   'event.noGroups': 'Wydarzenie dodasz w grupie, w której nie masz roli dziecka.',
 
-  'groups.title': 'Grupy',
   'groups.personal': 'Osobiste',
   'groups.members': (n: number) => `${n} ${plural(n, { one: 'osoba', few: 'osoby', many: 'osób' })}`,
   'groups.new': 'Nowa grupa',
@@ -570,8 +569,6 @@ export const strings = {
   'groups.nextSteps.body': 'Zaproś bliskich, dodaj dziecko bez konta i zaplanuj pierwsze zakupy.',
   'groups.nextSteps.invite': 'Zaproś do grupy',
   'groups.nextSteps.child': 'Dodaj dziecko',
-  'groups.nextSteps.shopping': 'Zaplanuj zakupy',
-  'groups.nextSteps.later': 'Nie teraz',
   // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
   'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
   'groups.error.nameEmpty': 'Wpisz nazwę grupy.',
@@ -627,7 +624,6 @@ export const strings = {
   'invite.code': `Kod (${config.invites.CODE_DIGITS} cyfr)`,
 
   'settings.title': 'Ustawienia',
-  'settings.open': 'Ustawienia',
   'settings.signOut': 'Wyloguj',
   'settings.signOutAsk': 'Wylogować się?',
   // D176: wylogowanie tylko tego telefonu.
@@ -655,11 +651,9 @@ export const strings = {
   'settings.deleteConfirm': 'Usuń konto na zawsze',
   'settings.deleteType': 'Wpisz USUŃ, żeby potwierdzić',
   'settings.deleteWord': 'USUŃ',
-  'settings.appearance': 'Wygląd',
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
   'settings.appearance.dark': 'Ciemny',
-  'settings.rejected': 'Odrzucone zmiany',
   'settings.rejectedCount': (n: number) => `${n} ${plural(n, { one: 'zmiana', few: 'zmiany', many: 'zmian' })}`,
 
   'rejected.title': 'Odrzucone zmiany',
@@ -698,12 +692,10 @@ export const strings = {
   'auth.appleOnly': 'W wersji testowej logujesz się tylko przez Apple.',
 
   'confirm.doneTitle': 'Zrobione?',
-  'confirm.doneYes': 'Zrobione',
   // Decyzja właściciela z 8.10.2026: odhaczenie zadania z niezrobionymi podzadaniami — razem albo samo zadanie (jak zakupy).
   'confirm.subtasksLeft': (title: string, n: number) => `${title}: ${plural(n, { one: 'zostało 1 niezrobione podzadanie', few: `zostały ${n} niezrobione podzadania`, many: `zostało ${n} niezrobionych podzadań` })}.`,
   'confirm.keepSubtasks': 'Zostaw podzadania',
   'confirm.allDone': 'Oznacz wszystko jako zrobione',
-  'swipe.delete': 'Usuń',
   'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
   'undo.deleted': (title: string) => `Usunięto: ${title}`,
   'undo.doneWithSubtasks': (title: string, n: number) => `Zrobione: ${title} i ${n} ${plural(n, { one: 'podzadanie', few: 'podzadania', many: 'podzadań' })}`,
@@ -718,7 +710,6 @@ export const strings = {
   'undo.action': 'Cofnij',
   'undo.groupDeleted': (name: string) => `Usunięto grupę: ${name}`,
   'undo.stapleRemoved': (name: string) => `Usunięto ze stałych: ${name}`,
-  'swipe.cancel': 'Odwołaj',
   'swipe.cancelA11y': (title: string) => `Odwołaj: ${title}`,
 
   // Ostatnie zmiany (decyzja właściciela z 8.10.2026, audyt 2: PW-10 C+A, M-38; D194).
@@ -759,7 +750,6 @@ export const strings = {
   'repeat.unit.days': 'Dni',
   'repeat.unit.weeks': 'Tygodnie',
   'repeat.every': 'Co ile od wykonania',
-  'repeat.needsDue': 'Ustaw termin, żeby zadanie mogło się powtarzać.',
   'repeat.info': 'Po odhaczeniu pojawi się następne z kolejnym terminem.',
   // D181 (PW-32 A): zmiana dnia zadania powtarzanego.
   'repeat.cycleAsk': 'Zmienić też kolejne terminy?',
@@ -822,16 +812,12 @@ export const strings = {
   // PWD-18 (decyzja właściciela 8.10.2026): wyciszenie dotyczy tylko przypisań — nazwa i dopisek mówią to wprost.
   'mutes.section': 'Powiadomienia o przypisaniach',
   'mutes.info': 'Gdy ktoś przypisze Ci zadanie, zakupy albo wydarzenie, dostaniesz powiadomienie. Możesz to wyciszyć dla wybranej grupy. Przypomnienia i przekazania (do przyjęcia) przychodzą zawsze.',
-  'mutes.on': 'Włączone',
-  'mutes.off': 'Wyciszone',
   'mutes.error': 'Nie udało się zmienić ustawień — sprawdź internet.',
   // Audyt 2 (P-75): bez „Zakupy: Zakupy”, gdy nazwa listy już mówi, że to zakupy.
-  'trip.title': (list: string) => (/^zakupy\b/iu.test(list) ? list : `Zakupy: ${list}`),
+  'trip.title': (list: string) => (/^zakupy(?![\p{L}\p{N}_])/iu.test(list) ? list : `Zakupy: ${list}`),
   'trip.section': 'Zakupy',
   'trip.info': 'Kiedy i kto robi zakupy. Pojawią się w Moich sprawach jak zadanie.',
-  'trip.time': 'Godzina (opcjonalnie)',
   'trip.who': 'Kto robi zakupy',
-  'trip.anyone': 'Nikt konkretny',
   'trip.required': 'We wspólnej grupie wybierz osobę albo dzień zakupów — inaczej nikt nie zobaczy ich w Moich sprawach.',
   'trip.open': (n: number) => (n === 0 ? 'lista pusta' : `${n} do kupienia`),
   'trip.save': 'Zapisz zakupy',
@@ -840,23 +826,18 @@ export const strings = {
   'trip.giveTrip': 'Przekaż zakupy',
   // Audyt 2 (U-30): osoba jak w wierszu zadania („dla Ciebie”, „dla: Ala”), brak osoby jak w wyborze („Nikt konkretny”).
   'trip.summary': (when: string | null, who: { name: string; me: boolean } | null) =>
-    [when ?? strings['today.noDue'], who ? strings['who.task'](who) : strings['trip.anyone'].toLocaleLowerCase('pl')].join(' · '),
+    [when ?? strings['today.noDue'], who ? strings['who.task'](who) : strings['common.nobody'].toLocaleLowerCase('pl')].join(' · '),
   'trip.done': 'Zakupy zrobione',
   'trip.confirmTitle': 'Zakupy zrobione?',
   'trip.confirmLeft': (n: number) => `Na liście ${plural(n, { one: 'została 1 niekupiona pozycja', few: `zostały ${n} niekupione pozycje`, many: `zostało ${n} niekupionych pozycji` })}.`,
   'trip.keep': 'Zostaw na następne zakupy',
   'trip.all': 'Oznacz wszystko jako kupione',
-  'trip.yes': 'Zrobione',
   'trip.none': 'Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.',
   'device.title': 'Kalendarz iPhone’a',
   'device.body': 'Pokaż swoje wydarzenia z kalendarza iPhone’a (także Google i Outlook dodane w iPhonie) obok spraw grup, a wydarzenia grup dodawaj automatycznie do osobnych kalendarzy „Organizer”. Twoje wydarzenia zostają na telefonie — nikt z grupy ich nie widzi.',
   'device.connect': 'Połącz z kalendarzem',
-  'device.later': 'Nie teraz',
   'device.denied': 'Brak dostępu do kalendarza. Włączysz go w Ustawieniach iPhone’a → Organizer → Kalendarze → Pełny dostęp.',
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,
-  'device.allDay': 'cały dzień',
-  'device.on': 'Włączone',
-  'device.off': 'Wyłączone',
   'device.read': 'Moje wydarzenia z iPhone’a w aplikacji',
   'device.mirror': 'Wydarzenia grup w kalendarzu iPhone’a',
   'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” ze sprawami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
@@ -876,8 +857,6 @@ export const strings = {
   // PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie.
   'event.inMirror': (calendar: string) => `Jest w kalendarzu iPhone’a „${calendar}”.`,
   'whatsNew.title': 'Co nowego',
-  'whatsNew.ok': 'OK',
-  'whatsNew.feedback': 'Wyślij uwagę',
   'push.title': 'Przypomnienia i powiadomienia',
   'push.why': `Przypomnimy o sprawach z godziną (domyślnie ${config.reminders.LEAD_MIN} min wcześniej) i rano o tym, co na dziś. Dostaniesz też powiadomienie, gdy ktoś przekaże albo przypisze Ci sprawę lub ustawi Cię jako osobę odpowiedzialną. Zmienisz to w Ustawieniach → Powiadomienia.`,
   'reminders.morningTitle': 'Dziś w Organizerze',
@@ -893,15 +872,11 @@ export const strings = {
   'reminders.lead.30': '30 min',
   'reminders.lead.60': '1 h',
   'reminders.morning': 'Rano: co na dziś',
-  'reminders.morning.off': 'Wyłączone',
   // PWD-17 (decyzja właściciela 8.10.2026): „Czas wyjść” osobno od przypomnień przed sprawą.
   'reminders.leave': 'Czas wyjść',
-  'reminders.leave.on': 'Włączone',
-  'reminders.leave.off': 'Wyłączone',
   'reminders.leaveInfo': 'O godzinie wyjścia na wydarzenie z miejscem, gdy liczysz czas dojazdu (Ustawienia → Kalendarz i dojazd). Wyłączone — zwykłe przypomnienie przed wydarzeniem.',
   'reminders.info': 'Przypomnienia działają przy włączonych powiadomieniach. Włączysz je w Ustawieniach iPhone’a → Organizer → Powiadomienia.',
   'push.enable': 'Włącz powiadomienia',
-  'push.later': 'Nie teraz',
   // Audyt 2 (N-8): stan zgody w Ustawieniach → Powiadomienia (jak 'travel.denied' przy lokalizacji).
   'push.off': 'Powiadomienia są wyłączone, więc nie przypomnimy o sprawach ani nie damy znać o przekazaniach.',
   'push.denied': 'Powiadomienia są wyłączone. Włączysz je w Ustawieniach iPhone’a → Organizer → Powiadomienia.',
@@ -925,7 +900,6 @@ export const strings = {
   'handoff.to': (name: string) => `Przekaż: ${name}`,
   'handoff.scope': 'Co przekazać',
   'handoff.scope.one': 'Ten termin',
-  'handoff.scope.series': 'Całą serię',
   'handoff.waiting': (name: string) => `Czeka na przyjęcie: ${name}`,
   'handoff.cancel': 'Wycofaj przekazanie',
   'handoff.inbox': 'Do potwierdzenia',
@@ -933,9 +907,26 @@ export const strings = {
   'handoff.accept': 'Przyjmij',
   'handoff.decline': 'Odrzuć',
   'handoff.declined': (name: string, title: string) => `Nie przyjęto przekazania: ${title} (${name}). Odpowiedzialność została u Ciebie.`,
-  'handoff.ok': 'OK',
+  // Audyt 2 (M-265): przy kilku kartach przyciski mówią, czego dotyczą (VoiceOver, Sterowanie głosem).
+  'handoff.acceptA11y': (title: string) => `Przyjmij: ${title}`,
+  'handoff.declineA11y': (title: string) => `Odrzuć: ${title}`,
+  'handoff.okA11y': (title: string) => `OK: ${title}`,
   'handoff.badge': (n: number) => `${n} do potwierdzenia`,
 
+  // Audyt 2 (U-60): jeden klucz na jedno pojęcie — te teksty znaczą to samo na każdym ekranie.
+  'common.today': 'Dziś',
+  'common.add': 'Dodaj',
+  'common.group': 'Grupa',
+  'common.change': 'Zmień',
+  'common.name': 'Nazwa',
+  'common.delete': 'Usuń',
+  'common.later': 'Nie teraz',
+  'common.nobody': 'Nikt konkretny',
+  'common.timeOptional': 'Godzina (opcjonalnie)',
+  'common.done': 'Zrobione',
+  'common.allDay': 'cały dzień',
+  'common.off': 'Wyłączone',
+  'common.ok': 'OK',
   'common.cancel': 'Anuluj',
   'common.back': 'Wróć',
   'common.close': 'Zamknij',

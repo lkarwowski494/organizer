@@ -59,10 +59,10 @@ describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', ()
     put(base, 'tasks', 's-1', { ...base.tasks!['t-paczka']!, id: 's-1', parent_id: 't-paczka', title: 'Kod odbioru', deadline_mode: 'inherit', due_date: null, due_time: null });
     put(base, 'handoffs', 'h1', { id: 'h1', group_id: 'gf', entity: 'tasks', entity_id: 't-paczka', occurrence_date: null, from_member_id: 'mf', to_member_id: 'ala', status: 'pending', created_at: '2026-10-07T07:00:00Z', deleted_at: null, version: 1 });
     await open(base);
-    await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('task-move')).toBeNull();
-    await press(screen.getByLabelText(/^Otwórz: Kod odbioru(,|$)/));
+    await press(screen.getByLabelText(/^Kod odbioru(,|$)/));
     expect(screen.queryByTestId('task-move')).toBeNull();
   });
 });
@@ -77,7 +77,7 @@ describe('„Więcej” — pełny formularz', () => {
     await screen.findByTestId('screen-add-task');
     expect(screen.getByText('Nowe zadanie')).toBeTruthy();
     expect(screen.getByTestId('form-title').props.value).toBe('Trening');
-    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('Piątek, 9 października');
     expect(radio('Kiedy', 'pt. 9 paź').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByLabelText('Lista')).toBeNull();
     await press(radio('Grupa', 'Klasa 2b'));
@@ -108,8 +108,8 @@ describe('„Więcej” — pełny formularz', () => {
     await press(screen.getByTestId('form-save'));
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await press(radio('Kiedy', 'Bez terminu'));
-    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('');
-    expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('Wybierz dzień');
+    expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('Wybierz godzinę');
     // PWD-6: bez „Anuluj” — wystarczą gest i „Wróć” (wpisane zostaje w szkicu, D179).
     expect(screen.queryByText('Anuluj')).toBeNull();
     const before = store.dispatched.length;
@@ -178,7 +178,7 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await press(radio('Rodzaj', 'Wydarzenie'));
     await screen.findByTestId('screen-event-edit');
     expect(screen.getByTestId('event-title').props.value).toBe('Basen');
-    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('2026-10-08');
+    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('Czwartek, 8 października');
     expect(screen.getByTestId('event-start-0').props.accessibilityValue.text).toBe('19:00');
     expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
     expect(radio('Osoba odpowiedzialna', 'Ala').props.accessibilityState.selected).toBe(true);
@@ -192,11 +192,11 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await press(radio('Kiedy', 'Bez terminu'));
     await press(radio('Dla kogo', 'Kuba'));
     expect(radio('Rodzaj', 'Wydarzenie').props.accessibilityHint).toBe('Otwiera formularz wydarzenia, wpisane dane zostają');
-    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions');
     await press(radio('Rodzaj', 'Wydarzenie'));
     await screen.findByTestId('screen-event-edit');
-    expect(announce).toHaveBeenCalledWith('Nowe wydarzenie');
-    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('2026-10-07');
+    expect(announce).toHaveBeenCalledWith('Nowe wydarzenie', { queue: true });
+    expect(screen.getByTestId('event-date').props.accessibilityValue.text).toBe('Środa, 7 października');
     expect(radio('Osoba odpowiedzialna', 'Nikt konkretny').props.accessibilityState.selected).toBe(true);
     expect(radio('Kogo dotyczy', 'Wybrane osoby').props.accessibilityState.selected).toBe(true);
     expect(screen.getByLabelText('Uczestnik: Kuba').props.accessibilityState).toMatchObject({ checked: true });
@@ -205,8 +205,8 @@ describe('zadanie albo wydarzenie (D98, D99)', () => {
     await pickDate('event-date', '2026-10-09');
     await press(radio('Rodzaj', 'Zadanie'));
     await screen.findByTestId('screen-add-task');
-    expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('');
-    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('2026-10-09');
+    expect(screen.getByTestId('form-time').props.accessibilityValue.text).toBe('Wybierz godzinę');
+    expect(screen.getByTestId('form-date').props.accessibilityValue.text).toBe('Piątek, 9 października');
     // Przycisk „Zadanie” w formularzu zadania niczego nie zmienia.
     await press(radio('Rodzaj', 'Zadanie'));
     expect(screen.getByTestId('screen-add-task')).toBeTruthy();

@@ -33,8 +33,8 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await start().render();
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
     // Selektory jak w .maestro/01-today.yaml (na iOS wiersz jest jednym elementem z etykietą VoiceOver).
-    expect(await screen.findByLabelText(/^Otwórz: Oddać książki do biblioteki,/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Otwórz: Odebrać paczkę,/)).toBeTruthy();
+    expect(await screen.findByLabelText(/^Oddać książki do biblioteki,/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Odebrać paczkę,/)).toBeTruthy();
     expect(screen.getByTestId(`today-event-${E2E_IDS.swimming}-2026-10-07`)).toBeTruthy();
     expect(screen.getByLabelText(/^Basen Kuby, 17:00/)).toBeTruthy();
     expect(screen.queryByLabelText(/Umówić przegląd auta/)).toBeNull(); // zadanie Ali
@@ -49,7 +49,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Kupić mleko jutro');
     await press(screen.getByLabelText('Dodaj'));
     await press(screen.getByLabelText('Następny dzień'));
-    expect(within(await screen.findByTestId('today-day-2026-10-08')).getByLabelText(/^Otwórz: Kupić mleko,/)).toBeTruthy();
+    expect(within(await screen.findByTestId('today-day-2026-10-08')).getByLabelText(/^Kupić mleko,/)).toBeTruthy();
     expect(screen.getByTestId('undo-bar')).toBeTruthy(); // .maestro/02 czeka, aż zniknie, przed zrzutem
   });
 
@@ -58,8 +58,9 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await press(await screen.findByTestId(`today-event-${E2E_IDS.swimming}-2026-10-07`));
     const box = await screen.findByTestId('rsvp');
     expect(within(box).getByText('Obecność')).toBeTruthy();
-    expect(screen.getAllByLabelText('Będę')).toHaveLength(1); // .maestro/03: tapOn „Będę” bez zawężania
-    await press(within(box).getByLabelText('Będę'));
+    // .maestro/03: tapOn bez zawężania — przy kilku osobach opcja mówi, czyja to odpowiedź (audyt 2, M-264).
+    expect(screen.getAllByLabelText('Będę, Twoja odpowiedź')).toHaveLength(1);
+    await press(within(box).getByLabelText('Będę, Twoja odpowiedź'));
     expect(within(box).getByText('Tak: Ty')).toBeTruthy();
   });
 
@@ -133,6 +134,18 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('screen-settings')).toBeTruthy();
     expect(await screen.findByLabelText('Stan synchronizacji: Przed chwilą', {}, { timeout: 5000 })).toBeTruthy();
+  });
+
+  it('07 pole na dole ekranu nad klawiaturą (M-41)', async () => {
+    await start().render();
+    await screen.findByTestId('screen-today');
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByLabelText('Konto i dane'));
+    // Ekran przewijany odsuwa treść o klawiaturę — pole „Wpisz USUŃ” na końcu strony zostaje nad nią.
+    expect((await screen.findByTestId('screen-settings-account')).props.automaticallyAdjustKeyboardInsets).toBe(true);
+    await press(screen.getByTestId('delete-start'));
+    await fireEvent.changeText(screen.getByTestId('delete-word'), 'USUŃ');
+    expect(screen.getByTestId('delete-confirm').props.accessibilityState).toMatchObject({ disabled: false });
   });
 
   it('zmiany przechodzą przez „serwer” i wracają przy pobraniu (synchronizacja bez sieci)', async () => {

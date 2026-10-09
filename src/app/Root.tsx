@@ -19,7 +19,8 @@ import { addDays, formatIsoDate } from '../domain/civil-date';
 import { wakeGroups } from '../domain/reminder-wake';
 import type { SyncTransport } from '../sync/transport';
 import { SignInScreen } from '../features/auth/SignInScreen';
-import { Body, Button, Screen, Title } from '../ui/components';
+import { announce } from '../ui/a11y';
+import { Body, Button, Screen, syncAnnouncement, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
@@ -91,10 +92,10 @@ const defaultTimer: Timer = (fn, ms) => {
 const NO_ERROR_UTILS = { getGlobalHandler: () => () => {}, setGlobalHandler: () => {} };
 
 function Loading() {
-  const { c, font } = useTheme();
+  const { c, font, size } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.ground }}>
-      <Text style={{ fontFamily: font.text600, color: c.inkMuted }}>{strings['app.loading']}</Text>
+      <Text style={{ fontFamily: font.text600, fontSize: size.BODY, color: c.inkMuted }}>{strings['app.loading']}</Text>
     </View>
   );
 }
@@ -213,6 +214,17 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       }),
     [deps, runtime],
   );
+
+  // Audyt 2 (M-37): przejście w offline, błąd, wygasłą sesję albo „zaktualizuj” i powrót do normy ogłaszamy VoiceOverem
+  // (chip zmienia się po cichu; zwykłe „zsynchronizowano X min temu” — bez ogłoszeń).
+  useEffect(() => {
+    let last = runtime.getSnapshot().indicator.state;
+    return runtime.subscribe(() => {
+      const r = syncAnnouncement(last, runtime.getSnapshot().indicator, nowMs());
+      last = r.last;
+      announce(r.text);
+    });
+  }, [runtime, nowMs]);
 
   // Kanały: mój (zmiana dostępu) + każdej mojej grupy (nowa wersja). Odnawiane, gdy zmienia się zbiór grup.
   const [groupIds, setGroupIds] = useState<string[]>([]);

@@ -120,3 +120,31 @@ describe('drobne teksty (M-262)', () => {
     expect([2, 5, 22].map((n) => strings['streak'](n))).toEqual(['2 razy z rzędu', '5 razy z rzędu', '22 razy z rzędu']);
   });
 });
+
+describe('jeden klucz na jedno pojęcie (U-60)', () => {
+  // Ten sam tekst pod kilkoma kluczami tylko tam, gdzie znaczenie jest inne (albo klucz wybiera się w locie z zestawu).
+  const allowed: Record<string, string> = {
+    'tabs.today, common.today': 'nazwa zakładki (może się zmienić, PW-27) i dzień „dziś”',
+    'tabs.lists, trash.kind.list': 'zakładka i rodzaj rzeczy w koszu',
+    'tabs.groups, trash.kind.group': 'zakładka i rodzaj rzeczy w koszu',
+    'today.range.day, due.day': 'zakres widoku i pole dnia w formularzu',
+    'quick.groupPick, device.addToGroup': 'nagłówek wyboru grupy i przycisk przy wydarzeniu z iPhone’a',
+    'rsvp.maybe, rsvp.other.maybe': 'zestawy odpowiedzi za siebie i za dziecko (`rsvp.${a}`, `rsvp.other.${a}`)',
+    'due.when, timetable.week': 'termin zadania i wybór tygodnia A/B',
+    'timetable.both, event.repeat.weekly, repeat.weekly': 'opcja planu lekcji i zestawy opcji powtarzania (`event.repeat.${r}`, `repeat.${k}`)',
+    'lists.kind.tasks, event.defaultList, trash.kind.task': 'rodzaj listy, nazwa nadawana liście (names.pl.ts) i rodzaj w koszu',
+    'lists.kind.shopping, trip.section': 'rodzaj listy i sekcja planu zakupów',
+    'lists.visibility.group, event.audience.group': 'kto widzi listę i kogo dotyczy wydarzenie',
+    'lists.done, common.done': 'nagłówek sekcji i przycisk potwierdzenia',
+    'event.repeat.daily, repeat.daily': 'zestawy opcji powtarzania wydarzeń i zadań',
+    'event.repeat.monthly, repeat.monthly': 'zestawy opcji powtarzania wydarzeń i zadań',
+    'draft.discard, handoff.decline': 'odrzucenie szkicu i odrzucenie przekazania',
+    'reminders.lead.0, common.off': 'opcja z zestawu `reminders.lead.${m}` i stan przełącznika',
+  };
+  it('powtórzone teksty są tylko na liście wyjątków', () => {
+    const byValue = new Map<string, string[]>();
+    for (const [k, v] of Object.entries(strings as Record<string, unknown>)) if (typeof v === 'string') byValue.set(v, [...(byValue.get(v) ?? []), k]);
+    const dups = [...byValue.values()].filter((ks) => ks.length > 1).map((ks) => ks.join(', '));
+    expect(dups.filter((d) => !(d in allowed))).toEqual([]);
+  });
+});

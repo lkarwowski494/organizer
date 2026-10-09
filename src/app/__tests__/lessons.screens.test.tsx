@@ -1,5 +1,6 @@
 /** Lekcje dziecka jednym wierszem w Moich sprawach (D127): rozwinięcie do pojedynczych lekcji i powrót. */
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { RootStack } from '../navigation';
 import { put, sampleBase, setup } from './harness';
@@ -18,12 +19,21 @@ describe('lekcje dziecka (D127)', () => {
     const s = setup({ base });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    const row = screen.getByLabelText(/^Kuba: 2 lekcje, 08:00–12:45, Rodzina.*dotknij, by zobaczyć lekcje/);
+    // Audyt 2 (M-141): stan rozwinięcia i czynność w podpowiedzi VoiceOvera, znak ˅/˄ zamiast „›” i instrukcji w treści.
+    const row = screen.getByLabelText('Kuba: 2 lekcje, 08:00–12:45, Rodzina');
+    expect(row.props.accessibilityState).toEqual({ expanded: false });
+    expect(row.props.accessibilityHint).toBe('Pokazuje lekcje');
+    expect(within(row).getByTestId('glyph-more', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByText(/dotknij/)).toBeNull();
     expect(screen.queryByText('Matematyka')).toBeNull();
     await press(row);
     expect(screen.getByText('Matematyka')).toBeTruthy();
     expect(screen.getByText('Polski')).toBeTruthy();
-    await press(screen.getByLabelText(/^Kuba: 2 lekcje.*dotknij, by zwinąć/));
+    expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Pokazano 2 lekcje', { queue: true });
+    const open = screen.getByLabelText('Kuba: 2 lekcje, 08:00–12:45, Rodzina');
+    expect(open.props.accessibilityState).toEqual({ expanded: true });
+    expect(open.props.accessibilityHint).toBe('Chowa lekcje');
+    await press(open);
     expect(screen.queryByText('Matematyka')).toBeNull();
     await press(screen.getByLabelText(/^Kuba: 2 lekcje/));
     await press(screen.getByText('Polski'));

@@ -27,7 +27,8 @@ import { rsvpView } from '../../domain/views/rsvp';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodTitle, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { DayNumber } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceCalendarCard } from './DeviceCalendarCard';
@@ -68,7 +69,7 @@ export function CalendarScreen() {
             x.kind === 'event' ? (
               // Audyt 2 (M-239): termin przesuwa się jak w Moich sprawach — jednorazowe „Usuń”, termin serii „Odwołaj”.
               <SwipeRow key={x.key} title={x.event.title} enabled={roles.get(x.event.groupId)?.role !== 'child'} action={x.event.recurring ? 'cancel' : 'delete'} onDelete={() => eventActions.cancel(x.event.eventId, x.event.occurrenceDate)} testID={`swipe-cal-event-${x.event.eventId}-${x.event.occurrenceDate}`}>
-              <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} {...occurrenceRow(x.event)} line={x.event.line} group={x.event.groupName} recurring={x.event.recurring} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
+              <EventRow testID={`cal-event-${x.event.eventId}-${x.event.occurrenceDate}`} title={x.event.title} {...occurrenceRow(x.event)} line={x.event.line} group={x.event.groupName} extra={[...who(x.event.responsibleId, 'who.event'), ...rsvpOf(x.event.eventId, x.event.occurrenceDate), ...(n.progress ? [strings['nest.progress'](n.progress.done, n.progress.total)] : [])].join('  ·  ') || undefined} onPress={() => nav.navigate('Event', { eventId: x.event.eventId, date: x.event.occurrenceDate })} />
               </SwipeRow>
             ) : x.task.trip ? (
               <StationRow
@@ -106,18 +107,15 @@ export function CalendarScreen() {
 
   return (
     <Screen testID="screen-calendar">
-      <Title>{strings['calendar.title']}</Title>
+      <Title>{strings['tabs.calendar']}</Title>
       <DeviceCalendarCard />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.prev']} onPress={() => shift(-1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, color: c.ink }}>‹</Text>
-        </Pressable>
-        <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: 20, color: c.ink }}>{formatMonth(ym.y, ym.m)}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={strings['calendar.next']} onPress={() => shift(1)} style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, color: c.ink }}>›</Text>
-        </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <PeriodArrow dir={-1} label={strings['today.prev.month']} onPress={() => shift(-1)} />
+        <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
+        <PeriodArrow dir={1} label={strings['today.next.month']} onPress={() => shift(1)} />
       </View>
-      <View style={{ flexDirection: 'row' }}>
+      {/* Skróty dni tygodnia tylko dla oka — każdy dzień podaje pełną nazwę (audyt 2, M-263, A-46). */}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
         {WEEKDAYS_ABBREVIATED.map((w) => (
           <Text key={w} style={{ flex: 1, textAlign: 'center', fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{w}</Text>
         ))}
@@ -127,7 +125,12 @@ export function CalendarScreen() {
           const on = d.date === selected;
           const n = parseIsoDate(d.date).d;
           const evs = events.get(d.date) ?? [];
-          const label = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday, evs.length);
+          const isToday = d.date === isoToday;
+          // Audyt 2 (M-263, A-44): kropka „z kalendarza iPhone'a” ma odpowiednik w etykiecie.
+          const device = deviceOf(d.date, d.items).length;
+          const dayLabel = strings['calendar.dayA11y'](formatLongDate(parseIsoDate(d.date), today), d.items.length, d.holiday, evs.length, device);
+          // M-140 (PW-50 A, D196): dziś — kółko z obwódką i „Dziś, …” dla VoiceOvera; zaznaczenie ciemnym wypełnieniem (D198).
+          const label = isToday ? strings['calendar.todayA11y'](dayLabel) : dayLabel;
           return (
             <Pressable
               key={d.date}
@@ -136,14 +139,14 @@ export function CalendarScreen() {
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
               onPress={() => setSelected(d.date)}
-              style={{ width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: on ? 2 : 0, borderColor: c.ink, backgroundColor: d.date === isoToday ? c.surface : 'transparent' }}
+              style={{ width: `${100 / 7}%`, minHeight: 52, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={{ fontFamily: d.holiday ? font.text700 : font.text400, fontSize: 16, color: d.holiday ? c.danger : d.inMonth ? c.ink : c.inkMuted }}>{n}</Text>
+              <DayNumber n={n} selected={on} today={isToday} holiday={!!d.holiday} muted={!d.inMonth} testID={`day-num-${d.date}`} />
               <View style={{ flexDirection: 'row', gap: 2, height: 8, marginTop: 2 }}>
                 {[...new Set([...evs.map((e) => e.line), ...d.items.map((i) => i.line)])].slice(0, 4).map((l) => (
                   <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: line(l).line }} />
                 ))}
-                {deviceOf(d.date, d.items).length ? <View testID={`device-dot-${d.date}`} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inkMuted }} /> : null}
+                {device ? <View testID={`device-dot-${d.date}`} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.inkMuted }} /> : null}
               </View>
             </Pressable>
           );
@@ -151,7 +154,7 @@ export function CalendarScreen() {
       </View>
       {day ? (
         <View style={{ gap: 4 }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: 18, color: c.ink }}>
+          <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.CARD_TITLE, color: c.ink }}>
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>

@@ -111,7 +111,7 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(within(entries[1]!).getByLabelText('Cofnij: Usunięto: Przynieść korki na trening'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'restore', entity: 'tasks', id: 't-korki' });
     expect(within(entries[1]!).getByText('Cofnięto')).toBeTruthy();
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Cofnięto');
+    expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Cofnięto', { queue: true });
   });
 
   it('rzecz zmieniona od tamtej chwili (np. przywrócona na drugim telefonie) — nie cofamy, z listy i z paska', async () => {
@@ -165,7 +165,8 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     await press(await screen.findByTestId('open-recent'));
     expect(screen.getAllByTestId(/^recent-\d+$/)).toHaveLength(config.RECENT_MAX);
     expect(screen.queryByText('Usunięto: Zadanie 0')).toBeNull();
-  });
+    // 31 usunięć na pełnym ekranie Moich spraw — przy obciążonej maszynie CI dłużej niż domyślne 5 s.
+  }, 20_000);
 });
 
 /** Ponowne uruchomienie aplikacji: nowe drzewo (nowy UndoProvider) na tych samych usługach i tej samej bazie konta. */
@@ -388,7 +389,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     const { store } = await open(base);
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    await press(await screen.findByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
+    await press(await screen.findByLabelText(/^Kupić kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Usuń: Wybrać tulipany'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'delete', entity: 'tasks', id: 'sub' });
@@ -396,7 +397,7 @@ describe('jedna reguła usuwania (M-121, D187) i przesuwanie (M-124, M-239)', ()
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     expect(within(bar()).getByText('Usunięto: Kupić kwiaty')).toBeTruthy();
     // Zadanie usunięte na drugim telefonie, gdy mam je otwarte (albo link do usuniętego): ekran „Zadanie usunięte”.
-    await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     await act(async () => store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, deleted_at: ago(0) } } })));
     expect(screen.getByTestId('screen-task-deleted')).toBeTruthy();

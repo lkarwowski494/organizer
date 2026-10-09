@@ -5,7 +5,7 @@
  * dlaczego. Wejście: Grupy (obok Kosza) i treść paska „Cofnij”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AccessibilityInfo, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { localNow } from '../../app/clock';
 import { useAppData } from '../../app/context';
@@ -14,7 +14,8 @@ import { config } from '../../config';
 import { formatIsoDate } from '../../domain/civil-date';
 import { formatDue } from '../../domain/format';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Screen, Title } from '../../ui/components';
+import { announce } from '../../ui/a11y';
+import { BackButton, Body, Button, Card, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
@@ -34,9 +35,12 @@ export function RecentScreen({ navigation }: Props) {
       <Title>{strings['recent.title']}</Title>
       <Body muted>{recent.length ? strings['recent.info'](config.RECENT_MAX) : strings['recent.empty']}</Body>
       {recent.map((e) => (
-        <View key={e.id} testID={`recent-${e.id}`} style={{ gap: 8, padding: 14, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
-          <Body>{e.message}</Body>
-          <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{when(e.at)}</Text>
+        <Card kind="panel" key={e.id} testID={`recent-${e.id}`}>
+          {/* Jeden przystanek VoiceOvera: co i kiedy (audyt 2, D194 — lista jako droga cofania bez limitu czasu). */}
+          <View accessible accessibilityLabel={`${e.message}, ${when(e.at)}`} style={{ gap: 8 }}>
+            <Body>{e.message}</Body>
+            <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{when(e.at)}</Text>
+          </View>
           {e.state === 'undone' ? (
             <Text style={{ fontFamily: font.text700, fontSize: size.META, color: c.inkMuted }}>{strings['recent.undone']}</Text>
           ) : e.state === 'lost' ? (
@@ -54,11 +58,11 @@ export function RecentScreen({ navigation }: Props) {
               onPress={() => {
                 const r = undoRecent(e.id);
                 // Wynik od razu dla VoiceOvera (iOS nie ma regionów na żywo).
-                AccessibilityInfo.announceForAccessibility(r === 'stale' ? strings['recent.stale'] : strings['recent.undone']);
+                announce(r === 'stale' ? strings['recent.stale'] : strings['recent.undone']);
               }}
             />
           )}
-        </View>
+        </Card>
       ))}
     </Screen>
   );

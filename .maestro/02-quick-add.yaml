@@ -11,7 +11,7 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
     visible:
       id: "today-day-2026-10-08"
     timeout: 10000
-- assertVisible: "Otwórz: Kupić mleko,.*"
+- assertVisible: "Kupić mleko,.*"
 # Pasek „Dodano … · Zmień” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
 - extendedWaitUntil:
     notVisible:
