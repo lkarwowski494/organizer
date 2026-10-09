@@ -8,6 +8,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 23: poprawki audytu 3 (9.10.2026). „Nawiguj” tylko w Mapach Apple — ADR 0043.
+    fromBuild: 23,
+    items: [
+      '„Nawiguj” przy wydarzeniu otwiera zawsze Mapy Apple, więc wybór aplikacji map zniknął z Ustawień.',
+    ],
+  },
+  {
     // Build 22: zmiany od buildu 21 (D124–D135, D199) i poprawki audytu 2 z 8.10.2026 — jedna karta, najwyżej 8 punktów.
     fromBuild: 22,
     items: [
