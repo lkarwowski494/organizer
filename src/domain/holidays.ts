@@ -3,6 +3,10 @@
  *
  * Data Wielkanocy (kalendarz gregoriański): algorytm „anonimowy gregoriański” (Meeus/Jones/Butcher) —
  * rachunek, sprawdzany różnicowo z dateutil.easter (EASTER_WESTERN) dla lat 2011–2200 w korpusie testowym.
+ * Algorytm (zmienne a…m jak niżej): https://en.wikipedia.org/wiki/Date_of_Easter#Anonymous_Gregorian_algorithm —
+ * „h + l − 7 m + 114 … the variable n indicates the month of the year … while the day of the month is obtained as
+ * (o + 1)”; wzorzec korpusu: https://dateutil.readthedocs.io/en/stable/easter.html — „EASTER_WESTERN = 3 … Revised
+ * method, in Gregorian calendar, valid in years 1583 to 4099”.
  */
 import { HOLIDAYS_FROM_YEAR, HOLIDAYS_PL } from '../config/holidays.pl';
 import { addDays, type CivilDate, formatIsoDate } from './civil-date';

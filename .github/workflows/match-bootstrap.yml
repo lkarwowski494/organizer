@@ -1,12 +1,17 @@
-# Certyfikaty iOS (D28). Runner macos-26 — w repo publicznym bez opłat.
-# Bezpieczeństwo: tylko tag v* albo ręczne uruchomienie; środowisko ios-release dopuszcza tylko gałąź main
-# i tagi v* (bez zatwierdzania — decyzja właściciela D53, 7.10.2026, jak w Treningu); BEZ artefaktów (w repo publicznym może je
-# pobrać każdy zalogowany). Wersja Xcode przypięta (obraz macos-26: 26.6 domyślny, sprawdzone 7.10.2026
-# w actions/runner-images, images/macos/macos-26-arm64-Readme.md; SDK 57 wymaga Xcode ≥ 26.4).
+# Certyfikaty i profile podpisu iOS przez fastlane match (D28) — zaszyfrowane w prywatnym repozytorium organizer-certs
+# (fastlane/Matchfile). Nic nie buduje i nic nie wysyła do TestFlight (to robi ios-release.yml).
+# Uruchamiane wyłącznie ręcznie (workflow_dispatch) z wyborem ścieżki fastlane:
+#  - bootstrap_signing — jednorazowo: certyfikat dystrybucyjny i profil App Store (zrobione przy starcie projektu;
+#    ponownie tylko po wygaśnięciu albo unieważnieniu certyfikatu);
+#  - renew_profile — nowy profil App Store po włączeniu nowej możliwości w App ID (np. Associated Domains, D94).
+# Środowisko ios-release (bez zatwierdzania — D53, 7.10.2026) dopuszcza tylko gałąź main i tagi v*, więc przebieg
+# z innej gałęzi nie dostanie sekretów. Sekrety środowiska (nazwy): ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (klucz
+# App Store Connect API), MATCH_PASSWORD (hasło szyfrowania match), MATCH_GIT_USER i MATCH_GIT_TOKEN (dostęp do
+# organizer-certs; nagłówek Basic liczony w kroku i maskowany). BEZ artefaktów (w repo publicznym może je pobrać każdy
+# zalogowany). Runner macos-26 — w repo publicznym bez opłat. Przebieg nie kompiluje aplikacji, więc nie przełącza
+# Xcode (xcode-select z przypiętą wersją jest tylko w ios-release.yml).
 name: match-bootstrap
 
-# bootstrap_signing — JEDNORAZOWO: certyfikat dystrybucyjny i profil App Store w prywatnym organizer-certs.
-# renew_profile — nowy profil po włączeniu możliwości w App ID (Associated Domains, D94).
 on:
   workflow_dispatch:
     inputs:

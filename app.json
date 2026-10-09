@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "io.github.lkarwowski494.organizer",
+      "deploymentTarget": "16.4",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "entitlements": {
