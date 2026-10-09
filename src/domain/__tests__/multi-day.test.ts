@@ -240,7 +240,7 @@ describe('D199 cz. 2: z godziną przez więcej niż jedną noc (pt. 18:00 – nd
   const TRIP = 46 * 60;
   it('span.ts: długość zapisana, dni, dzień końca, postać do zapisu', () => {
     expect([clockMinutes('18:00', '16:00'), clockMinutes(null, '1:00')]).toEqual([1320, null]);
-    expect([lengthMinutes('18:00', '16:00', TRIP), lengthMinutes('18:00', null, TRIP), lengthMinutes('18:00', '16:00')]).toEqual([TRIP, null, 1320]);
+    expect([lengthMinutes('18:00', '16:00', TRIP), lengthMinutes('18:00', null, TRIP), lengthMinutes(null, '16:00', TRIP), lengthMinutes('18:00', '16:00')]).toEqual([TRIP, null, null, 1320]);
     expect([coveredDays('18:00', '16:00', 1, TRIP), coveredDays('18:00', '00:00', 1, 30 * 60), coveredDays('18:00', null, 1, null), coveredDays('22:00', '06:00', 1, 32 * 60)]).toEqual([3, 2, 1, 3]);
     expect([endDayOffset('18:00', TRIP), endDayOffset('18:00', 30 * 60), endDayOffset('17:00', 60)]).toEqual([2, 2, 0]);
     // Zgodna z godzinami — zostaje; z godzin wynika ta sama — null; niezgodna (godziny zmienione bez długości) — null.
