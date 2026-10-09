@@ -1,5 +1,5 @@
 /** Zakupy na liście zakupów (D73): tworzenie z dniem i osobą, „Moje sprawy”, odhaczenie z pytaniem, planowanie, przekazanie. */
-import { fireEvent, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
 import { expectOps, answerAlert, lastAlert, put, sampleBase, setup , pickDate, setTime } from './harness';
@@ -144,7 +144,7 @@ describe('zakupy na liście', () => {
     await press(screen.getByLabelText('Dziś'));
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Łukasz'));
     await press(screen.getByTestId('trip-save'));
-    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', responsible_member_id: 'mf' } }]);
     expect(screen.getByText('dziś · dla Ciebie')).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
     await press(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Nikt konkretny'));
@@ -157,7 +157,7 @@ describe('zakupy na liście', () => {
     await press(within(screen.getByTestId('handoff-picker')).getByLabelText('Anuluj'));
     await press(screen.getByTestId('handoff-start'));
     await press(screen.getByLabelText('Przekaż: Ala'));
-    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: null } }, { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-07', due_time: null, responsible_member_id: 'mf' } }, { kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'lists', entity_id: 'lz', occurrence_date: null, to_member: 'ala' } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lz', set: { responsible_member_id: null } }, { kind: 'patch', entity: 'lists', id: 'lz', set: { responsible_member_id: 'mf' } }, { kind: 'create', entity: 'handoffs', id: 'new-1', group_id: 'gf', set: { entity: 'lists', entity_id: 'lz', occurrence_date: null, to_member: 'ala' } }]);
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
     await press(screen.getByTestId('handoff-cancel'));
     expectOps(store, [{ kind: 'patch', entity: 'handoffs', id: 'new-1', set: { status: 'cancelled' } }]);
@@ -166,6 +166,23 @@ describe('zakupy na liście', () => {
     // Kupione (Masło) znika z listy, plan zakupów się zeruje, zostaje wiersz zrobionych zakupów (PWD-11 A); niekupione zostają.
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 's-maslo' }, { kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: null, due_time: null, responsible_member_id: null } }, { kind: 'create', entity: 'shopping_trips', id: 'new-2', group_id: 'gf', set: { list_id: 'lz', planned_date: '2026-10-07', done_at: '2026-10-07T08:00:00.000Z' } }]);
     expect(within(screen.getByTestId('trip')).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.')).toBeTruthy();
+  });
+
+  it('audyt 3 (N-126): „Zapisz zakupy” wysyła tylko zmienione — osoba przyjęta w tym czasie na drugim telefonie zostaje', async () => {
+    const { store } = await open(planned());
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lz'));
+    await press(await screen.findByTestId('trip-change'));
+    // Ala przyjęła przekazanie zakupów, zanim zapisałem nowy dzień.
+    await act(async () => store.pull((b) => ({ ...b, lists: { ...b.lists, lz: { ...b.lists!.lz!, responsible_member_id: 'ala', version: 9 } } })));
+    await press(screen.getByLabelText('Jutro'));
+    await press(screen.getByTestId('trip-save'));
+    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lz', set: { due_date: '2026-10-08' } }]);
+    expect(screen.getByText('jutro, 17:00 · dla: Ala')).toBeTruthy();
+    // Bez zmian zapis nic nie wysyła.
+    await press(screen.getByTestId('trip-change'));
+    await press(screen.getByTestId('trip-save'));
+    expect(store.dispatched).toHaveLength(1);
   });
 
   it('przekazanie zakupów do mnie: „Do potwierdzenia” z tytułem „Zakupy: …”', async () => {

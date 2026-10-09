@@ -30,6 +30,7 @@ test `src/app/__tests__/texts.test.ts` (płeć, cudzysłów przy nazwach ekranó
 | Zamknięcie panelu, w którym wybór zapisał się od razu | **Gotowe** | Anuluj | panel pozycji zakupów, stałe zakupy |
 | Komunikat po dodaniu | **Dodano + rodzaj: tytuł · gdzie** | „Dodano: X” | „Dodano zadanie: Basen · Rodzina”, „Dodano produkt: mleko · Zakupy” |
 | Komunikat po usunięciu | **Usunięto + rodzaj: tytuł** | „Usunięto: X” | „Usunięto zadanie: Basen”, „Usunięto produkt: mleko”, „Usunięto wydarzenie: Wizyta”, „Usunięto serię: Tańce” |
+| Usunięcie osoby z grupy | **usunąć z grupy** („Usuń z grupy”) | wypisać | „Z tej grupy usuwa Cię właściciel albo administrator.” |
 | Głos aplikacji | **my** | ja | „Synchronizujemy…”, „Pobieramy grupę…”, „spróbujemy ponownie” |
 | Etykiety pól | **bezosobowo** | głos użytkownika („Zwykle jadę”, „Liczę”) | „Domyślny dojazd”, „Jednostka” |
 
