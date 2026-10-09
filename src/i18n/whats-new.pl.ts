@@ -8,10 +8,10 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
-    // Build 22: zmiany od buildu 21 (D124–D135) i poprawki audytu 2 z 8.10.2026 — jedna karta, najwyżej 8 punktów.
+    // Build 22: zmiany od buildu 21 (D124–D135, D199) i poprawki audytu 2 z 8.10.2026 — jedna karta, najwyżej 8 punktów.
     fromBuild: 22,
     items: [
-      'Obecność przy wydarzeniu grupy: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. Godzinę wybierasz kafelkami, bez pisania.',
+      'Wydarzenie może trwać kilka dni (obóz, wyjazd) albo przez północ. Obecność: „Będę / Może / Nie będę” — za siebie i za dziecko bez konta. Godzinę wybierasz kafelkami.',
       'Usunięte rzeczy trafiają na 30 dni do Kosza (Grupy → Kosz), a każdą zmianę cofniesz w Grupy → Ostatnie zmiany. Przy usuwaniu zamiast pytania jest „Cofnij”.',
       'Szybkie dodawanie pokazuje, do której grupy trafi wpis („Do: Rodzina”), rozumie „#Rodzina” i „@ja”, a przy samym produkcie podpowiada „Na listę: Zakupy”. Nie zgaduje dnia, którego nie rozpoznało.',
       'Zadanie: zmiany zapisują się od razu, „Przenieś do grupy” przenosi je z podzadaniami, a niezapisany formularz wraca po powrocie. Odhaczenie z niezrobionymi podzadaniami pyta, co z nimi.',
