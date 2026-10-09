@@ -173,9 +173,9 @@ export function EventEditScreen({ route, navigation }: Props) {
         </Body>
       ) : null}
       {!detail && groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['event.title']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
+      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} testID="event-title" />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
         <Field label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
@@ -283,7 +283,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           label={strings['event.responsible']}
           value={form.responsibleId ?? ''}
           onChange={(v) => set({ responsibleId: v === '' ? null : v })}
-          options={[{ value: '', label: strings['event.responsibleNone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+          options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
       {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}

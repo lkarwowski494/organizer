@@ -49,7 +49,7 @@ export function PushPrompt() {
       />
       <Button
         kind="secondary"
-        label={strings['push.later']}
+        label={strings['common.later']}
         testID="push-later"
         onPress={() => {
           setHidden(true);

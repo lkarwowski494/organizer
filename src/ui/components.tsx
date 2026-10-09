@@ -286,7 +286,7 @@ export function SwipeRow({ children, title, onDelete, enabled = true, testID, ac
           }}
           style={{ minHeight: size.TOUCH_TARGET + 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface, borderWidth: 1, borderColor: c.danger }}
         >
-          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings[action === 'delete' ? 'swipe.delete' : 'swipe.cancel']}</Text>
+          <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.danger }}>{strings[action === 'delete' ? 'common.delete' : 'event.cancel']}</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -370,7 +370,7 @@ export function QuickAddField({ value, onChangeText, onSubmit, placeholder, chil
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={strings['quick.add']}
+          accessibilityLabel={strings['common.add']}
           onPress={submit}
           style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: size.TOUCH_TARGET / 2, backgroundColor: c.inverseBg, alignItems: 'center', justifyContent: 'center' }}
         >
@@ -461,7 +461,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
 export function EventRow({ title, time, length, part, line, group, recurring, onPress, testID, faded, extra, alert }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; recurring: boolean; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
-  const when = time ?? strings['event.allDayLabel'];
+  const when = time ?? strings['common.allDay'];
   const whenA11y = [when, length, part].filter(Boolean).join(', ');
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${strings['event.rowA11y'](title, whenA11y, group, recurring)}${extra ? `, ${extra.split('  ·  ').join(', ')}` : ''}${alert ? `, ${alert}` : ''}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>

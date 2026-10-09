@@ -74,7 +74,7 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
+  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1);
   const startDay = parseIsoDate(occ.date);
@@ -171,7 +171,7 @@ export function EventScreen({ route, navigation }: Props) {
       ) : null}
       {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} upcoming={active && occ.date >= formatIsoDate(today) && occ.startTime !== null} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
-      <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
+      <Body>{d.event.audience === 'group' ? strings['event.audience.group'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
       {iAmResponsible && d.canEdit && active ? (
         waiting ? (
@@ -195,7 +195,7 @@ export function EventScreen({ route, navigation }: Props) {
                 onChange={setHandScope}
                 options={[
                   { value: 'one', label: strings['handoff.scope.one'] },
-                  { value: 'series', label: strings['handoff.scope.series'] },
+                  { value: 'series', label: strings['event.scope.all'] },
                 ]}
               />
             ) : null}
@@ -289,7 +289,7 @@ export function EventScreen({ route, navigation }: Props) {
         </View>
       ) : (
         <View style={{ gap: 8 }}>
-          <Button label={strings['event.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
+          <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
           {/* D187 (audyt 2: PW-16 A, M-121): jednorazowe usuwa się bez pytania — pasek „Cofnij” i kosz; seria pyta o zakres (D57). */}
           <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} />
         </View>

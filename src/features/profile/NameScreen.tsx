@@ -66,7 +66,7 @@ export function NameScreen({ route, navigation }: Props) {
         </Text>
       ) : null}
       <Button label={strings['name.save']} disabled={busy} onPress={() => void save()} testID="name-save" />
-      <Button kind="secondary" label={asked ? strings['name.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
+      <Button kind="secondary" label={asked ? strings['common.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
     </Screen>
   );
 }

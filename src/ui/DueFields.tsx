@@ -36,14 +36,14 @@ export function DueFields({ date, time, onDate, onTime, today, testID, timeLabel
         }}
         options={[
           ...(extra ? [{ value: 'extra', label: extra.label }] : []),
-          { value: 'today', label: strings['form.today'] },
+          { value: 'today', label: strings['common.today'] },
           { value: 'tomorrow', label: strings['form.tomorrow'] },
           { value: 'other', label: otherLabel },
           { value: 'none', label: strings['form.noDate'] },
         ]}
       />
       <DateField label={strings['due.other']} value={date} onChange={(d) => (setOther(0), onDate(d))} today={today} testID={`${testID}-date`} openSignal={other} />
-      <TimeField label={timeLabel ?? strings['task.dueTime']} value={time} onChange={onTime} testID={`${testID}-time`} optional disabledNote={date === '' ? strings['due.timeNeedsDay'] : undefined} />
+      <TimeField label={timeLabel ?? strings['common.timeOptional']} value={time} onChange={onTime} testID={`${testID}-time`} optional disabledNote={date === '' ? strings['due.timeNeedsDay'] : undefined} />
     </View>
   );
 }

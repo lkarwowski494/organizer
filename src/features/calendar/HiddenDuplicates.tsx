@@ -17,7 +17,7 @@ export function HiddenDuplicates({ entries, testID }: { entries: readonly Device
   const [open, setOpen] = useState(false);
   if (!entries.length) return null;
   const title = strings['device.hidden'](entries.length);
-  const meta = open ? strings['lists.runHide'] : strings['lists.runShow'];
+  const meta = open ? strings['common.collapseHint'] : strings['lists.runShow'];
   return (
     <View>
       <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta}`} onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}>
