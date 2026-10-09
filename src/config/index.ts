@@ -14,9 +14,11 @@ export const config = {
   /**
    * VoiceOver (audyt 2: M-44, M-269; src/ui/a11y.ts): po ilu ms przenosimy fokus na nowo pokazany element (widok musi być
    * już na ekranie) i jak długo po pokazaniu paska „Cofnij” ma on pierwszeństwo przed tytułem nowego ekranu (przejście
-   * na stosie trwa ok. 0,35 s). Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
+   * na stosie trwa ok. 0,35 s). SYNC_CALM_MS (audyt 3, N-198): powrót synchronizacji do normy po problemie (offline,
+   * błąd) ogłaszamy dopiero, gdy trwa tyle ms bez nowego problemu — przy „migającej” sieci (metro) bez ogłoszenia
+   * każdego przejścia. Wybory projektowe bez źródła zewnętrznego — do sprawdzenia na iPhonie z VoiceOverem.
    */
-  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500 },
+  a11y: { FOCUS_DELAY_MS: 100, PIN_MS: 1500, SYNC_CALM_MS: 10_000 },
 
   /**
    * „Ostatnie zmiany” (D194): ile ostatnich zmian z „Cofnij” pamięta aplikacja od uruchomienia i ile wpisów jednej
@@ -310,7 +312,7 @@ export const config = {
    */
   invites: {
     /**
-     * Dołączanie jak w Zoom (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
+     * Dołączanie jak do wideospotkania (D92–D94, decyzja właściciela z 8.10.2026): ID grupy 9 cyfr, kod 6 cyfr ważny 24 h,
      * limit nieudanych prób osoby na godzinę. D140 odwrócona (8.10.2026): zamiast limitu na ID grupy (cudze próby
      * blokowały poprawny kod) kod przestaje działać po JOIN_FAILS_PER_CODE nieudanych próbach na swoje ID grupy — szansa
      * odgadnięcia ≤ 100 / 10^6 na kod (rachunek w migracji 20261008362000_join_codes_v2). SQL: private.join_* (test
@@ -392,7 +394,7 @@ export const config = {
 
   /**
    * Najniższa wersja iOS (D35, `ios.deploymentTarget` w app.json; test kontraktowy). Tyle wymaga Expo SDK 57: tabela
-   * „Support for Android and iOS versions” — „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
+   * obsługiwanych wersji systemów, wiersz „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
    * https://docs.expo.dev/versions/v57.0.0/), i tyle mają podspeci Expo (`:ios => '16.4'`, node_modules/expo/Expo.podspec).
    * Funkcje z iOS 17+ (zgoda tylko na zapis do kalendarza) mają na iOS 16 zachowanie zastępcze — src/app/device-calendar.ts.
    */

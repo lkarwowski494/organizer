@@ -25,7 +25,7 @@ select pg_temp.as_user('00000000-0000-7000-8000-0000000000a1');
 set local role authenticated;
 select pg_temp.push('aaaa0000-0000-7000-8000-00000000c0a1', 1, '{"kind":"create","entity":"lists","id":"aaaa0000-0000-7000-8000-0000000000c1","group_id":"aaaa0000-0000-7000-8000-000000000001","set":{"kind":"tasks","name":"Dom"}}') is not null;
 select pg_temp.push('aaaa0000-0000-7000-8000-00000000c0a1', 2, '{"kind":"create","entity":"tasks","id":"aaaa0000-0000-7000-8000-0000000004d1","group_id":"aaaa0000-0000-7000-8000-000000000001","set":{"list_id":"aaaa0000-0000-7000-8000-0000000000c1","title":"Wynieść śmieci","assignee_member_id":"aaaa0000-0000-7000-8000-0000000000b2"}}') is not null;
-select pg_temp.push('aaaa0000-0000-7000-8000-00000000c0a1', 3, '{"kind":"create","entity":"lists","id":"aaaa0000-0000-7000-8000-0000000000c2","group_id":"aaaa0000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Biedronka","responsible_member_id":"aaaa0000-0000-7000-8000-0000000000b2"}}') is not null;
+select pg_temp.push('aaaa0000-0000-7000-8000-00000000c0a1', 3, '{"kind":"create","entity":"lists","id":"aaaa0000-0000-7000-8000-0000000000c2","group_id":"aaaa0000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Bazar","responsible_member_id":"aaaa0000-0000-7000-8000-0000000000b2"}}') is not null;
 select pg_temp.push('aaaa0000-0000-7000-8000-00000000c0a1', 4, '{"kind":"create","entity":"tasks","id":"aaaa0000-0000-7000-8000-0000000004d2","group_id":"aaaa0000-0000-7000-8000-000000000001","set":{"list_id":"aaaa0000-0000-7000-8000-0000000000c1","title":"Moje","assignee_member_id":"aaaa0000-0000-7000-8000-0000000000b1"}}') is not null;
 reset role;
 select pg_temp.as_user('');
@@ -60,7 +60,7 @@ select public.set_push_mute('aaaa0000-0000-7000-8000-000000000001', false);
 reset role;
 select pg_temp.as_user('');
 select is(public.assignment_push_claim((select list_a from ids), '00000000-0000-7000-8000-0000000000a1', 24) - 'tokens' - 'key' - 'title',
-  jsonb_build_object('body', 'Zakupy: Biedronka', 'path', 'list/aaaa0000-0000-7000-8000-0000000000c2'), '10: po odciszeniu — zakupy (otwiera listę, PWD-16)');
+  jsonb_build_object('body', 'Zakupy: Bazar', 'path', 'list/aaaa0000-0000-7000-8000-0000000000c2'), '10: po odciszeniu — zakupy (otwiera listę, PWD-16)');
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000a3');
 set local role authenticated;
 select throws_ok($$ select public.set_push_mute('aaaa0000-0000-7000-8000-000000000001', true) $$, 'P0001', 'forbidden', '11: spoza grupy nie wycisza');
