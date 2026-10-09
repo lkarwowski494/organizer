@@ -51,7 +51,7 @@ export const config = {
   lengths: { GROUP_NAME: 200, LIST_NAME: 200, TASK_TITLE: 500 },
 
   /**
-   * Wydarzenia. LOCATION_MAX_LENGTH (D115): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
+   * Wydarzenia. LOCATION_MAX_LENGTH (miejsce wydarzenia, ADR 0029): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
    * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
    * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
    * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
@@ -133,7 +133,9 @@ export const config = {
 
   /**
    * Przypomnienia na telefonie (D75, decyzja właściciela z 7.10.2026): domyślnie 30 min przed sprawą z godziną
-   * i zbiorcze o 8:00 dla spraw bez godziny; osoba zmienia to w Ustawieniach. Wybory projektowe, bez źródła.
+   * i poranne podsumowanie o 8:00 — od D110 (ADR 0026) z całym dniem, nie tylko ze sprawami bez godziny; wydarzenie
+   * i zadanie z podzadaniami mają jedno zbiorcze przypomnienie (D134, ADR 0035). Osoba zmienia to w Ustawieniach.
+   * Wybory projektowe, bez źródła.
    */
   reminders: {
     LEAD_MIN: 30,
@@ -151,8 +153,11 @@ export const config = {
     /**
      * Najwyżej tyle zaplanowanych powiadomień naraz = limit iOS: „An app can have only a limited number of scheduled
      * notifications; the system keeps the soonest-firing 64 notifications (with automatically rescheduled notifications
-     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification — dokumentacja archiwalna:
-     * https://developer.apple.com/library/archive/documentation/iPhone/Reference/UILocalNotification_Class/index.html).
+     * counting as a single notification) and discards the rest.” (Apple, UILocalNotification,
+     * https://developer.apple.com/documentation/uikit/uilocalnotification, przeczytane 9.10.2026; dawny adres archiwalny
+     * przekierowuje tutaj). Klasa jest przestarzała od iOS 10 na rzecz UNNotificationRequest; strony UNNotificationRequest,
+     * UNUserNotificationCenter.add i „Scheduling a notification locally from your app” (przeczytane tego dnia) liczby
+     * nie podają, więc to jedyna przeczytana liczba Apple.
      * Plan bierze najbliższe, więc nadmiar i tak by przepadł.
      */
     MAX_SCHEDULED: 64,
@@ -160,7 +165,9 @@ export const config = {
     MORNING_LIST_MAX: 4,
     /**
      * Przypomnienia bliższe niż tyle od chwili planowania pomijamy (audyt 2, N-7): iOS odrzuca wyzwalacz z odstępem ≤ 0
-     * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger), a datę ucina do sekundy.
+     * („This value must be greater than zero”, Apple: UNTimeIntervalNotificationTrigger,
+     * https://developer.apple.com/documentation/usernotifications/untimeintervalnotificationtrigger/init(timeinterval:repeats:)),
+     * a datę ucina do sekundy.
      * 5 s — zapas na czas między policzeniem planu a zaplanowaniem; wybór projektowy.
      */
     SCHEDULE_MARGIN_MS: 5_000,
@@ -326,12 +333,20 @@ export const config = {
   LOCALE: 'pl-PL',
   TIME_ZONE: 'Europe/Warsaw',
 
+  /**
+   * Najniższa wersja iOS (D35, `ios.deploymentTarget` w app.json; test kontraktowy). Tyle wymaga Expo SDK 57: tabela
+   * „Support for Android and iOS versions” — „57.0.0 | 7+ | 36 | 36 | 16.4+ | 26.4+” (kolumna iOS version,
+   * https://docs.expo.dev/versions/v57.0.0/), i tyle mają podspeci Expo (`:ios => '16.4'`, node_modules/expo/Expo.podspec).
+   * Funkcje z iOS 17+ (zgoda tylko na zapis do kalendarza) mają na iOS 16 zachowanie zastępcze — src/app/device-calendar.ts.
+   */
+  IOS_MIN: '16.4',
   /** Identyfikatory Apple (D36) — jawne, nie są sekretami. */
   BUNDLE_ID: 'io.github.lkarwowski494.organizer',
   APP_GROUP: 'group.io.github.lkarwowski494.organizer',
   /**
    * Projekt Supabase (D1, D41: „organizer”, Frankfurt). Adres jest jawny (trafia do aplikacji); klucz
-   * publikowalny podaje build w zmiennej EXPO_PUBLIC_SUPABASE_KEY — też jawny z założenia (RLS chroni dane),
+   * publikowalny podaje build w zmiennej EXPO_PUBLIC_SUPABASE_KEY (w ios-release.yml ze zmiennej środowiska
+   * `SUPABASE_PUBLISHABLE_KEY`, ADR 0006) — też jawny z założenia (RLS chroni dane),
    * ale trzymany poza repozytorium, żeby skanery sekretów nie miały fałszywych alarmów.
    */
   SUPABASE_URL: 'https://rkokujgrziaaxabtxnlo.supabase.co',

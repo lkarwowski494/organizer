@@ -2,8 +2,9 @@
  * Supabase jako transport synchronizacji i konto. Klient opisany strukturalnie (tylko to, czego używamy),
  * żeby testy podawały atrapę; w aplikacji to `createClient` z @supabase/supabase-js.
  *
- * Wywołania RPC jak w migracjach (supabase/migrations): sync_push, sync_pull, sync_fetch_scope,
- * create_group, create_invite, accept_invite, revoke_invite. Logowanie Apple wg dokumentacji Supabase
+ * Wywołania RPC i funkcji serwera jak w migracjach (supabase/migrations) i supabase/functions — pełna lista to wywołania
+ * `rpc(…)` i `functions.invoke(…)` w tym pliku (synchronizacja, grupy, zaproszenia i kody, powiadomienia, zgłoszenia,
+ * usunięcie konta); nie wyliczamy ich tu, żeby komentarz się nie rozjeżdżał z kodem. Logowanie Apple wg dokumentacji Supabase
  * (https://supabase.com/docs/guides/auth/social-login/auth-apple, wariant Expo: AppleAuthentication.signInAsync
  * → auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken })). W becie tylko Apple (decyzja
  * właściciela 8.10.2026, D177 / audyt 2 M-77): logowania linkiem z e-maila nie ma, więc aplikacja nie przyjmuje też sesji

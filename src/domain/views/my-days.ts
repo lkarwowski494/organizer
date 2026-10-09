@@ -4,7 +4,7 @@
  *  - dziś: zaległe (termin bez zmian, czerwony znacznik — D61) na górze, potem plan dnia (agenda.ts),
  *  - dzień przyszły: zadania z terminem tego dnia i wydarzenia.
  * Wygasłe (D61: „Tylko tego dnia”, zadanie na spotkaniu) nie przechodzą na dziś. Tydzień od poniedziałku
- * (PN-EN ISO 8601, jak kalendarz).
+ * (PN-EN ISO 8601, jak kalendarz; źródło — CLDR firstDay dla PL, opis w src/domain/month-grid.ts).
  */
 import { addDays, type CivilDate, daysInMonth, formatIsoDate, isoWeekday, toDayNumber } from '../civil-date';
 import { effectiveDue } from '../deadlines';
