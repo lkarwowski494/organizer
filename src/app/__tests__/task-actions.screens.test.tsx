@@ -50,7 +50,7 @@ describe('odhaczanie z potwierdzeniem (D59)', () => {
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'patch', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } });
     await press(screen.getAllByLabelText('Dziś')[0]!);
     await press(await screen.findByLabelText('Następny dzień'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Kupić\ kwiaty(,|$)/));
+    await press(await screen.findByLabelText(/^Kupić\ kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Oznacz jako zrobione: Wybrać tulipany'));
     await answerAlert('Anuluj');
@@ -168,7 +168,7 @@ describe('rolowanie (D61) i miniony dzień', () => {
     const { store } = await open(base);
     await press(screen.getByLabelText('Poprzedni dzień'));
     expect(screen.getByText(/Minęło: zrobione i wydarzenia/)).toBeTruthy();
-    expect(screen.getByLabelText('Logopeda, 18:00, Rodzina')).toBeTruthy();
+    expect(screen.getByLabelText('Logopeda, 18:00, Rodzina, minione')).toBeTruthy(); // audyt 2 (M-263): wyszarzone mówi to słowem
     // Audyt 2 (M-124): zrobione też przesuwa się do usunięcia — jak na liście i w Kalendarzu.
     expect(screen.getByLabelText('Usuń: Wynieść śmieci')).toBeTruthy();
     await press(screen.getByLabelText('Oznacz jako niezrobione: Wynieść śmieci'));
@@ -177,13 +177,13 @@ describe('rolowanie (D61) i miniony dzień', () => {
 
   it('zadanie: „Tylko tego dnia” / „Przechodzi na kolejne dni”; bez terminu i na spotkaniu — brak wyboru', async () => {
     const { store } = await open();
-    await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać\ paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.getByLabelText('Przechodzi na kolejne dni').props.accessibilityState.selected).toBe(true);
     await press(screen.getByLabelText('Tylko tego dnia'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { rollover: false } });
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByLabelText(/^Otwórz:\ Oddać\ książki\ do\ biblioteki(,|$)/));
+    await press(await screen.findByLabelText(/^Oddać\ książki\ do\ biblioteki(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText('Tylko tego dnia')).toBeNull();
   });
@@ -225,7 +225,7 @@ describe('adresat we wspólnej grupie (D68)', () => {
     // …więc lista mówi to wprost.
     expect(within(await screen.findByTestId('task-rower')).getByText(/bez osoby i terminu/)).toBeTruthy();
     expect(within(screen.getByTestId('task-ciasto')).getByText(/bez osoby i terminu/)).toBeTruthy();
-    await press(screen.getByLabelText(/^Otwórz:\ Rower\ do\ serwisu(,|$)/));
+    await press(screen.getByLabelText(/^Rower\ do\ serwisu(,|$)/));
     expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
   });
 
@@ -236,7 +236,7 @@ describe('adresat we wspólnej grupie (D68)', () => {
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect(within(await screen.findByTestId('task-rosół')).getByText(/bez osoby i terminu/)).toBeTruthy();
-    await press(screen.getByLabelText(/^Otwórz:\ Dać\ dzieciom\ rosół(,|$)/));
+    await press(screen.getByLabelText(/^Dać\ dzieciom\ rosół(,|$)/));
     expect(await screen.findByTestId('task-no-addressee')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Wróć'));
@@ -282,7 +282,7 @@ describe('odhaczenie zadania z niezrobionymi podzadaniami (decyzja właściciela
     await press(await screen.findByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
     await answerAlert('Anuluj');
-    await press(screen.getByLabelText(/^Otwórz:\ Odebrać\ paczkę(,|$)/));
+    await press(screen.getByLabelText(/^Odebrać\ paczkę(,|$)/));
     await screen.findByTestId('screen-task');
     await press(screen.getByLabelText('Oznacz jako zrobione: Odebrać paczkę'));
     asks('Odebrać paczkę', 'zostały 2 niezrobione podzadania');
@@ -337,7 +337,7 @@ describe('odhaczenie zadania z niezrobionymi podzadaniami (decyzja właściciela
     ]);
     expect(screen.queryByTestId('undo-bar')).toBeNull(); // pojedyncze odhaczenie — jak dotąd bez paska
     // Niezrobione podzadania zrobionego zadania dziś jeszcze widać (z dopiskiem zadania); od jutra mijają.
-    expect(screen.getByLabelText(/^Otwórz: Wydrukować etykietę, .*↳ Odebrać paczkę/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Wydrukować etykietę, .*podzadanie: Odebrać paczkę/)).toBeTruthy();
     await press(screen.getByLabelText('Następny dzień'));
     expect(screen.queryByLabelText(/Wydrukować etykietę/)).toBeNull();
   });

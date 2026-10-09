@@ -63,13 +63,13 @@ export function ItemPanel({ title, current, isStaple, error, onRename, onPick, o
   const name = useLiveText(title, onRename, { empty: strings['form.error.title'] });
   return (
     <View testID="item-panel" style={{ gap: 8, padding: 12, marginLeft: 30, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-      <Field label={strings['shop.itemName']} {...name.field} maxLength={config.lengths.TASK_TITLE} testID="item-name" />
+      <Field label={strings['shop.itemName']} {...name.field} maxLength={config.lengths.TASK_TITLE} testID="item-name" a11yFocus />
       {name.error ? <ErrorText>{name.error}</ErrorText> : null}
       <Body muted>{strings['shop.categoryHint']}</Body>
       <Segmented label={strings['shop.category']} value={current} onChange={onPick} options={CATEGORY_OPTIONS} />
       <Button kind="secondary" label={isStaple ? strings['shop.removeStaple'] : strings['shop.addStaple']} testID="staple-toggle" onPress={onToggleStaple} a11yHint={title} />
-      {error ? <Body>{error}</Body> : null}
-      <Button kind="secondary" label={strings['shop.done']} testID="item-done" onPress={onClose} />
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      <Button kind="secondary" label={strings['common.finish']} testID="item-done" onPress={onClose} />
     </View>
   );
 }
@@ -119,9 +119,9 @@ export function StaplesCard({ list, missing, onAddMissing, onEdit, onRemove }: {
             </View>
           ))}
           <Field label={strings['shop.stapleName']} value={text} onChangeText={(v) => (setText(v), setError(null))} onSubmitEditing={save} maxLength={config.shopping.STAPLE_MAX_LENGTH} testID="staple-name" />
-          {error ? <Body>{error}</Body> : null}
+          {error ? <ErrorText>{error}</ErrorText> : null}
           <Button label={strings['common.add']} testID="staple-save" onPress={save} />
-          <Button kind="secondary" label={strings['shop.done']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
+          <Button kind="secondary" label={strings['common.finish']} testID="staples-done" onPress={() => (setEditing(false), setError(null))} />
         </>
       ) : (
         <Button kind="secondary" label={strings['shop.staplesEdit']} testID="staples-edit" onPress={() => setEditing(true)} />

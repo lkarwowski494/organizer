@@ -13,7 +13,7 @@ async function openPackage() {
   const s = setup({ base: sampleBase() });
   await s.renderApp(<RootStack />);
   await screen.findByTestId('screen-today');
-  await press(screen.getByLabelText(/^Otwórz: Odebrać paczkę(,|$)/));
+  await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
   await screen.findByTestId('screen-task');
   const remote = (set: Record<string, unknown>) =>
     act(async () => s.store.pull((b) => ({ ...b, tasks: { ...b.tasks, 't-paczka': { ...b.tasks!['t-paczka']!, ...set } } })));

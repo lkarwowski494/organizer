@@ -41,7 +41,7 @@ describe('działy', () => {
 
   it('dotknięcie pozycji: wybór działu wysyła zmianę i przenosi pozycję; pamięć grupy działa na nową pozycję', async () => {
     const { store } = await openList();
-    await press(screen.getByLabelText(/^Zmień pozycję: Mydło(,|$)/));
+    await press(screen.getByLabelText(/^Mydło(,|$)/));
     // Audyt 2 (M-238): dział to wybór jednej opcji (radio w grupie „Dział”), jak inne takie wybory.
     const picker = screen.getByTestId('item-panel');
     expect(within(picker).getByLabelText('Dział').props.accessibilityRole).toBe('radiogroup');
@@ -57,10 +57,10 @@ describe('działy', () => {
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
     // Ponowne dotknięcie zamyka panel; „Gotowe” też.
-    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
-    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    await press(screen.getByLabelText(/^jabłek(,|$)/));
+    await press(screen.getByLabelText(/^jabłek(,|$)/));
     expect(screen.queryByTestId('item-panel')).toBeNull();
-    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    await press(screen.getByLabelText(/^jabłek(,|$)/));
     await press(within(screen.getByTestId('item-panel')).getByText('Gotowe'));
     expect(screen.queryByTestId('item-panel')).toBeNull();
   });
@@ -68,7 +68,7 @@ describe('działy', () => {
   it('dziecko nie zmienia działów ani stałych', async () => {
     const b = base((x) => put(x, 'group_members', 'mf', { ...x.group_members!.mf!, role: 'child' }));
     await openList(b);
-    expect(screen.queryByLabelText(/^Zmień pozycję: Mydło(,|$)/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Mydło(,|$)/ })).toBeNull();
     expect(screen.queryByTestId('staples')).toBeNull();
   });
 });
@@ -134,10 +134,10 @@ describe('stałe zakupy', () => {
 
   it('z panelu pozycji: „Dodaj do stałych” i „Usuń ze stałych”', async () => {
     const { store } = await openList(base((x) => put(x, 'lists', 'lz', { ...x.lists!.lz!, staples: ['Mydło'] })));
-    await press(screen.getByLabelText(/^Zmień pozycję: Mydło(,|$)/));
+    await press(screen.getByLabelText(/^Mydło(,|$)/));
     await press(screen.getByText('Usuń ze stałych'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } });
-    await press(screen.getByLabelText(/^Zmień pozycję: jabłek(,|$)/));
+    await press(screen.getByLabelText(/^jabłek(,|$)/));
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched.at(-1)).toEqual({ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'jabłek' } });
   });

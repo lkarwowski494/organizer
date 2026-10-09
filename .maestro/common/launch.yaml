@@ -9,7 +9,7 @@ appId: io.github.lkarwowski494.organizer
       id: "screen-today"
     timeout: 60000
 - extendedWaitUntil:
-    visible: "Otwórz: Oddać książki do biblioteki,.*"
+    visible: "Oddać książki do biblioteki,.*"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 5000

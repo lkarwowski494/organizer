@@ -127,7 +127,7 @@ describe('jeden klucz na jedno pojęcie (U-60)', () => {
     'tabs.today, common.today': 'nazwa zakładki (może się zmienić, PW-27) i dzień „dziś”',
     'tabs.lists, trash.kind.list': 'zakładka i rodzaj rzeczy w koszu',
     'tabs.groups, trash.kind.group': 'zakładka i rodzaj rzeczy w koszu',
-    'today.range.day, event.date': 'zakres widoku i pole formularza',
+    'today.range.day, due.day': 'zakres widoku i pole dnia w formularzu',
     'quick.groupPick, device.addToGroup': 'nagłówek wyboru grupy i przycisk przy wydarzeniu z iPhone’a',
     'rsvp.maybe, rsvp.other.maybe': 'zestawy odpowiedzi za siebie i za dziecko (`rsvp.${a}`, `rsvp.other.${a}`)',
     'due.when, timetable.week': 'termin zadania i wybór tygodnia A/B',
