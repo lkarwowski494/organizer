@@ -12,33 +12,40 @@
  */
 import { inviteUrl, joinUrl } from '../domain/invite-link';
 import type { PulledRow, PullResponse, PushResponse } from '../domain/sync-engine/client';
-import type { AccountApi, Invite, JoinInvite } from './account';
+import { AccountError, type AccountApi, type AccountErrorCode, type Invite, type JoinInvite } from './account';
 import { type SyncTransport, TransportError, type TransportErrorKind } from './transport';
 
 export type RpcError = { message: string; code?: string };
 export type RpcResult<T> = { data: T | null; error: RpcError | null; status: number };
 
 type Session = { refresh_token?: string; user: { id?: string; app_metadata?: { provider?: string; providers?: string[] } } };
-type AuthError = { message: string; status?: number } | null;
+type AuthError = { message: string; status?: number; code?: string } | null;
+/** Błąd functions-js: FunctionsFetchError (bez odpowiedzi) albo FunctionsHttpError z odpowiedzią w `context`. */
+type FunctionsError = { message: string; name?: string; context?: { json?(): Promise<unknown> } } | null;
 
 export type SupabaseLike = {
   rpc<T>(fn: string, args: object): PromiseLike<RpcResult<T>>;
   auth: {
-    signInWithIdToken(a: { provider: 'apple'; token: string }): Promise<{ error: { message: string } | null }>;
+    signInWithIdToken(a: { provider: 'apple'; token: string }): Promise<{ error: AuthError }>;
     signOut(a: { scope: 'local' }): Promise<{ error: { message: string } | null }>;
+    /** Konto na serwerze (GET /user); usunięte konto — błąd z kodem user_not_found (N-228). */
+    getUser(): Promise<{ error: AuthError }>;
     updateUser(a: { data: Record<string, string> }): Promise<{ error: { message: string } | null }>;
     getSession(): Promise<{ data: { session: Session | null } }>;
   };
   /** Tylko aktualizacja własnego profilu (D100; RLS i GRANT update (display_name) — migracja core). */
   from(table: 'profiles'): { update(v: { display_name: string }): { eq(col: 'user_id', v: string): PromiseLike<{ error: { message: string } | null }> } };
-  functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ data?: unknown; error: { message: string } | null }> };
+  functions: { invoke(name: string, opts: { method: 'POST'; body?: object }): Promise<{ data?: unknown; error: FunctionsError }> };
 };
 
 /**
  * Sign in with Apple na iPhonie. `fullName` Apple podaje tylko przy pierwszym logowaniu; `authorizationCode` (ważny
- * 5 min, jednorazowy) służy przy usuwaniu konta do unieważnienia tokenu Apple (wymóg Apple, ADR 0016).
+ * 5 min, jednorazowy) służy przy usuwaniu konta do unieważnienia tokenu Apple (wymóg Apple, ADR 0016). `scopes: 'none'` —
+ * ponowne potwierdzenie bez imienia i adresu. Anulowanie okna:
+ * wyjątek z `code: 'ERR_REQUEST_CANCELED'` („rejects with ERR_REQUEST_CANCELED if the user cancels the sign-in
+ * operation”, https://docs.expo.dev/versions/v57.0.0/sdk/apple-authentication/).
  */
-export type AppleSignIn = (scopes?: 'none') => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
+export type AppleSignIn = (req?: { scopes?: 'none' }) => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
 
 /**
  * Błędy trwałe protokołu (raise exception w sync_push / sync_pull, kod P0001): ponawianie nic nie zmieni, więc pętla
@@ -119,6 +126,27 @@ function parseJobs(raw: string | null): SignOutJob[] {
 /** Błąd auth-js bez odpowiedzi serwera (status 0) albo po stronie serwera (5xx) — warto spróbować później. */
 const retryable = (e: { status?: number }) => !e.status || e.status >= 500;
 
+/** Okno Apple: anulowanie osobno (bez komunikatu), każdy inny błąd — „Coś poszło nie tak” (N-72, N-73). */
+async function askApple(apple: AppleSignIn, req: { scopes?: 'none' }) {
+  try {
+    return await apple(req);
+  } catch (e) {
+    throw new AccountError((e as { code?: unknown } | null)?.code === 'ERR_REQUEST_CANCELED' ? 'canceled' : 'failed', String((e as Error | null)?.message ?? e));
+  }
+}
+
+/** auth-js bez odpowiedzi serwera zwraca status 0 (AuthRetryableFetchError). */
+const authCode = (e: NonNullable<AuthError>): AccountErrorCode => (e.status === 0 ? 'network' : 'failed');
+
+/** Kod odpowiedzi funkcji delete-account (handler.ts) z `error.context` — functions-js daje stały komunikat (N-72). */
+async function deleteErrorCode(e: NonNullable<FunctionsError>): Promise<AccountErrorCode | 'unknown'> {
+  if (e.name === 'FunctionsFetchError') return 'network';
+  const body = (await e.context?.json?.().catch(() => null)) as { error?: unknown } | null | undefined;
+  if (body?.error === 'apple_code_invalid') return 'apple_mismatch';
+  if (body?.error === 'apple_unavailable') return 'apple_unavailable';
+  return 'unknown';
+}
+
 /** Konto z tożsamością Apple (app_metadata.providers — wszystkie połączone sposoby logowania). */
 const isApple = (s: Session | null) => !!s && (s.user.app_metadata?.providers ?? [s.user.app_metadata?.provider]).includes('apple');
 
@@ -151,9 +179,10 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
 
   return {
     async signInWithApple() {
-      const credential = await apple();
-      if (!credential.identityToken) throw new Error('apple:no_identity_token');
-      check(await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }));
+      const credential = await askApple(apple, {});
+      if (!credential.identityToken) throw new AccountError('failed', 'apple:no_identity_token');
+      const signed = await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken });
+      if (signed.error) throw new AccountError(authCode(signed.error), signed.error.message);
       // O-036: imię z Apple (tylko przy pierwszym logowaniu) do konta i profilu — w grupach widać imię, nie „Ja”.
       // Profil tak jak przy „Twoje imię” (setMyName; audyt 2, M-186): wyzwalacz bazy tworzy go przy założeniu konta,
       // zanim imię trafi do metadanych.
@@ -172,8 +201,10 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
       let job: SignOutJob | null = null;
       if (token) {
         let handled = true;
+        const unregister = () => call(client, 'unregister_push_token', { p_token: token });
         try {
-          await call(client, 'unregister_push_token', { p_token: token });
+          // Audyt 3, N-224: chwilowy błąd (sieć, serwer) — jedno ponowienie od razu, zanim sesja się skończy.
+          await unregister().catch((e: TransportError) => (e.kind === 'auth' ? Promise.reject(e) : unregister()));
         } catch (e) {
           // Bez sieci albo błąd serwera: zadanie na później ze starą sesją. Sesja nieważna (auth) albo brak pamięci zadań —
           // token zostaje zapamiętany (zdejmie go następne wylogowanie albo przejmie inne konto przy rejestracji).
@@ -192,8 +223,12 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
       // Audyt 2 (S-24): auth-js bez sieci i tak usuwa sesję z telefonu, ale zwraca błąd (GoTrueClient._signOut) —
       // wylogowanie się udało, więc bez wyjątku. Błąd tylko, gdy sesja została.
       if (r.error && (await client.auth.getSession()).data.session) throw new Error(r.error.message);
-      // Serwer zamknął sesję — zadanie starą sesją i tak by się nie udało.
-      if (job && !r.error) await saveJobs((await loadJobs()).filter((j) => j.refreshToken !== job.refreshToken));
+      // Serwer zamknął sesję — zadanie starą sesją i tak by się nie udało. N-224: token wraca do pamięci, żeby zdjęło go
+      // następne wylogowanie, a rejestracja przy następnym zalogowaniu przepisała na nowe konto (register_push_token).
+      if (job && !r.error) {
+        await saveJobs((await loadJobs()).filter((j) => j.refreshToken !== job.refreshToken));
+        await memory.save(token).catch(() => {});
+      }
     },
     finishSignOut() {
       // Jedno przejście naraz (start, powrót do aplikacji, zmiana konta i ponawianie mogą przyjść razem).
@@ -217,19 +252,30 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
       });
       return flushing;
     },
-    async deleteAccount(beforeSignOut) {
+    async deleteAccount({ deleteEntries, beforeSignOut } = {}) {
       // M-303 (PWD-34 A): konto z Apple potwierdza usunięcie świeżym kodem autoryzacji — serwer sprawdza go w Apple
       // i unieważnia token Apple (wymóg Apple, O-036, ADR 0016). Okno Apple to ponowne potwierdzenie tożsamości.
-      const code = isApple((await client.auth.getSession()).data.session) ? ((await apple('none')).authorizationCode ?? null) : undefined;
-      if (code === null) throw new Error('apple:no_authorization_code');
-      // Funkcja serwerowa sprawdza JWT i usuwa użytkownika; dane sprząta wyzwalacz bazy (D49, ADR 0004).
-      check(await client.functions.invoke('delete-account', { method: 'POST', ...(code ? { body: { appleAuthorizationCode: code } } : {}) }));
+      const code = isApple((await client.auth.getSession()).data.session) ? ((await askApple(apple, { scopes: 'none' })).authorizationCode ?? null) : undefined;
+      if (code === null) throw new AccountError('failed', 'apple:no_authorization_code');
+      // Funkcja serwerowa sprawdza JWT i usuwa użytkownika; dane sprząta wyzwalacz bazy (D49, ADR 0004). Wybór
+      // „Usuń też moje wpisy” (N-71) tylko, gdy zaznaczony — starsza wersja funkcji go nie zna, a brak = jak dotąd.
+      const body = { ...(code ? { appleAuthorizationCode: code } : {}), ...(deleteEntries ? { deleteEntries: true } : {}) };
+      const r = await client.functions.invoke('delete-account', { method: 'POST', ...(Object.keys(body).length ? { body } : {}) });
+      if (r.error) {
+        const kind = await deleteErrorCode(r.error);
+        // N-228: odpowiedź mogła zginąć po usunięciu (zerwana sieć) albo to ponowna próba po takim usunięciu (401 z funkcji).
+        // Serwer Auth mówi user_not_found tylko o koncie, którego już nie ma — wtedy to sukces.
+        const gone = (kind === 'network' || kind === 'unknown') && (await client.auth.getUser().catch(() => ({ error: null }))).error?.code === 'user_not_found';
+        if (!gone) throw new AccountError(kind === 'unknown' ? 'failed' : kind, r.error.message);
+      }
       // Konto już nie istnieje: tokeny push usunął serwer razem z kontem (push_tokens: on delete cascade).
       pushToken = null;
       await memory.save(null).catch(() => {});
       // Sprzątanie telefonu (M-64) przed końcem sesji — ekrany jeszcze działają.
       await beforeSignOut?.().catch(() => {});
-      check(await client.auth.signOut({ scope: 'local' }));
+      // Jak przy wylogowaniu (S-24): błąd liczy się tylko wtedy, gdy sesja została na telefonie.
+      const out = await client.auth.signOut({ scope: 'local' });
+      if (out.error && (await client.auth.getSession()).data.session) throw new AccountError('failed', out.error.message);
     },
     async setMyName(name) {
       check(await client.auth.updateUser({ data: { display_name: name } }));

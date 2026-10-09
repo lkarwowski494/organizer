@@ -1,3 +1,4 @@
+import { config } from '../../config';
 import type { Row } from '../sync-engine/client';
 import { formDate, formFromText, formGroups, formMembers, formOps, formUnseen, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
 
@@ -94,9 +95,16 @@ describe('pełny formularz zadania (D90)', () => {
     expect(v({ groupId: 'gf', date: '', time: '' })).toBeNull();
     expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBeNull();
     expect(v({ date: '', time: '' })).toBeNull();
-    // Audyt 2 (T-15): osoba usunięta z grupy (D132) albo nieznana to „nikt konkretny” — od PW-18 b bez blokady,
-    // za to z dopiskiem (formUnseen niżej).
-    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'old' })).toBeNull();
+    // Audyt 2 (T-15): osoba usunięta z grupy (D132) albo nieznana to „nikt konkretny” — dopisek (formUnseen niżej).
+    // Audyt 3 (N-32): zapis z nią serwer odrzuca (invalid_assignee) — formularz mówi o tym przed wysłaniem.
+    expect(v({ groupId: 'gf', date: '', time: '', assigneeId: 'old' })).toBe('assignee');
+    expect(v({ groupId: 'gf', assigneeId: 'nieznana' })).toBe('assignee');
+    expect(v({ groupId: 'gf', assigneeId: 'alicja' })).toBe('assignee');
+    expect(v({ groupId: 'gf', assigneeId: 'tymek' })).toBeNull();
+    // Audyt 3 (N-134): nazwa do config.lengths.TASK_TITLE znaków (CHECK char_length — emoji to jeden znak).
+    expect(v({ title: 'x'.repeat(config.lengths.TASK_TITLE) })).toBeNull();
+    expect(v({ title: '😀'.repeat(config.lengths.TASK_TITLE) })).toBeNull();
+    expect(v({ title: 'x'.repeat(config.lengths.TASK_TITLE + 1) })).toBe('titleLong');
     expect(formUnseen(t, ME, form({ groupId: 'gf', date: '', time: '', assigneeId: 'old' }))).toBe(true);
     expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBe(false);
   });
