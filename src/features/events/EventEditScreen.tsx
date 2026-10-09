@@ -14,7 +14,7 @@ import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, parseIsoDate } from '../../domain/format';
+import { formatDateInline, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { coveredDays } from '../../domain/span';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
@@ -169,7 +169,7 @@ export function EventEditScreen({ route, navigation }: Props) {
       {route.params.fromDevice && !detail ? <Body muted>{strings['event.copyInfo']}</Body> : null}
       {detail && detail.rule ? (
         <Body muted>
-          {scope === 'this' ? strings['event.scopeThisInfo'] : scope === 'following' ? strings['event.scopeFollowingInfo'](formatLongDate(parseIsoDate(occurrence), today)) : strings['event.scopeAllInfo']}
+          {scope === 'this' ? strings['event.scopeThisInfo'] : scope === 'following' ? strings['event.scopeFollowingInfo'](formatDateInline(parseIsoDate(occurrence), today)) : strings['event.scopeAllInfo']}
         </Body>
       ) : null}
       {!detail && groups.length > 1 ? (

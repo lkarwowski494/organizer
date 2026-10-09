@@ -37,8 +37,11 @@ describe('Info.plist po wtyczkach', () => {
     for (const key of ['NSCalendarsUsageDescription', 'NSCalendarsFullAccessUsageDescription', 'NSCalendarsWriteOnlyAccessUsageDescription', 'NSRemindersUsageDescription', 'NSRemindersFullAccessUsageDescription']) {
       expect(String(plist[key])).toMatch(/^Organizer /);
     }
-    // D96: pełny dostęp do kalendarza, ale prywatne wydarzenia zostają na telefonie — tak mówi opis.
-    expect(String(plist.NSCalendarsFullAccessUsageDescription)).toContain('nie opuszczają telefonu');
+    // D96: pełny dostęp do kalendarza; prywatne wydarzenia nie trafiają na serwer, a wydarzenia grup idą do kalendarza
+    // iPhone'a (zwykle iCloud) — audyt 2 (D-19): opis mówi oba fakty.
+    expect(String(plist.NSCalendarsFullAccessUsageDescription)).toMatch(/nie trafiają na serwer Organizera.*wydarzenia grup zapisujemy w Twoim kalendarzu/);
+    // Audyt 2 (N-19): zgoda „tylko zapis” nie twierdzi, że aplikacja nigdy nie czyta kalendarza (pełny dostęp czyta, D95).
+    expect(String(plist.NSCalendarsWriteOnlyAccessUsageDescription)).toContain('Ta zgoda nie daje dostępu do Twoich wpisów');
     // D116: lokalizacja tylko „podczas używania” (czas dojazdu); bez „zawsze”.
     expect(String(plist.NSLocationWhenInUseUsageDescription)).toMatch(/^Organizer .*nie trafia na serwer/);
     for (const key of ['NSLocationAlwaysAndWhenInUseUsageDescription', 'NSLocationAlwaysUsageDescription']) expect(plist[key]).toBeUndefined();
