@@ -49,10 +49,10 @@ export function WhatsNew() {
       {items.map((t) => (
         <Body key={t}>{`• ${t}`}</Body>
       ))}
-      <Button label={strings['whatsNew.ok']} testID="whats-new-ok" onPress={close} />
+      <Button label={strings['common.ok']} testID="whats-new-ok" onPress={close} />
       <Button
         kind="secondary"
-        label={strings['whatsNew.feedback']}
+        label={strings['feedback.open']}
         testID="whats-new-feedback"
         onPress={() => {
           close();

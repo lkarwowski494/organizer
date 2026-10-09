@@ -53,7 +53,7 @@ export function useTaskActions() {
       if (open.length === 0)
         return Alert.alert(strings['confirm.doneTitle'], t.title, [
           { text: strings['common.cancel'], style: 'cancel' },
-          { text: strings['confirm.doneYes'], onPress: () => void done() },
+          { text: strings['common.done'], onPress: () => void done() },
         ]);
       // „Cofnij” po hurtowym odhaczeniu: jak odznaczenie zadania (następne znika, jeśli nietknięte) i podzadania odhaczone
       // razem z nim — liczone zaraz po odhaczeniu, żeby dało się je zapisać w „Ostatnich zmianach” (D194 b); zmianę
@@ -98,7 +98,7 @@ export function useTaskActions() {
             ]
           : [
               { text: strings['common.cancel'], style: 'cancel' },
-              { text: strings['trip.yes'], onPress: () => done(false) },
+              { text: strings['common.done'], onPress: () => done(false) },
             ],
       );
     },

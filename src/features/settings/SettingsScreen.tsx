@@ -110,7 +110,7 @@ export function SettingsScreen({ navigation, route }: Props) {
       <Title>{strings[`settings.section.${section}`]}</Title>
       {section === 'appearance' ? (
         <Segmented
-          label={strings['settings.appearance']}
+          label={strings['settings.section.appearance']}
           value={appearance}
           onChange={setAppearance}
           options={[
@@ -157,7 +157,7 @@ export function SettingsScreen({ navigation, route }: Props) {
               label={strings['reminders.morning']}
               value={reminders.settings.morning}
               onChange={(v) => reminders.setSettings({ ...reminders.settings, morning: v })}
-              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['reminders.morning.off'] : m }))}
+              options={config.reminders.MORNING_OPTIONS.map((m) => ({ value: m, label: m === 'off' ? strings['common.off'] : m }))}
             />
             {/* M-308 (PWD-39 A): włącz/wyłącz — systemowy przełącznik w wierszu. */}
             <SwitchRow label={strings['reminders.leave']} value={reminders.settings.leave !== false} onChange={(on) => reminders.setSettings({ ...reminders.settings, leave: on })} testID="switch-reminders-leave" />
@@ -232,7 +232,7 @@ export function SettingsScreen({ navigation, route }: Props) {
       {section === 'account' ? (
         <>
           <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
-          <NavRow title={strings['settings.rejected']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
+          <NavRow title={strings['rejected.title']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
           <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>

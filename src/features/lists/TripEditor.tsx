@@ -29,13 +29,13 @@ export function TripEditor({ value, onChange, adults, today, required }: { value
         onTime={(time) => onChange({ ...value, time })}
         today={today}
         testID="trip"
-        timeLabel={strings['trip.time']}
+        timeLabel={strings['common.timeOptional']}
       />
       <Segmented
         label={strings['trip.who']}
         value={value.responsibleId ?? ''}
         onChange={(id) => onChange({ ...value, responsibleId: id === '' ? null : id })}
-        options={[{ value: '', label: strings['trip.anyone'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
+        options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
       {required && value.date.trim() === '' && value.responsibleId === null ? <ErrorText>{strings['trip.required']}</ErrorText> : null}
     </View>
