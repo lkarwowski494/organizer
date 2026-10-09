@@ -114,7 +114,7 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     await open(b);
     expect(screen.getByTestId('today-trip-lz')).toBeTruthy();
     await openList('lz');
-    expect(within(screen.getByTestId('trip')).getByText(/ktokolwiek/)).toBeTruthy();
+    expect(within(screen.getByTestId('trip')).getByText(/nikt konkretny/)).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
     expect(screen.getByRole('radio', { name: 'Nikt konkretny' }).props.accessibilityState.selected).toBe(true);
     expect(screen.queryByRole('radio', { name: 'Ala' })).toBeNull();
@@ -372,7 +372,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     await screen.findByTestId('screen-add-task');
     expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await press(radio('Grupa', 'Rodzina'));
-    expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w „Moich sprawach”. Wybierz osobę („Dla kogo”) albo ustaw termin.');
+    expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w Moich sprawach. Wybierz osobę („Dla kogo”) albo ustaw termin.');
     await press(screen.getByTestId('form-save'));
     expect(store.dispatched.at(-1)).toMatchObject({ kind: 'create', entity: 'tasks', group_id: 'gf', set: { title: 'nowy odkurzacz', deadline_mode: 'none' } });
     expect(await screen.findByTestId('screen-today')).toBeTruthy();

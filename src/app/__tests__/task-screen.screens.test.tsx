@@ -87,12 +87,12 @@ describe('termin (M-89, M-206, M-245)', () => {
     const s = await openTask('Kupić kwiaty');
     await setTime('task-time', '1');
     await setTime('task-time', '19:');
-    expect(screen.queryByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeNull();
+    expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
     expect(s.store.dispatched).toEqual([]);
     await fireEvent(screen.getByTestId('task-time-manual'), 'blur');
-    expect(screen.getByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeTruthy();
+    expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await setTime('task-time', '19:30');
-    expect(screen.queryByText('Wpisz godzinę jako GG:MM, np. 17:30')).toBeNull();
+    expect(screen.queryByText('Sprawdź godzinę (GG:MM).')).toBeNull();
     expect(s.store.dispatched.at(-1)).toMatchObject({ set: { due_date: '2026-10-08', due_time: '19:30' } });
     // Kafelek po wpisywaniu ręcznym: pole pokazuje kafelek, nie stary wpis.
     await setTime('task-time', '0');

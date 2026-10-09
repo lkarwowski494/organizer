@@ -7,6 +7,7 @@
  *  - We wspólnej grupie zadanie bez osoby i terminu nie trafi do niczyich Moich spraw (D68) — od decyzji właściciela
  *    z 8.10.2026 (PW-18 b) można je zapisać, formularz tylko o tym mówi (`formUnseen`); lista „Tylko ja” poza regułą (A).
  */
+import { LIST_NAMES } from '../../config/names.pl';
 import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
@@ -33,8 +34,8 @@ export type FormError = 'title' | 'date' | 'time' | 'repeatNeedsDate' | 'group';
 export const formGroups = (t: Tables, userId: string) => groupsView(t, userId).filter((g) => g.me.role !== 'child');
 
 /** Nazwy ogólnych list zadań (D97): w grupie osobistej „Moje zadania”, we wspólnej „Zadania”. */
-export const PERSONAL_LIST_NAME = 'Moje zadania';
-export const NEW_LIST_NAME = 'Zadania';
+export const PERSONAL_LIST_NAME = LIST_NAMES.PERSONAL;
+export const NEW_LIST_NAME = LIST_NAMES.GENERAL;
 
 /**
  * Ogólna lista zadań grupy (D97): tu trafia zadanie bez wybranej listy. Osobista — pierwsza lista zadań (jak dotąd),
