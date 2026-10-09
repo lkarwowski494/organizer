@@ -47,8 +47,6 @@ export type RootDeps = {
     onChange(fn: (s: Session | null) => void): () => void;
     /** Odświeżenie tokenu po 401 z serwera (audyt 2, M-9); sukces przychodzi przez onChange. */
     refresh?(): Promise<void>;
-    /** Wylogowanie tylko na tym telefonie, bez czyszczenia danych — ponowne logowanie po wygaśnięciu sesji (M-9). */
-    signOutLocal?(): Promise<void>;
   };
   /**
    * Identyfikator instalacji w pęku kluczy „tylko to urządzenie” (audyt 2, M-8): nie przechodzi do kopii iCloud, więc
@@ -114,7 +112,9 @@ function NewerData({ onReset }: { onReset: () => void }) {
   );
 }
 
-function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Session; pendingUrl: string | null }) {
+type SignedInProps = { deps: RootDeps; session: Session; pendingUrl: string | null; onDeleted: () => void };
+
+function SignedIn({ deps, session, pendingUrl, onDeleted }: SignedInProps) {
   const [rebuilt, setRebuilt] = useState(0);
   const opened = useMemo(() => {
     const db = deps.openDb(session.userId);
@@ -128,10 +128,10 @@ function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Sess
     }
   }, [deps, session.userId, rebuilt]);
   if (opened.newer) return <NewerData onReset={() => setRebuilt((n) => n + 1)} />;
-  return <SignedInApp deps={deps} session={session} db={opened.db} pendingUrl={pendingUrl} />;
+  return <SignedInApp deps={deps} session={session} db={opened.db} pendingUrl={pendingUrl} onDeleted={onDeleted} />;
 }
 
-function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; session: Session; db: DbAdapter; pendingUrl: string | null }) {
+function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps & { db: DbAdapter }) {
   const nowMs = deps.nowMs ?? Date.now;
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
@@ -286,15 +286,20 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
         await runLeaving();
         await deps.account.signOut();
       },
-      deleteAccount: () =>
-        deps.account.deleteAccount(async () => {
-          // Konta już nie ma na serwerze: bez dalszej synchronizacji; dane tego konta znikają z telefonu.
-          runtime.stop();
-          await runLeaving();
-          removeDb.current = true;
+      deleteAccount: (o?: { deleteEntries?: boolean }) =>
+        deps.account.deleteAccount({
+          deleteEntries: o?.deleteEntries,
+          beforeSignOut: async () => {
+            // Konta już nie ma na serwerze: bez dalszej synchronizacji; dane tego konta znikają z telefonu.
+            runtime.stop();
+            await runLeaving();
+            removeDb.current = true;
+            // N-72: ekran logowania potwierdzi usunięcie (Apple: „provide a confirmation when the deletion is complete”).
+            onDeleted();
+          },
         }),
     }),
-    [deps, runtime, runLeaving],
+    [deps, runtime, runLeaving, onDeleted],
   );
 
   const services: AppServices = useMemo(
@@ -316,7 +321,8 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
         wipeSynced(db);
         setEpoch((e) => e + 1);
       },
-      signInAgain: deps.session.signOutLocal ? () => void deps.session.signOutLocal!().catch(() => {}) : undefined,
+      // Audyt 3, N-224: pełne wylogowanie (zdjęcie tokenu push tego telefonu), dane konta zostają w jego bazie (D172 b).
+      signInAgain: () => void account.signOut().catch(() => {}),
       userId: session.userId,
       displayName: session.displayName,
       needsName: session.needsName,
@@ -348,6 +354,9 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   // Audyt 2 (M-221): link (np. zaproszenie) dotknięty, gdy nikt nie był zalogowany — nawigacja dostaje go po zalogowaniu.
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  // N-72: jednorazowe „Konto zostało usunięte.” na ekranie logowania — znika przy następnym zalogowaniu.
+  const [deleted, setDeleted] = useState(false);
+  const onDeleted = useCallback(() => setDeleted(true), []);
   const signedIn = useRef(false);
   useEffect(() => {
     signedIn.current = !!session;
@@ -359,6 +368,7 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
     const off = deps.session.onChange((s) => {
       // Link oddany nawigacji przy jej starcie (useState w AppNavigation) — po końcu tamtej sesji już nie wraca.
       if (signedIn.current) setPendingUrl(null);
+      if (s) setDeleted(false);
       setSession(s);
     });
     return () => {
@@ -401,8 +411,8 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
 
   let body;
   if (!fontsLoaded || session === undefined) body = <Loading />;
-  else if (session === null) body = <SignInScreen account={deps.account} />;
-  else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} />;
+  else if (session === null) body = <SignInScreen account={deps.account} notice={deleted ? strings['auth.deleted'] : null} />;
+  else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} onDeleted={onDeleted} />;
 
   return (
     <SafeAreaProvider>

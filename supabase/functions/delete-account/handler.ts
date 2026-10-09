@@ -13,6 +13,12 @@
  *     Bez klucza Sign in with Apple w sekretach (APPLE_SIWA_KEY_P8 / APPLE_SIWA_KEY_ID) albo ze złym kluczem kodu nie da
  *     się sprawdzić: wymagamy wtedy samej obecności kodu i usuwamy z „not_configured” — błąd konfiguracji nie może
  *     zablokować prawa do usunięcia konta (App Store 5.1.1(v)).
+ *     Brak klucza zapisujemy też w zgłoszeniach błędów (client_errors, bez konta i bez danych osobowych; audyt 3 N-99), żeby
+ *     ciche „not_configured” było widać w panelu — krok sprawdzenia sekretów jest na liście kontrolnej docs/testflight-beta.md.
+ * 1c. Wybór „Usuń też moje wpisy w grupach” (`deleteEntries`, audyt 3 N-71, Q5 C) zapisuje RPC prepare_account_deletion
+ *     z JWT użytkownika tuż przed usunięciem — zawsze, także `false`, żeby nie zadziałał wybór z wcześniejszej, nieudanej
+ *     próby. Wykonuje go wyzwalacz bazy w transakcji usunięcia (20261010240000_account_delete_entries). Bez zapisu wyboru
+ *     nie usuwamy konta (502 delete_failed): inaczej wpisy zostałyby wbrew wyborowi.
  * 1b. Konto bez Apple (dawne logowanie linkiem z e-maila, wyłączone w becie — D177): wystarcza sesja; ponownego
  *     potwierdzenia e-mailem nie ma, bo wysyłka linków jest wyłączona.
  * Endpointy: https://github.com/supabase/auth/blob/master/openapi.yaml (/user, /admin/users/{userId}).
@@ -46,7 +52,7 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
   const user = (await who.json()) as { id?: string; identities?: { provider?: unknown; id?: unknown }[] };
   if (!user.id || !/^[0-9a-f-]{36}$/i.test(user.id)) return json(401, { error: 'unauthorized' });
   const appleIds = (Array.isArray(user.identities) ? user.identities : []).filter((i) => i?.provider === 'apple' && typeof i.id === 'string').map((i) => i.id as string);
-  const input = (await req.json().catch(() => ({}))) as { appleAuthorizationCode?: unknown };
+  const input = (await req.json().catch(() => ({}))) as { appleAuthorizationCode?: unknown; deleteEntries?: unknown };
   const code = typeof input.appleAuthorizationCode === 'string' && input.appleAuthorizationCode !== '' ? input.appleAuthorizationCode : null;
   let apple: 'not_apple' | 'not_configured' | 'revoked' | 'revoke_failed' = 'not_apple';
   if (appleIds.length) {
@@ -65,7 +71,21 @@ export async function handle(req: Request, env: Env, fetchFn: typeof fetch = fet
       else apple = 'not_configured';
     } else apple = 'not_configured';
   }
+  const prep = await fetchFn(`${url}/rest/v1/rpc/prepare_account_deletion`, {
+    method: 'POST',
+    headers: { authorization: auth, apikey: publishable, 'content-type': 'application/json' },
+    body: JSON.stringify({ delete_entries: input.deleteEntries === true }),
+  });
+  if (!prep.ok) return json(502, { error: 'delete_failed', status: prep.status });
   const del = await fetchFn(`${url}/auth/v1/admin/users/${user.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${secret}`, apikey: secret } });
   if (!del.ok) return json(502, { error: 'delete_failed', status: del.status });
+  if (apple === 'not_configured') {
+    console.error('delete-account: Sign in with Apple not_configured — token Apple nie został unieważniony');
+    await fetchFn(`${url}/rest/v1/client_errors`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${secret}`, apikey: secret, 'content-type': 'application/json', prefer: 'return=minimal' },
+      body: JSON.stringify({ kind: 'error', message: 'delete-account: apple not_configured', screen: 'delete-account' }),
+    }).catch(() => {});
+  }
   return json(200, { deleted: true, apple });
 }
