@@ -383,8 +383,8 @@ function run(cmds: Cmd[]) {
       }
       case 'derive': {
         const view = materialize(p.state);
-        const canCreate = (g: string) =>
-          Object.values(view.group_members ?? {}).some((m) => m.group_id === g && m.user_id === p.user && m.deleted_at == null && m.role !== 'child');
+        const canCreate = (x: { group_id: string }) =>
+          Object.values(view.group_members ?? {}).some((m) => m.group_id === x.group_id && m.user_id === p.user && m.deleted_at == null && m.role !== 'child');
         const skip = rejectedCreateIds(p.state);
         const ops = [...expiredRepeatOps(view, TODAY, canCreate, skip), ...missingRepeatOps(view, TODAY, canCreate, (iso) => iso.slice(0, 10), skip)];
         for (const op of ops) {

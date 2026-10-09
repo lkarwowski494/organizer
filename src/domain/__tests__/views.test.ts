@@ -1,13 +1,13 @@
 import * as fc from 'fast-check';
 
 import { groupLines } from '../../config/theme';
-import type { CivilDate } from '../civil-date';
+import { addDays, type CivilDate, formatIsoDate } from '../civil-date';
 import { parseQuickAdd } from '../quickadd';
 import { applyOp, type Row } from '../sync-engine/client';
 import * as cmd from '../views/commands';
 import { asGroup, asList, asMember, asTask, calendarMonth, childRoleAllowed, groupDetail, groupsView, listDetail, listOpenCount, listsView, memberActions, myMemberships, removedMembers, splitDoneRows, type TaskNode, type Tables, todayView, trashedGroups } from '../views';
 import { tripEntries } from '../views/shopping-trip';
-import { nextId } from '../views/task-repeat';
+import { formatRepeat, nextDue, nextId, type Repeat } from '../views/task-repeat';
 import { config } from '../../config';
 
 const ME = 'u-me';
@@ -498,6 +498,63 @@ describe('kalendarz', () => {
     expect(calendarMonth(t, ME, 2026, 11).flatMap((d) => d.items.filter((x) => x.projected && x.id === 'mies').map(() => d.date))).toEqual(['2026-11-30']);
     // Siatka kończąca się przed terminem — kolejnych terminów w niej nie ma (sam termin też nie).
     expect(calendarMonth(t, ME, 2026, 9).flatMap((d) => d.items.filter((x) => x.projected))).toEqual([]);
+  });
+
+  // Audyt 3 (N-24): przewidywane terminy to te, które naprawdę powstaną — jak nextDue przy odhaczeniu dziś.
+  const projectedOf = (t: T, today: CivilDate, month = 10) => calendarMonth(t, ME, 2026, month, { today }).flatMap((d) => d.items.filter((x) => x.projected).map((x) => `${d.date} ${x.id}`));
+  it('N-24: zaległe „codziennie” — przewidywane dopiero od jutra (nie w minionych dniach ani dziś)', () => {
+    const t = world();
+    task(t, { id: 'leki', ...own('2026-10-05', '08:00'), repeat: 'FREQ=DAILY' });
+    const p = projectedOf(t, { y: 2026, m: 10, d: 9 });
+    expect(p[0]).toBe('2026-10-10 leki');
+    expect(p.filter((x) => x < '2026-10-10')).toEqual([]);
+    // Termin dziś niezrobiony — też od jutra; przyszły — od dnia po terminie.
+    const t2 = world();
+    task(t2, { id: 'dzis', ...own('2026-10-09'), repeat: 'FREQ=WEEKLY;BYDAY=FR' });
+    task(t2, { id: 'pozniej', ...own('2026-10-20'), repeat: 'FREQ=WEEKLY;BYDAY=TU' });
+    expect(projectedOf(t2, { y: 2026, m: 10, d: 9 })).toEqual(['2026-10-16 dzis', '2026-10-23 dzis', '2026-10-27 pozniej', '2026-10-30 dzis']);
+  });
+
+  it('N-24: minione „Tylko tego dnia” — kolejne terminy liczy jego następne (D133), bez dubli', () => {
+    const t = world();
+    task(t, { id: 'leki', ...own('2026-10-07', '08:00'), repeat: 'FREQ=DAILY', rollover: false });
+    // Następnego jeszcze nie ma: przewidywane od dziś (tyle da D133).
+    expect(projectedOf(t, { y: 2026, m: 10, d: 9 }).slice(0, 2)).toEqual(['2026-10-09 leki', '2026-10-10 leki']);
+    // Następne jest: przewiduje tylko ono.
+    const copy = nextId('leki');
+    task(t, { id: copy, ...own('2026-10-09', '08:00'), repeat: 'FREQ=DAILY', rollover: false });
+    const p = projectedOf(t, { y: 2026, m: 10, d: 9 });
+    expect(p.filter((x) => x.endsWith(' leki'))).toEqual([]);
+    expect(p.filter((x) => x.startsWith('2026-10-15'))).toEqual([`2026-10-15 ${copy}`]);
+    // Otwarte z istniejącym następnym (np. cofnięte odhaczenie na starszej wersji) — też bez dubla.
+    const t2 = world();
+    task(t2, { id: 'smieci', ...own('2026-10-12'), repeat: 'FREQ=WEEKLY;BYDAY=MO' });
+    task(t2, { id: nextId('smieci'), ...own('2026-10-19'), repeat: 'FREQ=WEEKLY;BYDAY=MO' });
+    expect(projectedOf(t2, { y: 2026, m: 10, d: 9 })).toEqual([`2026-10-26 ${nextId('smieci')}`]);
+  });
+
+  it('N-24 (własność): przewidywane dni = kolejne nextDue przy odhaczaniu każdego terminu w jego dniu, od dziś', () => {
+    const repeat = fc.oneof(
+      fc.constant<Repeat>({ kind: 'daily' }),
+      fc.uniqueArray(fc.integer({ min: 0, max: 6 }), { minLength: 1, maxLength: 7 }).map((days): Repeat => ({ kind: 'weekly', days })),
+      fc.constant<Repeat>({ kind: 'monthly' }),
+      fc.oneof(fc.integer({ min: 1, max: 31 }), fc.constant(-1)).map((day): Repeat => ({ kind: 'monthly', day })),
+    );
+    fc.assert(
+      fc.property(repeat, fc.integer({ min: -40, max: 40 }), fc.integer({ min: 0, max: 30 }), fc.boolean(), (r, dueShift, todayShift, rollover) => {
+        const today = addDays({ y: 2026, m: 10, d: 1 }, todayShift);
+        const due = addDays(today, dueShift);
+        const t = world();
+        task(t, { id: 'r', ...own(formatIsoDate(due)), repeat: formatRepeat(r), rollover });
+        const last = '2026-12-06'; // koniec siatki listopada
+        const expired = !rollover && dueShift < 0;
+        const want: string[] = [];
+        for (let x = expired ? nextDue(r, due, addDays(today, -1)) : nextDue(r, due, today); formatIsoDate(x) <= last; x = nextDue(r, x, x)) want.push(formatIsoDate(x));
+        const got = calendarMonth(t, ME, 2026, 11, { today }).flatMap((d) => d.items.filter((x) => x.projected).map(() => d.date));
+        expect(got).toEqual(want.filter((x) => x >= '2026-10-26'));
+      }),
+      { numRuns: 300 },
+    );
   });
 
   it('liczba tygodni zgodna z modułem calendar Pythona (Calendar(0).monthdatescalendar)', () => {

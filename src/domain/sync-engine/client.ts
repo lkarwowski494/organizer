@@ -139,6 +139,11 @@ export function rejectedCreateIds(state: Pick<ClientState, 'rejected'>): Set<str
   return new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : [])));
 }
 
+/** Audyt 3 (N-123): usunięcia odrzucone przez serwer — telefon nie ponawia ich w każdym cyklu (orphanRepeatOps). */
+export function rejectedDeleteIds(state: Pick<ClientState, 'rejected'>): Set<string> {
+  return new Set(state.rejected.flatMap((r) => (r.op.kind === 'delete' ? [r.op.id] : [])));
+}
+
 /** Nowa lokalna operacja: numer kolejny w obrębie instalacji, identyfikator z wstrzykniętego generatora. */
 export function mutate(state: ClientState, op: NewOp, newId: () => string): ClientState {
   const full = { ...op, seq: state.nextSeq, op_id: newId() } as Op;

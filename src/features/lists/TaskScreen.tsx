@@ -23,7 +23,7 @@ import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
-import { cycleChange, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
+import { cycleChange, cycleDateOps, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
 import { moveTargets, moveTaskOps } from '../../domain/views/task-move';
 import { taskHistory } from '../../domain/views/history';
 import { personOf } from '../../domain/views/who';
@@ -134,8 +134,9 @@ export function TaskScreen({ route, navigation }: Props) {
   // D178: przeniesienie zadania głównego do innej grupy (z podzadaniami); w trakcie przekazania — po jego zakończeniu.
   const targets = canEdit && task.parent_id === null && !waiting ? moveTargets(tables, userId, task) : [];
 
-  const writeDue = (due: { date: string; time: string | null }, r: Repeat | null) => {
-    store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
+  // `keep` — cykl zostaje (bez pytania albo „Tylko ten raz”); wtedy przeniesienie na wcześniej pamięta dzień cyklu (N-25).
+  const writeDue = (due: { date: string; time: string | null }, r: Repeat | null, keep: boolean) => {
+    store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : []), ...cycleDateOps(task, r ?? repeat, due.date, keep)]);
   };
   const changeDue = (patch: Edits) => {
     const next = { ...edit, ...patch };
@@ -153,7 +154,7 @@ export function TaskScreen({ route, navigation }: Props) {
     const old = task.deadline_mode === 'own' ? task.due_date : null;
     const changed = old ? cycleChange(repeat, old, r.due.date) : null;
     if (changed) return setCycleAsk({ due: r.due, next: changed });
-    writeDue(r.due, old ? keepCycle(repeat, old) : null);
+    writeDue(r.due, old ? keepCycle(repeat, old) : null, true);
   };
   const noDue = () => {
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez terminu i osoby też wolno — wtedy dopisek task.noAddressee.
@@ -234,8 +235,8 @@ export function TaskScreen({ route, navigation }: Props) {
           testID="cycle-ask"
           title={strings['repeat.cycleAsk']}
           options={[
-            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!)), closeCycle()) },
-            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next), closeCycle()) },
+            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!), true), closeCycle()) },
+            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next, false), closeCycle()) },
           ]}
           onCancel={closeCycle}
         />

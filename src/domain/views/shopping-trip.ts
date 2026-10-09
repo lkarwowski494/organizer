@@ -131,6 +131,7 @@ function tripItem(t: Tables, id: string, l: List, g: GroupItem, trip: Trip): Tri
     occurrence_date: null,
     rollover: true,
     series_id: null,
+    cycle_date: null,
     completed_at: null,
     deleted_at: null,
     due,

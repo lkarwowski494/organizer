@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { formDate, formFromText, formGroups, formMembers, formOps, formUnseen, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
+import { formDate, formDateChange, formFromText, formGroups, formMembers, formOps, formUnseen, generalList, NEW_LIST_NAME, PERSONAL_LIST_NAME, pickCandidate, type TaskForm, validateForm } from '../views/task-form';
 
 const ME = 'u-me';
 const NOW = { y: 2026, m: 10, d: 8, hh: 10, mm: 0 };
@@ -146,5 +146,15 @@ describe('pełny formularz zadania (D90)', () => {
     const g = formOps(t, ME, form({ groupId: 'gk', date: '' }), id);
     expect(g.ops[0]).toEqual({ kind: 'create', entity: 'lists', id: 'n3', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } });
     expect(g.ops[1]).toMatchObject({ kind: 'create', id: 'n4', set: { list_id: 'n3', deadline_mode: 'none', due_date: null } });
+  });
+
+  it('audyt 3 (N-125): zmiana dnia przestawia dzień reguły jak „Też kolejne”; bez dnia — bez godziny i powtarzania', () => {
+    const today = { y: 2026, m: 10, d: 9 };
+    const f = form({ date: '2026-10-12', time: '07:00', repeat: { kind: 'weekly', days: [0, 2] } });
+    expect(formDateChange(f, '2026-10-16', today)).toEqual({ date: '2026-10-16', repeat: { kind: 'weekly', days: [2, 4] } });
+    expect(formDateChange(f, '', today)).toEqual({ date: '', time: '', repeat: null });
+    expect(formDateChange({ ...f, repeat: null }, '2026-10-16', today)).toEqual({ date: '2026-10-16' });
+    expect(formDateChange({ ...f, repeat: { kind: 'daily' } }, '2026-10-16', today)).toEqual({ date: '2026-10-16' });
+    expect(formDateChange({ ...f, repeat: { kind: 'monthly', day: 12 } }, '2026-10-20', today)).toEqual({ date: '2026-10-20', repeat: { kind: 'monthly', day: 20 } });
   });
 });
