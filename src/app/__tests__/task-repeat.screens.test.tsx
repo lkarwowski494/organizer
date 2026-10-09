@@ -48,7 +48,7 @@ describe('powtarzanie zadania', () => {
     expect(screen.queryByLabelText(/^Leki/)).toBeNull();
   });
 
-  it('audyt 2 (T-12): dziecko odhacza zadanie powtarzane bez kopii (serwer by ją odrzucił)', async () => {
+  it('audyt 3 (Q16 A, N-123): dziecko z kontem odhacza swoje zadanie powtarzane — następne robi samo (serwer je przyjmie)', async () => {
     const child = sampleBase();
     child.group_members!.mf = { ...child.group_members!.mf, role: 'child' };
     put(child, 'tasks', 'smieci', { ...child.tasks!['t-paczka']!, id: 'smieci', title: 'Śmieci', assignee_member_id: 'mf', due_date: '2026-10-07', due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
@@ -56,7 +56,21 @@ describe('powtarzanie zadania', () => {
     await c.renderApp(<RootStack />);
     await press(await screen.findByLabelText('Oznacz jako zrobione: Śmieci'));
     await answerAlert('Zrobione');
-    expect(c.store.dispatched).toEqual([expect.objectContaining({ kind: 'patch', id: 'smieci', set: { completed_at: expect.any(String) } })]);
+    expect(c.store.dispatched).toEqual([
+      expect.objectContaining({ kind: 'patch', id: 'smieci', set: { completed_at: expect.any(String) } }),
+      expect.objectContaining({ kind: 'create', id: nextId('smieci'), set: expect.objectContaining({ due_date: '2026-10-14', title: 'Śmieci', assignee_member_id: 'mf' }) }),
+    ]);
+    // Cofnięcie zdejmuje je tak jak u dorosłego (repeatOps, test domenowy; serwer: task_repeat_chain.test.sql).
+  });
+
+  it('audyt 3 (N-123): następne zostawione po cofnięciu odhaczenia na starszej wersji znika przy otwarciu Moich spraw', async () => {
+    const adult = sampleBase();
+    put(adult, 'tasks', 'smieci', { ...adult.tasks!['t-paczka']!, id: 'smieci', title: 'Śmieci', assignee_member_id: 'tymek', due_date: '2026-10-07', due_time: null, repeat: 'FREQ=WEEKLY;BYDAY=WE' });
+    put(adult, 'tasks', nextId('smieci'), { ...adult.tasks!.smieci!, id: nextId('smieci'), due_date: '2026-10-14' });
+    const a = setup({ base: adult });
+    await a.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    expect(a.store.dispatched).toEqual([{ kind: 'delete', entity: 'tasks', id: nextId('smieci') }]);
   });
 
   it('audyt 2 (T-12): telefon dorosłego dokłada następne po odhaczeniu przez dziecko — od dnia odhaczenia', async () => {

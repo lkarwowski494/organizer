@@ -285,6 +285,18 @@ describe('zgoda na powiadomienia po „Nie teraz” i po odmowie (audyt 2: N-8, 
     expect(account.reportError).toHaveBeenCalledTimes(1);
     expect(account.reportError.mock.calls[0]![0]).toMatchObject({ kind: 'error', screen: 'reminders' });
   });
+
+  it('zgłoszenie błędu planowania bez treści komunikatu (audyt 3, N-77: komunikat może zawierać tytuł przypomnienia)', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const push = fakePush({ status: jest.fn(async () => 'granted' as const), replaceReminders: jest.fn(async () => Promise.reject(new Error('Kupić róże: invalid trigger'))) });
+    const { account } = await open({ push });
+    await tick(2000);
+    await flush();
+    expect(account.reportError).toHaveBeenCalledTimes(1);
+    const sent = account.reportError.mock.calls[0]![0];
+    expect(sent.message).toBe('Error');
+    expect(JSON.stringify(sent)).not.toContain('róże');
+  });
 });
 
 describe('token i ponowienia (audyt 2: N-11, N-15, N-36)', () => {

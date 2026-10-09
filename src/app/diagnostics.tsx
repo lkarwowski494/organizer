@@ -5,15 +5,45 @@
  * poprzedni handler wołany dalej, więc zachowanie systemu się nie zmienia). ErrorUtils nie ma strony w dokumentacji
  * React Native; definicja w kodzie react-native 0.86: Libraries/vendor/core/ErrorUtils.js („error handler specified via
  * ErrorUtils.setGlobalHandler”) i @react-native/js-polyfills/error-guard.js.
+ * Zgoda (audyt 3, N-74, decyzja właściciela Q3 A): raporty są włączone domyślnie, a przełącznik „Wysyłaj raporty błędów”
+ * w Ustawieniach → Konto i dane je wyłącza; wszystkie zgłoszenia (także samosprawdzenie) przechodzą przez `gatedReport`.
+ * Apple, App Review 5.1.1(ii): „Apps must also provide the customer with an easily accessible and understandable way to
+ * withdraw consent.” (https://developer.apple.com/app-store/review/guidelines/). „Wyślij uwagę” to osobna, świadoma
+ * wysyłka — bez przełącznika.
  */
 import * as Application from 'expo-application';
-import { Component, type ReactNode } from 'react';
+import { Component, type ReactNode, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { config } from '../config';
 import { sizes } from '../config/theme';
 import { strings } from '../i18n/strings.pl';
 import type { ClientError } from '../sync/account';
+import type { LocalStore } from './calendar-mirror';
+import { useServices } from './context';
+
+/** Klucz w lokalnej bazie konta (dane tego telefonu, D175): 'off' = raporty wyłączone; brak = włączone. */
+export const ERROR_REPORTS_KEY = 'errorReports';
+export const reportsOn = (local: LocalStore | undefined) => local?.load(ERROR_REPORTS_KEY) !== 'off';
+/** Wysyłka zgłoszenia tylko przy włączonych raportach (sprawdzane przy każdym zgłoszeniu — zmiana działa od razu). */
+export const gatedReport =
+  (local: LocalStore | undefined, send: (e: ClientError) => Promise<void>) =>
+  async (e: ClientError): Promise<void> => {
+    if (reportsOn(local)) await send(e);
+  };
+
+/** Przełącznik „Wysyłaj raporty błędów” (Ustawienia → Konto i dane). */
+export function useErrorReports(): { on: boolean; setOn(on: boolean): void } {
+  const { local } = useServices();
+  const [on, setState] = useState(() => reportsOn(local));
+  return {
+    on,
+    setOn: (next) => {
+      setState(next);
+      local?.save(ERROR_REPORTS_KEY, next ? null : 'off');
+    },
+  };
+}
 
 /** Numer buildu TestFlight (NaN, gdy nieznany). */
 export const buildNumber = () => Number(Application.nativeBuildVersion ?? Number.NaN);
@@ -64,8 +94,11 @@ export function installGlobalHandler(utils: ErrorUtilsLike, report: (e: ClientEr
   return () => utils.setGlobalHandler(previous);
 }
 
-/** `screen` — nazwa ekranu w zgłoszeniu (granica jednego ekranu, N-1); brak = granica całej aplikacji („render”). */
-type Props = { report: (e: ClientError) => void; version: string; children: ReactNode; colors: { ground: string; ink: string; inkMuted: string }; screen?: string };
+/**
+ * `screen` — nazwa ekranu w zgłoszeniu (granica jednego ekranu, N-1); brak = granica całej aplikacji („render”).
+ * `reporting` — czy raporty są włączone (bez nich ekran nie obiecuje zgłoszenia; samo zgłoszenie odcina `gatedReport`).
+ */
+type Props = { report: (e: ClientError) => void; reporting?: () => boolean; version: string; children: ReactNode; colors: { ground: string; ink: string; inkMuted: string }; screen?: string };
 
 export class ErrorBoundary extends Component<Props, { failed: boolean }> {
   state = { failed: false };
@@ -73,6 +106,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
     return { failed: true };
   }
   componentDidCatch(e: unknown) {
+    if (this.props.reporting?.() === false) return;
     try {
       this.props.report(toClientError(e, 'crash', this.props.screen ?? 'render', this.props.version));
     } catch {
@@ -85,7 +119,7 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
     return (
       <View testID="screen-crash" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: c.ground }}>
         <Text accessibilityRole="header" style={{ fontSize: sizes.DETAIL, fontWeight: '700', color: c.ink }}>{strings['crash.title']}</Text>
-        <Text style={{ fontSize: sizes.BODY, color: c.inkMuted, textAlign: 'center' }}>{strings['crash.body']}</Text>
+        <Text style={{ fontSize: sizes.BODY, color: c.inkMuted, textAlign: 'center' }}>{this.props.reporting?.() === false ? strings['crash.body'] : `${strings['crash.report']} ${strings['crash.body']}`}</Text>
         <Text accessibilityRole="button" accessibilityLabel={strings['common.retry']} onPress={() => this.setState({ failed: false })} style={{ fontSize: sizes.BODY, fontWeight: '700', color: c.ink, minHeight: 44, paddingVertical: 12, paddingHorizontal: 20 }}>
           {strings['common.retry']}
         </Text>

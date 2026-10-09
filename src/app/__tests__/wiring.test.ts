@@ -19,6 +19,7 @@ jest.mock('expo-secure-store', () => {
     getItem: jest.fn((k: string) => kv.get(k) ?? null),
     setItem: jest.fn((k: string, v: string) => void kv.set(k, v)),
     getItemAsync: jest.fn(async () => null),
+    deleteItemAsync: jest.fn(async (k: string) => void kv.delete(k)),
   };
 });
 
@@ -91,13 +92,17 @@ describe('appDeps (D143)', () => {
     expect(typeof deps.session.refresh).toBe('function');
   });
 
-  it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty; błąd usuwania cichy', async () => {
+  it('usunięcie konta (M-64): baza konta zamknięta i plik usunięty, identyfikator instalacji z pęku kluczy też (N-77); błąd usuwania cichy', async () => {
     const w = load({ EXPO_PUBLIC_E2E: undefined, EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test' }, Application.ApplicationReleaseType.SIMULATOR);
     const deps = w.appDeps();
     deps.openDb('u-1');
     const db = w.sqlite.openDatabaseSync.mock.results.at(-1)!.value as { closeSync: jest.Mock };
+    deps.deviceClientId!.save('u-1', 'c-1');
     deps.removeDb!('u-1');
     expect(db.closeSync).toHaveBeenCalled();
+    // Audyt 3 (N-77): identyfikator instalacji usuniętego konta znika też z pęku kluczy (polityka: „usuwamy dane techniczne”).
+    await Promise.resolve();
+    expect(deps.deviceClientId!.load('u-1')).toBeNull();
     expect(w.sqlite.deleteDatabaseSync).toHaveBeenCalledWith('organizer-u-1.db');
     w.sqlite.deleteDatabaseSync.mockImplementationOnce(() => {
       throw new Error('DeleteDatabaseException');

@@ -16,7 +16,7 @@ import { subtasksOf } from '../domain/views/nesting';
 import { finishTripOps, finishTripUndoOps, tripItems } from '../domain/views/shopping-trip';
 import { repeatOps } from '../domain/views/task-repeat';
 import { asTask } from '../domain/views/model';
-import { checkOff, groupsView, type Tables, type Task } from '../domain/views';
+import { checkOff, copiesRepeats, type Tables, type Task } from '../domain/views';
 import { strings } from '../i18n/strings.pl';
 import { useUndo } from '../ui/undo';
 import { useAppData, useServices } from './context';
@@ -31,8 +31,9 @@ export function useTaskActions() {
     toggle(t: Item, shopping = false) {
       // Zadanie z powtarzaniem (D76): odhaczenie dokłada następne, cofnięcie zdejmuje nietknięte — w jednej transakcji.
       const raw = tables.tasks?.[t.id];
-      // Dziecko (D34) nie tworzy zadań — następne dołoży telefon dorosłego (audyt 2, T-12).
-      const canCreate = raw !== undefined && groupsView(tables, userId).some((g) => g.id === raw.group_id && g.me.role !== 'child');
+      // Dziecko (D34) nie tworzy zadań poza następnym terminem swojej sprawy (Q16 A, audyt 3: N-123) — inaczej następne
+      // dołoży telefon dorosłego (audyt 2, T-12).
+      const canCreate = raw !== undefined && copiesRepeats(tables, userId)(asTask(raw));
       const opsFor = (subs: readonly Task[] = []) => [toggleDone(t, nowIso()), ...subs.map((s) => toggleDone(s, nowIso())), ...(raw ? repeatOps(tables, asTask(raw), today, canCreate) : [])];
       const done = (subs: readonly Task[] = []) => {
         const ops = opsFor(subs);

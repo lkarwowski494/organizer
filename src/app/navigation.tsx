@@ -28,6 +28,7 @@ import { RejectedScreen } from '../features/settings/RejectedScreen';
 import { RecentScreen } from '../features/groups/RecentScreen';
 import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
+import { LicensesScreen } from '../features/settings/LicensesScreen';
 import { NameScreen } from '../features/profile/NameScreen';
 import { TimetableScreen } from '../features/groups/TimetableScreen';
 import { RoutineScreen } from '../features/events/RoutineScreen';
@@ -38,7 +39,7 @@ import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
-import { appVersion, ErrorBoundary } from './diagnostics';
+import { appVersion, ErrorBoundary, reportsOn } from './diagnostics';
 import { GroupLossNotice } from './GroupLossNotice';
 import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
@@ -60,11 +61,12 @@ const Tab = createBottomTabNavigator<TabParams>();
  * zakładki i powrót (gest) działają dalej, a nie cała aplikacja przy każdym starcie. Zgłoszenie z nazwą ekranu (D80).
  */
 function ScreenGuard({ name, children }: { name: string; children: ReactNode }) {
-  const { account } = useServices();
+  const { account, local } = useServices();
   const { c } = useTheme();
   const report = useCallback((e: Parameters<typeof account.reportError>[0]) => void account.reportError(e).catch(() => {}), [account]);
+  // Audyt 3 (N-74): account.reportError z Root wysyła tylko przy włączonych raportach; ekran awarii mówi tak samo.
   return (
-    <ErrorBoundary report={report} version={appVersion()} colors={c} screen={name}>
+    <ErrorBoundary report={report} reporting={() => reportsOn(local)} version={appVersion()} colors={c} screen={name}>
       {children}
     </ErrorBoundary>
   );
@@ -170,6 +172,7 @@ export function RootStack() {
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       <Stack.Screen name="Recent" component={RecentScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
+      <Stack.Screen name="Licenses" component={LicensesScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}
       <Stack.Screen name="Name" component={NameScreen} options={({ route }) => ({ gestureEnabled: route.params?.from === 'settings' })} />

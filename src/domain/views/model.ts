@@ -46,6 +46,11 @@ export type Task = {
   rollover: boolean;
   /** Kopia stałego zadania serii (D65) — definicja w event_task_series. */
   series_id: string | null;
+  /**
+   * Audyt 3 (N-25): pierwotny dzień terminu zadania powtarzanego przeniesionego „Tylko ten raz” (D137, D181) — następny
+   * liczy się od niego, gdy przeniesiony termin jest wcześniej. Kopia (następne) zaczyna bez niego.
+   */
+  cycle_date: string | null;
   completed_at: string | null;
   deleted_at: string | null;
 };
@@ -98,6 +103,7 @@ export function asTask(r: Row): Task {
     occurrence_date: str(r.occurrence_date),
     rollover: r.rollover !== false,
     series_id: str(r.series_id),
+    cycle_date: str(r.cycle_date),
     completed_at: str(r.completed_at),
     deleted_at: str(r.deleted_at),
   };
