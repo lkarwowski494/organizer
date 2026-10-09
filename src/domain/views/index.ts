@@ -458,6 +458,9 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const d = completedAt === null ? null : localDate(completedAt);
     return d === date ? null : d;
   };
+  // Raz na widok, nie na każde z tysięcy zadań historii (budżet czasu, N-16).
+  const today = parseIsoDate(isoToday);
+  const lastDay = parseIsoDate(last);
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
@@ -475,7 +478,7 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     // PWD-15 A: kolejne terminy otwartego zadania powtarzanego według kalendarza (od wykonania — nie da się ich
     // przewidzieć), tylko w oknie siatki; zadanie powstanie dopiero po odhaczeniu poprzedniego (task-repeat.ts).
     // Audyt 3 (N-24): te, które naprawdę powstaną — od jutra albo od dnia po terminie (upcomingDues).
-    for (const date of upcomingDues(t, x, parseIsoDate(isoToday), parseIsoDate(last))) add(formatIsoDate(date), { ...item, due: { date: formatIsoDate(date), time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
+    for (const date of upcomingDues(t, x, today, lastDay)) add(formatIsoDate(date), { ...item, due: { date: formatIsoDate(date), time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
   }
   // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy; ostatnie zrobione — przekreślone (PWD-11 A).
   for (const trip of tripEntries(t, groups, true)) {

@@ -29,21 +29,33 @@ grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
 
 create schema if not exists realtime;
+-- Kształt jak w Supabase Realtime v2.140.3 (wersja z Supabase CLI w db.yml): id to losowy UUID, klucz (id, inserted_at),
+-- tabela partycjonowana po inserted_at, inserted_at = now() (jedno na transakcję). Kolejność wiadomości w jednej
+-- transakcji jest więc nieokreślona — test, który bierze „ostatnią wg id”, ma oblewać też lokalnie (wcześniej bigserial
+-- to ukrywał). Źródła: migracje MessagesPartitioning i MessagesUsingUuid w
+-- https://github.com/supabase/realtime/tree/v2.140.3/lib/realtime/tenants/repo/migrations
 create table if not exists realtime.messages (
-  id bigserial primary key,
+  id uuid not null default gen_random_uuid(),
   topic text not null,
   extension text not null default 'broadcast',
   event text,
   payload jsonb,
   private boolean default false,
-  inserted_at timestamptz not null default now()
-);
+  updated_at timestamp not null default now(),
+  inserted_at timestamp not null default now(),
+  primary key (id, inserted_at)
+) partition by range (inserted_at);
+create table if not exists realtime.messages_all partition of realtime.messages default;
 create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true)
-returns void language sql security definer as $$
-  -- Jak oryginał: do treści dokładany jest identyfikator wiadomości „id”.
-  insert into realtime.messages (topic, event, payload, private)
-  values (topic, event, payload || jsonb_build_object('id', gen_random_uuid()), private)
-$$;
+returns void language plpgsql security definer as $$
+declare generated_id uuid := gen_random_uuid();
+begin
+  -- Jak oryginał (BroadcastSendIncludePayloadId): identyfikator wiadomości trafia też do treści jako „id”.
+  insert into realtime.messages (id, topic, event, payload, private, extension)
+  values (generated_id, topic, event,
+          case when payload ? 'id' then payload else jsonb_set(payload, '{id}', to_jsonb(generated_id)) end,
+          private, 'broadcast');
+end $$;
 -- Jak w Supabase: temat kanału, do którego dołącza klient, podaje serwer Realtime w ustawieniu sesji.
 create or replace function realtime.topic() returns text language sql stable as $$
   select nullif(current_setting('realtime.topic', true), '')::text

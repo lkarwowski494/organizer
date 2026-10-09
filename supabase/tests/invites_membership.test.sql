@@ -30,9 +30,20 @@ end $$;
 create function pg_temp.pokes() returns int language sql security definer as $$
   select count(*)::int from realtime.messages where topic = 'group:10100000-0000-7000-8000-000000000001' and event = 'poke'
 $$;
-create function pg_temp.last_poke_v() returns bigint language sql security definer as $$
-  select (payload ->> 'v')::bigint from realtime.messages where topic = 'group:10100000-0000-7000-8000-000000000001' and event = 'poke'
-  order by id desc limit 1
+-- Wersja z sygnału wysłanego od ostatniego pg_temp.mark_pokes(). Nie „ostatni wg id”: w Supabase realtime.messages.id
+-- to losowy UUID (klucz (id, inserted_at), migracja MessagesUsingUuid serwera Realtime:
+-- https://github.com/supabase/realtime/blob/main/lib/realtime/tenants/repo/migrations/20241108114728_messages_using_uuid.ex),
+-- a inserted_at = now() jest jedno na całą transakcję testu, więc kolejności wiadomości nie da się odczytać.
+-- Podzapytanie skalarne rzuca błąd, gdy nowych sygnałów jest więcej niż jeden.
+create table pg_temp.seen_pokes (id text primary key);
+create function pg_temp.mark_pokes() returns void language sql security definer as $$
+  delete from pg_temp.seen_pokes;
+  insert into pg_temp.seen_pokes select id::text from realtime.messages where topic = 'group:10100000-0000-7000-8000-000000000001';
+$$;
+create function pg_temp.new_poke_v() returns bigint language sql security definer as $$
+  select (select (payload ->> 'v')::bigint from realtime.messages
+          where topic = 'group:10100000-0000-7000-8000-000000000001' and event = 'poke'
+            and id::text not in (select id from pg_temp.seen_pokes))
 $$;
 create function pg_temp.gv() returns bigint language sql security definer as $$ select version from public.groups where id = '10100000-0000-7000-8000-000000000001' $$;
 grant execute on all functions in schema pg_temp to authenticated;
@@ -104,12 +115,13 @@ set local session_replication_role = origin;
 select pg_temp.as_user('00000000-0000-7000-8000-0000000010e4');
 set local role authenticated;
 create temp table v0 as select pg_temp.pokes() n;
+select pg_temp.mark_pokes();
 select is(public.join_group(pg_temp.jid(), pg_temp.code('role'), 'Babcia') ->> 'already_member', 'false', '15: babcia dołącza kodem właściciela');
 reset role;
 
 -- ───────── N-90: sygnał grupie po dołączeniu ─────────
 select is(pg_temp.pokes(), (select n from v0) + 1, '16: dołączenie wysyła sygnał grupie');
-select is(pg_temp.last_poke_v(), pg_temp.gv(), '17: z bieżącą wersją grupy');
+select is(pg_temp.new_poke_v(), pg_temp.gv(), '17: z bieżącą wersją grupy');
 
 -- ───────── N-38: „Zaproś” po usunięciu osoby ─────────
 -- Piotr usunięty minutę temu, kod roli sprzed dwóch minut: „Zaproś” daje nowy kod, stary działa dalej dla innych.
@@ -184,12 +196,13 @@ select is(pg_temp.pokes(), (select n from v0) + 1, '38: połączenie profilu wys
 -- ───────── N-90: przekazanie własności ─────────
 delete from v0;
 insert into v0 select pg_temp.pokes();
+select pg_temp.mark_pokes();
 select pg_temp.as_user('00000000-0000-7000-8000-0000000010e1');
 set local role authenticated;
 select lives_ok($$ select public.transfer_ownership('10100000-0000-7000-8000-000000000001', '10100000-0000-7000-8000-0000000000a3') $$, '39: owner przekazuje własność');
 reset role;
 select is(pg_temp.pokes(), (select n from v0) + 1, '40: przekazanie własności wysyła sygnał grupie');
-select is(pg_temp.last_poke_v(), pg_temp.gv(), '41: z wersją po zmianie ról');
+select is(pg_temp.new_poke_v(), pg_temp.gv(), '41: z wersją po zmianie ról');
 select ok(not pg_temp.revoked('renew'), '42: owner → admin przy przekazaniu nie unieważnia kodów');
 
 -- ───────── N-90: nocne sprzątanie ─────────
