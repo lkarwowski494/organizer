@@ -134,8 +134,9 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
 - **Nieudane próby dołączenia kodem:** 1 dzień (sprzątanie raz na dobę, więc do 2 dni).
 - **Dane techniczne synchronizacji** (licznik instalacji aplikacji): 180 dni od ostatniego użycia tej instalacji.
 - **Wyjście albo usunięcie z grupy:** Twoje listy „Tylko ja” w tej grupie trafiają do kosza na 30 dni i wracają, jeśli
-  w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo admin może przywrócić w ciągu 30 dni;
-  zaproszenia, które wystawiła, przestają działać.
+  w tym czasie wrócisz do grupy. Osobę usuniętą przez kogoś właściciel albo admin może przywrócić w ciągu 30 dni.
+  Przestają działać zaproszenia, które były tylko tej osoby (kody łączące profil dziecka z kontem, dawne linki); wspólny
+  kod zaproszenia grupy działa dalej, aż wygaśnie. To samo przy utracie roli administratora.
 - **Dziennik wysyłki powiadomień:** 7 dni.
 - **Token powiadomień:** dopóki działa. Usuwamy go przy wylogowaniu (gdy jest internet), gdy Apple zgłosi, że jest
   nieaktualny, i przy usunięciu konta. Gdy na tym iPhonie zaloguje się inne konto, token przechodzi na nie.
@@ -150,12 +151,15 @@ a pomagają nam w tym tylko firmy wymienione w części „Gdzie są dane”.
   z całą zawartością.**
 - To, co dodałeś w grupach wspólnych (zadania, wydarzenia, odpowiedzi o obecności, historia zmian), zostaje dla grupy,
   ale zamiast Twojego imienia widać „Usunięty użytkownik”.
-- Linki zaproszeń, które wystawiłeś, przestają działać.
-- Grupę w koszu, której byłeś właścicielem, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje w koszu do
-  końca tych samych 30 dni.
 - Jeśli przy usuwaniu zaznaczysz **„Usuń też moje wpisy w grupach”**, zamiast tego zadania i rzeczy na listach zakupów,
   które dodałeś w grupach wspólnych, Twoje wydarzenia, stałe zadania i odpowiedzi o obecności trafiają do kosza grup
   (jak przy zwykłym usunięciu w aplikacji) i po 30 dniach są usuwane na stałe. Listy i wpisy innych osób zostają.
+- Przestają działać zaproszenia, które były tylko Twoje: kody łączące profil dziecka z kontem i dawne linki. Wspólny kod
+  zaproszenia grupy (ten sam widzą właściciel i administratorzy) działa dalej, aż wygaśnie (najwyżej 24 godziny), ale nie
+  jest już powiązany z Tobą — jako wystawiającego zapisujemy właściciela grupy. W grupie, która trafia do kosza, bo nie ma
+  komu jej przekazać, nie działa żaden kod. Tak samo z wyborem „Usuń też moje wpisy w grupach” i bez niego.
+- Grupę w koszu, której byłeś właścicielem, też przejmuje taki dorosły (może ją przywrócić); grupa zostaje w koszu do
+  końca tych samych 30 dni.
 - Razem z kontem usuwamy: dane logowania (identyfikator Apple albo e-mail, imię i nazwisko z Apple), token powiadomień,
   wyciszenia grup, Twoje zgłoszenia błędów i uwagi, nieudane próby dołączenia kodem, dane techniczne synchronizacji.
 - Przy koncie Apple usunięcie potwierdzasz oknem Apple, a my unieważniamy token Sign in with Apple.

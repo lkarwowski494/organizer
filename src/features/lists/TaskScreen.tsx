@@ -143,7 +143,9 @@ export function TaskScreen({ route, navigation }: Props) {
   const targets = canEdit && task.parent_id === null && task.completed_at === null && !waiting ? moveTargets(tables, userId, task) : [];
 
   const writeDue = (due: { date: string; time: string | null }, r: Repeat | null) => {
-    store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
+    // Audyt 3 (N-126): tylko zmienione pola terminu (setDue z dotychczasowym terminem).
+    const was = task.deadline_mode === 'own' && task.due_date !== null ? { date: task.due_date, time: task.due_time } : null;
+    store.dispatch([setDue(task.id, due, was), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
   };
   const changeDue = (patch: Edits) => {
     const next = { ...edit, ...patch };

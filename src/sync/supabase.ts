@@ -12,7 +12,7 @@
  */
 import { inviteUrl, joinUrl } from '../domain/invite-link';
 import type { PulledRow, PullResponse, PushResponse } from '../domain/sync-engine/client';
-import { AccountError, type AccountApi, type AccountErrorCode, type Invite, type JoinInvite } from './account';
+import { AccountError, type AccountApi, type AccountErrorCode, type Invite, type JoinInvite, type JoinResult } from './account';
 import { type SyncTransport, TransportError, type TransportErrorKind } from './transport';
 
 export type RpcError = { message: string; code?: string };
@@ -80,6 +80,10 @@ export function supabaseTransport(client: SupabaseLike): SyncTransport {
 
 type JoinCodeRow = { invite_id: string; join_id: string; code: string; expires_at: string };
 const joinInvite = (r: JoinCodeRow): JoinInvite => ({ inviteId: r.invite_id, joinId: r.join_id, code: r.code, url: joinUrl({ joinId: r.join_id, code: r.code }), expiresAt: r.expires_at });
+/** Odpowiedź accept_invite / join_group; role i invite_role od migracji 20261010100000 (audyt 3, N-157). */
+type JoinRow = { group_id: string; already_member?: boolean; role?: string; invite_role?: string };
+const joinResult = (r: JoinRow): JoinResult =>
+  r.already_member ? { groupId: r.group_id, alreadyMember: { role: r.role ?? null, inviteRole: r.invite_role ?? null } } : { groupId: r.group_id };
 
 function check(r: { error: { message: string } | null }): void {
   if (r.error) throw new Error(r.error.message);
@@ -290,8 +294,7 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
       return { inviteId: r.invite_id, token: r.token, url: inviteUrl(r.token), expiresAt: r.expires_at, maxUses: r.max_uses };
     },
     async acceptInvite(token, displayName) {
-      const r = await call<{ group_id: string }>(client, 'accept_invite', { token, display_name: displayName });
-      return { groupId: r.group_id };
+      return joinResult(await call<JoinRow>(client, 'accept_invite', { token, display_name: displayName }));
     },
     async revokeInvite(inviteId) {
       await call(client, 'revoke_invite', { invite_id: inviteId });
@@ -310,9 +313,9 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
     },
     async joinGroup(joinId, code, displayName) {
       // Serwer zwraca błąd w treści (nie wyjątkiem), żeby zapis nieudanej próby nie został wycofany.
-      const r = await call<{ group_id?: string; error?: string }>(client, 'join_group', { join_id: joinId, code, display_name: displayName });
+      const r = await call<Partial<JoinRow> & { error?: string }>(client, 'join_group', { join_id: joinId, code, display_name: displayName });
       if (r.error || !r.group_id) throw new TransportError('server', r.error ?? 'invite_invalid');
-      return { groupId: r.group_id };
+      return joinResult({ ...r, group_id: r.group_id });
     },
     async rotateJoinId(groupId) {
       return call<string>(client, 'rotate_join_id', { group_id: groupId });

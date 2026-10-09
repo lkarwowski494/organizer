@@ -14,7 +14,9 @@ describe('groupErrorText', () => {
     ['invite_removed', strings['invite.removed']],
     ['invite_child_account', strings['invite.childAccount']],
     ['limit:groups', 'Możesz należeć najwyżej do 50 grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.'],
-    ['limit:invites', strings['groups.error.limitInvites'](20)],
+    ['limit:invites', 'Ta grupa ma już najwięcej aktywnych zaproszeń (20). Poczekaj, aż stare wygasną, albo poproś właściciela o zmianę ID grupy.'],
+    // Audyt 3 (N-163): revoke_invite bez uprawnień (np. odebrana rola) — nie „Coś poszło nie tak”.
+    ['not_found', strings['groups.error.forbidden']],
     // Audyt 3 (N-2, Q12 część 3 A): dołączenie do pełnej grupy.
     ['limit:group_rows', 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.'],
     ['limit:group_size', 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.'],
@@ -30,6 +32,13 @@ describe('groupErrorText', () => {
     expect(groupErrorText(new TransportError('server', code))).toBe(text);
     // Ten sam kod w zwykłym wyjątku (atrapy, stare ścieżki) — tak samo.
     expect(groupErrorText(new Error(code))).toBe(text);
+  });
+
+  it('limit zaproszeń u właściciela: rada o zmianie ID grupy (audyt 3, N-163)', () => {
+    expect(groupErrorText(new TransportError('server', 'limit:invites'), { owner: true })).toBe(
+      'Ta grupa ma już najwięcej aktywnych zaproszeń (20). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.',
+    );
+    expect(groupErrorText(new TransportError('server', 'limit:invites'), { owner: false })).toBe(groupErrorText(new TransportError('server', 'limit:invites')));
   });
 
   it('sesja, nieznany błąd serwera, brak sieci i wyjątek bez komunikatu', () => {
