@@ -30,7 +30,7 @@ describe('wybór osoby a widoczność listy', () => {
   it('lista prywatna: do przypisania tylko ja; lista całej grupy: wszyscy (także dziecko)', () => {
     const t = world();
     expect(listDetail(t, ME, 'prez', today)!.members.map((m) => m.member_id)).toEqual(['mf']);
-    expect(listDetail(t, ME, 'dom', today)!.members.map((m) => m.member_id).sort()).toEqual(['ala', 'tymek', 'mf']);
+    expect(listDetail(t, ME, 'dom', today)!.members.map((m) => m.member_id).sort()).toEqual(['ala', 'mf', 'tymek']);
   });
 
   it('kto robi zakupy i komu przekazać: tylko osoby widzące listę', () => {

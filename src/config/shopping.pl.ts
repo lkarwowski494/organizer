@@ -80,17 +80,17 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'delicj*', 'biszkopt*', 'chrupk*', 'prażynk*', 'orzeszki',
   ],
   drinks: [
-    'woda', 'wody', 'wodę', 'wód', 'sok', 'soki', 'soku', 'soków', 'napój', 'napoje', 'napoju', 'cola', 'coli', 'colę', 'napój gazowany',
-    'napój cytrynowy', 'napój pomarańczowy', 'oranżad*', 'lemoniad*', 'piwo', 'piwa', 'wino', 'wina', 'wódk*', 'syrop*', 'izoton*', 'energetyk*',
+    'woda', 'wody', 'wodę', 'wód', 'sok', 'soki', 'soku', 'soków', 'napój', 'napoje', 'napoju', 'cola', 'coli', 'colę',
+    'oranżad*', 'lemoniad*', 'piwo', 'piwa', 'wino', 'wina', 'wódk*', 'syrop*', 'izoton*', 'energetyk*',
     'kompot*', 'nektar*', 'tonik*', 'cydr*', 'prosecco', 'szampan*',
   ],
   baby: [
-    'pieluch*', 'pieluszk*', 'pieluchomajtk*', 'chusteczki nawilżane', 'kaszka', 'kaszki', 'kaszkę', 'słoiczk*', 'mleko modyfikowane',
+    'pieluch*', 'pieluszk*', 'chusteczki nawilżane', 'kaszka', 'kaszki', 'kaszkę', 'słoiczk*', 'mleko modyfikowane',
     'smoczek', 'smoczki', 'butelka dla dziecka', 'nawilżane',
   ],
   household: [
     'papier', 'papieru', 'ręcznik*', 'ręczniki papierowe', 'worki', 'worków', 'woreczk*', 'folia', 'folii', 'folię', 'płyn*',
-    'proszek', 'proszku', 'kapsułk*', 'tabletk*', 'zmywark*', 'wybielacz*', 'mleczko do czyszczenia', 'płyn do naczyń', 'gąbk*', 'gąbek', 'ściereczk*',
+    'proszek', 'proszku', 'kapsułk*', 'tabletk*', 'zmywark*', 'mleczko do czyszczenia', 'gąbk*', 'gąbek', 'ściereczk*',
     'ścierk*', 'zapałki', 'świeczk*', 'świec*', 'baterie', 'baterii', 'żarówk*', 'odplamiacz*', 'wybielacz*', 'odkamieniacz*',
     'mop*', 'miotł*', 'serwetk*', 'serwetek', 'zmiękczacz*', 'płukank*', 'odświeżacz*', 'środek*',
     'rękawiczk*', 'aluminiow*', 'pergamin*', 'sól do zmywarki', 'nabłyszczacz*', 'worki na śmieci',
@@ -99,7 +99,7 @@ export const SHOPPING_KEYWORDS: { readonly [K in Exclude<ShoppingCategory, 'othe
     'szampon*', 'odżywk*', 'mydł*', 'mydełk*', 'żel*', 'pasta do zębów', 'szczoteczk*', 'nić dentystyczn*', 'dezodorant*',
     'antyperspirant*', 'krem*', 'balsam*', 'podpaski', 'podpasek', 'tampon*', 'wkładki', 'patyczki', 'waciki', 'wacików',
     'maszynk*', 'pianka do golenia', 'golenia', 'kosmetyk*', 'płyn do płukania ust', 'perfum*', 'plastr*', 'tabletki na',
-    'witamin*', 'leki', 'lek', 'paracetamol', 'ibuprofen', 'chusteczki', 'chusteczki higieniczne', 'papier toaletowy', 'toaletow*', 'higieniczn*',
+    'witamin*', 'leki', 'lek', 'paracetamol*', 'ibuprofen*', 'chusteczki', 'chusteczki higieniczne', 'papier toaletowy', 'toaletow*', 'higieniczn*',
   ],
-  pets: ['karm*', 'żwirek', 'żwirku', 'dla psa', 'dla kota', 'psa', 'kota', 'kotów', 'psów', 'karma mokra', 'karma sucha', 'saszetk* dla kota', 'przysmak* dla'],
+  pets: ['karm*', 'żwirek', 'żwirku', 'dla psa', 'dla kota', 'psa', 'kota', 'kotów', 'psów', 'przysmak* dla'],
 };

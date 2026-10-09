@@ -1,5 +1,5 @@
 /**
- * Wydarzenia przez prawdziwą nawigację: dodanie serii z dwoma terminami (pon. 18:00 i sob. 12:00), zmiana jednego
+ * Wydarzenia przez prawdziwą nawigację: dodanie serii z dwoma terminami (pon. 18:00 i sob. 10:00), zmiana jednego
  * wystąpienia, „to i następne”, „wszystkie”, odwołanie, usunięcie jednorazowego, Moje sprawy, kalendarz, grupa.
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
@@ -32,13 +32,13 @@ async function open(base = withDances()) {
 const created = (ops: NewOp[], entity: string) => ops.filter((o) => o.kind === 'create' && o.entity === entity) as Extract<NewOp, { kind: 'create' }>[];
 
 describe('Wydarzenia: dodawanie', () => {
-  it('scenariusz właściciela: tańce Tymka w poniedziałki 18:00 i soboty 12:00 — dwie serie, jeden zapis', async () => {
+  it('scenariusz: judo Tymka w poniedziałki 18:00 i soboty 10:00 — dwie serie, jeden zapis', async () => {
     const { store } = await open(sampleBase());
     await press(screen.getByLabelText('Kalendarz'));
     await press(await screen.findByTestId('calendar-add-event'));
     await screen.findByTestId('screen-event-edit');
     await press(screen.getByLabelText('Rodzina'));
-    await type(screen.getByTestId('event-title'), 'Tańce Tymka');
+    await type(screen.getByTestId('event-title'), 'Judo Tymka');
     await press(screen.getByLabelText('Co tydzień'));
     expect(screen.getByLabelText('W środę').props.accessibilityState.checked).toBe(true); // dzień z kalendarza
     await press(screen.getByLabelText('W środę'));
@@ -47,21 +47,21 @@ describe('Wydarzenia: dodawanie', () => {
     await setTime('event-end-0', '19:00');
     await press(screen.getByTestId('event-add-slot'));
     await press(screen.getByLabelText('W sobotę (Wariant 2)'));
-    await setTime('event-start-1', '12:00');
+    await setTime('event-start-1', '10:00');
     await press(screen.getByLabelText('Wybrane osoby'));
     await press(screen.getByLabelText('Uczestnik: Tymek'));
     await press(screen.getByTestId('event-save'));
     expect(await screen.findByTestId('screen-calendar')).toBeTruthy();
     const ops = store.dispatched;
     expect(created(ops, 'events').map((o) => o.set)).toEqual([
-      { title: 'Tańce Tymka', start_date: '2026-10-12', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null },
-      { title: 'Tańce Tymka', start_date: '2026-10-10', start_time: '12:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=SA', audience: 'members', responsible_member_id: null },
+      { title: 'Judo Tymka', start_date: '2026-10-12', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null },
+      { title: 'Judo Tymka', start_date: '2026-10-10', start_time: '10:00', end_time: null, rrule: 'FREQ=WEEKLY;BYDAY=SA', audience: 'members', responsible_member_id: null },
     ]);
     expect(created(ops, 'event_participants').map((o) => o.set.member_id)).toEqual(['tymek', 'tymek']);
     expect(created(ops, 'events').every((o) => o.group_id === 'gf')).toBe(true);
     // Sobota 10.10 w kalendarzu: wydarzenie z linią grupy.
     await press(screen.getByTestId('day-2026-10-10'));
-    expect(screen.getByLabelText('Tańce Tymka, 12:00, Rodzina')).toBeTruthy();
+    expect(screen.getByLabelText('Judo Tymka, 10:00, Rodzina')).toBeTruthy();
     expect(screen.getByTestId('day-2026-10-12').props.accessibilityLabel).toMatch(/1 wydarzenie/);
   });
 

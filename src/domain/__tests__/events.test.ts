@@ -70,7 +70,7 @@ function ids() {
 
 const weekly = (byday: string): Rule => parseRule(`FREQ=WEEKLY;BYDAY=${byday}`);
 const fields = (over: Partial<EventFields> = {}): EventFields => ({
-  title: 'Tańce Tymka',
+  title: 'Judo Tymka',
   date: '2026-10-05',
   startTime: '18:00',
   endTime: '19:00',
@@ -225,12 +225,12 @@ describe('wiersze lokalne: wartości domyślne', () => {
   });
 });
 
-describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00', () => {
+describe('scenariusz: judo w poniedziałki 18:00 i soboty 10:00', () => {
   function dances() {
     const t = world();
     const newId = ids();
     const mo = createEvent('gf', fields(), newId);
-    const sa = createEvent('gf', fields({ date: '2026-10-05', startTime: '12:00', endTime: '13:00', rule: weekly('SA') }), newId);
+    const sa = createEvent('gf', fields({ date: '2026-10-05', startTime: '10:00', endTime: '11:00', rule: weekly('SA') }), newId);
     run(t, [...mo.ops, ...sa.ops]);
     return { t, mo: mo.id, sa: sa.id, newId };
   }
@@ -239,11 +239,11 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     const { t, sa } = dances();
     expect(t.events![sa]!.start_date).toBe('2026-10-10'); // sobota po 5.10
     expect(brief(range(t, '2026-10-05', '2026-10-19'))).toEqual([
-      '2026-10-05 18:00 Tańce Tymka',
-      '2026-10-10 12:00 Tańce Tymka',
-      '2026-10-12 18:00 Tańce Tymka',
-      '2026-10-17 12:00 Tańce Tymka',
-      '2026-10-19 18:00 Tańce Tymka',
+      '2026-10-05 18:00 Judo Tymka',
+      '2026-10-10 10:00 Judo Tymka',
+      '2026-10-12 18:00 Judo Tymka',
+      '2026-10-17 10:00 Judo Tymka',
+      '2026-10-19 18:00 Judo Tymka',
     ]);
     const x = range(t, '2026-10-05', '2026-10-05')[0]!;
     expect(x).toMatchObject({ occurrenceDate: '2026-10-05', endTime: '19:00', recurring: true, overrideId: null, groupId: 'gf', groupName: 'Rodzina', concernsMe: true });
@@ -262,20 +262,20 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     ]);
     run(t, ops);
     const out = range(t, '2026-10-12', '2026-10-19').filter((x) => x.eventId === mo);
-    expect(brief(out)).toEqual(['2026-10-13 17:00 Tańce Tymka', '2026-10-19 18:00 Tańce Tymka']);
+    expect(brief(out)).toEqual(['2026-10-13 17:00 Judo Tymka', '2026-10-19 18:00 Judo Tymka']);
     expect(out[0]).toMatchObject({ occurrenceDate: '2026-10-12', overrideId: oid, endTime: '18:00' });
     // Druga zmiana tego samego wystąpienia poprawia istniejący wyjątek (bez drugiego wiersza), tylko zmienione pola.
-    const again = editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-10-12', title: 'Tańce — próba', startTime: '17:30', endTime: null }));
-    expect(again).toEqual([{ kind: 'patch', entity: 'event_overrides', id: oid, set: { start_date: null, start_time: '17:30', end_time: null, title: 'Tańce — próba' } }]);
+    const again = editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-10-12', title: 'Judo — próba', startTime: '17:30', endTime: null }));
+    expect(again).toEqual([{ kind: 'patch', entity: 'event_overrides', id: oid, set: { start_date: null, start_time: '17:30', end_time: null, title: 'Judo — próba' } }]);
     run(t, again);
-    expect(brief(range(t, '2026-10-12', '2026-10-12'))).toEqual(['2026-10-12 17:30 Tańce — próba']);
+    expect(brief(range(t, '2026-10-12', '2026-10-12'))).toEqual(['2026-10-12 17:30 Judo — próba']);
     expect(range(t, '2026-10-12', '2026-10-12')[0]!.endTime).toBeNull();
   });
 
   it('przeniesione wystąpienie widać także, gdy dzień pierwotny jest poza zakresem', () => {
     const { t, mo } = dances();
     run(t, editEvent(detail(t, mo), '2026-10-12', 'this', fields({ date: '2026-11-20' })));
-    expect(brief(range(t, '2026-11-20', '2026-11-20'))).toEqual(['2026-11-20 18:00 Tańce Tymka']);
+    expect(brief(range(t, '2026-11-20', '2026-11-20'))).toEqual(['2026-11-20 18:00 Judo Tymka']);
     expect(range(t, '2026-10-12', '2026-10-12')).toEqual([]);
     // Audyt 8.10.2026: dalej niż okno rozwijania formularz nie pozwala (zniknęłoby z widoków).
     expect(moveTooFar('2026-10-12', '2026-12-13')).toBe(false);
@@ -313,7 +313,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
           id: sid,
           event_id: mo,
           date: '2026-10-19',
-          set: { title: 'Tańce Tymka', start_date: '2026-10-19', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null, location: null, days: 1, duration_min: null },
+          set: { title: 'Judo Tymka', start_date: '2026-10-19', start_time: '17:00', end_time: '18:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null, location: null, days: 1, duration_min: null },
           participants: [],
           drop_overrides: [],
           tasks: [],
@@ -327,20 +327,20 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
     // Wyjątek z 26.10 przechodzi z tym samym identyfikatorem, ten z 5.10 zostaje.
     expect(t.event_overrides![moved.id]).toMatchObject({ event_id: sid, occurrence_date: '2026-10-26' });
     expect(detail(t, mo).overrides.map((o) => o.occurrence_date)).toEqual(['2026-10-05']);
-    expect(brief(range(t, '2026-10-05', '2026-11-02').filter((x) => x.startTime !== '12:00'))).toEqual([
+    expect(brief(range(t, '2026-10-05', '2026-11-02').filter((x) => x.startTime !== '10:00'))).toEqual([
       '2026-10-05 18:00 Pierwsze',
-      '2026-10-12 18:00 Tańce Tymka',
-      '2026-10-19 17:00 Tańce Tymka',
+      '2026-10-12 18:00 Judo Tymka',
+      '2026-10-19 17:00 Judo Tymka',
       // PW-33 (wariant A): przeniesiony tylko dzień — termin idzie za godziną (nowej) serii.
-      '2026-10-27 17:00 Tańce Tymka',
-      '2026-11-02 17:00 Tańce Tymka',
+      '2026-10-27 17:00 Judo Tymka',
+      '2026-11-02 17:00 Judo Tymka',
     ]);
   });
 
   it('„to i następne” od pierwszego wystąpienia = cała seria; bez reguły — po prostu zmiana', () => {
     const { t, mo, newId } = dances();
     const ops = editEvent(detail(t, mo), '2026-10-05', 'following', fields({ startTime: '17:00' }));
-    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Tymka', start_date: '2026-10-05', start_time: '17:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null } }]);
+    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Judo Tymka', start_date: '2026-10-05', start_time: '17:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'group', responsible_member_id: null } }]);
     const one = createEvent('gf', fields({ rule: null, date: '2026-10-08' }), newId);
     run(t, one.ops);
     expect(editEvent(detail(t, one.id), '2026-10-08', 'this', fields({ rule: null, date: '2026-10-09' }))[0]).toMatchObject({ kind: 'patch', entity: 'events', set: { start_date: '2026-10-09', rrule: null } });
@@ -351,7 +351,7 @@ describe('scenariusz właściciela: tańce w poniedziałki 18:00 i soboty 12:00'
   it('„wszystkie”: zmiana dni na wt. i czw. — start zostaje początkiem serii (wyrównany), koniec serii datą', () => {
     const { t, mo } = dances();
     const ops = editEvent(detail(t, mo), '2026-10-19', 'all', fields({ rule: weekly('TU,TH'), until: '2026-10-31' }));
-    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Tańce Tymka', start_date: '2026-10-06', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261031', audience: 'group', responsible_member_id: null } }]);
+    expect(ops).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { title: 'Judo Tymka', start_date: '2026-10-06', start_time: '18:00', end_time: '19:00', rrule: 'FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20261031', audience: 'group', responsible_member_id: null } }]);
     run(t, ops);
     const out = range(t, '2026-10-01', '2026-12-31').filter((x) => x.eventId === mo);
     expect(out.map((x) => x.date)).toEqual(['2026-10-06', '2026-10-08', '2026-10-13', '2026-10-15', '2026-10-20', '2026-10-22', '2026-10-27', '2026-10-29']);
@@ -443,7 +443,7 @@ describe('uczestnicy i „dotyczy mnie” (D58)', () => {
     run(t, cancelEvent(detail(t, e.id), '2026-10-12', 'this'));
     const o = detail(t, e.id).overrides[0]!;
     run(t, [{ kind: 'delete', entity: 'event_overrides', id: o.id }]);
-    expect(brief(range(t, '2026-10-12', '2026-10-12'))).toEqual(['2026-10-12 18:00 Tańce Tymka']);
+    expect(brief(range(t, '2026-10-12', '2026-10-12'))).toEqual(['2026-10-12 18:00 Judo Tymka']);
   });
 });
 
@@ -485,7 +485,7 @@ describe('szczegóły i formularz', () => {
     run(t, e.ops);
     const d = detail(t, e.id);
     expect(d).toMatchObject({ groupName: 'Rodzina', canEdit: true, rule: { freq: 'WEEKLY' } });
-    expect(d.members.map((m) => m.member_id).sort()).toEqual(['ala', 'tymek', 'mf']);
+    expect(d.members.map((m) => m.member_id).sort()).toEqual(['ala', 'mf', 'tymek']);
     expect(d.participants.map((p) => p.member_id)).toEqual(['tymek']);
     expect(eventDetail(world('child') as T, ME, e.id)).toBeNull();
     const tc = run(world('child'), e.ops);
@@ -503,7 +503,7 @@ describe('szczegóły i formularz', () => {
     run(t, editEvent(detail(t, e.id), '2026-10-05', 'all', fields({ audience: 'members', participantIds: ['tymek'] })));
     const d = detail(t, e.id);
     expect(fieldsOf(d, '2026-10-12', 'this')).toEqual({ title: 'Inne', date: '2026-10-13', startTime: '17:00', endTime: '18:00', rule: { ...weekly('MO') }, until: null, audience: 'members', participantIds: ['tymek'], responsibleId: null, location: null, days: 1, durationMin: null });
-    expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ title: 'Tańce Tymka', date: '2026-10-12', startTime: '18:00', endTime: '19:00' });
+    expect(fieldsOf(d, '2026-10-12', 'following')).toMatchObject({ title: 'Judo Tymka', date: '2026-10-12', startTime: '18:00', endTime: '19:00' });
     expect(fieldsOf(d, '2026-10-19', 'this')).toMatchObject({ date: '2026-10-19', startTime: '18:00' });
     expect(fieldsOf(d, '2026-10-19', 'all').date).toBe('2026-10-05');
     t.events![e.id] = { ...t.events![e.id]!, rrule: 'FREQ=WEEKLY;BYDAY=MO;COUNT=3' };
@@ -570,8 +570,8 @@ describe('godziny i lista wydarzeń grupy', () => {
     const other = createEvent('gk', fields({ title: 'Klasa' }), newId);
     run(t, [...mo.ops, ...sa.ops, ...old.ops, ...old2.ops, ...old3.ops, ...gone.ops, ...other.ops, { kind: 'delete', entity: 'events', id: gone.id }]);
     expect(groupSeries(t, ME, 'gf', TODAY, RL)).toEqual([
-      { id: sa.id, title: 'Tańce Tymka', summary: 'WEEKLY/1:5', time: '12:00–13:00', start: '2026-10-10', next: '2026-10-10', nextOccurrence: '2026-10-10' },
-      { id: mo.id, title: 'Tańce Tymka', summary: 'WEEKLY/1:0', time: '18:00–19:00', start: '2026-10-05', next: '2026-10-12', nextOccurrence: '2026-10-12' },
+      { id: sa.id, title: 'Judo Tymka', summary: 'WEEKLY/1:5', time: '12:00–13:00', start: '2026-10-10', next: '2026-10-10', nextOccurrence: '2026-10-10' },
+      { id: mo.id, title: 'Judo Tymka', summary: 'WEEKLY/1:0', time: '18:00–19:00', start: '2026-10-05', next: '2026-10-12', nextOccurrence: '2026-10-12' },
       { id: old2.id, title: 'Archiwum', summary: 'Środa, 2 września', time: '18:00–19:00', start: '2026-09-02', next: null, nextOccurrence: null },
       { id: old3.id, title: 'Archiwum', summary: 'Środa, 2 września', time: '18:00–19:00', start: '2026-09-02', next: null, nextOccurrence: null },
       { id: old.id, title: 'Stare', summary: 'Wtorek, 1 września', time: null, start: '2026-09-01', next: null, nextOccurrence: null },

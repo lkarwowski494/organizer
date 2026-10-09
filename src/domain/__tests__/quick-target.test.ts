@@ -137,7 +137,7 @@ describe('pole dodawania na liście zadań: „@imię” i „@ja” (spójnie z
   const q = (listId: string, text: string, answers = {}) => resolveListQuick(lists(), ME, listId, text, answers);
 
   it('osoba z grupy listy, która ją widzi; „@” znika z nazwy (spacjami, jak w Moich sprawach)', () => {
-    expect(q('lf', 'basen @Tymek jutro')).toEqual({ kind: 'ok', memberId: 'tymek', body: 'basen       jutro' });
+    expect(q('lf', 'basen @Tymek jutro')).toEqual({ kind: 'ok', memberId: 'tymek', body: 'basen        jutro' });
     // Alicja z innej grupy (Klasa 2b) się nie liczy — tylko grupa listy.
     expect(q('lf', 'zebranie @al')).toEqual({ kind: 'many', name: 'al', targets: [expect.objectContaining({ memberId: 'ala' }), expect.objectContaining({ memberId: 'alek' })] });
     expect(q('lf', 'zebranie @al', { person: { groupId: 'gf', groupName: 'Rodzina', memberId: 'alek', displayName: 'Alek' } })).toMatchObject({ kind: 'ok', memberId: 'alek' });

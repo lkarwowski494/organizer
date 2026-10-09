@@ -143,7 +143,7 @@ describe('grupy', () => {
     const t = world();
     put(t, 'group_members', 'z1', { member_id: 'z1', group_id: 'gf', user_id: null, display_name: 'Żaneta', role: 'child', deleted_at: null });
     put(t, 'group_members', 'z2', { member_id: 'z2', group_id: 'gf', user_id: null, display_name: 'Łucja', role: 'child', deleted_at: null });
-    expect(groupDetail(t, ME, 'gf')!.members.filter((m) => m.role === 'child').map((m) => m.display_name)).toEqual(['Tymek', 'Łucja', 'Żaneta']);
+    expect(groupDetail(t, ME, 'gf')!.members.filter((m) => m.role === 'child').map((m) => m.display_name)).toEqual(['Łucja', 'Tymek', 'Żaneta']);
   });
 });
 

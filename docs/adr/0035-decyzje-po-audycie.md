@@ -6,7 +6,7 @@ potem z upoważnienia właściciela: ADR 0041.
 | ID | Sprawa (audyt) | Decyzja | Odrzucone |
 |---|---|---|---|
 | D126 | A. Obecność przy rutynach i lekcjach | Bez obecności przy rutynach (wydarzenie ze stałymi krokami) i lekcjach z planu lekcji | Przełącznik przy wydarzeniu; zostaje |
-| D127 | B. Lekcje zalewają Moje sprawy dorosłych | Jeden wiersz na dzień na dziecko („Tymek: 6 lekcji 8:00–13:30”, rozwijany); w Kalendarzu lekcje osobno | Tylko w Kalendarzu; zostaje |
+| D127 | B. Lekcje zalewają Moje sprawy dorosłych | Jeden wiersz na dzień na dziecko („Tymek: 5 lekcji 8:00–12:35”, rozwijany); w Kalendarzu lekcje osobno | Tylko w Kalendarzu; zostaje |
 | D128 | B'. Ponowne otwarcie planu lekcji dubluje lekcje | Ekran planu pokazuje istniejące lekcje do edycji; przycisk tylko przy dzieciach | Ostrzeżenie przed zapisem |
 | D129 | C. Przeładowany wiersz | „Wyjdź o” w osobnej, wyróżnionej linii; bez „powtarza się”; obecność w wierszu tylko przy „nie” | Tylko bez „powtarza się”; zostaje |
 | D130 | D. Zapis zadania | Każda zmiana zapisuje się od razu (tytuł/notatka po wyjściu z pola), bez „Zapisz” | „Zapisz” + pytanie przy wyjściu |
