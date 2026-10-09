@@ -314,8 +314,11 @@ export class FakeServer {
       const cut = rows.length > lim ? rows[lim - 1]!.v : Infinity;
       const page = rows.filter((x) => x.v <= cut);
       const top = page.length ? page[page.length - 1]!.v : since;
+      // Jak private.tasks_moved_out (20261010330000_moved_out_paging): także zadanie widoczne, którego bieżący wiersz
+      // nie mieści się w tej porcji — kursor mija przeniesienie, a wiersz po zawężeniu nowej listy mógłby nie przyjść.
+      const delivered = (t: Stored | undefined) => this.canSee(user, 'tasks', t) && t!.version <= top;
       const movedOut = (m: (typeof this.moves)[number]) =>
-        m.group === gid && m.version > since && m.version <= top && this.canSeeList(user, this.lists.get(m.from)) && !this.canSee(user, 'tasks', this.tasks.get(m.task));
+        m.group === gid && m.version > since && m.version <= top && this.canSeeList(user, this.lists.get(m.from)) && !delivered(this.tasks.get(m.task));
       groups.push({
         group_id: gid,
         cursor: top,
