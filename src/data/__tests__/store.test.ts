@@ -271,6 +271,35 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     ]);
   });
 
+  it('N-11: zapis ze starszego stanu (drugi pisarz) nie cofa liczników operacji', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = readState(db, 'c1');
+    const s1 = onPushResponse(mutate(s0, { kind: 'patch', entity: 'tasks', id: 'x', set: {} }, () => 'op-1'), { last_seq: 1, results: [{ seq: 1, status: 'ok' }] });
+    writeState(db, s0, s1, 1);
+    // Stan sprzed zmiany zapisany później: next_seq i acked_seq zostają, reszta jak w zapisie.
+    writeState(db, s0, { ...s0, cursors: { g1: 5 } }, 2);
+    const back = readState(db, 'c1');
+    expect([back.nextSeq, back.ackedSeq, back.cursors]).toEqual([2, 1, { g1: 5 }]);
+  });
+
+  it('N-1: wiersz z datą spoza zakresu zapisany przez starszą wersję aplikacji nie wchodzi do stanu po starcie', () => {
+    const db = memoryDb();
+    migrate(db);
+    db.run('insert into events (key, group_id, scope_id, version, data) values (?, ?, ?, ?, ?)', ['e1', 'g1', null, 1, JSON.stringify({ id: 'e1', group_id: 'g1', start_date: 'infinity', version: 1 })]);
+    db.run('insert into events (key, group_id, scope_id, version, data) values (?, ?, ?, ?, ?)', ['e2', 'g1', null, 1, JSON.stringify({ id: 'e2', group_id: 'g1', start_date: '2026-10-07', version: 1 })]);
+    expect(Object.keys(readState(db, 'c1').base.events ?? {})).toEqual(['e2']);
+  });
+
+  it('N-88: zrobione zakupy mają zakres listy (kolumna scope_id)', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = readState(db, 'c1');
+    const s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 1, has_more: false, resync: false, rows: [{ e: 'shopping_trips', v: 1, row: { id: 'z1', group_id: 'g1', list_id: 'l1', version: 1 } }] }], scopes: [] }, pullRequest(s0)).state;
+    writeState(db, s0, s1, 1);
+    expect(db.all('select key, scope_id from shopping_trips')).toEqual([{ key: 'z1', scope_id: 'l1' }]);
+  });
+
   it('odrzucenia z czasem i bez powtórzeń', () => {
     const db = memoryDb();
     migrate(db);
