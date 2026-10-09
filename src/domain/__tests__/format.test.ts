@@ -1,4 +1,5 @@
-import { formatDateInline, formatDue, formatLength, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
+import { lengthLabel } from '../views/events';
+import { formatDateInline, formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -57,5 +58,8 @@ describe('długość wydarzenia (D120, BIPM tabela 8)', () => {
     ['09:15', '10:00', '45 min'],
     ['08:00', '20:05', '12 h 5 min'],
     ['10:00', '10:01', '1 min'],
-  ])('%s–%s → %s', (a, b, out) => expect(formatLength(a, b)).toBe(out));
+    // D199: przez północ i doba.
+    ['22:00', '06:00', '8 h'],
+    ['08:00', '08:00', '24 h'],
+  ])('%s–%s → %s', (a, b, out) => expect(lengthLabel(a, b)).toBe(out));
 });

@@ -56,6 +56,8 @@ describe('src/config zgodny z SQL', () => {
     ['join_fails_per_code', config.invites.JOIN_FAILS_PER_CODE],
     ['staple_max_length', config.shopping.STAPLE_MAX_LENGTH],
     ['event_location_max_length', config.events.LOCATION_MAX_LENGTH],
+    // D199: najdłuższe wydarzenie całodniowe.
+    ['event_max_days', config.events.MAX_DAYS],
     // Audyt 2, P16: retencja (M-62, M-68) i limity na konto (M-70, D183).
     ['activity_days', config.retention.ACTIVITY_DAYS],
     ['handoff_days', config.retention.HANDOFF_DAYS],

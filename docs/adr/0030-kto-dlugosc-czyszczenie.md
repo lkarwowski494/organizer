@@ -15,5 +15,5 @@ przycisk „wyczyść dane” w Ustawieniach (podejrzenie danych ze starych wers
 
 ## Decyzje wykonawcze (Claude; właściciel może zawetować)
 - „Ty”, gdy osoba to ja (`user_id` członka = moje konto; `src/domain/views/who.ts`). Bez przypisanej osoby wiersz nie pokazuje nikogo.
-- Długość tylko przy wydarzeniu z początkiem i końcem (`lengthLabel`); koniec zawsze po początku (ograniczenie w bazie), więc bez wydarzeń przez północ. Także w szczegółach wydarzenia i w etykiecie dostępności wiersza.
+- Długość tylko przy wydarzeniu z początkiem i końcem (`lengthLabel`). Od D199 (ADR 0037) koniec nie później niż początek znaczy „następnego dnia” i długość liczy się przez północ („22:00–06:00 · 8 h”). Także w szczegółach wydarzenia i w etykiecie dostępności wiersza.
 - Czyszczenie (`wipeSynced`): tabele danych, `pending_ops`, `rejected_ops`, kursory synchronizacji; zostają ustawienia telefonu (klucze `local:*`, m.in. lustro kalendarza i tryby dojazdu). Silnik synchronizacji startuje od pustego stanu i pobiera wszystko od zera.
