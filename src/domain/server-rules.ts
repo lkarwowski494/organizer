@@ -40,9 +40,9 @@ export const SYNC_ENTITIES: { readonly [entity: string]: Spec } = {
     patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category'],
     softDelete: true,
   },
-  events: { pk: 'id', insert: ['id', 'group_id', 'title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'kind', 'days'], patch: ['title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'days'], softDelete: true },
+  events: { pk: 'id', insert: ['id', 'group_id', 'title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'kind', 'days', 'duration_min'], patch: ['title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'days', 'duration_min'], softDelete: true },
   event_participants: { pk: 'id', insert: ['id', 'event_id', 'member_id', 'group_id'], patch: [], softDelete: true },
-  event_overrides: { pk: 'id', insert: ['id', 'event_id', 'group_id', 'occurrence_date', 'cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days'], patch: ['cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days'], softDelete: true },
+  event_overrides: { pk: 'id', insert: ['id', 'event_id', 'group_id', 'occurrence_date', 'cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days', 'duration_min'], patch: ['cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days', 'duration_min'], softDelete: true },
   event_rsvps: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'occurrence_date', 'member_id', 'answer'], patch: ['answer'], softDelete: true },
   event_task_series: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'list_id', 'title'], patch: ['event_id', 'title'], softDelete: true },
   handoffs: { pk: 'id', insert: ['id', 'group_id', 'entity', 'entity_id', 'occurrence_date', 'to_member'], patch: ['status', 'closed'], softDelete: false },
@@ -447,7 +447,9 @@ export function applyOnServer(t: { [e: string]: { [k: string]: Row } }, user: st
     // Klucz główny w wierszu (członek: member_id) jak w tabeli serwera.
     t[op.entity]![op.id] = { ...config.sync.PATCH_DEFAULTS[op.entity], ...row, [SYNC_ENTITIES[op.entity]!.pk]: op.id, ...assigned };
   }
-  // Wyzwalacz events_c_days (20261008530000_event_days.sql): „z godziną długość mówią godziny” — days = 1.
+  // Wyzwalacz events_c_days (20261008530000_event_days.sql): „z godziną długość mówią godziny” — days = 1. Normalizacji
+  // duration_min (20261008531000_event_duration.sql, private.event_duration) model nie odtwarza — ekrany nie czytają jej
+  // z serwera, a test różnicowy (rules-vs-sql) nie losuje tej kolumny.
   if ((op.kind === 'create' || op.kind === 'patch') && op.entity === 'events' && t.events![op.id]!.start_time != null) t.events![op.id] = { ...t.events![op.id]!, days: 1 };
   if (op.kind === 'create') return;
   if (op.kind !== 'patch' || op.entity !== 'handoffs' || !old || old.status !== 'pending' || same(op.set.status, old.status) || op.set.status === undefined) return;

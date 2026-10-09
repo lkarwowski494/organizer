@@ -340,4 +340,16 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     await press(await screen.findByTestId('device-copy-d|night'));
     expect(await screen.findByText('Kończy się następnego dnia.')).toBeTruthy();
   });
+
+  it('D199 cz. 2: wyjazd z iPhone’a przez dwie noce — „od 18:00 … do 16:00”, kopia do grupy z długością', async () => {
+    const trip = { ...mine, id: 'trip', title: 'Wyjazd', startMs: Date.UTC(2026, 9, 7, 16, 0), endMs: Date.UTC(2026, 9, 9, 14, 0) };
+    const sync = fakeSync({ status: jest.fn(async () => 'granted' as const), listEvents: jest.fn(async () => [trip]) });
+    const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
+    expect(await screen.findByLabelText('Wyjazd, od 18:00, dzień 1 z 3, Kalendarz: Praca')).toBeTruthy();
+    await press(screen.getByTestId('device-copy-d|trip'));
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    await press(screen.getByTestId('event-save'));
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Wyjazd', start_date: '2026-10-07', start_time: '18:00', end_time: '16:00', rrule: null, audience: 'group', responsible_member_id: null, duration_min: 46 * 60 } }]);
+  });
 });

@@ -69,7 +69,7 @@ describe('podział serii na telefonie (applySplit)', () => {
     expect(t.events!.chor!.rrule).toBe('FREQ=WEEKLY;BYDAY=MO;UNTIL=20261018');
     expect(t.events![S]).toEqual({
       id: S, group_id: 'gf', title: 'Chór', start_date: '2026-10-19', start_time: '18:00', end_time: '19:00', audience: 'group',
-      responsible_member_id: 'me', location: null, note: 'Nuty w teczce', rrule: 'FREQ=WEEKLY;BYDAY=MO', kind: 'lesson', split_from: 'chor', days: 1, deleted_at: null,
+      responsible_member_id: 'me', location: null, note: 'Nuty w teczce', rrule: 'FREQ=WEEKLY;BYDAY=MO', kind: 'lesson', split_from: 'chor', days: 1, duration_min: null, deleted_at: null,
     });
   });
 

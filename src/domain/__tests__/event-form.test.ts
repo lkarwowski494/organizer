@@ -23,8 +23,8 @@ describe('formularz wydarzenia', () => {
   it('scenariusz właściciela: dwa terminy co tydzień → dwie serie z różnymi godzinami', () => {
     const fields = ok(form({ repeat: 'weekly', slots: [{ days: [0], start: '18:00', end: '19:00' }, { days: [5], start: ' 12:00 ', end: '' }], audience: 'members', participantIds: ['kuba'] }));
     expect(fields).toEqual([
-      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1 },
-      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1 },
+      { title: 'Tańce', date: '2026-10-05', startTime: '18:00', endTime: '19:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1, durationMin: null },
+      { title: 'Tańce', date: '2026-10-05', startTime: '12:00', endTime: null, rule: parseRule('FREQ=WEEKLY;BYDAY=SA'), until: null, audience: 'members', participantIds: ['kuba'], responsibleId: null, location: null, days: 1, durationMin: null },
     ]);
   });
 
@@ -138,6 +138,7 @@ describe('formularz wydarzenia', () => {
           responsibleId: null,
           location: null,
           days,
+          durationMin: null,
         };
         const back = ok(formOf(f))[0]!;
         expect({ ...back, rule: back.rule && formatRule(back.rule) }).toEqual({ ...f, rule: rule && formatRule(rule) });

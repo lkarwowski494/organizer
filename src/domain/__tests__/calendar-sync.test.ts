@@ -123,9 +123,9 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
 
   it('wystąpienia moich grup w oknie, bez odwołanych, z osobą odpowiedzialną w nazwie i miejscem', () => {
     expect(items).toEqual([
-      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', days: 1, location: 'Wodna 1', notes: 'Rodzina' },
-      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, days: 1, location: null, notes: 'Osobiste' },
-      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', days: 1, location: 'Wodna 1', notes: 'Rodzina' },
+      { key: 'e1|2026-10-05', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-05', startTime: '17:00', endTime: '18:00', days: 1, durationMin: null, location: 'Wodna 1', notes: 'Rodzina' },
+      { key: 'e2|2026-10-09', groupId: ME, title: 'Przegląd auta', date: '2026-10-09', startTime: null, endTime: null, days: 1, durationMin: null, location: null, notes: 'Osobiste' },
+      { key: 'e1|2026-10-19', groupId: 'gf', title: 'Basen (Ala)', date: '2026-10-19', startTime: '17:00', endTime: '18:00', days: 1, durationMin: null, location: 'Wodna 1', notes: 'Rodzina' },
     ]);
     expect(mirrorGroups(base(), ME).map((g) => [g.id, g.name])).toEqual([[ME, PERSONAL_NAME], ['gf', 'Rodzina']]);
     expect(mirrorGroups(base(), ME)[0]!.color).toMatch(/^#[0-9A-F]{6}$/);
@@ -152,9 +152,9 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
     const all = mirrorItems(t, ME, today, 0, 7, NO_SKIP, LESSONS);
     expect(all.some((i) => i.key.startsWith('e4|'))).toBe(false);
     expect(all.filter((i) => i.key.startsWith('lessons|')).sort((a, b) => a.key.localeCompare(b.key))).toEqual([
-      { key: 'lessons|kuba|2026-10-12', groupId: 'gf', title: 'Kuba: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '13:00', days: 1, location: null, notes: 'Rodzina\n08:00 Matematyka\n08:55 Polski\n13:00 Basen' },
-      { key: 'lessons|ola|2026-10-12', groupId: 'gf', title: 'Ola: 1 lekcja', date: '2026-10-12', startTime: null, endTime: null, days: 1, location: null, notes: 'Rodzina\nDzień sportu' },
-      { key: 'lessons|roza|2026-10-12', groupId: 'gf', title: 'Róża: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '08:45', days: 1, location: null, notes: 'Rodzina\n08:00 Angielski\n08:00 Matematyka\nWycieczka' },
+      { key: 'lessons|kuba|2026-10-12', groupId: 'gf', title: 'Kuba: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '13:00', days: 1, durationMin: null, location: null, notes: 'Rodzina\n08:00 Matematyka\n08:55 Polski\n13:00 Basen' },
+      { key: 'lessons|ola|2026-10-12', groupId: 'gf', title: 'Ola: 1 lekcja', date: '2026-10-12', startTime: null, endTime: null, days: 1, durationMin: null, location: null, notes: 'Rodzina\nDzień sportu' },
+      { key: 'lessons|roza|2026-10-12', groupId: 'gf', title: 'Róża: 3 lekcje', date: '2026-10-12', startTime: '08:00', endTime: '08:45', days: 1, durationMin: null, location: null, notes: 'Rodzina\n08:00 Angielski\n08:00 Matematyka\nWycieczka' },
     ]);
     expect(all.some((i) => i.key.startsWith('l1|'))).toBe(false);
     const onlyMine = mirrorItems(t, ME, today, 0, 7, new Set(['gf']), LESSONS);
@@ -229,7 +229,7 @@ describe('lustro grup w kalendarzu iPhone’a (D95)', () => {
   it('wystąpienie bez godziny końca i bez osoby odpowiedzialnej', () => {
     const t = base();
     put(t, 'events', 'e3', { id: 'e3', group_id: 'gf', title: 'Zebranie', start_date: '2026-10-10', start_time: '18:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null });
-    expect(mirrorItems(t, ME, today, 0, 3, NO_SKIP, LESSONS).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, days: 1, location: null, notes: 'Rodzina' });
+    expect(mirrorItems(t, ME, today, 0, 3, NO_SKIP, LESSONS).find((i) => i.key === 'e3|2026-10-10')).toEqual({ key: 'e3|2026-10-10', groupId: 'gf', title: 'Zebranie', date: '2026-10-10', startTime: '18:00', endTime: null, days: 1, durationMin: null, location: null, notes: 'Rodzina' });
   });
 });
 
