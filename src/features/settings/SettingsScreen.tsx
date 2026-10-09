@@ -13,7 +13,7 @@ import type { RootStackParams, SettingsSection } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwitchRow, SyncChip, Title } from '../../ui/components';
-import { useAppearance,  } from '../../ui/theme';
+import { useAppearance } from '../../ui/theme';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { useTravel } from '../../app/travel';
@@ -244,7 +244,7 @@ export function SettingsScreen({ navigation, route }: Props) {
                   {/* Bez połączenia telefon zostałby pusty do powrotu sieci (audyt 8.10.2026), a po upgrade_required — na stałe (audyt 2, M-57). */}
                   {noServer ? <Body>{strings['reset.offline']}</Body> : null}
                   {indicator.state === 'upgrade_required' ? <Body>{strings['reset.upgrade']}</Body> : null}
-                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" disabled={noServer || indicator.state === 'upgrade_required'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
+                  <Button kind="danger" label={strings['reset.confirm']} testID="reset-confirm" a11yFocus disabled={noServer || indicator.state === 'upgrade_required'} onPress={() => (setResetting(false), resetLocal(), navigation.popToTop())} />
                   <Button kind="secondary" label={strings['common.cancel']} onPress={() => setResetting(false)} />
                 </>
               ) : (
@@ -257,9 +257,9 @@ export function SettingsScreen({ navigation, route }: Props) {
           {deleting ? (
             <View style={{ gap: 8 }}>
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
-              <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" />
+              <Field label={strings['settings.deleteType']} value={word} onChangeText={setWord} autoCapitalize="characters" testID="delete-word" a11yFocus />
               {error ? <ErrorText>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</ErrorText> : null}
-              <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={busy || word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} onPress={del} testID="delete-confirm" />
+              <Button kind="danger" label={strings['settings.deleteConfirm']} disabled={word.trim().toLocaleUpperCase('pl') !== strings['settings.deleteWord']} busy={busy} onPress={del} testID="delete-confirm" />
               <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
             </View>
           ) : (

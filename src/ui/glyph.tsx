@@ -1,6 +1,6 @@
 /**
  * Glify interfejsu (audyt 2, M-293; decyzja PWD-24 A z 8.10.2026): systemowe symbole SF Symbols dla strzałek, ✓, ✕, +
- * i ▾ — jeden krój i grubość wszędzie, w jednym miejscu.
+ * i ˅/˄ — jeden krój i grubość wszędzie, w jednym miejscu.
  *
  * expo-symbols (https://docs.expo.dev/versions/v57.0.0/sdk/symbols/): „On iOS and tvOS, it uses SF Symbols”; SymbolView
  * ma `size` („The size of the symbol”), `tintColor` („The tint color to apply to the symbol”), `weight` i `fallback`
@@ -19,14 +19,15 @@ import { Text, useWindowDimensions } from 'react-native';
 
 import { useTheme } from './theme';
 
-/** Rola → nazwa w SF Symbols i znak zapasowy. */
+/** Rola → nazwa w SF Symbols i znak zapasowy. `more`/`less` — wiersz do rozwinięcia, zwinięty/rozwinięty (M-141). */
 const GLYPHS = {
   next: { sf: 'chevron.right', text: '›' },
   prev: { sf: 'chevron.left', text: '‹' },
   check: { sf: 'checkmark', text: '✓' },
   close: { sf: 'xmark', text: '✕' },
   add: { sf: 'plus', text: '+' },
-  more: { sf: 'chevron.down', text: '▾' },
+  more: { sf: 'chevron.down', text: '˅' },
+  less: { sf: 'chevron.up', text: '˄' },
 } as const;
 export type GlyphName = keyof typeof GLYPHS;
 

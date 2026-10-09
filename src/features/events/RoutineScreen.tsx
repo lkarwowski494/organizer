@@ -97,9 +97,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />
       {error ? (
-        <ErrorText>
-          {error}
-        </ErrorText>
+        <ErrorText>{error}</ErrorText>
       ) : null}
       <Button label={strings['routine.save']} testID="routine-save" onPress={save} />
     </Screen>

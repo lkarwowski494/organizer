@@ -15,7 +15,7 @@ import { remove, renameMember, restore, setRole } from '../../domain/views/comma
 import { type NameError, validateName } from '../../domain/views/my-name';
 import { groupDetail, memberActions, type MemberActions } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
+import { BackButton, Body, Button, ConfirmText, ErrorText, Field, Screen, Segmented, Title } from '../../ui/components';
 import { useUndo } from '../../ui/undo';
 import { useLiveText } from '../../ui/live-text';
 import { JoinCodeCard } from './JoinCodeCard';
@@ -137,7 +137,7 @@ export function MemberScreen({ route, navigation }: Props) {
       {transferred ? <Body>{strings['member.transferPending']}</Body> : null}
       {confirmOwner && !transferred ? (
         <View style={{ gap: 8 }}>
-          <Body>{strings['member.makeOwnerConfirm'](m.display_name)}</Body>
+          <ConfirmText>{strings['member.makeOwnerConfirm'](m.display_name)}</ConfirmText>
           <Button
             kind="danger"
             label={strings['member.makeOwnerYes']}

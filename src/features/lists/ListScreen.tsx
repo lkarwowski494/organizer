@@ -21,7 +21,7 @@ import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, ErrorText, Field, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { AskPanel } from '../../ui/AskPanel';
@@ -47,9 +47,10 @@ type Props = NativeStackScreenProps<RootStackParams, 'List'>;
  */
 function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string; count: number; open: boolean; onPress: () => void; testID: string }) {
   const { c, font, size } = useTheme();
-  const meta = `${strings['lists.expiredRun'](count)}  ·  ${open ? strings['lists.runHide'] : strings['lists.runShow']}`;
+  const meta = strings['lists.expiredRun'](count);
+  // Audyt 2 (M-141): jak wiersz lekcji — stan i czynność dla VoiceOvera, na ekranie ˅/˄ zamiast „dotknij, by…”.
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta.split('  ·  ').join(', ')}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta}`} accessibilityHint={strings[open ? 'lists.runHideHint' : 'lists.runShowHint']} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.control }} />
       </View>
@@ -57,6 +58,7 @@ function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string;
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{meta}</Text>
       </View>
+      <Glyph name={open ? 'less' : 'more'} color={c.inkMuted} />
     </Pressable>
   );
 }
@@ -186,7 +188,8 @@ export function ListScreen({ route, navigation }: Props) {
             shopping={shopping}
             onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
-            openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
+            openHint={shopping ? strings['shop.editHint'] : undefined}
+            expanded={shopping && editable && !done ? picking === t.id : undefined}
           />
         </SwipeRow>,
         ...(picking === t.id
@@ -243,7 +246,7 @@ export function ListScreen({ route, navigation }: Props) {
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {planError ? <Body>{planError}</Body> : null}
+              {planError ? <ErrorText>{planError}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}
                 testID="trip-save"

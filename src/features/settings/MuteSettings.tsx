@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import { groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, SectionTitle, SwitchRow } from '../../ui/components';
+import { Body, ErrorText, SectionTitle, SwitchRow } from '../../ui/components';
 
 export function MuteSettings() {
   const { account, userId } = useServices();
@@ -34,7 +34,7 @@ export function MuteSettings() {
       <SectionTitle>{strings['mutes.section']}</SectionTitle>
       <Body muted>{strings['mutes.info']}</Body>
       {muted === null && !error ? <Body muted>{strings['app.loading']}</Body> : null}
-      {error ? <Body muted>{strings['mutes.error']}</Body> : null}
+      {error ? <ErrorText>{strings['mutes.error']}</ErrorText> : null}
       {muted
         ? shared.map((g) => (
             // M-308 (PWD-39 A): przełącznik włączony = powiadomienia z grupy przychodzą.

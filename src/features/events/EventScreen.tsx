@@ -26,7 +26,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, CardTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -55,7 +55,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
-  const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
+  const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
 
   if (!d || d.event.deleted_at !== null) {
@@ -139,7 +139,7 @@ export function EventScreen({ route, navigation }: Props) {
     setCalendarMsg(null);
     // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
     const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
-    setCalendarMsg(r === 'saved' ? strings['event.calendarSaved'] : r === 'denied' ? strings['event.calendarDenied'] : null);
+    setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 
   const next = relink?.scope === 'this' ? nextOccurrence(tables, userId, eventId, date) : null;
@@ -210,7 +210,7 @@ export function EventScreen({ route, navigation }: Props) {
 
       {/* PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie — „Dodaj” zrobiłby nieaktualizowany dubel. */}
       {active ? inMirror ? <Body muted>{strings['event.inMirror'](inMirror)}</Body> : <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
-      {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
+      {calendarMsg === 'saved' ? <StatusText>{strings['event.calendarSaved']}</StatusText> : calendarMsg === 'denied' ? <ErrorText>{strings['event.calendarDenied']}</ErrorText> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
       {/* Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34). */}
@@ -267,9 +267,7 @@ export function EventScreen({ route, navigation }: Props) {
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (
           <Card kind="panel">
-            <CardTitle>
-              {strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}
-            </CardTitle>
+            <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
             {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
@@ -279,9 +277,7 @@ export function EventScreen({ route, navigation }: Props) {
         )
       ) : ask === 'edit' || ask === 'cancel' ? (
         <Card kind="panel">
-          <CardTitle>
-            {ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}
-          </CardTitle>
+          <PanelTitle>{ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}</PanelTitle>
           {SCOPES.map((s) => (
             <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}

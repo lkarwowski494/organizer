@@ -77,8 +77,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
     fireEvent.changeText(await screen.findByTestId('quick-add'), 'rosół');
     await p('Dodaj');
   }],
-  ['Zadanie', async (p) => p(/^Otwórz: Odebrać paczkę(,|$)/)],
-  ['Zadanie: przekazanie', async (p) => (await p(/^Otwórz: Odebrać paczkę(,|$)/), await p('Przekaż zadanie'))],
+  ['Zadanie', async (p) => p(/^Odebrać paczkę(,|$)/)],
+  ['Zadanie: przekazanie', async (p) => (await p(/^Odebrać paczkę(,|$)/), await p('Przekaż zadanie'))],
   ['Moje sprawy: tydzień', async (p) => p('Tydzień')],
   ['Pełny formularz zadania', async (p) => p('Więcej')],
   ['Pełny formularz: zadanie we wspólnej grupie z powtarzaniem', async (p) => (await p('Więcej'), await p('Rodzina'), await p('Jutro'), await p('Co tydzień'))],
@@ -92,9 +92,9 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
   ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina · Zakupy · 1 do kupienia'), await p('Zaplanuj zakupy'))],
   ['Kalendarz', async (p) => p('Kalendarz')],
-  ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się')],
-  ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'))],
-  ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 h, Rodzina, powtarza się'), await p('Zmień'), await p('Całą serię'))],
+  ['Wydarzenie', async (p) => p('Tańce, 17:00–18:00, 1 godzina, Rodzina')],
+  ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'))],
+  ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'), await p('Całą serię'))],
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
   ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
@@ -112,10 +112,10 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wyślij uwagę', async (p) => (await p('Ustawienia'), await p('Wyślij uwagę'))],
   ['Wprowadzenie', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'))],
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
-  ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await p('Inny dzień: Wybierz dzień'), await p('Następny miesiąc'))],
+  ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await fireEvent.press(await screen.findByTestId('form-date')), await p('Następny miesiąc'))],
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby · administrator'), await p('Kuba, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
   ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
-  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek: /))],
+  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek$/))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
   ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
   ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {
