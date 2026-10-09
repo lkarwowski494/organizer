@@ -159,6 +159,7 @@ describe('„Do potwierdzenia” i plakietka', () => {
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Czeka na przyjęcie: Ala')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByLabelText('Zrobione (1), pokaż'));
     await press(await screen.findByLabelText(/^Odebrać\ paczkę,\ .*dziś/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByText('Czeka na przyjęcie: Ala')).toBeNull();

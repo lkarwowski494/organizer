@@ -21,6 +21,20 @@ describe('ilość w pozycji zakupów (D77)', () => {
     ['bułki 100', 'bułki 100', null],
     ['  masło  ', 'masło', null],
     ['2', '2', null],
+    // Audyt 3 (N-173): kropka po jednostce, „x” z przodu, opakowania z odmianą, „rozmiar”, krotność opakowania.
+    ['jabłka 2 kg.', 'jabłka', '2 kg'],
+    ['mleko 2l.', 'mleko', '2 l'],
+    ['x2 mleko', 'mleko', '×2'],
+    ['woda 6 butelek', 'woda', '6 butelek'],
+    ['piwo 4 puszki', 'piwo', '4 puszki'],
+    ['2 kartony mleka', 'mleka', '2 kartony'],
+    ['ogórki 1 słoik', 'ogórki', '1 słoik'],
+    ['pieluchy rozmiar 4', 'pieluchy rozmiar 4', null],
+    ['pieluchy Rozm. 4', 'pieluchy Rozm. 4', null],
+    ['pieluchy 4', 'pieluchy', '4'],
+    ['piwo 6 x 0,5l', 'piwo', '6 × 0,5 l'],
+    ['woda 6x1,5 l', 'woda', '6 × 1,5 l'],
+    ['6 gruszek', 'gruszek', '6'],
   ])('„%s” → %s · %s', (title, name, qty) => {
     expect(parseQuantity(title)).toEqual({ name, qty });
   });

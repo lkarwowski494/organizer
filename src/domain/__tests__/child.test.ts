@@ -141,13 +141,13 @@ describe('widoki dziecka z kontem', () => {
     return t;
   }
 
-  it('Moje sprawy: tylko moje zadania i wydarzenia, w których uczestniczę; zakupy grupy zostają', () => {
+  it('Moje sprawy: tylko moje zadania i wydarzenia, w których uczestniczę; zakupy grupy — tylko w Kalendarzu (Q6c A)', () => {
     const t = family();
     const v = todayView(t, KID, TODAY);
     expect(v.today.map((x) => x.id)).toEqual(['moje']);
     expect(v.pinned.map((x) => x.id)).toEqual(['osobiste']);
     const day = myDays(t, KID, TODAY, 'day', TODAY, local).days[0]!;
-    expect(day.entries.map((e) => (e.kind === 'event' ? e.event.eventId : e.kind === 'task' ? (e.task.trip ? `zakupy:${e.task.id}` : e.task.id) : e.key))).toEqual(['zakupy:lz', 'obiad', 'basen', 'moje']);
+    expect(day.entries.map((e) => (e.kind === 'event' ? e.event.eventId : e.kind === 'task' ? (e.task.trip ? `zakupy:${e.task.id}` : e.task.id) : e.key))).toEqual(['obiad', 'basen', 'moje']);
   });
 
   it('Kalendarz: tylko moje zadania (także zrobione); zakupy grupy zostają', () => {

@@ -286,6 +286,20 @@ export function listDetail(t: Tables, userId: string, listId: string, today: Civ
 }
 
 /**
+ * Zrobione na ekranie listy (audyt 3, N-52): z ostatnich config.lists.DONE_RECENT_DAYS dni (`recent`) i starsze
+ * (`older`, pokazywane dopiero na życzenie) — po roku lista ma tysiąc zrobionych. Dzień wiersza: dzień odhaczenia
+ * (data znacznika UTC — przy oknie wielu dni godzina różnicy nie ma znaczenia), minione bez odhaczenia — dzień terminu,
+ * zwinięte minione kopie — najpóźniejsza. Kolejność zostaje.
+ */
+export function splitDoneRows(doneRows: readonly DoneRow[], today: CivilDate): { recent: DoneRow[]; older: DoneRow[] } {
+  const since = formatIsoDate(addDays(today, -config.lists.DONE_RECENT_DAYS));
+  // Zamknięte = odhaczone albo minione (minione ma termin, listState).
+  const day = (n: TaskNode) => (n.completed_at !== null ? n.completed_at.slice(0, 10) : n.due!.date);
+  const last = (r: DoneRow) => (r.kind === 'task' ? day(r.node) : r.nodes.map(day).sort().at(-1)!);
+  return { recent: doneRows.filter((r) => last(r) >= since), older: doneRows.filter((r) => last(r) < since) };
+}
+
+/**
  * `trip` — wpis zakupów z listy zakupów (D73, src/domain/views/shopping-trip.ts), nie zadanie. `assignee` — imię osoby
  * zadania w Moich sprawach (ja albo dziecko bez konta); `null` — nikt konkretny.
  */

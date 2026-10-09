@@ -20,6 +20,9 @@ export function rejectionReason(code: string): string {
   if (head === 'deleted' || head === 'not_found') return strings['rejected.code.deleted'];
   if (head === 'cycle') return strings['rejected.code.cycle'];
   if (head === 'depth_exceeded') return strings['rejected.code.depth'];
+  // Audyt 3 (N-2, Q12 część 3 A): limit grupy (migracja 20261010011000_write_limits).
+  if (code === 'limit:group_rows') return strings['rejected.code.groupRows'];
+  if (code === 'limit:group_size') return strings['rejected.code.groupSize'];
   // Audyt 2 (M-70): limity na konto (np. limit:groups przy dołączaniu z kolejki).
   if (head === 'limit') return strings['rejected.code.limit'];
   return strings['rejected.code.other'];
