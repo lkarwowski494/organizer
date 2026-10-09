@@ -10,6 +10,12 @@ WORKSPACE = "ios/Organizer.xcworkspace"
 PROJECT = "ios/Organizer.xcodeproj"
 SCHEME = "Organizer"
 
+# Sekrety wydania (audyt 3, N-254): po match i odczycie klucza App Store Connect nie są już potrzebne w ENV, a build_app
+# uruchamia xcodebuild, który przekazuje środowisko każdej fazie skryptu buildu (kod ok. 1200 paczek npm, React Native
+# i Expo). Klucz zostaje tylko w pamięci fastlane (`api_key`) do wysyłki do TestFlight.
+RELEASE_SECRETS = %w[ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 MATCH_PASSWORD MATCH_GIT_USER MATCH_GIT_TOKEN
+                     MATCH_GIT_BASIC_AUTHORIZATION].freeze
+
 platform :ios do
   private_lane :asc_key do
     app_store_connect_api_key(
@@ -37,6 +43,7 @@ platform :ios do
     setup_ci # tymczasowy keychain; przełącza match w tryb tylko do odczytu
     api_key = asc_key
     match(api_key: api_key, readonly: true)
+    RELEASE_SECRETS.each { |name| ENV.delete(name) }
     increment_build_number(xcodeproj: PROJECT, build_number: ENV.fetch("BUILD_NUMBER"))
     update_code_signing_settings(
       path: PROJECT,

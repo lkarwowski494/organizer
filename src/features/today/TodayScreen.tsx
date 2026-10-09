@@ -11,7 +11,7 @@ import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
-import { splitDuplicates } from '../../domain/views/calendar-sync';
+import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
@@ -36,7 +36,7 @@ import { startGroup } from '../../domain/views/default-group';
 import { type QuickAnswers, quickGroups, type QuickResolution, type QuickTarget, resolveQuick, unseenInMyDays, withoutShortcuts } from '../../domain/views/quick-target';
 import { useDefaultGroup } from '../../app/default-group';
 import { QuickGroupChip, ShoppingChip } from './QuickGroupChip';
-import { recentShoppingList, shoppingItem } from '../../domain/views/quick-shopping';
+import { otherShoppingList, recentShoppingList, shoppingItem } from '../../domain/views/quick-shopping';
 import { useUndo } from '../../ui/undo';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { DeviceEventRow } from '../calendar/DeviceEventRow';
@@ -143,7 +143,12 @@ export function TodayScreen() {
   const product = plain && body ? (shoppingItem(plain.body) ?? shoppingItem(body.title)) : null;
   // D68 po PW-18 b: zapis bez pytania; przed dodaniem napis, że nikt tego nie zobaczy w Moich sprawach.
   const unseen = !!target && !!body && body.title.trim() !== '' && unseenInMyDays(tables, userId, target, body.dated);
-  const shopList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
+  const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
+  // Audyt 3 (N-45, Q14 B): grupa z chipa bez listy zakupów (zwykle „Osobiste”) — lista innej grupy, z jej nazwą na chipie.
+  // Grupa wskazana tekstem („#…”, „@…”) zostaje: wtedy tylko napis, że listy nie ma.
+  const ownList = plain && product ? recentShoppingList(tables, userId, plain.groupId) : null;
+  const otherList = plain && product && !ownList && plain.from === 'chip' ? otherShoppingList(tables, userId, plain.groupId, defaultGroup.last) : null;
+  const shopList = ownList ?? (otherList && { id: otherList.id, name: strings['quick.listInGroup'](otherList.name, groupLabel(otherList.groupId, groups.find((g) => g.id === otherList.groupId)!.name)) });
   const { from, to } = rangeOf(mode, at);
   const isoToday = formatIsoDate(today);
   const showsToday = formatIsoDate(from) <= isoToday && isoToday <= formatIsoDate(to);
@@ -170,13 +175,15 @@ export function TodayScreen() {
     done(t);
   };
   // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.
-  const toShopping = (t: QuickTarget, item: string, list: { id: string; name: string }) => {
+  // `t` — wpis z pola (ostatnio użyta grupa jak przy dodaniu); `null` — produkt do grupy, w której jestem dzieckiem (N-44).
+  const toShopping = (t: QuickTarget | null, item: string, list: { id: string; name: string }) => {
     const ops = quickAddOps({ tables, userId, text: item, now: now(), ignore: [], newId, listId: list.id });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
     undo.show(strings['form.addedItem'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['common.change']);
-    done(t);
+    if (t) done(t);
+    else clear();
   };
   // „#Grupa” to wybór grupy jak chipem — zostaje ostatnio użytą (decyzja właściciela 8.10.2026).
   const done = (t: QuickTarget) => {
@@ -209,7 +216,6 @@ export function TodayScreen() {
     proceed({});
   };
   const canDelete = (groupId: string) => groups.find((g) => g.id === groupId)?.me.role !== 'child';
-  const groupLabel = (id: string, name: string) => (groups.find((g) => g.id === id)?.kind === 'personal' ? strings['groups.personal'] : name);
   // PWD-13 A: „Bez terminu” w każdym zakresie, który obejmuje dziś (w tygodniu i miesiącu — zwinięte na górze).
   const pinned = showsToday ? view.pinned : [];
   const doneToday = showsToday ? view.doneToday : [];
@@ -219,7 +225,7 @@ export function TodayScreen() {
   const deviceAll = useDeviceCalendar().days;
   const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (d: (typeof view.days)[number]) =>
-    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
+    splitDuplicates(allDevice.get(d.date) ?? [], d.entries.flatMap((x) => (x.kind === 'event' ? [{ title: x.event.title, time: x.event.startTime, continued: isContinuation(x.event.part), key: occurrenceKey(x.event) }] : x.kind === 'lessons' ? x.block.lessons.map((l) => ({ title: l.title, time: l.startTime, key: occurrenceKey(l) })) : [{ title: x.task.title, time: x.task.due?.time ?? null }])));
   const deviceOf = (d: (typeof view.days)[number]) => deviceSplit(d).shown;
   const shownDay = (d: (typeof view.days)[number]) => d.entries.length > 0 || deviceOf(d).length > 0 || deviceSplit(d).hidden.length > 0;
   const firstPast = view.days.find((d) => d.past && shownDay(d))?.date;
@@ -404,6 +410,20 @@ export function TodayScreen() {
           testID="tag-choices"
           title={strings['tag.ask'](ask.r.name)}
           options={ask.r.groups.map((g) => ({ key: g.id, label: g.name, onPress: () => proceed({ ...ask.answers, group: g.id }) }))}
+          onCancel={() => setAsk(null)}
+        />
+      ) : ask?.r.kind === 'childGroup' ? (
+        // Audyt 3 (N-44): „#Rodzina szampon” od dziecka — grupa jest, ale spraw tam nie dodaje (D34); produkt dopisze do
+        // listy zakupów tej grupy (Q6d A).
+        <AskPanel
+          testID="tag-child"
+          title={strings['tag.child'](ask.r.groups[0]!.name)}
+          body={strings[ask.r.groups.some((g) => g.list) ? 'tag.childInfo' : 'tag.childNoList']}
+          // Lista z nazwą grupy, jak podpowiedź listy innej grupy (Q14 B) — także przy kilku pasujących grupach.
+          options={ask.r.groups.flatMap((g) => {
+            const r = ask.r as Extract<QuickResolution, { kind: 'childGroup' }>;
+            return g.list ? [{ key: g.id, label: strings['quick.toShopping'](strings['quick.listInGroup'](g.list.name, g.name)), onPress: () => toShopping(null, r.body, g.list!) }] : [];
+          })}
           onCancel={() => setAsk(null)}
         />
       ) : ask?.r.kind === 'unknownGroup' ? (

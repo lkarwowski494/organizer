@@ -26,7 +26,9 @@ export function DeviceCalendarCard() {
       live = false;
     };
   }, [prefs]);
-  if (!cal.available || asked !== false || cal.status === null || (cal.read && cal.status === 'granted')) return null;
+  // Audyt 3 (N-185): przy pełnej zgodzie karty nie ma — wyłączony odczyt to wybór w Ustawieniach, nie powód, by znowu
+  // proponować połączenie (które włączało też świadomie wyłączone lustro).
+  if (!cal.available || asked !== false || cal.status === null || cal.status === 'granted') return null;
   const done = () => {
     setAsked(true);
     prefs?.set(CAL_ASKED, '1').catch(() => {});

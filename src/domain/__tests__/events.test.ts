@@ -361,9 +361,14 @@ describe('scenariusz: judo w poniedziałki 18:00 i soboty 10:00', () => {
 
   it('odwołanie „to i następne”, od pierwszego wystąpienia i „wszystkie” — usunięcie serii', () => {
     const { t, mo, sa, newId } = dances();
-    expect(cancelEvent(detail(t, mo), '2026-10-19', 'following')).toEqual([{ kind: 'patch', entity: 'events', id: mo, set: { rrule: 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261018' } }]);
-    expect(cancelEvent(detail(t, mo), '2026-10-05', 'following')).toEqual([{ kind: 'delete', entity: 'events', id: mo }]);
-    expect(cancelEvent(detail(t, sa), '2026-10-17', 'all')).toEqual([{ kind: 'delete', entity: 'events', id: sa }]);
+    // Audyt 3 (N-3): seria kończy się jednym poleceniem end_series na całym łańcuchu (src/domain/event-chain.ts).
+    expect(cancelEvent(detail(t, mo), '2026-10-19', 'following')).toEqual([{ kind: 'cmd', cmd: 'end_series', args: { event_id: mo, date: '2026-10-19', title: 'Judo Tymka' } }]);
+    const ended = structuredClone(t);
+    run(ended, cancelEvent(detail(t, mo), '2026-10-19', 'following'));
+    expect(ended.events![mo]!.rrule).toBe('FREQ=WEEKLY;BYDAY=MO;UNTIL=20261018');
+    run(ended, cancelEvent(detail(ended, mo), '2026-10-05', 'following'));
+    expect(ended.events![mo]!.deleted_at).not.toBeNull();
+    expect(cancelEvent(detail(t, sa), '2026-10-17', 'all')).toEqual([{ kind: 'cmd', cmd: 'end_series', args: { event_id: sa, date: null, title: 'Judo Tymka' } }]);
     run(t, cancelEvent(detail(t, sa), '2026-10-17', 'all'));
     expect(range(t, '2026-10-01', '2026-10-31').filter((x) => x.eventId === sa)).toEqual([]);
     const one = createEvent('gf', fields({ rule: null, date: '2026-10-08' }), newId);
@@ -757,10 +762,8 @@ describe('audyt 2: zmiany pojedynczych terminów i serii', () => {
     const t = chor();
     run(t, editEvent(detail(t, 'chor'), '2026-10-19', 'following', { ...fieldsOf(detail(t, 'chor'), '2026-10-19', 'following'), startTime: '18:00' }));
     const sid = splitId('chor', '2026-10-19');
-    expect(groupSeries(t, ME, 'gf', D('2026-10-08'), RL).map((x) => [x.id, x.next])).toEqual([
-      ['chor', '2026-10-12'],
-      [sid, '2026-10-19'],
-    ]);
+    // Audyt 3 (N-116): jeden wiersz na łańcuch — z części najbliższego terminu.
+    expect(groupSeries(t, ME, 'gf', D('2026-10-08'), RL).map((x) => [x.id, x.next])).toEqual([['chor', '2026-10-12']]);
     expect(groupSeries(t, ME, 'gf', D('2026-10-20'), RL).map((x) => [x.id, x.next])).toEqual([[sid, '2026-10-26']]);
   });
 

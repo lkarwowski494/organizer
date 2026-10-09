@@ -71,11 +71,13 @@ describe('zasady workflow (CLAUDE.md, Bezpieczeństwo)', () => {
     expect(s).toMatch(/^permissions:\n {2}contents: read$/m);
   });
 
-  it('e2e.yml: bez sekretów i środowisk; artefakty bez aplikacji, 7 dni', () => {
+  it('e2e.yml: bez sekretów i środowisk; artefakty bez aplikacji, 7 dni nocą i ręcznie, 2 przy push i PR (N-106)', () => {
     const s = code(read('.github/workflows/e2e.yml'));
     expect(s).not.toMatch(/secrets\.|environment:/);
     expect(s).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]\n {2}pull_request:\n {2}schedule:\n.*\n {2}workflow_dispatch:\n/m);
-    expect(s).toMatch(/retention-days: 7/);
+    expect(s).toContain(
+      "retention-days: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 7 || 2 }}",
+    );
     expect(s).toMatch(/path: e2e-artifacts\/\n/);
     // Do katalogu artefaktów trafiają zrzuty, raport, logi — nigdy .app (run-flows.sh instaluje ją wprost z ios/build).
     expect(read('scripts/e2e/run-flows.sh')).not.toMatch(/cp[^\n]*\.app/);

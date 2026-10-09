@@ -67,11 +67,12 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
   (`create_child_code` / `renew_child_code`, 24 h, jeden aktywny na profil); dziecko loguje się przez Apple (D177)
   i dołącza tym kodem jak zwykłym — staje się tym samym `member_id` z rolą dziecko (plan lekcji, zadania, obecność
   zostają). Konto, które jest albo było w grupie, nie łączy się z profilem (`invite_child_account`). Zasady dziecka
-  z kontem: tylko odhacza (D34), obecność za siebie, nie wychodzi samo z grupy (`forbidden:child`), rolę osób z kontem
+  z kontem: tylko odhacza (D34; od audytu 3 dopisuje też produkty do list zakupów — niżej), obecność za siebie, nie wychodzi samo z grupy (`forbidden:child`), rolę osób z kontem
   (admin / członek / dziecko) zmienia tylko owner (admin: `forbidden:role`); w Moich sprawach, przypomnieniach,
   Kalendarzu i na liście wydarzeń grupy — tylko swoje sprawy (przypisane do niego, ich podzadania, zadania przy
   wydarzeniach, które go dotyczą) i wydarzenia, w których uczestniczy (albo całej grupy); zakupy grupy widzi bez pola
-  odhaczenia; swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
+  odhaczenia — od audytu 3 (decyzja właściciela Q6c A, 9.10.2026) tylko w Kalendarzu, bez Moich spraw, przypomnień
+  i porannego podsumowania (zakupy robi dorosły); swoje lekcje — jednym wierszem bez przypomnień (D127). Listy grupy otwiera jak dotąd, ale odhacza
   (i cofa odhaczenie) tylko swoje sprawy i pozycje przypisane do niego albo z zakupów, za które odpowiada — serwer
   `forbidden:not_own` (`private.child_owns_task`, migracja `20261008441000_child_check_off.sql`), ekrany bez pola
   odhaczenia przy cudzych (decyzja koordynatora z 8.10.2026, zasada właściciela; odrzucone: odhacza wszystko, D34). Migracja
@@ -90,6 +91,23 @@ Decyzje techniczne podjęte przy wdrożeniu — z odrzuconymi wariantami, do spr
 | PWD-19. Stałe zakupy a koszyk | A: w koszyku = już na liście; stałe bez ilości | Bez zmian |
 
 Wykonanie (Claude; właściciel może zawetować):
+- **Audyt 3 (PK-12) — zmiany D155 (decyzje Q6 a, b, d; Q14):**
+  - *Q6a A (N-43):* zadania dziecka z kontem są w Moich sprawach, przypomnieniach i podsumowaniach dorosłych grupy jak
+    zadania profilu bez konta (z imieniem dziecka, w zakresie „Wszystko”) — połączenie z kontem nic rodzicom nie zabiera,
+    tak jak dotąd wydarzenia i lekcje dziecka (`concernsMeTask`). Odrzucone: tylko dziecko (B), zakres per dziecko (C, później).
+  - *Q6b A (N-42):* rolę „Dziecko” dostaje tylko konto połączone kodem profilu dziecka — serwer zapisuje chwilę
+    połączenia (`group_members.child_linked_at`, ustawia ją wyłącznie wyzwalacz `group_members_t_child_link`), a zmianę
+    innego konta na dziecko odrzuca (`forbidden:role`); telefon chowa wtedy wybór „Dziecko” (`childRoleAllowed`) i mówi
+    dlaczego. Połączone dziecko, które „dorosło” do członka, może wrócić do roli dziecka. Zmiana roli ma pasek „Cofnij”.
+    Migracja `20261010120000_child_role_shopping.sql`. Odrzucone: konto, które dołączyło samo, zawsze może wyjść (B);
+    ostrzeżenie przy zmianie (C).
+  - *Q6d A (N-44):* dziecko z kontem dopisuje produkty do list zakupów, które widzi (pole na liście zakupów, „Na listę: …”
+    w Moich sprawach, „#Grupa produkt”) — tylko pozycję główną bez osoby, terminu, wydarzenia, powtarzania i notatki
+    (`tasks_guard`, ta sama migracja); dopisanej pozycji nie zmienia ani nie usuwa (D34). „#Grupa”, w której jestem
+    dzieckiem, nie daje już nieprawdziwego „Nie ma grupy” — panel mówi, że spraw tam nie dodaję, i proponuje listę zakupów.
+  - *Q14 A+B (N-45):* nowo utworzona albo dołączona grupa zostaje „ostatnio użytą” (chip „Do: …” w Moich sprawach);
+    gdy grupa z chipa nie ma listy zakupów, podpowiedź „Na listę” bierze listę innej grupy (ostatnio użytej, potem
+    w kolejności ekranu Grupy) z jej nazwą w nawiasie. Grupa wskazana tekstem („#…”) zostaje.
 - **PW-17 B.** Nazwa listy — pole „Nazwa listy” na dole ekranu listy, zapis od razu jak tytuł zadania (D130); pozycja
   zakupów — dotknięcie otwiera panel z polem „Nazwa i ilość” (jeden tekst, jak przy dodawaniu: ilość zostaje w nazwie,
   D77), działem i stałą pozycją; panel zamyka „Gotowe” (zmiany są już zapisane). „Tylko ja” na ekranie List, w grupie

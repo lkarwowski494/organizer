@@ -84,6 +84,12 @@ export const strings = {
   'tag.unknown': (name: string) => `Nie ma grupy #${name}`,
   'tag.unknownInfo': (name: string, group: string) => `Popraw nazwę albo dodaj do grupy „${group}” („#${name}” zostanie w nazwie).`,
   'tag.addTo': (group: string) => `Dodaj do: ${group}`,
+  // Audyt 3 (N-44): „#Grupa”, w której jestem dzieckiem — zamiast nieprawdziwego „Nie ma grupy”.
+  'tag.child': (group: string) => `W grupie „${group}” dopisujesz tylko zakupy`,
+  'tag.childInfo': 'Zadania i wydarzenia dodaje tam dorosły. Produkt możesz dopisać do listy zakupów:',
+  'tag.childNoList': 'Zadania i wydarzenia dodaje tam dorosły — poproś go o to. Listy zakupów w tej grupie nie ma.',
+  // Audyt 3 (N-45, Q14 B): lista zakupów z innej grupy niż ta na chipie.
+  'quick.listInGroup': (list: string, group: string) => `${list} (${group})`,
 
   'task.done': 'Oznacz jako zrobione',
   'task.undone': 'Oznacz jako niezrobione',
@@ -186,7 +192,7 @@ export const strings = {
   'travel.navApp': 'Nawiguj w',
   'travel.apple': 'Mapy Apple',
   'travel.google': 'Google Maps',
-  'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple (z korkami) i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
+  'travel.info': `Dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach telefon liczy czas dojazdu w Mapach Apple i pokazuje „Wyjdź o …” z ${config.travel.BUFFER_MIN} min zapasu; o tej godzinie przypomni „Czas wyjść”. Twoje położenie zostaje na telefonie (i u Apple do policzenia trasy) — nie trafia na serwer Organizera.`,
   'travel.denied': 'Brak dostępu do lokalizacji. Włączysz go w Ustawieniach iPhone’a → Organizer → Lokalizacja.',
   // PWD-3 (M-175): przy wydarzeniu z adresem, gdy czas dojazdu jest wyłączony — włącza go i pyta o lokalizację.
   'travel.suggest': 'Pokaż, kiedy wyjść →',
@@ -194,6 +200,8 @@ export const strings = {
   'travel.needsPermission': 'Czas dojazdu jest włączony, ale potrzebuje zgody na lokalizację.',
   'travel.allow': 'Zezwól na lokalizację',
   // M-106: Mapy nie znalazły adresu (sprawdzimy znowu za dobę albo po zmianie miejsca).
+  // Audyt 3 (N-188): dojazd włączony, a wydarzenie dalej niż okno liczenia — „Wyjdź o” pojawi się później.
+  'travel.later': `„Wyjdź o …” pokażemy dla wydarzeń z miejscem w najbliższych ${config.travel.AHEAD_HOURS} godzinach.`,
   'travel.notFound': 'Nie znaleźliśmy tego adresu w Mapach, więc nie policzymy dojazdu. Sprawdź miejsce wydarzenia.',
   'event.location': 'Miejsce (adres, opcjonalnie)',
   'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
@@ -236,6 +244,10 @@ export const strings = {
   'timetable.fixLesson': (n: number, day: string, error: string) => `Popraw lekcję ${n}, ${day}: ${error}`,
   'timetable.until': 'Do dnia (opcjonalnie, np. koniec roku szkolnego)',
   'timetable.save': 'Zapisz plan',
+  // Audyt 3 (N-47, Q27 B): plan lekcji do innej grupy (dziecko w dwóch domach).
+  'timetable.copyTo': 'Skopiuj plan lekcji do…',
+  'timetable.copyInfo': 'Plan otworzy się u wybranego dziecka do sprawdzenia — zapisze się dopiero po „Zapisz plan”. Dalsze zmiany w jednym planie nie przechodzą do drugiego.',
+  'timetable.copied': (from: string) => `Plan skopiowany z: ${from}. Sprawdź go i zapisz.`,
   'timetable.empty': 'Dodaj co najmniej jedną lekcję.',
   // D127: lekcje dziecka jednym wierszem w Moich sprawach.
   'lessons.title': (name: string, n: number) => `${name}: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })}`,
@@ -290,7 +302,8 @@ export const strings = {
   'task.restore': 'Cofnij usunięcie',
   'task.deleted': 'Zadanie usunięte',
 
-  'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów albo listy „Dom”.',
+  // Audyt 3 (N-166): wskazuje przyciski pod spodem, zamiast listy „Dom”, której nic nie podpowiada.
+  'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.',
   'lists.new': 'Nowa lista',
   'lists.newShopping': 'Nowa lista zakupów',
   'lists.name': 'Nazwa listy',
@@ -302,8 +315,19 @@ export const strings = {
   'lists.visibility.private': 'Tylko ja',
   'lists.create': 'Utwórz listę',
   'lists.open': (n: number) => `${n} ${plural(n, { one: 'otwarte', few: 'otwarte', many: 'otwartych' })}`,
-  'lists.done': 'Zrobione',
   'lists.inCart': 'W koszyku',
+  // Audyt 3 (N-52): zrobione zwinięte jak na ekranie wydarzenia (event.tasksDone); starsze na życzenie.
+  'lists.doneCount': (n: number) => `Zrobione (${n})`,
+  'lists.showOlder': (n: number) => `Pokaż starsze (${n})`,
+  // Decyzja właściciela (audyt 3: Q9 B, N-49): kupione wracają z listy, nie z Kosza.
+  'shop.bought': (n: number) => `Kupione w ostatnich zakupach (${n})`,
+  'shop.buyAgain': 'Kup jeszcze raz',
+  'shop.buyAgainA11y': (name: string) => `Kup jeszcze raz: ${name}`,
+  // Decyzja właściciela (audyt 3: Q8 A, N-7): ten sam produkt dopisany drugi raz.
+  'shop.dupWaiting': (name: string) => `„${name}” już jest na liście`,
+  'shop.dupInCart': (name: string) => `„${name}” jest już w koszyku`,
+  'shop.addAgain': 'Dodaj jeszcze raz',
+  'shop.takeOutAgain': 'Wyjmij z koszyka',
   // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
   'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
@@ -425,6 +449,8 @@ export const strings = {
   'event.audience': 'Kogo dotyczy',
   'event.audience.group': 'Cała grupa',
   'event.audience.members': 'Wybrane osoby',
+  // Audyt 3 (N-46, Q13 tekst C od razu): wybór osób nie ukrywa wydarzenia — widzi je każdy w grupie (RLS wydarzeń).
+  'event.audienceInfo': 'Wydarzenie widzą wszyscy w grupie (w Kalendarzu). Wybór osób decyduje tylko, komu pokaże się w Moich sprawach.',
   'event.participantA11y': (name: string) => `Uczestnik: ${name}`,
   'event.save': 'Zapisz wydarzenie',
   'event.scopeThisInfo': 'Zmieniasz tylko ten termin.',
@@ -518,6 +544,8 @@ export const strings = {
   'event.noGroups': 'Wydarzenie dodasz w grupie, w której nie masz roli dziecka.',
 
   'groups.personal': 'Osobiste',
+  // Audyt 3 (N-166): w grupie osobistej nie ma innych osób ani ról — zamiast „1 osoba · właściciel”.
+  'groups.personalSubtitle': 'tylko Ty',
   'groups.members': (n: number) => `${n} ${plural(n, { one: 'osoba', few: 'osoby', many: 'osób' })}`,
   'groups.new': 'Nowa grupa',
   'groups.name': 'Nazwa grupy',
@@ -563,8 +591,9 @@ export const strings = {
   'groups.nextSteps.newShopping': 'Utwórz listę zakupów',
   'groups.leave': 'Wyjdź z grupy',
   // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
+  // Audyt 3 (N-47, Q27): też co zostaje — zadania bez osoby (D132), plan lekcji i historia dzieci w grupie.
   'groups.leaveConfirm': (days: number) =>
-    `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie.`,
+    `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).`,
   'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia).',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
   'groups.childCannotLeave': 'Z tej grupy wypisuje Cię właściciel albo administrator.',
@@ -574,6 +603,9 @@ export const strings = {
   // Audyt 2 (A-9): nazwa koloru po polsku (VoiceOver czytał klucz, np. „teal”); klucze z config/theme.ts (groupLines).
   'groups.colorA11y': (key: string) => `Kolor: ${({ blue: 'niebieski', orange: 'pomarańczowy', green: 'zielony', violet: 'fioletowy', teal: 'morski', pink: 'różowy', cyan: 'turkusowy', red: 'czerwony' } as Record<string, string>)[key] ?? key}`,
   'groups.delete': 'Usuń grupę',
+  // Audyt 3 (N-156, Q19 A): pytanie tylko wtedy, gdy w grupie są inni — usunięcie zabiera grupę także im.
+  'groups.deleteConfirm': (name: string, others: number, days: number) =>
+    `Usunąć grupę „${name}” także dla pozostałych osób (${others})? Przez ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} przywrócisz ją z kosza.`,
   'groups.trash': 'Kosz',
   'groups.trashLeft': (days: number) => `usunięcie za ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })}`,
   'groups.restore': (name: string) => `Przywróć: ${name}`,
@@ -583,10 +615,15 @@ export const strings = {
   'groups.restored': (name: string) => `Przywrócono: ${name}`,
   // Audyt 2 (R-16): ekran grupy tuż po utworzeniu albo dołączeniu, zanim dojdą jej dane.
   'groups.loading': 'Pobieramy grupę…',
+  // Audyt 3 (N-162, Q33 A): ktoś usunął mnie z grupy — grupa nie znika bez słowa.
+  'groups.lost': (names: string[]) => (names.length === 1 ? `Nie należysz już do grupy ${names[0]}` : `Nie należysz już do grup: ${names.join(', ')}`),
   // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków — co dalej.
   'groups.nextSteps': 'Następne kroki',
   'groups.nextSteps.body': 'Zaproś bliskich, dodaj dziecko bez konta i zaplanuj pierwsze zakupy.',
   'groups.nextSteps.invite': 'Zaproś do grupy',
+  // Audyt 3 (N-8, Q10 C): właściciel na karcie od razu wybiera rolę — partner jako administrator doda dzieci i babcię.
+  'groups.nextSteps.invitePartner': 'Zaproś partnera (administrator)',
+  'groups.nextSteps.inviteOther': 'Zaproś kogoś innego (członek)',
   'groups.nextSteps.child': 'Dodaj dziecko',
   // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
   'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
@@ -602,6 +639,7 @@ export const strings = {
   'groups.error.session': 'Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.',
   // Audyt 2 (M-70, D183): limity na konto egzekwowane przez serwer (config.quotas).
   'groups.error.limitGroups': (n: number) => `Możesz należeć najwyżej do ${n} grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.`,
+  'groups.error.groupFull': 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.',
   'groups.error.limitInvites': (n: number) => `Ta grupa ma już najwięcej aktywnych zaproszeń (${n}). Poczekaj, aż stare wygasną, albo zmień ID grupy — stare kody przestaną działać.`,
   'member.name': 'Imię w grupie',
   // Audyt 2 (P-67): dwa miejsca zmiany imienia odsyłają do siebie (tu i 'name.info').
@@ -616,14 +654,18 @@ export const strings = {
   'member.transferPending': 'Przekazano. Pobieramy zmiany…',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko dostaje konto przez połączenie profilu (plan lekcji i zadania zostają).
   'member.link': 'Połącz z kontem dziecka',
-  'member.linkAbout': (name: string) => `${name} może mieć własną aplikację: zobaczy swoje sprawy i wydarzenia, odhaczy zadania i odpowie o obecności. Plan lekcji, zadania i obecność zostaną w profilu.`,
+  // Audyt 3 (N-43, Q6a A): po połączeniu dorośli dalej widzą zadania dziecka (jak jego wydarzenia).
+  'member.linkAbout': (name: string) => `${name} może mieć własną aplikację: zobaczy swoje sprawy i wydarzenia, odhaczy zadania i odpowie o obecności. Plan lekcji, zadania i obecność zostaną w profilu, a dorośli w grupie nadal zobaczą zadania dziecka w Moich sprawach.`,
   'member.linkReady': 'Kod dla konta dziecka',
   'member.linkFor': (name: string) => `Połączy konto z profilem: ${name}`,
   'member.linkInfo': (until: string) => `Ważny do: ${until}. Działa raz. Na telefonie dziecka: zaloguj się przez Apple, potem Grupy → „Dołącz do grupy” i wpisz ID grupy z kodem.`,
   'member.linkMessage': (name: string, group: string, url: string | null, id: string, code: string, until: string, app: string | null) =>
     `Kod do połączenia konta z profilem „${name}” w grupie „${group}” w Organizerze.\n\n${app ? `Nie masz jeszcze aplikacji? Zainstaluj ją przez TestFlight: ${app}\n\n` : ''}Zaloguj się w aplikacji przez Apple. ${url ? `Potem dotknij linku: ${url}\n\nAlbo` : 'Potem'}: Grupy → „Dołącz do grupy” i wpisz:\nID grupy: ${id}\nKod: ${code} (ważny do: ${until}, działa raz)`,
   'member.hasAccount': 'ma własne konto',
-  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania i odpowiada o obecności za siebie. Z grupy wypisuje je właściciel albo administrator.',
+  // Audyt 3 (N-42, Q6b A): dlaczego przy dorosłym nie ma wyboru „Dziecko”.
+  'member.childRoleLinkedOnly': 'Rolę „Dziecko” dostaje tylko konto połączone z profilem dziecka („Połącz z kontem dziecka” przy profilu).',
+  // Audyt 3 (Q6d A): dziecko dopisuje też produkty do list zakupów.
+  'member.childRoleInfo': 'Dziecko widzi swoje sprawy i wydarzenia, odhacza zadania, dopisuje produkty do list zakupów i odpowiada o obecności za siebie. Z grupy wypisuje je właściciel albo administrator.',
 
   'invite.title': 'Zaproszenie do grupy',
   'invite.body': 'Wpisz ID grupy i kod z zaproszenia albo wklej całą wiadomość.',
@@ -692,6 +734,9 @@ export const strings = {
   'rejected.code.parent': 'Najpierw przywróć zadanie nadrzędne — podzadania wrócą razem z nim',
   'rejected.code.stale': 'Przekazanie jest nieaktualne — ktoś w międzyczasie zmienił osobę',
   'rejected.code.limit': 'Przekroczony limit konta (np. liczba grup wspólnych)',
+  // Audyt 3 (N-2, decyzja Q12 część 3 A): limit grupy (config.quotas.GROUP_ROWS, GROUP_BYTES).
+  'rejected.code.groupRows': 'Grupa ma już najwięcej spraw, ile może mieć — usuń niepotrzebne i wprowadź zmianę jeszcze raz',
+  'rejected.code.groupSize': 'Sprawy grupy zajmują już najwięcej miejsca, ile mogą — usuń niepotrzebne albo skróć długie notatki i wprowadź zmianę jeszcze raz',
   'rejected.op.create': 'Dodanie',
   'rejected.op.patch': 'Zmiana',
   'rejected.op.delete': 'Usunięcie',
@@ -700,6 +745,9 @@ export const strings = {
   // Audyt 2 (U-42): nazwy zamiast poleceń i tabel technicznych.
   'rejected.cmd.move_task': 'Przeniesienie zadania',
   'rejected.cmd.split_event': (title: string) => `Zmiana „to i następne”: „${title}”`,
+  // Audyt 3 (N-3): koniec serii na całym łańcuchu i jego cofnięcie.
+  'rejected.cmd.end_series': (title: string) => `Odwołanie serii: „${title}”`,
+  'rejected.cmd.restore_series': (title: string) => `Cofnięcie odwołania serii: „${title}”`,
   'rejected.cmd.staple_add': 'Dodanie do stałych zakupów',
   'rejected.cmd.staple_remove': 'Usunięcie ze stałych zakupów',
   // Audyt 3 (N-92): mapa typu Record<Entity, …> — nowa encja bez polskiej nazwy nie przejdzie kompilacji.
@@ -719,7 +767,10 @@ export const strings = {
   'confirm.keepSubtasks': 'Zostaw podzadania',
   'confirm.allDone': 'Oznacz wszystko jako zrobione',
   'swipe.deleteA11y': (title: string) => `Usuń: ${title}`,
-  'undo.deleted': (title: string) => `Usunięto: ${title}`,
+  // Audyt 3 (N-150): z rodzajem, jak „Dodano zadanie/produkt/wydarzenie” i „Usunięto listę/grupę/serię”.
+  'undo.taskDeleted': (title: string) => `Usunięto zadanie: ${title}`,
+  'undo.itemDeleted': (item: string) => `Usunięto produkt: ${item}`,
+  'undo.eventDeleted': (title: string) => `Usunięto wydarzenie: ${title}`,
   'undo.doneWithSubtasks': (title: string, n: number) => `Zrobione: ${title} i ${n} ${plural(n, { one: 'podzadanie', few: 'podzadania', many: 'podzadań' })}`,
   'undo.listDeleted': (name: string) => `Usunięto listę: ${name}`,
   'undo.eventCancelled': (title: string) => `Odwołano: ${title}`,
@@ -729,6 +780,8 @@ export const strings = {
   'undo.seriesStopped': (title: string) => `Zakończono: ${title}`,
   // Decyzja właściciela z 8.10.2026 (PW-35 A, PW-16 A): usunięcie osoby z grupy bez pytania, z paskiem „Cofnij”.
   'undo.memberRemoved': (name: string) => `Usunięto z grupy: ${name}`,
+  // Audyt 3 (Q6b A): zmiana roli wraca paskiem „Cofnij”.
+  'undo.roleChanged': (name: string, role: string) => `Zmieniono rolę: ${name} — ${role}`,
   'undo.action': 'Cofnij',
   'undo.groupDeleted': (name: string) => `Usunięto grupę: ${name}`,
   'undo.stapleRemoved': (name: string) => `Usunięto ze stałych: ${name}`,
@@ -864,11 +917,19 @@ export const strings = {
   'device.from': (calendar: string) => `Kalendarz: ${calendar}`,
   'device.read': 'Moje wydarzenia z iPhone’a w aplikacji',
   'device.mirror': 'Wydarzenia grup w kalendarzu iPhone’a',
-  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” ze sprawami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
+  'device.mirrorInfo': 'Każda grupa ma w iPhonie osobny kalendarz „Organizer – nazwa grupy” z wydarzeniami, które Cię dotyczą (jak w Moich sprawach; lekcje dziecka jednym wpisem na dzień), aktualizowany automatycznie. Wyłączenie albo wylogowanie usuwa te kalendarze z iPhone’a.',
   // D174: wybór grup w lustrze.
+  // Audyt 3 (N-58): przebieg lustra się nie udał (np. konto kalendarza nie pozwala założyć kalendarza).
+  'device.mirrorFailed': 'Nie udało się zapisać wydarzeń grup w kalendarzu iPhone’a. Spróbujemy znowu przy następnej zmianie.',
+  // Audyt 3 (N-186, Q21 cz. 2 A): zgoda zmieniona z pełnej na „Tylko dodawanie” albo „Brak”.
+  'device.mirrorStale': 'Kalendarze „Organizer – …” w iPhonie przestały się aktualizować — przywróć pełny dostęp albo usuń je w aplikacji Kalendarz.',
+  // Audyt 3 (N-57, Q21 cz. 1 A): iPad z tym samym kontem iCloud co iPhone.
+  'device.mirrorTablet': 'Na iPadzie domyślnie wyłączone: gdy jest włączone na iPhonie z tym samym kontem iCloud, wydarzenia grup już tu są, a włączone na obu urządzeniach pokażą się dwa razy.',
   'device.mirrorGroups': 'Które grupy dodawać do kalendarza iPhone’a',
   // D173: znacznik w notatce wpisu dodanego przez Organizer (po nim rozpoznajemy dubel); widać go w Kalendarzu iPhone'a.
   'device.mark': 'Dodane przez aplikację Organizer',
+  // Audyt 3 (N-187): wpis lustra z osobą odpowiedzialną — jak w wierszu aplikacji („odpowiada: Ala”, docs/glossary.md).
+  'device.mirrorResponsible': (title: string, name: string) => `${title} · odpowiada: ${name}`,
   // M-217: zgoda tylko na dodawanie (po „Dodaj do kalendarza”).
   'device.writeOnly': 'Organizer może teraz tylko dodawać wydarzenia do Twojego kalendarza. Połącz go, żeby widzieć swoje wydarzenia obok spraw grup i mieć wydarzenia grup w iPhonie.',
   // D173: licznik ukrytych dubli z podglądem.

@@ -1,5 +1,6 @@
 /**
- * Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151, D165): usunięte listy, zadania, pozycje zakupów,
+ * Kosz (decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34; D151, D165): usunięte listy, zadania, pozycje zakupów
+ * (bez kupionych — audyt 3, N-49),
  * wydarzenia i osoby z ostatnich config.sync.TOMBSTONE_DAYS dni — tyle serwer trzyma usunięte wiersze, potem czyści kosz.
  * Grupy w koszu ma osobno `trashedGroups` (przywraca je RPC, D54).
  *
@@ -68,6 +69,9 @@ export function trashView(t: Tables, userId: string, nowMs: number): TrashEntry[
     if (!list || list.deleted_at != null) continue;
     if (x.parent_id !== null && byId.get(x.parent_id)?.deleted_at !== null) continue;
     const l = asList(list);
+    // Decyzja właściciela (audyt 3: Q9 B, N-49): kupione (usunięte z koszyka, np. „Zakupy zrobione”) nie są w Koszu —
+    // wracają z sekcji „Kupione w ostatnich zakupach” na liście (shopping-trip.ts, boughtItems).
+    if (l.kind === 'shopping' && x.completed_at !== null) continue;
     add({ kind: l.kind === 'shopping' ? 'item' : 'task', entity: 'tasks', id: x.id, title: x.title, groupId: x.group_id, listName: l.name, tasks: 0, shopping: false, deletedMs: when(x.deleted_at) });
   }
   for (const e of Object.values(t.events ?? {})) {

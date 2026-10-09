@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Test .github/scripts/gitleaks-range.sh na repozytorium tymczasowym: sekret w commicie scalonej gałęzi (poza pierwszym
 # rodzicem) jest wykryty w zakresie pusha, choć skan w stylu gitleaks-action (`--no-merges --first-parent`) go pomija;
-# czysty zakres przechodzi; nowa gałąź (sha przed = zera) skanuje całą historię. Fałszywy sekret powstaje w czasie
+# czysty zakres przechodzi; nowa gałąź (sha przed = zera) skanuje całą historię. Sekret dopisany w samym commicie scalenia
+# („złe scalenie”, rozwiązanie konfliktu — audyt 3, N-84) jest wykryty w zakresie pusha i w pełnym skanie (--all), choć
+# zwykły `git log -p` (bez -m) go nie pokazuje. Fałszywy sekret powstaje w czasie
 # testu (losowe bajty), więc w tym pliku nie ma napisu w formacie sekretu.
 # Użycie: .github/scripts/test-gitleaks-range.sh   (gitleaks w PATH albo GITLEAKS=…)
 set -euo pipefail
@@ -26,6 +28,23 @@ echo c >c.txt && git add c.txt && git commit -qm obok
 git merge -q --no-ff feature -m scalenie
 git rm -q leak.env && git commit -qm usuniety
 merged="$(git rev-parse HEAD)"
+# Złe scalenie (osobne repozytorium, jedyny sekret w historii): sekret nie pochodzi z żadnego rodzica, wnosi go dopiero
+# commit scalenia; następny commit go usuwa.
+mkdir "$work/evil" && cd "$work/evil"
+git init -q -b main .
+git config user.name test && git config user.email test@example.invalid
+cp "$here/../../.gitleaks.toml" .gitleaks.toml
+echo a >a.txt && git add . && git commit -qm start
+git switch -qc fix
+echo d >d.txt && git add d.txt && git commit -qm poprawka
+git switch -q main
+echo e >e.txt && git add e.txt && git commit -qm obok
+before_evil="$(git rev-parse HEAD)"
+git merge -q --no-ff --no-commit fix >/dev/null 2>&1
+printf 'SECRET=%s\n' "sb_secret_$(alnum 32)" >evil.env && git add evil.env && git commit -qm scalenie-z-dopiskiem
+git rm -q evil.env && git commit -qm usuniety
+evil="$(git rev-parse HEAD)"
+cd "$work"
 
 status=0
 check() { # check <opis> <oczekiwany kod> <polecenie…>
@@ -37,6 +56,12 @@ check() { # check <opis> <oczekiwany kod> <polecenie…>
 check 1 "sekret ze scalonej gałęzi wykryty w zakresie pusha" env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" "$clean2" "$merged"
 check 0 "skan jak w gitleaks-action (pierwszy rodzic, bez scaleń) go pomija — powód tego skryptu" \
   "$gitleaks" git . --config .gitleaks.toml --no-banner --log-level error --log-opts="--no-merges --first-parent $clean2..$merged"
+in_evil() { (cd "$work/evil" && "$@"); }
+check 1 "sekret dopisany w commicie scalenia wykryty w zakresie pusha (N-84)" in_evil env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" "$before_evil" "$evil"
+check 0 "skan bez -m go pomija — powód -m w skrypcie" \
+  in_evil "$gitleaks" git . --config .gitleaks.toml --no-banner --log-level error --log-opts="--all"
+check 1 "pełna historia (--all, nightly.yml) wykrywa sekret ze scalenia" in_evil env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" --all
+check 0 "cała historia sprzed złego scalenia przechodzi" in_evil env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" 0000000000000000000000000000000000000000 "$before_evil"
 check 0 "czysty zakres przechodzi" env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" "$clean" "$clean2"
 check 1 "nowa gałąź (zera): cała historia" env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" 0000000000000000000000000000000000000000 "$merged"
 check 1 "poprzedni stan spoza historii (wymuszony push): cała historia" env GITLEAKS="$gitleaks" "$here/gitleaks-range.sh" "$(printf '%040d' 1)" "$merged"

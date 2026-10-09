@@ -15,6 +15,9 @@ describe('groupErrorText', () => {
     ['invite_child_account', strings['invite.childAccount']],
     ['limit:groups', 'Możesz należeć najwyżej do 50 grup wspólnych (liczą się też grupy w koszu). Opuść albo usuń grupę, której już nie używasz.'],
     ['limit:invites', strings['groups.error.limitInvites'](20)],
+    // Audyt 3 (N-2, Q12 część 3 A): dołączenie do pełnej grupy.
+    ['limit:group_rows', 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.'],
+    ['limit:group_size', 'Ta grupa ma już najwięcej spraw, ile może mieć — nie da się teraz do niej dołączyć. Poproś kogoś z grupy o usunięcie niepotrzebnych spraw.'],
     ['invite_invalid', strings['invite.invalid']],
     ['not_authenticated', strings['groups.error.session']],
     ['forbidden', strings['groups.error.forbidden']],

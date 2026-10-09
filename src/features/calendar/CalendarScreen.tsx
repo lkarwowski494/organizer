@@ -18,7 +18,7 @@ import { useEventActions } from '../../app/event-actions';
 import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
-import { splitDuplicates } from '../../domain/views/calendar-sync';
+import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
 import { eventsByDate } from '../../domain/views/events';
 import { daySpan, isContinuation } from '../../domain/span';
 import { occurrenceRow } from '../../ui/when';
@@ -118,7 +118,7 @@ export function CalendarScreen() {
   // Przy filtrze grup (PW-38) wydarzenia z iPhone'a schowane — nie należą do żadnej grupy (jak w Moich sprawach).
   const allDevice = filter.active.size ? new Map<string, never[]>() : deviceAll;
   const deviceSplit = (date: string, items: { title: string; due: { time: string | null } | null }[]) =>
-    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime, continued: isContinuation(e.part) }))]);
+    splitDuplicates(allDevice.get(date) ?? [], [...items.map((i) => ({ title: i.title, time: i.due?.time ?? null })), ...(events.get(date) ?? []).map((e) => ({ title: e.title, time: e.startTime, continued: isContinuation(e.part), key: occurrenceKey(e) }))]);
   const deviceOf = (date: string, items: { title: string; due: { time: string | null } | null }[]) => deviceSplit(date, items).shown;
   const daySplit = day ? deviceSplit(day.date, day.items) : { shown: [], hidden: [] };
   const dayDevice = daySplit.shown;

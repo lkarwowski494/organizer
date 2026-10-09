@@ -9,10 +9,11 @@
 import { config } from '../../config';
 import { addDays, type CivilDate, formatIsoDate, toDayNumber } from '../civil-date';
 import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../format';
-import { type SplitArgs, splitId } from '../event-split';
+import { chainParts } from '../event-chain';
+import { type SplitArgs, type SplitFollow, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
 import { type DayPart, daySpan, lengthMinutes, storedDuration } from '../span';
-import { alignStart, endBefore, formatRule, occurrences, type Rule } from '../rrule';
+import { alignStart, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { childEventConcerns } from './child';
 import { groupsView, myMemberships } from './index';
@@ -259,6 +260,14 @@ export type EventDetail = {
   /** Wyjątki w koszu (np. po zmianie reguły) — nowa zmiana tego terminu przywraca wiersz, bo unikalność (seria, data). */
   deletedOverrides: Override[];
   canEdit: boolean;
+  /**
+   * Audyt 3 (PK-05): żywe części łańcucha po „to i następne” (z tą) w kolejności dni — dla użytkownika jedna seria, więc
+   * „Całą serię”, „Ten i następne” i koniec serii działają na wszystkich (N-3, N-21, N-22). Jednorazowe — samo.
+   */
+  chain: EventRow[];
+  /** Żywe wyjątki i uczestnicy wszystkich części łańcucha. */
+  chainOverrides: Override[];
+  chainParticipants: Participant[];
 };
 
 export function eventDetail(t: Tables, userId: string, eventId: string): EventDetail | null {
@@ -267,6 +276,8 @@ export function eventDetail(t: Tables, userId: string, eventId: string): EventDe
   const event = asEvent(raw);
   const g = groupsView(t, userId).find((x) => x.id === event.group_id);
   if (!g) return null;
+  const chain = chainParts(t.events!, eventId).map(asEvent);
+  const ids = new Set(chain.map((p) => p.id));
   return {
     event,
     rule: ruleOf(event),
@@ -277,7 +288,32 @@ export function eventDetail(t: Tables, userId: string, eventId: string): EventDe
     overrides: rows(t, 'event_overrides', asOverride).filter((o) => alive(o) && o.event_id === eventId),
     deletedOverrides: rows(t, 'event_overrides', asOverride).filter((o) => !alive(o) && o.event_id === eventId),
     canEdit: event.deleted_at === null && myMemberships(t, userId).get(g.id)?.role !== 'child',
+    chain,
+    chainOverrides: rows(t, 'event_overrides', asOverride).filter((o) => alive(o) && ids.has(o.event_id)),
+    chainParticipants: rows(t, 'event_participants', asParticipant).filter((p) => ids.has(p.event_id)),
   };
+}
+
+/** Ostatni dzień serii według reguły części (COUNT → dzień ostatniego terminu); `null` — bez końca albo jednorazowe. */
+function partEnd(p: EventRow): string | null {
+  const rule = ruleOf(p);
+  if (rule === null || rule.count === null) return rule?.until ?? null;
+  const start = parseIsoDate(p.start_date);
+  return formatIsoDate(occurrences(start, rule, start, addDays(start, 366 * 100)).at(-1)!);
+}
+
+/** Ostatnia część łańcucha (sama, gdy jednorazowe albo nie ma innych). */
+const lastPart = (d: EventDetail) => d.chain.at(-1) ?? d.event;
+
+/** N-21: koniec całej serii — koniec ostatniej części łańcucha (koniec wcześniejszej części to tylko dzień podziału). */
+export function seriesEnd(d: EventDetail): string | null {
+  return partEnd(lastPart(d));
+}
+
+/** Reguła do opisu serii („Co tydzień: pon., do …”): z tej części, z końcem całej serii (N-21). */
+export function seriesRule(d: EventDetail): Rule | null {
+  if (d.rule === null || lastPart(d).id === d.event.id) return d.rule;
+  return { ...d.rule, count: null, until: seriesEnd(d) };
 }
 
 // ───────────────────────── operacje ─────────────────────────
@@ -395,7 +431,10 @@ function overrideOps(d: EventDetail, occurrenceDate: string, to: OverrideFields)
  * zmieniłem — zmiany wiersza są per pole (sync_push), więc pole, którego nie ruszałem, a które w tym czasie zmienił
  * drugi telefon, zostaje (audyt 2: formularz wysyłał wszystkie pola i nadpisywał cudzą zmianę). Tak jak szkic formularza
  * (src/domain/drafts.ts, changedFields: tylko pola różne od wartości z chwili otwarcia). Uczestnicy: dopisani i skreśleni
- * względem chwili otwarcia, na obecnej liście. „To i następne” zakłada nową serię (split_event) — z pełnymi polami.
+ * względem chwili otwarcia, na obecnej liście. „To i następne” zakłada nową serię (split_event).
+ * Audyt 3 (PK-05): po wcześniejszym „to i następne” seria to łańcuch części — „Całą serię” zmienia każdą część, a „Ten
+ * i następne” także późniejsze części, tylko w polach, które zmieniłem (N-3, N-22); koniec serii z formularza dotyczy
+ * ostatniej części, a część, która zaczynałaby się po nowym końcu, idzie do kosza (N-21).
  */
 export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, f: EventFields, loaded?: EventFields): NewOp[] {
   const e = d.event;
@@ -408,19 +447,22 @@ export function editEvent(d: EventDetail, occurrenceDate: string, scope: Scope, 
     }
     return overrideOps(d, occurrenceDate, overrideTarget(e, occurrenceDate, f));
   }
-  const rule = f.rule === null ? null : { ...f.rule, count: null, until: f.until };
-  if (effective === 'all') {
-    const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : e.start_date), f.rule) : parseIsoDate(f.date);
-    const kept = (date: string) => occurrences(start, rule, parseIsoDate(date), parseIsoDate(date)).length > 0;
-    return [
-      ...(loaded ? changedColumns(d, loaded, f) : [fullPatch(d, f)]),
-      ...participantOps(e.id, e.group_id, d.participants, wantedParticipants(d, f, loaded), (m) => participantId(e.id, m), true),
-      // Audyt 2 (E-20, E-7): zmienione pojedynczo terminy, których nowa reguła nie ma (a przy zmianie serii na jednorazowe —
-      // wszystkie), do kosza — inaczej przepadają po cichu, a odwołany dzień „ożywa” po powrocie do starej reguły.
-      ...d.overrides.filter((o) => (d.rule !== null && f.rule === null) || !kept(o.occurrence_date)).map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id })),
-    ];
-  }
-  return splitOps(d, occurrenceDate, f, rule);
+  if (effective === 'following') return splitOps(d, occurrenceDate, f, loaded);
+  const until = untilFor(d, e, f.until) ?? f.until;
+  const rule = f.rule === null ? null : { ...f.rule, count: null, until };
+  const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : e.start_date), f.rule) : parseIsoDate(f.date);
+  const kept = (date: string) => occurrences(start, rule, parseIsoDate(date), parseIsoDate(date)).length > 0;
+  // „Całą serię” — wszystkie części; „ten i następne” od pierwszego terminu tej części — ta i późniejsze.
+  const others = d.rule === null ? [] : d.chain.filter((p) => p.id !== e.id && (scope === 'all' || p.start_date > e.start_date));
+  const base = loaded ?? fieldsOf(d, occurrenceDate, 'all');
+  return [
+    ...(loaded ? changedColumns(d, loaded, f) : [fullPatch(d, f)]),
+    ...participantOps(e.id, e.group_id, d.participants, wantedParticipants(d.participants, f, loaded), (m) => participantId(e.id, m), true),
+    // Audyt 2 (E-20, E-7): zmienione pojedynczo terminy, których nowa reguła nie ma (a przy zmianie serii na jednorazowe —
+    // wszystkie), do kosza — inaczej przepadają po cichu, a odwołany dzień „ożywa” po powrocie do starej reguły.
+    ...d.overrides.filter((o) => (d.rule !== null && f.rule === null) || !kept(o.occurrence_date)).map((o): NewOp => ({ kind: 'delete', entity: 'event_overrides', id: o.id })),
+    ...others.flatMap((p) => planOps(d, partPlan(d, p, f, base))),
+  ];
 }
 
 const OVERRIDE_KEYS = ['start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'cancelled', 'days', 'duration_min'] as const;
@@ -454,15 +496,15 @@ function overrideTarget(e: EventRow, occurrenceDate: string, f: EventFields): Ov
   };
 }
 
-/** Kolumny serii, jakie daje formularz („wszystkie”); miejsce tylko, gdy formularz je zna. */
-function seriesColumns(d: EventDetail, f: EventFields): { [k: string]: unknown } {
+/** Kolumny serii, jakie daje formularz („wszystkie”); miejsce tylko, gdy formularz je zna; `until` — koniec tej części. */
+function seriesColumns(d: EventDetail, f: EventFields, until: string | null = f.until): { [k: string]: unknown } {
   const start = f.rule ? alignStart(parseIsoDate(d.rule === null ? f.date : d.event.start_date), f.rule) : parseIsoDate(f.date);
   return {
     title: f.title,
     start_date: formatIsoDate(start),
     start_time: f.startTime,
     end_time: f.endTime,
-    rrule: ruleText(f.rule, f.until),
+    rrule: ruleText(f.rule, until),
     audience: f.audience,
     responsible_member_id: f.responsibleId,
     ...(f.location !== undefined ? { location: f.location || null } : {}),
@@ -471,10 +513,21 @@ function seriesColumns(d: EventDetail, f: EventFields): { [k: string]: unknown }
   };
 }
 
+/**
+ * Koniec części `p` po zapisie z końcem serii `until` (N-21): ostatnia część — koniec z formularza; wcześniejsza — swój
+ * (dzień przed następną częścią), najwyżej nowy koniec serii. `undefined` — część zaczyna się po nowym końcu (do kosza).
+ */
+function untilFor(d: EventDetail, p: EventRow, until: string | null): string | null | undefined {
+  if (until !== null && until < p.start_date) return undefined;
+  if (p.id === lastPart(d).id) return until;
+  const own = partEnd(p);
+  return until !== null && (own === null || own > until) ? until : own;
+}
+
 /** Bez pól z chwili otwarcia: wszystkie kolumny formularza; miejsce i długość tylko, gdy różne od wiersza (D199). */
 function fullPatch(d: EventDetail, f: EventFields): NewOp {
   const e = d.event;
-  const { location, days, duration_min, ...set } = seriesColumns(d, f);
+  const { location, days, duration_min, ...set } = seriesColumns(d, f, untilFor(d, e, f.until) ?? f.until);
   return {
     kind: 'patch',
     entity: 'events',
@@ -483,33 +536,120 @@ function fullPatch(d: EventDetail, f: EventFields): NewOp {
   };
 }
 
+const TIME_KEYS = ['start_time', 'end_time', 'duration_min'];
+const differs = (a: unknown, b: unknown) => JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
+
 /** Tylko kolumny, które zmieniłem od otwarcia formularza; godziny parą z długością (koniec przed początkiem = następny dzień, D199). */
 function changedColumns(d: EventDetail, loaded: EventFields, f: EventFields): NewOp[] {
-  const was = seriesColumns(d, loaded);
-  const now = seriesColumns(d, f);
+  const was = seriesColumns(d, loaded, untilFor(d, d.event, loaded.until) ?? loaded.until);
+  const now = seriesColumns(d, f, untilFor(d, d.event, f.until) ?? f.until);
   const set: { [k: string]: unknown } = {};
-  for (const k of Object.keys(now)) if (JSON.stringify(was[k]) !== JSON.stringify(now[k])) set[k] = now[k];
-  if (['start_time', 'end_time', 'duration_min'].some((k) => k in set)) Object.assign(set, { start_time: now.start_time, end_time: now.end_time, duration_min: now.duration_min });
+  for (const k of Object.keys(now)) if (differs(was[k], now[k])) set[k] = now[k];
+  if (TIME_KEYS.some((k) => k in set)) Object.assign(set, { start_time: now.start_time, end_time: now.end_time, duration_min: now.duration_min });
   return Object.keys(set).length ? [{ kind: 'patch', entity: 'events', id: d.event.id, set }] : [];
 }
 
-/** Uczestnicy po zapisie: bez pól z chwili otwarcia — lista z formularza; z nimi — obecni plus dopisani minus skreśleni. */
-function wantedParticipants(d: EventDetail, f: EventFields, loaded?: EventFields): string[] {
+/** Uczestnicy części po zapisie: bez pól z chwili otwarcia — lista z formularza; z nimi — obecni plus dopisani minus skreśleni. */
+function wantedParticipants(parts: Participant[], f: EventFields, loaded?: EventFields): string[] {
   if (f.audience !== 'members') return [];
   if (!loaded) return f.participantIds;
-  const live = d.participants.filter(alive).map((p) => p.member_id);
+  const live = parts.filter(alive).map((p) => p.member_id);
   const before = loaded.audience === 'members' ? loaded.participantIds : [];
   const added = f.participantIds.filter((m) => !before.includes(m));
   return [...live.filter((m) => !before.includes(m) || f.participantIds.includes(m)), ...added.filter((m) => !live.includes(m))];
 }
 
+/** Zmiana innej części łańcucha: do kosza albo zmienione pola, uczestnicy i wyjątki, których nowa reguła nie ma. */
+type PartPlan = { id: string; delete: boolean; set: { [k: string]: unknown }; participants: string[] | null; dropOverrides: string[] };
+
+/**
+ * Audyt 3 (N-3, N-22): co zmienić w innej części łańcucha — tylko pola zmienione w formularzu (`base` → `f`); jej własne
+ * godziny, dni i nazwa zostają, jeśli ich nie zmieniałem. Zmiana dni: reguła części od jej pierwszego dnia, z jej końcem.
+ * Seria zmieniona na jednorazową albo część po nowym końcu serii — do kosza.
+ */
+function partPlan(d: EventDetail, p: EventRow, f: EventFields, base: EventFields): PartPlan {
+  const until = untilFor(d, p, f.until);
+  const own = ruleOf(p);
+  if (until === undefined || f.rule === null || own === null) return { id: p.id, delete: true, set: {}, participants: null, dropOverrides: [] };
+  const was = seriesColumns(d, base);
+  const now = seriesColumns(d, f);
+  const set: { [k: string]: unknown } = {};
+  for (const k of ['title', 'audience', 'responsible_member_id', 'location', 'days']) if (k in now && differs(was[k], now[k])) set[k] = now[k];
+  if (TIME_KEYS.some((k) => differs(was[k], now[k]))) Object.assign(set, { start_time: now.start_time, end_time: now.end_time, duration_min: now.duration_min });
+  const pattern = ruleText(base.rule, null) !== ruleText(f.rule, null);
+  const rule = pattern ? f.rule : { ...own, count: null, until: null };
+  const start = pattern ? alignStart(parseIsoDate(p.start_date), f.rule) : parseIsoDate(p.start_date);
+  if (formatIsoDate(start) !== p.start_date) set.start_date = formatIsoDate(start);
+  if (pattern || until !== partEnd(p)) set.rrule = ruleText(rule, until);
+  const next = { ...rule, count: null, until };
+  const day = (iso: string) => parseIsoDate(iso);
+  const dropOverrides = 'rrule' in set ? d.chainOverrides.filter((o) => o.event_id === p.id && occurrences(start, next, day(o.occurrence_date), day(o.occurrence_date)).length === 0).map((o) => o.id) : [];
+  const people = base.audience !== f.audience || differs([...base.participantIds].sort(), [...f.participantIds].sort());
+  const mine = d.chainParticipants.filter((x) => x.event_id === p.id);
+  return { id: p.id, delete: false, set, participants: people ? wantedParticipants(mine, f, base) : null, dropOverrides };
+}
+
+/** Plan części jako zwykłe operacje („Całą serię”). */
+function planOps(d: EventDetail, plan: PartPlan): NewOp[] {
+  if (plan.delete) return [{ kind: 'delete', entity: 'events', id: plan.id }];
+  const mine = d.chainParticipants.filter((x) => x.event_id === plan.id);
+  return [
+    ...(Object.keys(plan.set).length ? [{ kind: 'patch', entity: 'events', id: plan.id, set: plan.set } as NewOp] : []),
+    ...(plan.participants ? participantOps(plan.id, d.event.group_id, mine, plan.participants, (m) => participantId(plan.id, m), true) : []),
+    ...plan.dropOverrides.map((id): NewOp => ({ kind: 'delete', entity: 'event_overrides', id })),
+  ];
+}
+
+/** Plan części jako część polecenia split_event („ten i następne”, krok 4b); `null` — nic do zmiany. */
+function followOf(plan: PartPlan): SplitFollow | null {
+  if (plan.delete) return { id: plan.id, delete: true };
+  const out: SplitFollow = {
+    id: plan.id,
+    ...(Object.keys(plan.set).length ? { set: plan.set } : {}),
+    ...(plan.participants ? { participants: plan.participants.map((m) => ({ id: participantId(plan.id, m), member_id: m })) } : {}),
+    ...(plan.dropOverrides.length ? { drop_overrides: plan.dropOverrides } : {}),
+  };
+  return Object.keys(out).length > 1 ? out : null;
+}
+
+/**
+ * N-135: pola nowej części — zmienione w formularzu z formularza, reszta z obecnego stanu serii (drugi telefon mógł
+ * w tym czasie zmienić nazwę, miejsce, osobę albo uczestników — jak „wszystkie”, changedColumns).
+ */
+function mergeFields(cur: EventFields, loaded: EventFields, f: EventFields): EventFields {
+  const ch = (k: keyof EventFields) => differs(f[k], loaded[k]);
+  const times = ch('startTime') || ch('endTime') || ch('durationMin');
+  const take = <K extends keyof EventFields>(k: K): EventFields[K] => (ch(k) ? f[k] : cur[k]);
+  const audience = take('audience');
+  return {
+    ...cur,
+    title: take('title'),
+    date: f.date,
+    startTime: times ? f.startTime : cur.startTime,
+    endTime: times ? f.endTime : cur.endTime,
+    durationMin: times ? f.durationMin : cur.durationMin,
+    days: take('days'),
+    rule: take('rule'),
+    until: take('until'),
+    audience,
+    participantIds: audience === 'members' ? wantedParticipants(cur.participantIds.map((m) => ({ id: m, event_id: '', member_id: m, deleted_at: null })), { ...f, audience }, loaded) : [],
+    responsibleId: take('responsibleId'),
+    location: take('location'),
+  };
+}
+
 /** „To i następne”: polecenie split_event. */
-function splitOps(d: EventDetail, occurrenceDate: string, f: EventFields, rule: Rule | null): NewOp[] {
+function splitOps(d: EventDetail, occurrenceDate: string, form: EventFields, loaded?: EventFields): NewOp[] {
   const e = d.event;
+  const current = fieldsOf(d, occurrenceDate, 'following');
+  const f = loaded ? mergeFields(current, loaded, form) : form;
+  const rule = f.rule === null ? null : { ...f.rule, count: null, until: f.until };
   // „To i następne” (audyt 2, M-3): jedno polecenie split_event (opis w src/domain/event-split.ts). Nowa seria zaczyna się
   // od tego wystąpienia i zostaje tym samym rodzajem (lekcja zostaje lekcją — rodzaj bierze serwer z dzielonej serii).
   const start = f.rule ? alignStart(parseIsoDate(occurrenceDate), f.rule) : parseIsoDate(occurrenceDate);
   const id = splitId(e.id, occurrenceDate);
+  // N-22: późniejsze części łańcucha — tylko to, co zmieniłem.
+  const follow = d.chain.filter((p) => p.start_date > e.start_date).flatMap((p) => followOf(partPlan(d, p, form, loaded ?? current)) ?? []);
   const args: SplitArgs = {
     id,
     event_id: e.id,
@@ -529,15 +669,20 @@ function splitOps(d: EventDetail, occurrenceDate: string, f: EventFields, rule: 
     participants: (f.audience === 'members' ? f.participantIds : []).map((m) => ({ id: participantId(id, m), member_id: m })),
     drop_overrides: d.overrides.filter((o) => o.occurrence_date >= occurrenceDate && occurrences(start, rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length === 0).map((o) => o.id),
     tasks: [],
+    ...(follow.length ? { follow } : {}),
   };
   return [{ kind: 'cmd', cmd: 'split_event', args }];
 }
 
-/** Odwołanie / usunięcie w zakresie: to wystąpienie, to i następne, cała seria. */
+/**
+ * Odwołanie / usunięcie w zakresie: to wystąpienie, to i następne, cała seria. Serię kończy jedno polecenie end_series na
+ * całym łańcuchu (audyt 3, N-3: wcześniej tylko ta część — po „to i następne” druga część zostawała w planie), razem
+ * z wyjątkami i odpowiedziami z terminów, które znikają (N-117). „Cofnij” — src/domain/event-chain.ts, endSeriesEffects.
+ */
 export function cancelEvent(d: EventDetail, occurrenceDate: string, scope: Scope): NewOp[] {
   const e = d.event;
-  if (d.rule === null || scope === 'all' || (scope === 'following' && occurrenceDate === e.start_date)) return [{ kind: 'delete', entity: 'events', id: e.id }];
-  if (scope === 'following') return [{ kind: 'patch', entity: 'events', id: e.id, set: { rrule: formatRule(endBefore(d.rule, parseIsoDate(occurrenceDate))) } }];
+  if (d.rule === null) return [{ kind: 'delete', entity: 'events', id: e.id }];
+  if (scope !== 'this') return [{ kind: 'cmd', cmd: 'end_series', args: { event_id: e.id, date: scope === 'all' ? null : occurrenceDate, title: e.title } }];
   const o = d.overrides.find((x) => x.occurrence_date === occurrenceDate);
   return overrideOps(d, occurrenceDate, { ...(o ?? AS_SERIES), cancelled: true });
 }
@@ -564,11 +709,8 @@ const liveOrNull = (d: EventDetail, id: string | null) => (id !== null && d.memb
 export function fieldsOf(d: EventDetail, occurrenceDate: string, scope: Scope): EventFields {
   const e = d.event;
   const o = scope === 'this' ? d.overrides.find((x) => x.occurrence_date === occurrenceDate) : undefined;
-  let until = d.rule?.until ?? null;
-  if (d.rule && d.rule.count !== null) {
-    const start = parseIsoDate(e.start_date);
-    until = formatIsoDate(occurrences(start, d.rule, start, addDays(start, 366 * 100)).at(-1)!);
-  }
+  // N-21: koniec całej serii (ostatniej części łańcucha), nie dzień, w którym ta część przeszła w następną.
+  const until = d.rule === null ? null : seriesEnd(d);
   return {
     title: o?.title ?? e.title,
     date: scope === 'all' ? e.start_date : (o?.start_date ?? occurrenceDate),
@@ -632,8 +774,9 @@ export type SeriesItem = {
 };
 
 /**
- * Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). Zakończona część serii,
- * która ma następczynię po „to i następne”, nie ma osobnego wiersza (audyt 2, E-17).
+ * Wydarzenia grupy (ekran grupy): opis powtarzania i najbliższy termin od dziś (w ciągu roku). Seria po „to i następne”
+ * to jeden wiersz (audyt 3, N-116; wcześniej do dnia podziału dwa wiersze, a zakończona część — audyt 2, E-17): nazwa,
+ * godzina i opis z części najbliższego terminu (bez niego — z ostatniej), koniec — całej serii.
  */
 export function groupSeries(t: Tables, userId: string, groupId: string, today: CivilDate, L: RuleLabels): SeriesItem[] {
   const g = groupsView(t, userId).find((x) => x.id === groupId);
@@ -645,27 +788,32 @@ export function groupSeries(t: Tables, userId: string, groupId: string, today: C
   const forMe = (e: EventRow) =>
     g.me.role !== 'child' || childEventConcerns(e.audience, e.responsible_member_id !== null && live.has(e.responsible_member_id) ? e.responsible_member_id : null, g.me.member_id, mine.has(e.id));
   const events = rows(t, 'events', asEvent).filter((e) => alive(e) && e.group_id === groupId && forMe(e));
-  const continued = new Set(events.flatMap((e) => (e.split_from === null ? [] : [e.split_from])));
-  return events
-    .map((e): SeriesItem => {
-      const rule = ruleOf(e);
-      const next = upcoming.find((x) => x.eventId === e.id);
-      return {
-        id: e.id,
-        title: e.title,
-        // D199: jednorazowe przez kilka dni — zakres dni („12–16 października”).
-        summary: rule
-          ? describeRule(rule, parseIsoDate(e.start_date), L)
-          : e.start_time === null && e.days > 1
-            ? formatRange(parseIsoDate(e.start_date), addDays(parseIsoDate(e.start_date), e.days - 1), today)
-            : formatLongDate(parseIsoDate(e.start_date), today),
-        // D199: dłuższe niż z godzin — sam początek („18:00–16:00” byłoby mylące; dni pokazuje ekran wydarzenia).
-        time: timeLabel(e.start_time, e.duration_min === null ? e.end_time : null),
-        start: e.start_date,
-        next: next?.date ?? null,
-        nextOccurrence: next?.occurrenceDate ?? null,
-      };
-    })
-    .filter((x) => x.next !== null || !continued.has(x.id))
-    .sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999') || a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
+  const shown = new Set<string>();
+  const out: SeriesItem[] = [];
+  for (const first of events) {
+    if (shown.has(first.id)) continue;
+    const parts = chainParts(t.events!, first.id).map(asEvent).filter(forMe);
+    parts.forEach((p) => shown.add(p.id));
+    const ids = new Set(parts.map((p) => p.id));
+    const next = upcoming.find((x) => ids.has(x.eventId));
+    const last = parts.at(-1)!;
+    const e = parts.find((p) => p.id === next?.eventId) ?? last;
+    const rule = ruleOf(e);
+    out.push({
+      id: e.id,
+      title: e.title,
+      // D199: jednorazowe przez kilka dni — zakres dni („12–16 października”).
+      summary: rule
+        ? describeRule(e.id === last.id ? rule : { ...rule, count: null, until: partEnd(last) }, parseIsoDate(e.start_date), L)
+        : e.start_time === null && e.days > 1
+          ? formatRange(parseIsoDate(e.start_date), addDays(parseIsoDate(e.start_date), e.days - 1), today)
+          : formatLongDate(parseIsoDate(e.start_date), today),
+      // D199: dłuższe niż z godzin — sam początek („18:00–16:00” byłoby mylące; dni pokazuje ekran wydarzenia).
+      time: timeLabel(e.start_time, e.duration_min === null ? e.end_time : null),
+      start: e.start_date,
+      next: next?.date ?? null,
+      nextOccurrence: next?.occurrenceDate ?? null,
+    });
+  }
+  return out.sort((a, b) => (a.next ?? '9999').localeCompare(b.next ?? '9999') || a.title.localeCompare(b.title, 'pl') || a.id.localeCompare(b.id));
 }
