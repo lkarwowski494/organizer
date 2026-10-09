@@ -10,7 +10,7 @@ import type { PullResponse, Row } from '../../domain/sync-engine/client';
 import type { Reminder } from '../../domain/views/reminders';
 import type { SyncTransport } from '../../sync/transport';
 import { refreshInBackground, registerWakeTask, setLiveSession, WAKE_TASK, type BackgroundDeps } from '../background';
-import { localToMs } from '../clock';
+import { localToMs } from '../../domain/local-time';
 import type { DevicePush } from '../push';
 
 jest.mock('expo-task-manager', () => ({ defineTask: jest.fn() }));

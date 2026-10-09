@@ -11,12 +11,25 @@ module.exports = {
   // (https://jestjs.io/docs/29.7/configuration#workeridlememorylimit-numberstring).
   workerIdleMemoryLimit: '800MB',
   // Progi pokrycia (decyzja właściciela 6.10.2026, docs/testing.md): logika 100% linii i gałęzi.
-  collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', 'src/data/**/*.ts', 'src/sync/**/*.ts', '!**/__tests__/**'],
+  // Audyt 2 (M-51): także ekrany, adaptery natywne i warstwa aplikacji — progi zapadkowe na poziomie z 9.10.2026
+  // (podnosić przy każdej zmianie, nie obniżać); czysta logika w src/app i src/features (bez Reacta i modułów natywnych)
+  // ma 100% jak src/domain — test kontraktowy src/config/__tests__/coverage.contract.test.ts pilnuje, że każdy taki plik
+  // ma tu wpis.
+  collectCoverageFrom: ['src/domain/**/*.ts', 'src/config/**/*.ts', 'src/data/**/*.ts', 'src/sync/**/*.ts', 'src/app/**/*.{ts,tsx}', 'src/features/**/*.{ts,tsx}', 'src/ui/**/*.{ts,tsx}', '!**/__tests__/**'],
   coverageThreshold: {
     './src/domain/': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/config/': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/data/': { lines: 100, branches: 100, functions: 100, statements: 100 },
     './src/sync/': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/app/account-prefs.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/app/calendar-mirror.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/app/self-check.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/app/e2e.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/features/groups/dates.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/features/groups/server-errors.ts': { lines: 100, branches: 100, functions: 100, statements: 100 },
+    './src/app/': { lines: 85, branches: 74, functions: 72, statements: 82 },
+    './src/features/': { lines: 97, branches: 95, functions: 94, statements: 97 },
+    './src/ui/': { lines: 99, branches: 96, functions: 94, statements: 98 },
   },
   projects: [
     {

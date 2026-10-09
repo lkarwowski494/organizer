@@ -13,7 +13,7 @@ import { type CivilDate, formatIsoDate } from '../domain/civil-date';
 import type { Tables } from '../domain/views/model';
 import { planReminders, type Reminder, type ReminderSettings } from '../domain/views/reminders';
 import { strings } from '../i18n/strings.pl';
-import { localNow, localToMs } from './clock';
+import { localNow, localToMs } from '../domain/local-time';
 import type { LocalStore } from './calendar-mirror';
 import { type Prefs, useAppData, useServices } from './context';
 import { appVersion, toClientError } from './diagnostics';

@@ -3,7 +3,7 @@
  * Intl.DateTimeFormat z timeZone — na iPhonie wymaga Intl w Hermesie (spike S3, otwarte).
  */
 import { config } from '../config';
-import type { LocalDateTime } from '../domain/civil-date';
+import type { LocalDateTime } from './civil-date';
 
 const fmt = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.TIME_ZONE,

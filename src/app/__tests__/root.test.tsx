@@ -158,7 +158,9 @@ describe('wylogowanie a kalendarze „Organizer – …” (D172, audyt 2 M-27)'
       if (id === 'cal-b') throw new Error('już nie ma');
     });
     const status = jest.fn(async () => 'granted' as const);
-    const sync = { status, deleteCalendar } as unknown as NonNullable<RootDeps['calendar']['sync']>;
+    // cal-b: błąd usunięcia, bo kalendarza już nie ma — znika z listy (nieudane usunięcie istniejącego zostaje: calendar-mirror.test.ts).
+    const hasCalendar = jest.fn(async (id: string) => id !== 'cal-b');
+    const sync = { status, deleteCalendar, hasCalendar } as unknown as NonNullable<RootDeps['calendar']['sync']>;
     const t = makeDeps({ prefs, calendar: { add: jest.fn(async () => 'saved' as const), sync } });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji (np. po wylogowaniu w poprzednim uruchomieniu) — pozostałości znikają.

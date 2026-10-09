@@ -9,7 +9,7 @@ import { AppState, Linking } from 'react-native';
 import { config } from '../config';
 import { addDays } from '../domain/civil-date';
 import { deviceCalendars, type DeviceEntry, deviceDays, type DeviceEvent, mirrorCalendarOf, mirrorGroups, mirrorReady } from '../domain/views/calendar-sync';
-import { localNow, localToMs } from './clock';
+import { localNow, localToMs } from '../domain/local-time';
 import { clearMirror, loadMirror, loadSkip, MIRROR_SKIP_KEY, ownedIn, runMirror } from './calendar-mirror';
 import type { CalendarStatus } from './device-calendar';
 import { useAppData, useServices } from './context';

@@ -24,7 +24,7 @@ import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
 import { setLiveSession } from './background';
-import { localNow } from './clock';
+import { localNow } from '../domain/local-time';
 import { storedReminderPlan } from './reminders';
 import { AppProvider, type AppServices, type Prefs } from './context';
 import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';

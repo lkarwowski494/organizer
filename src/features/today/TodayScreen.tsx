@@ -8,7 +8,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { config } from '../../config';
-import { quickAddOps } from '../../app/quickadd';
+import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
@@ -19,7 +19,7 @@ import { useAppData, useServices } from '../../app/context';
 import { formatDue, formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
-import { formatTime, localNow } from '../../app/clock';
+import { formatTime, localNow } from '../../domain/local-time';
 import { useTravel } from '../../app/travel';
 import { type CivilDate, formatIsoDate } from '../../domain/civil-date';
 import { groupsView, type TodayItem } from '../../domain/views';

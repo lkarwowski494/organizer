@@ -222,3 +222,30 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     assert.match(audit, /grep -v -E '\^\[\[:space:\]\]\*export '/);
   });
 });
+
+describe('próg pokrycia funkcji Edge (M-51)', async () => {
+  const { BRANCH_MIN, parseLcov, problems } = await import('../../scripts/deno-coverage-check.mjs');
+  const rec = (file, lf, lh, fnf, fnh, brf, brh) => `SF:${file}\nLF:${lf}\nLH:${lh}\nFNF:${fnf}\nFNH:${fnh}\nBRF:${brf}\nBRH:${brh}\nend_of_record\n`;
+
+  it('linie i funkcje 100%, gałęzie od progu; testy i pliki spoza funkcji pomijane; pusty raport to błąd', () => {
+    const lcov = [
+      rec('/r/supabase/functions/a/handler.ts', 10, 10, 2, 2, 100, BRANCH_MIN),
+      rec('/r/supabase/functions/b/handler.ts', 10, 9, 2, 1, 100, BRANCH_MIN - 1),
+      rec('/r/supabase/functions/a/handler_test.ts', 10, 0, 1, 0, 0, 0),
+      rec('/r/inne.ts', 1, 0, 0, 0, 0, 0),
+      rec('/r/supabase/functions/c/pusty.ts', 0, 0, 0, 0, 0, 0),
+    ].join('');
+    assert.equal(parseLcov(lcov).length, 5);
+    assert.deepEqual(problems(parseLcov(lcov)), [
+      'supabase/functions/b/handler.ts: linie 90.0% (< 100%)',
+      'supabase/functions/b/handler.ts: funkcje 50.0% (< 100%)',
+      `supabase/functions/b/handler.ts: gałęzie ${(BRANCH_MIN - 1).toFixed(1)}% (< ${BRANCH_MIN}%)`,
+    ]);
+    assert.deepEqual(problems([]), ['brak plików supabase/functions w raporcie']);
+  });
+
+  it('package.json: check:functions liczy pokrycie i sprawdza próg', () => {
+    const { scripts } = JSON.parse(read('package.json'));
+    assert.match(scripts['check:functions'], /deno test --no-prompt --clean --coverage=coverage\/deno supabase\/functions && deno coverage coverage\/deno --lcov --output=coverage\/deno\.lcov && node scripts\/deno-coverage-check\.mjs coverage\/deno\.lcov/);
+  });
+});
