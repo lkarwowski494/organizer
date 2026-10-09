@@ -46,8 +46,9 @@ export function DeviceEventRow({ e, copy = true }: { e: DeviceEntry; copy?: bool
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const when = whenOf(e);
   const part = partText(e.part);
-  // Audyt 2 (M-253): długość jak przy wydarzeniach grup (D120) — tylko jednodniowe z godziną końca.
-  const length = e.part === null && e.time && e.endTime && e.endTime !== '24:00' ? lengthLabel(e.time, e.endTime) : null;
+  // Audyt 2 (M-253): długość jak przy wydarzeniach grup (D120) — tylko jednodniowe z godziną końca; przez zmianę czasu
+  // rzeczywisty czas (audyt 3, N-114).
+  const length = e.part === null && e.time && e.endTime && e.endTime !== '24:00' ? lengthLabel(e.time, e.endTime, null, e.date) : null;
   return (
     // D108: jak wiersz wydarzenia grupy (EventRow), ale wyciszony — szary znacznik zamiast koloru grupy.
     <View testID={`device-${e.key}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60 }}>
