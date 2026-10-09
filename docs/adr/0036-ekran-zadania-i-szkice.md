@@ -28,7 +28,9 @@
    konkretny”, D132) i miniony dzień (pusty; w wydarzeniu dzień z otwarcia) — z napisem; ta sama reguła przy „Zapisz”
    daje komunikat zamiast odrzucenia przez serwer (N-32, N-144; `domain/views/form-choices.ts`). Szkic planu lekcji
    pamięta znacznik planu, na którym powstał: plan zmieniony w międzyczasie (przy przywróceniu albo przy otwartym
-   ekranie) daje pytanie „Pokaż obecny plan / Zapisz mój plan” (N-31).
+   ekranie) daje pytanie „Pokaż obecny plan / Zapisz mój plan” (N-31). Parametry otwarcia (grupa z ekranu grupy, rodzaj
+   listy, dzień z Kalendarza) wygrywają z polami szkicu (N-146). „Odrzuć” jest czerwone i daje pasek „Odrzucono
+   niezapisane zmiany · Cofnij” (bez wpisu w „Ostatnich zmianach” — to nie zmiana danych grupy; N-147).
 3. **Pola zapisywane od razu:** jeden mechanizm `ui/live-text.ts` (tytuł i notatka zadania, nazwa listy, pozycja zakupów,
    nazwa grupy, imię osoby): niepoprawny tekst (np. pusty) się nie zapisuje — pole wraca do zapisanej wartości
    i pokazuje komunikat (audyt 2, M-202). Zapis także przy przejściu do innej aplikacji (audyt 3, N-139).

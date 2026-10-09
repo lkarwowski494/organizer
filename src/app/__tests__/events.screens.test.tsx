@@ -76,8 +76,9 @@ describe('Wydarzenia: dodawanie', () => {
     expect(screen.getByText('Wpisz nazwę wydarzenia.')).toBeTruthy();
     await type(screen.getByTestId('event-title'), 'Basen');
     await press(screen.getByTestId('event-save'));
-    expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
-    await setTime('event-start-0', '7:00');
+    // Audyt 3 (N-136): bez godziny — „Wybierz…”, zła godzina — „Sprawdź…”.
+    expect(screen.getByText('Wybierz godzinę początku.')).toBeTruthy();
+    await setTime('event-start-0', '25:00');
     await press(screen.getByTestId('event-save'));
     expect(screen.getByText('Sprawdź godzinę (GG:MM).')).toBeTruthy();
     await press(screen.getByLabelText('Co tydzień'));

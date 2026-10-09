@@ -38,9 +38,10 @@ export function NewListScreen({ route, navigation }: Props) {
   const personal = group?.kind === 'personal';
   const [draft, setDraft] = useState<TripDraft>({ date: '', time: '', responsibleId: null });
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Utwórz” zostawia wpisane pola (app/form-draft).
-  // Audyt 3: przywrócony szkic bez grupy, osoby i minionego dnia zakupów, których już nie ma (N-32, N-144).
+  // Audyt 3: grupa i rodzaj z parametrów otwarcia (np. „Nowa lista” na ekranie grupy) wygrywają ze szkicem (N-146);
+  // przywrócony szkic bez grupy, osoby i minionego dnia zakupów, których już nie ma (N-32, N-144).
   const saved = useFormDraft('list:new', { name, kind, groupId, visibility, trip: draft }, { name: setName, kind: setKind, groupId: setGroupId, visibility: setVisibility, trip: setDraft }, {
-    sanitize: (d, init) => sanitizeListDraft(tables, userId, today, d, init),
+    sanitize: (d, init) => sanitizeListDraft(tables, userId, today, d, init, { groupId: route.params.groupId, kind: route.params.kind }),
   });
   const trip = readTrip(draft);
   const shopping = kind === 'shopping';
@@ -71,7 +72,8 @@ export function NewListScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{kind === 'shopping' ? strings['lists.newShopping'] : strings['lists.new']}</Title>
       <DraftNote draft={saved} />
-      <Field label={strings['lists.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.LIST_NAME} returnKeyType="done" testID="list-name" />
+      {/* Audyt 3 (N-145): jedyne pole tekstowe — Return tworzy listę (ADR 0038 p. 8). */}
+      <Field label={strings['lists.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.LIST_NAME} onSubmitEditing={create} testID="list-name" />
       <Segmented label={strings['lists.kindLabel']} value={kind} onChange={setKind} options={[{ value: 'tasks', label: strings['lists.kind.tasks'] }, { value: 'shopping', label: strings['lists.kind.shopping'] }]} />
       <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), setDraft({ ...draft, responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       {personal ? null : (
@@ -81,8 +83,7 @@ export function NewListScreen({ route, navigation }: Props) {
         <>
           <SectionTitle>{strings['trip.section']}</SectionTitle>
           {/* Audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt konkretny (inną osobę serwer odrzuci). */}
-          <TripEditor value={draft} onChange={setDraft} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={tripNeeds} />
-          {tripError ? <ErrorText>{tripError}</ErrorText> : null}
+          <TripEditor value={draft} onChange={(d) => (setDraft(d), setError(null))} adults={tripAdults(tables, groupId, (m) => personal || visibility === 'group' || m === group.me.member_id)} today={today} required={tripNeeds} />
         </>
       ) : null}
       {error ? <ErrorText testID="list-error" attempt={attempt}>{error}</ErrorText> : null}

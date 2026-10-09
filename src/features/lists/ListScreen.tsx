@@ -5,7 +5,7 @@
  * (Q9 B, N-49). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
@@ -108,6 +108,15 @@ export function ListScreen({ route, navigation }: Props) {
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
   const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)), { empty: strings['lists.error.nameEmpty'] });
+  // Audyt 3 (N-149): lista usunięta na tym telefonie (np. „Cofnij” na pasku „Dodano listę”, pokazanym już na tym ekranie)
+  // — ekran wraca, jak po usunięciu z ekranu, zamiast mówić „ktoś ją usunął”. Usunięcie z serwera (inna osoba, utrata
+  // dostępu) zostawia napis.
+  const shown = useRef(false);
+  const goneHere = !detail && state.pending.some((op) => op.seq > state.ackedSeq && op.kind === 'delete' && op.entity === 'lists' && op.id === route.params.listId);
+  useEffect(() => {
+    if (detail) shown.current = true;
+    else if (shown.current && goneHere) navigation.goBack();
+  }, [detail, goneHere, navigation]);
 
   if (!detail) {
     return (
@@ -274,7 +283,7 @@ export function ListScreen({ route, navigation }: Props) {
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {/* PWD-5 A (M-274): przycisk aktywny, komunikat po naciśnięciu (podpowiedź „trip.required” stoi w edytorze). */}
+              {/* PWD-5 A (M-274): przycisk aktywny, komunikat po naciśnięciu (podpowiedź „trip.requiredHint” stoi w edytorze). */}
               {planError ? <ErrorText testID="trip-error">{planError}</ErrorText> : planTried && planMissing ? <ErrorText testID="trip-error">{strings['trip.required']}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}

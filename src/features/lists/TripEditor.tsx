@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import type { CivilDate } from '../../domain/civil-date';
 import type { Member } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, ErrorText } from '../../ui/components';
+import { Body } from '../../ui/components';
 import { PersonPicker } from '../../ui/PersonPicker';
 import { DueFields } from '../../ui/DueFields';
 import { parseDueFields } from './TaskScreen';
@@ -38,7 +38,8 @@ export function TripEditor({ value, onChange, adults, today, required }: { value
         onChange={(id) => onChange({ ...value, responsibleId: id === '' ? null : id })}
         options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
       />
-      {required && value.date.trim() === '' && value.responsibleId === null ? <ErrorText>{strings['trip.required']}</ErrorText> : null}
+      {/* Audyt 3 (N-33, PWD-5 A): podpowiedź, nie błąd — komunikat (czerwony, ogłaszany) daje ekran dopiero po naciśnięciu. */}
+      {required && value.date.trim() === '' && value.responsibleId === null ? <Body muted testID="trip-required-hint">{strings['trip.requiredHint']}</Body> : null}
     </View>
   );
 }

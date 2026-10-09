@@ -5,8 +5,8 @@
  * zwykłe wydarzenie. Logika: domain/views/timetable.ts.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useRef, useState } from 'react';
+import { type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useFormDraft } from '../../app/form-draft';
@@ -49,6 +49,7 @@ export function TimetableScreen({ route, navigation }: Props) {
   const [thisWeek, setThisWeek] = useState<'A' | 'B'>(copy?.thisWeek ?? plan.thisWeek);
   const [until, setUntil] = useState(copy?.until ?? plan.until);
   const [copying, setCopying] = useState(false);
+  const titleRefs = useRef<(TextInput | null)[]>([]);
   // Audyt 3 (N-62): po „Anuluj” w wyborze grupy fokus wraca na „Skopiuj…”.
   const copyBack = useClosedPanel(copying) !== null;
   const [error, setError, attempt] = useFormError<{ text: string; index: number }>();
@@ -76,6 +77,9 @@ export function TimetableScreen({ route, navigation }: Props) {
   const days = [...SCHOOL_DAYS, ...WEEKEND.filter((x) => lessons.some((l) => l.day === x))];
   // Numer lekcji w obrębie jej dnia (jak w etykietach VoiceOvera, M-145).
   const lessonNo = (i: number) => lessons.slice(0, i + 1).filter((x) => x.day === lessons[i]!.day).length;
+  // Kolejność pól na ekranie: dniami, w dniu — jak w liście lekcji.
+  const order = days.flatMap((day) => lessons.flatMap((l, i) => (l.day === day ? [i] : [])));
+  const nextOf = (i: number) => order[order.indexOf(i) + 1];
   const set = (i: number, patch: Partial<Lesson>) => (setLessons((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l))), setError(null));
   const add = (day: number) => {
     const prev = [...lessons].reverse().find((l) => l.day === day);
@@ -99,8 +103,9 @@ export function TimetableScreen({ route, navigation }: Props) {
     store.dispatch(r.ops);
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
     // Audyt 3 (N-35): plan zmieniony od zapisu (np. przez drugiego rodzica) nie jest cofany — odcisk zmienionych wierszy
-    // (D194).
-    undo.show(now.series.length ? strings['timetable.updated'] : strings['timetable.saved'](r.series), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan', changed: r.ops });
+    // (D194); N-141: pasek mówi, czyj plan i w której grupie.
+    const whose = strings['mention.pick'](m.display_name, d.group.name);
+    undo.show(now.series.length ? strings['timetable.updated'](whose) : strings['timetable.saved'](r.series, whose), () => store.dispatch(r.undo(materialize(store.getSnapshot().state))), { lost: 'plan', changed: r.ops });
     navigation.goBack();
   };
 
@@ -163,8 +168,19 @@ export function TimetableScreen({ route, navigation }: Props) {
             const a11y = (field: string) => strings['timetable.fieldA11y'](field, n, wd);
             return (
               <Card kind="panel" key={i} style={{ borderColor: error?.index === i ? c.danger : c.border }}>
-                {/* Audyt 3 (N-134): limit z SQL. */}
-                <Field label={strings['timetable.lesson']} accessibilityLabel={strings['timetable.lessonA11y'](n, wd)} value={l.title} onChangeText={(title) => set(i, { title })} maxLength={config.lengths.EVENT_TITLE} testID={`lesson-title-${i}`} />
+                {/* Audyt 3: limit z SQL (N-134); Return w nazwie ostatniej lekcji zapisuje plan, wcześniej — następna lekcja (N-145). */}
+                <Field
+                  ref={(r) => void (titleRefs.current[i] = r)}
+                  label={strings['timetable.lesson']}
+                  accessibilityLabel={strings['timetable.lessonA11y'](n, wd)}
+                  value={l.title}
+                  onChangeText={(title) => set(i, { title })}
+                  maxLength={config.lengths.EVENT_TITLE}
+                  returnKeyType={nextOf(i) === undefined ? 'done' : 'next'}
+                  submitBehavior={nextOf(i) === undefined ? undefined : 'submit'}
+                  onSubmitEditing={() => (nextOf(i) === undefined ? save() : titleRefs.current[nextOf(i)!]?.focus())}
+                  testID={`lesson-title-${i}`}
+                />
                 <TimeFieldPair
                   start={{ label: strings['event.start'], a11yLabel: a11y(strings['event.start']), value: l.start, onChange: (start) => set(i, { start }), testID: `lesson-start-${i}` }}
                   end={{ label: strings['timetable.end'], a11yLabel: a11y(strings['timetable.end']), value: l.end, onChange: (end) => set(i, { end }), testID: `lesson-end-${i}` }}

@@ -38,6 +38,11 @@ export type UndoOptions = {
    * przez serwer (grupa), „plan” — plan lekcji liczony w chwili cofnięcia z całego planu.
    */
   lost?: RecentLost;
+  /**
+   * `false` — zmiana tylko na tym telefonie i w tym formularzu (np. odrzucony szkic, audyt 3 N-147): sam pasek, bez wpisu
+   * w „Ostatnich zmianach” (tam są zmiany danych grupy).
+   */
+  recent?: false;
 };
 
 /**
@@ -127,7 +132,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
       const ops = typeof undo === 'object' ? undo : undefined;
       const onUndo = fn ?? (ops ? () => backend?.run(ops) : undefined);
       let entry: number | null = null;
-      if (onUndo && action === strings['undo.action']) {
+      if (onUndo && action === strings['undo.action'] && o.recent !== false) {
         const id = ++n.current;
         entry = id;
         if (fn) actions.current.set(id, fn);

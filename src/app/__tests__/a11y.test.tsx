@@ -65,12 +65,6 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
     max: 408,
     hits: 0,
   },
-  {
-    re: /^rola „alert” bez cechy iOS/,
-    why: 'M-39: komunikat błędu ogłasza announce() (ErrorText); rola „alert” na iOS nie daje cechy ani słów w wartości (RN dopisuje je tylko dla „checkbox” i „radio”), zostaje dla testów (getByRole("alert"))',
-    max: 6,
-    hits: 0,
-  },
 ];
 const observed = new Map<string, string>();
 /** Ile scenariuszy przeszło audyt — podsumowanie liczy się tylko po pełnym przebiegu (nie przy jestowym -t). */

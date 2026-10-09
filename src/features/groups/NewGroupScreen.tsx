@@ -11,6 +11,7 @@ import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
+import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
@@ -20,7 +21,6 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const defaultGroup = useDefaultGroup();
   const [name, setName] = useState(route.params?.name ?? '');
   const [me, setMe] = useState(displayName);
-  const [busy, setBusy] = useState(false);
   const [error, setError, attempt] = useFormError<string>();
   const myField = useRef<TextInput>(null);
   // Audyt 2 (R-27): te same identyfikatory przy ponowieniu — gdy odpowiedź serwera zginęła, druga próba nie tworzy
@@ -34,7 +34,6 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const create = async () => {
     if (name.trim() === '') return setError(strings['groups.error.nameEmpty']);
     if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
-    setBusy(true);
     setError(null);
     try {
       await account.createGroup({ ...ids, name: name.trim(), displayName: me.trim() });
@@ -51,9 +50,10 @@ export function NewGroupScreen({ navigation, route }: Props) {
       navigation.replace('Group', { groupId: ids.groupId, fresh: true });
     } catch (e) {
       setError(groupErrorText(e));
-      setBusy(false);
     }
   };
+  // Audyt 3 (N-137): Return i „Utwórz” — jedna wysyłka naraz.
+  const { busy, submit } = useSubmit(create);
 
   return (
     <Screen testID="screen-new-group">
@@ -62,9 +62,9 @@ export function NewGroupScreen({ navigation, route }: Props) {
       <DraftNote draft={draft} />
       {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
       <Field label={strings['groups.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.GROUP_NAME} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => myField.current?.focus()} testID="group-name" />
-      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
+      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={submit} testID="group-my-name" />
       {error ? <ErrorText attempt={attempt}>{error}</ErrorText> : null}
-      <Button label={strings['groups.create']} onPress={create} busy={busy} testID="create-group" />
+      <Button label={strings['groups.create']} onPress={submit} busy={busy} testID="create-group" />
     </Screen>
   );
 }

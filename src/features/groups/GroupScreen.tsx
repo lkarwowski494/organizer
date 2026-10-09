@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, type TextInput, View } from 'react-native';
 
+import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
@@ -39,6 +40,7 @@ export function GroupScreen({ route, navigation }: Props) {
   const { c, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const undo = useUndo();
+  const added = useAdded();
   const actions = useTaskActions();
   const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
@@ -95,7 +97,8 @@ export function GroupScreen({ route, navigation }: Props) {
   // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
   const addChildNow = () => {
     if (child.trim() === '') return setChildError(strings['groups.error.childEmpty']);
-    store.dispatch(addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() }));
+    // Audyt 3 (N-141): jak każde dodanie z formularza (D189) — „Dodano dziecko: … · Cofnij”.
+    added(strings['groups.childAdded'](child.trim(), d.group.name), [addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() })]);
     setChild('');
   };
   const adminFirst = d.canInviteAdmin && d.members.some((m) => m.role === 'child');

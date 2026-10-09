@@ -12,6 +12,7 @@ import { config } from '../../config';
 import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-link';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Invite'>;
@@ -27,7 +28,6 @@ export function InviteScreen({ route, navigation }: Props) {
   const [paste, setPaste] = useState('');
   const [me, setMe] = useState(displayName);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   // Audyt 2 (R-39): wpisane ID i kod mają pierwszeństwo przed starym 64-znakowym kodem z wklejonej wiadomości.
   const typed = only(joinId).length > 0 && only(code).length > 0;
   const legacy = p.token ?? (typed ? null : parseInviteToken(paste));
@@ -46,7 +46,6 @@ export function InviteScreen({ route, navigation }: Props) {
   const accept = async () => {
     if (!ready) return setError(strings['invite.error.missing']);
     if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
-    setBusy(true);
     setError(null);
     try {
       const { groupId } = legacy ? await account.acceptInvite(legacy, me.trim()) : await account.joinGroup(only(joinId), only(code), me.trim());
@@ -56,9 +55,10 @@ export function InviteScreen({ route, navigation }: Props) {
       navigation.replace('Group', { groupId, fresh: true });
     } catch (e) {
       setError(groupErrorText(e));
-      setBusy(false);
     }
   };
+  // Audyt 3 (N-137): Return i „Dołącz” — jedna wysyłka naraz (drugie wywołanie serwera liczyłoby się jako próba kodu).
+  const { busy, submit } = useSubmit(accept);
   const ready = !!legacy || typed;
 
   return (
@@ -73,9 +73,9 @@ export function InviteScreen({ route, navigation }: Props) {
           <Field label={strings['invite.paste']} value={paste} onChangeText={onPaste} autoCapitalize="none" autoCorrect={false} multiline testID="invite-input" />
         </>
       )}
-      <Field label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="join" onSubmitEditing={() => void accept()} testID="invite-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="join" onSubmitEditing={submit} testID="invite-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button label={strings['invite.accept']} onPress={accept} busy={busy} testID="invite-accept" />
+      <Button label={strings['invite.accept']} onPress={submit} busy={busy} testID="invite-accept" />
     </Screen>
   );
 }

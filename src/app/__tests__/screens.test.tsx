@@ -251,6 +251,8 @@ describe('Grupy', () => {
     await press(screen.getByLabelText('Dodaj dziecko (bez konta)'));
     expectOps(store, [{ kind: 'create', entity: 'group_members', id: 'new-1', group_id: 'gf', set: { member_id: 'new-1', display_name: 'Zosia', role: 'child' } }]);
     expect(await screen.findByLabelText('Zosia, dziecko')).toBeTruthy();
+    // Audyt 3 (N-141): dodanie dziecka jak każde dodanie z formularza — pasek „Dodano … · Cofnij” (D189).
+    expect(within(screen.getByTestId('undo-bar')).getByText('Dodano dziecko: Zosia · Rodzina')).toBeTruthy();
     // D130 (audyt 2): nazwa zapisuje się po wyjściu z pola, bez przycisku.
     await type(screen.getByTestId('group-rename'), 'Rodzina K.');
     await fireEvent(screen.getByTestId('group-rename'), 'blur');
