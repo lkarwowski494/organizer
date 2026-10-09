@@ -320,7 +320,7 @@ describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt
     expect(screen.queryByTestId('device-copy-d|camp')).toBeNull();
     await press(screen.getByLabelText('Poprzedni dzień'));
     await press(await screen.findByTestId('device-copy-d|camp'));
-    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toEqual({ text: '2026-10-09' });
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
     await press(screen.getByTestId('event-save'));
     expect(store.dispatched.find((o) => o.kind === 'create' && o.entity === 'events')).toMatchObject({ set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, days: 3 } });
