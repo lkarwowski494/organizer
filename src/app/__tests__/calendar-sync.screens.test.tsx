@@ -121,13 +121,13 @@ describe('kalendarz iPhone’a', () => {
     await press(screen.getByLabelText('Ustawienia'));
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-settings');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText(/^Wyłączone(,|$)/));
     expect(prefs.m.get('calendarRead')).toBe('0');
-    await press(within(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Wydarzenia grup w kalendarzu iPhone’a')).getByLabelText(/^Wyłączone(,|$)/));
     await flush();
     expect(prefs.m.get('calendarMirror')).toBe('0');
     expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9');
-    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText('Włączone'));
+    await press(within(within(box).getByLabelText('Moje wydarzenia z iPhone’a w aplikacji')).getByLabelText(/^Włączone(,|$)/));
     expect(prefs.m.get('calendarRead')).toBe('1');
   });
 
@@ -143,7 +143,8 @@ describe('kalendarz iPhone’a', () => {
     expect(screen.queryByTestId('device-d|x1')).toBeNull();
     // Audyt 2 (M-105): nic nie znika bez śladu — „Ukryto 1 dubel” i podgląd po dotknięciu (bez „Dodaj do grupy”).
     const hidden = screen.getByTestId('today-hidden-2026-10-07');
-    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a, dotknij, by zobaczyć');
+    expect(hidden.props.accessibilityLabel).toBe('Ukryto 1 dubel z iPhone’a');
+    expect(hidden.props.accessibilityHint).toBe('Pokazuje ukryte duble');
     await press(hidden);
     expect(within(screen.getByTestId('today-hidden-2026-10-07-list')).getByLabelText('Dentysta, 16:00–17:00, Kalendarz: Praca')).toBeTruthy();
     expect(screen.queryByTestId('device-copy-d|x1')).toBeNull();
@@ -154,12 +155,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-calendars');
     expect(within(box).getByLabelText('Praca')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/));
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual(['home']);
-    expect(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone').props.accessibilityState.selected).toBe(true);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Włączone'));
+    expect(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/).props.accessibilityState.selected).toBe(true);
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Włączone(,|$)/));
     expect(JSON.parse(prefs.m.get('calendarSkip')!)).toEqual([]);
-    await press(within(within(box).getByLabelText('Dom')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Dom')).getByLabelText(/^Wyłączone(,|$)/));
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-settings');
     await press(screen.getByLabelText('Wróć'));
@@ -235,12 +236,12 @@ describe('kalendarz iPhone’a', () => {
     await press(await screen.findByTestId('settings-calendar'));
     const box = await screen.findByTestId('device-mirror-groups');
     expect(within(box).getByLabelText('Osobiste')).toBeTruthy();
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Wyłączone(,|$)/));
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual(['gk']);
-    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText('Włączone'));
+    await press(within(within(box).getByLabelText('Klasa 2b')).getByLabelText(/^Włączone(,|$)/));
     expect(JSON.parse(services.local!.load('calendarMirrorSkip')!)).toEqual([]);
     services.local!.save('calendarMirror', JSON.stringify({ calendars: { gf: 'cal-9' }, events: {} }));
-    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText('Wyłączone'));
+    await press(within(within(box).getByLabelText('Rodzina')).getByLabelText(/^Wyłączone(,|$)/));
     await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-9'), { timeout: config.calendar.MIRROR_DEBOUNCE_MS + 3000 });
   }, 15000);
 
@@ -301,4 +302,36 @@ describe('kalendarz iPhone’a', () => {
     await act(async () => release());
     await waitFor(() => expect(sync.updateEvent).toHaveBeenCalledWith('ev-1', expect.objectContaining({ title: 'Tańce towarzyskie' })), { timeout: 3000 });
   }, 20000);
+});
+
+describe('D199: wielodniowe z iPhone’a — numer dnia zamiast „cd.” (audyt 2, M-253) i kopia do grupy', () => {
+  const camp = { ...mine, id: 'camp', title: 'Urlop', allDay: true as const, startDate: '2026-10-07', endDate: '2026-10-10' } as never;
+  // 22:00–06:00 w Warszawie (UTC+2).
+  const night = { ...mine, id: 'night', title: 'Dyżur', startMs: Date.UTC(2026, 9, 7, 20, 0), endMs: Date.UTC(2026, 9, 8, 4, 0) };
+
+  it('każdy dzień z numerem, kolejny dzień nocnego „do 06:00”; „Dodaj do grupy” z ostatnim dniem i końcem następnego dnia', async () => {
+    const sync = fakeSync({ status: jest.fn(async () => 'granted' as const), listEvents: jest.fn(async () => [camp, night]) });
+    const { store } = await open(sync, memoryPrefs({ welcomeSeen: '1', calendarRead: '1' }));
+    expect(await screen.findByLabelText('Urlop, cały dzień, dzień 1 z 3, Kalendarz: Praca')).toBeTruthy();
+    expect(screen.getByLabelText('Dyżur, 22:00–06:00, dzień 1 z 2, Kalendarz: Praca')).toBeTruthy();
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(await screen.findByLabelText('Urlop, cały dzień, dzień 2 z 3, Kalendarz: Praca')).toBeTruthy();
+    expect(screen.getByLabelText('Dyżur, do 06:00, dzień 2 z 2, Kalendarz: Praca')).toBeTruthy();
+    // Kolejne dni nie mają „Dodaj do grupy” (kopiuje się całe wydarzenie z pierwszego dnia).
+    expect(screen.queryByTestId('device-copy-d|camp')).toBeNull();
+    await press(screen.getByLabelText('Poprzedni dzień'));
+    await press(await screen.findByTestId('device-copy-d|camp'));
+    expect((await screen.findByTestId('event-end-date')).props.accessibilityValue).toMatchObject({ text: 'Piątek, 9 października' });
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    await press(screen.getByTestId('event-save'));
+    expectOps(store, [{ kind: 'create', entity: 'events', id: 'new-1', group_id: 'gf', set: { title: 'Urlop', start_date: '2026-10-07', start_time: null, end_time: null, rrule: null, audience: 'group', responsible_member_id: null, days: 3 } }]);
+    await screen.findByTestId('screen-today');
+    // Oryginał z iPhone'a jest teraz dublem w każdym dniu (także kolejnym).
+    await press(screen.getByLabelText('Następny dzień'));
+    expect(await screen.findByTestId('today-hidden-2026-10-08')).toBeTruthy();
+    expect(screen.queryByLabelText('Urlop, cały dzień, dzień 2 z 3, Kalendarz: Praca')).toBeNull();
+    await press(screen.getByLabelText('Poprzedni dzień'));
+    await press(await screen.findByTestId('device-copy-d|night'));
+    expect(await screen.findByText('Kończy się następnego dnia.')).toBeTruthy();
+  });
 });

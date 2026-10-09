@@ -18,7 +18,7 @@ describe('dziecko w grupie (D34)', () => {
   it('zadanie tylko do odczytu, odhaczenie zostaje; lista bez dodawania i usuwania; grupa bez „Nowa lista”', async () => {
     const s = setup({ base: childBase() });
     await s.renderApp(<RootStack />);
-    await press(await screen.findByLabelText(/^Otwórz:\ Przynieść\ korki\ na\ trening(,|$)/));
+    await press(await screen.findByLabelText(/^Przynieść\ korki\ na\ trening(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
     expect(screen.getByText('czarne')).toBeTruthy();
@@ -47,14 +47,14 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1)', 
     const s = setup({ base: b });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    expect(screen.getByLabelText('Otwórz: Posprzątać pokój, Rodzina, bez terminu, dla: Kuba')).toBeTruthy();
+    expect(screen.getByLabelText('Posprzątać pokój, Rodzina, bez terminu, dla: Kuba')).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'spakować plecak dziś 20:00 @Kuba');
     await press(screen.getByLabelText('Dodaj'));
     expectOps(s.store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'spakować plecak', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-07', due_time: '20:00', assignee_member_id: 'kuba' } }]);
-    expect(await screen.findByLabelText('Otwórz: spakować plecak, Rodzina, dziś · 20:00, dla: Kuba')).toBeTruthy();
+    expect(await screen.findByLabelText('spakować plecak, Rodzina, dziś, 20:00, dla: Kuba')).toBeTruthy();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
-    expect(await screen.findByLabelText(/^Otwórz: Posprzątać pokój/)).toBeTruthy();
+    expect(await screen.findByLabelText(/^Posprzątać pokój/)).toBeTruthy();
     expect(screen.queryByText(/nikt tego nie widzi/)).toBeNull();
   });
 });

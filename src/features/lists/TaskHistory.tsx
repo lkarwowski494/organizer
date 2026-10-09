@@ -4,7 +4,8 @@ import { Text, View } from 'react-native';
 import { localNow } from '../../domain/local-time';
 import { config } from '../../config';
 import type { CivilDate } from '../../domain/civil-date';
-import { formatLongDate } from '../../domain/format';
+import { formatIsoDate } from '../../domain/civil-date';
+import { formatDue } from '../../domain/format';
 import type { HistoryEntry } from '../../domain/views/history';
 import { strings } from '../../i18n/strings.pl';
 import { Body, SectionTitle } from '../../ui/components';
@@ -27,7 +28,8 @@ export function TaskHistory({ entries, today }: { entries: HistoryEntry[]; today
       <Body muted>{strings['history.retention'](config.retention.ACTIVITY_DAYS)}</Body>
       {entries.map((e) => {
         const l = localNow(Date.parse(e.at));
-        const when = `${formatLongDate(l, today)}, ${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}`;
+        // Audyt 2 (U-54): czas jak w całej aplikacji („dziś · 17:30”, „pt. 9 paź · 08:05”).
+        const when = formatDue({ date: formatIsoDate(l), time: `${String(l.hh).padStart(2, '0')}:${String(l.mm).padStart(2, '0')}` }, today);
         return (
           <Text key={e.id} style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
             <Text style={{ fontFamily: font.text700, color: c.ink }}>{e.who ?? strings['history.someone']}</Text>

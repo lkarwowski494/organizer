@@ -41,9 +41,9 @@ describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
     await press(await screen.findByTestId('group-timetable-kuba'));
-    expect(await screen.findByText('Plan lekcji – Kuba')).toBeTruthy();
+    expect(await screen.findByText('Plan lekcji — Kuba')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('group-add-routine'));
     await screen.findByTestId('screen-routine');
@@ -92,6 +92,6 @@ describe('rutyny (D113)', () => {
     const s = setup({ base });
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
-    expect(within(screen.getByTestId(`today-${nextId(nextId('r1'))}`)).getByText(/seria: 2 z rzędu/)).toBeTruthy();
+    expect(within(screen.getByTestId(`today-${nextId(nextId('r1'))}`)).getByText(/2 razy z rzędu/)).toBeTruthy();
   });
 });

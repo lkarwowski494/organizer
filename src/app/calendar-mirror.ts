@@ -49,7 +49,7 @@ export function loadMirror(local: LocalStore): MirrorState {
   }
 }
 
-const draft = (i: MirrorItem) => draftOf({ title: i.title, date: i.date, startTime: i.startTime, endTime: i.endTime, location: i.location }, withMark(i.notes));
+const draft = (i: MirrorItem) => draftOf({ title: i.title, date: i.date, startTime: i.startTime, endTime: i.endTime, days: i.days, location: i.location }, withMark(i.notes));
 
 /**
  * Usunięcie kalendarza z iPhone'a (audyt 2, M-156): true, gdy kalendarza już nie ma (usunięty teraz albo wcześniej

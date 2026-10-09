@@ -52,7 +52,8 @@ const scenario: fc.Arbitrary<Scenario> = fc.record({
   stale: fc.boolean(),
   date: fc.constantFrom(...MONDAYS),
   days: fc.constantFrom('MO', 'MO,WE', 'TU'),
-  time: fc.constantFrom('17:00', '18:30'),
+  // D199: także całodniowa przez 2 dni i nocna (22:00–06:00) nowa seria.
+  time: fc.constantFrom('17:00', '18:30', 'allDay2', 'night'),
   responsible: fc.constantFrom('a' as const, 'b' as const, 'kuba' as const, 'r' as const, null),
   participants: fc.uniqueArray(fc.constantFrom('b' as const, 'kuba' as const, 'r' as const), { maxLength: 3 }),
   lost: fc.constantFrom('nearest' as const, 'unlink' as const),
@@ -62,8 +63,8 @@ const hhmm = (v: unknown) => (v == null ? null : String(v).slice(0, 5));
 const gone = (r: Row) => r.deleted_at != null;
 /** Pola, które podział zmienia albo powinien zachować — bez kolumn serwerowych (wersja, autor, czasy). */
 const PROJECT: { [e: string]: (r: Row) => Row } = {
-  events: (r) => ({ title: r.title, start_date: r.start_date, start_time: hhmm(r.start_time), end_time: hhmm(r.end_time), rrule: r.rrule, audience: r.audience, responsible_member_id: r.responsible_member_id ?? null, location: r.location ?? null, kind: r.kind ?? 'event', note: r.note ?? null, split_from: r.split_from ?? null, gone: gone(r) }),
-  event_overrides: (r) => ({ event_id: r.event_id, occurrence_date: r.occurrence_date, cancelled: r.cancelled === true, title: r.title ?? null, start_time: hhmm(r.start_time), responsible_member_id: r.responsible_member_id ?? null, gone: gone(r) }),
+  events: (r) => ({ title: r.title, start_date: r.start_date, start_time: hhmm(r.start_time), end_time: hhmm(r.end_time), rrule: r.rrule, audience: r.audience, responsible_member_id: r.responsible_member_id ?? null, location: r.location ?? null, kind: r.kind ?? 'event', note: r.note ?? null, split_from: r.split_from ?? null, days: r.days ?? 1, gone: gone(r) }),
+  event_overrides: (r) => ({ event_id: r.event_id, occurrence_date: r.occurrence_date, cancelled: r.cancelled === true, title: r.title ?? null, start_time: hhmm(r.start_time), responsible_member_id: r.responsible_member_id ?? null, days: r.days ?? null, gone: gone(r) }),
   event_rsvps: (r) => ({ event_id: r.event_id, occurrence_date: r.occurrence_date, member_id: r.member_id, answer: r.answer, gone: gone(r) }),
   handoffs: (r) => ({ entity: r.entity, entity_id: r.entity_id, occurrence_date: r.occurrence_date ?? null, status: r.status }),
   tasks: (r) => ({ event_id: r.event_id ?? null, occurrence_date: r.occurrence_date ?? null, deadline_mode: r.deadline_mode, done: r.completed_at != null, gone: gone(r) }),
@@ -175,8 +176,9 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
           if (sc.date <= det.event.start_date) return; // od pierwszego wystąpienia to zmiana całej serii, nie podział
           const f = {
             ...fieldsOf(det, sc.date, 'following'),
-            startTime: sc.time,
-            endTime: null,
+            startTime: sc.time === 'allDay2' ? null : sc.time === 'night' ? '22:00' : sc.time,
+            endTime: sc.time === 'night' ? '06:00' : null,
+            days: sc.time === 'allDay2' ? 2 : 1,
             rule: parseRule(`FREQ=WEEKLY;BYDAY=${sc.days}`),
             responsibleId: sc.responsible === null ? null : M[sc.responsible],
             audience: sc.participants.length ? ('members' as const) : ('group' as const),

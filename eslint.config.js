@@ -46,7 +46,7 @@ module.exports = defineConfig([
     rules: {
       ...Object.fromEntries(Object.keys(jestPlugin.configs['flat/recommended'].rules).map((r) => [r, 'error'])),
       // Własności fast-check sprawdzają wynik przez fc.assert (właściwość zwraca prawdę albo rzuca).
-      'jest/expect-expect': ['error', { assertFunctionNames: ['expect', 'fc.assert', 'expectOps'] }],
+      'jest/expect-expect': ['error', { assertFunctionNames: ['expect', 'fc.assert', 'expectOps', 'expectFocusOn'] }],
     },
   },
   {

@@ -11,7 +11,7 @@ async function openTimetable(base = sampleBase()) {
   const s = setup({ base });
   await s.renderApp(<RootStack />);
   await press(screen.getByLabelText('Grupy'));
-  await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+  await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
   await press(await screen.findByLabelText('Kuba, dziecko'));
   await press(await screen.findByTestId('open-timetable'));
   await screen.findByTestId('screen-timetable');
@@ -32,7 +32,7 @@ describe('plan lekcji (D112)', () => {
 
   it('lekcje co tydzień i w tygodniu B; zapis jako serie z Kubą; cofnięcie usuwa serie', async () => {
     const { store } = await openTimetable();
-    expect(screen.getByText('Plan lekcji – Kuba')).toBeTruthy();
+    expect(screen.getByText('Plan lekcji — Kuba')).toBeTruthy();
     await press(screen.getByTestId('timetable-save'));
     expect(screen.getByText('Dodaj co najmniej jedną lekcję.')).toBeTruthy();
     await press(screen.getByTestId('lesson-add-0'));
@@ -43,7 +43,9 @@ describe('plan lekcji (D112)', () => {
     await fireEvent.changeText(screen.getByTestId('lesson-title-1'), 'Plastyka');
     await setTime('lesson-end-1', '08:00');
     await press(screen.getByTestId('timetable-save'));
-    expect(screen.getByText(/Koniec musi być/)).toBeTruthy();
+    // Audyt 2 (M-39, A-21): błąd w karcie lekcji i przy „Zapisz” — której lekcji dotyczy.
+    expect(within(screen.getByTestId('timetable-day-0')).getByText(/^Koniec musi być/)).toBeTruthy();
+    expect(screen.getByText(/^Popraw lekcję 2, poniedziałek: Koniec musi być/)).toBeTruthy();
     await setTime('lesson-end-1', '09:30');
     await press(radio('Kiedy, lekcja 2, poniedziałek', 'Tydzień B'));
     await press(screen.getByTestId('lesson-add-2'));
@@ -57,7 +59,7 @@ describe('plan lekcji (D112)', () => {
     ]);
     expect(store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'event_participants').every((o) => (o as unknown as { set: { member_id: string } }).set.member_id === 'kuba')).toBe(true);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano plan: 2 serie wydarzeń')).toBeTruthy();
+    expect(within(bar).getByText('Dodano plan lekcji: 2 lekcje w tygodniu')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Serie do kosza; kotwica tygodnia A (zapisana przy lekcji z tygodnia B, D171) wraca do pustej.
     expectOps(store, [
@@ -164,8 +166,8 @@ describe('plan lekcji (D112)', () => {
     await press(screen.getByTestId('lesson-add-1'));
     await press(screen.getByTestId('lesson-add-1'));
     expect(screen.getByLabelText('Lekcja 2, wtorek')).toBeTruthy();
-    expect(screen.getByLabelText(/^Początek, lekcja 2, wtorek: /)).toBeTruthy();
-    expect(screen.getByLabelText(/^Koniec, lekcja 2, wtorek: /)).toBeTruthy();
+    expect(screen.getByLabelText(/^Początek, lekcja 2, wtorek$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Koniec, lekcja 2, wtorek$/)).toBeTruthy();
     expect(screen.getByLabelText('Usuń lekcję 2, wtorek')).toBeTruthy();
     expect(screen.getByLabelText('Usuń lekcję 1, poniedziałek')).toBeTruthy();
     await press(screen.getByLabelText('Usuń lekcję 1, sobota'));
@@ -176,7 +178,7 @@ describe('plan lekcji (D112)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
-    await press(await screen.findByLabelText('Rodzina, 3 osoby · admin'));
+    await press(await screen.findByLabelText('Rodzina, 3 osoby · administrator'));
     await press(await screen.findByLabelText(/^Ala, /));
     await screen.findByTestId('screen-member');
     expect(screen.queryByTestId('open-timetable')).toBeNull();

@@ -109,7 +109,8 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
       if (h < 44) say(`${name} ma ${h} pt wysokości`);
       const w = typeof s.width === 'number' ? s.width : typeof s.width === 'string' && s.width.endsWith('%') ? (parseFloat(s.width) / 100) * CONTENT_WIDTH : null;
       if (w !== null && w < 44) say(`${name} ma ${Math.round(w)} pt szerokości`);
-      const inLabel = new Set(words(label ?? ''));
+      // Nazwą jest etykieta; widoczna wartość pola (accessibilityValue, np. „Wybierz godzinę”, „18:00”) to wartość, nie nazwa.
+      const inLabel = new Set(words(`${label ?? ''} ${String((n.props.accessibilityValue as { text?: string } | undefined)?.text ?? '')}`));
       const missing = words(textOf(n)).filter((w) => !inLabel.has(w));
       if (label && missing.length) say(`etykieta „${label}” bez widocznych słów: ${missing.join(', ')}`);
       const state = (n.props.accessibilityState ?? {}) as { checked?: unknown; selected?: unknown };

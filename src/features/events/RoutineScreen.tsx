@@ -5,7 +5,7 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
@@ -15,9 +15,8 @@ import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
 import { groupDetail, groupsView } from '../../domain/views';
 import { routineOps } from '../../domain/views/routines';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, Toggles } from '../../ui/components';
 import { TimeField } from '../../ui/TimeField';
-import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
@@ -25,7 +24,6 @@ type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
 export function RoutineScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
   const { tables, today } = useAppData();
-  const { c, font } = useTheme();
   const undo = useUndo();
   const groups = groupsView(tables, userId).filter((g) => g.me.role !== 'child');
   const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : (groups[0]?.id ?? ''));
@@ -77,9 +75,9 @@ export function RoutineScreen({ route, navigation }: Props) {
       />
       <Body muted>{strings['routine.info']}</Body>
       {groups.length > 1 ? (
-        <Segmented label={strings['event.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
+        <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), setWho([]))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
-      <Field label={strings['routine.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} testID="routine-title" />
+      <Field label={strings['common.name']} value={title} onChangeText={(v) => (setTitle(v), setError(null))} placeholder={strings['routine.namePlaceholder']} testID="routine-title" />
       <Toggles label={strings['event.days']} values={days} onChange={(v) => (setDays(v), setError(null))} options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) }))} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
@@ -98,14 +96,12 @@ export function RoutineScreen({ route, navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Field label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} testID={`routine-step-${i}`} />
           </View>
-          {steps.length > 1 ? <Button kind="danger" label={strings['routine.removeStep']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
+          {steps.length > 1 ? <Button kind="danger" label={strings['common.delete']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>
       ))}
       <Button kind="secondary" label={strings['routine.addStep']} testID="routine-add-step" onPress={() => setSteps([...steps, ''])} />
       {error ? (
-        <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>
-          {error}
-        </Text>
+        <ErrorText>{error}</ErrorText>
       ) : null}
       <Button label={strings['routine.save']} testID="routine-save" onPress={save} />
     </Screen>

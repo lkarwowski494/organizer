@@ -9,7 +9,7 @@ import { Text, View } from 'react-native';
 
 import { strings } from '../../i18n/strings.pl';
 import type { AccountApi } from '../../sync/account';
-import { Body, Screen } from '../../ui/components';
+import { Body, ErrorText, Screen } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWithApple'> }) {
@@ -25,6 +25,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
       </View>
       <Text accessibilityRole="header" style={{ fontFamily: font.display800, fontSize: 48, letterSpacing: -1.5, color: c.ink }}>{strings['auth.title']}</Text>
       <Body muted>{strings['auth.tagline']}</Body>
+      <Body muted>{strings['auth.info']}</Body>
       <AppleAuthentication.AppleAuthenticationButton
         testID="apple-sign-in"
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -34,7 +35,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
         onPress={() => void account.signInWithApple().catch(() => setError(strings['common.error']))}
       />
       <Body muted>{strings['auth.appleOnly']}</Body>
-      {error ? <Text accessibilityRole="alert" style={{ fontFamily: font.text700, color: c.danger }}>{error}</Text> : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </Screen>
   );
 }

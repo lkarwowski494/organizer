@@ -136,12 +136,12 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
     expect(screen.getByText('Rodzina · dziecko · ma własne konto')).toBeTruthy();
     expect(screen.queryByLabelText('Połącz z kontem dziecka')).toBeNull();
     expect(screen.getByText(/Dziecko widzi swoje sprawy i wydarzenia/)).toBeTruthy();
-    await press(screen.getByRole('radio', { name: 'członek' }));
+    await press(screen.getByRole('radio', { name: 'Członek' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'kuba', set: { role: 'member' } }]);
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId('member-ala'));
     await screen.findByTestId('screen-member');
-    await press(screen.getByRole('radio', { name: 'dziecko' }));
+    await press(screen.getByRole('radio', { name: 'Dziecko' }));
     expectOps(s.store, [{ kind: 'patch', entity: 'group_members', id: 'ala', set: { role: 'child' } }]);
   });
 
@@ -159,8 +159,8 @@ describe('rola dziecka z kontem: zmienia tylko owner (PW-14 B, R-13, R-14)', () 
 describe('telefon dziecka z kontem', () => {
   it('Moje sprawy: tylko moje zadanie, zakupy bez pola odhaczenia, moje lekcje jednym wierszem bez imienia (P-70, R-11, N-38)', async () => {
     const s = await open({ base: childBase() });
-    expect(screen.getByLabelText(/^Otwórz: Przynieść korki na trening/)).toBeTruthy();
-    expect(screen.queryByLabelText(/^Otwórz: Zapłacić składkę/)).toBeNull();
+    expect(screen.getByLabelText(/^Przynieść korki na trening/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^Zapłacić składkę/)).toBeNull();
     // Zakupy widać (można otworzyć listę i odhaczać pozycje), ale bez pola „zrobione” — serwer go nie przyjmie.
     expect(within(screen.getByTestId('today-trip-lks')).queryByRole('checkbox')).toBeNull();
     expect(within(screen.getByTestId('today-t-korki')).getByRole('checkbox')).toBeTruthy();
@@ -185,7 +185,7 @@ describe('telefon dziecka z kontem', () => {
     await press(await screen.findByTestId('list-lk'));
     expect(within(screen.getByTestId('task-t-korki')).getByRole('checkbox')).toBeTruthy();
     expect(within(screen.getByTestId('task-t-skladka')).queryByRole('checkbox')).toBeNull();
-    await press(screen.getByLabelText(/^Otwórz: Zapłacić składkę/));
+    await press(screen.getByLabelText(/^Zapłacić składkę/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByLabelText(/^Oznacz jako zrobione/)).toBeNull();
     await press(screen.getByLabelText('Wróć'));
@@ -199,6 +199,6 @@ describe('telefon dziecka z kontem', () => {
     await open({ base: childBase() });
     await openGroup('gk');
     expect(screen.queryByTestId('leave')).toBeNull();
-    expect(screen.getByText('Z tej grupy wypisuje Cię właściciel albo admin.')).toBeTruthy();
+    expect(screen.getByText('Z tej grupy wypisuje Cię właściciel albo administrator.')).toBeTruthy();
   });
 });

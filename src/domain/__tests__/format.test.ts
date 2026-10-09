@@ -1,4 +1,5 @@
-import { formatDue, formatLength, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
+import { lengthLabel } from '../views/events';
+import { formatDateInline, formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -6,6 +7,9 @@ describe('daty na ekranach', () => {
   it('pełna data wg wzorca CLDR „EEEE, d MMMM y”, wielka litera na początku', () => {
     expect(formatLongDate(TODAY, TODAY)).toBe('Środa, 7 października');
     expect(formatLongDate({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('Poniedziałek, 4 stycznia 2027');
+    // Audyt 2 (U-55): w środku zdania małą literą.
+    expect(formatDateInline(TODAY, TODAY)).toBe('środa, 7 października');
+    expect(formatDateInline({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('poniedziałek, 4 stycznia 2027');
     expect(formatLongDate({ y: 2026, m: 10, d: 11 }, TODAY)).toBe('Niedziela, 11 października');
   });
 
@@ -54,5 +58,8 @@ describe('długość wydarzenia (D120, BIPM tabela 8)', () => {
     ['09:15', '10:00', '45 min'],
     ['08:00', '20:05', '12 h 5 min'],
     ['10:00', '10:01', '1 min'],
-  ])('%s–%s → %s', (a, b, out) => expect(formatLength(a, b)).toBe(out));
+    // D199: przez północ i doba.
+    ['22:00', '06:00', '8 h'],
+    ['08:00', '08:00', '24 h'],
+  ])('%s–%s → %s', (a, b, out) => expect(lengthLabel(a, b)).toBe(out));
 });

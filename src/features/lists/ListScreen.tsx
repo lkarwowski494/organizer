@@ -47,9 +47,10 @@ type Props = NativeStackScreenProps<RootStackParams, 'List'>;
  */
 function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string; count: number; open: boolean; onPress: () => void; testID: string }) {
   const { c, font, size } = useTheme();
-  const meta = `${strings['lists.expiredRun'](count)}  ·  ${open ? strings['lists.runHide'] : strings['lists.runShow']}`;
+  const meta = strings['lists.expiredRun'](count);
+  // Audyt 2 (M-141): jak wiersz lekcji — stan i czynność dla VoiceOvera, na ekranie ˅/˄ zamiast „dotknij, by…”.
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta.split('  ·  ').join(', ')}`} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${title}, ${meta}`} accessibilityHint={strings[open ? 'lists.runHideHint' : 'lists.runShowHint']} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 6 }}>
       <View style={{ width: 30, alignItems: 'center' }}>
         <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: c.control }} />
       </View>
@@ -57,6 +58,7 @@ function ExpiredRunRow({ title, count, open, onPress, testID }: { title: string;
         <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: c.inkMuted }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{meta}</Text>
       </View>
+      <Text style={{ fontSize: 22, color: c.inkMuted }}>{open ? '˄' : '˅'}</Text>
     </Pressable>
   );
 }
@@ -104,7 +106,8 @@ export function ListScreen({ route, navigation }: Props) {
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
   const trip = asTrip(tables.lists?.[list.id] ?? {});
   const adults = tripAdults(tables, list.group_id);
-  const who = adults.find((m) => m.member_id === trip.responsibleId)?.display_name ?? null;
+  // Audyt 2 (U-30): jak w wierszu zakupów w Moich sprawach („dla Ciebie”, „dla: Ala”).
+  const who = adults.some((m) => m.member_id === trip.responsibleId) ? personOf(tables, userId, trip.responsibleId) : null;
   // Audyt 2 (R-3): do wyboru tylko ci, którzy widzą listę. M-22: osoba usunięta z grupy (albo bez dostępu) to „Nikt
   // konkretny” (D132) — edytor nie dostaje wartości spoza swoich opcji.
   const pickable = adults.filter((m) => memberCanSeeList(tables, m.member_id, list.id));
@@ -122,7 +125,7 @@ export function ListScreen({ route, navigation }: Props) {
     // D189 (audyt 2: PW-29 A, M-126): po szybkim dodaniu zadania „Dodano … · Zmień” — jak w Moich sprawach. Pozycje
     // zakupów dodaje się seriami, a dotknięcie pozycji już ją edytuje — bez paska.
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
-    if (!shopping && created?.kind === 'create') undo.show(strings['form.added'](String(created.set.title), list.name), () => navigation.navigate('Task', { taskId: created.id }), strings['form.change']);
+    if (!shopping && created?.kind === 'create') undo.show(strings['form.added'](String(created.set.title), list.name), () => navigation.navigate('Task', { taskId: created.id }), strings['common.change']);
     setText('');
     setIgnore([]);
     setError(null);
@@ -185,7 +188,8 @@ export function ListScreen({ route, navigation }: Props) {
             shopping={shopping}
             onToggle={canCheck(t) ? () => actions.toggle(t, shopping) : undefined}
             onOpen={shopping ? (editable && !done ? () => pick(picking === t.id ? null : t.id) : undefined) : () => navigation.navigate('Task', { taskId: t.id })}
-            openLabel={shopping ? strings['shop.editItem'](parseQuantity(t.title).name) : undefined}
+            openHint={shopping ? strings['shop.editHint'] : undefined}
+            expanded={shopping && editable && !done ? picking === t.id : undefined}
           />
         </SwipeRow>,
         ...(picking === t.id
@@ -242,7 +246,7 @@ export function ListScreen({ route, navigation }: Props) {
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {planError ? <Body>{planError}</Body> : null}
+              {planError ? <ErrorText>{planError}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}
                 testID="trip-save"

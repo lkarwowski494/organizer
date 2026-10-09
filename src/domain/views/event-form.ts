@@ -4,9 +4,9 @@
  * Błędy jako kody; teksty dla nich są w src/i18n/strings.pl.ts.
  */
 import { config } from '../../config';
-import { daysInMonth, formatIsoDate, isoWeekday, isValidDate } from '../civil-date';
+import { addDays, daysInMonth, formatIsoDate, isoWeekday, isValidDate, toDayNumber } from '../civil-date';
 import { parseIsoDate } from '../format';
-import { alignStart, type Rule } from '../rrule';
+import { alignStart, occurrences, type Rule } from '../rrule';
 import type { EventFields } from './events';
 
 export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -21,6 +21,8 @@ export type EventForm = {
   title: string;
   date: string;
   allDay: boolean;
+  /** D199: ostatni dzień całodniowego („Kończy się”); pusto = ten sam dzień. */
+  endDate: string;
   slots: Slot[];
   repeat: Repeat;
   interval: string;
@@ -34,7 +36,7 @@ export type EventForm = {
   /** Miejsce (D115): adres albo nazwa; pusto = brak. */
   location: string;
 };
-export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
+export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'endDate' | 'tooLong' | 'overlap' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -59,6 +61,7 @@ export function emptyForm(date: string, participantIds: string[] = []): EventFor
     title: '',
     date,
     allDay: false,
+    endDate: '',
     slots: [{ days: [isoWeekday(parseIsoDate(date))], start: '', end: '' }],
     repeat: 'none',
     interval: '1',
@@ -81,6 +84,7 @@ export function formOf(f: EventFields): EventForm {
     title: f.title,
     date: f.date,
     allDay: f.startTime === null,
+    endDate: f.startTime === null && (f.days ?? 1) > 1 ? formatIsoDate(addDays(parseIsoDate(f.date), f.days! - 1)) : '',
     slots: [{ days: r?.freq === 'WEEKLY' && r.byday.length ? [...new Set(r.byday.map((x) => x.wd))].sort((x, y) => x - y) : [wd], start: hm(f.startTime), end: hm(f.endTime) }],
     repeat: r ? REPEAT[r.freq] : 'none',
     interval: String(r?.interval ?? 1),
@@ -106,8 +110,26 @@ function ruleFor(s: EventForm, slot: Slot): Rule | null {
   return base;
 }
 
-/** Sprawdzenie i zamiana na EventFields — po jednym na termin (tylko „co tydzień” ma kilka terminów). */
-export function validateForm(s: EventForm): { error: FormError } | { fields: EventFields[] } {
+/** D199: przesunięcie dnia startu przesuwa też ostatni dzień — długość zostaje (pusty = ten sam dzień, bez zmian). */
+export function moveStart(s: Pick<EventForm, 'date' | 'endDate'>, date: string): Pick<EventForm, 'date' | 'endDate'> {
+  if (s.endDate === '' || !validDate(s.date) || !validDate(s.endDate) || !validDate(date)) return { date, endDate: s.endDate };
+  const days = toDayNumber(parseIsoDate(s.endDate)) - toDayNumber(parseIsoDate(s.date));
+  return { date, endDate: formatIsoDate(addDays(parseIsoDate(date), days)) };
+}
+
+/** Najkrótszy odstęp w dniach między kolejnymi terminami serii w ciągu config.eventTasks.LOOKAHEAD_DAYS (`null` — jeden). */
+function shortestGap(start: string, rule: Rule): number | null {
+  const first = alignStart(parseIsoDate(start), rule);
+  const all = occurrences(first, rule, first, addDays(first, config.eventTasks.LOOKAHEAD_DAYS)).map(toDayNumber);
+  return all.length < 2 ? null : Math.min(...all.slice(1).map((d, i) => d - all[i]!));
+}
+
+/**
+ * Sprawdzenie i zamiana na EventFields — po jednym na termin (tylko „co tydzień” ma kilka terminów).
+ * `overnight` (D199, formularz wydarzenia): koniec nie później niż początek = następnego dnia; plan lekcji i rutyny
+ * (bez tej opcji) zostają w jednym dniu — „koniec musi być po początku”.
+ */
+export function validateForm(s: EventForm, opts: { overnight?: boolean } = {}): { error: FormError } | { fields: EventFields[] } {
   const title = s.title.trim();
   if (title === '') return { error: 'title' };
   const date = s.date.trim();
@@ -116,11 +138,11 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
   for (const slot of slots) {
     if (!s.allDay) {
       if (!TIME.test(slot.start.trim()) || (slot.end.trim() !== '' && !TIME.test(slot.end.trim()))) return { error: 'time' };
-      if (slot.end.trim() !== '' && slot.end.trim() <= slot.start.trim()) return { error: 'endBeforeStart' };
+      if (!opts.overnight && slot.end.trim() !== '' && slot.end.trim() <= slot.start.trim()) return { error: 'endBeforeStart' };
     }
     if (s.repeat === 'weekly' && slot.days.length === 0) return { error: 'days' };
   }
-  if (s.repeat !== 'none' && (!/^\d{1,2}$/.test(s.interval.trim()) || Number(s.interval) < 1)) return { error: 'interval' };
+  if (s.repeat !== 'none' && (!/^\d+$/.test(s.interval.trim()) || Number(s.interval) < 1 || Number(s.interval) > config.events.INTERVAL_MAX)) return { error: 'interval' };
   if (s.repeat === 'monthly' && s.monthly === 'nth' && weekdayPosition(date).n > 4) return { error: 'monthly' };
   if (s.repeat === 'monthly' && s.monthly === 'last' && !weekdayPosition(date).last) return { error: 'monthly' };
   if (s.repeat === 'monthly' && s.monthly === 'lastDay' && !weekdayPosition(date).lastDay) return { error: 'monthly' };
@@ -129,6 +151,11 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
   if (s.audience === 'members' && s.participantIds.length === 0) return { error: 'participants' };
   const location = s.location.trim();
   if (location.length > config.events.LOCATION_MAX_LENGTH) return { error: 'location' };
+  // D199: całodniowe przez kilka dni — ostatni dzień nie przed pierwszym, najwyżej config.events.MAX_DAYS dni.
+  const endDate = s.allDay ? s.endDate.trim() : '';
+  if (endDate !== '' && (!validDate(endDate) || endDate < date)) return { error: 'endDate' };
+  const days = endDate === '' ? 1 : toDayNumber(parseIsoDate(endDate)) - toDayNumber(parseIsoDate(date)) + 1;
+  if (days > config.events.MAX_DAYS) return { error: 'tooLong' };
   const fields = slots.map((slot) => ({
     title,
     date,
@@ -140,9 +167,13 @@ export function validateForm(s: EventForm): { error: FormError } | { fields: Eve
     participantIds: s.audience === 'members' ? s.participantIds : [],
     responsibleId: s.responsibleId,
     location: location || null,
+    days,
   }));
   // Audyt 2 (E-16): koniec przed pierwszym terminem (np. „co tydzień w pt.” od czwartku do tego czwartku) = seria bez
   // ani jednego terminu — pierwszy termin to start wyrównany do reguły (RFC 5545: DTSTART), nie dzień z formularza.
   if (until !== null && fields.some((f) => f.rule !== null && formatIsoDate(alignStart(parseIsoDate(date), f.rule)) > until)) return { error: 'until' };
+  // D199: wystąpienia serii nie mogą na siebie nachodzić (np. trzy dni co dwa dni) — każde trwa tyle samo (RFC 5545
+  // §3.8.5.3), więc wystarczy najkrótszy odstęp między terminami.
+  if (days > 1 && fields.some((f) => f.rule !== null && (shortestGap(date, { ...f.rule, until: f.until }) ?? days) < days)) return { error: 'overlap' };
   return { fields };
 }

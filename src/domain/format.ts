@@ -20,6 +20,12 @@ export function formatLongDate(date: CivilDate, today: CivilDate): string {
   return cap(date.y === today.y ? base : `${base} ${date.y}`);
 }
 
+/** Ta sama data w środku zdania, małą literą: „Przeniesione z: środa, 7 października” (audyt 2, U-55). */
+export function formatDateInline(date: CivilDate, today: CivilDate): string {
+  const long = formatLongDate(date, today);
+  return long.charAt(0).toLocaleLowerCase('pl') + long.slice(1);
+}
+
 /**
  * Zakres tygodnia: „5–11 października”, „28 września – 4 października”, z rokiem, gdy inny niż bieżący.
  * Wzorce CLDR 48.2.3 pl, intervalFormats MMMMd / yMMMMd: „d–d MMMM”, „d MMMM\u2009–\u2009d MMMM”,
@@ -55,22 +61,17 @@ export function formatDue(due: { date: string; time: string | null }, today: Civ
   return due.time === null ? day : `${day} · ${formatTime(due.time)}`;
 }
 
-/**
- * Długość wydarzenia (D120): „45 min”, „1 h”, „1 h 30 min”. Koniec zawsze po początku tego samego dnia
- * (ograniczenie events_end_after_start w bazie). Symbole „h” i „min” ze spacją po liczbie — BIPM, Broszura SI, wyd. 9
- * (https://doi.org/10.59161/AUEZ1291), tabela 8: „hour h 1 h = 60 min = 3600 s”; 5.4.3: „The numerical value always
- * precedes the unit and a space is always used to separate the unit from the number”.
- */
-export function formatLength(start: string, end: string): string {
-  return formatMinutes(minutesOf(end) - minutesOf(start));
-}
-
 /** Godzina „17:30” albo „17:30:00” → minuty od północy. */
 export function minutesOf(time: string): number {
   return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 }
 
-/** Liczba minut jak długość (D120): „45 min”, „1 h”, „2 h 30 min”. */
+/**
+ * Liczba minut jak długość (D120): „45 min”, „1 h”, „2 h 30 min” (długość wydarzenia: lengthLabel w views/events.ts, przez
+ * północ — span.ts). Symbole „h” i „min” ze spacją po liczbie — BIPM, Broszura SI, wyd. 9
+ * (https://doi.org/10.59161/AUEZ1291), tabela 8: „hour h 1 h = 60 min = 3600 s”; 5.4.3: „The numerical value always
+ * precedes the unit and a space is always used to separate the unit from the number”.
+ */
 export function formatMinutes(all: number): string {
   const h = Math.floor(all / 60);
   const m = all % 60;

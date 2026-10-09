@@ -114,7 +114,7 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     await open(b);
     expect(screen.getByTestId('today-trip-lz')).toBeTruthy();
     await openList('lz');
-    expect(within(screen.getByTestId('trip')).getByText(/ktokolwiek/)).toBeTruthy();
+    expect(within(screen.getByTestId('trip')).getByText(/nikt konkretny/)).toBeTruthy();
     await press(screen.getByTestId('trip-change'));
     expect(screen.getByRole('radio', { name: 'Nikt konkretny' }).props.accessibilityState.selected).toBe(true);
     expect(screen.queryByRole('radio', { name: 'Ala' })).toBeNull();
@@ -125,14 +125,14 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     put(b, 'lists', 'lz', { ...b.lists!.lz!, staples: Array.from({ length: 50 }, (_, i) => `p${i}`) });
     const { store } = await open(b);
     await openList('lz');
-    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
+    await press(screen.getByLabelText(/^Chleb żytni(,|$)/));
     const n = store.dispatched.length;
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched).toHaveLength(n);
     expect(within(screen.getByTestId('item-panel')).getByText('Lista stałych jest pełna (50 pozycji).')).toBeTruthy();
     // Zamknięcie panelu czyści komunikat.
     await press(within(screen.getByTestId('item-panel')).getByText('Gotowe'));
-    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
+    await press(screen.getByLabelText(/^Chleb żytni(,|$)/));
     expect(screen.queryByText(/Lista stałych jest pełna/)).toBeNull();
   });
 
@@ -141,7 +141,7 @@ describe('zakupy (M-22, M-109, M-224, M-225)', () => {
     put(b, 'tasks', 's-dluga', { ...b.tasks!['s-chleb']!, id: 's-dluga', title: 'x'.repeat(250) });
     const { store } = await open(b);
     await openList('lz');
-    await press(screen.getByLabelText(new RegExp(`^Zmień pozycję: ${'x'.repeat(250)}(,|$)`)));
+    await press(screen.getByLabelText(new RegExp(`^${'x'.repeat(250)}(,|$)`)));
     const n = store.dispatched.length;
     await press(screen.getByText('Dodaj do stałych'));
     expect(store.dispatched).toHaveLength(n);
@@ -303,7 +303,7 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
   it('pozycja zakupów: nazwa i ilość w panelu pozycji, zapis od razu; zamknięcie panelu też zapisuje', async () => {
     const { store } = await open();
     await openList('lz');
-    await press(screen.getByLabelText(/^Zmień pozycję: Chleb żytni(,|$)/));
+    await press(screen.getByLabelText(/^Chleb żytni(,|$)/));
     const panel = screen.getByTestId('item-panel');
     const name = within(panel).getByTestId('item-name');
     expect(name.props.value).toBe('Chleb żytni');
@@ -317,9 +317,9 @@ describe('nazwa listy i edycja pozycji zakupów (M-107, PW-17 B)', () => {
     await press(within(screen.getByTestId('item-panel')).getByLabelText('Gotowe'));
     expect(screen.queryByTestId('item-panel')).toBeNull();
     expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { title: 'Chleb razowy 1 szt.' } }]);
-    expect(screen.getByLabelText(/^Zmień pozycję: Chleb razowy(,|$)/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Chleb razowy(,|$)/)).toBeTruthy();
     // Zmiana nazwy, potem wybór działu (panel się zamyka) — oba zapisane.
-    await press(screen.getByLabelText(/^Zmień pozycję: Chleb razowy(,|$)/));
+    await press(screen.getByLabelText(/^Chleb razowy(,|$)/));
     await fireEvent.changeText(within(screen.getByTestId('item-panel')).getByTestId('item-name'), 'Bułki');
     await press(within(screen.getByTestId('item-panel')).getByRole('radio', { name: 'Pieczywo' }));
     expectOps(store, [
@@ -350,7 +350,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
   it('b: w zadaniu można zdjąć termin i osobę — zostaje dopisek, że nikt tego nie widzi', async () => {
     const { store } = await open();
     await openList('lf');
-    await press(screen.getByLabelText(/^Otwórz: Kupić kwiaty(,|$)/));
+    await press(screen.getByLabelText(/^Kupić kwiaty(,|$)/));
     await screen.findByTestId('screen-task');
     expect(screen.queryByTestId('task-no-addressee')).toBeNull();
     await press(radio('Kiedy', 'Bez terminu'));
@@ -373,7 +373,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     await screen.findByTestId('screen-add-task');
     expect(screen.queryByTestId('form-no-addressee')).toBeNull();
     await press(radio('Grupa', 'Rodzina'));
-    expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w „Moich sprawach”. Wybierz osobę („Dla kogo”) albo ustaw termin.');
+    expect(screen.getByTestId('form-no-addressee').props.children).toBe('Nikt nie widzi tego zadania w Moich sprawach. Wybierz osobę („Dla kogo”) albo ustaw termin.');
     await press(screen.getByTestId('form-save'));
     expectOps(store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'nowy odkurzacz', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(await screen.findByTestId('screen-today')).toBeTruthy();
@@ -384,7 +384,7 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     put(b, 'lists', 'lprv', { ...b.lists!.lf!, id: 'lprv', name: 'Prezenty', visibility: 'private', owner_member_id: 'mf' });
     put(b, 'tasks', 'p-szalik', { ...b.tasks!['t-kwiaty']!, id: 'p-szalik', list_id: 'lprv', title: 'Szalik dla Ali', deadline_mode: 'none', due_date: null });
     const { store } = await open(b);
-    expect(screen.getByLabelText(/^Otwórz: Szalik dla Ali(,|$)/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Szalik dla Ali(,|$)/)).toBeTruthy();
     await openList('lprv');
     expect(within(screen.getByTestId('task-p-szalik')).queryByText(/nikt tego nie widzi/)).toBeNull();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'książka');
@@ -422,13 +422,15 @@ describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
     // Dzisiejsza kopia (7.10) jest w otwartych; cztery minione — zwinięte.
     expect(screen.getByTestId(`task-${ids[4]}`)).toBeTruthy();
     for (const x of ids.slice(0, 4)) expect(screen.queryByTestId(`task-${x}`)).toBeNull();
-    const run = screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zobaczyć');
+    const run = screen.getByLabelText('Leki, 4 razy minęło');
+    expect(run.props.accessibilityHint).toBe('Pokazuje minione kopie');
     expect(run.props.accessibilityState.expanded).toBe(false);
     await press(run);
-    expect(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityState.expanded).toBe(true);
+    expect(screen.getByLabelText('Leki, 4 razy minęło').props.accessibilityHint).toBe('Chowa minione kopie');
     for (const x of ids.slice(0, 4)) expect(within(screen.getByTestId(`task-${x}`)).getByText(/minęło/)).toBeTruthy();
     expect(screen.getByTestId(`task-${ids[0]}`).props.style.marginLeft).toBe(22);
-    await press(screen.getByLabelText('Leki, 4 razy minęło, dotknij, by zwinąć'));
+    await press(screen.getByLabelText('Leki, 4 razy minęło'));
     expect(screen.queryByTestId(`task-${ids[0]}`)).toBeNull();
   });
 });

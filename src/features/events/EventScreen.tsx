@@ -1,7 +1,7 @@
 /**
- * Wydarzenie (jedno wystąpienie): kiedy, gdzie w serii, kogo dotyczy. Zmiana i odwołanie w zakresie
- * „tylko to / to i następne / wszystkie” (D57); jednorazowe — po prostu zmiana albo usunięcie.
- * Zadania na to spotkanie (D13); przy odwołaniu pytanie, co z podpiętymi zadaniami (D14). „Dodaj do kalendarza” (D7).
+ * Wydarzenie (jeden termin): kiedy, gdzie w serii, kogo dotyczy. Zmiana i odwołanie w zakresie
+ * „tylko ten termin / ten i następne / cała seria” (D57); jednorazowe — po prostu zmiana albo usunięcie.
+ * Zadania na ten termin (D13); przy odwołaniu pytanie, co z podpiętymi zadaniami (D14). „Dodaj do kalendarza” (D7).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
@@ -14,7 +14,8 @@ import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import type { NewOp } from '../../domain/sync-engine/client';
-import { formatDue, formatLongDate, parseIsoDate } from '../../domain/format';
+import { formatDateInline, formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
+import { coveredDays } from '../../domain/span';
 import { createList, inverseOps } from '../../domain/views/commands';
 import { useUndo } from '../../ui/undo';
 import { checkOff, listsView } from '../../domain/views';
@@ -25,7 +26,7 @@ import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/vi
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
@@ -54,7 +55,7 @@ export function EventScreen({ route, navigation }: Props) {
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
-  const [calendarMsg, setCalendarMsg] = useState<string | null>(null);
+  const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
 
   if (!d || d.event.deleted_at !== null) {
@@ -73,15 +74,21 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['event.allDayLabel'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
+  const time = [timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay'], lengthLabel(occ.startTime, occ.endTime)].filter(Boolean).join(' · ');
+  // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
+  const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1);
+  const startDay = parseIsoDate(occ.date);
+  const when = occ.startTime === null && span > 1 ? `${formatRange(startDay, addDays(startDay, span - 1), today)} · ${strings['event.daysCount'](span)}` : `${formatLongDate(startDay, today)} · ${time}`;
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
   const myMember = d.members.find((m) => m.user_id === userId)?.member_id;
   const iAmResponsible = myMember !== undefined && occ.responsibleId === myMember;
   const seriesMine = d.event.responsible_member_id === myMember;
   const pending = outgoingPending(tables, userId);
   const waiting = pending.get(handoffKey('events', eventId, date)) ?? pending.get(handoffKey('events', eventId, null));
-  const responsible = occ.responsibleId === null ? null : (d.members.find((m) => m.member_id === occ.responsibleId)?.display_name ?? null);
-  const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => m.display_name);
+  // Audyt 2 (U-30): ja jako „Ty” — jak w wierszu („Ty odpowiadasz”) i przy obecności.
+  const responsibleRow = occ.responsibleId === null ? undefined : d.members.find((m) => m.member_id === occ.responsibleId);
+  const responsible = responsibleRow ? (responsibleRow.user_id === userId ? strings['who.me'] : responsibleRow.display_name) : null;
+  const names = d.members.filter((m) => occ.participantIds.includes(m.member_id)).map((m) => (m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name));
   const tasks = attachedTasks(tables, eventId, date);
   // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own).
   const canCheck = checkOff(tables, userId);
@@ -98,7 +105,9 @@ export function EventScreen({ route, navigation }: Props) {
     store.dispatch(ops);
     // Pasek „Cofnij” jak przy zadaniach i listach (audyt 8.10.2026).
     // Audyt 2 (U-17): jednorazowe się usuwa, termin serii — odwołuje.
-    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
+    // P-81: cała seria (także „ten i następne” od pierwszego terminu) idzie do kosza — „Usunięto serię”.
+    const deleted = ops.some((o) => o.kind === 'delete' && o.entity === 'events');
+    if (back) undo.show(strings[d.rule === null ? 'undo.deleted' : deleted ? 'undo.seriesDeleted' : 'undo.eventCancelled'](occ.title), { ops: back }, { changed: ops });
     navigation.goBack();
   };
   const stopSeries = (s: SeriesDef) => {
@@ -130,7 +139,7 @@ export function EventScreen({ route, navigation }: Props) {
     setCalendarMsg(null);
     // D173: znacznik w notatce — ta kopia nie pokaże się w aplikacji jako „moje wydarzenie” obok oryginału.
     const r = await calendar.add(draftOf(occ, withMark(d.groupName)));
-    setCalendarMsg(r === 'saved' ? strings['event.calendarSaved'] : r === 'denied' ? strings['event.calendarDenied'] : null);
+    setCalendarMsg(r === 'saved' || r === 'denied' ? r : null);
   };
 
   const next = relink?.scope === 'this' ? nextOccurrence(tables, userId, eventId, date) : null;
@@ -148,9 +157,10 @@ export function EventScreen({ route, navigation }: Props) {
         <Text style={{ fontFamily: font.text700, fontSize: 15, color: line(d.line).ink }}>{d.groupName}</Text>
       </View>
       <Title>{occ.title}</Title>
-      <Body>{`${formatLongDate(parseIsoDate(occ.date), today)} · ${time}`}</Body>
-      {occ.date !== date ? <Body muted>{strings['event.moved'](formatLongDate(parseIsoDate(date), today))}</Body> : null}
-      <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date)) : strings['event.oneOff']}</Body>
+      <Body>{when}</Body>
+      {occ.startTime !== null && span > 1 ? <Body muted>{strings['event.endsNextDayOn'](formatDateInline(addDays(startDay, 1), today))}</Body> : null}
+      {occ.date !== date ? <Body muted>{strings['event.moved'](formatDateInline(parseIsoDate(date), today))}</Body> : null}
+      <Body muted>{d.rule ? describeRule(d.rule, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff']}</Body>
       {state === 'cancelled' ? (
         <View style={{ gap: 8 }}>
           <Body>{strings['event.cancelledInfo']}</Body>
@@ -161,7 +171,7 @@ export function EventScreen({ route, navigation }: Props) {
       ) : null}
       {d.event.location ? <TravelBox location={d.event.location} eventId={eventId} date={date} upcoming={active && occ.date >= formatIsoDate(today) && occ.startTime !== null} /> : null}
       <SectionTitle>{strings['event.who']}</SectionTitle>
-      <Body>{d.event.audience === 'group' ? strings['event.whoAll'] : names.join(', ')}</Body>
+      <Body>{d.event.audience === 'group' ? strings['event.audience.group'] : names.join(', ')}</Body>
       {responsible ? <Body>{strings['event.responsibleIs'](responsible)}</Body> : null}
       {iAmResponsible && d.canEdit && active ? (
         waiting ? (
@@ -185,7 +195,7 @@ export function EventScreen({ route, navigation }: Props) {
                 onChange={setHandScope}
                 options={[
                   { value: 'one', label: strings['handoff.scope.one'] },
-                  { value: 'series', label: strings['handoff.scope.series'] },
+                  { value: 'series', label: strings['event.scope.all'] },
                 ]}
               />
             ) : null}
@@ -200,7 +210,7 @@ export function EventScreen({ route, navigation }: Props) {
 
       {/* PWD-2 (M-174): przy włączonym lustrze wydarzenie już jest w iPhonie — „Dodaj” zrobiłby nieaktualizowany dubel. */}
       {active ? inMirror ? <Body muted>{strings['event.inMirror'](inMirror)}</Body> : <Button kind="secondary" label={strings['event.addToCalendar']} testID="event-calendar" onPress={addToCalendar} /> : null}
-      {calendarMsg ? <Body muted>{calendarMsg}</Body> : null}
+      {calendarMsg === 'saved' ? <StatusText>{strings['event.calendarSaved']}</StatusText> : calendarMsg === 'denied' ? <ErrorText>{strings['event.calendarDenied']}</ErrorText> : null}
 
       <SectionTitle>{strings['event.tasks']}</SectionTitle>
       {/* Audyt 2 (M-124): zadanie terminu przesuwa się do usunięcia jak na liście (dorośli, D34). */}
@@ -257,9 +267,7 @@ export function EventScreen({ route, navigation }: Props) {
           <OccurrencePicker items={others} today={today} onPick={(o) => finish(relink.scope, { kind: 'occurrence', eventId: o.eventId, occurrenceDate: o.occurrenceDate })} onCancel={() => setRelink({ ...relink, picking: false })} />
         ) : (
           <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-            <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-              {strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}
-            </Text>
+            <PanelTitle>{strings['event.relinkQuestion'](affectedByCancel(tables, d, date, relink.scope).length)}</PanelTitle>
             {next ? <Button kind="secondary" label={strings['event.relinkNext'](formatDue({ date: next, time: null }, today))} testID="relink-next" onPress={() => finish(relink.scope, { kind: 'occurrence', eventId, occurrenceDate: next })} /> : null}
             <Button kind="secondary" label={strings['event.relinkOther']} testID="relink-other" onPress={() => setRelink({ ...relink, picking: true })} />
             <Button kind="secondary" label={strings['event.relinkUnlink']} testID="relink-unlink" onPress={() => finish(relink.scope, { kind: 'unlink' })} />
@@ -269,17 +277,15 @@ export function EventScreen({ route, navigation }: Props) {
         )
       ) : ask === 'edit' || ask === 'cancel' ? (
         <View style={{ gap: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface }}>
-          <Text accessibilityRole="header" style={{ fontFamily: font.text700, fontSize: 17, color: c.ink }}>
-            {ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}
-          </Text>
+          <PanelTitle>{ask === 'edit' ? strings['event.scopeQuestionEdit'] : strings['event.scopeQuestionCancel']}</PanelTitle>
           {SCOPES.map((s) => (
-            <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
+            <Button key={s} kind={ask === 'cancel' ? 'danger' : 'secondary'} label={ask === 'cancel' && s === 'all' ? strings['event.cancelScope.all'] : strings[`event.scope.${s}`]} testID={`scope-${s}`} onPress={() => (ask === 'edit' ? edit(s) : cancel(s))} />
           ))}
           <Button kind="secondary" label={strings['common.cancel']} onPress={() => setAsk(null)} />
         </View>
       ) : (
         <View style={{ gap: 8 }}>
-          <Button label={strings['event.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
+          <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
           {/* D187 (audyt 2: PW-16 A, M-121): jednorazowe usuwa się bez pytania — pasek „Cofnij” i kosz; seria pyta o zakres (D57). */}
           <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} />
         </View>

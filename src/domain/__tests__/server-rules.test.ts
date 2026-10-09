@@ -335,6 +335,15 @@ describe('model reguł serwera', () => {
       return t;
     };
 
+    it('wydarzenie wielodniowe (D199): z godziną zawsze days = 1, całodniowe zachowuje liczbę dni', () => {
+      expect(run(U.member, create('events', { title: 'Obóz', audience: 'group', start_time: null, days: 5 })).events!.new).toMatchObject({ days: 5 });
+      expect(run(U.member, create('events', { title: 'x', audience: 'group' })).events!.new).toMatchObject({ days: 1 });
+      expect(run(U.member, create('events', { title: 'x', audience: 'group', start_time: '10:00', days: 3 })).events!.new).toMatchObject({ days: 1 });
+      const t = run(U.member, create('events', { title: 'Obóz', audience: 'group', start_time: null, days: 5 }));
+      expect(run(U.member, patch('events', 'new', { title: 'Obóz 2' }), t).events!.new).toMatchObject({ days: 5 });
+      expect(run(U.member, patch('events', 'new', { start_time: '09:00' }), t).events!.new).toMatchObject({ days: 1 });
+    });
+
     it('utworzenie: wartości domyślne, klucz główny, twórca listy, nadawca i stan przekazania', () => {
       const t = run(U.member, create('lists', { kind: 'tasks', name: 'x' }));
       expect(t.lists!.new).toMatchObject({ id: 'new', owner_member_id: M.member, sort_key: 'a0', staples: [], visibility: 'group' });
