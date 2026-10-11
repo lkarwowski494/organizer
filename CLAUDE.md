@@ -151,6 +151,14 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 - Bez limitu czasu. Gdy bloker wymaga dużej przebudowy, właściciel decyduje: naprawa teraz albo wydanie bez tej
   funkcji (wyłączonej albo cofniętej).
 
+## Moduły i role (decyzja właściciela 11.10.2026, ADR-0046)
+
+Wspólne standardy z dokumentu „Biblioteka zasad i ról” na Dysku Google właściciela. Obowiązują moduły „aplikacje” oraz
+„research i treści merytoryczne”, a także role: Analityk produktu, Badacz merytoryczny, Programista, Tłumacz, Tester E2E,
+Audytor, Wydawca, Projektant UX (audyt przepływów) i Integrator. Treść zasad i ról jest w bibliotece, a tutaj obowiązuje
+w całości. Gdy podobne zlecenie albo ten sam rodzaj błędu wraca trzeci raz, zaproponuj właścicielowi nową rolę albo
+zasadę do biblioteki.
+
 ## Koszty i limity (właściciel płaci tylko za Apple Developer)
 
 Przed uruchomieniem czegokolwiek, co zużywa limit (CI, buildy, usługi), sprawdź limity i uprzedź
