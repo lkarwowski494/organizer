@@ -59,6 +59,7 @@ jobs:
     # Części z planu: zakresy `--mutate` (pliki albo grupy mutantów jednego pliku) i limit czasu kroku = SAFETY ×
     # przewidywany czas części (mutation-plan.mjs). Próg liczy zadanie mutation-score na wyniku całości.
     needs: mutation-plan
+    name: mutation (${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.mutation-plan.outputs.matrix) }}
