@@ -31,7 +31,9 @@
     "react-native-screens": "~4.26.0"
   },
   "devDependencies": {
+    "@stryker-mutator/api": "10.0.0",
     "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/instrumenter": "10.0.0",
     "@stryker-mutator/jest-runner": "10.0.0",
     "@testing-library/react-native": "14.0.1",
     "@types/better-sqlite3": "9.6.0",
