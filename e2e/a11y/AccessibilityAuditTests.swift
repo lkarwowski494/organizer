@@ -13,6 +13,14 @@
 // Jedyny wyjątek: element klawiatury systemowej (rysuje ją iOS; aplikacja nie ma na nią wpływu). „Element has no
 // description” zgłaszał audyt tylko na dwóch ekranach z polem z autoFocus („Nowe wydarzenie”, pełny formularz zadania)
 // i tylko w części przebiegów z tym samym kodem — gdy klawiatura zdążyła się wysunąć (przebiegi e2e 57–59).
+// Drugi wyjątek (nocny przebieg e2e 38106362581, 11.10.2026): komórki paska podpowiedzi klawiatury systemowej
+// („This TUIPredictionViewCell is missing useful accessibility information”, rodzaj sufficientElementDescription, element
+// typu .other w pasku nad klawiaturą, ramki (0|130|260, 509, 130, 44) na iPhonie 17e). Pasek nie jest potomkiem
+// `app.keyboards`, więc pierwszy wyjątek go nie łapał. Klasa TUIPredictionViewCell należy do systemu (TextInputUI),
+// nie do aplikacji — aplikacja nie tworzy tych komórek. Wyłączenie podpowiedzi w symulatorze nie działa:
+// scripts/e2e/boot-simulator.sh zapisuje `KeyboardPrediction` = false, a komórki i tak są (przebiegi 38106362581
+// i 38167222893). Dlatego filtr wąski, jak w przykładzie Apple (rodzaj problemu + cecha elementu): tylko ten rodzaj,
+// tylko ta klasa w opisie i tylko przy widocznej klawiaturze; każdy inny problem nadal oblewa test.
 // Pominięcie według Apple (WWDC23, adres niżej): „you may run into issues which should be filtered out and ignored”,
 // „Setting it to true indicates that I'd like the issue to be ignored”. Pominięty problem też trafia do logu.
 // continueAfterFailure = true w audycie: zgłoszone są wszystkie problemy ekranu, nie tylko pierwszy (WWDC23
@@ -45,10 +53,25 @@ final class AccessibilityAuditTests: XCTestCase {
     app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
   }
 
+  /// Dotknięcie po końcu animacji. Nocny przebieg 38106362581 (11.10.2026): testGrupy — „brak ekranu screen-groups”
+  /// 10 s po dotknięciu zakładki, na symulatorze ponownie uruchomionym po wariantach Pro Max (każdy test ok. 1,5 raza
+  /// wolniej niż w przebiegu po pushu, gdzie testGrupy przeszedł w 20 s). Bez zrzutu nie dało się rozstrzygnąć, czy
+  /// dotknięcie trafiło w trakcie przejścia, czy ekran się nie otworzył — dlatego dotyk dopiero po settle() i zrzut
+  /// ekranu przy braku ekranu (zapamiętany w wynikach testu; a11y-audit.sh kopiuje go do artefaktu).
   private func open(_ id: String) {
     let e = element(id)
     XCTAssertTrue(e.waitForExistence(timeout: 10), "brak \(id)")
+    settle()
     e.tap()
+  }
+
+  private func expectScreen(_ screen: String, file: StaticString, line: UInt) {
+    if element(screen).waitForExistence(timeout: 10) { return }
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = "brak-\(screen)"
+    shot.lifetime = .keepAlways
+    add(shot)
+    XCTFail("brak ekranu \(screen)", file: file, line: line)
   }
 
   /// Koniec przejścia i wysuwania klawiatury: dwa kolejne opisy drzewa (z ramkami elementów) takie same, najwyżej 10 s.
@@ -73,6 +96,15 @@ final class AccessibilityAuditTests: XCTestCase {
     return keyboard.descendants(matching: .any).allElementsBoundByIndex.contains { $0.elementType == e.elementType && $0.frame == e.frame }
   }
 
+  /// Komórka paska podpowiedzi klawiatury systemowej (TUIPredictionViewCell) bez opisu — rysuje ją iOS nad klawiaturą.
+  /// WWDC23 „Perform accessibility audits for your app”: „You can extend this example and customize the criteria for
+  /// ignoring by using other properties, like the element type” (https://developer.apple.com/videos/play/wwdc2023/10035/).
+  private func systemPrediction(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+    issue.auditType == .sufficientElementDescription
+      && issue.detailedDescription.contains("TUIPredictionViewCell")
+      && app.keyboards.firstMatch.exists
+  }
+
   private func describe(_ issue: XCUIAccessibilityAuditIssue, keyboard: Bool) -> String {
     let flat = { (s: String) in s.replacingOccurrences(of: "\n", with: " ") }
     var parts = ["A11Y-ISSUE", name, flat(issue.compactDescription), flat(issue.detailedDescription), "auditType=\(issue.auditType.rawValue)"]
@@ -86,11 +118,11 @@ final class AccessibilityAuditTests: XCTestCase {
   }
 
   private func audit(_ screen: String, file: StaticString = #filePath, line: UInt = #line) throws {
-    XCTAssertTrue(element(screen).waitForExistence(timeout: 10), "brak ekranu \(screen)", file: file, line: line)
+    expectScreen(screen, file: file, line: line)
     settle()
     continueAfterFailure = true
     try app.performAccessibilityAudit { issue in
-      let keyboard = issue.element.map { $0.exists && self.inSystemKeyboard($0) } ?? false
+      let keyboard = (issue.element.map { $0.exists && self.inSystemKeyboard($0) } ?? false) || self.systemPrediction(issue)
       print(self.describe(issue, keyboard: keyboard))
       return keyboard
     }

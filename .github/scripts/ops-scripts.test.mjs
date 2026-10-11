@@ -285,9 +285,12 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     for (const [, name, body] of tests) assert.match(body, /try audit\("screen-[\w-]+"\)/, name);
     // Każdy problem oblewa test (handler zwraca false), ale najpierw trafia do logu z elementem; wszystkie problemy
     // ekranu, nie tylko pierwszy; audyt po końcu animacji (przebiegi e2e 57 i 58 z 9.10.2026).
-    // Pominąć wolno tylko element klawiatury systemowej (i też z wpisem w logu).
-    assert.match(swift, /settle\(\)\n    continueAfterFailure = true\n    try app\.performAccessibilityAudit \{ issue in\n      let keyboard = issue\.element\.map \{ \$0\.exists && self\.inSystemKeyboard\(\$0\) \} \?\? false\n      print\(self\.describe\(issue, keyboard: keyboard\)\)\n      return keyboard\n    \}/);
+    // Pominąć wolno tylko element klawiatury systemowej i komórkę jej paska podpowiedzi (TUIPredictionViewCell bez opisu,
+    // nocny przebieg 38106362581) — też z wpisem w logu.
+    assert.match(swift, /settle\(\)\n    continueAfterFailure = true\n    try app\.performAccessibilityAudit \{ issue in\n      let keyboard = \(issue\.element\.map \{ \$0\.exists && self\.inSystemKeyboard\(\$0\) \} \?\? false\) \|\| self\.systemPrediction\(issue\)\n      print\(self\.describe\(issue, keyboard: keyboard\)\)\n      return keyboard\n    \}/);
     assert.equal([...swift.matchAll(/return true/g)].length, 1, 'jedyne „return true” — element typu klawiatura');
+    // Filtr paska podpowiedzi wąski jak w przykładzie Apple (WWDC23): rodzaj problemu, klasa systemowa, widoczna klawiatura.
+    assert.match(swift, /issue\.auditType == \.sufficientElementDescription\n      && issue\.detailedDescription\.contains\("TUIPredictionViewCell"\)\n      && app\.keyboards\.firstMatch\.exists/);
     assert.match(swift, /"A11Y-ISSUE"/);
     assert.match(swift, /XCUIApplication\(bundleIdentifier: "io\.github\.lkarwowski494\.organizer"\)/);
     const appJson = JSON.parse(read('app.json'));

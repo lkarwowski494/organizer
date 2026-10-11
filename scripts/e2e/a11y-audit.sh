@@ -15,6 +15,12 @@ proj="$(ruby "$root/e2e/a11y/make-project.rb" "$out/project")"
 status=0
 xcodebuild test -project "$proj" -scheme OrganizerA11yAudit -destination "id=$udid" \
   -derivedDataPath "$out/derived" -resultBundlePath "$out/a11y.xcresult" CODE_SIGNING_ALLOWED=NO >"$out/xcodebuild.log" 2>&1 || status=$?
+# Zrzuty z chwili błędu (XCTAttachment „brak-<ekran>”, AccessibilityAuditTests.expectScreen) do <out>/failures —
+# e2e.yml kopiuje do artefaktu tylko obrazy. `xcrun xcresulttool export attachments` (Xcode 16+, `xcrun xcresulttool
+# help export attachments`); gdy go nie ma, audyt i tak się kończy.
+mkdir -p "$out/failures"
+xcrun xcresulttool export attachments --path "$out/a11y.xcresult" --output-path "$out/attachments" >/dev/null 2>&1 || true
+find "$out/attachments" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' -o -name '*.heic' \) -exec cp {} "$out/failures/" \; 2>/dev/null || true
 grep -E "Test Case .*(passed|failed)|error: |Executed [0-9]+ tests?|A11Y-ISSUE" "$out/xcodebuild.log" | grep -v -E '^[[:space:]]*export ' | tee "$out/summary.txt" || true
 passed="$(grep -c "' passed" "$out/summary.txt" || true)"
 failed="$(grep -c "' failed" "$out/summary.txt" || true)"
