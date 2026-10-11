@@ -8,18 +8,19 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
       TAB: "tab-Calendar"
       SCREEN: "screen-calendar"
 # Jak w 04: koniec ruchu przed dotknięciem przycisku na końcu treści.
-- scrollUntilVisible:
-    element:
-      id: "calendar-add-event"
-    direction: DOWN
-    timeout: 10000
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    id: "calendar-add-event"
+# Jak w 04: przycisk na końcu treści, często za paskiem zakładek.
+- runFlow:
+    file: common/scroll-tap.yaml
+    env:
+      ID: "calendar-add-event"
 - extendedWaitUntil:
     visible:
       id: "screen-event-edit"
+    timeout: 10000
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Rodzina"
+    direction: DOWN
     timeout: 10000
 - tapOn: "Rodzina"
 - runFlow:
@@ -28,6 +29,10 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
       FIELD: "event-title"
       TEXT: "Obóz"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Cały dzień"
+    direction: DOWN
+    timeout: 10000
 - tapOn: "Cały dzień"
 - scrollUntilVisible:
     element:
@@ -55,6 +60,14 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
       id: "screen-calendar"
     timeout: 10000
 # Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj wydarzenie”).
+- waitForAnimationToEnd:
+    timeout: 3000
+# Kalendarz zostaje przewinięty do „Dodaj wydarzenie”; siatka dni jest wyżej.
+- scrollUntilVisible:
+    element:
+      id: "day-2026-10-08"
+    direction: UP
+    timeout: 10000
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn:

@@ -7,8 +7,10 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
     env:
       TAB: "tab-Lists"
       SCREEN: "screen-lists"
-- tapOn:
-    id: "list-0199a000-0000-7000-8000-000000000022"
+- runFlow:
+    file: common/scroll-tap.yaml
+    env:
+      ID: "list-0199a000-0000-7000-8000-000000000022"
 - extendedWaitUntil:
     visible:
       id: "screen-list"
@@ -19,12 +21,12 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
       FIELD: "quick-add"
       TEXT: "Ser żółty"
 - tapOn: "Dodaj"
-- scrollUntilVisible:
-    element: "Włóż do koszyka: Ser żółty"
-    direction: DOWN
-    timeout: 10000
-# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
-- tapOn: "Włóż do koszyka: Ser żółty"
+# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026). Po dodaniu klawiatura
+# i pasek „Cofnij” są nad treścią — przez common/scroll-tap-text.yaml.
+- runFlow:
+    file: common/scroll-tap-text.yaml
+    env:
+      TEXT: "Włóż do koszyka: Ser żółty"
 - scrollUntilVisible:
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN

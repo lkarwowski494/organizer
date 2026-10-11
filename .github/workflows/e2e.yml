@@ -122,7 +122,7 @@ jobs:
           scripts/e2e/a11y-audit.sh "$udid" "$E2E_OUT/a11y" "${args[@]}"
       - name: artefakt (tylko zrzuty i koniec logu)
         if: ${{ !cancelled() }}
-        # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro, opis symulatora (dla e2e:accept) i ostatnie
+        # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro i audytu XCUITest, opis symulatora (dla e2e:accept) i ostatnie
         # 200 wierszy logu xcodebuild bez wierszy `export` (zmienne środowiska buildu z faz skryptów).
         run: |
           mkdir -p e2e-artifacts/screenshots e2e-artifacts/diff e2e-artifacts/failures e2e-artifacts/devices
@@ -130,9 +130,15 @@ jobs:
             mkdir -p "e2e-artifacts/screenshots/$v" "e2e-artifacts/diff/$v" "e2e-artifacts/failures/$v"
             find "$E2E_OUT/$v/screenshots" -maxdepth 1 -name '*.png' -exec cp {} "e2e-artifacts/screenshots/$v/" \; 2>/dev/null || true
             find "$E2E_OUT/diff/$v" -maxdepth 1 -name '*.diff.png' -exec cp {} "e2e-artifacts/diff/$v/" \; 2>/dev/null || true
-            find "$E2E_OUT/$v/maestro" -name '*.png' ! -name '[0-9][0-9]-*.png' -exec cp {} "e2e-artifacts/failures/$v/" \; 2>/dev/null || true
+            # Nazwa z całą ścieżką względną (katalog scenariusza): Maestro nazywa zrzut kroku step-NNN-<polecenie>, więc
+            # te same kroki różnych scenariuszy nadpisywały się (nocny przebieg 38106362581: 2 zrzuty na 8 scenariuszy).
+            (cd "$E2E_OUT/$v/maestro" 2>/dev/null && find . -name '*.png' ! -name '[0-9][0-9]-*.png' | while IFS= read -r f; do
+              cp "$f" "$GITHUB_WORKSPACE/e2e-artifacts/failures/$v/$(printf '%s' "${f#./}" | tr '/' '_')"
+            done) || true
             cp "$E2E_OUT/device-$v.txt" "e2e-artifacts/devices/$v.txt" 2>/dev/null || true
           done < "$E2E_OUT/variants.txt" 2>/dev/null || true
+          mkdir -p e2e-artifacts/failures/a11y
+          find "$E2E_OUT/a11y/failures" -maxdepth 1 -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' -o -name '*.heic' \) -exec cp {} e2e-artifacts/failures/a11y/ \; 2>/dev/null || true
           if [ -f ios/build/e2e-xcodebuild.log ]; then
             tail -n 200 ios/build/e2e-xcodebuild.log | grep -v -E '^[[:space:]]*export ' > e2e-artifacts/xcodebuild-tail.txt || true
           fi

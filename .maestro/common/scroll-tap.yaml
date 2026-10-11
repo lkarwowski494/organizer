@@ -1,0 +1,26 @@
+# Dotknięcie elementu (ID = testID), do którego może trzeba przewinąć — na zakładkach (pasek zakładek) i nad paskiem
+# „Cofnij” albo klawiaturą.
+# Maestro 2.11.0 liczy widoczność tylko względem ramki ekranu (UiElement.getVisiblePercentage), nie zasłaniania:
+# element za paskiem zakładek albo pod klawiaturą jest dla niego „widoczny”, a tapOn trafia wtedy w pasek
+# (https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/UiElement.kt).
+# Nocny przebieg 38106362581 (11.10.2026, iPhone 17 Pro Max): „Dodaj wydarzenie” leżał za paskiem zakładek,
+# scrollUntilVisible nie przewinął (element „widoczny”), dotknięcie trafiło w zakładkę Kalendarz i formularz się nie
+# otworzył. Dlatego: schowanie klawiatury, przewinięcie do elementu, potem jeszcze 20% wysokości ekranu w górę (więcej niż
+# pasek zakładek i pasek „Cofnij”; przy końcu treści ekran się nie przesuwa, a ostatni przycisk i tak jest nad paskiem,
+# bo treść ma margines dolny — Screen, src/ui/components.tsx) i koniec ruchu przed dotknięciem.
+appId: io.github.lkarwowski494.organizer
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: ${ID}
+    direction: DOWN
+    timeout: 15000
+- swipe:
+    start: "50%, 60%"
+    end: "50%, 40%"
+    duration: 1000
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: ${ID}

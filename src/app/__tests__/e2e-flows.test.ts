@@ -32,6 +32,8 @@ function syncChecksBelowTop(text: string): number[] {
   const bad: number[] = [];
   steps(text).forEach((step, i) => {
     if (/^- scrollUntilVisible/.test(step)) scrolledDown = !/direction: UP/.test(step);
+    // common/scroll-tap*.yaml przewija w dół (i jeszcze o 20% ekranu).
+    else if (/^- runFlow:\s*\n\s+file: common\/scroll-tap(-text)?\.yaml/.test(step)) scrolledDown = true;
     // Wspólny start (launch.yaml) otwiera ekran od góry; wpisanie tekstu (type.yaml) nie przewija w górę.
     else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|runFlow:\s*\n\s+file: common\/open-tab\.yaml)/.test(step)) scrolledDown = false;
     else if (scrolledDown && checksSyncChip(step)) bad.push(i);
@@ -82,12 +84,11 @@ describe('scenariusze Maestro — przewijanie bez centerElement', () => {
     expect(centered(readFileSync(join(DIR, f), 'utf8'))).toEqual([]);
   });
 
-  it('04 i 08 czekają na koniec ruchu przed dotknięciem „Dodaj wydarzenie”', () => {
+  it('04 i 08 dotykają „Dodaj wydarzenie” przez common/scroll-tap.yaml (nocny przebieg 38106362581: za paskiem zakładek)', () => {
     for (const f of ['04-event-form.yaml', '08-multi-day.yaml']) {
       const s = steps(readFileSync(join(DIR, f), 'utf8'));
-      const tap = s.findIndex((x) => /^- tapOn:\s*\n\s+id: "calendar-add-event"/.test(x));
-      expect(s[tap - 1]).toMatch(/^- waitForAnimationToEnd/);
-      expect(s[tap - 2]).toMatch(/^- scrollUntilVisible:[\s\S]*id: "calendar-add-event"/);
+      expect(s.filter((x) => /^- tapOn:\s*\n\s+id: "calendar-add-event"/.test(x))).toEqual([]);
+      expect(s.some((x) => /^- runFlow:\s*\n\s+file: common\/scroll-tap\.yaml\s*\n\s+env:\s*\n\s+ID: "calendar-add-event"/.test(x))).toBe(true);
     }
   });
 });
@@ -219,5 +220,37 @@ describe('scenariusze Maestro — przejście na zakładkę ze sprawdzeniem ekran
 
   it('scenariusze z przejściem na zakładkę: 04, 05, 08', () => {
     expect(flows.filter((f) => openedTabs(readFileSync(join(DIR, f), 'utf8')).length)).toEqual(['04-event-form.yaml', '05-shopping.yaml', '08-multi-day.yaml']);
+  });
+});
+
+/**
+ * Zasłonięte elementy (nocny przebieg 38106362581, 11.10.2026). Maestro 2.11.0 liczy widoczność tylko względem ramki
+ * ekranu (UiElement.getVisiblePercentage), więc element za paskiem zakładek, paskiem „Cofnij” albo pod klawiaturą jest
+ * „widoczny”, a tapOn trafia w zasłonę (iPhone 17 Pro Max: „Dodaj wydarzenie” za paskiem — dotknięta zakładka
+ * Kalendarz, formularz się nie otworzył). common/scroll-tap(-text).yaml: schowanie klawiatury, przewinięcie, jeszcze
+ * 20% ekranu w górę, koniec ruchu, dotknięcie.
+ * Źródło: https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/UiElement.kt
+ */
+describe('scenariusze Maestro — dotknięcie po przewinięciu nad zasłonami', () => {
+  it.each([
+    ['common/scroll-tap.yaml', 'id: ${ID}'],
+    ['common/scroll-tap-text.yaml', '${TEXT}'],
+  ])('%s: schowanie klawiatury, przewinięcie w dół, przesunięcie o 20 procent, koniec ruchu, dotknięcie', (file, sel) => {
+    const s = steps(readFileSync(join(DIR, file), 'utf8'));
+    expect(s).toHaveLength(5);
+    expect(s[0]).toBe('- hideKeyboard');
+    expect(s[1]).toMatch(/^- scrollUntilVisible:/);
+    expect(s[1]).toContain(sel);
+    expect(s[1]).toMatch(/direction: DOWN/);
+    expect(s[2]).toMatch(/^- swipe:\s*\n\s+start: "50%, 60%"\s*\n\s+end: "50%, 40%"/);
+    expect(s[3]).toMatch(/^- waitForAnimationToEnd/);
+    expect(s[4]).toMatch(/^- tapOn:/);
+    expect(s[4]).toContain(sel);
+  });
+
+  it('wspólny start nie czeka na wiersz danych poza pierwszym wierszem ekranu (AX5: wszystkie scenariusze oblewały na starcie)', () => {
+    const s = steps(readFileSync(join(DIR, 'common/launch.yaml'), 'utf8'));
+    const waits = s.filter((x) => /^- extendedWaitUntil/.test(x));
+    expect(waits.map((x) => /visible:\s*\n?\s*(?:id: )?"([^"]+)"/.exec(x)?.[1])).toEqual(['screen-today', 'Stan synchronizacji: Przed chwilą']);
   });
 });

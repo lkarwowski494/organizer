@@ -7,21 +7,22 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     env:
       TAB: "tab-Calendar"
       SCREEN: "screen-calendar"
-# Przycisk na końcu treści: przewinięcie, aż będzie cały widoczny, i koniec ruchu przed dotknięciem (dotknięcie w trakcie
-# wyhamowywania nie otwierało formularza). Bez centerElement: przycisku na końcu treści nie da się przewinąć do środka
-# ekranu, więc Maestro przewijał do limitu czasu i zgłaszał „No visible element found” (E2E na main od 71abed3).
-- scrollUntilVisible:
-    element:
-      id: "calendar-add-event"
-    direction: DOWN
-    timeout: 10000
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    id: "calendar-add-event"
+# Przycisk na końcu treści, często za paskiem zakładek (iPhone 17 Pro Max, nocny przebieg 38106362581) — przez
+# common/scroll-tap.yaml. Bez centerElement: przycisku na końcu treści nie da się przewinąć do środka ekranu
+# (E2E na main od 71abed3).
+- runFlow:
+    file: common/scroll-tap.yaml
+    env:
+      ID: "calendar-add-event"
 - extendedWaitUntil:
     visible:
       id: "screen-event-edit"
+    timeout: 10000
+# Pole nazwy ma autoFocus — klawiatura może zasłaniać wybór grupy (AX5); Maestro widzi elementy pod klawiaturą.
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Rodzina"
+    direction: DOWN
     timeout: 10000
 - tapOn: "Rodzina"
 - runFlow:
@@ -84,8 +85,9 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     visible:
       id: "screen-calendar"
     timeout: 10000
+# Kalendarz zostaje przewinięty do „Dodaj wydarzenie” (koniec treści) — wiersz dnia jest wyżej.
 - scrollUntilVisible:
     element: "Wywiadówka, 18:30.*"
-    direction: DOWN
+    direction: UP
     timeout: 10000
 - takeScreenshot: 04-event-form

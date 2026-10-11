@@ -15,16 +15,26 @@ name: 06 Ustawienia się otwierają
       id: "screen-settings-account"
     timeout: 10000
 # Audyt 3 (N-74, N-75): przełącznik raportów błędów i link do polityki prywatności (strony nie otwieramy — sieć).
-- assertVisible:
-    id: "switch-error-reports"
-- assertVisible:
-    id: "open-privacy"
+- scrollUntilVisible:
+    element:
+      id: "switch-error-reports"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "open-privacy"
+    direction: DOWN
+    timeout: 10000
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
     timeout: 10000
 # Audyt 3 (N-78): Licencje — lista i tekst jednej licencji.
+- scrollUntilVisible:
+    element: "Wróć"
+    direction: UP
+    timeout: 10000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
@@ -55,12 +65,20 @@ name: 06 Ustawienia się otwierają
       id: "license-text"
     timeout: 10000
 - assertVisible: "@expo-google-fonts/atkinson-hyperlegible-next"
+- scrollUntilVisible:
+    element: "Wróć"
+    direction: UP
+    timeout: 10000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
       id: "screen-licenses"
     timeout: 10000
 # Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
+- scrollUntilVisible:
+    element: "Wróć"
+    direction: UP
+    timeout: 10000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:

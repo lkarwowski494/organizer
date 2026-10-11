@@ -8,12 +8,18 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
       FIELD: "quick-add"
       TEXT: "Kupić mleko jutro"
 - tapOn: "Dodaj"
-- tapOn: "Następny dzień"
+- runFlow:
+    file: common/scroll-tap-text.yaml
+    env:
+      TEXT: "Następny dzień"
 - extendedWaitUntil:
     visible:
       id: "today-day-2026-10-08"
     timeout: 10000
-- assertVisible: "Kupić mleko,.*"
+- scrollUntilVisible:
+    element: "Kupić mleko,.*"
+    direction: DOWN
+    timeout: 10000
 # Pasek „Dodano … · Zmień” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
 - extendedWaitUntil:
     notVisible:
