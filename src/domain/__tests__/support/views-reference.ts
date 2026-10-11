@@ -1,6 +1,6 @@
 /**
  * Wzorzec do testów równoważności (audyt 3, N-6, N-16): plan przypomnień, Moje sprawy, rozwinięcie wydarzeń, RRULE
- * zagnieżdżenie i miesiąc Kalendarza w wersji sprzed optymalizacji (stan z commita 0430562), słowo w słowo — 14 pełnych przeliczeń myDays,
+ * zagnieżdżenie i miesiąc Kalendarza w wersji sprzed optymalizacji (stan z commita 91df9ab), słowo w słowo — 14 pełnych przeliczeń myDays,
  * filtry całych tabel i przeglądanie serii od początku. Nowa wersja ma dawać ten sam wynik.
  */
 import { config } from '../../../config';
@@ -137,7 +137,7 @@ export function refExpandEvents(t: Tables, userId: string, from: CivilDate, to: 
     const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
-    // Jedyna zmiana względem 0430562 (audyt 3, seed -253130834): wyjątek przeniesiony do zakresu z dalszej daty niż okno
+    // Jedyna zmiana względem 91df9ab (audyt 3, seed -253130834): wyjątek przeniesiony do zakresu z dalszej daty niż okno
     // ±MOVE_WINDOW_DAYS też się liczy (RFC 5545, RECURRENCE-ID), żeby wynik nie zależał od szerokości zakresu.
     const window = refOccurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS)).map(formatIsoDate);
     const far = [...byDate.values()]

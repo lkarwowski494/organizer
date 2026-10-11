@@ -66,13 +66,13 @@ describe('scenariusze Maestro — wskaźnik synchronizacji na górze ekranu (N-8
  * niż 70% wysokości), a zwykły warunek widoczności sprawdza dopiero po 4 próbach centrowania — każda z przesunięciem
  * i czekaniem na uspokojenie ekranu. Przyciski na końcu treści (Kalendarz: „Dodaj wydarzenie”, „Dodaj rutynę”) nie
  * mogą wejść w ten pas, więc krok przewija do limitu czasu i zgłasza „No visible element found”, choć przycisk widać
- * (04 na main od 12c1ac0). Koniec ruchu przed dotknięciem daje `waitForAnimationToEnd`.
+ * (04 na main od 71abed3). Koniec ruchu przed dotknięciem daje `waitForAnimationToEnd`.
  * Źródło: https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-orchestra/src/main/java/maestro/orchestra/Orchestra.kt
  */
 const centered = (text: string) => steps(text).flatMap((step, i) => (/^- scrollUntilVisible/.test(step) && /centerElement:\s*true/.test(step) ? [i] : []));
 
 describe('scenariusze Maestro — przewijanie bez centerElement', () => {
-  it('wykrywa centerElement (wersja 04 z 12c1ac0)', () => {
+  it('wykrywa centerElement (wersja 04 z 71abed3)', () => {
     const before = ['appId: x', '---', '- scrollUntilVisible:', '    element:', '      id: "calendar-add-event"', '    direction: DOWN', '    centerElement: true', '- tapOn:', '    id: "calendar-add-event"'].join('\n');
     expect(centered(before)).toEqual([0]);
     expect(centered(before.replace('    centerElement: true\n', ''))).toEqual([]);
@@ -136,7 +136,7 @@ describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () =>
 
 /**
  * Ekran Licencje (audyt 3, N-78): lista ma ponad 80 pozycji w kolejności alfabetycznej. Maestro 2.11.0 przewija
- * `scrollUntilVisible` krokami z czekaniem na uspokojenie ekranu; w E2E 65 (ca23c8a) przez 20 s doszedł do ok. 20. pozycji
+ * `scrollUntilVisible` krokami z czekaniem na uspokojenie ekranu; w E2E 65 (80ef39a) przez 20 s doszedł do ok. 20. pozycji
  * i nie znalazł „react-native” (69. pozycja). Scenariusz otwiera więc pozycję z początku listy — ta sama ścieżka
  * (lista → tekst licencji), bez zależności od szybkości runnera.
  */
@@ -145,7 +145,7 @@ const licenseRows = (text: string) => [...text.matchAll(/id: "license-(?!text")(
 const NEAR_TOP = 3;
 
 describe('scenariusze Maestro — pozycje ekranu Licencje z początku listy', () => {
-  it('wykrywa pozycję daleko na liście (wersja 06 z ca23c8a: react-native)', () => {
+  it('wykrywa pozycję daleko na liście (wersja 06 z 80ef39a: react-native)', () => {
     const at = LICENSES.packages.findIndex((p) => p.name === 'react-native');
     expect(at).toBeGreaterThanOrEqual(NEAR_TOP);
     expect(licenseRows('- tapOn:\n    id: "license-react-native"')).toEqual(['react-native']);
@@ -166,8 +166,8 @@ describe('scenariusze Maestro — pozycje ekranu Licencje z początku listy', ()
 });
 
 /**
- * Przejście na zakładkę (E2E 65, ca23c8a: 08 dotknęło „Kalendarz”, aplikacja została na „Moich sprawach”, bo Kalendarz
- * i plan przypomnień były wtedy poza budżetem czasu — naprawione w 0f2412e). Gołe dotknięcie zakładki przepuszczało to
+ * Przejście na zakładkę (E2E 65, 80ef39a: 08 dotknęło „Kalendarz”, aplikacja została na „Moich sprawach”, bo Kalendarz
+ * i plan przypomnień były wtedy poza budżetem czasu — naprawione w 5c62b7a). Gołe dotknięcie zakładki przepuszczało to
  * do kolejnego kroku (przewijanie niewłaściwego ekranu, „No visible element found: calendar-add-event”). Każde przejście
  * idzie przez common/open-tab.yaml: dotknięcie i czekanie na ekran zakładki (bez ponawiania — zakładka, która się nie
  * otwiera, to błąd aplikacji). Pary zakładka → ekran sprawdzone z kodem (navigation.tsx: testID `tab-<nazwa>`).
@@ -187,7 +187,7 @@ const tabScreens = new Map(
 );
 
 describe('scenariusze Maestro — przejście na zakładkę ze sprawdzeniem ekranu', () => {
-  it('wykrywa gołe dotknięcie zakładki (wersja 08 z ca23c8a)', () => {
+  it('wykrywa gołe dotknięcie zakładki (wersja 08 z 80ef39a)', () => {
     const before = ['appId: x', '---', '- runFlow: common/launch.yaml', '- tapOn:', '    id: "tab-Calendar"', '- scrollUntilVisible:', '    element:', '      id: "calendar-add-event"'].join('\n');
     expect(rawTabTaps(before)).toEqual([1]);
     const after = before.replace('- tapOn:\n    id: "tab-Calendar"', '- runFlow:\n    file: common/open-tab.yaml\n    env:\n      TAB: "tab-Calendar"\n      SCREEN: "screen-calendar"');

@@ -1,7 +1,7 @@
 # Audyt przed upublicznieniem repozytorium — 6.10.2026
 
 Zakres: zgodnie z zasadą właściciela (historia git, e-maile, ustawienia workflow, logi i artefakty).
-Stan repozytorium w chwili audytu: 1 commit (`7151dbc`), gałąź `main`, brak tagów.
+Stan repozytorium w chwili audytu: 1 commit (`c250fd1`), gałąź `main`, brak tagów.
 
 | Obszar | Narzędzie / metoda | Wynik |
 |---|---|---|
@@ -18,7 +18,7 @@ Decyzja właściciela: upublicznić teraz (D38), bez pliku licencji — wszelkie
 
 ## Ponowny audyt przed przełączeniem — 6.10.2026, ok. 12:46
 
-Od pierwszego audytu doszły 2 commity (`a207beb` plik audytu, `8f5715d` `.gitignore`). Stan: 3 commity,
+Od pierwszego audytu doszły 2 commity (`110088d` plik audytu, `c19ad06` `.gitignore`). Stan: 3 commity,
 gałąź `main`, brak tagów.
 
 | Obszar | Narzędzie / metoda | Wynik |
