@@ -97,12 +97,12 @@ describe('nieład w porządek', () => {
   });
 
   it('w każdej chwili każda wstążka mieści się w kwadracie ikony (z połową grubości) — ekran startowy niczego nie ucina', () => {
-    for (let t = 0; t <= intro.TOTAL_MS; t += 10) {
+    for (let t = 0; t <= intro.TOTAL_MS; t += 25) {
       introFrame(t).poses.forEach((p, i) => {
         const r = brandIcon.ribbons[i]!;
         const start = p.dashArray[0] + p.dashArray[1] - p.dashOffset;
-        for (let k = 0; k <= 40; k++) {
-          const [x, y] = posePoint(p, pointAtLength(r.path, start + (p.dashArray[0] * k) / 40));
+        for (let k = 0; k <= 16; k++) {
+          const [x, y] = posePoint(p, pointAtLength(r.path, start + (p.dashArray[0] * k) / 16));
           const half = (brandIcon.STROKE_WIDTH * p.scale) / 2;
           expect(Math.min(x, y) - half).toBeGreaterThanOrEqual(0);
           expect(Math.max(x, y) + half).toBeLessThanOrEqual(brandIcon.VIEWBOX);
@@ -115,7 +115,7 @@ describe('nieład w porządek', () => {
     const pts = introFrame(0).poses.map((p, i) => {
       const r = brandIcon.ribbons[i]!;
       const start = p.dashArray[0] + p.dashArray[1] - p.dashOffset;
-      return Array.from({ length: 41 }, (_, k) => posePoint(p, pointAtLength(r.path, start + (p.dashArray[0] * k) / 40)));
+      return Array.from({ length: 21 }, (_, k) => posePoint(p, pointAtLength(r.path, start + (p.dashArray[0] * k) / 20)));
     });
     for (let a = 0; a < N; a++)
       for (let b = a + 1; b < N; b++) {

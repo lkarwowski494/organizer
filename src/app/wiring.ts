@@ -10,12 +10,14 @@ import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
+import * as SplashScreen from 'expo-splash-screen';
 import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
 import { config } from '../config';
 import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
+import { coldStartGate } from '../domain/intro';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
 import { type AppleSignIn, type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
@@ -66,6 +68,13 @@ const dbName = (userId: string) => `organizer-${userId}.db`;
 const openDbs = new Map<string, SQLiteDatabase>();
 
 /**
+ * Animacja przy starcie (ADR-0045) w zasięgu modułu: flaga zimnego startu raz na proces JS — też w buildzie E2E (scenariusze
+ * Maestro startują z animacją jak na telefonie). expo-splash-screen SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/):
+ * hide() — „Hides the native splash screen immediately.”
+ */
+const intro: NonNullable<RootDeps['intro']> = { coldStart: coldStartGate(), hideSplash: () => SplashScreen.hide() };
+
+/**
  * Zależności tego buildu. Build E2E (D143, EXPO_PUBLIC_E2E=1 tylko w .github/workflows/e2e.yml) dostaje atrapy w pamięci
  * (src/app/e2e.ts); każdy inny — Supabase. Porównanie wprost z `process.env.EXPO_PUBLIC_E2E`: tylko taki zapis Expo
  * podmienia przy budowaniu na stałą (https://docs.expo.dev/guides/environment-variables/), więc bez flagi warunek jest
@@ -73,13 +82,14 @@ const openDbs = new Map<string, SQLiteDatabase>();
  */
 export function appDeps(): RootDeps {
   if (process.env.EXPO_PUBLIC_E2E === '1') {
-    return e2eDeps({
+    const deps = e2eDeps({
       openDb: () => expoAdapter(openDatabaseSync(':memory:')),
       newId,
       isSimulator: async () => (await Application.getIosApplicationReleaseTypeAsync()) === Application.ApplicationReleaseType.SIMULATOR,
     });
+    return { ...deps, intro };
   }
-  return realDeps();
+  return { ...realDeps(), intro };
 }
 
 export function realDeps(): RootDeps {
