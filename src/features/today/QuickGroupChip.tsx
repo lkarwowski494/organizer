@@ -24,7 +24,7 @@ function Pill({ testID, label, hint, disabled, expanded, onPress, children }: { 
       accessibilityHint={hint}
       disabled={disabled}
       onPress={onPress}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: disabled ? c.border : c.control, backgroundColor: c.surface }}
+      style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: disabled ? c.border : c.control, backgroundColor: c.surface }}
     >
       {children}
     </Pressable>
@@ -36,7 +36,7 @@ export function QuickGroupChip({ name, line, fromText, open, onToggle }: { name:
   return (
     <Pill testID="quick-group" label={strings['quick.group'](name)} hint={fromText ? strings['quick.groupFromText'] : strings['quick.groupHint']} disabled={fromText} expanded={open} onPress={onToggle}>
       <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: lineOf(line).line }} />
-      <Text style={{ fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.groupChip'](name)}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.groupChip'](name)}</Text>
       {fromText ? null : <Glyph name="more" color={c.inkMuted} place="inline" />}
     </Pill>
   );
@@ -46,7 +46,7 @@ export function ShoppingChip({ item, list, onPress }: { item: string; list: stri
   const { c, font, size } = useTheme();
   return (
     <Pill testID="quick-shopping" label={strings['quick.toShoppingA11y'](item, list)} hint={strings['quick.toShoppingHint']} onPress={onPress}>
-      <Text style={{ fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.toShopping'](list)}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.CONTROL, color: c.ink }}>{strings['quick.toShopping'](list)}</Text>
     </Pill>
   );
 }

@@ -86,11 +86,11 @@ export function GroupFilterBar({ groups, testID }: { groups: readonly FilterGrou
               onPress={() => f.toggle(g.id)}
               // PW-52 A (D198): jeden wzór zaznaczenia jak w Toggles — ciemne wypełnienie, jasny napis i ✓ (wybór wielu);
               // znacznik grupy ten sam co w wierszach (M-252), rozmiar napisu chipu z motywu (size.CONTROL, M-152).
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: size.TOUCH_TARGET, paddingLeft: 8, paddingRight: 12, borderRadius: radius.PILL, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
+              style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: size.TOUCH_TARGET, paddingLeft: 8, paddingRight: 12, borderRadius: radius.PILL, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
               <GroupMark line={g.line} size={14} />
               {on ? <Glyph name="check" color={c.surface} place="inline" /> : null}
-              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{g.name}</Text>
+              <Text style={{ flexShrink: 1, fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{g.name}</Text>
             </Pressable>
           );
         })}

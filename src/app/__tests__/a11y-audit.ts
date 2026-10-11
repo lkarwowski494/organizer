@@ -61,6 +61,12 @@
  * 19. Element dostępności (`accessible`, rola obrazu) ma opis: etykietę albo widoczny tekst — w XCUITest „Element has no
  *     description” (sufficientElementDescription; ta sama strona Apple: „All accessible elements must provide some
  *     context-specific, descriptive label”). Reguła 2 sprawdzała tylko elementy dotykowe.
+ * Z przebiegu E2E z 11.10.2026 (wariant AX5, run 38106362581): chip „Do: Osobiste” wychodził poza ekran.
+ * 20. Tekst w wierszu (flexDirection „row”) obok innych elementów (znacznik, ✓, strzałka) ma flexShrink > 0 albo flex > 0
+ *     (poza tekstem o stałej szerokości). RN mierzy tekst szerokością wiersza, a rodzeństwo dokłada swoją; bez kurczenia
+ *     wiersz jest szerszy niż ekran. RN (https://reactnative.dev/docs/flexbox): „`flexShrink` accepts any floating point
+ *     value >= 0, with 0 being the default value (on the web, the default is 1)”. Element dotykowy w zawijanym wierszu
+ *     dostaje do tego maxWidth „100%”.
  * Każda para (kolor, tło) z reguł 5 i 6 trafia do `pairs` — test sprawdza, że jest w korpusie contrastPairs
  * (src/config/theme.ts), więc korpus nie jest już listą spisaną z pamięci (M-147).
  */
@@ -96,6 +102,16 @@ const hostParent = (n: Node): Node | null => {
   let p = n.parent;
   while (p && typeof p.type !== 'string') p = p.parent;
   return p;
+};
+const hostKids = (n: Node): Node[] => {
+  const out: Node[] = [];
+  const walk = (c: Node | string) => {
+    if (typeof c === 'string' || !c) return;
+    if (typeof c.type === 'string') out.push(c);
+    else for (const k of c.children ?? []) walk(k);
+  };
+  for (const c of n.children ?? []) walk(c);
+  return out;
 };
 const ancestors = (n: Node): Node[] => {
   const out: Node[] = [];
@@ -227,6 +243,13 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
     }
     // Jeden wzór zaznaczenia (M-151, PW-52 A, D198): zaznaczony wybór nigdy w kolorze przycisku głównego.
     if (s.backgroundColor === palette.inverseBg && [n, ...ancestors(n)].some((a) => a.props.accessibilityRole !== 'tab' && ((a.props.accessibilityState as { selected?: boolean; checked?: boolean } | undefined)?.selected === true || (a.props.accessibilityState as { checked?: boolean } | undefined)?.checked === true))) say(`${name}: zaznaczenie w kolorze przycisku głównego`);
+    // Reguła 20: tekst obok rodzeństwa w wierszu musi się kurczyć (inaczej przy AX5 wychodzi poza ekran).
+    if (n.type === 'Text' && !ancestors(n).some((a) => a.type === 'Text') && s.width === undefined && words(textOf(n)).some((w) => /\p{L}{2}/u.test(w))) {
+      const p = hostParent(n);
+      const ps = p ? style(p) : {};
+      const shrinks = Number(s.flexShrink ?? 0) > 0 || Number(s.flex ?? 0) > 0;
+      if (p && (ps.flexDirection === 'row' || ps.flexDirection === 'row-reverse') && hostKids(p).length > 1 && !shrinks) say(`tekst „${textOf(n).trim().slice(0, 30)}” w wierszu z innymi elementami bez flexShrink — przy dużym tekście wyjdzie poza ekran`);
+    }
     if (n.type === 'Text') {
       const own = textOf(n).trim();
       // Zagnieżdżony Text dziedziczy kolor rodzica (reguła 13: własny kolor zagnieżdżonego też jest sprawdzany).
