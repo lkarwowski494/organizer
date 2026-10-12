@@ -21,7 +21,10 @@ xcodebuild test -project "$proj" -scheme OrganizerA11yAudit -destination "id=$ud
 mkdir -p "$out/failures"
 xcrun xcresulttool export attachments --path "$out/a11y.xcresult" --output-path "$out/attachments" >/dev/null 2>&1 || true
 find "$out/attachments" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' -o -name '*.heic' \) -exec cp {} "$out/failures/" \; 2>/dev/null || true
-grep -E "Test Case .*(passed|failed)|error: |Executed [0-9]+ tests?|A11Y-ISSUE" "$out/xcodebuild.log" | grep -v -E '^[[:space:]]*export ' | tee "$out/summary.txt" || true
+grep -E "Test Case .*(passed|failed)|error: |Executed [0-9]+ tests?|\*\* TEST [A-Z]+ \*\*|Testing failed:|^\s+\S.*\(Underlying Error|A11Y-ISSUE" "$out/xcodebuild.log" | grep -v -E '^[[:space:]]*export ' | tee "$out/summary.txt" || true
+# E2E 38208123607: kod 65 bez żadnego wiersza „Test Case” — przyczyna była tylko w pełnym logu. Wiersze po
+# „Testing failed:” (opis błędu xcodebuild, bez zmiennych środowiska) też trafiają do podsumowania.
+grep -A12 "Testing failed:" "$out/xcodebuild.log" | grep -v -E '^[[:space:]]*export ' | head -n 40 | tee -a "$out/summary.txt" || true
 passed="$(grep -c "' passed" "$out/summary.txt" || true)"
 failed="$(grep -c "' failed" "$out/summary.txt" || true)"
 {
