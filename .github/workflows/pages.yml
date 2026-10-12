@@ -1,0 +1,56 @@
+# Strona polityki prywatności (i reszta katalogu site/) na GitHub Pages tego repozytorium (decyzja właściciela 9.10.2026):
+# https://lkarwowski494.github.io/organizer/privacy/ = config.privacy.POLICY_URL. Publikuje przy pushu na main, gdy
+# zmienia się site/** (albo ten plik), i ręcznie (workflow_dispatch). Jednorazowy krok właściciela: Settings → Pages →
+# Build and deployment → Source: GitHub Actions (docs/testflight-beta.md).
+# Bez sekretów. Zadanie build ma token tylko do odczytu (pages: read wystarcza actions/configure-pages do odczytu
+# ustawień strony); zapis pages: write i id-token: write (OIDC, którym deploy-pages potwierdza pochodzenie paczki) ma tylko
+# zadanie deploy w środowisku github-pages. Źródło: „The job that executes the deployment must at minimum have the
+# following permissions: pages: write, id-token: write” (https://github.com/actions/deploy-pages, README v5.0.1).
+# Koszt: darmowy runner Linux (repozytorium publiczne).
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Jedno wdrożenie naraz; trwającego nie przerywamy (połowiczne wdrożenie strony).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Nie publikujemy strony starszej niż docs/privacy-policy.md (skrypt używa tylko modułów wbudowanych w node).
+      - name: Strona polityki zgodna ze źródłem
+        run: |
+          node scripts/site/privacy-html.cjs --write
+          git diff --exit-code site/privacy/index.html
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: github-pages
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -26,9 +26,10 @@ import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurren
 import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
+import { InTrashScreen } from '../groups/TrashSection';
 import { strings } from '../../i18n/strings.pl';
 import { spoken, useClosedPanel } from '../../ui/a11y';
-import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, MissingScreen, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { useRowMeta } from '../../app/row-meta';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
@@ -66,10 +67,9 @@ export function EventScreen({ route, navigation }: Props) {
   const meta = useRowMeta();
   const [doneOpen, setDoneOpen] = useState(false);
 
+  // Audyt 3 (N-36): usunięte — jak kosz („W koszu · Przywróć”, gdy kosz by je pokazał), inaczej „Tego wydarzenia już nie ma”.
   if (!d || d.event.deleted_at !== null) {
-    return (
-      <MissingScreen testID="screen-event-missing" text={strings['missing.event']} onBack={() => navigation.goBack()} />
-    );
+    return <InTrashScreen entity="events" id={eventId} missing={strings['missing.event']} testID="screen-event" onBack={() => navigation.goBack()} />;
   }
   // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
   const date = linkedDate ?? nextOccurrence(tables, userId, eventId, formatIsoDate(addDays(today, -1))) ?? d.event.start_date;
@@ -79,9 +79,10 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej.
+  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej; przez zmianę czasu
+  // rzeczywisty czas (audyt 3, N-114: ten wyjazd 23–25.10.2026 — „47 h”).
   const long = occ.startTime !== null && (occ.durationMin ?? null) !== null;
-  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
+  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null, occ.date)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);

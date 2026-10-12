@@ -8,11 +8,12 @@
  */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 
+import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { accountErrorCode, type AccountApi } from '../../sync/account';
-import { Body, ErrorText, Screen, StatusText, Title } from '../../ui/components';
+import { Body, Button, ErrorText, Screen, StatusText, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
 export function SignInScreen({ account, notice }: { account: Pick<AccountApi, 'signInWithApple'>; notice?: string | null }) {
@@ -63,6 +64,9 @@ export function SignInScreen({ account, notice }: { account: Pick<AccountApi, 's
       {busy ? <ActivityIndicator testID="apple-sign-in-busy" accessible accessibilityLabel={strings['a11y.busy']} color={c.ink} /> : null}
       <Body muted>{strings['auth.appleOnly']}</Body>
       {error ? <ErrorText>{error}</ErrorText> : null}
+      {/* Audyt 3: raporty błędów (N-74, Q3 A) i polityka prywatności przed założeniem konta (N-75, Q4 A). */}
+      <Body muted>{strings['auth.errorReports']}</Body>
+      <Button kind="secondary" label={strings['privacy.open']} testID="sign-in-privacy" onPress={() => void Linking.openURL(config.privacy.POLICY_URL).catch(() => {})} />
     </Screen>
   );
 }

@@ -283,7 +283,12 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     const tests = [...swift.matchAll(/func (test\w+)\(\) throws \{([\s\S]*?)\n  \}/g)];
     assert.ok(tests.length >= 12, `testów: ${tests.length}`);
     for (const [, name, body] of tests) assert.match(body, /try audit\("screen-[\w-]+"\)/, name);
-    assert.match(swift, /try app\.performAccessibilityAudit\(\)/);
+    // Każdy problem oblewa test (handler zwraca false), ale najpierw trafia do logu z elementem; wszystkie problemy
+    // ekranu, nie tylko pierwszy; audyt po końcu animacji (przebiegi e2e 57 i 58 z 9.10.2026).
+    // Pominąć wolno tylko element klawiatury systemowej (i też z wpisem w logu).
+    assert.match(swift, /settle\(\)\n    continueAfterFailure = true\n    try app\.performAccessibilityAudit \{ issue in\n      let keyboard = issue\.element\.map \{ \$0\.exists && self\.inSystemKeyboard\(\$0\) \} \?\? false\n      print\(self\.describe\(issue, keyboard: keyboard\)\)\n      return keyboard\n    \}/);
+    assert.equal([...swift.matchAll(/return true/g)].length, 1, 'jedyne „return true” — element typu klawiatura');
+    assert.match(swift, /"A11Y-ISSUE"/);
     assert.match(swift, /XCUIApplication\(bundleIdentifier: "io\.github\.lkarwowski494\.organizer"\)/);
     const appJson = JSON.parse(read('app.json'));
     assert.equal(appJson.expo.ios.bundleIdentifier, 'io.github.lkarwowski494.organizer');
@@ -291,6 +296,7 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     for (const id of ['000000000021', '000000000022', '000000000010', '000000000030']) assert.ok(swift.includes(`0199a000-0000-7000-8000-${id}`));
     const audit = read('scripts/e2e/a11y-audit.sh');
     assert.match(audit, /grep -v -E '\^\[\[:space:\]\]\*export '/);
+    assert.match(audit, /\|A11Y-ISSUE" "\$out\/xcodebuild\.log"/);
   });
 });
 

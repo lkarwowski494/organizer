@@ -13,5 +13,5 @@ właściciela, 8.10.2026). Przyczyna: expo-location zawiera `CMMotionActivityMan
 
 ## Uwagi
 - Aplikacja nie pyta o zgodę na ruch, więc opisu nikt nie zobaczy. Test kontraktowy pilnuje treści.
-- Build 20 (54749ec) miał ten sam błąd — zastąpiony buildem 21.
+- Build 20 (e324c57) miał ten sam błąd — zastąpiony buildem 21.
 - Przy publikacji w App Store recenzent może dopytać o klucz; wtedy wracamy do wariantu z własnym modułem.

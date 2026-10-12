@@ -13,8 +13,13 @@ EN (dla recenzji Apple):
 
 **Feedback Email:** adres, na który testerzy mają pisać — wybierz sam (do repozytorium go nie wpisuję).
 
-**Privacy Policy URL:** link do `docs/privacy-policy.md` w publicznym repozytorium
-(https://github.com/lkarwowski494/organizer/blob/main/docs/privacy-policy.md) — po Twoim zatwierdzeniu treści.
+**Privacy Policy URL:** https://lkarwowski494.github.io/organizer/privacy/ (`config.privacy.POLICY_URL`; strona
+generowana z `docs/privacy-policy.md`, ADR 0044; ten sam adres otwiera link „Polityka prywatności” w aplikacji).
+Publikuje ją workflow `pages.yml` z katalogu `site/` tego repozytorium (decyzja z 9.10.2026) przy każdej zmianie `site/**`
+na `main`. **Jednorazowy krok przed wpisaniem adresu:** repozytorium `organizer` → **Settings → Pages → Build and
+deployment → Source: GitHub Actions**. Potem uruchomię `pages` ręcznie (Actions → pages → Run workflow) i sprawdzę, że
+adres się otwiera. Build 23 wychodzi bez adresu e-mail w polityce (kontakt przez „Wyślij uwagę”) — adres trzeba dodać
+przed App Store (`config.privacy.CONTACT_EMAIL`, ADR 0044).
 
 ## 2. Beta App Review Information
 - Contact: imię, nazwisko, telefon, e-mail — Twoje dane (tylko w App Store Connect).

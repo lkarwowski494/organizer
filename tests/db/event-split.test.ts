@@ -22,7 +22,7 @@ const d = dbDescribe;
 
 const U = { a: '00000000-0000-7000-8000-0000000008a1', b: '00000000-0000-7000-8000-0000000008b1', r: '00000000-0000-7000-8000-0000000008c1' } as const;
 type User = 'a' | 'b';
-const id = (prefix: string, n: number) => `88888888-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
+const id = (prefix: string, n: number) => `e5000000-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
 const G = id('000', 1);
 const M = { a: id('001', 1), b: id('001', 2), tymek: id('001', 3), r: id('001', 4) };
 const LIST = id('002', 1);
@@ -105,7 +105,7 @@ d('„to i następne”: telefon (TypeScript) = serwer (SQL)', () => {
   /** Grupa G: A (właściciel), B, Tymek (profil dziecka), R. */
   async function family() {
     await as(null);
-    await db.query(`insert into auth.users (id, email) values ($1, 'a@x.test'), ($2, 'b@x.test'), ($3, 'r@x.test')`, [U.a, U.b, U.r]);
+    await db.query(`insert into auth.users (id, email) values ($1, 'a8@x.test'), ($2, 'b8@x.test'), ($3, 'r8@x.test')`, [U.a, U.b, U.r]);
     await as('a');
     await db.query(`select public.create_group($1, 'Rodzina', $2, 'A')`, [G, M.a]);
     await as(null);
