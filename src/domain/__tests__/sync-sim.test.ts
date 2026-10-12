@@ -208,7 +208,7 @@ function expectSameAsServer(state: ClientState | { base: ClientState['base'] }, 
 }
 
 /** Ile razy przebiegi doszły do sytuacji, które sprawdzamy (bez tego własność mogłaby przechodzić „na pusto”). */
-const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0, restored: 0, scopeRetried: 0, derived: 0 };
+const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0, restored: 0, scopeRetried: 0, derived: 0, deferred: 0, unchanged: 0 };
 /** Dzień symulacji dla generatorów kopii powtórzeń (zadanie r1 ma termin wcześniej — „minione”). */
 const TODAY = parseIsoDate('2026-10-08');
 /** Odrzucone utworzenia kopii powtórzeń (lista zawężona, osoba usunięta, rola dziecka — zanim telefon się dowiedział). */
@@ -223,6 +223,9 @@ function observe(p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest
     if (!g.resync && !(g.group_id in req.cursors) && mine('tasks').length + mine('lists').length > 0) seen.wiped++;
     if (g.lists && mine('lists').some((l) => !g.lists!.includes(String(l.id)))) seen.narrowed++;
     if (g.gone?.some((id) => base.tasks?.[id])) seen.gone++;
+    // Budżet odpowiedzi (N-101): grupa odłożona bez wierszy; grupa bez zmian bez listy list (N-102).
+    if (g.has_more && g.rows.length === 0 && g.purged === undefined) seen.deferred++;
+    if (!g.has_more && !g.lists) seen.unchanged++;
   }
 }
 

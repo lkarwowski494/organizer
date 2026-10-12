@@ -59,7 +59,7 @@ describe('plan lekcji (D112)', () => {
     ]);
     expect(store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'event_participants').every((o) => (o as unknown as { set: { member_id: string } }).set.member_id === 'tymek')).toBe(true);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano plan lekcji: 2 lekcje w tygodniu')).toBeTruthy();
+    expect(within(bar).getByText('Dodano plan lekcji: 2 lekcje w tygodniu · Tymek · Rodzina')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Serie do kosza; kotwica tygodnia A (zapisana przy lekcji z tygodnia B, D171) wraca do pustej.
     expectOps(store, [
@@ -87,7 +87,7 @@ describe('plan lekcji (D112)', () => {
       expect.objectContaining({ kind: 'cmd', cmd: 'split_event', args: expect.objectContaining({ event_id: 'mat', date: '2026-10-08', set: expect.objectContaining({ title: 'Matematyka rozszerzona', start_date: '2026-10-12' }) }) }),
     ]);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od jutra)')).toBeTruthy();
+    expect(within(bar).getByText('Zapisano zmiany w planie lekcji (od jutra): Tymek · Rodzina')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     expectOps(store, [{ kind: 'cmd', cmd: 'split_event', args: { id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', event_id: 'mat', date: '2026-10-08', set: { title: 'Matematyka rozszerzona', start_date: '2026-10-12', start_time: '08:00', end_time: '08:45', rrule: 'FREQ=WEEKLY;BYDAY=MO', audience: 'members', responsible_member_id: null, location: null }, participants: [{ id: '1b4c3b73-6819-542b-9f70-232ec26db783', member_id: 'tymek' }], drop_overrides: [], tasks: [] } }, { kind: 'patch', entity: 'events', id: 'a945fdc2-e2fe-5610-9b27-9ca40786f5f4', set: { title: 'Matematyka', start_time: '08:00:00', end_time: '08:45:00', start_date: '2026-10-12', rrule: 'FREQ=WEEKLY;BYDAY=MO' } }]);
   });

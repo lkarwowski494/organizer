@@ -295,12 +295,24 @@ export class FakeServer {
   /** Protokół 2: kursor {v, p} (epoka), listy widoczne, „gone”, filtr encji. */
   pull(user: string, req: Pick<PullRequest, 'cursors'> & { entities?: readonly string[] }, lim: number): PullResponse {
     const groups: PullResponse['groups'] = [];
+    // Budżet wierszy całej odpowiedzi (20261012010000_pull_budget, N-101): grupy po jego wyczerpaniu wracają odłożone.
+    let budget = lim;
     for (const [gid, g] of this.groups) {
       if (!this.member(gid, user)) continue;
       const c = req.cursors[gid];
       let since = c?.v ?? 0;
       const resync = since > 0 && since < g.purged && c?.p !== g.purged;
       if (resync) since = 0;
+      // Grupa bez zmian (N-102): bez wierszy i bez „lists”.
+      if (!resync && g.version <= since) {
+        groups.push({ group_id: gid, cursor: since, has_more: false, resync: false, rows: [], purged: g.purged, gone: [] });
+        continue;
+      }
+      // Odłożona: kursor i epoka telefonu bez zmian.
+      if (budget <= 0) {
+        groups.push({ group_id: gid, cursor: c?.v ?? 0, has_more: true, resync: false, rows: [], gone: [] });
+        continue;
+      }
       const rows: PulledRow[] = [
         ...[...this.lists.values()].filter((r) => r.group_id === gid && this.canSee(user, 'lists', r)).map((r) => ({ e: 'lists' as const, r })),
         ...[...this.tasks.values()].filter((r) => r.group_id === gid && this.canSee(user, 'tasks', r)).map((r) => ({ e: 'tasks' as const, r })),
@@ -311,8 +323,10 @@ export class FakeServer {
       // Wiersz grupy: zawsze widoczny, ma bieżącą wersję (jak w group_rows_since).
       if (g.version > since) rows.push({ e: 'groups', v: g.version, row: { id: gid, version: g.version } });
       rows.sort((a, b) => a.v - b.v);
-      const cut = rows.length > lim ? rows[lim - 1]!.v : Infinity;
+      const l = Math.min(lim, budget);
+      const cut = rows.length > l ? rows[l - 1]!.v : Infinity;
       const page = rows.filter((x) => x.v <= cut);
+      budget -= page.length;
       const top = page.length ? page[page.length - 1]!.v : since;
       // Jak private.tasks_moved_out (20261010330000_moved_out_paging): także zadanie widoczne, którego bieżący wiersz
       // nie mieści się w tej porcji — kursor mija przeniesienie, a wiersz po zawężeniu nowej listy mógłby nie przyjść.

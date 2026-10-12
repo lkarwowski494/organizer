@@ -251,7 +251,8 @@ describe('listy', () => {
     task(t, { id: 's3', list_id: 'lz', title: 'Chleb', start_date: '2026-12-01' });
     task(t, { id: 's4', list_id: 'lz', title: 'Masło', completed_at: 'x' });
     const d = listDetail(t, ME, 'lz', TODAY)!;
-    expect(d.open.map((x) => [x.id, x.expired, x.closed])).toEqual([['s3', false, false], ['s1', false, false], ['s2', false, false]]);
+    // Kolejność dodania (Q37 B): równe klucze — po id; pozycja z terminem (stara, sprzed D73) na końcu.
+    expect(d.open.map((x) => [x.id, x.expired, x.closed])).toEqual([['s1', false, false], ['s3', false, false], ['s2', false, false]]);
     expect(ids(d.done)).toEqual(['s4']);
     expect(listOpenCount(t, asList(t.lists!.lz!), TODAY)).toBe(3);
     const groups = new Map(groupsView(t, ME).map((g) => [g.id, g]));
@@ -578,15 +579,15 @@ describe('operacje ekranów', () => {
   const now = { y: 2026, m: 10, d: 7, hh: 10, mm: 0 };
 
   it('nowe zadanie z szybkiego dodawania: termin własny, przypięte albo dziedziczone', () => {
-    const withDue = cmd.createTask({ id: 't1', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('mleko jutro o 17', now) });
+    const withDue = cmd.createTask({ sortKey: 'a0', id: 't1', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('mleko jutro o 17', now) });
     expect(withDue).toMatchObject({ kind: 'create', entity: 'tasks', set: { title: 'mleko', deadline_mode: 'own', due_date: '2026-10-08', due_time: '17:00', parent_id: null, sort_key: 'a0' } });
-    expect(cmd.createTask({ id: 't2', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('chleb', now) })).toMatchObject({ set: { deadline_mode: 'none', due_date: null, due_time: null } });
+    expect(cmd.createTask({ sortKey: 'a0', id: 't2', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('chleb', now) })).toMatchObject({ set: { deadline_mode: 'none', due_date: null, due_time: null } });
     expect(cmd.createTask({ id: 't3', groupId: 'gf', listId: 'lf', parentId: 't1', sortKey: 'b', parsed: parseQuickAdd('masło', now) })).toMatchObject({ set: { deadline_mode: 'inherit', parent_id: 't1', sort_key: 'b' } });
     // Audyt 2 (P-3, T-9, R-2): „co tydzień” z szybkiego dodawania zapisuje powtarzanie (dzień tygodnia z terminu);
     // bez „co tydzień” — bez pola. Podzadanie nie powtarza się samo (powtarzanie dotyczy zadania z listy, D76).
-    expect(cmd.createTask({ id: 't4', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('basen co tydzień w piątek', now) })).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=FR', deadline_mode: 'own' } });
-    expect((cmd.createTask({ id: 't5', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('basen w piątek', now) }) as { set: object }).set).not.toHaveProperty('repeat');
-    expect((cmd.createTask({ id: 't6', groupId: 'gf', listId: 'lf', parentId: 't1', parsed: parseQuickAdd('ręcznik co tydzień', now) }) as { set: object }).set).not.toHaveProperty('repeat');
+    expect(cmd.createTask({ sortKey: 'a0', id: 't4', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('basen co tydzień w piątek', now) })).toMatchObject({ set: { repeat: 'FREQ=WEEKLY;BYDAY=FR', deadline_mode: 'own' } });
+    expect((cmd.createTask({ sortKey: 'a0', id: 't5', groupId: 'gf', listId: 'lf', parsed: parseQuickAdd('basen w piątek', now) }) as { set: object }).set).not.toHaveProperty('repeat');
+    expect((cmd.createTask({ sortKey: 'a0', id: 't6', groupId: 'gf', listId: 'lf', parentId: 't1', parsed: parseQuickAdd('ręcznik co tydzień', now) }) as { set: object }).set).not.toHaveProperty('repeat');
     const t = apply([withDue]);
     expect(asTask(t.tasks!.t1!)).toMatchObject({ title: 'mleko', due_date: '2026-10-08' });
   });

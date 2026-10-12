@@ -18,13 +18,16 @@ import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
 import { createTask, inheritDue, patchTask, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
-import { asTask, checkOff, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { asTask, checkOff, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
+import { takeOps } from '../../domain/views/overdue';
 import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { cycleChange, cycleDateOps, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
 import { movedTo, moveTargets, moveTaskOps } from '../../domain/views/task-move';
+import { appendKey, moveInList } from '../../domain/views/sort-keys';
+import { reorderItems, ReorderRows } from './ReorderRows';
 import { InTrashScreen } from '../groups/TrashSection';
 import { taskHistory } from '../../domain/views/history';
 import { personOf } from '../../domain/views/who';
@@ -98,6 +101,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const [picking, setPicking] = useState(false);
   const [handing, setHanding] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   // Audyt 3 (N-62): po zamknięciu panelu fokus VoiceOvera wraca na przycisk, który go otworzył; po pytaniu o cykl — na dzień.
   const handBack = useClosedPanel(handing) !== null;
   const moveBack = useClosedPanel(moving) !== null;
@@ -127,6 +131,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const cur = { date: task.deadline_mode === 'own' ? (task.due_date ?? '') : '', time: task.deadline_mode === 'own' ? (task.due_time?.slice(0, 5) ?? '') : '' };
   const shown = (k: keyof Edits) => edit[k] ?? cur[k];
   const depth = node?.depth ?? 0;
+  const children = node?.children ?? [];
   // D13: podpięcie do wystąpienia spotkania; termin wystąpienia liczy resolver (null = odwołane / zmienione).
   const linked = task.event_id !== null && task.occurrence_date !== null;
   const linkedDue = linked ? occurrenceResolver(tables)(task.event_id!, task.occurrence_date!) : null;
@@ -141,6 +146,7 @@ export function TaskScreen({ route, navigation }: Props) {
   // D178: przeniesienie zadania głównego do innej grupy (z podzadaniami); w trakcie przekazania — po jego zakończeniu.
   // Audyt 3 (N-121): zrobione nie przenosi się (zadanie powtarzane ma już następny termin w swojej grupie).
   const targets = canEdit && task.parent_id === null && task.completed_at === null && !waiting ? moveTargets(tables, userId, task) : [];
+  const take = takeOps(tables, task, groupsView(tables, userId), formatIsoDate(today));
 
   // `keep` — cykl zostaje (bez pytania albo „Tylko ten raz”); wtedy przeniesienie na wcześniej pamięta dzień cyklu (N-25).
   const writeDue = (due: { date: string; time: string | null }, r: Repeat | null, keep: boolean) => {
@@ -184,7 +190,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const addSub = () => {
     if (sub.trim() === '') return;
     if (subParsed.title.trim() === '') return setSubError(strings['form.error.title']);
-    store.dispatch(createTask({ id: newId(), groupId: task.group_id, listId: task.list_id, parentId: task.id, parsed: subParsed }));
+    store.dispatch(createTask({ id: newId(), groupId: task.group_id, listId: task.list_id, parentId: task.id, parsed: subParsed, sortKey: appendKey(tables, task.list_id, task.id) }));
     setSub('');
     setSubIgnore([]);
     setSubError(null);
@@ -305,6 +311,21 @@ export function TaskScreen({ route, navigation }: Props) {
           ) : null}
         </View>
       ) : null}
+      {take ? (
+        // Q35 A (N-133): wspólne zaległe bez osoby wisi u wszystkich — jedno dotknięcie: moje i na dziś, z „Cofnij”.
+        <View style={{ gap: 6 }}>
+          <Button
+            kind="secondary"
+            label={strings['task.take']}
+            testID="task-take"
+            onPress={() => {
+              store.dispatch(take.ops);
+              undo.show(strings['task.taken'](task.title), { ops: take.undo }, { changed: take.ops });
+            }}
+          />
+          <Body muted>{strings['task.takeHint']}</Body>
+        </View>
+      ) : null}
       {canEdit ? (
         <View style={{ gap: 6 }}>
           <PersonPicker
@@ -368,8 +389,16 @@ export function TaskScreen({ route, navigation }: Props) {
       {depth < config.MAX_TASK_DEPTH ? (
         <View style={{ gap: 8 }}>
           <SectionTitle>{strings['task.subtasks']}</SectionTitle>
+          {/* Q37 B (N-130): kolejność podzadań jak na liście — przeciągnięcie albo strzałki. */}
+          {canEdit && children.length >= 2 ? (
+            <View style={{ gap: 6 }}>
+              <Button kind="secondary" label={ordering ? strings['common.finish'] : strings['order.edit']} testID="sub-order" onPress={() => setOrdering(!ordering)} />
+              {ordering ? <Body muted>{strings['order.hint']}</Body> : null}
+            </View>
+          ) : null}
+          {canEdit && ordering && children.length >= 2 ? <ReorderRows items={reorderItems(children, today, whoOf)} onMove={(from, to) => store.dispatch(moveInList(children, from, to))} testID="sub-order" /> : null}
           {/* M-251: ta sama linia opisu co na liście — termin, osoba, „czeka na wysłanie”. */}
-          {(node?.children ?? []).map((ch) => (
+          {(canEdit && ordering && children.length >= 2 ? [] : children).map((ch) => (
             // Audyt 2 (M-124): podzadanie przesuwa się do usunięcia jak na liście (dorośli, D34).
             <SwipeRow key={ch.id} title={ch.title} enabled={canEdit} onDelete={() => actions.remove(ch)} testID={`swipe-${ch.id}`}>
               <StationRow

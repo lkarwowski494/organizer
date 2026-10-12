@@ -6,7 +6,6 @@
  */
 import { WEEKDAYS_ABBREVIATED } from '../config/calendar.pl';
 import { config } from '../config';
-import { LIST_NAMES } from '../config/names.pl';
 import { WEEKDAYS_ACCUSATIVE } from '../config/quickadd.pl';
 import type { CivilDate } from '../domain/civil-date';
 import type { Entity } from '../domain/sync-engine/client';
@@ -78,6 +77,9 @@ export const strings = {
   'quick.groupPick': 'Dodaj do grupy',
   // D68 po PW-18 b: zapis bez pytania, ale mówimy przed dodaniem, że nikt tego nie zobaczy w Moich sprawach.
   'quick.unseen': 'Bez osoby i terminu nikt nie zobaczy tego w Moich sprawach — dopisz np. „@ja” albo „jutro”.',
+  'form.unseenScope': 'Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Wybierz siebie w „Dla kogo”, jeśli to dla Ciebie.',
+  // Audyt 3 (N-30): zakres grupy „Przypisane do mnie…” — wpis bez osoby nie trafi do moich spraw ani przypomnień.
+  'quick.unseenScope': 'Bez osoby nie zobaczysz tego w Moich sprawach — z tej grupy pokazujesz tam tylko zadania przypisane do Ciebie (ustawienie grupy). Dopisz „@ja”, jeśli to dla Ciebie.',
   // PW-3 wariant D: cały wpis to produkt — podpowiedź listy zakupów (bez dotknięcia zostaje zadanie).
   'quick.toShopping': (list: string) => `Na listę: ${list}`,
   'quick.toShoppingA11y': (item: string, list: string) => `${strings['quick.toShopping'](list)}, ${item}`,
@@ -220,7 +222,7 @@ export const strings = {
   'routine.addStep': 'Dodaj krok',
   'routine.removeStepA11y': (n: number) => `Usuń krok ${n}`,
   'routine.save': 'Zapisz rutynę',
-  'routine.saved': (title: string) => `Dodano rutynę: ${title}`,
+  'routine.saved': (title: string, group: string) => `Dodano rutynę: ${title} · ${group}`,
   'routine.error.steps': 'Dodaj co najmniej jeden krok.',
   'routine.error.title': 'Wpisz nazwę rutyny.',
   // Audyt 2 (U-29): „seria” to powtórzenia wydarzenia; licznik mówi, ile razy z rzędu wszystko zrobione.
@@ -261,8 +263,8 @@ export const strings = {
   'lessons.hideHint': 'Chowa lekcje',
   'lessons.shown': (n: number) => `Pokazano ${n} ${plural(n, { one: 'lekcję', few: 'lekcje', many: 'lekcji' })}`,
   'timetable.error.title': 'Wpisz nazwę lekcji.',
-  'timetable.updated': 'Zapisano zmiany w planie lekcji (od jutra)',
-  'timetable.saved': (n: number) => `Dodano plan lekcji: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })} w tygodniu`,
+  'timetable.updated': (whose: string) => `Zapisano zmiany w planie lekcji (od jutra): ${whose}`,
+  'timetable.saved': (n: number, whose: string) => `Dodano plan lekcji: ${n} ${plural(n, { one: 'lekcja', few: 'lekcje', many: 'lekcji' })} w tygodniu · ${whose}`,
   // Audyt 3 (N-31): plan zmieniony w międzyczasie przez kogoś innego (albo na innym telefonie).
   'timetable.changedTitle': 'Ktoś zmienił plan w międzyczasie',
   'timetable.changedInfo': 'Twoja wersja nie zawiera tych zmian — zapisanie jej zakończy lekcje dodane albo zmienione w tym czasie.',
@@ -307,6 +309,10 @@ export const strings = {
   'task.moveAsk': 'Do której grupy przenieść?',
   'task.moveInfo': 'Zadanie trafi z podzadaniami na ogólną listę wybranej grupy. Osoby spoza tej grupy przestaną je widzieć.',
   'task.moved': (title: string, group: string) => `Przeniesiono do „${group}”: ${title}`,
+  // Q35 A (N-133): wspólne zaległe bez osoby.
+  'task.take': 'Biorę to',
+  'task.takeHint': 'Nikt tego nie wziął, więc jest zaległe u wszystkich. „Biorę to” przypisze zadanie Tobie i przeniesie je na dziś.',
+  'task.taken': (title: string) => `Bierzesz na dziś: ${title}`,
   'task.subtasks': 'Podzadania',
   'task.addSubtask': 'Dodaj podzadanie',
   'task.delete': 'Usuń zadanie',
@@ -343,6 +349,11 @@ export const strings = {
   // Audyt 3 (N-48 c): przykład w formie podstawowej z ilością na końcu — „2 mleka” dawało inny klucz niż „mleko”.
   'lists.addItem': 'Dodaj produkt, np. „mleko 2”',
   'lists.addTask': 'Dodaj zadanie, np. „pranie w sobotę”',
+  // Q37 B (N-130): ręczna kolejność zadań.
+  'order.edit': 'Zmień kolejność',
+  'order.hint': 'Przeciągnij zadanie za ≡ albo przesuń strzałkami. Zadania stoją według terminu (bez terminu na górze), więc przesuwasz je wśród zadań z tym samym terminem.',
+  'order.up': (title: string) => `Przesuń wyżej: ${title}`,
+  'order.down': (title: string) => `Przesuń niżej: ${title}`,
   'lists.emptyItems': 'Lista jest pusta. Dopisz pierwszą rzecz polem powyżej — termin rozpoznamy z tekstu.',
   // Audyt 2 (M-20): na liście zakupów terminów nie rozpoznajemy (termin ma cała lista, D73).
   'lists.emptyShopping': 'Lista jest pusta. Dopisz pierwszy produkt polem powyżej.',
@@ -476,7 +487,9 @@ export const strings = {
   'event.moveTooFar': (n: number) => `Jeden termin można przenieść najwyżej o ${n} ${plural(n, { one: 'dzień', few: 'dni', many: 'dni' })}. Dalej — zmień całą serię albo dodaj osobne wydarzenie.`,
   'event.error.title': 'Wpisz nazwę wydarzenia.',
   'event.error.date': 'Wybierz dzień w kalendarzu.',
+  'event.savedUndo': (title: string) => `Zapisano zmiany: ${title}`,
   'event.error.titleLong': `Nazwa może mieć najwyżej ${config.lengths.EVENT_TITLE} ${plural(config.lengths.EVENT_TITLE, { one: 'znak', few: 'znaki', many: 'znaków' })}.`,
+  'event.error.noStart': 'Wybierz godzinę początku.',
   'event.error.time': 'Sprawdź godzinę (GG:MM).',
   'event.error.endBeforeStart': 'Koniec musi być po początku.',
   'event.error.endDate': 'Ostatni dzień wydarzenia nie może być przed pierwszym.',
@@ -523,13 +536,14 @@ export const strings = {
   'event.childInfo': (children: string, title: string) => `${children}: ${title}`,
   'event.taskAdd': 'Dodaj zadanie na to wydarzenie',
   'event.taskAddHint': 'Termin zadania to termin wydarzenia.',
+  // Audyt 3 (N-51): stałe zadanie (event_task_series) nie ma osoby — „@imię” zostaje w nazwie.
+  'event.seriesNoPerson': 'Zadanie na każdy termin w serii nie ma osoby — „@imię” zostanie w nazwie. Osobę wybierzesz w zadaniu danego terminu.',
   'event.taskList': 'Na liście',
   'event.taskEvery': 'Jak często',
   'event.taskEvery.one': 'Tylko na ten termin',
   'event.taskEvery.all': 'Na każdy termin w serii',
   'event.seriesTasks': 'Na każdy termin w serii (osobne zadanie na każdy):',
   'event.seriesStop': (title: string) => `Zakończ: ${title}`,
-  'event.defaultList': LIST_NAMES.GENERAL,
   'event.relinkQuestion': (n: number) => `${n} ${plural(n, { one: 'zadanie jest podpięte', few: 'zadania są podpięte', many: 'zadań jest podpiętych' })} do odwoływanych terminów. Co z ${n === 1 ? 'nim' : 'nimi'}?`,
   'event.relinkNext': (date: string) => `Przepnij na kolejne: ${date}`,
   'event.relinkOther': 'Przepnij na inny termin',
@@ -655,6 +669,7 @@ export const strings = {
   'draft.restored': 'Przywrócono niezapisane zmiany.',
   'draft.discard': 'Odrzuć',
   'draft.discardA11y': 'Odrzuć niezapisane zmiany',
+  'draft.discarded': 'Odrzucono niezapisane zmiany',
   // Audyt 3 (N-32, N-144): przywrócony szkic z wyborem, którego już nie ma.
   'draft.groupGone': (name: string | null) => (name ? `Grupy „${name}” ze szkicu już nie masz — sprawdź wybraną grupę.` : 'Grupy ze szkicu już nie masz — sprawdź wybraną grupę.'),
   'draft.peopleGone': (names: string[]) => (names.length > 1 ? `${names.join(', ')} nie należą już do grupy — wybór usunięto.` : `${names[0] ?? 'Wybrana osoba'} nie należy już do grupy — wybór usunięto.`),
@@ -965,7 +980,8 @@ export const strings = {
   'trip.section': 'Zakupy',
   'trip.info': 'Kiedy i kto robi zakupy. Pojawią się w Moich sprawach jak zadanie.',
   'trip.who': 'Kto robi zakupy',
-  'trip.required': 'We wspólnej grupie wybierz osobę albo dzień zakupów — inaczej nikt nie zobaczy ich w Moich sprawach.',
+  'trip.required': 'Wybierz osobę albo dzień zakupów.',
+  'trip.requiredHint': 'We wspólnej grupie wybierz osobę albo dzień zakupów — inaczej nikt nie zobaczy ich w Moich sprawach.',
   'trip.open': (n: number) => (n === 0 ? 'lista pusta' : `${n} do kupienia`),
   'trip.save': 'Zapisz zakupy',
   'trip.plan': 'Zaplanuj zakupy',

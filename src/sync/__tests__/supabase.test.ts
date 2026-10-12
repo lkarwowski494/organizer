@@ -11,7 +11,7 @@ type Call = { fn: string; args: Record<string, unknown> };
 function fakeClient(reply: (c: Call) => RpcResult<unknown> = () => ({ data: {}, error: null, status: 200 })) {
   const calls: Call[] = [];
   const auth = {
-    signInWithIdToken: jest.fn(async (_a: { provider: 'apple'; token: string }) => ({ error: null as { message: string; status?: number } | null })),
+    signInWithIdToken: jest.fn(async (_a: { provider: 'apple'; token: string; nonce?: string }) => ({ error: null as { message: string; status?: number } | null })),
     getUser: jest.fn(async () => ({ error: null as { message: string; status?: number; code?: string } | null })),
     signOut: jest.fn(async (_a: { scope: 'local' }) => ({ error: null as { message: string } | null })),
     updateUser: jest.fn(async () => ({ error: null as { message: string } | null })),
@@ -503,7 +503,7 @@ describe('wylogowanie bez internetu: zaległe wyrejestrowanie tokenu starą sesj
   });
 });
 
-describe('audyt 3: logowanie i usunięcie konta — rodzaje błędów, potwierdzenie (N-72, N-228, N-71)', () => {
+describe('audyt 3: logowanie i usunięcie konta — rodzaje błędów, nonce, potwierdzenie (N-72, N-73, N-226, N-228, N-71)', () => {
   const codeOf = async (p: Promise<unknown>) => p.then(() => 'ok', (e: unknown) => (e instanceof AccountError ? e.code : `obcy: ${String(e)}`));
 
   it('logowanie: zamknięte okno Apple, inny błąd Apple, brak sieci i odmowa serwera', async () => {
@@ -520,6 +520,18 @@ describe('audyt 3: logowanie i usunięcie konta — rodzaje błędów, potwierdz
     expect(accountErrorCode(new Error('x'))).toBe('failed');
     expect(accountErrorCode(new AccountError('canceled'))).toBe('canceled');
     expect(new AccountError('network').message).toBe('network');
+  });
+
+  it('N-226: Apple dostaje skrót nonce, Supabase Auth — samą wartość', async () => {
+    const { client, auth } = fakeClient();
+    const apple = jest.fn(async (_r?: object) => ({ identityToken: 'jwt' }));
+    await supabaseAccount(client, apple, { nonce: { raw: () => 'surowy', sha256: async (r) => `skrot(${r})` } }).signInWithApple();
+    expect(apple).toHaveBeenCalledWith({ nonce: 'skrot(surowy)' });
+    expect(auth.signInWithIdToken).toHaveBeenCalledWith({ provider: 'apple', token: 'jwt', nonce: 'surowy' });
+    // Bez źródła nonce (testy, stary build) — jak dotąd.
+    await supabaseAccount(client, apple).signInWithApple();
+    expect(apple).toHaveBeenLastCalledWith({});
+    expect(auth.signInWithIdToken).toHaveBeenLastCalledWith({ provider: 'apple', token: 'jwt' });
   });
 
   it('usunięcie: wybór „Usuń też moje wpisy” w treści prośby; kody z odpowiedzi funkcji', async () => {

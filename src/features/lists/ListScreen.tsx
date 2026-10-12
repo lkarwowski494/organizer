@@ -5,7 +5,7 @@
  * (Q9 B, N-49). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, type TextInput, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
@@ -41,6 +41,8 @@ import { addStaple, addStaplesOps, categoryMemory, categoryOf, duplicateOf, item
 import { listMarks } from './ListsScreen';
 import { BoughtSection, ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
+import { reorderItems, ReorderRows } from './ReorderRows';
+import { moveInList } from '../../domain/views/sort-keys';
 
 type ListAnswers = Pick<QuickAnswers, 'person' | 'skipMention'>;
 
@@ -105,12 +107,22 @@ export function ListScreen({ route, navigation }: Props) {
   const [doneOpen, setDoneOpen] = useState(false);
   const [olderOpen, setOlderOpen] = useState(false);
   const [boughtOpen, setBoughtOpen] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   // Q8 A (N-7): ten sam produkt już na liście — pytanie pod polem zamiast cichego dubla.
   const [dup, setDup] = useState<{ value: string; hit: NonNullable<ReturnType<typeof duplicateOf>> } | null>(null);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
   const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   // Decyzja właściciela z 8.10.2026 (PW-17 B, M-107): nazwa listy do zmiany — zapis od razu (D130), jak tytuł zadania.
   const rename = useLiveText(detail?.list.name ?? '', (name) => detail && store.dispatch(renameList(detail.list.id, name)), { empty: strings['lists.error.nameEmpty'] });
+  // Audyt 3 (N-149): lista usunięta na tym telefonie (np. „Cofnij” na pasku „Dodano listę”, pokazanym już na tym ekranie)
+  // — ekran wraca, jak po usunięciu z ekranu, zamiast mówić „ktoś ją usunął”. Usunięcie z serwera (inna osoba, utrata
+  // dostępu) zostawia napis.
+  const shown = useRef(false);
+  const goneHere = !detail && state.pending.some((op) => op.seq > state.ackedSeq && op.kind === 'delete' && op.entity === 'lists' && op.id === route.params.listId);
+  useEffect(() => {
+    if (detail) shown.current = true;
+    else if (shown.current && goneHere) navigation.goBack();
+  }, [detail, goneHere, navigation]);
 
   // Audyt 3 (N-36): usunięta — jak kosz („W koszu · Przywróć”, gdy kosz by ją pokazał), inaczej „Tej listy już nie ma”.
   if (!detail) {
@@ -126,6 +138,10 @@ export function ListScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const canDelete = me?.role !== 'child';
+  // Q37 B: ręczna kolejność na liście zadań (zakupy stoją według działów), od dwóch otwartych zadań.
+  // Same zadania główne: otwarte podzadanie zrobionego zadania (M-82) ma kolejność wśród swojego rodzeństwa.
+  const roots = detail.open.filter((n) => n.parent_id === null);
+  const canOrder = !shopping && canDelete && roots.length >= 2;
   // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own) — reszta bez pola odhaczenia.
   const canCheck = checkOff(tables, userId);
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
@@ -277,7 +293,7 @@ export function ListScreen({ route, navigation }: Props) {
           {planning ? (
             <>
               <TripEditor value={planning} onChange={setPlanning} adults={pickable} today={today} required={tripNeeds} />
-              {/* PWD-5 A (M-274): przycisk aktywny, komunikat po naciśnięciu (podpowiedź „trip.required” stoi w edytorze). */}
+              {/* PWD-5 A (M-274): przycisk aktywny, komunikat po naciśnięciu (podpowiedź „trip.requiredHint” stoi w edytorze). */}
               {planError ? <ErrorText testID="trip-error">{planError}</ErrorText> : planTried && planMissing ? <ErrorText testID="trip-error">{strings['trip.required']}</ErrorText> : null}
               <Button
                 label={strings['trip.save']}
@@ -372,6 +388,12 @@ export function ListScreen({ route, navigation }: Props) {
         />
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}
+      {canOrder ? (
+        <View style={{ gap: 6 }}>
+          <Button kind="secondary" label={ordering ? strings['common.finish'] : strings['order.edit']} testID="list-order" onPress={() => setOrdering(!ordering)} />
+          {ordering ? <Body muted>{strings['order.hint']}</Body> : null}
+        </View>
+      ) : null}
       {shopping ? (
         sections(detail.open, tables, list.group_id).map((sec) => (
           <View key={sec.key} testID={`section-${sec.key}`}>
@@ -379,6 +401,9 @@ export function ListScreen({ route, navigation }: Props) {
             {rows(sec.items, false)}
           </View>
         ))
+      ) : ordering && canOrder ? (
+        // Q37 B (N-130): zmiana kolejności — same zadania główne (podzadania mają swoją na ekranie zadania).
+        <ReorderRows items={reorderItems(roots, today, whoOf)} onMove={(from, to) => store.dispatch(moveInList(roots, from, to))} testID="order" />
       ) : (
         <View>{rows(detail.open, false)}</View>
       )}

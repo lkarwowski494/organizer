@@ -40,3 +40,12 @@ samodzielne z podzadaniem wydarzenia albo innego zadania.
   kosza z oryginałem (audyt 2, T-33). Odrzucone: kopiowanie podzadań do innej grupy (osoby i spotkania są z innej
   grupy), bo formularz z istniejącym zadaniem otwiera się tylko przez kilka sekund po szybkim dodaniu.
   Zastąpione 8.10.2026 (D178, ADR 0036): „Przenieś do grupy” na ekranie zadania kopiuje też podzadania.
+
+## Audyt 3 (decyzje właściciela z 9.10.2026)
+- Q15 A (N-29): podzadanie bez osoby należy do osoby zadania nadrzędnego przy liczeniu „moje” (Moje sprawy,
+  przypomnienia, „Przenieś zaległe”) — jak termin „jak nadrzędne” (D15); `inheritedPerson` w `concerns.ts`.
+- Q37 B (N-130): kolejność zadań na liście i podzadań — domyślnie kolejność dodania, ręcznie „Zmień kolejność”
+  (przeciągnięcie za ≡ albo strzałki) wśród zadań z tym samym terminem (lista stoi najpierw według terminu, D16).
+  Klucze ułamkowe w `sort_key` (`src/domain/views/sort-keys.ts`, schemat jak rocicorp/fractional-indexing; stare „a0”
+  rozstrzyga id UUIDv7). Listy zostają alfabetycznie; zadania na ekranie wydarzenia — alfabetycznie (osobny widok).
+

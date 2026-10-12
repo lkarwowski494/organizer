@@ -13,7 +13,8 @@
  *  - Audyt 3 (N-32, N-144, N-146): `sanitize` poprawia przywracane pola, których już nie ma (grupa, osoba, miniony
  *    dzień; parametry otwarcia mają pierwszeństwo) — napisy o tym pokazuje DraftNote.
  *  - Audyt 3 (N-31): `stamp` — znacznik danych, na których szkic powstał; przywrócony szkic oddaje swój (`stamp`).
- *  - „Zapisz” (`saved`) i „Odrzuć” (`discard`) usuwają szkic.
+ *  - „Zapisz” (`saved`) usuwa szkic. „Odrzuć” (`discard`) też, z paskiem „Odrzucono niezapisane zmiany · Cofnij”
+ *    (audyt 3, N-147): do zniknięcia paska szkic da się przywrócić, także po wyjściu z ekranu.
  * Ekran podaje wartości pól i ich settery — nie musi zmieniać swojego stanu na jeden obiekt.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -23,6 +24,7 @@ import type { DraftFix, DraftNotice } from '../domain/views/form-choices';
 import { strings } from '../i18n/strings.pl';
 import { announce } from '../ui/a11y';
 import { Body, Button } from '../ui/components';
+import { useUndo } from '../ui/undo';
 import { useServices } from './context';
 
 type Setters<F> = { [K in keyof F]: (v: F[K]) => void };
@@ -32,6 +34,7 @@ export const draftKey = (userId: string, form: string) => `draft:${userId}:${for
 
 export function useFormDraft<F extends Record<string, unknown>>(form: string, values: F, setters: Setters<F>, o: DraftOptions<F> = {}) {
   const { local, userId, nowMs } = useServices();
+  const undo = useUndo();
   const key = draftKey(userId, form);
   // Wartości z chwili otwarcia i szkic do przywrócenia — raz, przy pierwszym rysowaniu.
   const [boot] = useState(() => {
@@ -50,6 +53,8 @@ export function useFormDraft<F extends Record<string, unknown>>(form: string, va
     if (boot.draft) for (const k of Object.keys(boot.draft.changes) as (keyof F)[]) setters[k](boot.draft.changes[k] as F[keyof F]);
   }
   const done = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
   // Znacznik zapisywany ze szkicem: przywrócony szkic zostaje przy swoim (brak — szkic starszej wersji: '').
   const [stamp, setStamp] = useState(boot.draft ? (boot.draft.stamp ?? '') : o.stamp);
   // Ostatnio zapisane zmiany (JSON) — ten sam szkic nie zapisuje się drugi raz (wiek liczy się od ostatniej zmiany).
@@ -71,14 +76,28 @@ export function useFormDraft<F extends Record<string, unknown>>(form: string, va
       done.current = true;
       local?.save(key, null);
     },
-    /** „Odrzuć”: pola wracają do wartości z otwarcia, szkic znika. */
+    /** „Odrzuć”: pola wracają do wartości z otwarcia, szkic znika — z paskiem „Cofnij” (N-147). */
     discard: () => {
-      for (const k of Object.keys(changedFields(boot.initial, values)) as (keyof F)[]) setters[k](boot.initial[k]);
+      const prev = changedFields(boot.initial, values);
+      const prevStamp = stamp;
+      for (const k of Object.keys(prev) as (keyof F)[]) setters[k](boot.initial[k]);
       local?.save(key, null);
       stored.current = '{}';
       setStamp(o.stamp);
       setRestored(false);
       setNotices([]);
+      undo.show(
+        strings['draft.discarded'],
+        () => {
+          local?.save(key, encodeDraft(prev, nowMs(), prevStamp));
+          if (!mounted.current) return;
+          for (const k of Object.keys(prev) as (keyof F)[]) setters[k](prev[k] as F[keyof F]);
+          stored.current = JSON.stringify(prev);
+          setStamp(prevStamp);
+          setRestored(true);
+        },
+        { recent: false },
+      );
     },
   };
 }
@@ -101,7 +120,8 @@ export function DraftNote({ draft }: { draft: { restored: boolean; notices: read
           {noticeText(n)}
         </Body>
       ))}
-      <Button kind="secondary" label={strings['draft.discard']} a11yLabel={strings['draft.discardA11y']} testID="draft-discard" onPress={draft.discard} />
+      {/* M-241: czerwony = usuwa. */}
+      <Button kind="danger" label={strings['draft.discard']} a11yLabel={strings['draft.discardA11y']} testID="draft-discard" onPress={draft.discard} />
     </>
   );
 }

@@ -265,6 +265,7 @@ export const config = {
    */
   sync: {
     PUSH_BATCH_MAX: 100,
+    /** Porcja pobrania: najwięcej wierszy w jednej odpowiedzi sync_pull, łącznie ze wszystkich grup (audyt 3, N-101). */
     PULL_LIMIT_MAX: 1000,
     TOMBSTONE_DAYS: 30,
     /**
@@ -411,6 +412,9 @@ export const config = {
    *  - SYNC_PUSH_PER_MINUTE — wywołania sync_push na konto na minutę: telefon wysyła najwyżej raz na sekundę
    *    (sync.PUSH_DEBOUNCE_MS), więc dwa urządzenia używane naraz mieszczą się w limicie; ponad limit telefon ponawia
    *    z opóźnieniem (sync.BACKOFF_*), nic nie ginie;
+   *  - SYNC_PULL_PER_MINUTE — wywołania sync_pull i (osobno) sync_fetch_scope na konto na minutę (audyt 3, N-96): pobranie
+   *    to zwykle jedno wywołanie na powrót do aplikacji, sygnał Realtime albo wysyłkę; pierwsze pobranie dużego konta to
+   *    kilka porcji po sync.PULL_LIMIT_MAX wierszy całej odpowiedzi. Ponad limit telefon ponawia z opóźnieniem;
    *  - NOTIFY_PER_HOUR — prośby o powiadomienie (funkcja notify-handoff) na konto na godzinę; ponad limit powiadomienie
    *    nie idzie, a zmiana i tak jest w aplikacji.
    *  - GROUP_ROWS, GROUP_BYTES — limit grupy (audyt 3, N-2; decyzja Q12 część 3 A, 9.10.2026): najwięcej żywych
@@ -422,7 +426,7 @@ export const config = {
    *    zapis do tabel (audyt 3, N-2): zwykły dzień to kilkadziesiąt KB; ponad limit telefon ponawia z opóźnieniem, nic nie
    *    ginie. Bez tego jedno konto zapełniłoby 500 MB w kilka minut.
    */
-  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120, GROUP_ROWS: 20_000, GROUP_BYTES: 25 * 1024 * 1024, WRITE_BYTES_PER_DAY: 20 * 1024 * 1024 },
+  quotas: { SHARED_GROUPS: 50, ACTIVE_INVITES: 20, PUSH_TOKENS: 10, SYNC_CLIENTS: 20, SYNC_PUSH_PER_MINUTE: 120, SYNC_PULL_PER_MINUTE: 120, NOTIFY_PER_HOUR: 120, GROUP_ROWS: 20_000, GROUP_BYTES: 25 * 1024 * 1024, WRITE_BYTES_PER_DAY: 20 * 1024 * 1024 },
 
   /** Lokalizacja i strefa czasowa aplikacji (D30, R2). */
   LOCALE: 'pl-PL',
