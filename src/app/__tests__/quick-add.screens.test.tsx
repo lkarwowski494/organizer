@@ -205,7 +205,7 @@ describe('grupa wpisu w Moich sprawach: chip, „#Grupa”, „@ja”, grupa dom
 
   it('chip pokazuje, dokąd trafi wpis; zmiana chipem — wpis w tej grupie, chip zostaje („Ostatnio użyta”)', async () => {
     const { store, services } = await openWith();
-    expect(chip().props.accessibilityLabel).toBe('Dodasz do grupy: Osobiste');
+    expect(chip().props.accessibilityLabel).toBe('Do: Osobiste');
     expect(within(chip()).getByText('Do: Osobiste')).toBeTruthy();
     await pickGroup('Rodzina');
     expect(within(chip()).getByText('Do: Rodzina')).toBeTruthy();
@@ -364,7 +364,7 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     const { store } = await openIn('gf');
     await write('mleko');
     expect(within(shop()!).getByText('Na listę: Zakupy na weekend')).toBeTruthy();
-    expect(shop()!.props.accessibilityLabel).toBe('Dodaj „mleko” do listy zakupów „Zakupy na weekend”');
+    expect(shop()!.props.accessibilityLabel).toBe('Na listę: Zakupy na weekend, mleko');
     await press(shop()!);
     expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mleko', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
@@ -447,11 +447,11 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
 
   it('kilka list zakupów — ta, której ostatnio używano', async () => {
     const base = sampleBase();
-    put(base, 'lists', 'lz2', { ...base.lists!.lz!, id: 'lz2', name: 'Biedronka', version: 2 });
+    put(base, 'lists', 'lz2', { ...base.lists!.lz!, id: 'lz2', name: 'Bazar', version: 2 });
     put(base, 'tasks', 's-ser', { ...base.tasks!['s-chleb']!, id: 's-ser', list_id: 'lz2', title: 'ser', version: 5 });
     await openIn('gf', base);
     await write('masło');
-    expect(within(shop()!).getByText('Na listę: Biedronka')).toBeTruthy();
+    expect(within(shop()!).getByText('Na listę: Bazar')).toBeTruthy();
   });
 
   it('jedna grupa — sama podpowiedź, bez chipa grupy', async () => {
@@ -462,5 +462,19 @@ describe('podpowiedź „Na listę zakupów” (PW-3 wariant D)', () => {
     await write('masło');
     expect(screen.queryByTestId('quick-group')).toBeNull();
     expect(within(shop()!).getByText('Na listę: Moje zakupy')).toBeTruthy();
+  });
+});
+
+describe('audyt 3: parser w polu dodawania', () => {
+  it('N-28: „1/2 kostki masła” — pod polem pełna data z przyszłego roku; odklikane — bez ostrzeżenia; „jutro” wygrywa z liczbą', async () => {
+    await open();
+    await write('1/2 kostki masła');
+    expect(screen.getByText('„1/2” to termin: poniedziałek, 1 lutego 2027. Jeśli to nie data, dotknij „1/2” wyżej.')).toBeTruthy();
+    await press(screen.getByLabelText('1/2, rozpoznane'));
+    expect(screen.queryByText(/to termin:/)).toBeNull();
+    await write('raport 1.5 strony jutro');
+    expect(screen.getByLabelText('jutro, rozpoznane')).toBeTruthy();
+    expect(screen.queryByLabelText('1.5, rozpoznane')).toBeNull();
+    expect(screen.queryByText(/to termin:/)).toBeNull();
   });
 });

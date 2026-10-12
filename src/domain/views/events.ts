@@ -12,7 +12,7 @@ import { formatLongDate, formatMinutes, formatRange, parseIsoDate } from '../for
 import { chainParts } from '../event-chain';
 import { type SplitArgs, type SplitFollow, splitId } from '../event-split';
 import { uuidv5 } from '../ids';
-import { type DayPart, daySpan, lengthMinutes, storedDuration } from '../span';
+import { type DayPart, daySpan, exactMinutes, lengthMinutes, storedDuration } from '../span';
 import { alignStart, formatRule, occurrences, type Rule } from '../rrule';
 import type { NewOp } from '../sync-engine/client';
 import { childEventConcerns } from './child';
@@ -85,7 +85,10 @@ export type Occurrence = {
 
 const MOVE_WINDOW_DAYS = config.events.MOVE_WINDOW_DAYS;
 
-/** Czy przeniesienie jednego wystąpienia mieści się w oknie (dalej — zniknęłoby z widoków; audyt 8.10.2026). */
+/**
+ * Czy przeniesienie jednego wystąpienia wykracza poza limit formularza (audyt 8.10.2026). Widoki pokazują w nowym dniu
+ * także dalsze (audyt 3: zapisane starszym klientem albo przez API) — occurrenceDates.
+ */
 export function moveTooFar(occurrenceDate: string, newDate: string): boolean {
   return Math.abs(toDayNumber(parseIsoDate(newDate)) - toDayNumber(parseIsoDate(occurrenceDate))) > MOVE_WINDOW_DAYS;
 }
@@ -94,16 +97,18 @@ const alive = <T extends { deleted_at: string | null }>(x: T) => x.deleted_at ==
 
 /**
  * Daty wystąpień (rosnąco), które mogą stać w [from, to]: według reguły w tym zakresie i te przeniesione do niego wyjątkiem
- * z najwyżej MOVE_WINDOW_DAYS dni dalej (audyt 3, N-16). Dawniej rozwijane było całe okno ±MOVE_WINDOW_DAYS — przy
- * codziennej serii ok. 190 dat na każde wywołanie, choć poza zakresem zostają tylko przeniesione.
+ * z dowolnej daty pierwotnej (audyt 3, N-16). Dawniej rozwijane było całe okno ±MOVE_WINDOW_DAYS — przy codziennej serii
+ * ok. 190 dat na każde wywołanie. Przeniesienie nie ma granicy odległości: wynik nie może zależeć od szerokości zakresu
+ * (dzień, 14 dni planu przypomnień, miesiąc), a wyjątek wskazuje wystąpienie datą pierwotną i stoi w nowym dniu
+ * (RFC 5545, 3.8.4.4 RECURRENCE-ID, https://www.rfc-editor.org/rfc/rfc5545#section-3.8.4.4: „if the intent is to change
+ * a Friday meeting to Thursday, the DATE-TIME is still set to the original Friday meeting”). Limit formularza
+ * (moveTooFar) zostaje, ale wyjątek dalszy (starszy klient, inne urządzenie) nie znika z widoków.
  */
 function occurrenceDates(e: EventRow, rule: Rule | null, byDate: ReadonlyMap<string, Override>, from: CivilDate, to: CivilDate, isoFrom: string, isoTo: string): string[] {
   const start = parseIsoDate(e.start_date);
   const dates = new Set(occurrences(start, rule, from, to).map(formatIsoDate));
-  const lo = formatIsoDate(addDays(from, -MOVE_WINDOW_DAYS));
-  const hi = formatIsoDate(addDays(to, MOVE_WINDOW_DAYS));
   for (const [occ, o] of byDate) {
-    if (dates.has(occ) || o.start_date === null || o.start_date < isoFrom || o.start_date > isoTo || occ < lo || occ > hi) continue;
+    if (dates.has(occ) || o.start_date === null || o.start_date < isoFrom || o.start_date > isoTo) continue;
     // Wyjątek tylko dla daty, która jest wystąpieniem serii (jak przy rozwijaniu całego okna).
     const d = parseIsoDate(occ);
     if (occurrences(start, rule, d, d).length) dates.add(occ);
@@ -755,9 +760,12 @@ export function timeLabel(start: string | null, end: string | null): string | nu
   return end === null ? start.slice(0, 5) : `${start.slice(0, 5)}–${end.slice(0, 5)}`;
 }
 
-/** Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. */
-export function lengthLabel(start: string | null, end: string | null, duration: number | null = null): string | null {
-  const m = lengthMinutes(start, end, duration);
+/**
+ * Długość do wiersza (D120), tylko gdy jest początek i koniec; koniec następnego dnia (D199) liczy się z północą. Z dniem
+ * startu (`date`, ISO) — rzeczywisty czas przez zmianę czasu (audyt 3, N-114: dyżur 22:00–06:00 w noc 24/25.10 — „9 h”).
+ */
+export function lengthLabel(start: string | null, end: string | null, duration: number | null = null, date: string | null = null): string | null {
+  const m = date === null ? lengthMinutes(start, end, duration) : exactMinutes(date, start, end, duration);
   return m === null ? null : formatMinutes(m);
 }
 

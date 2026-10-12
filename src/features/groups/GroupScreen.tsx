@@ -17,6 +17,7 @@ import { groupSeries } from '../../domain/views/events';
 import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
+import { buttonA11y } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
@@ -81,20 +82,26 @@ export function GroupScreen({ route, navigation }: Props) {
   }
   const personal = d.group.kind === 'personal';
   // Decyzja właściciela z 8.10.2026 (PW-41 A): „Zaproś” pokazuje bieżący ważny kod tej roli (serwer tworzy nowy, gdy
-  // ważnego nie ma), „Nowy kod” tworzy kolejny i unieważnia poprzedni.
+  // ważnego nie ma albo gdy po jego wystawieniu ktoś został usunięty z grupy — audyt 3, N-38), „Nowy kod” tworzy kolejny
+  // i unieważnia poprzedni.
   const makeInvite = async (role: 'member' | 'admin', renew = false) => {
     setError(null);
     try {
       setInvite({ ...(await (renew ? account.renewJoinCode(d.group.id, role) : account.createJoinCode(d.group.id, role))), role });
     } catch (e) {
-      setError(groupErrorText(e));
+      setError(groupErrorText(e, { owner: d.group.me.role === 'owner' }));
     }
   };
   // Decyzja właściciela z 8.10.2026 (PW-34 A): w grupie z dziećmi domyślnie (pierwszy, główny przycisk) zaproszenie admina —
   // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
   const addChildNow = () => {
     if (child.trim() === '') return setChildError(strings['groups.error.childEmpty']);
-    store.dispatch(addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() }));
+    const memberId = newId();
+    const op = addChild({ memberId, groupId: d.group.id, name: child.trim() });
+    store.dispatch(op);
+    // Audyt 3 (N-163): jak każde dodanie — „Dodano + rodzaj: tytuł · gdzie” z „Cofnij” (docs/glossary.md); cofnięcie
+    // usuwa profil (bez konta, więc bez śladu usunięcia).
+    undo.show(strings['groups.childAdded'](child.trim(), d.group.name), { ops: [remove('group_members', memberId)] }, { changed: [op] });
     setChild('');
   };
   const adminFirst = d.canInviteAdmin && d.members.some((m) => m.role === 'child');
@@ -246,7 +253,7 @@ export function GroupScreen({ route, navigation }: Props) {
         </View>
       ) : null}
       {d.canSetColor ? (
-        <View accessibilityRole="radiogroup" accessibilityLabel={strings['groups.color']} style={{ gap: 8 }}>
+        <View style={{ gap: 8 }}>
           <SectionTitle>{strings['groups.color']}</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {groupLines.map((g, i) => {
@@ -254,8 +261,7 @@ export function GroupScreen({ route, navigation }: Props) {
               return (
                 <Pressable
                   key={g.key}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
+                  {...buttonA11y({ selected: on })}
                   accessibilityLabel={strings['groups.colorA11y'](g.key)}
                   onPress={() => store.dispatch(setGroupColor(d.group.id, g.key))}
                   style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: on ? 3 : 0, borderColor: c.ink }}

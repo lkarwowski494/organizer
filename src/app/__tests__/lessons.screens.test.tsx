@@ -21,7 +21,7 @@ describe('lekcje dziecka (D127)', () => {
     await screen.findByTestId('screen-today');
     // Audyt 2 (M-141): stan rozwinięcia i czynność w podpowiedzi VoiceOvera, znak ˅/˄ zamiast „›” i instrukcji w treści.
     const row = screen.getByLabelText('Tymek: 2 lekcje, 08:00–12:45, Rodzina');
-    expect(row.props.accessibilityState).toEqual({ expanded: false });
+    expect(row.props.accessibilityValue.text).toBeUndefined();
     expect(row.props.accessibilityHint).toBe('Pokazuje lekcje');
     expect(within(row).getByTestId('glyph-more', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText(/dotknij/)).toBeNull();
@@ -31,7 +31,7 @@ describe('lekcje dziecka (D127)', () => {
     expect(screen.getByText('Polski')).toBeTruthy();
     expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Pokazano 2 lekcje', { queue: true });
     const open = screen.getByLabelText('Tymek: 2 lekcje, 08:00–12:45, Rodzina');
-    expect(open.props.accessibilityState).toEqual({ expanded: true });
+    expect(open.props.accessibilityValue).toEqual({ text: 'rozwinięte' });
     expect(open.props.accessibilityHint).toBe('Chowa lekcje');
     await press(open);
     expect(screen.queryByText('Matematyka')).toBeNull();

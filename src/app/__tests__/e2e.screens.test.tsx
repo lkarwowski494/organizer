@@ -3,6 +3,8 @@
  * Sprawdza dane demo, teksty i testID, na których opierają się scenariusze — zanim pójdą na symulator w e2e.yml.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Alert } from 'react-native';
 
 import { memoryDb } from '../../data/__tests__/sqlite';
@@ -59,10 +61,25 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(screen.queryByTestId('screen-welcome')).toBeNull();
   });
 
+  it('audyt dostępności (D186): początki etykiet z e2e/a11y/AccessibilityAuditTests.swift są na „Moich sprawach”', async () => {
+    // Swift szuka wiersza po początku etykiety (label BEGINSWITH). Po M-263 etykieta zaczyna się od tytułu, bez „Otwórz: ”
+    // — stary początek w Swift oblewał wszystkie 14 ekranów audytu („brak danych demo”), choć dane demo były.
+    const swift = readFileSync(join(__dirname, '../../../e2e/a11y/AccessibilityAuditTests.swift'), 'utf8');
+    const prefixes = [...swift.matchAll(/label\(beginsWith: "([^"]+)"\)/g)].map((m) => m[1]!);
+    expect(prefixes).toEqual(['Oddać książki do biblioteki,', 'Odebrać paczkę,']);
+    await start().render();
+    await screen.findByTestId('screen-today');
+    for (const p of prefixes) {
+      const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      expect(await screen.findAllByLabelText(new RegExp(`^${escaped}`))).not.toHaveLength(0);
+    }
+  });
+
   it('02 szybkie dodanie „Kupić mleko jutro” — widać jutro', async () => {
     await start().render();
     await screen.findByText('Oddać książki do biblioteki');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Kupić mleko jutro');
+    expect(screen.getByTestId('quick-add').props.value).toBe('Kupić mleko jutro'); // .maestro/common/type.yaml sprawdza wartość pola
     await press(screen.getByLabelText('Dodaj'));
     await press(screen.getByLabelText('Następny dzień'));
     expect(within(await screen.findByTestId('today-day-2026-10-08')).getByLabelText(/^Kupić mleko,/)).toBeTruthy();
@@ -89,6 +106,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect(screen.getAllByLabelText('Rodzina')).toHaveLength(1);
     await press(screen.getByLabelText('Rodzina'));
     await fireEvent.changeText(screen.getByTestId('event-title'), 'Wywiadówka');
+    expect(screen.getByTestId('event-title').props.value).toBe('Wywiadówka'); // .maestro/common/type.yaml sprawdza wartość pola
     await press(screen.getByTestId('event-start-0'));
     await press(screen.getByTestId('event-start-0-h-18'));
     await press(screen.getByTestId('event-start-0-m-30'));
@@ -108,6 +126,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await screen.findByTestId('screen-event-edit');
     await press(screen.getByLabelText('Rodzina'));
     await fireEvent.changeText(screen.getByTestId('event-title'), 'Obóz');
+    expect(screen.getByTestId('event-title').props.value).toBe('Obóz'); // .maestro/common/type.yaml sprawdza wartość pola
     expect(screen.getAllByLabelText('Cały dzień')).toHaveLength(1);
     await press(screen.getByLabelText('Cały dzień'));
     await press(screen.getByTestId('event-end-date'));
@@ -128,6 +147,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     await press(await screen.findByTestId(`list-${E2E_IDS.shoppingList}`));
     await screen.findByTestId('screen-list');
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Ser żółty');
+    expect(screen.getByTestId('quick-add').props.value).toBe('Ser żółty'); // .maestro/common/type.yaml sprawdza wartość pola
     await press(screen.getByLabelText('Dodaj'));
     await press(await screen.findByLabelText('Włóż do koszyka: Ser żółty'));
     // Bez pytania, z paskiem „Cofnij” (zmiana D59) — .maestro/05 czeka, aż pasek zniknie, przed zrzutem.
@@ -161,6 +181,7 @@ describe('tryb E2E (D143) — scenariusze z .maestro', () => {
     expect((await screen.findByTestId('screen-settings-account')).props.automaticallyAdjustKeyboardInsets).toBe(true);
     await press(screen.getByTestId('delete-start'));
     await fireEvent.changeText(screen.getByTestId('delete-word'), 'USUŃ');
+    expect(screen.getByTestId('delete-word').props.value).toBe('USUŃ'); // .maestro/common/type.yaml sprawdza wartość pola
     expect(screen.getByTestId('delete-confirm').props.accessibilityState).toMatchObject({ disabled: false });
   });
 

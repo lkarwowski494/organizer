@@ -1,5 +1,5 @@
 import type { Row } from '../sync-engine/client';
-import { nestEntries } from '../views/nesting';
+import { descendants, nestEntries } from '../views/nesting';
 
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, k: string, r: Row) => ((t[e] ??= {})[k] = r);
@@ -65,5 +65,14 @@ describe('podzadania w planie dnia (D104)', () => {
     task(t, 'y', { parent_id: 'x' });
     expect(view(nestEntries([tk(t, 'x'), tk(t, 'y')], t)).map((v) => v[0])).toEqual(['x', 'y']);
     expect(nestEntries([], {})).toEqual([]);
+  });
+});
+
+describe('potomkowie (audyt 3, N-27: indeks po rodzicu)', () => {
+  it('bez tabeli zadań — nic; kolejność rodzeństwa po sort_key, potem id', () => {
+    expect(descendants({}, 'x', () => true)).toEqual([]);
+    const row = (id: string, parent: string, sort_key: string) => ({ id, group_id: 'g', list_id: 'l', parent_id: parent, sort_key, deleted_at: null });
+    const t = { tasks: { b: row('b', 'r', 'a1'), a: row('a', 'r', 'a1'), c: row('c', 'r', 'a0'), d: row('d', 'a', 'a0') } };
+    expect(descendants(t, 'r', () => true).map((x) => x.id)).toEqual(['c', 'a', 'd', 'b']);
   });
 });

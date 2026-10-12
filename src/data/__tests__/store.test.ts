@@ -169,28 +169,34 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
         const server = new FakeServer();
         server.addGroup('g1', ['ala']);
         const db = memoryDb();
-        migrate(db);
-        let n = 0;
-        let s = readState(db, 'c1');
-        const commit = (next: ClientState) => {
-          writeState(db, s, next, 1000);
-          s = next;
-          expect(normalize(readState(db, 'c1'))).toEqual(normalize(s));
-        };
-        for (const st of steps) {
-          if (st.t === 'mutate') commit(mutate(s, st.op, () => `op-${++n}`));
-          else if (st.t === 'push') {
-            const res = server.push('ala', pushRequest(s));
-            if (!st.lose) commit(onPushResponse(s, res));
-          } else if (st.t === 'pull') {
-            const req = pullRequest(s);
-            const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
-            commit(out.state);
-            for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc), sc));
-          } else {
-            // Ponowne uruchomienie aplikacji: stan wyłącznie z bazy.
-            s = readState(db, 'c1');
+        // Każdy przebieg zamyka swoją bazę: better-sqlite3 nie zwalnia otwartej bazy (pamięć poza stertą JS) — bez tego
+        // pamięć procesu rosła z każdym przebiegiem (pomiar 9.10.2026 w sync-sim.test.ts: ~2 MB na bazę).
+        try {
+          migrate(db);
+          let n = 0;
+          let s = readState(db, 'c1');
+          const commit = (next: ClientState) => {
+            writeState(db, s, next, 1000);
+            s = next;
+            expect(normalize(readState(db, 'c1'))).toEqual(normalize(s));
+          };
+          for (const st of steps) {
+            if (st.t === 'mutate') commit(mutate(s, st.op, () => `op-${++n}`));
+            else if (st.t === 'push') {
+              const res = server.push('ala', pushRequest(s));
+              if (!st.lose) commit(onPushResponse(s, res));
+            } else if (st.t === 'pull') {
+              const req = pullRequest(s);
+              const out = onPullResponse(s, server.pull('ala', req, st.lim), req);
+              commit(out.state);
+              for (const sc of out.fetchScopes) commit(onFetchScope(s, server.fetchScope('ala', sc), sc));
+            } else {
+              // Ponowne uruchomienie aplikacji: stan wyłącznie z bazy.
+              s = readState(db, 'c1');
+            }
           }
+        } finally {
+          db.raw.close();
         }
       }),
       { numRuns: 300 },
@@ -269,6 +275,35 @@ describe('lokalna baza: zapis stanu synchronizacji', () => {
     expect(db.all('select key, scope_id from lists union all select key, scope_id from activity union all select key, scope_id from object_members union all select key, scope_id from group_members')).toEqual([
       { key: 'l9', scope_id: 'l9' }, { key: 'a1', scope_id: 'l9' }, { key: 'l9:m1', scope_id: 'l9' }, { key: 'm1', scope_id: null },
     ]);
+  });
+
+  it('N-11: zapis ze starszego stanu (drugi pisarz) nie cofa liczników operacji', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = readState(db, 'c1');
+    const s1 = onPushResponse(mutate(s0, { kind: 'patch', entity: 'tasks', id: 'x', set: {} }, () => 'op-1'), { last_seq: 1, results: [{ seq: 1, status: 'ok' }] });
+    writeState(db, s0, s1, 1);
+    // Stan sprzed zmiany zapisany później: next_seq i acked_seq zostają, reszta jak w zapisie.
+    writeState(db, s0, { ...s0, cursors: { g1: 5 } }, 2);
+    const back = readState(db, 'c1');
+    expect([back.nextSeq, back.ackedSeq, back.cursors]).toEqual([2, 1, { g1: 5 }]);
+  });
+
+  it('N-1: wiersz z datą spoza zakresu zapisany przez starszą wersję aplikacji nie wchodzi do stanu po starcie', () => {
+    const db = memoryDb();
+    migrate(db);
+    db.run('insert into events (key, group_id, scope_id, version, data) values (?, ?, ?, ?, ?)', ['e1', 'g1', null, 1, JSON.stringify({ id: 'e1', group_id: 'g1', start_date: 'infinity', version: 1 })]);
+    db.run('insert into events (key, group_id, scope_id, version, data) values (?, ?, ?, ?, ?)', ['e2', 'g1', null, 1, JSON.stringify({ id: 'e2', group_id: 'g1', start_date: '2026-10-07', version: 1 })]);
+    expect(Object.keys(readState(db, 'c1').base.events ?? {})).toEqual(['e2']);
+  });
+
+  it('N-88: zrobione zakupy mają zakres listy (kolumna scope_id)', () => {
+    const db = memoryDb();
+    migrate(db);
+    const s0 = readState(db, 'c1');
+    const s1 = onPullResponse(s0, { groups: [{ group_id: 'g1', cursor: 1, has_more: false, resync: false, rows: [{ e: 'shopping_trips', v: 1, row: { id: 'z1', group_id: 'g1', list_id: 'l1', version: 1 } }] }], scopes: [] }, pullRequest(s0)).state;
+    writeState(db, s0, s1, 1);
+    expect(db.all('select key, scope_id from shopping_trips')).toEqual([{ key: 'z1', scope_id: 'l1' }]);
   });
 
   it('odrzucenia z czasem i bez powtórzeń', () => {

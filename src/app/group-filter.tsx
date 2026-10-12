@@ -5,7 +5,7 @@
  * na tym telefonie w lokalnej bazie konta (klucz local:*, jak „Grupa domyślna”, D175). Grupa, której już nie mam, wypada
  * z filtra sama (liczą się tylko wybrane spośród moich grup).
  */
-import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { strings } from '../i18n/strings.pl';
@@ -46,10 +46,18 @@ export function GroupFilterProvider({ children }: { children: ReactNode }) {
 
 type FilterGroup = { id: string; name: string; line: number };
 
-/** Wybrane grupy spośród `groups` (pusty zbiór — bez filtra). */
+/**
+ * Wybrane grupy spośród `groups` (pusty zbiór — bez filtra). Przy jednej grupie filtra nie ma (pasek się nie pokazuje),
+ * więc nie działa i zapis znika — audyt 3, N-179: po wyjściu z grup wspólnych filtr „Osobiste” chował dalej wydarzenia
+ * z iPhone'a bez paska „Filtr włączony” i bez „Pokaż wszystkie”. Zero grup (konto jeszcze bez danych) zapisu nie czyści.
+ */
 export function useGroupFilter(groups: readonly FilterGroup[]) {
   const { selected, set } = useContext(Ctx);
-  const active = useMemo(() => new Set(groups.filter((g) => selected.includes(g.id)).map((g) => g.id)), [groups, selected]);
+  const single = groups.length === 1;
+  const active = useMemo(() => new Set(groups.length < 2 ? [] : groups.filter((g) => selected.includes(g.id)).map((g) => g.id)), [groups, selected]);
+  useEffect(() => {
+    if (single && selected.length) set([]);
+  }, [single, selected.length, set]);
   return {
     active,
     toggle: (id: string) => set(active.has(id) ? [...active].filter((x) => x !== id) : [...active, id]),

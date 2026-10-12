@@ -13,7 +13,11 @@
 -- Nowe: private.list_scoped_entities(), private.sync_pull_per_minute(), private.sync_rate_check(text).
 -- Zastępuje: private.lists_widen_bump() (20261008300000_owner_decisions), public.sync_fetch_scope(uuid)
 -- (20261008130000_event_task_series; teraz plpgsql i VOLATILE — liczy wywołania), public.sync_pull(jsonb, int, int, jsonb)
--- (20261008484000_sync_perf). private.tasks_moved_out i private.group_rows_since bez zmian.
+-- (20261011010000_scopes_deleted_lists; „scopes” z ukrytymi listami z kosza bez zmian). private.tasks_moved_out
+-- i private.group_rows_since bez zmian.
+-- Numer migracji: gałąź PK-02 miała 20261010020000, ale main wdrożył już późniejsze migracje (w tym
+-- 20261011010000_scopes_deleted_lists, która też zastępuje sync_pull) — migracja musi iść po nich, inaczej od zera
+-- późniejsza definicja nadpisałaby budżet, a `db push` odrzuca migracje starsze niż ostatnia wgrana.
 
 -- ───────────────────────── N-88: tabele zależne od listy ─────────────────────────
 -- Tabele, których wiersz należy do listy przez kolumnę list_id (widoczność: private.can_see_list(list_id)). Wpisy dostępu
@@ -84,7 +88,8 @@ begin
 end $$;
 
 -- ───────────────────────── sync_pull ─────────────────────────
--- Jak w 20261008484000_sync_perf (kursor z epoką, resync, „cała grupa” dla protokołu 1, filtr encji, lists, gone, scopes),
+-- Jak w 20261011010000_scopes_deleted_lists (kursor z epoką, resync, „cała grupa” dla protokołu 1, filtr encji, lists,
+-- gone, scopes także z kosza),
 -- z trzema zmianami:
 --  N-102: grupa bez zmian (wersja grupy ≤ kursor, bez resync) — od razu wpis z kursorem, bez wierszy i bez „lists”.
 --         Wersja grupy to licznik wszystkich jej wierszy (private.bump_group_version), więc nic nowego tam nie ma; telefon
@@ -189,14 +194,14 @@ begin
     end if;
     out_groups := array_append(out_groups, one);
   end loop;
-  -- Pełna lista grup i ukrytych list, które widzę: klient usuwa lokalnie wszystko spoza niej
+  -- Pełna lista grup i ukrytych list, które widzę (także z kosza): klient usuwa lokalnie wszystko spoza niej
   -- (utrata dostępu), a nowe zakresy pobiera przez sync_fetch_scope (wiersze mogą mieć stare wersje).
   return jsonb_build_object(
     'groups', to_jsonb(out_groups),
-    -- M-73: tylko listy moich grup.
+    -- M-73: tylko listy moich grup; RLS (security invoker) zostawia listy, które widzę.
     'scopes', coalesce((select jsonb_agg(li.id order by li.id) from public.lists li
                         where li.group_id in (select private.my_group_ids())
-                          and li.visibility <> 'group' and li.deleted_at is null), '[]'::jsonb));
+                          and li.visibility <> 'group'), '[]'::jsonb));
 end $$;
 
 revoke all on function private.list_scoped_entities(), private.sync_pull_per_minute(), private.sync_rate_check(text) from public, anon;

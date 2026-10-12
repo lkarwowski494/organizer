@@ -122,7 +122,7 @@ select is((select count(*)::int from public.tasks where group_id = 'a0d10000-000
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000f1');
 set local role authenticated;
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"create","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c1","group_id":"a0d10000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Prezent dla U2","visibility":"private","responsible_member_id":"a0d10000-0000-7000-8000-0000000000a2"}}'), 'invalid_member', '20: lista prywatna z osobą, która jej nie widzi — odrzucona');
-select pg_temp.m('c1000000-0000-7000-8000-000000000001', '{"kind":"create","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c2","group_id":"a0d10000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Biedronka"}}');
+select pg_temp.m('c1000000-0000-7000-8000-000000000001', '{"kind":"create","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c2","group_id":"a0d10000-0000-7000-8000-000000000001","set":{"kind":"shopping","name":"Bazar"}}');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"patch","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c2","set":{"visibility":"private","responsible_member_id":"a0d10000-0000-7000-8000-0000000000a2"}}'), 'invalid_member', '21: prywatna + osoba w jednym patchu — odrzucone (nowy stan)');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"patch","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c2","set":{"responsible_member_id":"a0d10000-0000-7000-8000-0000000000a2"}}'), 'ok', '22: regresja: lista grupy, osoba U2');
 select is(pg_temp.p('c1000000-0000-7000-8000-000000000001', '{"kind":"patch","entity":"lists","id":"a0d10000-0000-7000-8000-0000000003c2","set":{"visibility":"private"}}'), 'invalid_member', '23: ukrycie listy przed osobą odpowiedzialną — odrzucone');
@@ -142,7 +142,7 @@ select pg_temp.as_user('');
 select is(public.assignment_push_claim((select id from public.activity where entity_id = 'a0d10000-0000-7000-8000-0000000033d1' and verb = 'create'), '00000000-0000-7000-8000-0000000000f1', 24), null, '25: przypisanie: lista już ukryta przed U2 — bez powiadomienia');
 select is(public.handoff_push_claim('a0d10000-0000-7000-8000-0000000033f1', '00000000-0000-7000-8000-0000000000f1', 24), null, '26: przekazanie: lista już ukryta przed U2 — bez powiadomienia');
 select is(public.assignment_push_claim((select id from public.activity where entity = 'lists' and entity_id = 'a0d10000-0000-7000-8000-0000000003c2' and changes ? 'responsible_member_id'), '00000000-0000-7000-8000-0000000000f1', 24) ->> 'body',
-  'Zakupy: Biedronka', '27: regresja: powiadomienie o zakupach na widocznej liście');
+  'Zakupy: Bazar', '27: regresja: powiadomienie o zakupach na widocznej liście');
 
 -- ───────── #5: konto wraca do grupy tylko przez zaproszenie ─────────
 select pg_temp.as_user('00000000-0000-7000-8000-0000000000f1');

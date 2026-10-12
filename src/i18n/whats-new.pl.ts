@@ -8,6 +8,21 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 23: poprawki audytu 3 (9.10.2026) — jedna karta, najwyżej 8 punktów. „Nawiguj” tylko w Mapach Apple — ADR 0043;
+    // prywatność — ADR 0044. Licencje: ścieżka sprawdzana w texts.test.ts.
+    fromBuild: 23,
+    items: [
+      'Zmiany nie giną: poprawka samej godziny, zakupów albo przeniesienie zaległych nie cofa tego, co ktoś zmienił na innym telefonie. Niezapisany formularz wraca bez grupy albo osoby, których już nie ma, z wyjaśnieniem.',
+      '„Cofnij” cofa naprawdę: po usunięciu osoby z grupy wraca też to, co miała (przekazania, dostęp do list, zaproszenia). Bez internetu widać „Cofanie…”, a gdy się nie uda — „Spróbuj ponownie” zamiast fałszywego „Cofnięto”.',
+      'Daty: „raport 1.5 strony jutro” to zadanie na jutro, a data bez roku, która wypada w przyszłym roku, ma pod polem pełną datę. Długość wydarzenia w noc zmiany czasu jest prawdziwa (22:00–06:00 to wtedy 9 h).',
+      'Zadania powtarzane: Kalendarz pokazuje tylko terminy, które naprawdę powstaną, „Tylko ten raz” nie robi dubla, przypomnienia obejmują następne terminy, a dziecku z kontem po odhaczeniu od razu pojawia się następny termin. Wydarzenie przeniesione daleko stoi w nowym dniu we wszystkich widokach.',
+      'VoiceOver mówi po polsku, bez angielskich słów, ogłasza nowy dzień po strzałkach i po zamknięciu panelu wraca na przycisk, który go otworzył. Napisy na pasku zakładek się nie zmniejszają, a wybrana zakładka jest wyraźna.',
+      'Zaproszenia: po usunięciu kogoś z grupy „Zaproś” daje nowy kod, a kod grupy działa dalej, gdy ktoś odejdzie. Ze starym kodem swojej grupy zobaczysz „Już jesteś w tej grupie” i „Otwórz grupę”.',
+      '„Usuń konto” (Ustawienia → Konto i dane) mówi, co zostanie w grupach wspólnych, i pozwala wybrać „Usuń też moje wpisy w grupach”. Tam też wyłączysz raporty błędów (bez treści Twoich spraw) i otworzysz politykę prywatności. Licencje bibliotek i krojów pisma: Ustawienia → Licencje.',
+      '„Nawiguj” przy wydarzeniu otwiera zawsze Mapy Apple, więc wybór aplikacji map zniknął z Ustawień.',
+    ],
+  },
+  {
     // Build 22: zmiany od buildu 21 (D124–D135, D199) i poprawki audytu 2 z 8.10.2026 — jedna karta, najwyżej 8 punktów.
     fromBuild: 22,
     items: [
@@ -51,7 +66,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
     fromBuild: 16,
     items: [
-      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z Google i Outlooka dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
+      'Kalendarz iPhone’a w obie strony: Twoje wydarzenia (także z innych kont dodanych w iPhonie) widać w Kalendarzu i w Moich sprawach.',
       'Wydarzenia grup same trafiają do osobnych kalendarzy „Organizer – nazwa grupy” w iPhonie i aktualizują się po każdej zmianie.',
       'Twoje prywatne wydarzenia zostają na telefonie — nikt z grupy ich nie widzi. Włączysz i wyłączysz to w Ustawienia → Kalendarz i dojazd.',
       'Formularz „Więcej”: na górze wybierasz zadanie albo wydarzenie, nie trzeba wybierać listy. Zakres godzin w szybkim dodaniu („basen jutro 17–18”) tworzy wydarzenie.',

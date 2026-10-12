@@ -10,18 +10,19 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
 export function NewGroupScreen({ navigation, route }: Props) {
-  const { account, newId, displayName, store, prefs } = useServices();
+  const { account, newId, displayName, needsName, store, prefs } = useServices();
   const defaultGroup = useDefaultGroup();
   const [name, setName] = useState(route.params?.name ?? '');
-  const [me, setMe] = useState(displayName);
+  // Audyt 3 (N-164): konto bez imienia — pole puste z przykładem zamiast imienia zastępczego („Ja”, początek adresu).
+  const [me, setMe] = useState(needsName ? '' : displayName);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   const myField = useRef<TextInput>(null);
   // Audyt 2 (R-27): te same identyfikatory przy ponowieniu — gdy odpowiedź serwera zginęła, druga próba nie tworzy
   // drugiej grupy, a serwer potwierdza istniejącą (create_group_with_owner, migracja 20261008360000).
@@ -62,8 +63,8 @@ export function NewGroupScreen({ navigation, route }: Props) {
       <DraftNote draft={draft} />
       {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
       <Field label={strings['groups.name']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoFocus maxLength={config.lengths.GROUP_NAME} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => myField.current?.focus()} testID="group-name" />
-      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
-      {error ? <ErrorText>{error}</ErrorText> : null}
+      <Field ref={myField} label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setError(null))} placeholder={strings['groups.myName.placeholder']} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="done" onSubmitEditing={() => void create()} testID="group-my-name" />
+      {error ? <ErrorText attempt={attempt}>{error}</ErrorText> : null}
       <Button label={strings['groups.create']} onPress={create} busy={busy} testID="create-group" />
     </Screen>
   );

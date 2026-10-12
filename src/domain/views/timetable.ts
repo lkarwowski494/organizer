@@ -98,6 +98,13 @@ export function memberTimetable(t: Tables, groupId: string, memberId: string, to
   return { lessons, until, series, thisWeek: even(weeksBetween(anchor, today)) ? 'A' : 'B', weekA };
 }
 
+/**
+ * Znacznik obecnego planu (audyt 3, N-31): serie z ich regułami, polami i uczestnikami oraz kotwica tygodnia A. Różny
+ * od znacznika z chwili otwarcia ekranu (albo zapisanego ze szkicem) = ktoś zmienił plan w międzyczasie — zapis mojego
+ * planu zakończyłby jego lekcje, więc ekran pyta.
+ */
+export const planStamp = (p: CurrentPlan): string => JSON.stringify([p.weekA, p.series.map((x) => [x.id, x.start_date, x.rrule, x.spec, x.others])]);
+
 /** Cofnięcie jednej zmiany, liczone na tabelach z chwili cofnięcia (kopie stałych zadań dołożone w międzyczasie). */
 type Step = { ops: NewOp[]; undo: (t: Tables) => NewOp[]; effects?: SeriesEffects };
 /** Wybór z podglądu dla zadań z terminów, których nowa seria nie ma (jak przy „to i następne”). */
@@ -289,7 +296,7 @@ function changeSeries(t: Tables, userId: string, x: PlanSeries, f: EventFields, 
   const effects = seriesEditEffects(t, d, isoTomorrow, 'following', cmd);
   const ops = seriesEditOps(cmd, effects, choice);
   const tasks = taskUndo(t, (ops[0] as unknown as { args: SplitArgs }).args.tasks, id);
-  const [first] = occurrences(oldStart, oldRule, tomorrow, addDays(tomorrow, LOOKAHEAD));
+  const [first] = occurrences(oldStart, oldRule, tomorrow, addDays(tomorrow, LOOKAHEAD), 1);
   return {
     ops,
     effects,
@@ -324,7 +331,7 @@ function leaveSeries(t: Tables, x: PlanSeries, memberId: string, tomorrow: Civil
   const mine = rows(t, 'event_participants', asParticipant).find((p) => p.deleted_at === null && p.event_id === x.id && p.member_id === memberId)!;
   const start = parseIsoDate(e.start_date);
   const rule = ruleOf(e)!;
-  const [first] = occurrences(start, rule, tomorrow, addDays(tomorrow, LOOKAHEAD));
+  const [first] = occurrences(start, rule, tomorrow, addDays(tomorrow, LOOKAHEAD), 1);
   if (!first || e.start_date >= formatIsoDate(tomorrow)) {
     return { ops: [{ kind: 'delete', entity: 'event_participants', id: mine.id }], undo: () => [{ kind: 'restore', entity: 'event_participants', id: mine.id }] };
   }

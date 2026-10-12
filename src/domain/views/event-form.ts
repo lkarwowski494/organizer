@@ -37,7 +37,7 @@ export type EventForm = {
   /** Miejsce (D115): adres albo nazwa; pusto = brak. */
   location: string;
 };
-export type FormError = 'title' | 'date' | 'time' | 'endBeforeStart' | 'endDate' | 'endTime' | 'tooLong' | 'overlap' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
+export type FormError = 'title' | 'titleLong' | 'date' | 'time' | 'endBeforeStart' | 'endDate' | 'endTime' | 'tooLong' | 'overlap' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -140,6 +140,8 @@ function shortestGap(start: string, rule: Rule): number | null {
 export function validateForm(s: EventForm, opts: { overnight?: boolean } = {}): { error: FormError } | { fields: EventFields[] } {
   const title = s.title.trim();
   if (title === '') return { error: 'title' };
+  // Audyt 3 (N-134): CHECK char_length(title) między 1 a config.lengths.EVENT_TITLE (znaki, nie jednostki UTF-16).
+  if ([...title].length > config.lengths.EVENT_TITLE) return { error: 'titleLong' };
   const date = s.date.trim();
   if (!validDate(date)) return { error: 'date' };
   const slots = s.repeat === 'weekly' ? s.slots : s.slots.slice(0, 1);

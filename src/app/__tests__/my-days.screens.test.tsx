@@ -13,7 +13,7 @@ import { scopeRowId } from '../../domain/views/my-scope';
 import { MY_SCOPE_KEY } from '../my-scope';
 import { GROUP_FILTER_KEY } from '../group-filter';
 import { RootStack } from '../navigation';
-import { expectOps, answerAlert, NOW, put, sampleBase, setup } from './harness';
+import { expectOps, answerAlert, NOW, put, sampleBase, setup, TOGGLE_BOX } from './harness';
 
 const press = (el: Parameters<typeof fireEvent.press>[0]) => fireEvent.press(el);
 
@@ -69,8 +69,13 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     const scope = await screen.findByLabelText('W Moich sprawach');
     expect(within(scope).getByLabelText('Wszystko').props.accessibilityState.selected).toBe(true);
     await press(within(scope).getByLabelText('Przypisane do mnie i wydarzenia'));
-    // Zapis na koncie: wiersz zakresu przy moim członkostwie (widzi go tylko to konto).
-    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } });
+    // Zapis na koncie: wiersz zakresu przy moim członkostwie (widzi go tylko to konto). Audyt 3 (N-91): telefon bez wiersza
+    // wysyła też przywrócenie i zmianę pola — gdy konto ma już wiersz (drugi telefon), wybór nie przepada.
+    expect(s.store.dispatched.slice(-3)).toEqual([
+      { kind: 'create', entity: 'my_day_scopes', id: scopeRowId('mk'), group_id: 'gk', set: { member_id: 'mk', scope: 'mineAndEvents' } },
+      { kind: 'restore', entity: 'my_day_scopes', id: scopeRowId('mk') },
+      { kind: 'patch', entity: 'my_day_scopes', id: scopeRowId('mk'), set: { scope: 'mineAndEvents' } },
+    ]);
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Today'));
     expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
@@ -151,7 +156,7 @@ describe('Moje sprawy: „Zrobione dziś”, „Bez terminu”, kolejność kart
     expect(within(done).getByLabelText('Zrobione dziś (1), pokaż')).toBeTruthy();
     expect(within(done).queryByText('Odebrać paczkę')).toBeNull();
     await press(within(done).getByLabelText('Zrobione dziś (1), pokaż'));
-    expect(within(done).getByLabelText('Zrobione dziś (1), schowaj').props.accessibilityState.expanded).toBe(true);
+    expect(within(done).getByLabelText('Zrobione dziś (1), schowaj').props.accessibilityValue).toEqual({ text: 'rozwinięte' });
     await press(within(done).getByLabelText('Oznacz jako niezrobione: Odebrać paczkę'));
     expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'patch', entity: 'tasks', id: 't-paczka', set: { completed_at: null } }]);
     expect(screen.queryByTestId('today-done')).toBeNull();
@@ -238,7 +243,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     await calendar(base);
     await press(screen.getByTestId('day-2026-10-14'));
     const next = screen.getByTestId('cal-next-smieci-2026-10-14');
-    expect(within(next).queryByRole('checkbox')).toBeNull();
+    expect(within(next).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     expect(within(next).getByText(/kolejny termin/)).toBeTruthy();
     expect(within(next).getByRole('button').props.accessibilityHint).toBe('Otwiera zadanie, z którego wynika ten termin');
     await press(within(next).getByRole('button'));
@@ -251,7 +256,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     await calendar(base);
     await press(screen.getByTestId('day-2026-10-06'));
     const row = screen.getByTestId('cal-trip-done-tr1');
-    expect(within(row).queryByRole('checkbox')).toBeNull();
+    expect(within(row).queryByRole('button', { name: TOGGLE_BOX })).toBeNull();
     expect(within(row).getByText('Zakupy na weekend').props.style.textDecorationLine).toBe('line-through');
     expect(within(row).getByText(/zrobione dziś/)).toBeTruthy();
   });

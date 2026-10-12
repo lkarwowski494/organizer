@@ -1,4 +1,4 @@
--- Pobieranie (audyt 3, PK-02; migracja 20261010020000_pull_budget): zakupy zależne od listy (N-88), grupy bez zmian
+-- Pobieranie (audyt 3, PK-02; migracja 20261012010000_pull_budget): zakupy zależne od listy (N-88), grupy bez zmian
 -- bez przeglądania (N-102), budżet wierszy na odpowiedź przy 50 grupach (N-101), limit częstości (N-96).
 begin;
 select plan(30);

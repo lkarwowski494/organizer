@@ -142,6 +142,11 @@ for n, now in enumerate(NOWS):
     cases.append(case(now, f"{t} jutro o 17 zamiast we wtorek", f"{t} zamiast we wtorek", today + timedelta(days=1), (17, 0)))
     cases.append(case(now, f"{t} w piątek o 18, nie w przyszły czwartek", f"{t}, nie w przyszły czwartek",
                       weekday_date(today, 4), (18, 0)))
+    # Audyt 3, N-28: słowo dnia wygrywa z liczbą bez roku, liczba zostaje w tytule.
+    cases.append(case(now, f"{t} 1.5 jutro", f"{t} 1.5", today + timedelta(days=1)))
+    cases.append(case(now, f"{t} 1/2 w piątek", f"{t} 1/2", weekday_date(today, 4)))
+    cases.append(case(now, f"{t} 2.5 pojutrze o 17", f"{t} 2.5", today + timedelta(days=2), (17, 0)))
+    cases.append(case(now, f"dzisiaj {t} 3/4", f"{t} 3/4", today))
     # Bez rozpoznawalnych fragmentów: tytuł bez zmian, brak terminu.
     for txt in [t, f"{t} do piątku", f"{t} 2 litry", f"{t} 31.04", f"{t} jutrzejsze", f"{t} 24.00", f"{t} 18.60"]:
         cases.append(case(now, txt, txt, None))

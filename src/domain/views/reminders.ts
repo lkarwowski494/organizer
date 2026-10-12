@@ -22,6 +22,7 @@ import type { ScopeOf } from './my-scope';
 import { nestEntries, nestIndex } from './nesting';
 import type { Tables } from './model';
 import { silencedForMe } from './rsvp';
+import { withUpcomingCopies } from './task-repeat';
 import { type Person, personOf } from './who';
 
 /** `leave` — „Czas wyjść” (PWD-17, decyzja właściciela 8.10.2026: osobno od `leadMin`); brak = włączone, jak dotąd. */
@@ -47,6 +48,8 @@ export function planReminders(
   },
 ): Reminder[] {
   const out: Reminder[] = [];
+  // Audyt 3 (N-27): z następnymi zadań powtarzanych, które telefon dołoży dopiero przy otwarciu Moich spraw.
+  t = withUpcomingCopies(t, today, opts.days, opts.localDate);
   // PW-23 (decyzja właściciela 8.10.2026): termin, na który odpowiedziałem „nie będę” — bez przypomnienia, „Czas
   // wyjść” i miejsca w porannym podsumowaniu (wiersz w „Moich sprawach” zostaje, D129). Jego zadania przypominają same.
   // D160: tak samo termin, który dotyczy mnie tylko przez dzieci, a żadne z nich nie będzie (silencedForMe).

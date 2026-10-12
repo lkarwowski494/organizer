@@ -6,7 +6,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-7000-8000-0000000000a1', 'o@x.test'),
   ('00000000-0000-7000-8000-0000000000a2', 'b@x.test'),
   ('00000000-0000-7000-8000-0000000000a3', 'c@x.test'),
-  ('00000000-0000-7000-8000-0000000000a4', 'd@x.test');
+  ('00000000-0000-7000-8000-0000000000a4', 'd@x.test'),
+  ('00000000-0000-7000-8000-0000000000a5', 'e@x.test');
 create function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, true) $$;
 grant execute on function pg_temp.as_user(text) to authenticated;
 
@@ -58,9 +59,9 @@ select is(public.join_group((select r ->> 'join_id' from jc), (select r ->> 'cod
 reset role;
 update private.join_attempts set at = now() - interval '2 hours';
 
--- Wygasły kod.
+-- Wygasły kod (osoba spoza grupy; członek z tym kodem dostaje „już w grupie”, audyt 3 N-158).
 update public.invites set expires_at = now() - interval '1 minute' where token_hash = private.token_hash((select (r ->> 'join_id') || ':' || (r ->> 'code') from jc));
-select pg_temp.as_user('00000000-0000-7000-8000-0000000000a4');
+select pg_temp.as_user('00000000-0000-7000-8000-0000000000a5');
 set local role authenticated;
 select is(public.join_group((select r ->> 'join_id' from jc), (select r ->> 'code' from jc), 'D') ->> 'error', 'invite_expired', '15: kod po 24 h nie działa');
 reset role;

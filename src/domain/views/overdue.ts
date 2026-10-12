@@ -13,7 +13,7 @@ import { setDue } from './commands';
 import type { GroupItem } from './index';
 import type { Tables } from './model';
 import type { MyTask } from './my-days';
-import { planTrip } from './shopping-trip';
+import { changeTrip } from './shopping-trip';
 
 /** `groups` — moje grupy (groupsView): rodzaj grupy i mój wiersz członka. */
 export function movableOverdue(tasks: readonly MyTask[], groups: readonly GroupItem[]): MyTask[] {
@@ -29,11 +29,16 @@ export function moveOverdueOps(tasks: readonly MyTask[], isoToday: string, t: Ta
   const own = movable.filter((x) => !x.trip);
   const trips = movable.filter((x) => x.trip);
   const monthly = own.filter((x) => t.tasks?.[x.id]?.repeat === 'FREQ=MONTHLY');
-  // Zakupy: ta sama operacja co planowanie zakupów (osoba bez zmian).
-  const trip = (x: MyTask, date: string) => planTrip(x.trip!.listId, { date, time: x.due!.time, responsibleId: x.assignee_member_id });
+  // Audyt 3 (N-126): tylko dzień — godzina i osoba zmienione w tym czasie na drugim telefonie zostają. Zakupy: ta sama
+  // operacja co „Zapisz zakupy”.
+  const task = (x: MyTask, from: string, to: string) => setDue(x.id, { date: to, time: x.due!.time }, { date: from, time: x.due!.time });
+  const trip = (x: MyTask, from: string, to: string) => {
+    const was = { date: from, time: x.due!.time, responsibleId: x.assignee_member_id };
+    return changeTrip(x.trip!.listId, was, { ...was, date: to });
+  };
   return {
-    ops: [...own.map((x) => setDue(x.id, { date: isoToday, time: x.due!.time })), ...monthly.map((x) => setRepeat(x.id, { kind: 'monthly' }, x.due!.date)), ...trips.map((x) => trip(x, isoToday))],
-    undo: [...own.map((x) => setDue(x.id, { date: x.due!.date, time: x.due!.time })), ...monthly.map((x) => ({ kind: 'patch', entity: 'tasks', id: x.id, set: { repeat: 'FREQ=MONTHLY' } }) as NewOp), ...trips.map((x) => trip(x, x.due!.date))],
+    ops: [...own.map((x) => task(x, x.due!.date, isoToday)), ...monthly.map((x) => setRepeat(x.id, { kind: 'monthly' }, x.due!.date)), ...trips.flatMap((x) => trip(x, x.due!.date, isoToday))],
+    undo: [...own.map((x) => task(x, isoToday, x.due!.date)), ...monthly.map((x) => ({ kind: 'patch', entity: 'tasks', id: x.id, set: { repeat: 'FREQ=MONTHLY' } }) as NewOp), ...trips.flatMap((x) => trip(x, isoToday, x.due!.date))],
     count: movable.length,
   };
 }

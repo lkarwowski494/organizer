@@ -26,8 +26,10 @@ import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurren
 import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
+import { InTrashScreen } from '../groups/TrashSection';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, MissingScreen, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
+import { spoken, useClosedPanel } from '../../ui/a11y';
+import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';
 import { useRowMeta } from '../../app/row-meta';
 import { TravelBox } from './TravelBox';
 import { useTheme } from '../../ui/theme';
@@ -56,16 +58,18 @@ export function EventScreen({ route, navigation }: Props) {
   const [listId, setListId] = useState<string | null>(null);
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
+  // Audyt 3 (N-62): po zamknięciu pytania albo panelu fokus VoiceOvera wraca na przycisk, który je otworzył.
+  const handBack = useClosedPanel(handing) !== null;
+  const askBack = useClosedPanel(ask ?? (relink ? 'cancel' : null));
   const [handScope, setHandScope] = useState<'one' | 'series'>('one');
   const [calendarMsg, setCalendarMsg] = useState<'saved' | 'denied' | null>(null);
   const deviceCalendar = useDeviceCalendar();
   const meta = useRowMeta();
   const [doneOpen, setDoneOpen] = useState(false);
 
+  // Audyt 3 (N-36): usunięte — jak kosz („W koszu · Przywróć”, gdy kosz by je pokazał), inaczej „Tego wydarzenia już nie ma”.
   if (!d || d.event.deleted_at !== null) {
-    return (
-      <MissingScreen testID="screen-event-missing" text={strings['missing.event']} onBack={() => navigation.goBack()} />
-    );
+    return <InTrashScreen entity="events" id={eventId} missing={strings['missing.event']} testID="screen-event" onBack={() => navigation.goBack()} />;
   }
   // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.
   const date = linkedDate ?? nextOccurrence(tables, userId, eventId, formatIsoDate(addDays(today, -1))) ?? d.event.start_date;
@@ -75,13 +79,15 @@ export function EventScreen({ route, navigation }: Props) {
   const state = occurrenceState(d, date);
   const active = state === 'active';
   // D120: godziny i długość („17:00–18:30 · 1 h 30 min”).
-  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej.
+  // D199: dłuższe niż z godzin (pt. 18:00 – nd. 16:00) — „od 18:00 · 46 h” i dzień końca niżej; przez zmianę czasu
+  // rzeczywisty czas (audyt 3, N-114: ten wyjazd 23–25.10.2026 — „47 h”).
   const long = occ.startTime !== null && (occ.durationMin ?? null) !== null;
-  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null)].filter(Boolean).join(' · ');
+  const time = [long ? strings['event.from'](occ.startTime!.slice(0, 5)) : (timeLabel(occ.startTime, occ.endTime) ?? strings['common.allDay']), lengthLabel(occ.startTime, occ.endTime, occ.durationMin ?? null, occ.date)].filter(Boolean).join(' · ');
   // D199: całodniowe przez kilka dni — zakres dni i ich liczba; przez północ — dzień końca.
   const span = coveredDays(occ.startTime, occ.endTime, occ.days ?? 1, occ.durationMin ?? null);
   const startDay = parseIsoDate(occ.date);
   const when = occ.startTime === null && span > 1 ? `${formatRange(startDay, addDays(startDay, span - 1), today)} · ${strings['event.daysCount'](span)}` : `${formatLongDate(startDay, today)} · ${time}`;
+  const rule = d.rule ? describeRule(seriesRule(d)!, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff'];
   // D70: przekazać mogę termin (albo całą serię, jeśli w niej to ja odpowiadam), za który odpowiadam.
   const myMember = d.members.find((m) => m.user_id === userId)?.member_id;
   const iAmResponsible = myMember !== undefined && occ.responsibleId === myMember;
@@ -180,7 +186,7 @@ export function EventScreen({ route, navigation }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <GroupLine name={d.groupName} line={d.line} />
       <Title>{occ.title}</Title>
-      <Body>{when}</Body>
+      <Body a11yLabel={spoken(when)}>{when}</Body>
       {long ? (
         <Body muted>{strings['event.endsOn'](formatDateInline(addDays(startDay, endDayOffset(occ.startTime!, occ.durationMin!)), today), occ.endTime!.slice(0, 5))}</Body>
       ) : occ.startTime !== null && span > 1 ? (
@@ -188,7 +194,7 @@ export function EventScreen({ route, navigation }: Props) {
       ) : null}
       {occ.date !== date ? <Body muted>{strings['event.moved'](formatDateInline(parseIsoDate(date), today))}</Body> : null}
       {/* Audyt 3 (N-21): koniec całej serii, nie dzień, w którym ta część przeszła w następną po „to i następne”. */}
-      <Body muted>{d.rule ? describeRule(seriesRule(d)!, parseIsoDate(d.event.start_date), strings['event.rule']) : strings['event.oneOff']}</Body>
+      <Body muted a11yLabel={spoken(rule)}>{rule}</Body>
       {state === 'cancelled' ? (
         <View style={{ gap: 8 }}>
           <Body>{strings['event.cancelledInfo']}</Body>
@@ -205,7 +211,7 @@ export function EventScreen({ route, navigation }: Props) {
         waiting ? (
           <View style={{ gap: 8 }}>
             <Body>{strings['handoff.waiting'](waiting.otherName)}</Body>
-            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} />
+            <Button kind="secondary" label={strings['handoff.cancel']} testID="handoff-cancel" onPress={() => store.dispatch(cancelHandoff(waiting.id))} a11yFocus={handBack} />
           </View>
         ) : handing ? (
           <HandoffPicker
@@ -229,7 +235,7 @@ export function EventScreen({ route, navigation }: Props) {
             ) : null}
           </HandoffPicker>
         ) : (
-          <Button kind="secondary" label={strings['handoff.give']} testID="handoff-start" onPress={() => setHanding(true)} />
+          <Button kind="secondary" label={strings['handoff.give']} testID="handoff-start" onPress={() => setHanding(true)} a11yFocus={handBack} />
         )
       ) : null}
 
@@ -306,9 +312,9 @@ export function EventScreen({ route, navigation }: Props) {
         </Card>
       ) : (
         <View style={{ gap: 8 }}>
-          <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} />
+          <Button label={strings['common.change']} testID="event-edit" onPress={() => (recurring ? setAsk('edit') : edit('all'))} a11yFocus={askBack === 'edit'} />
           {/* D187 (audyt 2: PW-16 A, M-121): jednorazowe usuwa się bez pytania — pasek „Cofnij” i kosz; seria pyta o zakres (D57). */}
-          <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} />
+          <Button kind="danger" label={recurring ? strings['event.cancel'] : strings['event.delete']} testID="event-cancel" onPress={() => (recurring ? setAsk('cancel') : cancel('all'))} a11yFocus={askBack === 'cancel'} />
         </View>
       )}
     </Screen>

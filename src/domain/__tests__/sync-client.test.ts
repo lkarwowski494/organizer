@@ -318,13 +318,15 @@ describe('protokół 2 (audyt 2): epoka kursora, pobranie od zera, listy widoczn
     expect(pullRequest(out.state).cursors).toEqual({ g1: { v: 9, p: 2 } });
   });
 
-  it('M-54: lista spoza zbioru widocznych (zawężona) znika z zadaniami, stałymi zadaniami, aktywnością i wpisami dostępu', () => {
+  it('M-54: lista spoza zbioru widocznych (zawężona) znika z zadaniami, stałymi zadaniami, zakupami (N-88), aktywnością i wpisami dostępu', () => {
     let s: ClientState = { ...initialState('c'), entities: [...ENTITIES] };
     s = onPullResponse(s, { groups: [group({ cursor: 6, lists: ['l1', 'l2'], rows: [
       { e: 'lists', v: 1, row: { id: 'l1', group_id: 'g1' } },
       { e: 'lists', v: 2, row: { id: 'l2', group_id: 'g1' } },
       task('t1', 3), task('t2', 4, 'l2'),
       { e: 'event_task_series', v: 5, row: { id: 's2', group_id: 'g1', list_id: 'l2' } },
+      { e: 'shopping_trips', v: 5, row: { id: 'z2', group_id: 'g1', list_id: 'l2' } },
+      { e: 'shopping_trips', v: 5, row: { id: 'z1', group_id: 'g1', list_id: 'l1' } },
       { e: 'activity', v: 6, row: { id: 'a2', group_id: 'g1', scope_id: 'l2' } },
       { e: 'object_members', v: 6, row: { scope_id: 'l2', member_id: 'm', group_id: 'g1' } },
       { e: 'activity', v: 6, row: { id: 'a0', group_id: 'g1', scope_id: null } },
@@ -333,11 +335,29 @@ describe('protokół 2 (audyt 2): epoka kursora, pobranie od zera, listy widoczn
     expect(Object.keys(s.base.lists ?? {})).toEqual(['l1']);
     expect(Object.keys(s.base.tasks ?? {})).toEqual(['t1']);
     expect(s.base.event_task_series).toEqual({});
+    expect(Object.keys(s.base.shopping_trips ?? {})).toEqual(['z1']);
     expect(Object.keys(s.base.activity ?? {})).toEqual(['a0']);
     expect(s.base.object_members).toEqual({});
     // Bez pola „lists” (stary serwer) nic nie znika.
     s = onPullResponse(s, { groups: [group({ cursor: 7 })], scopes: [] }, pullRequest(s)).state;
     expect(Object.keys(s.base.lists ?? {})).toEqual(['l1']);
+  });
+
+  it('ukryta lista, która zniknęła ze „scopes”, ale jest w „lists” grupy (usunięta albo poszerzona), zostaje z zawartością', () => {
+    let s: ClientState = { ...initialState('c'), entities: [...ENTITIES] };
+    s = onPullResponse(s, { groups: [group({ cursor: 4, lists: ['l1', 'l2'], rows: [
+      { e: 'lists', v: 1, row: { id: 'l1', group_id: 'g1', visibility: 'restricted' } },
+      { e: 'lists', v: 2, row: { id: 'l2', group_id: 'g1', visibility: 'restricted' } },
+      { e: 'tasks', v: 3, row: { id: 't1', group_id: 'g1', list_id: 'l1', deleted_at: 'x', version: 3 } },
+      { e: 'activity', v: 4, row: { id: 'a1', group_id: 'g1', scope_id: 'l1' } },
+      task('t2', 4, 'l2'),
+    ] })], scopes: ['l1', 'l2'] }, pullRequest(s)).state;
+    // l1 w koszu (sync_pull podaje w „scopes” tylko żywe ukryte listy), l2 poza zasięgiem (cofnięty dostęp).
+    s = onPullResponse(s, { groups: [group({ cursor: 5, lists: ['l1'], rows: [{ e: 'lists', v: 5, row: { id: 'l1', group_id: 'g1', deleted_at: 'y' } }] })], scopes: [] }, pullRequest(s)).state;
+    expect(Object.keys(s.base.lists ?? {})).toEqual(['l1']);
+    expect(Object.keys(s.base.tasks ?? {})).toEqual(['t1']);
+    expect(Object.keys(s.base.activity ?? {})).toEqual(['a1']);
+    expect(s.scopes).toEqual([]);
   });
 
   it('M-54: zadanie przeniesione do listy, której nie widzę, znika; wraca, gdy w tej samej odpowiedzi jest jego nowy wiersz', () => {

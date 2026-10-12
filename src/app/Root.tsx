@@ -20,15 +20,15 @@ import { wakeGroups } from '../domain/reminder-wake';
 import type { SyncTransport } from '../sync/transport';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { announce } from '../ui/a11y';
-import { Body, Button, Screen, syncAnnouncement, Title } from '../ui/components';
+import { Body, Button, Screen, syncAnnouncer, Title } from '../ui/components';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
-import { setLiveSession } from './background';
+import { claimAccountDb, setLiveSession } from './background';
 import { localNow } from '../domain/local-time';
 import { storedReminderPlan } from './reminders';
 import { AppProvider, type AppServices, type Prefs } from './context';
-import { appVersion, ErrorBoundary, installGlobalHandler } from './diagnostics';
+import { appVersion, ErrorBoundary, gatedReport, installGlobalHandler, reportsOn, toClientError } from './diagnostics';
 import { reportSelfCheck } from './self-check';
 import type { DeviceCalendar } from './device-calendar';
 import { adoptMirrorOwned, removeMirrorCalendars } from './calendar-mirror';
@@ -47,8 +47,6 @@ export type RootDeps = {
     onChange(fn: (s: Session | null) => void): () => void;
     /** Odświeżenie tokenu po 401 z serwera (audyt 2, M-9); sukces przychodzi przez onChange. */
     refresh?(): Promise<void>;
-    /** Wylogowanie tylko na tym telefonie, bez czyszczenia danych — ponowne logowanie po wygaśnięciu sesji (M-9). */
-    signOutLocal?(): Promise<void>;
   };
   /**
    * Identyfikator instalacji w pęku kluczy „tylko to urządzenie” (audyt 2, M-8): nie przechodzi do kopii iCloud, więc
@@ -114,7 +112,9 @@ function NewerData({ onReset }: { onReset: () => void }) {
   );
 }
 
-function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Session; pendingUrl: string | null }) {
+type SignedInProps = { deps: RootDeps; session: Session; pendingUrl: string | null; onDeleted: () => void };
+
+function SignedIn({ deps, session, pendingUrl, onDeleted }: SignedInProps) {
   const [rebuilt, setRebuilt] = useState(0);
   const opened = useMemo(() => {
     const db = deps.openDb(session.userId);
@@ -128,14 +128,16 @@ function SignedIn({ deps, session, pendingUrl }: { deps: RootDeps; session: Sess
     }
   }, [deps, session.userId, rebuilt]);
   if (opened.newer) return <NewerData onReset={() => setRebuilt((n) => n + 1)} />;
-  return <SignedInApp deps={deps} session={session} db={opened.db} pendingUrl={pendingUrl} />;
+  return <SignedInApp deps={deps} session={session} db={opened.db} pendingUrl={pendingUrl} onDeleted={onDeleted} />;
 }
 
-function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; session: Session; db: DbAdapter; pendingUrl: string | null }) {
+function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps & { db: DbAdapter }) {
   const nowMs = deps.nowMs ?? Date.now;
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
   const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
+  // Audyt 3 (N-74): każde zgłoszenie błędu i samosprawdzenia tylko przy włączonych raportach (Ustawienia → Konto i dane).
+  const reportError = useMemo(() => gatedReport(local, (e) => deps.account.reportError(e)), [local, deps]);
   // Ustawienia telefonu (pęk kluczy). Audyt 3 (N-4): build 22 zapisywał listę kalendarzy lustra w bazie konta, a
   // wylogowanie czyta ją z pęku kluczy — raz przenosimy ją tam; odczyty i zapisy czekają na przeniesienie.
   const devicePrefs = useMemo((): Prefs | undefined => {
@@ -159,6 +161,9 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   // D121: „Wyczyść dane na telefonie” — nowy silnik z pustym stanem (epoch), pobiera wszystko od zera.
   const [epoch, setEpoch] = useState(0);
   const runtime = useMemo(() => {
+    // N-11: jeden pisarz — baza konta należy do ekranów od tej chwili (odświeżenie w tle przestaje zapisywać), zanim ją
+    // przeczytamy. Zajęcie na czas zamontowania odnawia efekt niżej (zwalnia je odmontowanie).
+    claimAccountDb(session.userId);
     const stored = readState(db, deps.newId());
     // M-8: baza z kopii iCloud (inny identyfikator niż w pęku kluczy tego urządzenia) — nowy identyfikator od razu w bazie.
     const initial = deps.deviceClientId ? adoptDevice(stored, deps.deviceClientId.load(session.userId), deps.newId) : stored;
@@ -171,15 +176,21 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
       newId: deps.newId,
       setTimer: deps.setTimer ?? defaultTimer,
       persist: (prev, next, now) => writeState(db, prev, next, now),
+      // N-1: wiersz z datą spoza zakresu pominięty przy pobraniu — zgłoszenie z nazwą pola, bez treści (D80).
+      onInvalidRows: (fields) => void reportError(toClientError(new Error(`pominięte wiersze: ${fields.join(', ')}`), 'error', 'sync', appVersion())).catch(() => {}),
       onPushed: (ops, res, st) => {
         const { y, m, d } = localNow(nowMs());
-        waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))));
+        // N-19 (audyt 3): serwer przyjął zmianę już po wyjściu z aplikacji — prośba od razu, uśpiona nie doczeka odstępu
+        // (AppState.currentState „will be kept up-to-date”, https://reactnative.dev/docs/appstate).
+        waker.add(wakeGroups(ops, res, st.base, materialize(st), formatIsoDate(addDays({ y, m, d }, config.reminders.DAYS_AHEAD))), AppState.currentState === 'background');
       },
     });
   }, [db, deps, epoch, session.userId, waker]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => claimAccountDb(session.userId), [runtime, session.userId]);
+
   // Samosprawdzenie na tym telefonie raz na wersję (S3, S4).
-  useEffect(() => void reportSelfCheck(db, deps.prefs, deps.account, appVersion()).catch(() => {}), [db, deps]);
+  useEffect(() => void reportSelfCheck(db, deps.prefs, { reportError }, appVersion()).catch(() => {}), [db, deps, reportError]);
 
   // M-9: prośba o odświeżenie tokenu już wysłana w tym epizodzie „wygasłej sesji”.
   const asked = useRef(false);
@@ -233,14 +244,11 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   );
 
   // Audyt 2 (M-37): przejście w offline, błąd, wygasłą sesję albo „zaktualizuj” i powrót do normy ogłaszamy VoiceOverem
-  // (chip zmienia się po cichu; zwykłe „zsynchronizowano X min temu” — bez ogłoszeń).
+  // (chip zmienia się po cichu; zwykłe „zsynchronizowano X min temu” — bez ogłoszeń); powrót — po chwili spokoju (N-198).
   useEffect(() => {
-    let last = runtime.getSnapshot().indicator.state;
-    return runtime.subscribe(() => {
-      const r = syncAnnouncement(last, runtime.getSnapshot().indicator, nowMs());
-      last = r.last;
-      announce(r.text);
-    });
+    const a = syncAnnouncer(() => runtime.getSnapshot().indicator, nowMs, announce);
+    const unsub = runtime.subscribe(a.update);
+    return () => (unsub(), a.stop());
   }, [runtime, nowMs]);
 
   // Kanały: mój (zmiana dostępu) + każdej mojej grupy (nowa wersja). Odnawiane, gdy zmienia się zbiór grup.
@@ -255,10 +263,10 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   );
   useEffect(
     () =>
-      deps.subscribe([`user:${session.userId}`, ...groupIds.map((g) => `group:${g}`)], (topic, version) => {
-        const cursor = runtime.getSnapshot().state.cursors[topic.slice('group:'.length)] ?? 0;
-        runtime.event({ t: 'poke', fresh: version === null || version > cursor });
-      }),
+      deps.subscribe([`user:${session.userId}`, ...groupIds.map((g) => `group:${g}`)], (topic, version) =>
+        // N-100: własny sygnał po mojej wysyłce (wersja ≤ wersji z sync_push) nie jest „nowy”.
+        runtime.event({ t: 'poke', fresh: runtime.isFresh(topic.slice('group:'.length), version) }),
+      ),
     [deps, runtime, session.userId, groupIds],
   );
 
@@ -278,19 +286,25 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   const account = useMemo(
     () => ({
       ...deps.account,
+      reportError,
       signOut: async () => {
         await runLeaving();
         await deps.account.signOut();
       },
-      deleteAccount: () =>
-        deps.account.deleteAccount(async () => {
-          // Konta już nie ma na serwerze: bez dalszej synchronizacji; dane tego konta znikają z telefonu.
-          runtime.stop();
-          await runLeaving();
-          removeDb.current = true;
+      deleteAccount: (o?: { deleteEntries?: boolean }) =>
+        deps.account.deleteAccount({
+          deleteEntries: o?.deleteEntries,
+          beforeSignOut: async () => {
+            // Konta już nie ma na serwerze: bez dalszej synchronizacji; dane tego konta znikają z telefonu.
+            runtime.stop();
+            await runLeaving();
+            removeDb.current = true;
+            // N-72: ekran logowania potwierdzi usunięcie (Apple: „provide a confirmation when the deletion is complete”).
+            onDeleted();
+          },
         }),
     }),
-    [deps, runtime, runLeaving],
+    [deps, runtime, runLeaving, onDeleted, reportError],
   );
 
   const services: AppServices = useMemo(
@@ -312,7 +326,8 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
         wipeSynced(db);
         setEpoch((e) => e + 1);
       },
-      signInAgain: deps.session.signOutLocal ? () => void deps.session.signOutLocal!().catch(() => {}) : undefined,
+      // Audyt 3, N-224: pełne wylogowanie (zdjęcie tokenu push tego telefonu), dane konta zostają w jego bazie (D172 b).
+      signInAgain: () => void account.signOut().catch(() => {}),
       userId: session.userId,
       displayName: session.displayName,
       needsName: session.needsName,
@@ -327,13 +342,13 @@ function SignedInApp({ deps, session, db, pendingUrl }: { deps: RootDeps; sessio
   );
 
   // D80: nieobsłużone wyjątki i błędy renderowania trafiają do zgłoszeń (bez treści z tabel).
-  const report = useCallback((e: ClientError) => void deps.account.reportError(e).catch(() => {}), [deps]);
+  const report = useCallback((e: ClientError) => void reportError(e).catch(() => {}), [reportError]);
   useEffect(() => installGlobalHandler((globalThis as unknown as { ErrorUtils: Parameters<typeof installGlobalHandler>[0] }).ErrorUtils ?? NO_ERROR_UTILS, report, appVersion()), [report]);
   const { c } = useTheme();
 
   return (
     <AppProvider services={services}>
-      <ErrorBoundary report={report} version={appVersion()} colors={c}>
+      <ErrorBoundary report={report} reporting={() => reportsOn(local)} version={appVersion()} colors={c}>
         <AppNavigation pendingUrl={pendingUrl} />
       </ErrorBoundary>
     </AppProvider>
@@ -344,6 +359,9 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   // Audyt 2 (M-221): link (np. zaproszenie) dotknięty, gdy nikt nie był zalogowany — nawigacja dostaje go po zalogowaniu.
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  // N-72: jednorazowe „Konto zostało usunięte.” na ekranie logowania — znika przy następnym zalogowaniu.
+  const [deleted, setDeleted] = useState(false);
+  const onDeleted = useCallback(() => setDeleted(true), []);
   const signedIn = useRef(false);
   useEffect(() => {
     signedIn.current = !!session;
@@ -355,6 +373,7 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
     const off = deps.session.onChange((s) => {
       // Link oddany nawigacji przy jej starcie (useState w AppNavigation) — po końcu tamtej sesji już nie wraca.
       if (signedIn.current) setPendingUrl(null);
+      if (s) setDeleted(false);
       setSession(s);
     });
     return () => {
@@ -397,8 +416,8 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
 
   let body;
   if (!fontsLoaded || session === undefined) body = <Loading />;
-  else if (session === null) body = <SignInScreen account={deps.account} />;
-  else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} />;
+  else if (session === null) body = <SignInScreen account={deps.account} notice={deleted ? strings['auth.deleted'] : null} />;
+  else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} onDeleted={onDeleted} />;
 
   return (
     <SafeAreaProvider>

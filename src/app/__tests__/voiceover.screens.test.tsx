@@ -247,7 +247,7 @@ describe('„Bez dnia” w polu daty (M-125)', () => {
     await press(await screen.findByTestId('task-date'));
     await press(screen.getByTestId('task-date-clear'));
     expect(store.getSnapshot().state.base.tasks?.['t-paczka']).toBeTruthy();
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Bez terminu' }).props.accessibilityState).toEqual({ selected: true }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Bez terminu' }).props.accessibilityState).toEqual({ selected: true }));
   });
 });
 
@@ -264,19 +264,28 @@ describe('pola daty i godziny (M-144, M-141)', () => {
     expect(date.props.accessibilityHint).toBe('Rozwija kalendarz');
     await press(date);
     expect(screen.getByTestId('task-date').props.accessibilityHint).toBe('Zwija kalendarz');
-    expect(screen.getByTestId('task-date').props.accessibilityState).toEqual({ expanded: true });
+    // Audyt 3 (N-9): stan rozwinięcia po polsku w wartości, nie angielskie „expanded” z accessibilityState.
+    expect(screen.getByTestId('task-date').props.accessibilityState.expanded).toBeUndefined();
+    expect(screen.getByTestId('task-date').props.accessibilityValue.text).toMatch(/, rozwinięte$/);
     const time = screen.getByTestId('task-time');
     expect(time.props.accessibilityLabel).toBe('Godzina (opcjonalnie)');
     expect(time.props.accessibilityValue).toEqual({ text: '18:00' });
     expect(time.props.accessibilityHint).toBe('Rozwija wybór godziny');
   });
 
-  it('skróty dni tygodnia w mini kalendarzu ukryte przed VoiceOverem', async () => {
+  // A-46 + D186 (XCUITest 9.10.2026: ukryte skróty to „Potentially inaccessible text”): nagłówek kolumn to jeden
+  // element z pełnymi nazwami — nie siedem przystanków i nie tekst, którego VoiceOver nie zna.
+  it.each([
+    ['mini kalendarz przy dacie', async () => (await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/)), await press(await screen.findByTestId('task-date')))],
+    ['Kalendarz', async () => press(screen.getByTestId('tab-Calendar'))],
+  ] as const)('%s: skróty dni tygodnia jednym elementem z pełnymi nazwami', async (_where, go) => {
     await open();
-    await press(screen.getByLabelText(/^Odebrać paczkę(,|$)/));
-    await press(await screen.findByTestId('task-date'));
-    expect(screen.queryByText('pon.')).toBeNull();
-    expect(screen.getByText('pon.', HIDDEN)).toBeTruthy();
+    await go();
+    const header = await screen.findByTestId('weekday-header');
+    expect(header.props).toMatchObject({ accessible: true, accessibilityRole: 'text', accessibilityLabel: 'Dni tygodnia: poniedziałek, wtorek, środa, czwartek, piątek, sobota, niedziela' });
+    expect(header.props.accessibilityElementsHidden).toBeUndefined();
+    expect(within(header).getByText('pon.')).toBeTruthy();
+    expect(screen.getAllByText('pon.', HIDDEN)).toHaveLength(1);
   });
 });
 
@@ -315,10 +324,11 @@ describe('wiersze (M-141, M-142, M-150, M-263)', () => {
     expect(done.props.accessibilityState).toBeUndefined();
     expect(done.props.accessible).toBe(true);
     const item = screen.getByLabelText(/^Chleb żytni(,|$)/);
-    expect(item.props.accessibilityState).toEqual({ expanded: false });
+    expect(item.props.accessibilityState.expanded).toBeUndefined();
+    expect(item.props.accessibilityValue.text).toBeUndefined();
     expect(item.props.accessibilityHint).toBe('Pokazuje nazwę, dział i stałe zakupy');
     await press(item);
-    expect(screen.getByLabelText(/^Chleb żytni(,|$)/).props.accessibilityState).toEqual({ expanded: true });
+    expect(screen.getByLabelText(/^Chleb żytni(,|$)/).props.accessibilityValue).toEqual({ text: 'rozwinięte' });
     await expectFocusOn('Nazwa i ilość');
   });
 
@@ -363,7 +373,7 @@ describe('etykiety z kontekstem (M-264, M-265)', () => {
     await press(await screen.findByTestId('day-2026-10-08'));
     await press(await screen.findByLabelText(/^Basen, 17:00–18:00/));
     const rsvp = await screen.findByTestId('rsvp');
-    const radios = within(rsvp).getAllByRole('radio').map((r) => String(r.props.accessibilityLabel));
+    const radios = within(rsvp).getAllByRole('button').map((r) => String(r.props.accessibilityLabel));
     expect(radios.every((l) => l.includes(', '))).toBe(true);
   });
 
@@ -386,10 +396,11 @@ describe('stan „zajęty” (M-267)', () => {
     await press(await screen.findByTestId('open-feedback'));
     await fireEvent.changeText(await screen.findByTestId('feedback-text'), 'Super');
     await press(screen.getByTestId('feedback-send'));
-    expect(screen.getByTestId('feedback-send').props.accessibilityState).toEqual({ disabled: true, busy: true });
+    expect(screen.getByTestId('feedback-send').props.accessibilityState).toEqual({ disabled: true });
+    expect(screen.getByTestId('feedback-send').props.accessibilityValue).toEqual({ text: 'w toku' });
     expect(screen.getByTestId('feedback-send-busy')).toBeTruthy();
     await act(async () => done());
-    expect(screen.getByTestId('feedback-send').props.accessibilityState).toMatchObject({ busy: false });
+    expect(screen.getByTestId('feedback-send').props.accessibilityValue.text).toBeUndefined();
     expect(screen.queryByTestId('feedback-send-busy')).toBeNull();
     expect(announced()).toContain('Dziękujemy! Uwaga dotarła.');
   });

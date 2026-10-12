@@ -13,7 +13,7 @@ import { useAppData, useServices } from '../../app/context';
 import { DraftNote, useAnnounce, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../../config/calendar.pl';
-import { WEEKDAYS_ACCUSATIVE } from '../../config/quickadd.pl';
+import { WEEKDAYS_ON } from '../../config/quickadd.pl';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
 import { materialize } from '../../domain/sync-engine/client';
 import { startGroup } from '../../domain/views/default-group';
@@ -21,6 +21,7 @@ import { useDefaultGroup } from '../../app/default-group';
 import { formatDateInline, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { coveredDays, endsNextDay } from '../../domain/span';
+import { choicesError, sanitizeEventDraft } from '../../domain/views/form-choices';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, expandEvents, fieldsOf, moveTooFar } from '../../domain/views/events';
 import { occurrenceOwner } from '../../domain/views/event-rows';
@@ -28,7 +29,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
@@ -53,7 +54,8 @@ export function EventEditScreen({ route, navigation }: Props) {
   // PW-37 A (M-118, D191): nowe wydarzenie bez wskazanej grupy (także „Dodaj do grupy” z kalendarza iPhone'a) startuje
   // z „Grupy domyślnej”, jak szybkie dodawanie; zapis zapamiętuje grupę jako ostatnio użytą.
   const defaultGroup = useDefaultGroup();
-  const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : (startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? '')));
+  const [fallback] = useState(() => startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? '');
+  const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : fallback));
   const [form, setForm] = useState<EventForm>(() => {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
@@ -68,7 +70,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   });
   // Formularz z chwili otwarcia — zapis zmiany wysyła tylko pola, które zmieniłem (editEvent, synchronizacja per pole).
   const [loadedForm] = useState<EventForm | null>(() => (detail ? formOf(fieldsOf(detail, occurrence, scope)) : null));
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError, attempt] = useFormError<string>();
   // Podgląd skutków zmiany serii (Faza 0: „podgląd skutków edycji serii połączony z dialogiem przepinania”, D14).
   const [preview, setPreview] = useState<{ ops: NewOp[]; effects: SeriesEffects } | null>(null);
   const [lostChoice, setLostChoice] = useState<'nearest' | 'unlink'>('nearest');
@@ -88,11 +90,17 @@ export function EventEditScreen({ route, navigation }: Props) {
   const prefilled = route.params.title !== undefined || route.params.start !== undefined;
   // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest (fokus zostaje na „Wróć”).
   useAnnounce(route.params.kindSwitch ? strings['event.new'] : null);
+  // Audyt 3: pola przeniesione przełącznikiem „Rodzaj” to zmiany pustego formularza (N-138); przywrócony szkic bez grupy,
+  // osób i minionego dnia (N-32, N-144).
   const draft = useFormDraft(
     detail ? `event:${eventId}:${occurrence}:${scope}` : 'event:new',
     { ...form, groupId },
     { ...(Object.fromEntries(Object.keys(form).map((k) => [k, (v: unknown) => set({ [k]: v })])) as { [K in keyof EventForm]: (v: EventForm[K]) => void }), groupId: setGroupId },
-    { restore: !prefilled },
+    {
+      restore: !prefilled,
+      initial: route.params.kindSwitch ? { ...emptyForm(occurrence), groupId: fallback } : undefined,
+      sanitize: (d, init) => sanitizeEventDraft(tables, userId, today, d, init, !detail),
+    },
   );
 
   if (eventId && (!detail || !detail.canEdit)) {
@@ -126,6 +134,17 @@ export function EventEditScreen({ route, navigation }: Props) {
     const r = normalized(form);
     if ('error' in r) return setError(strings[`event.error.${r.error}`]);
     if (only && moveTooFar(occurrence, r.fields[0]!.date)) return setError(strings['event.moveTooFar'](config.events.MOVE_WINDOW_DAYS));
+    // Audyt 3 (N-32): grupa i osoby zmienione w trakcie wypełniania (serwer odrzuciłby wydarzenie). Przy zmianie
+    // istniejącego — tylko osoby dodane teraz (usunięty z grupy uczestnik nie blokuje np. zmiany nazwy).
+    const f0 = r.fields[0]!;
+    const gone = choicesError(tables, userId, {
+      groupId,
+      checkGroup: !detail,
+      people: f0.participantIds,
+      adults: f0.responsibleId ? [f0.responsibleId] : [],
+      known: loadedForm ? [...loadedForm.participantIds, ...(loadedForm.responsibleId ? [loadedForm.responsibleId] : [])] : [],
+    });
+    if (gone) return setError(gone.error === 'group' ? strings['form.error.groupGone'] : strings['form.error.peopleGone'](gone.names));
     setError(null);
     if (!detail) {
       draft.saved();
@@ -209,10 +228,11 @@ export function EventEditScreen({ route, navigation }: Props) {
         <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
       {/* M-247: kursor w pierwszym polu pustego formularza tworzenia; M-243: Return przechodzi do miejsca. */}
-      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} autoFocus={!detail && !prefilled} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => locationField.current?.focus()} testID="event-title" />
+      {/* Audyt 3 (N-134): limity z SQL. */}
+      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} autoFocus={!detail && !prefilled} maxLength={config.lengths.EVENT_TITLE} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => locationField.current?.focus()} testID="event-title" />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
-        <Field ref={locationField} label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} testID="event-location" />
+        <Field ref={locationField} label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} maxLength={config.events.LOCATION_MAX_LENGTH} testID="event-location" />
       )}
       {/* Audyt 2: w serii „to i następne” zaczyna się od tego wystąpienia (E-6, napis wyżej), a „wszystkie” — od początku
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}
@@ -240,13 +260,14 @@ export function EventEditScreen({ route, navigation }: Props) {
               label={strings['event.days']}
               values={slot.days}
               onChange={(days) => setSlot(i, { days })}
-              options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](WEEKDAYS_ACCUSATIVE[wd]!) + (multi && form.slots.length > 1 ? ` (${strings['event.slot'](i + 1)})` : '') }))}
+              options={WEEKDAYS_ABBREVIATED.map((w, wd) => ({ value: wd, label: w, a11y: strings['event.dayA11y'](w, WEEKDAYS_ON[wd]!) + (multi && form.slots.length > 1 ? ` (${strings['event.slot'](i + 1)})` : '') }))}
             />
           ) : null}
           {form.allDay ? null : (
             <TimeFieldPair
-              start={{ label: strings['event.start'], value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
-              end={{ label: strings['event.end'], value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
+              // Audyt 3 (N-196): przy kilku wariantach pole mówi, którego dotyczy — jak dni tygodnia wyżej.
+              start={{ label: strings['event.start'], a11yLabel: multi && form.slots.length > 1 ? `${strings['event.start']} (${strings['event.slot'](i + 1)})` : undefined, value: slot.start, onChange: (start) => setSlot(i, { start }), testID: `event-start-${i}` }}
+              end={{ label: strings['event.end'], a11yLabel: multi && form.slots.length > 1 ? `${strings['event.end']} (${strings['event.slot'](i + 1)})` : undefined, value: slot.end, onChange: (end) => setSlot(i, { end }), testID: `event-end-${i}`, optional: true }}
             />
           )}
           {/* D199: koniec wcześniejszy niż początek (nocny dyżur) — widoczna informacja zamiast błędu. */}
@@ -317,7 +338,7 @@ export function EventEditScreen({ route, navigation }: Props) {
           options={[{ value: '', label: strings['common.nobody'] }, ...adults.map((m) => ({ value: m.member_id, label: m.display_name }))]}
         />
       ) : null}
-      {error ? <ErrorText>{error}</ErrorText> : null}
+      {error ? <ErrorText attempt={attempt}>{error}</ErrorText> : null}
       <Button label={strings['event.save']} onPress={save} testID="event-save" />
     </Screen>
   );
