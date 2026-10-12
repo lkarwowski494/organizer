@@ -101,8 +101,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   }],
   ['Moje sprawy: wczoraj', async (p) => p('Poprzedni dzień')],
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
-  ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
-  ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
+  ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista zadań'))],
+  ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista zadań'), await p('Zakupy'), await p('Rodzina'))],
   ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'))],
   // Audyt 3 (N-193): rozwinięty mini kalendarz przy planowaniu zakupów (dni ≥ 44 pt — reguła 15 liczy szerokość od rodzica).
   ['Lista zakupów: planowanie zakupów, inny dzień', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'), await p('Inny dzień'))],
@@ -111,8 +111,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'))],
   ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'), await p('Całą serię'))],
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
-  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
-  ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
+  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
+  ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
   ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'))],
@@ -129,8 +129,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await fireEvent.press(await screen.findByTestId('form-date')), await p('Następny miesiąc'))],
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
-  ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
-  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek$/))],
+  ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rutyna'), await p('Dodaj krok'))],
+  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rutyna'), await p(/^Początek$/))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
   ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
   ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {
@@ -161,6 +161,42 @@ describe.each(['light', 'dark'] as Scheme[])('tryb %s', (scheme) => {
     const bg = screen.getAllByTestId(/^screen-/);
     expect(bg.length).toBeGreaterThan(0);
     expect(StyleSheet.flatten(bg.at(-1)!.props.style).backgroundColor).toBe(palettes[scheme].ground);
+  });
+});
+
+/**
+ * ADR 0049: nowe ekrany i wiersze nawigacji audytowane bez listy znanych odstępstw (ostrzej niż SCREENS) — na danych bez
+ * wierszy ze skrótami („1 h”, „śr.”), żeby ekrany pod spodem nie dokładały trafień, które liczą już ich scenariusze.
+ */
+describe.each(['light', 'dark'] as Scheme[])('ADR 0049, tryb %s: bez żadnych odstępstw', (scheme) => {
+  const ago = (days: number) => new Date(Date.UTC(2026, 9, 7, 8, 0) - days * 86_400_000).toISOString();
+  const plain = () => {
+    const t = sampleBase();
+    put(t, 'tasks', 'del', { ...t.tasks!['t-kwiaty']!, id: 'del', title: 'Usunięte zadanie', deleted_at: ago(2) });
+    return t;
+  };
+  const cancelled = () => {
+    const t = plain();
+    put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE;UNTIL=20261007', audience: 'group', deleted_at: null, version: 1 });
+    put(t, 'event_overrides', 'o7', { id: 'o7', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 1 });
+    return t;
+  };
+  const cases: [string, () => ReturnType<typeof sampleBase>, Record<string, string>, (p: (l: string | RegExp) => Promise<void>) => Promise<void>, string][] = [
+    ['Ustawienia grupy', plain, {}, async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Ustawienia grupy')), 'screen-group-settings'],
+    ['Grupa z kartą „Następne kroki” (Q7: te same nazwy, różne etykiety VoiceOvera)', plain, { 'nextSteps.gf': '1' }, async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator')), 'next-steps'],
+    ['Kosz', plain, {}, async (p) => (await p('Grupy'), await p(/^Kosz/)), 'screen-trash'],
+    ['Kalendarz: odwołany termin', cancelled, {}, async (p) => p('Kalendarz'), 'cal-cancelled-ev-2026-10-07'],
+  ];
+  it.each(cases)('%s', async (name, base, prefs, go, shown) => {
+    const m = new Map(Object.entries({ welcomeSeen: '1', ...prefs }));
+    const s = setup({ scheme, base: base(), prefs: { get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) } });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await go(async (label) => {
+      await fireEvent.press(await screen.findByLabelText(label));
+    });
+    expect(await screen.findByTestId(shown)).toBeTruthy();
+    expect(check(screen.root!, scheme, name, { screen: true })).toEqual([]);
   });
 });
 

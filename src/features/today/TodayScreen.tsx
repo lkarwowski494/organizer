@@ -355,6 +355,10 @@ export function TodayScreen() {
     <Screen testID="screen-today" refresh={refresh}>
       <TabHeader />
       <Title>{strings['tabs.today']}</Title>
+      {/* ADR 0049 (Q5 a, Z-10): „Do potwierdzenia” (pilne, z plakietką na zakładce) zaraz pod tytułem — nad chipami, polem
+          dodawania i paskiem okresu, więc na pierwszym ekranie także przy dużym tekście (dawniej PWD-31 A: nad kartami
+          informacyjnymi). Bez przekazań karty nie ma i pole stoi jak dotąd. */}
+      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       <GroupFilterBar groups={filterGroups} testID="today-filter" />
       <QuickAddField inputRef={quickInput} value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {(addGroups.length > 1 && shownGroup) || shopList ? (
@@ -463,8 +467,6 @@ export function TodayScreen() {
           </>
         }
       />
-      {/* PWD-31 A: „Do potwierdzenia” (pilne) nad kartami informacyjnymi. */}
-      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       <WhatsNew />
       <PushPrompt />
       {empty ? <Body muted>{showsToday && mode === 'day' ? strings['today.empty'] : strings['today.emptyRange']}</Body> : null}

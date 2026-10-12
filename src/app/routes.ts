@@ -7,11 +7,13 @@ import type { Lesson } from '../domain/views/timetable';
 export type RootStackParams = {
   /** Z zakładką — np. „Moje sprawy” po dotknięciu powiadomienia o przekazaniu (PWD-16). */
   Tabs: NavigatorScreenParams<TabParams> | undefined;
-  List: { listId: string };
+  /** `plan` — od razu z otwartym planowaniem zakupów (karta „Następne kroki”, audyt nawigacji Z-6, ADR 0049). */
+  List: { listId: string; plan?: boolean };
   Task: { taskId: string };
   NewList: { groupId?: string; kind?: 'tasks' | 'shopping' };
   /** `fresh` — grupa właśnie utworzona albo dołączona: do pierwszego pobrania „Pobieram grupę…” zamiast błędu (audyt 2, R-16). */
-  Group: { groupId: string; fresh?: boolean };
+  /** `section: 'settings'` — podstrona „Ustawienia grupy” (ADR 0049, B1; wzór Ustawień, D131). */
+  Group: { groupId: string; fresh?: boolean; section?: 'settings' };
   Member: { groupId: string; memberId: string };
   /** `name` — podpowiedź nazwy (pierwsze kroki: „Rodzina”); `starter` — z Pierwszych kroków: listy i „Następne kroki” (PW-36 A). */
   NewGroup: { name?: string; starter?: boolean } | undefined;
@@ -42,6 +44,8 @@ export type RootStackParams = {
   Rejected: undefined;
   /** Ostatnie zmiany z „Cofnij” bez limitu czasu (D194). */
   Recent: undefined;
+  /** Kosz (D54, D151) — osobny ekran z wiersza w Grupach (ADR 0049, K6). */
+  Trash: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;

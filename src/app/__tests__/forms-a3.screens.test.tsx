@@ -22,9 +22,9 @@ type S = Awaited<ReturnType<typeof start>>;
 const creates = (s: S, entity: string) => (s.store.dispatched as { kind: string; entity: string; group_id?: string; set?: Row }[]).filter((o) => o.kind === 'create' && o.entity === entity);
 const removeMember = (s: S, id: string) => act(async () => s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, [id]: { ...b.group_members![id]!, deleted_at: '2026-10-07T09:00:00Z' } } })));
 const selected = (label: string, inside?: string) => (inside ? within(screen.getByTestId(inside)).getByLabelText(label) : screen.getByLabelText(label)).props.accessibilityState?.selected;
-const openRoutine = async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-routine')), await screen.findByTestId('screen-routine'));
+const openRoutine = async () => (await press(screen.getByLabelText('Kalendarz')), await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna'))), await screen.findByTestId('screen-routine'));
 const openEvent = async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-event')), await screen.findByTestId('screen-event-edit'));
-const openList = async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista')), await screen.findByTestId('screen-new-list'));
+const openList = async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista zadań')), await screen.findByTestId('screen-new-list'));
 
 describe('N-32: szkic albo otwarty formularz z osobą lub grupą, której już nie ma', () => {
   it('zadanie: „Dla kogo: Ala” w szkicu, Ala usunięta — przywrócenie daje „nikt konkretny” z napisem, zapis bez odrzucenia', async () => {
@@ -62,7 +62,7 @@ describe('N-32: szkic albo otwarty formularz z osobą lub grupą, której już n
     await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek');
     await press(screen.getByLabelText('Wróć'));
     await removeMember(s, 'mk');
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     await screen.findByTestId('screen-routine');
     expect(screen.getByText('Grupy „Klasa 2b” ze szkicu już nie masz — sprawdź wybraną grupę.')).toBeTruthy();
     expect(screen.getByTestId('routine-title').props.value).toBe('Poranek');
@@ -184,7 +184,7 @@ describe('N-146: parametry otwarcia mają pierwszeństwo przed szkicem nowej lis
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gk'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await screen.findByTestId('screen-new-list');
     expect(selected('Klasa 2b')).toBe(true);
     expect(screen.getByTestId('list-name').props.value).toBe('Szkic');

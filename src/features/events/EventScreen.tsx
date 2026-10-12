@@ -27,7 +27,7 @@ import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurren
 import { type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
-import { InTrashScreen } from '../groups/TrashSection';
+import { InTrashScreen } from '../groups/TrashScreen';
 import { strings } from '../../i18n/strings.pl';
 import { spoken, useClosedPanel } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, Collapsible, ErrorText, GroupLine, PanelTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, StatusText, SwipeRow, Title } from '../../ui/components';

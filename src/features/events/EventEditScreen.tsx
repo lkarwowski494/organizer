@@ -217,7 +217,9 @@ export function EventEditScreen({ route, navigation }: Props) {
             // Wpisane pola przechodzą do innego formularza — szkic wydarzenia nie jest już potrzebny.
             draft.saved();
             // Audyt 2 (PWD-26): rutyna też stąd — nazwa i grupa przechodzą do jej formularza.
-            if (k === 'routine') return navigation.replace('Routine', { groupId, title: form.title, kindSwitch: true });
+            // ADR 0049 (K3): rutyna otwierana tylko „Rodzajem” (Kalendarz, ekran grupy) — gdy nic nie wpisano i grupy nie
+            // zmieniono, formularz rutyny startuje jak otwarty wprost: przywraca swój szkic (D179) i grupę domyślną.
+            if (k === 'routine') return navigation.replace('Routine', { groupId: fixedGroup !== undefined || groupId !== fallback ? groupId : undefined, title: form.title.trim() === '' ? undefined : form.title, kindSwitch: true });
             navigation.replace('AddTask', { title: form.title, date: DATE.test(form.date) ? form.date : undefined, time: form.allDay ? undefined : form.slots[0]!.start || undefined, groupId, kindSwitch: true });
           }}
           options={[

@@ -1,20 +1,23 @@
 /**
- * Kosz na ekranie Grupy (D54 dla grup; decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34 — D151): usunięte grupy,
+ * Kosz (D54 dla grup; decyzja właściciela z 8.10.2026, audyt 2: PW-4 A, M-34 — D151): usunięte grupy,
  * listy, zadania, pozycje zakupów, wydarzenia i osoby z ostatnich config.sync.TOMBSTONE_DAYS dni, w sekcjach według
  * rodzaju, każda z „Przywróć”. Przywrócenie listy, zadania, wydarzenia i osoby to zwykła zmiana (działa bez internetu,
  * serwer sprawdza prawa — odrzuconą pokaże „Serwer nie przyjął…”); grupa wraca przez serwer (RPC). Po przywróceniu
- * pasek „Przywrócono: … · Cofnij”, jak po usunięciu.
+ * pasek „Przywrócono: … · Cofnij”, jak po usunięciu. Od ADR 0049 (K6, Q4 a) osobny ekran z wiersza „Kosz” w Grupach,
+ * pod „Ostatnimi zmianami” — ścieżka „Grupy → Kosz” z „Co nowego” i polityki prywatności zostaje prawdziwa.
  */
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { type TrashedGroup, trashedGroups } from '../../domain/views';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { TRASH_KINDS, type TrashEntry, type TrashKind, trashView } from '../../domain/views/trash';
 import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, CardTitle, ErrorText, MissingScreen, Screen, SectionTitle, Title } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, MissingScreen, Screen, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 import { absoluteDay } from './dates';
@@ -68,7 +71,24 @@ export function InTrashScreen({ entity, id, missing, testID, onBack }: { entity:
   );
 }
 
-export function TrashSection() {
+/** Liczba rzeczy w koszu (podpis wiersza „Kosz” w Grupach) — te same warunki co ekran kosza. */
+export function useTrashCount(): number {
+  const { userId, nowMs } = useServices();
+  const { tables } = useAppData();
+  return useMemo(() => trashedGroups(tables, userId, nowMs()).length + trashView(tables, userId, nowMs()).length, [tables, userId, nowMs]);
+}
+
+export function TrashScreen({ navigation }: NativeStackScreenProps<RootStackParams, 'Trash'>) {
+  return (
+    <Screen testID="screen-trash">
+      <BackButton onPress={() => navigation.goBack()} />
+      <Title>{strings['groups.trash']}</Title>
+      <TrashList />
+    </Screen>
+  );
+}
+
+function TrashList() {
   const { userId, account, store, nowMs } = useServices();
   const { tables, today } = useAppData();
   const undo = useUndo();
@@ -105,10 +125,9 @@ export function TrashSection() {
   const meta = (e: TrashEntry) =>
     [e.groupName, e.listName, e.kind === 'list' && e.tasks > 0 ? strings['trash.withTasks'](e.tasks, e.shopping) : null, strings['groups.trashLeft'](e.daysLeft)].filter(Boolean).join(' · ');
 
-  if (groups.length === 0 && items.length === 0) return null;
+  if (groups.length === 0 && items.length === 0) return <Body muted>{strings['trash.empty']}</Body>;
   return (
     <View testID="trash" style={{ gap: 8 }}>
-      <SectionTitle>{strings['groups.trash']}</SectionTitle>
       <Body muted>{strings['trash.info'](config.sync.TOMBSTONE_DAYS)}</Body>
       {error ? <ErrorText>{error}</ErrorText> : null}
       {groups.length ? (

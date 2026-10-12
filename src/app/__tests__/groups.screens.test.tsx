@@ -42,6 +42,18 @@ async function openGroup(s: Awaited<ReturnType<typeof open>>, id = 'gf') {
   await screen.findByTestId('screen-group');
   return s;
 }
+/** ADR 0049 (K5): zakres, nazwa, kolor, ID, wyjście i usunięcie są na podstronie „Ustawienia grupy”. */
+async function openSettings() {
+  await press(screen.getByTestId('group-settings'));
+  await screen.findByTestId('screen-group-settings');
+}
+/** Z podstrony ustawień na zakładki: dwa razy „Wróć” (podstrona, ekran grupy). */
+async function backToGroups() {
+  await press(screen.getByLabelText('Wróć'));
+  await screen.findByTestId('screen-group');
+  await press(screen.getByLabelText('Wróć'));
+  await screen.findByTestId('screen-groups');
+}
 
 describe('ja w grupie (audyt 2, P17: U-30, P-67)', () => {
   it('na liście osób przy mnie „(Ty)”, a na moim ekranie odnośnik do imienia we wszystkich grupach', async () => {
@@ -60,29 +72,30 @@ describe('ja w grupie (audyt 2, P17: U-30, P-67)', () => {
 describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36, T-22)', () => {
   it('nazwa grupy: bez edycji pole pokazuje nową nazwę, a wyjście z pola i z ekranu nic nie wysyła', async () => {
     const s = await openGroup(await open());
+    await openSettings();
     await remote(s, 'groups', 'gf', { name: 'Rodzina Kowalskich' });
     expect(screen.getByTestId('group-rename').props.value).toBe('Rodzina Kowalskich');
     await blur(screen.getByTestId('group-rename'));
-    await press(screen.getByLabelText('Wróć'));
-    await screen.findByTestId('screen-groups');
+    await backToGroups();
     expect(s.store.dispatched).toEqual([]);
   });
 
   it('nazwa grupy: moja zmiana wygrywa przy wyjściu z pola i nie idzie drugi raz przy wyjściu z ekranu', async () => {
     const s = await openGroup(await open());
+    await openSettings();
     await type(screen.getByTestId('group-rename'), 'Rodzina K.');
     await remote(s, 'groups', 'gf', { name: 'Rodzina (Ala)' });
     expect(screen.getByTestId('group-rename').props.value).toBe('Rodzina K.');
     await blur(screen.getByTestId('group-rename'));
     expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } }]);
-    expect(screen.getByText('Rodzina K.')).toBeTruthy(); // tytuł ekranu od razu (zmiana w kolejce)
-    await press(screen.getByLabelText('Wróć'));
-    await screen.findByTestId('screen-groups');
+    expect(within(screen.getByTestId('screen-group-settings')).getByText('Rodzina K.')).toBeTruthy(); // nazwa grupy od razu (zmiana w kolejce)
+    await backToGroups();
     expect(s.store.dispatched).toHaveLength(1);
   });
 
   it('nazwa grupy: zapis przy wyjściu z ekranu bez wyjścia z pola; pustej nie zapisujemy — komunikat (PW-20 A)', async () => {
     const s = await openGroup(await open());
+    await openSettings();
     await type(screen.getByTestId('group-rename'), '   ');
     await blur(screen.getByTestId('group-rename'));
     expect(screen.getByRole('alert').props.children).toBe('Wpisz nazwę grupy.');
@@ -91,6 +104,10 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
     expect(s.store.dispatched).toEqual([]);
     await type(screen.getByTestId('group-rename'), ' Dom ');
     expect(screen.queryByRole('alert')).toBeNull();
+    // Wyjście z podstrony zapisuje nazwę (jak wyjście z ekranu).
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-group');
+    expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Dom' } }]);
     await press(screen.getByLabelText('Wróć'));
     await screen.findByTestId('screen-groups');
     expect(s.store.dispatched).toEqual([{ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Dom' } }]);
@@ -98,6 +115,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
 
   it('wyjście z grupy: niezapisana nazwa przepada (serwer odrzuciłby zmianę)', async () => {
     const s = await openGroup(await open());
+    await openSettings();
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('leave'));
     await answerAlert('Wyjdź z grupy');
@@ -107,6 +125,7 @@ describe('nazwa grupy i imię osoby a zmiany z drugiego telefonu (audyt 2, R-36,
 
   it('kosz grupy: niezapisana nazwa przepada', async () => {
     const s = await openGroup(await open({ base: asOwner() }));
+    await openSettings();
     await type(screen.getByTestId('group-rename'), 'Nowa nazwa');
     await press(screen.getByTestId('delete-group'));
     await answerAlert('Usuń grupę');
@@ -205,6 +224,7 @@ describe('nowa grupa i dołączenie (audyt 2, R-16, R-27, R-38, R-39)', () => {
     expect(screen.getByText('Pobieramy grupę…')).toBeTruthy();
     await arrive(s, 'new-1', 'new-2', 'Sąsiedzi');
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    await openSettings();
     expect(screen.getByTestId('group-rename').props.value).toBe('Sąsiedzi');
   });
 
@@ -315,8 +335,10 @@ describe('zaproszenie (audyt 2, R-19, PW-7)', () => {
 describe('przekazanie własności (audyt 2, R-33)', () => {
   it('po przekazaniu ekran czeka na pobranie; ekran grupy nie pokazuje już opcji właściciela', async () => {
     const s = await openGroup(await open({ base: asOwner() }));
+    await openSettings();
     expect(screen.getByTestId('rotate-join-id')).toBeTruthy();
-    await press(screen.getByTestId('member-ala'));
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('member-ala'));
     await press(await screen.findByTestId('make-owner'));
     await press(screen.getByTestId('make-owner-confirm'));
     expect(await screen.findByText('Przekazano. Pobieramy zmiany…')).toBeTruthy();
@@ -330,8 +352,11 @@ describe('przekazanie własności (audyt 2, R-33)', () => {
       s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mf: { ...b.group_members!.mf!, role: 'admin' }, ala: { ...b.group_members!.ala!, role: 'owner' } } })),
     );
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    await openSettings();
     expect(screen.queryByTestId('rotate-join-id')).toBeNull();
     expect(screen.queryByTestId('delete-group')).toBeNull();
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-group');
     expect(screen.getByLabelText('Ala, właściciel')).toBeTruthy();
   });
 
@@ -355,6 +380,7 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
   it('przycisk „Przywróć” w wierszu (bez „›”); pasek „Przywrócono” z „Cofnij” z powrotem do kosza', async () => {
     const s = await open({ base: trashed() });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     const row = await screen.findByTestId('trash-gf');
     expect(within(row).getByText('Rodzina')).toBeTruthy();
     expect(within(row).getByText('usunięcie za 29 dni')).toBeTruthy();
@@ -375,6 +401,7 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
     });
     await open({ base: trashed(), account });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await press(await screen.findByLabelText('Przywróć: Rodzina'));
     expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.')).toBeTruthy();
     expect(screen.getByTestId('trash-gf')).toBeTruthy();
@@ -385,9 +412,13 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
   it('grupa wrzucona do kosza ponownie znów jest w koszu (po pobraniu z nową datą)', async () => {
     const s = await open({ base: trashed() });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await press(await screen.findByLabelText('Przywróć: Rodzina'));
     await remote(s, 'groups', 'gf', { deleted_at: null });
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('group-gf')).toBeTruthy();
+    await press(screen.getByTestId('open-trash'));
+    await screen.findByTestId('screen-trash');
     await remote(s, 'groups', 'gf', { deleted_at: '2026-10-07T07:00:00Z' });
     expect(await screen.findByTestId('trash-gf')).toBeTruthy();
     expect(screen.getByText('usunięcie za 30 dni')).toBeTruthy();
@@ -411,7 +442,7 @@ describe('wybór terminu i nowa lista (audyt 2, G-14, P-71)', () => {
     base.group_members!.mf = { ...base.group_members!.mf, role: 'child' };
     await open({ base });
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     const groups = screen.getByLabelText('Grupa');
     expect(within(groups).queryByLabelText('Rodzina')).toBeNull();
     expect(within(groups).getByLabelText('Klasa 2b')).toBeTruthy();
@@ -454,6 +485,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
 
   it('PW-43 A: potwierdzenie wyjścia mówi o listach „Tylko ja” w koszu (PWD-4 A: okno systemowe tak/nie)', async () => {
     await openGroup(await open());
+    await openSettings();
     await press(screen.getByTestId('leave'));
     expect(lastAlert()).toMatchObject({ title: 'Wyjdź z grupy', message: 'Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na 30 dni i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).' });
     expect(lastAlert().buttons.map((b) => [b.text, b.style])).toEqual([['Anuluj', 'cancel'], ['Wyjdź z grupy', 'destructive']]);
@@ -464,6 +496,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
     await open({ base });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     const row = await screen.findByTestId('trash-gf');
     expect(within(row).getByText('Grupa Rodzina w koszu (właściciel może przywrócić do: czwartek, 5 listopada)')).toBeTruthy();
     expect(within(row).queryByRole('button')).toBeNull();
@@ -503,18 +536,24 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     // „Dodaj dziecko” przenosi do pola z imieniem dziecka (atrapa TextInput z jest-preset: focus to jest.fn).
     const focus = (TextInput as unknown as { prototype: { focus: jest.Mock } }).prototype.focus;
     focus.mockClear();
-    await press(within(card).getByLabelText('Dodaj dziecko'));
+    // Audyt nawigacji (Z-7, ADR 0049): na karcie ta sama nazwa co przy polu niżej.
+    await press(within(card).getByLabelText('Dodaj dziecko (bez konta), Następne kroki'));
     expect(focus).toHaveBeenCalledTimes(1);
     // Audyt 3 (N-8, Q10 C): rola wybrana na karcie — partner jako administrator, choć dzieci jeszcze nie ma.
-    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś partnera (administrator)', 'Zaproś kogoś innego (członek)']);
-    await press(within(card).getByLabelText('Zaproś partnera (administrator)'));
+    // Audyt nawigacji (Q7 a, ADR 0049): jedna nazwa zaproszenia administratora, z dopiskiem „np. drugi rodzic”.
+    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś jako administratora, Następne kroki', 'Zaproś, Następne kroki']);
+    expect(within(card).getByText('np. drugi rodzic')).toBeTruthy();
+    await press(within(card).getByLabelText('Zaproś jako administratora, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'admin');
     expect(await screen.findByText('Dołączy jako: administrator')).toBeTruthy();
-    await press(within(card).getByLabelText('Zaproś kogoś innego (członek)'));
+    await press(within(card).getByLabelText('Zaproś, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'member');
     expect(await screen.findByText('Dołączy jako: członek')).toBeTruthy();
-    await press(within(card).getByLabelText('Zaplanuj zakupy'));
+    // Audyt nawigacji (Z-6, ADR 0049): „Zaplanuj zakupy” otwiera listę od razu z planowaniem (dzień, osoba).
+    await press(within(card).getByLabelText('Zaplanuj zakupy, Następne kroki'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
+    expect(screen.getByTestId('trip-editor')).toBeTruthy();
+    expect(screen.queryByTestId('trip-plan')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(within(await screen.findByTestId('next-steps')).getByLabelText('Nie teraz'));
     expect(screen.queryByTestId('next-steps')).toBeNull();
@@ -524,9 +563,43 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
   it('N-8 (Q10 C): administrator (nie właściciel) widzi na karcie jeden przycisk — zaproszenie członka', async () => {
     const s = await openGroup(await open({ prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
     const card = await screen.findByTestId('next-steps');
-    expect(within(card).queryByLabelText('Zaproś partnera (administrator)')).toBeNull();
-    await press(within(card).getByLabelText('Zaproś do grupy'));
+    expect(within(card).queryByLabelText('Zaproś jako administratora, Następne kroki')).toBeNull();
+    expect(within(card).queryByText('np. drugi rodzic')).toBeNull();
+    await press(within(card).getByLabelText('Zaproś, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('gf', 'member');
+  });
+
+  it('Z-6 (ADR 0049): zakupy już zaplanowane — „Zaplanuj zakupy” z karty otwiera planowanie z bieżącym dniem i osobą', async () => {
+    const base = sampleBase();
+    put(base, 'lists', 'lz', { ...base.lists!.lz!, due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'ala' });
+    const s = await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    await press(within(await screen.findByTestId('next-steps')).getByLabelText('Zaplanuj zakupy, Następne kroki'));
+    expect(await screen.findByTestId('trip-editor')).toBeTruthy();
+    expect(screen.getByLabelText('Jutro').props.accessibilityState).toMatchObject({ selected: true });
+    expect(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ala').props.accessibilityState).toMatchObject({ selected: true });
+    // Bez zmian „Zapisz zakupy” nic nie wysyła (N-126), a plan wraca do podsumowania.
+    await press(screen.getByTestId('trip-save'));
+    expect(s.store.dispatched).toEqual([]);
+    expect(screen.getByText('jutro, 17:00 · dla: Ala')).toBeTruthy();
+  });
+
+  it('Q7 a (ADR 0049): karta i ekran grupy — ta sama widoczna nazwa, ale każdy przycisk ekranu ma inną etykietę VoiceOvera', async () => {
+    const base = asOwner();
+    delete base.lists!.lz;
+    await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    const page = screen.getByTestId('screen-group');
+    const labels = within(page).getAllByRole('button').map((b) => String(b.props.accessibilityLabel));
+    expect(labels.filter((l, i) => labels.indexOf(l) !== i)).toEqual([]);
+    const card = screen.getByTestId('next-steps');
+    for (const [id, text] of [['next-invite-admin', 'Zaproś jako administratora'], ['next-invite', 'Zaproś'], ['next-child', 'Dodaj dziecko (bez konta)'], ['next-new-shopping', 'Nowa lista zakupów']] as const) {
+      const b = within(card).getByTestId(id);
+      expect(within(b).getByText(text)).toBeTruthy();
+      expect(b.props.accessibilityLabel).toBe(`${text}, Następne kroki`);
+    }
+    // Na ekranie niżej te same przyciski z samą nazwą.
+    expect(screen.getByTestId('invite-admin').props.accessibilityLabel).toBe('Zaproś jako administratora');
+    expect(screen.getByTestId('add-child').props.accessibilityLabel).toBe('Dodaj dziecko (bez konta)');
+    expect(screen.getByTestId('group-new-shopping').props.accessibilityLabel).toBe('Nowa lista zakupów');
   });
 
   it('N-156 (Q19 A): sam w grupie — usunięcie bez pytania, z „Cofnij”', async () => {
@@ -534,6 +607,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     delete base.group_members!.ala;
     delete base.group_members!.tymek;
     const s = await openGroup(await open({ base }));
+    await openSettings();
     (Alert.alert as jest.Mock).mockClear();
     await press(screen.getByTestId('delete-group'));
     expect(Alert.alert).not.toHaveBeenCalled();
@@ -551,6 +625,97 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     await screen.findByTestId('screen-group-loading');
     expect(s.store.dispatched).toEqual([]);
     expect(prefs.set).toHaveBeenCalledWith('nextSteps.new-1', '1');
+  });
+});
+
+/** Kolejność na ekranie (i dla VoiceOvera): `testID` elementów i nagłówki („h:…”) w kolejności drzewa. */
+function order(): string[] {
+  type Host = { type: unknown; props: Record<string, unknown>; children: (Host | string)[] };
+  const out: string[] = [];
+  const text = (n: Host | string): string => (typeof n === 'string' ? n : n.children.map(text).join(''));
+  const walk = (n: Host | string) => {
+    if (typeof n === 'string') return;
+    if (typeof n.props.testID === 'string') out.push(n.props.testID);
+    if (n.type === 'Text' && n.props.accessibilityRole === 'header') out.push(`h:${text(n)}`);
+    n.children.forEach(walk);
+  };
+  walk(screen.root as unknown as Host);
+  return out;
+}
+
+describe('audyt nawigacji K4 (ADR 0049, B1): ekran grupy — treść w kolejności przepływów, dodawanie pod nagłówkami', () => {
+  it('Następne kroki → Osoby (zaproszenia, dziecko, osoby) → Plany lekcji → Listy grupy → Wydarzenia grupy → ustawienia', async () => {
+    const base = asOwner();
+    put(base, 'events', 'ev-basen', { id: 'ev-basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY', audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 });
+    await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    const ids = order();
+    const at = (id: string) => {
+      const i = ids.indexOf(id);
+      expect(i >= 0 ? id : `brak: ${id}`).toBe(id);
+      return i;
+    };
+    const seq = ['next-steps', 'h:3 osoby', 'invite-admin', 'child-name', 'add-child', 'member-mf', 'h:Plany lekcji', 'group-timetable-tymek', 'h:Listy grupy', 'group-new-list', 'group-new-shopping', 'group-list-lf', 'h:Wydarzenia grupy', 'group-add-event', 'series-ev-basen', 'group-settings'];
+    const pos = seq.map(at);
+    expect(pos).toEqual([...pos].sort((x, y) => x - y));
+    // Bez „Dodaj rutynę” — rutyna tylko przez „Rodzaj” w formularzu wydarzenia.
+    expect(screen.queryByTestId('group-add-routine')).toBeNull();
+    expect(screen.getByTestId('group-new-list').props.accessibilityLabel).toBe('Nowa lista zadań');
+    expect(screen.getByTestId('group-new-shopping').props.accessibilityLabel).toBe('Nowa lista zakupów');
+  });
+
+  it('K5: „Ustawienia grupy” — podstrona z zakresem, nazwą, kolorem, ID, wyjściem i usunięciem; na ekranie grupy ich nie ma', async () => {
+    await openGroup(await open({ base: asOwner() }));
+    for (const id of ['group-rename', 'rotate-join-id', 'delete-group', 'leave']) expect(screen.queryByTestId(id)).toBeNull();
+    expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
+    const row = screen.getByTestId('group-settings');
+    expect(row.props.accessibilityLabel).toBe('Ustawienia grupy');
+    await press(row);
+    const page = await screen.findByTestId('screen-group-settings');
+    expect(within(page).getByRole('header', { name: 'Ustawienia grupy' })).toBeTruthy();
+    expect(within(page).getByText('Rodzina')).toBeTruthy();
+    expect(within(page).getByLabelText('W Moich sprawach')).toBeTruthy();
+    for (const id of ['group-rename', 'rotate-join-id', 'delete-group']) expect(within(page).getByTestId(id)).toBeTruthy();
+    // Właściciel nie wychodzi — napis zamiast przycisku, z drogą do przekazania własności na ekranie grupy.
+    expect(within(page).getByText('Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (na ekranie grupy dotknij jej imienia) albo usuń grupę.')).toBeTruthy();
+    expect(within(page).queryByTestId('invite')).toBeNull();
+    await press(screen.getByLabelText('Wróć'));
+    expect(await screen.findByTestId('screen-group')).toBeTruthy();
+  });
+
+  it('K5: wyjście z grupy z podstrony wraca do Grup, nie na ekran grupy, której już nie mam', async () => {
+    const s = await openGroup(await open());
+    await press(screen.getByTestId('group-settings'));
+    await press(await screen.findByTestId('leave'));
+    await answerAlert('Wyjdź z grupy');
+    expectOps(s.store, [{ kind: 'delete', entity: 'group_members', id: 'mf' }]);
+    expect(await screen.findByTestId('screen-groups')).toBeTruthy();
+    expect(screen.queryByTestId('screen-group-missing')).toBeNull();
+  });
+
+  it('K5: grupa osobista — w ustawieniach tylko kolor (bez zakresu, nazwy, ID, wyjścia i usunięcia)', async () => {
+    await openGroup(await open(), ME);
+    await press(screen.getByTestId('group-settings'));
+    const page = await screen.findByTestId('screen-group-settings');
+    expect(within(page).getByText('Osobiste')).toBeTruthy();
+    expect(within(page).getByLabelText('Kolor: niebieski')).toBeTruthy();
+    for (const id of ['group-rename', 'rotate-join-id', 'delete-group', 'leave']) expect(within(page).queryByTestId(id)).toBeNull();
+    expect(within(page).queryByLabelText('W Moich sprawach')).toBeNull();
+    expect(within(page).queryByText(/nie wychodzi z grupy/)).toBeNull();
+  });
+
+  it('„Nowa lista zakupów” pod nagłówkiem list otwiera listę zakupów w tej grupie', async () => {
+    await openGroup(await open());
+    await press(screen.getByTestId('group-new-shopping'));
+    const form = await screen.findByTestId('screen-new-list');
+    expect(within(form).getByText('Nowa lista zakupów')).toBeTruthy();
+    expect(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('grupa bez dzieci — bez nagłówka „Plany lekcji”', async () => {
+    const base = asOwner();
+    delete base.group_members!.tymek;
+    await openGroup(await open({ base }));
+    expect(order()).not.toContain('h:Plany lekcji');
   });
 });
 
@@ -579,6 +744,7 @@ describe('audyt 3: osoba usunięta z grupy (N-162, Q33 A)', () => {
     expect(within(await screen.findByTestId('undo-bar')).getByText('Nie należysz już do grupy Klasa 2b')).toBeTruthy();
     // Moje wyjście z „Rodziny”: grupa znika już przed pobraniem, więc pasek nie mówi o niej.
     await openGroup(s);
+    await openSettings();
     await press(screen.getByTestId('leave'));
     await answerAlert('Wyjdź z grupy');
     await screen.findByTestId('screen-groups');

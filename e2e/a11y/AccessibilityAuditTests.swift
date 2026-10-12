@@ -210,6 +210,21 @@ final class AccessibilityAuditTests: XCTestCase {
     try audit("screen-group")
   }
 
+  // ADR 0049 (K5): podstrona „Ustawienia grupy” (zakres, nazwa, kolor, ID, wyjście, usunięcie).
+  func testUstawieniaGrupy() throws {
+    open("tab-Groups")
+    open("group-0199a000-0000-7000-8000-000000000010")
+    open("group-settings")
+    try audit("screen-group-settings")
+  }
+
+  // ADR 0049 (K6): Kosz osobnym ekranem z wiersza w Grupach.
+  func testKosz() throws {
+    open("tab-Groups")
+    open("open-trash")
+    try audit("screen-trash")
+  }
+
   func testUstawienia() throws {
     app.buttons["Ustawienia"].firstMatch.tap()
     try audit("screen-settings")

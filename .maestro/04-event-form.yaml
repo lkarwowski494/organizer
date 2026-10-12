@@ -7,8 +7,8 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     env:
       TAB: "tab-Calendar"
       SCREEN: "screen-calendar"
-# Przycisk na końcu treści, często za paskiem zakładek (iPhone 17 Pro Max, nocny przebieg 38106362581) — przez
-# common/scroll-tap.yaml. Bez centerElement: przycisku na końcu treści nie da się przewinąć do środka ekranu
+# „Dodaj na <dzień>” stoi pod siatką dni (ADR 0049, K3), ale przy AX5 siatka jest wyższa niż ekran, a przycisk bywa za
+# paskiem zakładek (iPhone 17 Pro Max, nocny przebieg 38106362581) — przez common/scroll-tap.yaml. Bez centerElement
 # (E2E na main od 71abed3).
 - runFlow:
     file: common/scroll-tap.yaml
@@ -92,10 +92,10 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     notVisible:
       id: "undo-bar"
     timeout: 15000
-# Kalendarz zostaje przewinięty do „Dodaj wydarzenie” (koniec treści) — wiersz dnia jest wyżej.
+# Kalendarz zostaje przewinięty do „Dodaj na <dzień>” (pod siatką) — lista dnia z nowym wierszem jest niżej (ADR 0049).
 - scrollUntilVisible:
     element: "Wywiadówka, 18:30.*"
-    direction: UP
+    direction: DOWN
     timeout: 30000
     visibilityPercentage: 10
 - takeScreenshot: 04-event-form

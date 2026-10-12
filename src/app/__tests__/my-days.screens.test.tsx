@@ -66,6 +66,8 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     expect(screen.getByText('Przynieść korki na trening')).toBeTruthy();
     await press(screen.getByTestId('tab-Groups'));
     await press(await screen.findByTestId('group-gk'));
+    // ADR 0049 (K5): zakres w „Ustawieniach grupy”.
+    await press(await screen.findByTestId('group-settings'));
     const scope = await screen.findByLabelText('W Moich sprawach');
     expect(within(scope).getByLabelText('Wszystko').props.accessibilityState.selected).toBe(true);
     await press(within(scope).getByLabelText('Przypisane do mnie i wydarzenia'));
@@ -77,13 +79,17 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
       { kind: 'patch', entity: 'my_day_scopes', id: scopeRowId('mk'), set: { scope: 'mineAndEvents' } },
     ]);
     await press(screen.getByLabelText('Wróć'));
-    await press(screen.getByTestId('tab-Today'));
+    await screen.findByTestId('screen-group');
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('tab-Today'));
     expect(screen.queryByText('Przynieść korki na trening')).toBeNull();
     expect(screen.getByText('Odebrać paczkę')).toBeTruthy();
     // Grupa osobista nie ma tego ustawienia (wszystko w niej jest moje).
     await press(screen.getByTestId('tab-Groups'));
     await press(screen.getByTestId(`group-u-me`));
     await screen.findByTestId('screen-group');
+    await press(screen.getByTestId('group-settings'));
+    await screen.findByTestId('screen-group-settings');
     expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
   });
 
@@ -109,8 +115,15 @@ describe('PW-2 A (M-35): zakres Moich spraw w grupie', () => {
     await fireEvent.changeText(screen.getByTestId('invite-join-id'), '482913507');
     await fireEvent.changeText(screen.getByTestId('invite-code'), '731064');
     await press(screen.getByTestId('invite-accept'));
-    expect((await screen.findByTestId('my-scope-hint')).props.children).toBe('Ta grupa ma 11 osób. Jeśli jej sprawy zaleją Moje sprawy, wybierz niżej „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.');
-    await press(within(screen.getByLabelText('W Moich sprawach')).getByLabelText('Tylko przypisane do mnie'));
+    // ADR 0049 (K5): zakres jest w „Ustawieniach grupy”; podpowiedź zostaje na ekranie grupy z przyciskiem do podstrony.
+    expect((await screen.findByTestId('my-scope-hint')).props.children).toBe('Ta grupa ma 11 osób. Jeśli jej sprawy zaleją Moje sprawy, wybierz w ustawieniach grupy „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.');
+    expect(screen.queryByLabelText('W Moich sprawach')).toBeNull();
+    await press(screen.getByTestId('my-scope-open'));
+    const page = await screen.findByTestId('screen-group-settings');
+    expect(within(page).queryByTestId('my-scope-hint')).toBeNull();
+    await press(within(within(page).getByLabelText('W Moich sprawach')).getByLabelText('Tylko przypisane do mnie'));
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-group');
     expect(screen.queryByTestId('my-scope-hint')).toBeNull();
   });
 });

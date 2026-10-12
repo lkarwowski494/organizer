@@ -37,7 +37,7 @@ describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
     expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
   });
 
-  it('ekran grupy: „Dodaj rutynę” z tą grupą i plan lekcji każdego dziecka', async () => {
+  it('ekran grupy: rutyna przez „Dodaj wydarzenie” → Rodzaj (ADR 0049, B1) z tą grupą i plan lekcji każdego dziecka', async () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Grupy'));
@@ -45,7 +45,9 @@ describe('wejścia do rutyny i planu lekcji (audyt 2, PWD-26)', () => {
     await press(await screen.findByTestId('group-timetable-tymek'));
     expect(await screen.findByText('Plan lekcji — Tymek')).toBeTruthy();
     await press(screen.getByLabelText('Wróć'));
-    await press(await screen.findByTestId('group-add-routine'));
+    expect(screen.queryByTestId('group-add-routine')).toBeNull();
+    await press(await screen.findByTestId('group-add-event'));
+    await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna'));
     await screen.findByTestId('screen-routine');
     expect(radio('Grupa', 'Rodzina').props.accessibilityState.selected).toBe(true);
   });
@@ -56,7 +58,7 @@ describe('rutyny (D113)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     await screen.findByTestId('screen-routine');
     await press(screen.getByTestId('routine-save'));
     expect(screen.getByText('Wpisz nazwę rutyny.')).toBeTruthy();

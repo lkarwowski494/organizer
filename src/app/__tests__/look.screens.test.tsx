@@ -61,7 +61,7 @@ describe('zaznaczenie (PW-52 A, D198)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     const wed = screen.getByLabelText('śr., w środę');
     expect(wed.props.accessibilityState).toMatchObject({ selected: true });
     expect(flat(wed)).toMatchObject({ backgroundColor: c.ink });
@@ -78,7 +78,7 @@ describe('kafelki godzin pod parą pól (M-45, D195)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     await press(screen.getByTestId('routine-start'));
     const panel = screen.getByTestId('routine-start-panel');
     // Panel nie leży w kolumnie pola (połowie szerokości), tylko pod całą parą.

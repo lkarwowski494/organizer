@@ -18,7 +18,7 @@ import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { buttonA11y } from '../../ui/a11y';
-import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupLine, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
 import { useUndo } from '../../ui/undo';
@@ -50,6 +50,8 @@ export function GroupScreen({ route, navigation }: Props) {
   // zapisujemy — komunikat (PW-20 A). Mechanizm wspólny z tytułem zadania (ui/live-text).
   const name = useLiveText(d?.group.name ?? '', (n) => d?.canRename && store.dispatch(renameGroup(d.group.id, n)), { empty: strings['groups.error.nameEmpty'] });
   const [error, setError] = useState<string | null>(null);
+  // Błędy zmiany ID i usunięcia grupy — przy tych przyciskach (ustawienia grupy), nie przy zaproszeniach.
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [childError, setChildError] = useState<string | null>(null);
   const myScope = useMyScope();
   // Karta „Następne kroki” nowej grupy (PW-36 A; od audytu 2 M-117 — każdej nowej, także z ekranu Grupy), do „Nie teraz”
@@ -68,7 +70,7 @@ export function GroupScreen({ route, navigation }: Props) {
   }, [prefs, route.params.groupId]);
   // Przy wyjściu z grupy i przy koszu niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
   const dropNameEdit = name.drop;
-  const deleteGroup = useDeleteGroup(setError);
+  const deleteGroup = useDeleteGroup(setSettingsError);
 
   if (!d) {
     // Grupa właśnie utworzona albo dołączona (parametr trasy) dochodzi z pierwszym pobraniem — bez komunikatu o błędzie.
@@ -117,54 +119,22 @@ export function GroupScreen({ route, navigation }: Props) {
     undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
   };
 
-  return (
-    <Screen testID="screen-group">
-      <BackButton onPress={() => navigation.goBack()} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <GroupMark line={d.group.line} size={22} />
-        <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
-      </View>
-      {nextSteps && d.canInvite ? (
-        <Card testID="next-steps">
-          <CardTitle>
-            {strings['groups.nextSteps']}
-          </CardTitle>
-          <Body muted>{strings['groups.nextSteps.body']}</Body>
-          {/* Audyt 3 (N-8, Q10 C): rola wybrana na karcie, nie przez kolejność kroków (wcześniej członek, gdy nie było
-              jeszcze dzieci). Administratora zaprasza tylko właściciel — administrator widzi jeden przycisk „członek”. */}
-          {d.canInviteAdmin ? (
-            <>
-              <Button label={strings['groups.nextSteps.invitePartner']} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
-              <Button kind="secondary" label={strings['groups.nextSteps.inviteOther']} testID="next-invite" onPress={() => void makeInvite('member')} />
-            </>
-          ) : (
-            <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
-          )}
-          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
-          {shopping ? (
-            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
-          ) : (
-            <Button kind="secondary" label={strings['groups.nextSteps.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
-          )}
-          <Button
-            kind="secondary"
-            label={strings['common.later']}
-            testID="next-later"
-            onPress={() => {
-              setNextSteps(false);
-              prefs?.set(nextStepsKey(d.group.id), '0').catch(() => {});
-            }}
-          />
-        </Card>
-      ) : null}
+  const adult = d.group.me.role !== 'child';
+  // Plany lekcji dzieci (D128) — tylko grupa wspólna z dziećmi, prowadzą dorośli.
+  const kids = d.group.kind === 'shared' && adult ? d.members.filter((m) => m.role === 'child') : [];
+  const hasScope = !personal && d.group.me.role !== 'child';
+  // Audyt nawigacji (ADR 0049, B1): rzadkie ustawienia grupy (zakres, nazwa, kolor, ID, wyjście, usunięcie) na podstronie
+  // „Ustawienia grupy” — ten sam ekran z parametrem `section`, jak Ustawienia (D131). Wiersz do niej, gdy jest tam co
+  // zrobić albo przeczytać (napis, kto nie wychodzi z grupy).
+  const hasSettings = hasScope || d.canRename || d.canSetColor || (d.group.me.role === 'owner' && !personal) || d.canLeave || !personal || d.canDelete;
+  // Wyjście i usunięcie zabierają grupę — wracamy na zakładki, nie na ekran grupy pod podstroną.
+  const leaveGroupScreens = () => navigation.popToTop();
+  const settings = (
+    <>
       {/* Audyt 3 (N-161): dziecko z kontem widzi w Moich sprawach tylko swoje sprawy (PW-14 B, child.ts) — zakres nic by
           nie zmienił, więc go nie ma. */}
-      {personal || d.group.me.role === 'child' ? null : (
+      {!hasScope ? null : (
         <View style={{ gap: 6 }}>
-          {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
-          {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
-            <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
-          ) : null}
           <Segmented
             label={strings['myScope.title']}
             value={myScope.scopeOf(d.group.id)}
@@ -174,78 +144,6 @@ export function GroupScreen({ route, navigation }: Props) {
           <Body muted>{strings['myScope.info']}</Body>
         </View>
       )}
-      <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
-      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
-      {d.members.map((m) => (
-        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
-          <NavRow
-            testID={`member-${m.member_id}`}
-            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
-            subtitle={strings[`groups.role.${m.role}`]}
-            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
-          />
-        </SwipeRow>
-      ))}
-      {d.canInvite ? (
-        <View style={{ gap: 8 }}>
-          {adminFirst ? inviteButtons.reverse() : inviteButtons}
-          <Body muted>{strings['groups.rolesInfo']}</Body>
-        </View>
-      ) : null}
-      {invite ? (
-        <JoinCodeCard
-          code={invite}
-          today={today}
-          title={strings['groups.inviteReady']}
-          note={strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}
-          info={(u) => strings['groups.joinInfo'](u, config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}
-          message={(id, code, u) => strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, id, code, u, config.invites.TESTFLIGHT_LINK)}
-          onRenew={() => void makeInvite(invite.role, true)}
-          onRevoke={async () => {
-            setError(null);
-            try {
-              await account.revokeInvite(invite.inviteId);
-              setInvite(null);
-            } catch (e) {
-              setError(groupErrorText(e));
-            }
-          }}
-          testIDs={{ card: 'invite-ready', code: 'join-code', renew: 'invite-new-code' }}
-        />
-      ) : null}
-      {d.group.me.role === 'owner' && !personal ? (
-        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
-        <Button
-          kind="danger"
-          label={strings['groups.rotate']}
-          testID="rotate-join-id"
-          onPress={() =>
-            Alert.alert(strings['groups.rotate'], strings['groups.rotateConfirm'], [
-              { text: strings['common.cancel'], style: 'cancel' },
-              {
-                text: strings['groups.rotate'],
-                style: 'destructive',
-                onPress: () => {
-                  setInvite(null);
-                  account.rotateJoinId(d.group.id).then(
-                    () => store.refresh(),
-                    (e: unknown) => setError(groupErrorText(e)),
-                  );
-                },
-              },
-            ])
-          }
-        />
-      ) : null}
-      {error ? <ErrorText>{error}</ErrorText> : null}
-      {d.canManageMembers ? (
-        <View style={{ gap: 8 }}>
-          {/* PWD-5 A (M-274): przycisk zawsze aktywny, komunikat przy polu; M-243: Return dodaje. */}
-          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={(v) => (setChild(v), setChildError(null))} onSubmitEditing={addChildNow} returnKeyType="done" maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
-          {childError ? <ErrorText testID="child-error">{childError}</ErrorText> : null}
-          <Button kind="secondary" label={strings['groups.addChild']} testID="add-child" onPress={addChildNow} />
-        </View>
-      ) : null}
       {d.canRename ? (
         <View style={{ gap: 6 }}>
           <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} returnKeyType="done" testID="group-rename" />
@@ -274,36 +172,31 @@ export function GroupScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['groups.colorAuto']} disabled={d.group.color === null} onPress={() => store.dispatch(setGroupColor(d.group.id, null))} />
         </View>
       ) : null}
-      <SectionTitle>{strings['groups.lists']}</SectionTitle>
-      {lists.length === 0 ? <Body muted>{strings['groups.noLists']}</Body> : null}
-      {lists.map((l) => (
-        <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
-          <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
-        </SwipeRow>
-      ))}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
-      <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
-      {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
-      {series.map((e) => (
-        <SwipeRow key={e.id} title={e.title} enabled={d.group.me.role !== 'child'} onDelete={() => events.cancel(e.id, e.nextOccurrence ?? e.start, true)} testID={`swipe-${e.id}`}>
-          <NavRow
-            testID={`series-${e.id}`}
-            title={e.title}
-            subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
-            line={d.group.line}
-            // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
-            onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
-          />
-        </SwipeRow>
-      ))}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
-      {/* Audyt 2 (PWD-26): rutyna i plan lekcji dziecka (D128) także z ekranu grupy, nie tylko z Kalendarza i ekranu osoby. */}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['routine.add']} testID="group-add-routine" onPress={() => navigation.navigate('Routine', { groupId: d.group.id })} />}
-      {d.group.kind === 'shared' && d.group.me.role !== 'child'
-        ? d.members
-            .filter((m) => m.role === 'child')
-            .map((m) => <Button key={m.member_id} kind="secondary" label={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />)
-        : null}
+      {d.group.me.role === 'owner' && !personal ? (
+        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
+        <Button
+          kind="danger"
+          label={strings['groups.rotate']}
+          testID="rotate-join-id"
+          onPress={() =>
+            Alert.alert(strings['groups.rotate'], strings['groups.rotateConfirm'], [
+              { text: strings['common.cancel'], style: 'cancel' },
+              {
+                text: strings['groups.rotate'],
+                style: 'destructive',
+                onPress: () => {
+                  setInvite(null);
+                  account.rotateJoinId(d.group.id).then(
+                    () => store.refresh(),
+                    (e: unknown) => setSettingsError(groupErrorText(e)),
+                  );
+                },
+              },
+            ])
+          }
+        />
+      ) : null}
+      {settingsError ? <ErrorText>{settingsError}</ErrorText> : null}
       {/* PWD-4 A (M-273): proste tak/nie — okno systemowe (wybór z kilku opcji zostaje panelem w ekranie). */}
       {d.canLeave ? (
         <Button
@@ -319,7 +212,7 @@ export function GroupScreen({ route, navigation }: Props) {
                 onPress: () => {
                   dropNameEdit();
                   store.dispatch(remove('group_members', d.group.me.member_id));
-                  navigation.goBack();
+                  leaveGroupScreens();
                 },
               },
             ])
@@ -335,11 +228,163 @@ export function GroupScreen({ route, navigation }: Props) {
           label={strings['groups.delete']}
           testID="delete-group"
           onPress={() => {
-            setError(null);
-            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: () => navigation.goBack() });
+            setSettingsError(null);
+            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: leaveGroupScreens });
           }}
         />
       ) : null}
+    </>
+  );
+
+  if (route.params.section === 'settings') {
+    return (
+      <Screen testID="screen-group-settings">
+        <BackButton onPress={() => navigation.goBack()} />
+        <Title>{strings['groups.settings']}</Title>
+        <GroupLine name={personal ? strings['groups.personal'] : d.group.name} line={d.group.line} />
+        {settings}
+      </Screen>
+    );
+  }
+  // Karta kodu chowa się przy przejściu do ustawień: „Zmień ID grupy” na podstronie unieważnia ten kod, a ekran grupy
+  // o tym nie wie (ID grupy nie ma w danych telefonu). „Zaproś” pokaże bieżący kod od nowa (PW-41 A).
+  const openSettings = () => (setInvite(null), navigation.push('Group', { groupId: d.group.id, section: 'settings' }));
+
+  return (
+    <Screen testID="screen-group">
+      <BackButton onPress={() => navigation.goBack()} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <GroupMark line={d.group.line} size={22} />
+        <Title>{personal ? strings['groups.personal'] : d.group.name}</Title>
+      </View>
+      {nextSteps && d.canInvite ? (
+        <Card testID="next-steps">
+          <CardTitle>
+            {strings['groups.nextSteps']}
+          </CardTitle>
+          <Body muted>{strings['groups.nextSteps.body']}</Body>
+          {/* Q7 a (ADR 0049): widoczne nazwy jak na ekranie grupy, a etykieta VoiceOvera z dopiskiem „Następne kroki” — te
+              same przyciski stoją niżej (Osoby, Listy grupy), więc dwa elementy o jednej etykiecie myliłyby VoiceOver i
+              Sterowanie głosem. */}
+          {/* Audyt 3 (N-8, Q10 C): rola wybrana na karcie, nie przez kolejność kroków (wcześniej członek, gdy nie było
+              jeszcze dzieci). Administratora zaprasza tylko właściciel — administrator widzi jeden przycisk „członek”. */}
+          {d.canInviteAdmin ? (
+            <>
+              <Button label={strings['groups.inviteAdmin']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.inviteAdmin'])} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
+              <Body muted>{strings['groups.nextSteps.adminNote']}</Body>
+              <Button kind="secondary" label={strings['groups.invite']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.invite'])} testID="next-invite" onPress={() => void makeInvite('member')} />
+            </>
+          ) : (
+            <Button label={strings['groups.invite']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.invite'])} testID="next-invite" onPress={() => void makeInvite('member')} />
+          )}
+          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.addChild']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.addChild'])} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
+          {shopping ? (
+            <Button kind="secondary" label={strings['trip.plan']} a11yLabel={strings['groups.nextSteps.a11y'](strings['trip.plan'])} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id, plan: true })} />
+          ) : (
+            <Button kind="secondary" label={strings['lists.newShopping']} a11yLabel={strings['groups.nextSteps.a11y'](strings['lists.newShopping'])} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+          )}
+          <Button
+            kind="secondary"
+            label={strings['common.later']}
+            testID="next-later"
+            onPress={() => {
+              setNextSteps(false);
+              prefs?.set(nextStepsKey(d.group.id), '0').catch(() => {});
+            }}
+          />
+        </Card>
+      ) : null}
+      {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko” — zakres jest w „Ustawieniach
+          grupy” (ADR 0049, B1), więc z przyciskiem do nich. */}
+      {route.params.fresh && hasScope && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
+        <View style={{ gap: 8 }}>
+          <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
+          <Button kind="secondary" label={strings['myScope.open']} testID="my-scope-open" onPress={openSettings} />
+        </View>
+      ) : null}
+      {/* Audyt nawigacji (ADR 0049, B1): Osoby — zaproszenia i dziecko bez konta pod nagłówkiem, potem lista osób. */}
+      <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
+      {d.canInvite ? (
+        <View style={{ gap: 8 }}>
+          {adminFirst ? inviteButtons.reverse() : inviteButtons}
+          <Body muted>{strings['groups.rolesInfo']}</Body>
+        </View>
+      ) : null}
+      {invite ? (
+        <JoinCodeCard
+          code={invite}
+          today={today}
+          title={strings['groups.inviteReady']}
+          note={strings['groups.inviteAs'](strings[`groups.role.${invite.role}`])}
+          info={(u) => strings['groups.joinInfo'](u, config.invites.MAX_USES_LIMIT, config.invites.LINK_LIVE)}
+          message={(id, code, u) => strings['groups.joinMessage'](d.group.name, config.invites.LINK_LIVE ? invite.url : null, id, code, u, config.invites.TESTFLIGHT_LINK)}
+          onRenew={() => void makeInvite(invite.role, true)}
+          onRevoke={async () => {
+            setError(null);
+            try {
+              await account.revokeInvite(invite.inviteId);
+              setInvite(null);
+            } catch (e) {
+              setError(groupErrorText(e));
+            }
+          }}
+          testIDs={{ card: 'invite-ready', code: 'join-code', renew: 'invite-new-code' }}
+        />
+      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      {d.canManageMembers ? (
+        <View style={{ gap: 8 }}>
+          {/* PWD-5 A (M-274): przycisk zawsze aktywny, komunikat przy polu; M-243: Return dodaje. */}
+          <Field ref={childField} label={strings['groups.childName']} value={child} onChangeText={(v) => (setChild(v), setChildError(null))} onSubmitEditing={addChildNow} returnKeyType="done" maxLength={config.profile.NAME_MAX_LENGTH} testID="child-name" />
+          {childError ? <ErrorText testID="child-error">{childError}</ErrorText> : null}
+          <Button kind="secondary" label={strings['groups.addChild']} testID="add-child" onPress={addChildNow} />
+        </View>
+      ) : null}
+      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
+      {d.members.map((m) => (
+        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
+          <NavRow
+            testID={`member-${m.member_id}`}
+            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
+            subtitle={strings[`groups.role.${m.role}`]}
+            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
+          />
+        </SwipeRow>
+      ))}
+      {kids.length ? <SectionTitle>{strings['timetable.plans']}</SectionTitle> : null}
+      {kids.map((m) => (
+        <NavRow key={m.member_id} title={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />
+      ))}
+      <SectionTitle>{strings['groups.lists']}</SectionTitle>
+      {adult ? (
+        <>
+          <Button kind="secondary" label={strings['lists.new']} testID="group-new-list" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'tasks' })} />
+          <Button kind="secondary" label={strings['lists.newShopping']} testID="group-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+        </>
+      ) : null}
+      {lists.length === 0 ? <Body muted>{strings['groups.noLists']}</Body> : null}
+      {lists.map((l) => (
+        <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
+          <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
+        </SwipeRow>
+      ))}
+      <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
+      {/* Rutyna — przez „Rodzaj” w formularzu wydarzenia (ADR 0049, B1). */}
+      {adult ? <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} /> : null}
+      {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
+      {series.map((e) => (
+        <SwipeRow key={e.id} title={e.title} enabled={d.group.me.role !== 'child'} onDelete={() => events.cancel(e.id, e.nextOccurrence ?? e.start, true)} testID={`swipe-${e.id}`}>
+          <NavRow
+            testID={`series-${e.id}`}
+            title={e.title}
+            subtitle={[e.summary, e.time, e.next ? strings['event.next'](formatDue({ date: e.next, time: null }, today)) : strings['event.ended']].filter(Boolean).join(' · ')}
+            line={d.group.line}
+            // Audyt 2 (E-19): napis z dniem po przeniesieniu, a otwarcie po dacie wystąpienia według reguły.
+            onPress={() => navigation.navigate('Event', { eventId: e.id, date: e.nextOccurrence ?? e.start })}
+          />
+        </SwipeRow>
+      ))}
+      {hasSettings ? <NavRow title={strings['groups.settings']} testID="group-settings" onPress={openSettings} /> : null}
     </Screen>
   );
 }

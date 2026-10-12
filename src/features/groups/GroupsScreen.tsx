@@ -1,6 +1,6 @@
 /**
- * Moje grupy: osobista i wspólne, z kolorem linii; nowa grupa i dołączenie z linku; „Ostatnie zmiany” (D194) i kosz
- * (grupy — D54; listy, zadania, wydarzenia i osoby — D151).
+ * Moje grupy: osobista i wspólne, z kolorem linii; nowa grupa i dołączenie z linku; wiersze „Ostatnie zmiany” (D194)
+ * i „Kosz” (grupy — D54; listy, zadania, wydarzenia i osoby — D151; osobny ekran od ADR 0049).
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,7 +14,7 @@ import { strings } from '../../i18n/strings.pl';
 import { Button, ErrorText, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { useDeleteGroup } from './delete-group';
-import { TrashSection } from './TrashSection';
+import { useTrashCount } from './TrashScreen';
 
 export function GroupsScreen() {
   const { userId } = useServices();
@@ -23,6 +23,7 @@ export function GroupsScreen() {
   const groups = useMemo(() => groupsView(tables, userId), [tables, userId]);
   const refresh = usePullRefresh();
   const [error, setError] = useState<string | null>(null);
+  const trashCount = useTrashCount();
 
   // D187 i Q19 A (audyt 3, N-156): jak przycisk na ekranie grupy (delete-group.ts).
   const removeGroup = useDeleteGroup(setError);
@@ -52,7 +53,8 @@ export function GroupsScreen() {
       <Button label={strings['groups.new']} onPress={() => nav.navigate('NewGroup')} />
       <Button kind="secondary" label={strings['groups.join']} onPress={() => nav.navigate('Invite', {})} />
       <NavRow title={strings['recent.title']} testID="open-recent" onPress={() => nav.navigate('Recent')} />
-      <TrashSection />
+      {/* ADR 0049 (K6, Q4 a): Kosz osobnym ekranem, zaraz pod „Ostatnimi zmianami”; pusty też — „Grupy → Kosz” zawsze prowadzi. */}
+      <NavRow title={strings['groups.trash']} subtitle={trashCount ? strings['trash.count'](trashCount) : undefined} testID="open-trash" onPress={() => nav.navigate('Trash')} />
     </Screen>
   );
 }

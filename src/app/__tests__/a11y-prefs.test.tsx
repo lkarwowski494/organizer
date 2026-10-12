@@ -4,7 +4,7 @@
  * mini kalendarz, kafelki godzin, pasek zakładek). Paleta z highContrast (src/config/theme.ts), korpus par — ten sam
  * contrastPairs liczony na tej palecie; ustawienia czyta src/ui/theme.tsx z AccessibilityInfo.
  */
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 import { contrastPairs, groupLines, highContrastPairs, paletteOf, type Scheme } from '../../config/theme';
@@ -18,8 +18,9 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Zadanie', async (p) => p(/^Odebrać paczkę(,|$)/)],
   ['Pełny formularz zadania z mini kalendarzem', async (p) => (await p('Więcej'), await fireEvent.press(await screen.findByTestId('form-date')))],
   ['Kalendarz', async (p) => p('Kalendarz')],
-  ['Nowa rutyna z kafelkami godzin', async (p) => (await p('Kalendarz'), await fireEvent.press(await screen.findByTestId('calendar-add-routine')), await fireEvent.press(await screen.findByTestId('routine-start')))],
+  ['Nowa rutyna z kafelkami godzin', async (p) => (await p('Kalendarz'), await fireEvent.press(await screen.findByTestId('calendar-add-event')), await fireEvent.press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')), await fireEvent.press(await screen.findByTestId('routine-start')))],
   ['Grupa', async (p) => (await p('Grupy'), await p(/^Rodzina, /))],
+  ['Ustawienia grupy', async (p) => (await p('Grupy'), await p(/^Rodzina, /), await p('Ustawienia grupy'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
 ];
 

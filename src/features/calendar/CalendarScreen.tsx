@@ -1,7 +1,7 @@
 /**
  * Kalendarz miesiąca: tydzień od poniedziałku, polskie dni wolne, kropki linii grup przy dniach
  * z wydarzeniami i zadaniami; pod siatką wydarzenia (wszystkie z moich grup, także serie RRULE) i zadania
- * wybranego dnia oraz dodawanie wydarzenia na ten dzień.
+ * wybranego dnia oraz dodawanie na ten dzień (wydarzenie, zadanie albo rutyna — ADR 0049).
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,14 +11,14 @@ import { Pressable, Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
+import { formatDateAccusative, formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
 import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../../domain/views';
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
-import { eventsByDate } from '../../domain/views/events';
+import { cancelledEventDays, eventsByDate } from '../../domain/views/events';
 import { daySpan, isContinuation } from '../../domain/span';
 import { occurrenceRow } from '../../ui/when';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -64,6 +64,9 @@ export function CalendarScreen() {
     setYm({ y: Math.floor(idx / 12), m: (idx % 12) + 1 });
   };
   const day = days.find((d) => d.date === selected);
+  // ADR 0049 (K7, Q3 a): odwołane terminy wybranego dnia — wyszarzone wiersze „Odwołany: …” z drogą do „Przywróć termin”
+  // (tylko grupy, w których jestem dorosłym; bez kropki w siatce i bez miejsca w planie dnia — nic się wtedy nie dzieje).
+  const dayCancelled = useMemo(() => cancelledEventDays(tables, userId, parseIsoDate(selected), parseIsoDate(selected)).filter((e) => shown(e.groupId)), [tables, userId, selected, shown]);
   const dayEvents = day ? (events.get(day.date) ?? []) : [];
   const roles = myMemberships(tables, userId);
   const isoToday = formatIsoDate(today);
@@ -186,13 +189,16 @@ export function CalendarScreen() {
           );
         })}
       </View>
+      {/* Audyt nawigacji (Q6 a, Z-2, Z-3, ADR 0049): dodawanie od razu pod siatką, nad listą dnia (przy AX5 nie za paskiem
+          zakładek). Otwiera formularz wydarzenia z tym dniem; „Rodzaj” prowadzi do zadania (z tym dniem) albo rutyny. */}
+      <Button kind="secondary" label={strings['calendar.addOn'](formatDateAccusative(parseIsoDate(selected), today))} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
       {day ? (
         <View style={{ gap: 4 }}>
           <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.CARD_TITLE, color: c.ink }}>
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
-          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 && dayCancelled.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
           {/* D122: wydarzenia z iPhone'a według godziny i przerwy „wolne …” (dziś od teraz, bez minionych dni). */}
           {dayPlan(nestEntries(agenda(day.items, dayEvents), tables), dayDevice, spanOf, { nowMin: day.date === isoToday ? now().hh * 60 + now().mm : null, gaps: day.date >= isoToday }).map((r) =>
             r.kind === 'device' ? (
@@ -203,11 +209,25 @@ export function CalendarScreen() {
               calRow(r.item, day.date)
             ),
           )}
+          {dayCancelled.map((e) => (
+            <EventRow
+              key={`cancelled-${occurrenceKey(e)}-${e.date}`}
+              testID={`cal-cancelled-${e.eventId}-${e.occurrenceDate}`}
+              title={strings['calendar.cancelledRow'](e.title)}
+              {...occurrenceRow(e)}
+              // Długość odwołanego terminu nic nie mówi — bez niej („1 h”) wiersz jest krótszy i czytelniejszy.
+              length={null}
+              line={e.line}
+              group={groupLabel(e.groupId, e.groupName)}
+              cancelled
+              faded={day.date < isoToday}
+              hint={strings['calendar.cancelledHint']}
+              onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })}
+            />
+          ))}
           <HiddenDuplicates entries={daySplit.hidden} testID={`cal-hidden-${day.date}`} />
         </View>
       ) : null}
-      <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
-      <Button kind="secondary" label={strings['routine.add']} testID="calendar-add-routine" onPress={() => nav.navigate('Routine')} />
     </Screen>
   );
 }

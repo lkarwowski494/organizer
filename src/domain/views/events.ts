@@ -134,7 +134,15 @@ function byEvent<T extends { event_id: string }>(xs: readonly T[]): Map<string, 
  * zwijają się jak lekcje dziecka u dorosłych, bez przypomnień (D127; audyt 2, N-38).
  */
 export function expandEvents(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
-  const groups = new Map(groupsView(t, userId).map((g) => [g.id, g]));
+  return expand(t, userId, from, to, false);
+}
+
+/**
+ * Wystąpienia z moich grup: żywe (`cancelled` false — wszystkie widoki) albo odwołane (true — tylko wiersz „Odwołany: …”
+ * w Kalendarzu, ADR 0049 K7; tylko w grupach, w których jestem dorosłym, bo dziecko nie odwołuje i nie przywraca).
+ */
+function expand(t: Tables, userId: string, from: CivilDate, to: CivilDate, cancelled: boolean): Occurrence[] {
+  const groups = new Map(groupsView(t, userId).filter((g) => !cancelled || g.me.role !== 'child').map((g) => [g.id, g]));
   const members = new Map(rows(t, 'group_members', asMember).map((m) => [m.member_id, m]));
   // Uczestnicy i wyjątki pogrupowane po wydarzeniu raz na wywołanie (audyt 3, N-16) — dawniej filtr całej tabeli dla
   // każdego wydarzenia.
@@ -163,7 +171,7 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
     const byDate = new Map((overridesOf.get(e.id) ?? []).map((o) => [o.occurrence_date, o]));
     for (const occ of occurrenceDates(e, rule, byDate, from, to, isoFrom, isoTo)) {
       const o = byDate.get(occ);
-      if (o?.cancelled) continue;
+      if ((o?.cancelled === true) !== cancelled) continue;
       const date = o?.start_date ?? occ;
       if (date < isoFrom || date > isoTo) continue;
       const days = occurrenceDays(o, e);
@@ -210,10 +218,23 @@ export function expandEvents(t: Tables, userId: string, from: CivilDate, to: Civ
  * Kolejność dnia: według godzin tego dnia (kolejny dzień wydarzenia przez północ — od 00:00).
  */
 export function expandEventDays(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
+  return days(t, userId, from, to, false);
+}
+
+/**
+ * ADR 0049 (K7, Q3 a): odwołane terminy dni [from, to] — jak expandEventDays (wielodniowe w każdym dniu, w dniu po
+ * przeniesieniu), tylko z grup, w których jestem dorosłym. Bierze je wyłącznie Kalendarz (wyszarzony wiersz z
+ * „Przywróć”); Moje sprawy, przypomnienia, lustro i dojazd liczą z expandEvents / expandEventDays — bez odwołanych.
+ */
+export function cancelledEventDays(t: Tables, userId: string, from: CivilDate, to: CivilDate): Occurrence[] {
+  return days(t, userId, from, to, true);
+}
+
+function days(t: Tables, userId: string, from: CivilDate, to: CivilDate, cancelled: boolean): Occurrence[] {
   const isoFrom = formatIsoDate(from);
   const isoTo = formatIsoDate(to);
   const out: Occurrence[] = [];
-  for (const o of expandEvents(t, userId, addDays(from, 1 - config.events.MAX_DAYS), to)) {
+  for (const o of expand(t, userId, addDays(from, 1 - config.events.MAX_DAYS), to, cancelled)) {
     for (let i = 0; i < o.days; i++) {
       const date = i === 0 ? o.date : formatIsoDate(addDays(parseIsoDate(o.date), i));
       if (date >= isoFrom && date <= isoTo) out.push(i === 0 ? o : { ...o, date, part: { day: i + 1, days: o.days } });

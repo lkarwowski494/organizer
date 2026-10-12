@@ -28,7 +28,7 @@ import { cycleChange, cycleDateOps, keepCycle, type Repeat, repeatOf, setRepeat 
 import { movedTo, moveTargets, moveTaskOps } from '../../domain/views/task-move';
 import { appendKey, moveInList } from '../../domain/views/sort-keys';
 import { reorderItems, ReorderRows } from './ReorderRows';
-import { InTrashScreen } from '../groups/TrashSection';
+import { InTrashScreen } from '../groups/TrashScreen';
 import { taskHistory } from '../../domain/views/history';
 import { personOf } from '../../domain/views/who';
 import { RepeatEditor } from './RepeatEditor';

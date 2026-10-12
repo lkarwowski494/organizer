@@ -140,7 +140,8 @@ export const strings = {
   'task.title': 'Tytuł',
   'form.newTitle': 'Nowe zadanie',
   'form.more': 'Więcej',
-  'form.moreHint': 'Pełny formularz: grupa, lista, osoba, powtarzanie',
+  // Audyt nawigacji (Z-5, ADR 0049): to, co formularz naprawdę ma — wyboru listy nie ma (D97).
+  'form.moreHint': 'Pełny formularz: rodzaj, grupa, osoba, termin, powtarzanie',
   'form.kind': 'Rodzaj',
   'form.kind.task': 'Zadanie',
   'form.kind.event': 'Wydarzenie',
@@ -212,7 +213,6 @@ export const strings = {
   'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
   'event.navigate': 'Nawiguj',
   'event.myMode': 'Twój dojazd (widzisz tylko Ty)',
-  'routine.add': 'Dodaj rutynę',
   'routine.title': 'Nowa rutyna',
   'routine.info': 'Rutyna to stałe kroki o stałej porze, np. „Poranek Tymka”: zęby, ubranie, plecak. Kroki pojawiają się w wybrane dni pod rutyną; niezrobione po dniu znikają, a licznik „N razy z rzędu” pokazuje, ile razy z rzędu wszystko było zrobione.',
   'routine.namePlaceholder': 'np. Poranek Tymka',
@@ -229,6 +229,8 @@ export const strings = {
   'streak': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} z rzędu`,
   'timetable.open': 'Plan lekcji',
   'timetable.title': (name: string) => `Plan lekcji — ${name}`,
+  // ADR 0049 (B1): sekcja ekranu grupy z planem każdego dziecka.
+  'timetable.plans': 'Plany lekcji',
   'timetable.info': 'Każda lekcja staje się wydarzeniem cyklicznym z tą osobą jako uczestnikiem — widać je w Kalendarzu, Moich sprawach i kalendarzu iPhone’a. Zmiany w planie obowiązują od jutra; pojedynczą lekcję zmienisz jak zwykłe wydarzenie.',
   'timetable.thisWeek': (range: string) => `Ten tydzień (${range}) to`,
   // D171: przełącznik zmienia nazwy tygodni, nie dni lekcji.
@@ -322,7 +324,8 @@ export const strings = {
 
   // Audyt 3 (N-166): wskazuje przyciski pod spodem, zamiast listy „Dom”, której nic nie podpowiada.
   'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.',
-  'lists.new': 'Nowa lista',
+  // Audyt nawigacji (Z-7, ADR 0049): jedna nazwa na rzecz — „Nowa lista zadań” obok „Nowa lista zakupów”.
+  'lists.new': 'Nowa lista zadań',
   'lists.newShopping': 'Nowa lista zakupów',
   'lists.name': 'Nazwa listy',
   'lists.kind.tasks': 'Zadania',
@@ -413,6 +416,11 @@ export const strings = {
   'calendar.repeatNext': 'kolejny termin',
   'calendar.repeatNextHint': 'Otwiera zadanie, z którego wynika ten termin',
   'calendar.addEvent': 'Dodaj wydarzenie',
+  // Audyt nawigacji (Q6 a, ADR 0049): jeden przycisk pod siatką Kalendarza — rodzaj (wydarzenie, zadanie, rutyna) w formularzu.
+  'calendar.addOn': (day: string) => `Dodaj na ${day}`,
+  // ADR 0049 (K7, Q3 a): odwołany termin serii w Kalendarzu — wyszarzony wiersz, który prowadzi do „Przywróć termin”.
+  'calendar.cancelledRow': (title: string) => `Odwołany: ${title}`,
+  'calendar.cancelledHint': 'Otwiera termin, tam „Przywróć termin”',
 
   'event.new': 'Nowe wydarzenie',
   'event.edit': 'Zmień wydarzenie',
@@ -623,18 +631,20 @@ export const strings = {
   'groups.error.childEmpty': 'Wpisz imię dziecka.',
   'groups.error.myNameEmpty': 'Wpisz swoje imię w tej grupie.',
   'groups.noLists': 'Brak list. Dodaj listę zakupów albo zadań.',
-  'groups.nextSteps.newShopping': 'Utwórz listę zakupów',
   'groups.leave': 'Wyjdź z grupy',
   // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
   // Audyt 3 (N-47, Q27): też co zostaje — zadania bez osoby (D132), plan lekcji i historia dzieci w grupie.
   'groups.leaveConfirm': (days: number) =>
     `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).`,
   // Audyt 3 (N-163): gdy nie ma komu przekazać własności (brak innego dorosłego z kontem), zostaje „Usuń grupę”.
-  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia) albo usuń grupę.',
+  // ADR 0049 (K5): napis stoi w „Ustawieniach grupy”, a osoby są na ekranie grupy.
+  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (na ekranie grupy dotknij jej imienia) albo usuń grupę.',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
   // Audyt 3 (N-163): to samo słowo co przycisk „Usuń z grupy” (docs/glossary.md).
   'groups.childCannotLeave': 'Z tej grupy usuwa Cię właściciel albo administrator.',
   'groups.lists': 'Listy grupy',
+  // ADR 0049 (B1): podstrona ekranu grupy z rzadkimi ustawieniami.
+  'groups.settings': 'Ustawienia grupy',
   'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
   // Audyt 2 (A-9): nazwa koloru po polsku (VoiceOver czytał klucz, np. „teal”); klucze z config/theme.ts (groupLines).
@@ -657,11 +667,10 @@ export const strings = {
   // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków — co dalej.
   'groups.nextSteps': 'Następne kroki',
   'groups.nextSteps.body': 'Zaproś bliskich, dodaj dziecko bez konta i zaplanuj pierwsze zakupy.',
-  'groups.nextSteps.invite': 'Zaproś do grupy',
   // Audyt 3 (N-8, Q10 C): właściciel na karcie od razu wybiera rolę — partner jako administrator doda dzieci i babcię.
-  'groups.nextSteps.invitePartner': 'Zaproś partnera (administrator)',
-  'groups.nextSteps.inviteOther': 'Zaproś kogoś innego (członek)',
-  'groups.nextSteps.child': 'Dodaj dziecko',
+  // Audyt nawigacji (Q7 a, Z-7, ADR 0049): na karcie te same nazwy co na ekranie grupy, z dopiskiem pod przyciskiem.
+  'groups.nextSteps.adminNote': 'np. drugi rodzic',
+  'groups.nextSteps.a11y': (label: string) => `${label}, Następne kroki`,
   // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
   'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
   'groups.error.nameEmpty': 'Wpisz nazwę grupy.',
@@ -895,6 +904,9 @@ export const strings = {
     shopping ? `z ${n} ${plural(n, { one: 'pozycją', few: 'pozycjami', many: 'pozycjami' })}` : `z ${n} ${plural(n, { one: 'zadaniem', few: 'zadaniami', many: 'zadaniami' })}`,
   'trash.showAll': (n: number) => `Pokaż wszystkie (${n})`,
   'trash.showLess': 'Pokaż mniej',
+  // ADR 0049 (K6): podpis wiersza „Kosz” w Grupach i pusty ekran kosza.
+  'trash.count': (n: number) => `${n} ${plural(n, { one: 'rzecz', few: 'rzeczy', many: 'rzeczy' })}`,
+  'trash.empty': 'Kosz jest pusty.',
 
   'task.noAddressee': 'Nikt nie widzi tego zadania w Moich sprawach. Wybierz osobę („Dla kogo”) albo ustaw termin.',
 
@@ -1110,11 +1122,13 @@ export const strings = {
   'missing.group': 'Tej grupy już nie ma — ktoś ją usunął albo już do niej nie należysz.',
   // PW-2 A (M-35, D149): zakres Moich spraw w grupie.
   'myScope.title': 'W Moich sprawach',
+  // ADR 0049 (K5): przycisk przy podpowiedzi zakresu — otwiera „Ustawienia grupy”.
+  'myScope.open': 'Zmień „W Moich sprawach”',
   'myScope.all': 'Wszystko',
   'myScope.mineAndEvents': 'Przypisane do mnie i wydarzenia',
   'myScope.mine': 'Tylko przypisane do mnie',
   'myScope.info': 'Co z tej grupy pokazywać w Moich sprawach, przypomnieniach, porannym podsumowaniu i kalendarzu iPhone’a. Ustawienie Twojego konta (także na innych urządzeniach) — nikt z grupy go nie widzi.',
-  'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz niżej „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
+  'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz w ustawieniach grupy „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
   // PW-38 A (M-119, D192): chipy grup filtrują Moje sprawy i Kalendarz.
   'filter.label': 'Pokaż grupy',
   'filter.chipA11y': (name: string) => `Tylko grupa ${name}`,

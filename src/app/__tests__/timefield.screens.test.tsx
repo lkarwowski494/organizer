@@ -1,5 +1,5 @@
 /** Wybór godziny kafelkami (D125): godzina, minuty, wpisanie ręczne, „Bez godziny”; bez klawiatury. */
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { RootStack } from '../navigation';
 import { setup } from './harness';
@@ -11,7 +11,7 @@ describe('pole godziny (D125)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     expect(screen.getByLabelText('Początek').props.accessibilityValue).toEqual({ text: 'Wybierz godzinę' });
     await press(screen.getByTestId('routine-start'));
     expect(screen.getByTestId('routine-start-panel')).toBeTruthy();

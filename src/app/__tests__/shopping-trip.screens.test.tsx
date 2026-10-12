@@ -22,7 +22,7 @@ describe('nowa lista zakupów', () => {
   it('audyt 2 (R-3): lista „Tylko ja” — zakupy robię ja albo nikt; wybrana wcześniej inna osoba spada', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await screen.findByTestId('screen-new-list');
     await fireEvent.changeText(screen.getByTestId('list-name'), 'Prezent dla Ali');
     await press(screen.getByLabelText('Zakupy'));
@@ -40,7 +40,7 @@ describe('nowa lista zakupów', () => {
   it('we wspólnej grupie bez dnia i osoby nie da się utworzyć; z osobą — tak', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await screen.findByTestId('screen-new-list');
     await fireEvent.changeText(screen.getByTestId('list-name'), 'Bazar');
     await press(screen.getByLabelText('Zakupy'));
@@ -63,7 +63,7 @@ describe('nowa lista zakupów', () => {
   it('dzień z kalendarza; „Bez terminu” czyści dzień; grupa osobista bez wymogu', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await fireEvent.changeText(await screen.findByTestId('list-name'), 'Apteka');
     await press(screen.getByLabelText('Zakupy'));
     await press(screen.getByLabelText('Rodzina'));

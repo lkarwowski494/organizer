@@ -120,6 +120,7 @@ describe('„Kupione w ostatnich zakupach” (Q9 B, N-49)', () => {
     await s.renderApp(<RootStack />);
     await screen.findByTestId('screen-today');
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await screen.findByTestId('trash');
     const items = await screen.findByTestId('trash-item');
     expect(within(items).getByText('Chleb żytni')).toBeTruthy();

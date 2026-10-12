@@ -178,3 +178,23 @@ describe('„Do potwierdzenia” i plakietka', () => {
     expect(screen.queryByTestId('handoff-inbox')).toBeNull();
   });
 });
+
+describe('ADR 0049 (K8, Q5 a): „Do potwierdzenia” nad polem dodawania', () => {
+  it('karta stoi zaraz pod tytułem Moich spraw — przed chipami grup, polem i paskiem okresu (pierwszy ekran także przy AX5)', async () => {
+    const base = sampleBase();
+    put(base, 'handoffs', 'h1', handoff('h1', {}));
+    await open(base);
+    type Host = { props: Record<string, unknown>; children: (Host | string)[] };
+    const ids: string[] = [];
+    const walk = (n: Host | string) => {
+      if (typeof n === 'string') return;
+      if (typeof n.props.testID === 'string') ids.push(n.props.testID);
+      n.children.forEach(walk);
+    };
+    walk(screen.root as unknown as Host);
+    const inbox = ids.indexOf('handoff-inbox');
+    expect(inbox).toBeGreaterThan(-1);
+    for (const id of ['today-filter-gf', 'quick-add', 'add-more']) expect([id, inbox < ids.indexOf(id)]).toEqual([id, true]);
+    expect(within(screen.getByTestId('handoff-inbox')).getByText('Do potwierdzenia')).toBeTruthy();
+  });
+});

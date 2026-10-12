@@ -2,7 +2,7 @@
  * Szkic formularza z „Zapisz” (decyzja właściciela 8.10.2026, D179; audyt 2, M-123): wyjście gestem albo „Wróć”
  * zostawia wpisane pola, ponowne otwarcie je przywraca z „Przywrócono niezapisane zmiany · Odrzuć”.
  */
-import { act, fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
 import { config } from '../../config';
 import { draftKey } from '../form-draft';
@@ -16,8 +16,8 @@ type Form = { name: string; open: () => Promise<void>; field: string; screen: st
 const forms: Form[] = [
   { name: 'nowe zadanie', open: async () => press(screen.getByTestId('add-more')), field: 'form-title', screen: 'screen-add-task' },
   { name: 'nowe wydarzenie', open: async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-event'))), field: 'event-title', screen: 'screen-event-edit' },
-  { name: 'rutyna', open: async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-routine'))), field: 'routine-title', screen: 'screen-routine' },
-  { name: 'nowa lista', open: async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista'))), field: 'list-name', screen: 'screen-new-list' },
+  { name: 'rutyna', open: async () => (await press(screen.getByLabelText('Kalendarz')), await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')))), field: 'routine-title', screen: 'screen-routine' },
+  { name: 'nowa lista', open: async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista zadań'))), field: 'list-name', screen: 'screen-new-list' },
   { name: 'nowa grupa', open: async () => (await press(screen.getByLabelText('Grupy')), await press(await screen.findByLabelText('Nowa grupa'))), field: 'group-name', screen: 'screen-new-group' },
 ];
 

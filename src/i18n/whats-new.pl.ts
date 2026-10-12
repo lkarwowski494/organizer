@@ -8,6 +8,16 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 25: nawigacja po audycie przepływów (decyzja właściciela 12.10.2026, wariant B, ADR 0049) — jedna karta, kroki K1–K8.
+    fromBuild: 25,
+    items: [
+      'Kalendarz: przycisk „Dodaj na …” (np. „Dodaj na środę, 7 października”) stoi od razu pod siatką dni i dodaje na wybrany dzień wydarzenie, zadanie albo rutynę — rodzaj wybierasz w formularzu. Odwołany termin serii widać tam jako szary wiersz „Odwołany: …”, a każdy dorosły z grupy przywróci go przyciskiem „Przywróć termin”.',
+      'Ekran grupy: najpierw osoby (zaproszenia, dziecko bez konta), potem plany lekcji, listy i wydarzenia. „Nowa lista zadań”, „Nowa lista zakupów” i „Dodaj wydarzenie” stoją zaraz pod nagłówkami, a rutynę dodasz przez rodzaj w formularzu wydarzenia. Zakres „W Moich sprawach”, nazwa, kolor, ID grupy, wyjście i usunięcie są w Grupy → grupa → Ustawienia grupy.',
+      'Przekazania „Do potwierdzenia” stoją na samej górze Moich spraw, nad polem dodawania — także przy dużym tekście. Kosz ma osobny ekran: Grupy → Kosz, zaraz pod „Ostatnimi zmianami”.',
+      'Karta „Następne kroki” w nowej grupie: „Zaplanuj zakupy” od razu otwiera wybór dnia i osoby, a przyciski nazywają się jak na ekranie grupy („Zaproś jako administratora”, „Nowa lista zakupów”). W Listach jest „Nowa lista zadań” obok „Nowa lista zakupów”.',
+    ],
+  },
+  {
     // Build 24: animacja przy starcie (decyzja właściciela 10.10.2026, ADR-0045).
     fromBuild: 24,
     items: ['Przy starcie aplikacji splątane wstążki rozplatają się i składają w ikonę Organizera. Tapnięcie pomija animację, a przy włączonym „Ogranicz ruch” w ustawieniach iPhone’a jej nie ma.'],
@@ -47,7 +57,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     fromBuild: 19,
     items: [
       'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',
-      'Plan lekcji z tygodniami A/B (Grupy → grupa → dziecko → „Plan lekcji”) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z licznikiem „N razy z rzędu”.',
+      'Plan lekcji z tygodniami A/B (Grupy → grupa → dziecko → „Plan lekcji”) i rutyny z krokami (w formularzu dodawania rodzaj „Rutyna”) z licznikiem „N razy z rzędu”.',
       'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a gdy włączysz „Czas dojazdu do najbliższych wydarzeń” (Ustawienia → Kalendarz i dojazd), widzisz „Wyjdź o …”.',
       'W wierszach widać, kto odpowiada („dla Ciebie”, „odpowiada: Ala”) i ile trwa wydarzenie. „Wyczyść dane na telefonie” (Ustawienia → Konto i dane) pobiera wszystko od nowa.',
       'Dzień z przerwami: między sprawami widać „wolne 2 h 30 min”, a wydarzenia z iPhone’a stoją na swojej godzinie.',

@@ -18,12 +18,13 @@ import { parseQuickAdd } from '../../domain/quickadd';
 import { parseQuantity } from '../../domain/quantity';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { memberCanSeeList } from '../../domain/views/visibility';
+import type { Tables } from '../../domain/views/model';
 import { usePullRefresh } from '../../app/TabHeader';
 import { useTaskActions } from '../../app/task-actions';
 import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDoneRows, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
-import { InTrashScreen } from '../groups/TrashSection';
+import { InTrashScreen } from '../groups/TrashScreen';
 import { strings } from '../../i18n/strings.pl';
 import { buttonA11y, useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, GroupLine, META_SEP } from '../../ui/components';
@@ -81,6 +82,17 @@ function TripBox({ editing, children }: { editing: boolean; children: ReactNode 
   return <Card testID="trip">{children}</Card>;
 }
 
+/** Plan zakupów do edycji („Zmień”); osoba tylko spośród tych, które widzą listę (R-3, M-22). */
+const tripDraft = (trip: Trip, person: string | null): TripDraft => ({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: person });
+
+/** Planowanie otwarte od wejścia na listę (Z-6): bieżący plan jak przy „Zmień”, osoba tylko ta, która widzi listę. */
+function openTrip(tables: Tables, listId: string): TripDraft {
+  const trip = asTrip(tables.lists?.[listId] ?? {});
+  const groupId = String(tables.lists?.[listId]?.group_id ?? '');
+  const person = tripAdults(tables, groupId).some((m) => m.member_id === trip.responsibleId && memberCanSeeList(tables, m.member_id, listId)) ? trip.responsibleId : null;
+  return tripDraft(trip, person);
+}
+
 export function ListScreen({ route, navigation }: Props) {
   const { userId, store, now, nowMs, newId } = useServices();
   const actions = useTaskActions();
@@ -91,9 +103,11 @@ export function ListScreen({ route, navigation }: Props) {
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ask, setAsk] = useState<{ r: Exclude<ListResolution, { kind: 'ok' }>; answers: ListAnswers } | null>(null);
-  const [planning, setPlanning] = useState<TripDraft | null>(null);
+  // Audyt nawigacji (Z-6, ADR 0049): z karty „Następne kroki” lista otwiera się z planowaniem — z bieżącym planem, jeśli
+  // jest (jak „Zmień”), inaczej pusty. Plan zakupów ma tylko lista zakupów, a planuje dorosły (TripBox niżej).
+  const [planning, setPlanning] = useState<TripDraft | null>(() => (route.params.plan ? openTrip(tables, route.params.listId) : null));
   // Audyt 3 (N-126): zakupy z chwili otwarcia edytora — „Zapisz zakupy” wysyła tylko to, co zmieniłem.
-  const [planFrom, setPlanFrom] = useState<Trip | null>(null);
+  const [planFrom, setPlanFrom] = useState<Trip | null>(() => (route.params.plan ? asTrip(tables.lists?.[route.params.listId] ?? {}) : null));
   const [planTried, setPlanTried] = useState(false);
   const [handing, setHanding] = useState(false);
   // Audyt 3 (N-62): po zamknięciu panelu fokus VoiceOvera wraca na przycisk, który go otworzył (albo do pola po „Anuluj”).
@@ -314,7 +328,7 @@ export function ListScreen({ route, navigation }: Props) {
             <>
               <Body>{strings['trip.summary'](trip.date ? formatDue({ date: trip.date, time: trip.time }, today) : null, who)}</Body>
               <Button label={strings['trip.done']} testID="trip-done" onPress={() => actions.finishTrip(list.id, list.name)} />
-              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => (setPlanFrom(trip), setPlanning({ date: trip.date ?? '', time: trip.time?.slice(0, 5) ?? '', responsibleId: tripPerson }))} />
+              <Button kind="secondary" label={strings['trip.change']} testID="trip-change" onPress={() => (setPlanFrom(trip), setPlanning(tripDraft(trip, tripPerson)))} />
               {/* Audyt 3 (N-172): bez osoby, która widzi listę („Tylko ja”) — nie ma komu przekazać, więc bez przycisku. */}
               {tripMine && (waiting || handoffTo.length > 0) ? (
                 waiting ? (

@@ -554,3 +554,53 @@ describe('osoba odpowiedzialna (D66)', () => {
     expect(screen.queryByLabelText('Osoba odpowiedzialna')).toBeNull();
   });
 });
+
+describe('ADR 0049 (K7, Q3 a): odwołany termin w Kalendarzu z „Przywróć termin”', () => {
+  /** Tańce w środy; termin 7.10 odwołany (na innym telefonie — w „Ostatnich zmianach” tego nie ma). */
+  function cancelledToday(extra: Row = {}) {
+    const base = withDances();
+    put(base, 'event_overrides', 'o7', { id: 'o7', event_id: 'ev-tance', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 1, ...extra });
+    return base;
+  }
+
+  it('wyszarzony wiersz „Odwołany: …” otwiera termin; „Przywróć termin” — każdy dorosły, termin wraca do dnia', async () => {
+    const s = await open(cancelledToday());
+    // Moje sprawy bez zmian: odwołanego terminu tam nie ma.
+    expect(screen.queryByLabelText(/^Tańce, 17:00/)).toBeNull();
+    expect(screen.queryByText('Odwołany: Tańce')).toBeNull();
+    await press(screen.getByTestId('tab-Calendar'));
+    const row = await screen.findByTestId('cal-cancelled-ev-tance-2026-10-07');
+    expect(row.props.accessibilityLabel).toBe('Odwołany: Tańce, 17:00–18:00, Rodzina');
+    expect(row.props.accessibilityHint).toBe('Otwiera termin, tam „Przywróć termin”');
+    expect(within(row).getByText('Odwołany: Tańce')).toBeTruthy();
+    // Bez przesuwania (nie ma czego odwołać) i bez kropki w siatce (nic się wtedy nie dzieje).
+    expect(screen.queryByTestId('swipe-cal-event-ev-tance-2026-10-07')).toBeNull();
+    expect(screen.getByTestId('day-2026-10-07').props.accessibilityLabel).not.toMatch(/wydarzen/);
+    await press(row);
+    await screen.findByTestId('screen-event');
+    expect(screen.getByText('Ten termin jest odwołany.')).toBeTruthy();
+    await press(screen.getByTestId('event-restore'));
+    expectOps(s.store, [{ kind: 'patch', entity: 'event_overrides', id: 'o7', set: { cancelled: false } }]);
+    await press(screen.getByLabelText('Wróć'));
+    expect(await screen.findByTestId('cal-event-ev-tance-2026-10-07')).toBeTruthy();
+    expect(screen.queryByTestId('cal-cancelled-ev-tance-2026-10-07')).toBeNull();
+  });
+
+  it('dziecko z kontem odwołanego terminu nie widzi (nie odwołuje i nie przywraca)', async () => {
+    const base = cancelledToday();
+    put(base, 'group_members', 'mf', { ...base.group_members!.mf!, role: 'child' });
+    put(base, 'event_participants', 'p2', { id: 'p2', event_id: 'ev-tance', group_id: 'gf', member_id: 'mf', deleted_at: null, version: 1 });
+    await open(base);
+    await press(screen.getByTestId('tab-Calendar'));
+    await screen.findByTestId('screen-calendar');
+    expect(screen.queryByTestId('cal-cancelled-ev-tance-2026-10-07')).toBeNull();
+  });
+
+  it('filtr grup chowa odwołane terminy innych grup, jak zwykłe', async () => {
+    await open(cancelledToday());
+    await press(screen.getByTestId('tab-Calendar'));
+    await screen.findByTestId('cal-cancelled-ev-tance-2026-10-07');
+    await press(screen.getByTestId('calendar-filter-gk'));
+    expect(screen.queryByTestId('cal-cancelled-ev-tance-2026-10-07')).toBeNull();
+  });
+});

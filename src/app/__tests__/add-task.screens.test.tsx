@@ -23,6 +23,11 @@ const type = async (text: string) => {
 const radio = (group: string, option: string) => within(screen.getByLabelText(group)).getByLabelText(option);
 
 describe('szybkie dodanie i „Zmień” (D178: jeden ekran zmiany zadania)', () => {
+  it('audyt nawigacji (Z-5, ADR 0049): podpowiedź „Więcej” wymienia to, co ma formularz — bez wyboru listy (D97)', async () => {
+    await open();
+    expect(screen.getByLabelText('Więcej').props.accessibilityHint).toBe('Pełny formularz: rodzaj, grupa, osoba, termin, powtarzanie');
+  });
+
   it('basen jutro 19.00 → Osobiste; „Zmień” otwiera ekran zadania; „Przenieś do grupy” → Rodzina z podzadaniami, z „Cofnij”', async () => {
     const { store } = await open();
     await type('Basen jutro 19.00');

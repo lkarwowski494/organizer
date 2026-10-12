@@ -870,13 +870,15 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
  * „minione” przy wyszarzonym.
  */
 /** `part` (D199) — który to dzień wielodniowego („dzień 2 z 5”, ui/when.ts). */
-export function EventRow({ title, time, length, part, line, group, onPress, testID, faded, extra, alert, expanded, hint }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; onPress: () => void; testID?: string; faded?: boolean; extra?: string; alert?: string; expanded?: boolean; hint?: string }) {
+/** `cancelled` — odwołany termin w Kalendarzu (ADR 0049, K7): wyszarzony jak miniony, tytuł mówi „Odwołany: …”. */
+export function EventRow({ title, time, length, part, line, group, onPress, testID, faded, cancelled, extra, alert, expanded, hint }: { title: string; time: string | null; length?: string | null; part?: string | null; line: number; group: string; onPress: () => void; testID?: string; faded?: boolean; cancelled?: boolean; extra?: string; alert?: string; expanded?: boolean; hint?: string }) {
   const { c, font, size, line: lineOf } = useTheme();
   const l = lineOf(line);
   const actions = useSwipeAction();
   const when = time ?? strings['common.allDay'];
   // Audyt 3 (N-65): „Wyjdź o 16:20 · 35 min autem” słowami.
   const label = [title, when, length ? spoken(length) : null, part, group, extra ? spoken(extra) : null, alert ? spoken(alert) : null, faded ? strings['event.pastA11y'] : null].filter(Boolean).join(', ');
+  const dim = faded || cancelled;
   return (
     <Pressable
       testID={testID}
@@ -888,10 +890,10 @@ export function EventRow({ title, time, length, part, line, group, onPress, test
       style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 8 }}
     >
       <View style={{ width: 30, alignItems: 'center' }}>
-        <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: faded ? c.control : l.line }} />
+        <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: dim ? c.control : l.line }} />
       </View>
       <View style={{ flex: 1, paddingVertical: 10, gap: 3 }}>
-        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: faded ? c.inkMuted : c.ink }}>{title}</Text>
+        <Text style={{ fontFamily: font.text600, fontSize: size.BODY, lineHeight: size.BODY * 1.25, color: dim ? c.inkMuted : c.ink }}>{title}</Text>
         <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>
           <Text style={{ fontFamily: font.text700, color: c.ink }}>{when}</Text>
           {length ? `${META_SEP}${length}` : ''}

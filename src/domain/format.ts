@@ -3,7 +3,7 @@
  * Wzorzec pełnej daty CLDR „EEEE, d MMMM y”; rok pomijamy, gdy jest bieżący.
  */
 import { MONTHS_NOMINATIVE, WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../config/calendar.pl';
-import { MONTHS_ABBREVIATED, MONTHS_GENITIVE } from '../config/quickadd.pl';
+import { MONTHS_ABBREVIATED, MONTHS_GENITIVE, WEEKDAYS_ACCUSATIVE } from '../config/quickadd.pl';
 import { addDays, type CivilDate, formatIsoDate, isoWeekday } from './civil-date';
 
 export function parseIsoDate(iso: string): CivilDate {
@@ -24,6 +24,16 @@ export function formatLongDate(date: CivilDate, today: CivilDate): string {
 export function formatDateInline(date: CivilDate, today: CivilDate): string {
   const long = formatLongDate(date, today);
   return long.charAt(0).toLocaleLowerCase('pl') + long.slice(1);
+}
+
+/**
+ * Data po przyimku „na” (ADR 0049, K3: „Dodaj na środę, 7 października”): dzień tygodnia w bierniku (odmiana i źródło —
+ * WEEKDAYS_ACCUSATIVE w src/config/quickadd.pl.ts), małą literą jak w środku zdania (PWN [100] 20.1), rok jak w
+ * formatLongDate.
+ */
+export function formatDateAccusative(date: CivilDate, today: CivilDate): string {
+  const base = `${WEEKDAYS_ACCUSATIVE[isoWeekday(date)]}, ${date.d} ${MONTHS_GENITIVE[date.m - 1]}`;
+  return date.y === today.y ? base : `${base} ${date.y}`;
 }
 
 /**
