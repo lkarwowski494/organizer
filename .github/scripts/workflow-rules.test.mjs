@@ -16,7 +16,7 @@ import { describe, it } from 'node:test';
 
 import { parse } from 'yaml';
 
-import { ROOT } from './mutation-shards.mjs';
+import { ROOT } from './mutation-files.mjs';
 
 const DIR = join(ROOT, '.github/workflows');
 const files = readdirSync(DIR).filter((f) => /\.ya?ml$/.test(f)).sort();
@@ -27,8 +27,9 @@ const stepsOf = (job) => job.steps ?? [];
 
 /** Wyzwalacze dozwolone: forki dostają przy pull_request token tylko do odczytu i żadnych sekretów. */
 const TRIGGERS = new Set(['push', 'pull_request', 'schedule', 'workflow_dispatch']);
-/** Gdzie wolno publikować artefakty (CLAUDE.md: brak artefaktów z buildów wydania iOS; D170: E2E tylko zrzuty i log). */
-const ARTIFACTS = { 'e2e.yml': ['ios'], 'nightly.yml': ['mutation'] };
+/** Gdzie wolno publikować artefakty (CLAUDE.md: brak artefaktów z buildów wydania iOS; D170: E2E tylko zrzuty i log; nightly: raporty
+ * testów mutacyjnych, plan części i pomiar czasu — bez kodu aplikacji i sekretów). */
+const ARTIFACTS = { 'e2e.yml': ['ios'], 'nightly.yml': ['mutation-plan', 'mutation', 'mutation-score'] };
 /** Środowiska z regułą gałęzi (ustawienia GitHub): zadanie → środowisko. Sekrety tylko w tych zadaniach. */
 const ENVIRONMENTS = {
   'ios-release.yml': { testflight: 'ios-release' },

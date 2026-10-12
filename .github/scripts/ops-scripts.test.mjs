@@ -13,7 +13,7 @@ import { describe, it } from 'node:test';
 import { parse } from 'yaml';
 
 import { evaluate, main, measure, missingSecret, monthlyReminder, projectRef, report } from './free-limits.mjs';
-import { ROOT } from './mutation-shards.mjs';
+import { ROOT } from './mutation-files.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const workflow = (name) => parse(read(`.github/workflows/${name}`));
