@@ -58,22 +58,24 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-licenses"
     timeout: 10000
-# Pozycja z początku listy (lista jest alfabetyczna, ponad 80 pozycji): react-native jest blisko końca i Maestro
-# w 20 s przewijał tylko do ok. 20. pozycji (E2E 65, 80ef39a). Pierwsza pozycja, z najkrótszym tekstem na początku listy
-# (licencja MIT): Maestro widzi element, gdy co najmniej 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds),
-# a przy AX5 tekst licencji kroju pisma (MIT i SIL OFL, ok. 5500 znaków) ma kilkadziesiąt ekranów — nigdy nie był
-# „widoczny” (E2E 38237288337, iPhone 17e). Tekst MIT (ok. 1100 znaków) ma przy AX5 kilka ekranów.
-# Przez common/scroll-to.yaml: przy AX5 `scrollUntilVisible` minął pozycję Licencji (E2E 38220289381, iPhone 17 Pro Max).
+# Pozycja z najkrótszym tekstem licencji (SQLite, „blessing”, ok. 270 znaków). Maestro widzi element, gdy co najmniej
+# 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds), a przy AX5 na ekran iPhone'a 17e mieści się ok. 110
+# znaków tekstu: tekst kroju pisma (ok. 5500 znaków, E2E 38237288337) ani MIT (ok. 1100 znaków, E2E 38256361018 — zrzut:
+# cały ekran tekstu) nigdy nie był „widoczny”. Do pozycji (blisko końca listy, ponad 80 pozycji) przez
+# common/scroll-to.yaml — wolne kroki bez limitu czasu; `scrollUntilVisible` w 20 s dochodził do ok. 20. pozycji (E2E 65,
+# 80ef39a), a przy AX5 mijał pozycję z rozpędem (E2E 38220289381).
 - runFlow:
     file: common/scroll-to.yaml
     env:
-      ID: "license-@babel/runtime"
+      ID: "license-SQLite"
 - tapOn:
-    id: "license-@babel/runtime"
+    id: "license-SQLite"
     point: "20,10"
 - extendedWaitUntil:
-    visible: "@babel/runtime"
+    visible:
+      id: "screen-license"
     timeout: 10000
+- assertVisible: "SQLite"
 # Przy AX5 tytuł i wersja zajmują cały ekran, tekst licencji zaczyna się niżej (E2E 38220289381, iPhone 17e) —
 # wolne kroki w dół, aż tekst wejdzie na ekran.
 - repeat:
@@ -100,10 +102,20 @@ name: 06 Ustawienia się otwierają
       id: "screen-licenses"
     timeout: 10000
 # Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
-- scrollUntilVisible:
-    element: "Wróć"
-    direction: UP
-    timeout: 60000
+# Lista przewinięta do SQLite (przy AX5 ok. 25 ekranów): na górę szybkimi przeciągnięciami w dół — na początku listy
+# ruch z rozpędem się kończy, nic się nie mija (scrollUntilVisible w 60 s mógłby nie zdążyć).
+- repeat:
+    while:
+      notVisible: "Wróć"
+    times: 60
+    commands:
+      - swipe:
+          start: "50%, 25%"
+          end: "50%, 85%"
+          duration: 300
+      - waitForAnimationToEnd:
+          timeout: 2000
+- assertVisible: "Wróć"
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:

@@ -136,34 +136,35 @@ describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () =>
 });
 
 /**
- * Ekran Licencje (audyt 3, N-78): lista ma ponad 80 pozycji w kolejności alfabetycznej. Maestro 2.11.0 przewija
- * `scrollUntilVisible` krokami z czekaniem na uspokojenie ekranu; w E2E 65 (80ef39a) przez 20 s doszedł do ok. 20. pozycji
- * i nie znalazł „react-native” (69. pozycja). Scenariusz otwiera więc pozycję z początku listy — ta sama ścieżka
- * (lista → tekst licencji), bez zależności od szybkości runnera.
+ * Ekran Licencje (audyt 3, N-78): lista ma ponad 80 pozycji w kolejności alfabetycznej. `scrollUntilVisible` w E2E 65
+ * (80ef39a) przez 20 s doszedł do ok. 20. pozycji, a przy AX5 mijał pozycję z rozpędem (E2E 38220289381). Pozycję otwiera
+ * się więc przez common/scroll-to.yaml (wolne kroki, bez limitu czasu). Tekst licencji: Maestro widzi element, gdy co
+ * najmniej 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds), a przy AX5 na ekranie iPhone'a 17e mieści się
+ * ok. 110 znaków — tekst MIT (ok. 1100 znaków) nie był „widoczny” (E2E 38256361018). Scenariusz otwiera najkrótszy tekst.
  */
-const LICENSES = JSON.parse(readFileSync(join(__dirname, '../../licenses/third-party.json'), 'utf8')) as { packages: { name: string; kind: string }[] };
+const LICENSES = JSON.parse(readFileSync(join(__dirname, '../../licenses/third-party.json'), 'utf8')) as { packages: { name: string; kind: string; text: string }[]; texts: Record<string, string> };
 // `id:` w kroku albo `ID:` w env common/scroll-to.yaml.
 const licenseRows = (text: string) => [...text.matchAll(/\b(?:id|ID): "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
-const NEAR_TOP = 3;
+const licenseText = (name: string) => LICENSES.texts[LICENSES.packages.find((p) => p.name === name)!.text]!;
+const SHORT_TEXT = 400;
 
-describe('scenariusze Maestro — pozycje ekranu Licencje z początku listy', () => {
-  it('wykrywa pozycję daleko na liście (wersja 06 z 80ef39a: react-native)', () => {
-    const at = LICENSES.packages.findIndex((p) => p.name === 'react-native');
-    expect(at).toBeGreaterThanOrEqual(NEAR_TOP);
-    expect(licenseRows('- tapOn:\n    id: "license-react-native"')).toEqual(['react-native']);
+describe('scenariusze Maestro — pozycja ekranu Licencje z krótkim tekstem, przez common/scroll-to.yaml', () => {
+  it('wykrywa pozycję z długim tekstem (wersja 06 z 5c8c3ff: @babel/runtime, MIT)', () => {
+    expect(licenseText('@babel/runtime').length).toBeGreaterThan(SHORT_TEXT);
   });
 
-  it('06 otwiera pozycję z pierwszych na liście, która jest w pliku licencji', () => {
-    const rows = licenseRows(readFileSync(join(DIR, '06-settings.yaml'), 'utf8'));
-    expect(rows.length).toBeGreaterThan(0);
-    for (const name of new Set(rows)) {
-      const at = LICENSES.packages.findIndex((p) => p.name === name);
-      expect(at >= 0 && at < NEAR_TOP ? name : `${name}: pozycja ${at}`).toBe(name);
-    }
+  it('06 otwiera pozycję z pliku licencji z najkrótszym tekstem, przez common/scroll-to.yaml', () => {
+    const text = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
+    const rows = [...new Set(licenseRows(text))];
+    expect(rows).toEqual(['SQLite']);
+    const shortest = Math.min(...LICENSES.packages.map((p) => LICENSES.texts[p.text]!.length));
+    expect(licenseText('SQLite').length).toBe(shortest);
+    expect(shortest).toBeLessThan(SHORT_TEXT);
+    expect(steps(text).filter((x) => /^- scrollUntilVisible/.test(x) && /license-SQLite/.test(x))).toEqual([]);
   });
 
-  it.each(flows)('%s: każda pozycja ekranu Licencje z początku listy', (f) => {
-    for (const name of licenseRows(readFileSync(join(DIR, f), 'utf8'))) expect(LICENSES.packages.findIndex((p) => p.name === name)).toBeLessThan(NEAR_TOP);
+  it.each(flows)('%s: każda pozycja ekranu Licencje z krótkim tekstem', (f) => {
+    for (const name of licenseRows(readFileSync(join(DIR, f), 'utf8'))) expect(licenseText(name).length).toBeLessThan(SHORT_TEXT);
   });
 });
 
@@ -296,12 +297,12 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
   it('06 i 07: pozycja Licencji, „Usuń konto” i przycisk pod polem „Wpisz USUŃ” przez common/scroll-to.yaml', () => {
     const s06 = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
     const s07 = readFileSync(join(DIR, '07-keyboard.yaml'), 'utf8');
-    expect(scrolledTo(s06)).toEqual(['license-@babel/runtime']);
+    expect(scrolledTo(s06)).toEqual(['license-SQLite']);
     expect(scrolledTo(s07)).toEqual(['delete-start', 'delete-confirm']);
     expect(fastScrolls(s06, scrolledTo(s06) as string[])).toEqual([]);
     expect(fastScrolls(s07, ['delete-start', 'delete-confirm', 'delete-word'])).toEqual([]);
     // Po scroll-to dotknięcie 10 pt pod górną krawędzią (dolna część elementu może być poza ekranem).
-    for (const [text, id] of [[s06, 'license-@babel/runtime'], [s07, 'delete-start']] as const) {
+    for (const [text, id] of [[s06, 'license-SQLite'], [s07, 'delete-start']] as const) {
       const st = steps(text);
       const at = st.findIndex((x) => x.includes(`ID: "${id}"`));
       expect(st[at + 1]).toBe(`- tapOn:\n    id: "${id}"\n    point: "20,10"`);
@@ -312,15 +313,6 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
     const typing = st.findIndex((x) => /FIELD: "delete-word"/.test(x));
     expect(confirm).toBeGreaterThan(-1);
     expect(typing).toBeGreaterThan(confirm);
-  });
-
-  it('06: tekst licencji krótki (MIT) — przy AX5 co najmniej 10% jego pola mieści się na ekranie (Maestro filterOutOfBounds)', () => {
-    const [name] = scrolledTo(readFileSync(join(DIR, '06-settings.yaml'), 'utf8')).map((x) => x!.replace(/^license-/, ''));
-    const p = LICENSES.packages.find((x) => x.name === name) as { text: string } | undefined;
-    const texts = (LICENSES as unknown as { texts: Record<string, string> }).texts;
-    expect(p).toBeDefined();
-    // Licencja kroju pisma (MIT i SIL OFL, ok. 5500 znaków) przy AX5 nigdy nie była „widoczna” (E2E 38237288337, 17e).
-    expect(texts[p!.text]!.length).toBeLessThan(1500);
   });
 
   it('06: tekst licencji sprawdzany po przewinięciu (przy AX5 jest pod tytułem, poza ekranem)', () => {

@@ -24,7 +24,7 @@ appId: io.github.lkarwowski494.organizer
           while:
             notVisible:
               id: ${ID}
-          times: 80
+          times: 150
           commands:
             - swipe:
                 start: "50%, 60%"
