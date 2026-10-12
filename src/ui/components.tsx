@@ -394,7 +394,7 @@ function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: numbe
       accessibilityLabel={strings['sync.a11y'](spoken(label))}
       accessibilityLiveRegion="polite"
       testID="sync-chip"
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
+      style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
     >
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? c.warnBorder : indicator.state === 'synced' ? c.ok : c.inkMuted }} />
       <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.META, color: warn ? c.warnInk : c.ink }}>{label}</Text>

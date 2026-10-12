@@ -264,7 +264,8 @@ export function ListScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-list" refresh={refresh}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Przy AX5 wskaźnik nie mieści się obok „Wróć” (E2E 38171092887: „Przed c” ucięte) — schodzi do drugiego wiersza. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <BackButton onPress={() => navigation.goBack()} />
         <SyncChip indicator={indicator} nowMs={nowMs()} />
       </View>

@@ -67,6 +67,9 @@
  *     wiersz jest szerszy niż ekran. RN (https://reactnative.dev/docs/flexbox): „`flexShrink` accepts any floating point
  *     value >= 0, with 0 being the default value (on the web, the default is 1)”. Element dotykowy w zawijanym wierszu
  *     dostaje do tego maxWidth „100%”.
+ * 21. Wiersz bez flexWrap, w którym żaden element nie może się zmniejszyć (flexShrink, flex, stała szerokość albo maxWidth w pt — „100%” nie wystarcza obok rodzeństwa),
+ *     a któryś zawiera tekst — tak samo wychodzi poza ekran (E2E 38171092887: „Wróć” i wskaźnik „Przed c…” na liście
+ *     przy AX5). Naprawa: zawijanie wiersza albo kurczenie elementu z tekstem.
  * Każda para (kolor, tło) z reguł 5 i 6 trafia do `pairs` — test sprawdza, że jest w korpusie contrastPairs
  * (src/config/theme.ts), więc korpus nie jest już listą spisaną z pamięci (M-147).
  */
@@ -249,6 +252,13 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
       const ps = p ? style(p) : {};
       const shrinks = Number(s.flexShrink ?? 0) > 0 || Number(s.flex ?? 0) > 0;
       if (p && (ps.flexDirection === 'row' || ps.flexDirection === 'row-reverse') && hostKids(p).length > 1 && !shrinks) say(`tekst „${textOf(n).trim().slice(0, 30)}” w wierszu z innymi elementami bez flexShrink — przy dużym tekście wyjdzie poza ekran`);
+    }
+    // Reguła 21: wiersz bez zawijania, w którym nic się nie kurczy, a jest w nim tekst.
+    if (n.type !== 'Text') {
+      const p = hostParent(n);
+      const ps = p ? style(p) : {};
+      const canShrink = (k: Node) => { const ks = style(k); return Number(ks.flexShrink ?? 0) > 0 || Number(ks.flex ?? 0) > 0 || typeof ks.maxWidth === 'number' || typeof ks.width === 'number'; };
+      if (p && (ps.flexDirection === 'row' || ps.flexDirection === 'row-reverse') && ps.flexWrap !== 'wrap' && hostKids(p).length > 1 && !hostKids(p).some(canShrink) && all.some((x) => x.type === 'Text' && ancestors(x).includes(n) && words(textOf(x)).some((w) => /\p{L}{2}/u.test(w)))) say(`„${textOf(n).trim().slice(0, 30)}” w wierszu, w którym nic się nie kurczy i nie zawija — przy dużym tekście wyjdzie poza ekran`);
     }
     if (n.type === 'Text') {
       const own = textOf(n).trim();

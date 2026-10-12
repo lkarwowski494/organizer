@@ -248,18 +248,21 @@ describe('audyt sam łapie błędy (kontrola testu)', () => {
     ['element dostępności bez opisu', () => <RN.View accessible style={{ width: 6, height: 6, backgroundColor: P.ink }} />, /^x: element dostępności bez opisu \(XCUITest: Element has no description\)$/],
     // E2E 11.10.2026 (AX5): chip „Do: Osobiste” ze znacznikiem i strzałką wychodził poza ekran.
     ['tekst obok znacznika w wierszu bez flexShrink', () => <RN.View style={{ flexDirection: 'row' }}><RN.View style={{ width: 12, height: 12 }} /><RN.Text style={{ color: P.ink, fontSize: 17 }}>Do: Osobiste</RN.Text></RN.View>, /^x: tekst „Do: Osobiste” w wierszu z innymi elementami bez flexShrink/],
+    // E2E 38171092887 (AX5): „Wróć” i wskaźnik synchronizacji w jednym wierszu — wskaźnik ucięty krawędzią ekranu.
+    ['wiersz bez zawijania, w którym nic się nie kurczy', () => <RN.View style={{ flexDirection: 'row' }}><RN.View style={{ minHeight: 44 }}><RN.Text style={{ flexShrink: 1, color: P.ink, fontSize: 17 }}>Wróć</RN.Text></RN.View><RN.View style={{ minHeight: 44 }} /></RN.View>, /^x: „Wróć” w wierszu, w którym nic się nie kurczy i nie zawija/],
     ['obraz bez opisu', () => <RN.View accessibilityRole="image" />, /^x: image dostępności bez opisu/],
   ])('reguła audytu 3: %s', async (_name, ui, expected) => {
     await render(ui());
     expect(audit(screen.root!, P, 'x').problems).toEqual([expect.stringMatching(expected)]);
   });
 
-  it('reguła 20: tekst z flexShrink albo flex, jedyny w wierszu albo o stałej szerokości nie jest błędem', async () => {
+  it('reguły 20 i 21: tekst z flexShrink albo flex, jedyny w wierszu, o stałej szerokości albo w zawijanym wierszu nie jest błędem', async () => {
     await render(
       <RN.View>
         <RN.View style={{ flexDirection: 'row' }}><RN.View style={{ width: 12, height: 12 }} /><RN.Text style={{ flexShrink: 1, color: P.ink, fontSize: 17 }}>Do: Osobiste</RN.Text></RN.View>
         <RN.View style={{ flexDirection: 'row' }}><RN.Text style={{ flex: 1, color: P.ink, fontSize: 17 }}>Powiadomienia</RN.Text><RN.View style={{ width: 12, height: 12 }} /></RN.View>
         <RN.View style={{ flexDirection: 'row' }}><RN.Text style={{ color: P.ink, fontSize: 17 }}>Sam tekst</RN.Text></RN.View>
+        <RN.View style={{ flexDirection: 'row', flexWrap: 'wrap' }}><RN.View><RN.Text style={{ flexShrink: 1, color: P.ink, fontSize: 17 }}>Wróć</RN.Text></RN.View><RN.View style={{ minHeight: 44 }} /></RN.View>
         <RN.View style={{ flexDirection: 'row' }}>{['pon.', 'wt.'].map((d) => <RN.Text key={d} style={{ width: '50%', color: P.ink, fontSize: 13 }}>{d}</RN.Text>)}</RN.View>
       </RN.View>,
     );
