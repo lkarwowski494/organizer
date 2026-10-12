@@ -58,20 +58,26 @@ final class AccessibilityAuditTests: XCTestCase {
   /// wolniej niż w przebiegu po pushu, gdzie testGrupy przeszedł w 20 s). Bez zrzutu nie dało się rozstrzygnąć, czy
   /// dotknięcie trafiło w trakcie przejścia, czy ekran się nie otworzył — dlatego dotyk dopiero po settle() i zrzut
   /// ekranu przy braku ekranu (zapamiętany w wynikach testu; a11y-audit.sh kopiuje go do artefaktu).
-  private func open(_ id: String) {
+  /// Przebieg 38171092887: testListaZadan i testListaZakupow — „brak list-…” 10 s po otwarciu zakładki Listy (testListy
+  /// w tym samym przebiegu przeszedł) — bez zrzutu; teraz 20 s i zrzut przy braku elementu.
+  private func open(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
     let e = element(id)
-    XCTAssertTrue(e.waitForExistence(timeout: 10), "brak \(id)")
+    expectElement(id, message: "brak \(id)", timeout: 20, file: file, line: line)
     settle()
     e.tap()
   }
 
   private func expectScreen(_ screen: String, file: StaticString, line: UInt) {
-    if element(screen).waitForExistence(timeout: 10) { return }
+    expectElement(screen, message: "brak ekranu \(screen)", timeout: 10, file: file, line: line)
+  }
+
+  private func expectElement(_ id: String, message: String, timeout: TimeInterval, file: StaticString, line: UInt) {
+    if element(id).waitForExistence(timeout: timeout) { return }
     let shot = XCTAttachment(screenshot: app.screenshot())
-    shot.name = "brak-\(screen)"
+    shot.name = "brak-\(id)"
     shot.lifetime = .keepAlways
     add(shot)
-    XCTFail("brak ekranu \(screen)", file: file, line: line)
+    XCTFail(message, file: file, line: line)
   }
 
   /// Koniec przejścia i wysuwania klawiatury: dwa kolejne opisy drzewa (z ramkami elementów) takie same, najwyżej 10 s.
