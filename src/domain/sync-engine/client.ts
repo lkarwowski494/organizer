@@ -15,6 +15,8 @@
 import { config } from '../../config';
 import { applyEndSeries, applyRestoreSeries, repointLate } from '../event-chain';
 import { applySplit } from '../event-split';
+import { moveCmdSteps, movedAlive } from '../task-move-cmd';
+import { badField } from './row-check';
 
 /**
  * Encje, które ta wersja aplikacji zna i zapisuje (= tabele lustrzane w src/data/db/migrations.ts — pilnuje test).
@@ -37,6 +39,8 @@ export type NewOp = Op extends infer O ? (O extends Op ? Omit<O, 'seq' | 'op_id'
 export type PushResponse = {
   last_seq: number;
   results: { seq: number; status: 'ok' | 'rejected' | 'duplicate'; code?: string }[];
+  /** Wersje grup po zapisie tej paczki (migracja 20261010030000; starszy serwer — brak): własny sygnał Realtime (N-100). */
+  versions?: { [groupId: string]: number };
 };
 
 export type PulledRow = { e: Entity; v: number; row: Row };
@@ -106,9 +110,12 @@ export function rowKey(e: Entity, row: Row): string {
   return String(row.id);
 }
 
-/** Zakres widoczności wiersza (lista), jeśli wiersz należy do listy — do czyszczenia po utracie dostępu. */
-function rowScope(e: Entity, row: Row): string | undefined {
-  const scope = e === 'lists' ? row.id : e === 'tasks' || e === 'event_task_series' ? row.list_id : row.scope_id;
+/**
+ * Zakres widoczności wiersza (lista), jeśli wiersz należy do listy — do czyszczenia po utracie dostępu i w kolumnie
+ * scope_id bazy telefonu. Zrobione zakupy należą do listy zakupów (audyt 3, N-88).
+ */
+export function rowScope(e: Entity, row: Row): string | undefined {
+  const scope = e === 'lists' ? row.id : e === 'tasks' || e === 'event_task_series' || e === 'shopping_trips' ? row.list_id : row.scope_id;
   // Grupy i członkowie nie mają zakresu; aktywność grupowa ma scope_id = null.
   return scope == null ? undefined : String(scope);
 }
@@ -137,6 +144,11 @@ export function adoptDevice(state: ClientState, deviceClientId: string | null, n
 /** Identyfikatory obiektów, których utworzenie serwer odrzucił — generatory (kopie powtórzeń i serii) ich nie ponawiają. */
 export function rejectedCreateIds(state: Pick<ClientState, 'rejected'>): Set<string> {
   return new Set(state.rejected.flatMap((r) => (r.op.kind === 'create' ? [r.op.id] : [])));
+}
+
+/** Audyt 3 (N-123): usunięcia odrzucone przez serwer — telefon nie ponawia ich w każdym cyklu (orphanRepeatOps). */
+export function rejectedDeleteIds(state: Pick<ClientState, 'rejected'>): Set<string> {
+  return new Set(state.rejected.flatMap((r) => (r.op.kind === 'delete' ? [r.op.id] : [])));
 }
 
 /** Nowa lokalna operacja: numer kolejny w obrębie instalacji, identyfikator z wstrzykniętego generatora. */
@@ -187,7 +199,10 @@ export function applyOp(tables: { [e: string]: { [id: string]: Row } }, op: Op):
       return;
     case 'restore':
       if (!current || current.deleted_at == null) return;
-      table[op.id] = { ...current, deleted_at: null };
+      // Audyt 3 (N-131): przeniesione do innej grupy nie wraca, dopóki żyje kopia; przywrócone traci znacznik (serwer:
+      // tasks_a_guard_moved, kod „moved”).
+      if (op.entity === 'tasks' && movedAlive(tables, current)) return;
+      table[op.id] = { ...current, deleted_at: null, ...(current.moved_to != null ? { moved_to: null } : {}) };
       cascade(tables, op.entity, op.id, current.deleted_at, null);
       return;
   }
@@ -208,13 +223,23 @@ export function stapleCmdResult(list: Row, cmd: { cmd: string; args: Row }): str
 /**
  * Polecenia serwera, które telefon wykonuje też u siebie tym samym algorytmem (widoczne od razu, także offline — R1):
  * „to i następne” (audyt 2, M-3: split_event, migracja 20261008320000_event_split), koniec serii i jego cofnięcie
- * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain) i stałe zakupy.
+ * (audyt 3: end_series, restore_series, migracja 20261010050000_series_chain), przeniesienie zadania do innej grupy i jego
+ * cofnięcie (audyt 3: move_task_to_group, unmove_task, migracja 20261010060000_move_task_to_group) i stałe zakupy.
  */
 function applyCmd(tables: { [e: string]: { [id: string]: Row } }, op: Extract<Op, { kind: 'cmd' }>): void {
   if (op.cmd === 'split_event') return applySplit(tables, op.args);
   // Audyt 3 (N-3, N-117): koniec całej serii (łańcucha) i jego cofnięcie (src/domain/event-chain.ts).
   if (op.cmd === 'end_series') return applyEndSeries(tables, op.args, `pending:${op.seq}`);
   if (op.cmd === 'restore_series') return applyRestoreSeries(tables, op.args);
+  // Audyt 3 (N-12): przeniesienie zadania do innej grupy i jego cofnięcie (src/domain/task-move-cmd.ts).
+  const move = moveCmdSteps(tables, op);
+  if (move) {
+    for (const step of move) {
+      if ('op' in step) applyOp(tables, { ...step.op, seq: op.seq, op_id: op.op_id } as Op);
+      else tables.tasks![step.mark.id] = { ...tables.tasks![step.mark.id]!, moved_to: step.mark.to };
+    }
+    return;
+  }
   const id = String(op.args.list_id);
   const list = tables.lists?.[id];
   // Usunięcie wygrywa ze zmianą (jak patch); listy, której nie mam, nie zakładam.
@@ -289,6 +314,8 @@ export type PullOutcome = {
   needMore: boolean;
   /** Nowe ukryte listy, do których dostaliśmy dostęp — pobrać przez sync_fetch_scope. */
   fetchScopes: string[];
+  /** Pola wierszy pominiętych z powodu daty spoza zakresu („tasks.due_date”, bez powtórzeń) — do zgłoszenia (N-1). */
+  invalid: string[];
 };
 
 type Tables = { [e: string]: { [id: string]: Row } };
@@ -335,7 +362,13 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   const base = new CowTables(state.base);
   const staged: { [g: string]: CowTables } = {};
   const visibleGroups = new Set(res.groups.map((g) => g.group_id));
-  const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s)));
+  // Utracony zakres: ukryta lista, której nie ma już w „scopes” ani w listach widocznych żadnej grupy. Samo zniknięcie ze
+  // „scopes” nie znaczy utraty dostępu: sync_pull podaje tam tylko żywe ukryte listy (20261008484000_sync_perf.sql), więc
+  // lista usunięta (kosz, D151) albo poszerzona do „cała grupa” (D139) też z niego wypada, a nadal ją widzę — jest w „lists”
+  // (protokół 2, M-54). Czyszczenie jej wierszy gubiło te, których serwer nie przyśle ponownie (wersja ≤ kursor), np.
+  // nagrobki zadań usuniętych przed listą (seed -694076517). Stary serwer bez „lists” — jak dotąd.
+  const visibleLists = new Set(res.groups.flatMap((g) => g.lists ?? []));
+  const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s) && !visibleLists.has(s)));
   // Grupa przychodzi w całości przy resync i przy pobraniu od zera (bez kursora w zapytaniu). Jej porcje odkładamy obok
   // (`staged`), a po ostatniej podmieniamy wiersze grupy naraz — także te, których na serwerze już nie ma (M-176).
   const fromScratch = new Set(res.groups.filter((g) => g.resync || !(g.group_id in req.cursors)).map((g) => g.group_id));
@@ -361,6 +394,7 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
 
   const cursors: { [g: string]: number } = {};
   const purged: { [g: string]: number } = {};
+  const invalid = new Set<string>();
   for (const g of res.groups) {
     const gid = g.group_id;
     if (fromScratch.has(gid)) staged[gid] = new CowTables({});
@@ -371,7 +405,16 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
       base.delete('tasks', id);
       target.delete('tasks', id);
     }
-    for (const r of g.rows) target.set(r.e, rowKey(r.e, r.row), r.row);
+    for (const r of g.rows) {
+      const key = rowKey(r.e, r.row);
+      // N-1: wiersz z datą spoza zakresu jest jak niewidoczny — znika też jego poprzednia wersja (widoki by padły).
+      const bad = badField(r.e, r.row);
+      if (bad) {
+        invalid.add(bad);
+        base.delete(r.e, key);
+        target.delete(r.e, key);
+      } else target.set(r.e, key, r.row);
+    }
     const done = staged[gid];
     if (done && !g.has_more) {
       // Komplet: stare wiersze grupy znikają, nowe wchodzą — w jednym przejściu stanu.
@@ -388,8 +431,12 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   // Potwierdzone operacje schodzą z kolejki dopiero po ostatniej porcji: wcześniejsza porcja może jeszcze nie mieć
   // wiersza z ich skutkiem i zmiana na chwilę by zniknęła (audyt 2, P2).
   const pending = needMore ? state.pending : state.pending.filter((op) => op.seq > req.ackedAtStart);
-  // Do pobrania: nowe ukryte listy i te, których pobranie się nie udało (M-53) — o ile nadal je widzę.
-  const scopesToFetch = res.scopes.filter((s) => !state.scopes.includes(s) || state.scopesToFetch.includes(s));
+  // Do pobrania: nowe ukryte listy i te, których pobranie się nie udało (M-53) — o ile nadal je widzę. Bez list z grupy
+  // pobieranej od zera (N-94): lista widoczna od pierwszej porcji przychodzi w całości z grupą. Moje nowe listy nadal
+  // pobieramy osobno: utworzenie przyjęte przez serwer nie znaczy, że lista jest moja (ten sam identyfikator może już
+  // istnieć — utworzenie wtedy nic nie robi), a telefon nie zna tu swojego członkostwa.
+  const whole = new Set(res.groups.flatMap((g) => (fromScratch.has(g.group_id) ? (g.lists ?? []) : [])));
+  const scopesToFetch = res.scopes.filter((s) => (!state.scopes.includes(s) && !whole.has(s)) || state.scopesToFetch.includes(s));
   const stagedOut = Object.fromEntries(Object.entries(staged).map(([g, t]) => [g, t.result()]));
   // N-15: niezmienione części zostają tymi samymi obiektami; nic się nie zmieniło — ten sam stan.
   const next: ClientState = {
@@ -404,7 +451,7 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
     pending: pending.length === state.pending.length ? state.pending : pending,
   };
   const same = (Object.keys(next) as (keyof ClientState)[]).every((k) => next[k] === state[k]);
-  return { state: same ? state : next, needMore, fetchScopes: scopesToFetch };
+  return { state: same ? state : next, needMore, fetchScopes: scopesToFetch, invalid: [...invalid] };
 }
 
 /**
@@ -415,6 +462,8 @@ export function onFetchScope(state: ClientState, rows: PulledRow[], listId: stri
   const base = cloneTables(state.base);
   const staged: { [g: string]: Tables } = {};
   for (const r of rows) {
+    // N-1: wiersz z datą spoza zakresu pomijamy (zgłasza go pullStep).
+    if (badField(r.e, r.row)) continue;
     (base[r.e] ??= {})[rowKey(r.e, r.row)] = r.row;
     const g = groupOf(r.e, r.row);
     if (!state.staged[g]) continue;

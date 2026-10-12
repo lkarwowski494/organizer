@@ -14,12 +14,11 @@ import { concernsMe, inheritedPerson, liveMembers, ownPrivateList } from './conc
 import { occurrenceResolver } from './event-rows';
 import { repeatHeads, shoppingSplit, type Split, splitList } from './list-tree';
 import { doneTrips, tripEntries } from './shopping-trip';
-import { formatRepeat, repeatOf } from './task-repeat';
-import { occurrences, parseRule } from '../rrule';
+import { upcomingDues } from './task-repeat';
 import { memberCanSeeList } from './visibility';
 import type { MyScope } from './my-scope';
 import { taskOrder } from './sort-keys';
-import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, type Tables, type Task } from './model';
+import { asGroup, asList, asMember, asTask, type Group, type List, type Member, rows, stampMs, type Tables, type Task } from './model';
 
 export * from './model';
 
@@ -157,7 +156,8 @@ export function removedMembers(t: Tables, userId: string, groupId: string, nowMs
   const day = 86_400_000;
   return rows(t, 'group_members', (r) => ({ m: asMember(r), removedAt: r.user_id == null ? r.deleted_at : r.removed_at }))
     .filter(({ m, removedAt }) => m.group_id === groupId && m.deleted_at !== null && typeof removedAt === 'string' && (me.role === 'owner' || m.role === 'member' || m.role === 'child'))
-    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((Date.parse(removedAt as string) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
+    // Audyt 3 (N-171): usunięcie niewysłane („pending:N”) liczy się od teraz (stampMs).
+    .map(({ m, removedAt }) => ({ ...m, daysLeft: Math.ceil((stampMs(removedAt, nowMs) + config.sync.TOMBSTONE_DAYS * day - nowMs) / day) }))
     .filter((m) => m.daysLeft > 0)
     .sort((a, b) => a.display_name.localeCompare(b.display_name, 'pl'));
 }
@@ -171,7 +171,7 @@ export function groupDetail(t: Tables, userId: string, groupId: string): GroupDe
   const manager = group.me.role === 'owner' || group.me.role === 'admin';
   const shared = group.kind === 'shared';
   // Zgodnie ze strażnikiem członkostw (migracje invites, 20261008440000): owner nie wychodzi (najpierw przekazuje grupę),
-  // dziecko też nie (wypisuje je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
+  // dziecko też nie (usuwa je owner albo admin, PW-14 B), zaproszenia tylko w grupach wspólnych, nazwę zmienia owner/admin.
   return { group, members, canInvite: shared && manager, canInviteAdmin: shared && group.me.role === 'owner', canManageMembers: shared && manager, canLeave: shared && group.me.role !== 'owner' && group.me.role !== 'child', canRename: shared && manager, canSetColor: group.me.role === 'owner', canDelete: shared && group.me.role === 'owner' };
 }
 
@@ -348,6 +348,19 @@ export function checkOff(t: Tables, userId: string): (x: Task) => boolean {
   };
 }
 
+/**
+ * Kto dokłada i zdejmuje następne zadania powtarzanego (task-repeat.ts): członek żywej grupy; dziecko z kontem — tylko
+ * swoich spraw (Q16 A, audyt 3: N-123; serwer: wyjątek w tasks_guard, 20261010070000). Inaczej serwer odrzuci.
+ */
+export function copiesRepeats(t: Tables, userId: string): (x: Task) => boolean {
+  const mine = myMemberships(t, userId);
+  const owns = childOwner(t, liveMembers(t));
+  return (x) => {
+    const me = mine.get(x.group_id);
+    return !!me && t.groups?.[x.group_id] !== undefined && t.groups[x.group_id]!.deleted_at == null && (me.role !== 'child' || owns(x, me.member_id));
+  };
+}
+
 /** Imię osoby zadania (żywej; usunięta z grupy — nikt, D132). */
 export const assigneeName = (x: Pick<Task, 'assignee_member_id'>, live: ReadonlyMap<string, Member>) => (x.assignee_member_id === null ? null : (live.get(x.assignee_member_id)?.display_name ?? null));
 
@@ -448,6 +461,9 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     const d = completedAt === null ? null : localDate(completedAt);
     return d === date ? null : d;
   };
+  // Raz na widok, nie na każde z tysięcy zadań historii (budżet czasu, N-16).
+  const today = parseIsoDate(isoToday);
+  const lastDay = parseIsoDate(last);
   for (const x of all) {
     const g = groups.get(x.group_id);
     const l = lists.get(x.list_id);
@@ -464,7 +480,8 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
     if (due.date >= first && due.date <= last) add(due.date, { ...item, doneOn: doneOn(due.date, x.completed_at), projected: false, expired, overdueDays: overdue ? dayDiff(isoToday, due.date) : 0 });
     // PWD-15 A: kolejne terminy otwartego zadania powtarzanego według kalendarza (od wykonania — nie da się ich
     // przewidzieć), tylko w oknie siatki; zadanie powstanie dopiero po odhaczeniu poprzedniego (task-repeat.ts).
-    for (const date of x.completed_at === null && x.parent_id === null ? futureRepeats(t, x, due, last) : []) add(date, { ...item, due: { date, time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
+    // Audyt 3 (N-24): te, które naprawdę powstaną — od jutra albo od dnia po terminie (upcomingDues).
+    for (const date of upcomingDues(t, x, today, lastDay)) add(formatIsoDate(date), { ...item, due: { date: formatIsoDate(date), time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
   }
   // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy; ostatnie zrobione — przekreślone (PWD-11 A).
   for (const trip of tripEntries(t, groups, true)) {
@@ -483,10 +500,3 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
 
 const dayDiff = (a: string, b: string) => toDayNumber(parseIsoDate(a)) - toDayNumber(parseIsoDate(b));
 
-/** Daty kolejnych terminów zadania powtarzanego według kalendarza po `due`, do `last` włącznie (PWD-15 A). */
-function futureRepeats(t: Tables, x: Task, due: NonNullable<Due>, last: string): string[] {
-  const r = x.deadline_mode === 'own' ? repeatOf(t, x.id) : null;
-  if (!r || r.kind === 'after' || due.date >= last) return [];
-  const start = parseIsoDate(due.date);
-  return occurrences(start, parseRule(formatRepeat(r)), addDays(start, 1), parseIsoDate(last)).map(formatIsoDate);
-}

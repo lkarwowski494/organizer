@@ -307,5 +307,6 @@ describe('parseQuickAdd — audyt 3', () => {
     const r = p('podlać kwiaty co tydzień', { recurrence: false });
     expect(r).toMatchObject({ title: 'podlać kwiaty co tydzień', due: null, rrule: null, tokens: [] });
     expect(p('podlać kwiaty jutro codziennie', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty codziennie', due: { date: '2026-10-10' }, rrule: null });
+    expect(p('podlać kwiaty jutro co tydzień', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty co tydzień', due: { date: '2026-10-10' }, rrule: null });
   });
 });

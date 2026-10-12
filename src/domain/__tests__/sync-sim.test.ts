@@ -166,12 +166,21 @@ const cmdArb: fc.Arbitrary<Cmd> = fc.oneof(
   },
 );
 
-/** Ponowne uruchomienie aplikacji: stan wyłącznie z bazy telefonu (src/data/store), jak po zamknięciu i otwarciu. */
+/**
+ * Ponowne uruchomienie aplikacji: stan wyłącznie z bazy telefonu (src/data/store), jak po zamknięciu i otwarciu.
+ * Baza zamykana od razu: better-sqlite3 nie zwalnia otwartej bazy (pamięć poza stertą JS, której nie odda też
+ * odśmiecanie). Pomiar 9.10.2026: bez close() pamięć procesu rosła o ~2,2 MB na przebieg (2,1 GB po 800 przebiegach —
+ * proces zabijany przy kilku przebiegach Jest naraz), z close() ~0,14 MB na przebieg przy stałej stercie.
+ */
 function restarted(s: ClientState): ClientState {
   const db = memoryDb();
-  migrate(db);
-  writeState(db, initialState(s.clientId), s, 1);
-  return readState(db, 'inna-instalacja');
+  try {
+    migrate(db);
+    writeState(db, initialState(s.clientId), s, 1);
+    return readState(db, 'inna-instalacja');
+  } finally {
+    db.raw.close();
+  }
 }
 
 /**
@@ -383,8 +392,8 @@ function run(cmds: Cmd[]) {
       }
       case 'derive': {
         const view = materialize(p.state);
-        const canCreate = (g: string) =>
-          Object.values(view.group_members ?? {}).some((m) => m.group_id === g && m.user_id === p.user && m.deleted_at == null && m.role !== 'child');
+        const canCreate = (x: { group_id: string }) =>
+          Object.values(view.group_members ?? {}).some((m) => m.group_id === x.group_id && m.user_id === p.user && m.deleted_at == null && m.role !== 'child');
         const skip = rejectedCreateIds(p.state);
         const ops = [...expiredRepeatOps(view, TODAY, canCreate, skip), ...missingRepeatOps(view, TODAY, canCreate, (iso) => iso.slice(0, 10), skip)];
         for (const op of ops) {
@@ -484,7 +493,8 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
       { numRuns: 800 },
     );
     // Każda badana sytuacja zdarzyła się wiele razy (próg z zapasem; przebiegi są losowe).
-    for (const [k, v] of Object.entries(seen)) expect([k, v > 10]).toEqual([k, true]);
+    // Ponowione pobranie listy jest rzadsze od N-94 (grupa pobierana od zera nie pobiera list osobno) — niższy próg.
+    for (const [k, v] of Object.entries(seen)) expect([k, v > (k === 'scopeRetried' ? 3 : 10)]).toEqual([k, true]);
     // Kopie bywają odrzucane (lista zawężona albo usunięta, zanim telefon się dowiedział) — własność wyżej nie jest pusta.
     expect(derivedRejected > 10).toBe(true);
   });
@@ -516,6 +526,42 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
       { t: 'derive', who: 0 }, { t: 'restart', who: 0, resetCursors: false }, { t: 'hide', task: 't1' },
       { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 'mt' } },
     ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  // Usunięcie ukrytej listy (seed -694076517). Ala usuwa zadanie t3 z ukrytej listy l3, potem całą l3. Usunięta lista
+  // znika z „scopes” (tam tylko żywe ukryte listy), ale zostaje w „lists” grupy (widzę ją w koszu). Telefon brał zniknięcie
+  // ze „scopes” za utratę dostępu i czyścił wszystkie wiersze l3 — wróciły tylko te z nową wersją (lista i zadania usunięte
+  // razem z nią), a nagrobek t3 (wersja sprzed kursora) zniknął z telefonu, choć serwer nadal go pokazuje.
+  it('regresja: usunięcie ukrytej listy nie gubi nagrobków jej wcześniej usuniętych zadań', () => {
+    const cmds: Cmd[] = [
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 't3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'pull', who: 0, lim: 6, fate: 'ok', failScope: false },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'lists', id: 'l3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  // Druga strona tego samego „scopes” bez list z kosza (seed -694076517 po poprawce telefonu). Bartek pobrał zmiany po
+  // usunięciu t3 (nie widział go — kursor za nagrobkiem), potem dostał dostęp do l3, a Ala usunęła l3, zanim jego telefon
+  // się o tym dowiedział. Usunięta lista nie była w „scopes”, więc telefon nie pobierał jej zawartości (sync_fetch_scope)
+  // i nagrobek t3 nie docierał nigdy.
+  it('regresja: dostęp do ukrytej listy, którą zaraz usunięto — telefon pobiera jej zawartość', () => {
+    const cmds: Cmd[] = [
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 't3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'pull', who: 1, lim: 6, fate: 'ok', failScope: false },
+      { t: 'mutate', who: 0, op: { kind: 'cmd', cmd: 'grant_scope', args: { list_id: 'l3', user: 'bartek' } } },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'lists', id: 'l3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  it('regresja: kontrprzykład fast-check (seed -694076517)', () => {
+    const cmds: Cmd[] = [{"t":"mutate","who":0,"op":{"kind":"delete","entity":"tasks","id":"t3"}},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"purge","keep":1},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"mutate","who":0,"op":{"kind":"create","entity":"lists","id":"l1","group_id":"g1","set":{"kind":"tasks","name":"Dom","visibility":"group"}}},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"delete","entity":"lists","id":"l3"}},{"t":"rejoin","who":1},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"tasks","id":"t1","set":{"completed_at":"2026-10-08T10:00:00Z"}}},{"t":"restart","who":0,"resetCursors":false},{"t":"setRole","who":1,"role":"admin"},{"t":"narrow","list":"l1","to":"group"},{"t":"push","who":0,"fate":"ok"},{"t":"derive","who":0},{"t":"restart","who":0,"resetCursors":false},{"t":"removeMember","who":1}] as Cmd[];
     expect(() => check(cmds)).not.toThrow();
   });
 

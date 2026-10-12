@@ -25,6 +25,8 @@
  *     i tak dochodzi do fontScale.TITLE_MAX_PT, rozmiaru „Large Title” przy AX5) — Apple HIG
  *     Typography: obsługa Dynamic Type; kontener tekstu nie ma stałej wysokości (height), bo powiększony tekst się w niej
  *     nie mieści.
+ *  7′. Wyjątek od 7 (audyt 3, N-67): stały rozmiar w elemencie z Large Content Viewer
+ *     (accessibilityShowsLargeContentViewer), którego accessibilityLargeContentTitle zawiera napis — tylko pasek zakładek.
  *  8. Ekran ma nagłówek (rola header) — HIG: tytuł to pierwsza informacja dla technologii wspomagających.
  *  9. Tekst ma rozmiar z motywu (M-42, M-152); zaznaczenie nie jest w kolorze przycisku głównego (M-151, D198).
  * Audyt 3 (N-59, N-202) — luki, przez które test był zielony przy realnych błędach:
@@ -48,6 +50,17 @@
  *     „switch” (systemowy przełącznik, wartość czyta UISwitch).
  *  6′. Reguła 6 dotyczy każdego elementu ze stanem zaznaczenia (accessibilityState.selected / checked), nie roli —
  *     po N-9 pole odhaczenia ma rolę „button” (N-202).
+ * Z audytu XCUITest na symulatorze (D186, przebiegi e2e z 9.10.2026) — rodzaje problemów, których ten audyt nie widział:
+ * 18. Widoczny tekst ukryty przed VoiceOverem (accessibilityElementsHidden / no-hide-descendants) bez elementu, którego
+ *     etykieta go zawiera — w XCUITest „Potentially inaccessible text” (rodzaj elementDetection: „checks whether any
+ *     elements contain inaccessible content that your app might need to expose as separate accessibility children”,
+ *     https://developer.apple.com/documentation/accessibility/performing-accessibility-audits-for-your-app). Apple
+ *     (WWDC19 „Accessibility Inspector”, https://developer.apple.com/videos/play/wwdc2019/257/): tekst bez elementu
+ *     dostępności naprawia się tak: „set the isAccessibilityElement to true. Next, I'll have to give it a meaningful
+ *     Label”. Podpis pola (FieldCaption) jest ukryty, bo pole ma tę samą etykietę — to jest w porządku.
+ * 19. Element dostępności (`accessible`, rola obrazu) ma opis: etykietę albo widoczny tekst — w XCUITest „Element has no
+ *     description” (sufficientElementDescription; ta sama strona Apple: „All accessible elements must provide some
+ *     context-specific, descriptive label”). Reguła 2 sprawdzała tylko elementy dotykowe.
  * Każda para (kolor, tło) z reguł 5 i 6 trafia do `pairs` — test sprawdza, że jest w korpusie contrastPairs
  * (src/config/theme.ts), więc korpus nie jest już listą spisaną z pamięci (M-147).
  */
@@ -143,12 +156,27 @@ function innerWidth(n: Node | null): number {
   return capped - sides(s, 'padding') - sides(s, 'border') - sides(content, 'padding');
 }
 
+/** Opisy elementów VoiceOvera na ekranie (etykiety i nazwy czynności) — reguła 18 szuka w nich ukrytego tekstu. */
+function spokenOn(all: Node[], screen: Node | undefined): Set<string>[] {
+  return all
+    .filter((n) => !hidden(n) && screenOf(n) === screen)
+    .flatMap((n) => [n.props.accessibilityLabel, ...((n.props.accessibilityActions as { label?: string }[] | undefined) ?? []).map((a) => a.label)])
+    .filter((l): l is string => typeof l === 'string')
+    .map((l) => new Set(words(l)));
+}
+
 export function audit(root: unknown, palette: Palette, where: string, opts: { screen?: boolean } = {}): AuditResult {
   const all = hosts(root as Node);
   const problems: string[] = [];
   const pairs: Pair[] = [];
   const say = (msg: string) => problems.push(`${where}: ${msg}`);
   const labels = new Map<string, number>();
+  const spokenCache = new Map<Node | undefined, Set<string>[]>();
+  const spokenAt = (n: Node) => {
+    const scr = screenOf(n);
+    if (!spokenCache.has(scr)) spokenCache.set(scr, spokenOn(all, scr));
+    return spokenCache.get(scr)!;
+  };
   for (const n of all) {
     const s = style(n);
     const role = n.props.accessibilityRole as string | undefined;
@@ -158,6 +186,8 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
     if (role && !IOS_TRAIT_ROLES.has(role)) say(`rola „${role}” bez cechy iOS (${String(label ?? textOf(n))})`);
     // Reguła 17: stany, do których RN dopisuje angielskie słowa (poza systemowym przełącznikiem).
     for (const k of ['checked', 'expanded', 'busy'] as const) if (state[k] !== undefined && !(k === 'checked' && role === 'switch')) say(`${name}: stan „${k}” — RN dopisuje angielskie słowo (buttonA11y z src/ui/a11y.ts)`);
+    // Reguła 19: element dostępności bez opisu (nie dotykowy — te sprawdza reguła 2).
+    if (isElement(n) && (n.props.accessible === true || role === 'image' || role === 'img') && !label && !words(textOf(n)).length && !isTouchable(n) && !(role && INTERACTIVE_ROLES.has(role))) say(`${role ?? 'element'} dostępności bez opisu (XCUITest: Element has no description)`);
     // Reguła 10: pole tekstowe bez etykiety.
     if (n.type === 'TextInput' && isElement(n) && !label) say(`pole tekstowe bez etykiety („${String(n.props.placeholder ?? '')}”)`);
     const interactive = (role && INTERACTIVE_ROLES.has(role)) || (n.type === 'View' && isTouchable(n));
@@ -202,7 +232,10 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
       // Zagnieżdżony Text dziedziczy kolor rodzica (reguła 13: własny kolor zagnieżdżonego też jest sprawdzany).
       const parentText = ancestors(n).find((a) => a.type === 'Text');
       const color = (s.color ?? (parentText ? style(parentText).color : undefined)) as string | undefined;
-      if (n.props.allowFontScaling === false) say(`tekst „${own}” bez skalowania (allowFontScaling={false})`);
+      // Reguła 7′ (audyt 3, N-67): wyjątek — element z Large Content Viewer, którego tytuł zawiera napis (zakładki;
+      // Apple, UILargeContentViewerInteraction: „buttons in a tab bar remain small”, cytat w tabBar, src/config/theme.ts).
+      const lcv = [n, ...ancestors(n)].find((a) => a.props.accessibilityShowsLargeContentViewer === true);
+      if (n.props.allowFontScaling === false && !(lcv && String(lcv.props.accessibilityLargeContentTitle ?? '').includes(own))) say(`tekst „${own}” bez skalowania (allowFontScaling={false}${lcv ? ', tytuł Large Content Viewer bez tego napisu' : ''})`);
       // Limit niższy niż 200% tylko dla tytułu, który i tak dochodzi do „Large Title” przy AX5 (fontScale.TITLE_MAX_PT, M-43).
       const mult = n.props.maxFontSizeMultiplier;
       if (typeof mult === 'number' && mult < fontScale.FIXED_MAX && !(typeof s.fontSize === 'number' && Math.round(s.fontSize * mult) >= fontScale.TITLE_MAX_PT)) say(`tekst „${own}” z maxFontSizeMultiplier ${String(n.props.maxFontSizeMultiplier)}`);
@@ -211,6 +244,9 @@ export function audit(root: unknown, palette: Palette, where: string, opts: { sc
         const min = Number(n.props.minimumFontScale ?? 0) * Number(s.fontSize ?? (parentText ? style(parentText).fontSize : 0));
         if (min < sizes.MIN_TEXT) say(`tekst „${own}” zmniejsza się do ${Math.round(min * 10) / 10} pt (adjustsFontSizeToFit, minimumFontScale < ${sizes.MIN_TEXT} pt)`);
       }
+      // Reguła 18: widoczny tekst ukryty przed VoiceOverem musi być w opisie któregoś elementu ekranu.
+      const seenWords = words(own);
+      if (!parentText && seenWords.length && hidden(n) && !spokenAt(n).some((l) => seenWords.every((w) => l.has(w)))) say(`tekst „${own}” widoczny, a ukryty przed VoiceOverem bez elementu z tym opisem (XCUITest: Potentially inaccessible text)`);
       if (!own) continue;
       if (parentText && (!s.color || s.color === style(parentText).color)) continue;
       // Bez rozmiaru z motywu iOS rysuje systemowe 14 pt bez Dynamic Type z motywu (audyt 2, M-42, M-152).

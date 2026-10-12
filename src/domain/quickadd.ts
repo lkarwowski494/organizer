@@ -10,7 +10,7 @@
  * Pierwszy fragment danego rodzaju wygrywa; kolejne zostają w tytule.
  * Audyt 3:
  *  - N-28: „dziś/jutro/pojutrze” albo dzień tygodnia wygrywa z datą liczbową bez roku („raport 1.5 strony jutro” — to
- *    ilość, nie 1 maja), a data liczbowa bez roku dalej niż pół roku daje ostrzeżenie z pełną datą, gdy wypada w przyszłym roku (`farDate`);
+ *    ilość, nie 1 maja), a data liczbowa bez roku, która wypada w przyszłym roku, daje ostrzeżenie z pełną datą (`farDate`);
  *  - N-127: pora dnia przy godzinie („o 7 wieczorem”, „rano o 7”, config DAY_PARTS) ustala połowę doby;
  *  - N-128: „codziennie” i „co miesiąc” jak w formularzu (RECURRENCE_WORDS); `recurrence: false` — bez powtarzania
  *    (pole podzadania: podzadanie się nie powtarza, N-124);

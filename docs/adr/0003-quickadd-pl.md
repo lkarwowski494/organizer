@@ -73,7 +73,7 @@ Ten sam korpus przechodzi drogę zapisu (`src/app/__tests__/quickadd.test.ts`: t
 - N-128 (decyzja Q36 A): „codziennie” i „co miesiąc” (w dniu miesiąca terminu) jak w formularzu.
 - N-129: składanie liter zachowuje długość („İ”), więc nazwa nie jest pocięta.
 - N-124: pole podzadania nie rozpoznaje powtarzania („co tydzień” zostaje w nazwie — podzadanie się nie powtarza).
-Korpus: 976 fraz (z porami dnia, „codziennie”/„co miesiąc”, słowem dnia przy liczbie i „İ”).
+Korpus: 981 fraz (z porami dnia, „codziennie”/„co miesiąc”, słowem dnia przy liczbie bez roku, także po nazwie, i „İ”).
 
 ## Znane ograniczenia
 „2.5 kg” bez słowa dnia zostanie odczytane jako 2 maja — pod polem stoi wtedy pełna data, użytkownik odklikuje chip

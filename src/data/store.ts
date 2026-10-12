@@ -5,22 +5,24 @@
  * między stanem przed i po przejściu (`writeState`) w JEDNEJ transakcji i odtwarza stan po starcie
  * aplikacji (`readState`). Zasada R1: zmiana i jej wpis w kolejce zapisują się razem albo wcale.
  */
-import { type ClientState, type Entity, type Op, type Row, rowKey } from '../domain/sync-engine/client';
+import { type ClientState, type Entity, type Op, type Row, rowKey, rowScope } from '../domain/sync-engine/client';
+import { badField } from '../domain/sync-engine/row-check';
 import type { DbAdapter } from './db/adapter';
 import { ENTITY_TABLES, migrate } from './db/migrations';
 
-const scopeOf = (e: Entity, row: Row): string | null => {
-  const s = e === 'lists' ? row.id : e === 'tasks' || e === 'event_task_series' ? row.list_id : row.scope_id;
-  return s == null ? null : String(s);
-};
+const scopeOf = (e: Entity, row: Row): string | null => rowScope(e, row) ?? null;
 const groupOf = (e: Entity, row: Row) => String(e === 'groups' ? row.id : row.group_id);
 
 export function readState(db: DbAdapter, clientId: string): ClientState {
   const kv = Object.fromEntries(db.all<{ key: string; value: string }>('select key, value from sync_state').map((r) => [r.key, r.value]));
   const base: Record<string, Record<string, Row>> = {};
   for (const t of ENTITY_TABLES) {
-    const rows = db.all<{ key: string; data: string }>(`select key, data from ${t}`);
-    if (rows.length) base[t] = Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.data) as Row]));
+    // N-1: wiersz z datą spoza zakresu zapisany przez starszą wersję aplikacji — pomijany (widoki by padły).
+    const rows = db.all<{ key: string; data: string }>(`select key, data from ${t}`).flatMap((r) => {
+      const row = JSON.parse(r.data) as Row;
+      return badField(t, row) ? [] : [[r.key, row] as const];
+    });
+    if (rows.length) base[t] = Object.fromEntries(rows);
   }
   return {
     clientId: kv.client_id ?? clientId,
@@ -107,10 +109,16 @@ export function writeState(db: DbAdapter, prev: ClientState, next: ClientState, 
     for (const r of next.rejected.slice(prev.rejected.length)) {
       db.run('insert or ignore into rejected_ops (seq, code, op, rejected_at) values (?, ?, ?, ?)', [r.op.seq, r.code, JSON.stringify(r.op), now]);
     }
+    // Liczniki operacji tylko rosną (audyt 3, N-11): zapis ze starszego stanu (drugi pisarz tej samej bazy) nie cofa ich,
+    // bo numer już wysłany serwer uznałby przy następnej zmianie za „duplicate”, a ona zniknęłaby bez śladu.
+    for (const [k, v] of [
+      ['next_seq', next.nextSeq],
+      ['acked_seq', next.ackedSeq],
+    ] as const) {
+      db.run('insert into sync_state (key, value) values (?, ?) on conflict (key) do update set value = cast(max(cast(sync_state.value as integer), cast(excluded.value as integer)) as text)', [k, String(v)]);
+    }
     const kv: [string, string][] = [
       ['client_id', next.clientId],
-      ['next_seq', String(next.nextSeq)],
-      ['acked_seq', String(next.ackedSeq)],
       ['cursors', JSON.stringify(next.cursors)],
       ['purged', JSON.stringify(next.purged)],
       ['entities', JSON.stringify(next.entities)],

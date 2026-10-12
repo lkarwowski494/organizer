@@ -412,7 +412,10 @@ describe('wyjątki od D68 (M-108, PW-18 A + b)', () => {
     expect(screen.queryByText(/We wspólnej grupie wybierz osobę albo dzień/)).toBeNull();
     expect(screen.getByTestId('trip-save').props.accessibilityState.disabled).toBe(false);
     await press(screen.getByTestId('trip-save'));
-    expectOps(store, [{ kind: 'patch', entity: 'lists', id: 'lzp', set: { due_date: null, due_time: null, responsible_member_id: null } }]);
+    // Zapis bez blokady i bez komunikatu; nic się nie zmieniło, więc nic nie jest wysyłane (audyt 3, N-126).
+    expect(screen.queryByTestId('trip-error')).toBeNull();
+    expect(screen.queryByTestId('trip-editor')).toBeNull();
+    expectOps(store, []);
   });
 });
 

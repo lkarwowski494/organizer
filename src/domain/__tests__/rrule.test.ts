@@ -127,6 +127,17 @@ describe('audyt 3, N-16: skok do okresu zawierającego „od”', () => {
     );
   });
 
+  it('limit: pierwsze wystąpienia tak samo jak początek pełnego wyniku (następny termin zadania bierze jedno)', () => {
+    fc.assert(
+      fc.property(arbRule, fc.integer({ min: 0, max: 3000 }), fc.integer({ min: 0, max: 400 }), fc.integer({ min: 1, max: 5 }), (rule, s, len, limit) => {
+        const start = alignStart(addDays(D('2020-01-01'), s), rule);
+        const to = addDays(start, len);
+        expect(iso(occurrences(start, rule, start, to, limit))).toEqual(iso(occurrences(start, rule, start, to)).slice(0, limit));
+      }),
+      { numRuns: 1000 },
+    );
+  });
+
   it('codzienna seria sprzed lat: zakres jednego dnia bez przeglądania lat', () => {
     const daily = parseRule('FREQ=DAILY');
     expect(iso(occurrences(D('2000-01-01'), daily, D('2026-10-09'), D('2026-10-09')))).toEqual(['2026-10-09']);

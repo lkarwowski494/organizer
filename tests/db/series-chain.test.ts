@@ -16,7 +16,7 @@ import { dbDescribe } from './db-gate';
 
 const U = { a: '00000000-0000-7000-8000-0000000009a1', b: '00000000-0000-7000-8000-0000000009b1' } as const;
 type User = 'a' | 'b';
-const id = (prefix: string, n: number) => `99999999-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
+const id = (prefix: string, n: number) => `5c000000-0000-7000-8${prefix}-${String(n).padStart(12, '0')}`;
 const G = id('000', 1);
 const M = { a: id('001', 1), b: id('001', 2) };
 const E = id('003', 1);

@@ -13,9 +13,9 @@ import { parseRule } from '../../src/domain/rrule';
 import { dbDescribe } from './db-gate';
 
 const U = { ala: '00000000-0000-7000-8000-0000000003c1', bartek: '00000000-0000-7000-8000-0000000003c2' } as const;
-const M = { ala: '99999999-0000-7000-8000-0000000003c1', bartek: '99999999-0000-7000-8000-0000000003c2', tymek: '99999999-0000-7000-8000-0000000003c3' } as const;
+const M = { ala: 'ee000000-0000-7000-8000-0000000003c1', bartek: 'ee000000-0000-7000-8000-0000000003c2', tymek: 'ee000000-0000-7000-8000-0000000003c3' } as const;
 type User = keyof typeof U;
-const G = '99999999-0000-7000-8000-0000000003c0';
+const G = 'ee000000-0000-7000-8000-0000000003c0';
 const DATE = '2026-10-12';
 
 dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', () => {
@@ -44,7 +44,7 @@ dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', (
     throw new Error('pobieranie się nie kończy');
   };
   let n = 0;
-  const newId = () => `99999999-0000-7000-8009-${String(++n).padStart(12, '0')}`;
+  const newId = () => `ee000000-0000-7000-8009-${String(++n).padStart(12, '0')}`;
   const apply = (s: ClientState, ops: readonly NewOp[]) => ops.reduce((st, o) => mutate(st, o, newId), s);
 
   it.each([
@@ -61,8 +61,8 @@ dbDescribe('zmiana wydarzenia na dwóch telefonach (synchronizacja per pole)', (
       await db.query(`insert into public.group_members (member_id, group_id, user_id, display_name) values ($1, $2, $3, 'Bartek'), ($4, $2, null, 'Tymek')`, [M.bartek, G, U.bartek, M.tymek]);
       await db.query(`update public.group_members set role = 'child' where member_id = $1`, [M.tymek]);
 
-      let a = initialState('99999999-0000-7000-8004-0000000003c1');
-      let b = initialState('99999999-0000-7000-8004-0000000003c2');
+      let a = initialState('ee000000-0000-7000-8004-0000000003c1');
+      let b = initialState('ee000000-0000-7000-8004-0000000003c2');
       const created = createEvent(G, { title: 'Basen', date: DATE, startTime: '17:00', endTime: '18:00', rule: parseRule('FREQ=WEEKLY;BYDAY=MO'), until: null, audience: 'members', participantIds: [M.tymek], responsibleId: null }, newId);
       a = await sync('ala', apply(a, created.ops));
       b = await sync('bartek', b);

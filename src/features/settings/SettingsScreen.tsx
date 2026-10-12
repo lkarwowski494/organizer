@@ -1,14 +1,16 @@
 /**
  * Ustawienia (D131): strona główna z podstronami — Powiadomienia, Kalendarz i dojazd, Wygląd, Dodawanie (grupa domyślna,
  * audyt 2 M-24), Konto i dane.
- * Konto i dane: imię, odrzucone zmiany, wylogowanie (z potwierdzeniem), wyczyszczenie danych offline, usunięcie konta
- * (wymóg App Store 5.1.1(v), D5, D49) z potwierdzeniem wpisaniem słowa — operacji nie da się cofnąć.
+ * Konto i dane: imię, odrzucone zmiany, raporty błędów i polityka prywatności (audyt 3, N-74, N-75), wylogowanie
+ * (z potwierdzeniem), wyczyszczenie danych offline, usunięcie konta (wymóg App Store 5.1.1(v), D5, D49) z potwierdzeniem
+ * wpisaniem słowa — operacji nie da się cofnąć. Na stronie głównej także Licencje (N-78).
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 
 import { useAppData, useServices } from '../../app/context';
+import { useErrorReports } from '../../app/diagnostics';
 import type { RootStackParams, SettingsSection } from '../../app/routes';
 import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
@@ -24,6 +26,7 @@ import { useDefaultGroup } from '../../app/default-group';
 import { LAST_USED } from '../../domain/views/default-group';
 import { quickGroups } from '../../domain/views/quick-target';
 import { pendingCount } from '../../domain/sync-engine/client';
+import { accountErrorCode } from '../../sync/account';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'adding', 'account'];
@@ -36,6 +39,7 @@ export function SettingsScreen({ navigation, route }: Props) {
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
   const travel = useTravel();
+  const errorReports = useErrorReports();
   const { state, indicator, tables } = useAppData();
   // Audyt 2 (M-166): zmiany naprawdę czekające na serwer (bez wysłanych, które czekają już tylko na pobranie).
   const pending = pendingCount(state);
@@ -48,18 +52,35 @@ export function SettingsScreen({ navigation, route }: Props) {
   const [word, setWord] = useState('');
   const [wordError, setWordError] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteEntries, setDeleteEntries] = useState(false);
 
+  // N-72: każdy błąd mówi, co się stało; zamknięte okno Apple to rezygnacja, nie błąd. Po sukcesie ekran logowania
+  // pokazuje „Konto zostało usunięte.” (Root).
   const del = async () => {
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
-      await account.deleteAccount();
-    } catch {
-      setError(true);
+      await account.deleteAccount({ deleteEntries });
+    } catch (e) {
+      const code = accountErrorCode(e);
+      const offline = code === 'network' || indicator.state === 'offline';
+      setError(
+        code === 'canceled'
+          ? null
+          : code === 'apple_mismatch'
+            ? strings['settings.deleteAppleMismatch']
+            : code === 'apple_unavailable'
+              ? strings['settings.deleteAppleUnavailable']
+              : offline
+                ? `${strings['common.error']} ${strings['common.offlineOnly']}`
+                : strings['common.error'],
+      );
       setBusy(false);
     }
   };
+  // N-142 (Q45 A): „USUŃ” albo „USUN” — świadome potwierdzenie także bez polskiej klawiatury.
+  const wordOk = ([strings['settings.deleteWord'], strings['settings.deleteWordAscii']] as string[]).includes(word.trim().toLocaleUpperCase('pl'));
 
   const signOut = () =>
     Alert.alert(
@@ -101,6 +122,7 @@ export function SettingsScreen({ navigation, route }: Props) {
           <NavRow key={s} title={strings[`settings.section.${s}`]} onPress={() => open(s)} testID={`settings-${s}`} />
         ))}
         <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
+        <NavRow title={strings['licenses.title']} onPress={() => navigation.navigate('Licenses')} testID="open-licenses" />
         <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />
       </Screen>
     );
@@ -245,6 +267,10 @@ export function SettingsScreen({ navigation, route }: Props) {
         <>
           <NavRow title={strings['name.title']} subtitle={displayName} onPress={() => navigation.navigate('Name', { from: 'settings' })} testID="open-name" />
           <NavRow title={strings['rejected.title']} subtitle={strings['settings.rejectedCount'](state.rejected.length)} onPress={() => navigation.navigate('Rejected')} testID="open-rejected" />
+          {/* Audyt 3: zgoda na raporty błędów (N-74, Q3 A) i polityka prywatności (N-75, Q4 A). */}
+          <SwitchRow label={strings['settings.errorReports']} value={errorReports.on} onChange={errorReports.setOn} testID="switch-error-reports" />
+          <Body muted>{strings['settings.errorReportsInfo']}</Body>
+          <NavRow title={strings['privacy.open']} onPress={() => void Linking.openURL(config.privacy.POLICY_URL).catch(() => {})} testID="open-privacy" />
           <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>
@@ -271,9 +297,11 @@ export function SettingsScreen({ navigation, route }: Props) {
               {pending ? <Body>{strings['reset.pending'](pending)}</Body> : null}
               <Field label={strings['settings.deleteType']} value={word} onChangeText={(v) => (setWord(v), setWordError(false))} autoCapitalize="characters" testID="delete-word" a11yFocus />
               {wordError ? <ErrorText testID="delete-word-error">{strings['settings.deleteWordError']}</ErrorText> : null}
-              {error ? <ErrorText>{`${strings['common.error']} ${strings['common.offlineOnly']}`}</ErrorText> : null}
-              <Button kind="danger" label={strings['settings.deleteConfirm']} busy={busy} onPress={() => (word.trim().toLocaleUpperCase('pl') === strings['settings.deleteWord'] ? void del() : setWordError(true))} testID="delete-confirm" />
-              <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''))} />
+              <SwitchRow label={strings['settings.deleteEntries']} value={deleteEntries} onChange={setDeleteEntries} testID="delete-entries" />
+              {deleteEntries ? <Body muted>{strings['settings.deleteEntriesInfo'](config.sync.TOMBSTONE_DAYS)}</Body> : null}
+              {error ? <ErrorText testID="delete-error">{error}</ErrorText> : null}
+              <Button kind="danger" label={strings['settings.deleteConfirm']} busy={busy} onPress={() => (wordOk ? void del() : setWordError(true))} testID="delete-confirm" />
+              <Button kind="secondary" label={strings['common.cancel']} onPress={() => (setDeleting(false), setWord(''), setDeleteEntries(false), setError(null))} />
             </View>
           ) : (
             <Button kind="danger" label={strings['settings.delete']} onPress={() => setDeleting(true)} testID="delete-start" />

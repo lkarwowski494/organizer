@@ -16,7 +16,7 @@ import { config } from '../../config';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { formatDue, parseIsoDate } from '../../domain/format';
 import { parseQuickAdd } from '../../domain/quickadd';
-import { createTask, inheritDue, patchTask, restore, setDue } from '../../domain/views/commands';
+import { createTask, inheritDue, patchTask, setDue } from '../../domain/views/commands';
 import { useTaskActions } from '../../app/task-actions';
 import { asTask, checkOff, groupsView, listDetail, myMemberships, type TaskNode } from '../../domain/views';
 import { takeOps } from '../../domain/views/overdue';
@@ -24,10 +24,11 @@ import { asEvent, occurrenceResolver } from '../../domain/views/event-rows';
 import { lacksAddressee } from '../../domain/views/addressee';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
-import { cycleChange, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
-import { moveTargets, moveTaskOps } from '../../domain/views/task-move';
+import { cycleChange, cycleDateOps, keepCycle, type Repeat, repeatOf, setRepeat } from '../../domain/views/task-repeat';
+import { movedTo, moveTargets, moveTaskOps } from '../../domain/views/task-move';
 import { appendKey, moveInList } from '../../domain/views/sort-keys';
 import { reorderItems, ReorderRows } from './ReorderRows';
+import { InTrashScreen } from '../groups/TrashSection';
 import { taskHistory } from '../../domain/views/history';
 import { personOf } from '../../domain/views/who';
 import { RepeatEditor } from './RepeatEditor';
@@ -71,6 +72,8 @@ function find(nodes: TaskNode[], id: string): TaskNode | undefined {
   return undefined;
 }
 
+const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
+
 export function TaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
   const actions = useTaskActions();
@@ -111,12 +114,16 @@ export function TaskScreen({ route, navigation }: Props) {
     );
   }
   // Usunięte gdzie indziej albo otwarte z linku do usuniętego (z tego ekranu usunięcie wraca z paskiem „Cofnij”, M-254).
+  // Audyt 3 (N-36, N-131): przeniesione do innej grupy — dokąd (z przejściem do kopii); inaczej jak kosz (InTrashScreen).
   if (task.deleted_at !== null) {
+    const moved = movedTo(tables, userId, task.id);
+    if (!moved) return <InTrashScreen entity="tasks" id={task.id} missing={strings['missing.task']} testID="screen-task" onBack={() => navigation.goBack()} />;
     return (
-      <Screen testID="screen-task-deleted">
+      <Screen testID="screen-task-moved">
         <BackButton onPress={() => navigation.goBack()} />
-        <Title>{strings['task.deleted']}</Title>
-        <Button label={strings['task.restore']} onPress={() => store.dispatch(restore('tasks', task.id))} />
+        <Title>{task.title}</Title>
+        <Body muted>{strings['task.movedAway'](moved.group ? groupName(moved.group) : null)}</Body>
+        {moved.taskId ? <Button label={strings['task.openMoved']} testID="task-open-moved" onPress={() => navigation.replace('Task', { taskId: moved.taskId! })} /> : null}
       </Screen>
     );
   }
@@ -137,11 +144,15 @@ export function TaskScreen({ route, navigation }: Props) {
   const waiting = outgoingPending(tables, userId).get(handoffKey('tasks', task.id, null));
   const repeat = task.parent_id === null ? repeatOf(tables, task.id) : null;
   // D178: przeniesienie zadania głównego do innej grupy (z podzadaniami); w trakcie przekazania — po jego zakończeniu.
-  const targets = canEdit && task.parent_id === null && !waiting ? moveTargets(tables, userId, task) : [];
+  // Audyt 3 (N-121): zrobione nie przenosi się (zadanie powtarzane ma już następny termin w swojej grupie).
+  const targets = canEdit && task.parent_id === null && task.completed_at === null && !waiting ? moveTargets(tables, userId, task) : [];
   const take = takeOps(tables, task, groupsView(tables, userId), formatIsoDate(today));
 
-  const writeDue = (due: { date: string; time: string | null }, r: Repeat | null) => {
-    store.dispatch([setDue(task.id, due), ...(r ? [setRepeat(task.id, r, due.date)] : [])]);
+  // `keep` — cykl zostaje (bez pytania albo „Tylko ten raz”); wtedy przeniesienie na wcześniej pamięta dzień cyklu (N-25).
+  const writeDue = (due: { date: string; time: string | null }, r: Repeat | null, keep: boolean) => {
+    // Audyt 3 (N-126): tylko zmienione pola terminu (setDue z dotychczasowym terminem).
+    const was = task.deadline_mode === 'own' && task.due_date !== null ? { date: task.due_date, time: task.due_time } : null;
+    store.dispatch([setDue(task.id, due, was), ...(r ? [setRepeat(task.id, r, due.date)] : []), ...cycleDateOps(task, r ?? repeat, due.date, keep)]);
   };
   const changeDue = (patch: Edits) => {
     const next = { ...edit, ...patch };
@@ -159,7 +170,7 @@ export function TaskScreen({ route, navigation }: Props) {
     const old = task.deadline_mode === 'own' ? task.due_date : null;
     const changed = old ? cycleChange(repeat, old, r.due.date) : null;
     if (changed) return setCycleAsk({ due: r.due, next: changed });
-    writeDue(r.due, old ? keepCycle(repeat, old) : null);
+    writeDue(r.due, old ? keepCycle(repeat, old) : null, true);
   };
   const noDue = () => {
     // D68 po decyzji właściciela z 8.10.2026 (PW-18 b): bez terminu i osoby też wolno — wtedy dopisek task.noAddressee.
@@ -172,8 +183,9 @@ export function TaskScreen({ route, navigation }: Props) {
     setError(null);
     if (task.deadline_mode !== 'inherit') store.dispatch(inheritDue(task.id));
   };
-  // Podzadanie dodaje się jak w polu dodawania (M-244): rozpoznane fragmenty to chipy do odklikania. Bez powtarzania
-  // (audyt 3, N-124): podzadanie się nie powtarza (powtarza się zadanie z podzadaniami), więc „co tydzień” zostaje w nazwie.
+  // Podzadanie dodaje się jak w polu dodawania (M-244): rozpoznane fragmenty to chipy do odklikania.
+  // Bez powtarzania (audyt 3, N-124): podzadanie się nie powtarza (powtarza się zadanie z podzadaniami), więc „co tydzień”
+  // zostaje w nazwie — dotąd chip obiecywał powtarzanie, którego zapis nie miał.
   const subParsed = parseQuickAdd(sub, now(), { ignore: subIgnore, recurrence: false });
   const addSub = () => {
     if (sub.trim() === '') return;
@@ -188,7 +200,6 @@ export function TaskScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const groupLine = [detail.list.name, ...(node?.due ? [formatDue(node.due, today)] : [])].join(META_SEP);
-  const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' ? strings['groups.personal'] : g.name);
 
   return (
     <Screen testID="screen-task">
@@ -205,7 +216,8 @@ export function TaskScreen({ route, navigation }: Props) {
         <>
           <Field label={strings['task.title']} {...title.field} maxLength={config.lengths.TASK_TITLE} testID="task-title" />
           {title.error ? <ErrorText>{title.error}</ErrorText> : null}
-          <Field label={strings['task.note']} {...note.field} onSubmitEditing={undefined} multiline testID="task-note" />
+          {/* Audyt 3 (N-134): limit notatki z SQL (CHECK char_length(note) <= config.lengths.NOTE). */}
+          <Field label={strings['task.note']} {...note.field} onSubmitEditing={undefined} multiline maxLength={config.lengths.NOTE} testID="task-note" />
         </>
       ) : (
         <>
@@ -241,8 +253,8 @@ export function TaskScreen({ route, navigation }: Props) {
           testID="cycle-ask"
           title={strings['repeat.cycleAsk']}
           options={[
-            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!)), closeCycle()) },
-            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next), closeCycle()) },
+            { key: 'once', label: strings['repeat.cycleOnce'], onPress: () => (writeDue(cycleAsk.due, keepCycle(repeat, task.due_date!), true), closeCycle()) },
+            { key: 'all', label: strings['repeat.cycleAll'], onPress: () => (writeDue(cycleAsk.due, cycleAsk.next, false), closeCycle()) },
           ]}
           onCancel={closeCycle}
         />
@@ -365,7 +377,7 @@ export function TaskScreen({ route, navigation }: Props) {
                 store.dispatch(r.ops);
                 // Jak po usunięciu: powrót z paskiem „Cofnij” (wpisy wracają z paskiem — M-246).
                 navigation.goBack();
-                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.ops });
+                undo.show(strings['task.moved'](task.title, groupName(g)), { ops: r.undo }, { changed: r.changed });
               },
             }))}
             onCancel={() => setMoving(false)}

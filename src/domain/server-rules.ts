@@ -4,7 +4,7 @@
  * private.sync_entities, powtórzone utworzenie, wiersz niewidoczny / usunięty), polityki RLS (widoczność list,
  * przekazań, uprawnienia zmiany grupy) i strażnicy wierszy (tasks_guard, lists_guard, events_guard, event_rsvps_guard,
  * event_task_series_guard, group_members_guard, handoffs_guard, object_members_guard, list_responsible_guard,
- * event_responsible_guard, tasks_event_guard, groups_stamp, my_day_scopes_guard, shopping_trips_guard) oraz kosz grup
+ * event_responsible_guard, tasks_event_guard, tasks_moved_guard, groups_stamp, my_day_scopes_guard, shopping_trips_guard) oraz kosz grup
  * (bump_group_version: deleted:group).
  * Kolejność sprawdzeń jak w SQL: kolumny, widoczność, strażnicy w kolejności nazw wyzwalaczy, licznik wersji grupy.
  *
@@ -18,13 +18,17 @@
  * algorytm co tasks_cascade / lists_cascade) i przyjęcie przekazania (handoffs_guard: nowa osoba przy zadaniu, liście
  * zakupów albo wydarzeniu, przy jednym terminie — wyjątek).
  *
- * Poza modelem (zwraca null — „przyjęte”): polecenia (`cmd`: przeniesienie zadania, udostępnienia, stałe zakupy, podział
- * serii), identyfikatory pochodne poza zakresem Moich spraw (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
+ * Polecenia przeniesienia zadania do innej grupy (move_task_to_group, unmove_task — audyt 3, N-12) model sprawdza
+ * krokami z task-move-cmd.ts, jak serwer: pierwsze odrzucenie odrzuca całość.
+ * Poza modelem (zwraca null — „przyjęte”): pozostałe polecenia (`cmd`: przeniesienie zadania w grupie, udostępnienia, stałe
+ * zakupy, podział serii), identyfikatory pochodne poza zakresem Moich spraw (invalid_id — ich generatory testuje tests/db), limity (limit:*), głębokość podzadań,
  * przyjęcie przekazania nieaktualnego (stale), wygasłe przywrócenie członka (deleted:expired) i przekazania wydarzeń.
  */
 import { config } from '../config';
 import { applyOp, type NewOp, type Op, type Row } from './sync-engine/client';
+import { type MoveArgs, moveCmdSteps, type MoveStep } from './task-move-cmd';
 import { overrideId } from './views/events';
+import { nextId } from './views/task-repeat';
 import { scopeRowId } from './views/my-scope';
 
 export type ServerTables = { readonly [entity: string]: { readonly [key: string]: Row } | undefined };
@@ -38,8 +42,8 @@ export const SYNC_ENTITIES: { readonly [entity: string]: Spec } = {
   lists: { pk: 'id', insert: ['id', 'group_id', 'kind', 'name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], patch: ['name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], softDelete: true },
   tasks: {
     pk: 'id',
-    insert: ['id', 'group_id', 'list_id', 'parent_id', 'title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'series_id', 'repeat', 'category'],
-    patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category'],
+    insert: ['id', 'group_id', 'list_id', 'parent_id', 'title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'series_id', 'repeat', 'category', 'cycle_date'],
+    patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category', 'cycle_date'],
     softDelete: true,
   },
   events: { pk: 'id', insert: ['id', 'group_id', 'title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'kind', 'days', 'duration_min'], patch: ['title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'days', 'duration_min'], softDelete: true },
@@ -119,14 +123,14 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
   if (!me) reject('forbidden');
   const m = me!;
   if (old) {
-    const changed = Object.keys({ ...row, ...old }).some((k) => k !== 'completed_at' && k !== 'completed_by' && k !== 'version' && !same(row[k], old[k]));
-    if (m.role === 'child' && changed) reject('forbidden:child');
+    const changed = Object.keys({ ...row, ...old }).filter((k) => k !== 'completed_at' && k !== 'completed_by' && k !== 'version' && !same(row[k], old[k]));
+    if (m.role === 'child' && changed.length > 0 && !childRepeatUpdateOk(t, changed, old, m.member_id)) reject('forbidden:child');
     if (m.role === 'child' && !same(row.completed_at, old.completed_at) && !childOwnsTask(t, String(old.id), m.member_id)) reject('forbidden:not_own');
     if (old.deleted_at != null && row.deleted_at == null && row.parent_id != null && t.tasks?.[String(row.parent_id)]?.deleted_at != null) reject('deleted:parent');
   }
   const l = t.lists?.[String(row.list_id)];
   // D34 z wyjątkiem Q6d A (audyt 3, 20261010120000): dziecko dopisuje tylko produkt — pozycję główną listy zakupów.
-  if (!old && m.role === 'child' && !(l?.kind === 'shopping' && childItem(row))) reject('forbidden:child');
+  if (!old && m.role === 'child' && !(l?.kind === 'shopping' && childItem(row)) && !childRepeatInsertOk(t, row, m.member_id)) reject('forbidden:child');
   if (!l || l.group_id !== row.group_id) return reject('invalid_list');
   if (l.deleted_at != null && row.deleted_at == null) reject('deleted:list');
   if (!memberCanSeeList(t, m.member_id, l)) reject('forbidden');
@@ -143,6 +147,54 @@ function tasksGuard(t: ServerTables, me: Me | null, row: Row, old: Row | null) {
 const CHILD_ITEM_EMPTY = ['parent_id', 'assignee_member_id', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'series_id', 'repeat', 'note'];
 const childItem = (row: Row) => (row.deadline_mode ?? 'none') === 'none' && CHILD_ITEM_EMPTY.every((k) => row[k] == null);
 
+/** private.repeat_source (20261010070000): poprzednie zadanie łańcucha, którego następnym terminem jest wiersz `id`. */
+function repeatSource(t: ServerTables, id: string, list: unknown, parent: unknown): Row | undefined {
+  const tasks = rowsOf(t, 'tasks');
+  if (parent == null) return tasks.find((x) => x.list_id === list && x.parent_id == null && x.repeat != null && x.id !== id && nextId(String(x.id)) === id);
+  const sp = t.tasks?.[String(parent)] && repeatSource(t, String(parent), list, t.tasks[String(parent)]!.parent_id);
+  return sp ? tasks.find((x) => x.parent_id === sp.id && nextId(String(x.id)) === id) : undefined;
+}
+
+/** private.child_repeat_copy: zadanie główne `r` jest następnym terminem sprawy dziecka `me` — poprzednie albo nic. */
+function childRepeatCopy(t: ServerTables, r: Row, me: string): Row | undefined {
+  if (r.parent_id != null) return undefined;
+  const src = repeatSource(t, String(r.id), r.list_id, null);
+  return src && childOwnsTask(t, String(src.id), me) ? src : undefined;
+}
+
+/** private.task_root: zadanie główne nad wierszem (najwyżej 8 kroków). */
+function taskRoot(t: ServerTables, r: Row): Row | undefined {
+  let cur: Row | undefined = r;
+  for (let step = 0; cur && cur.parent_id != null && step < 8; step++) cur = t.tasks?.[String(cur.parent_id)];
+  return cur;
+}
+
+/** private.child_repeat_insert_ok (Q16 A, audyt 3: N-123): dziecko zakłada następny termin swojej sprawy jak copyOps. */
+function childRepeatInsertOk(t: ServerTables, r: Row, me: string): boolean {
+  let s: Row | undefined;
+  if (r.parent_id == null) s = childRepeatCopy(t, r, me);
+  else {
+    const root = taskRoot(t, t.tasks?.[String(r.parent_id)] ?? {});
+    if (!root?.id || !childRepeatCopy(t, root, me)) return false;
+    s = repeatSource(t, String(r.id), r.list_id, r.parent_id);
+  }
+  if (!s) return false;
+  const mode = r.deadline_mode ?? 'none';
+  return (
+    same(r.title, s.title) && same(r.note, s.note) && (r.sort_key ?? 'a0') === (s.sort_key ?? 'a0') && (r.assignee_member_id == null || r.assignee_member_id === s.assignee_member_id) &&
+    (r.rollover ?? true) === (s.rollover ?? true) && ['start_date', 'completed_at', 'event_id', 'occurrence_date', 'series_id', 'category', 'cycle_date'].every((k) => r[k] == null) &&
+    (r.parent_id == null ? mode === 'own' && r.due_date != null && same(r.due_time, s.due_time) && r.repeat != null : r.repeat == null && mode !== 'event' && (r.due_time == null || r.due_time === s.due_time))
+  );
+}
+
+/** private.child_repeat_update_ok: zdjęcie i przywrócenie następnego (z podzadaniami), jego termin — nietkniętego. */
+function childRepeatUpdateOk(t: ServerTables, changed: string[], o: Row, me: string): boolean {
+  const allowed = o.parent_id == null ? ['deleted_at', 'due_date', 'due_time', 'cycle_date'] : ['deleted_at'];
+  if (!changed.every((k) => allowed.includes(k)) || (o.parent_id == null && o.completed_at != null)) return false;
+  const root = taskRoot(t, o);
+  return !!root && !!childRepeatCopy(t, root, me);
+}
+
 function tasksEventGuard(t: ServerTables, row: Row, old: Row | null) {
   // Seria tylko przy utworzeniu (series_id nie ma wśród kolumn do zmiany).
   if (!old && row.series_id != null) {
@@ -156,6 +208,11 @@ function tasksEventGuard(t: ServerTables, row: Row, old: Row | null) {
 }
 
 /** private.child_owns_task: swoje = przypisane do dziecka, zadanie przy wydarzeniu dziecka, zakupy dziecka (po rodzicach). */
+/** tasks_a_guard_moved (audyt 3, N-131): przeniesione nie wraca z kosza, dopóki żyje kopia. */
+function tasksMovedGuard(t: ServerTables, row: Row, old: Row | null) {
+  if (old && old.deleted_at != null && row.deleted_at == null && old.moved_to != null && live(t.tasks?.[String(old.moved_to)])) reject('moved');
+}
+
 function childOwnsTask(t: ServerTables, id: string, me: string): boolean {
   let cur = t.tasks?.[id];
   for (let step = 0; cur && step < 8; step++) {
@@ -312,7 +369,8 @@ function guards(t: ServerTables, user: string, entity: string, row: Row, old: Ro
   switch (entity) {
     case 'tasks':
       tasksGuard(t, me, row, old);
-      return tasksEventGuard(t, row, old);
+      tasksEventGuard(t, row, old);
+      return tasksMovedGuard(t, row, old);
     case 'lists':
       listsGuard(me, row, old);
       return responsibleGuard(t, row, old);
@@ -352,6 +410,30 @@ function trashed(t: ServerTables, group: unknown) {
   if (t.groups?.[String(group)]?.deleted_at != null) reject('deleted:group');
 }
 
+/**
+ * Długości tekstów (audyt 3, N-134): CHECK char_length(…) w SQL (23514 → invalid:23514) — liczba znaków (code points),
+ * nie jednostek UTF-16. [najmniej, najwięcej]; null w kolumnie dopuszczającej null przechodzi. Źródła: migracje
+ * 20261006120000_core, 20261006120100_lists_tasks, 20261008100000_events, 20261008130000_event_task_series,
+ * 20261008260000_event_location (kontrakt liczb z config: tests/db/config-sql.test.ts).
+ */
+const L = config.lengths;
+const LENGTHS: { readonly [entity: string]: { readonly [col: string]: readonly [number, number] } } = {
+  groups: { name: [1, L.GROUP_NAME] },
+  group_members: { display_name: [1, config.profile.NAME_MAX_LENGTH] },
+  lists: { name: [1, L.LIST_NAME] },
+  tasks: { title: [1, L.TASK_TITLE], note: [0, L.NOTE] },
+  events: { title: [1, L.EVENT_TITLE], note: [0, L.NOTE], location: [1, config.events.LOCATION_MAX_LENGTH] },
+  event_overrides: { title: [1, L.EVENT_TITLE] },
+  event_task_series: { title: [1, L.TASK_TITLE] },
+};
+
+function lengths(entity: string, row: Row) {
+  for (const [col, [min, max]] of Object.entries(LENGTHS[entity] ?? {})) {
+    const v = row[col];
+    if (typeof v === 'string' && ([...v].length < min || [...v].length > max)) reject('invalid:23514');
+  }
+}
+
 /** Indeksy unikalne (23505 → invalid:23505): jeden wyjątek na dzień, jeden udział i jedna odpowiedź osoby, jedno oczekujące przekazanie. */
 const UNIQUE: { readonly [entity: string]: readonly string[] } = {
   event_overrides: ['event_id', 'occurrence_date'],
@@ -373,8 +455,62 @@ function afterGuards(t: ServerTables, entity: string, row: Row, old: Row | null)
   if (!memberCanSeeList(t, row.responsible_member_id, row)) reject('invalid_member');
 }
 
+/** Tabele widziane przez `user` (RLS) — polecenie przeniesienia widzi tylko zadania z list, które widzę. */
+function visibleTasks(t: ServerTables, user: string): ServerTables {
+  return { ...t, tasks: Object.fromEntries(Object.entries(t.tasks ?? {}).filter(([, r]) => canSee(t, user, 'tasks', r))) };
+}
+
+/** Kroki polecenia przeniesienia (task-move-cmd.ts) tak, jak wykona je serwer: na zadaniach, które widzę. */
+const serverMoveSteps = (t: ServerTables, user: string, op: Extract<NewOp, { kind: 'cmd' }>): MoveStep[] | null => moveCmdSteps(visibleTasks(t, user), op);
+
+/**
+ * private.move_task_to_group i private.unmove_task (20261010060000_move_task_to_group.sql): te same sprawdzenia, potem
+ * kroki po kolei na kopii danych — pierwsze odrzucenie odrzuca całe polecenie (N-12: wszystko albo nic).
+ */
+function moveVerdict(t: ServerTables, user: string, op: Extract<NewOp, { kind: 'cmd' }>): void {
+  const a = op.args;
+  const src = visibleTasks(t, user).tasks![String(a.task_id)];
+  if (a.task_id == null || (op.cmd === 'move_task_to_group' ? a.group_id == null || !Array.isArray(a.tasks) || a.tasks.length === 0 : a.copy_id == null)) reject('invalid_value');
+  if (!src) return reject('not_found');
+  if (member(t, String(src.group_id), user)?.role === 'child') reject('forbidden:child');
+  if (op.cmd === 'move_task_to_group') {
+    const m = a as MoveArgs;
+    if (src.parent_id != null || src.group_id === m.group_id) reject('invalid_value');
+    if (src.deleted_at != null) reject('deleted');
+    if (m.tasks[0]!.from !== m.task_id || m.tasks[0]!.set.parent_id != null) reject('invalid_value');
+    const sub = new Set([m.task_id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const r of rowsOf(t, 'tasks')) {
+        if (r.parent_id == null || !sub.has(String(r.parent_id)) || sub.has(String(r.id))) continue;
+        sub.add(String(r.id));
+        grew = true;
+      }
+    }
+    if (m.tasks.some((x) => !sub.has(x.from))) reject('invalid_value');
+  } else {
+    if (src.deleted_at == null) return;
+    if (src.moved_to !== a.copy_id) reject('invalid_value');
+  }
+  const sim: { [e: string]: { [k: string]: Row } } = Object.fromEntries(Object.entries(t).map(([e, rows]) => [e, { ...rows }]));
+  for (const step of serverMoveSteps(t, user, op)!) {
+    if ('mark' in step) {
+      sim.tasks![step.mark.id] = { ...sim.tasks![step.mark.id]!, moved_to: step.mark.to };
+      continue;
+    }
+    const code = serverVerdict(sim, user, step.op);
+    if (code !== null) reject(code);
+    applyOnServer(sim, user, step.op, 'now');
+    // Kopia zadania głównego musi powstać teraz (utworzenie istniejącego id to powtórzenie — bez zmian).
+    if (op.cmd === 'move_task_to_group' && step.op.kind === 'create' && step.op.id === (a as MoveArgs).tasks[0]!.id) {
+      const root = sim.tasks![step.op.id]!;
+      if (!live(root) || root.group_id !== a.group_id || root.parent_id != null) reject('invalid_value');
+    }
+  }
+}
+
 function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
-  if (op.kind === 'cmd') return;
+  if (op.kind === 'cmd') return op.cmd === 'move_task_to_group' || op.cmd === 'unmove_task' ? moveVerdict(t, user, op) : undefined;
   const spec = SYNC_ENTITIES[op.entity];
   if (!spec) return reject('unknown_entity');
   const table = t[op.entity] ?? {};
@@ -393,6 +529,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     guards(t, user, op.entity, row, null);
     trashed(t, op.group_id);
     if (!insertAllowed(t, user, op.entity, row)) reject('forbidden'); // RLS WITH CHECK: 42501 → forbidden (sync_push)
+    lengths(op.entity, row);
     unique(t, op.entity, row);
     // lists_guard: twórca listy to ja (owner_member_id nadaje serwer).
     return afterGuards(t, op.entity, { ...row, owner_member_id: member(t, op.group_id, user)?.member_id }, null);
@@ -408,6 +545,7 @@ function verdictOrThrow(t: ServerTables, user: string, op: NewOp): void {
     if (!canUpdate(t, user, op.entity, current)) reject('forbidden');
     guards(t, user, op.entity, { ...current, ...op.set }, current);
     trashed(t, op.entity === 'groups' ? op.id : current.group_id);
+    lengths(op.entity, op.set);
     return afterGuards(t, op.entity, { ...current, ...op.set }, current);
   } else {
     const deleting = op.kind === 'delete';
@@ -447,13 +585,23 @@ function seriesCascade(t: { [e: string]: { [k: string]: Row } }, entity: 'events
 }
 
 /**
- * Wyjście i powrót członka (group_members_departure, group_members_leave_scopes): oczekujące przekazania z nim i do niego
- * anulowane, jego listy prywatne usunięte (z kaskadą) i jego udostępnienia odebrane; powrót przywraca listy prywatne.
+ * Wyjście i powrót członka (group_members_departure, group_members_leave_scopes, member_scope_cleanup): oczekujące
+ * przekazania z nim i do niego anulowane, jego listy prywatne usunięte (z kaskadą), jego udostępnienia odebrane, a zakres
+ * Moich spraw w koszu — wszystko ze znacznikiem usunięcia osoby. Przywrócenie (w modelu tylko przez owner/admin — powrót
+ * zaproszeniem nie idzie przez sync_push) cofa to, co ma ten znacznik (audyt 3, N-40, 20261010110000_member_restore):
+ * listy prywatne, udostępnienia, zakres i przekazania, które nadal mają sens (reguła jak przy tworzeniu).
  */
 function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'delete' | 'restore', at: string) {
   const mine = (l: Row) => l.group_id === m.group_id && l.owner_member_id === m.member_id && l.visibility === 'private';
+  const scopes = Object.entries(t.my_day_scopes ?? {}).filter(([, sc]) => sc.member_id === m.member_id);
   if (kind === 'restore') {
     for (const [id, l] of Object.entries(t.lists ?? {})) if (mine(l) && l.deleted_at != null && String(l.deleted_at) >= String(m.deleted_at)) applyOp(t, { seq: 0, op_id: 'server', kind: 'restore', entity: 'lists', id });
+    for (const [k, o] of Object.entries(t.object_members ?? {})) if (o.member_id === m.member_id && o.deleted_at === m.deleted_at) t.object_members![k] = { ...o, deleted_at: null };
+    for (const [k, sc] of scopes) if (sc.deleted_at === m.deleted_at) t.my_day_scopes![k] = { ...sc, deleted_at: null };
+    for (const [k, h] of Object.entries(t.handoffs ?? {})) {
+      const involved = h.from_member === m.member_id || h.to_member === m.member_id;
+      if (h.group_id === m.group_id && h.status === 'cancelled' && h.decided_at === m.deleted_at && involved && handoffStillValid(t, h)) t.handoffs![k] = { ...h, status: 'pending', decided_at: null };
+    }
     return;
   }
   for (const [k, h] of Object.entries(t.handoffs ?? {})) {
@@ -465,8 +613,26 @@ function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'dele
     seriesCascade(t, 'lists', id, null, 'delete');
   }
   for (const [k, o] of Object.entries(t.object_members ?? {})) if (o.member_id === m.member_id && o.deleted_at == null) t.object_members![k] = { ...o, deleted_at: at };
-  // member_scope_cleanup: zakres Moich spraw tej osoby znika (wraca „Wszystko”).
-  for (const [k, sc] of Object.entries(t.my_day_scopes ?? {})) if (sc.member_id === m.member_id) delete t.my_day_scopes![k];
+  // member_scope_cleanup: zakres Moich spraw tej osoby do kosza (nagrobek dla telefonu, N-87; wraca „Wszystko”).
+  for (const [k, sc] of scopes) if (sc.deleted_at == null) t.my_day_scopes![k] = { ...sc, deleted_at: at };
+}
+
+/** Przekazanie anulowane przez usunięcie osoby wraca, gdy dałoby się je utworzyć teraz (handoffs_guard): obie osoby są,
+ * odbiorca to dorosły z kontem, rzecz nadal u nadawcy i odbiorca ją widzi, nikt inny jej nie przekazuje. */
+function handoffStillValid(t: ServerTables, h: Row): boolean {
+  const to = t.group_members?.[String(h.to_member)];
+  if (!live(t.group_members?.[String(h.from_member)]) || !live(to) || to.role === 'child' || to.user_id == null) return false;
+  if (rowsOf(t, 'handoffs').some((p) => p.status === 'pending' && p.entity === h.entity && p.entity_id === h.entity_id && same(p.occurrence_date, h.occurrence_date))) return false;
+  if (h.entity === 'tasks') {
+    const x = t.tasks?.[String(h.entity_id)];
+    return live(x) && x.assignee_member_id === h.from_member && memberCanSeeList(t, h.to_member, t.lists![String(x.list_id)]!);
+  }
+  if (h.entity === 'lists') {
+    const x = t.lists?.[String(h.entity_id)];
+    return live(x) && x.responsible_member_id === h.from_member && memberCanSeeList(t, h.to_member, x);
+  }
+  const x = t.events?.[String(h.entity_id)];
+  return live(x) && occurrenceResponsible(t, x, h.occurrence_date) === h.from_member;
 }
 
 /**
@@ -474,6 +640,14 @@ function departure(t: { [e: string]: { [k: string]: Row } }, m: Row, kind: 'dele
  * null. `at` — znacznik czasu dla usunięć i decyzji.
  */
 export function applyOnServer(t: { [e: string]: { [k: string]: Row } }, user: string, op: NewOp, at: string): void {
+  const move = op.kind === 'cmd' ? serverMoveSteps(t, user, op) : null;
+  if (move) {
+    for (const step of move) {
+      if ('op' in step) applyOnServer(t, user, step.op, at);
+      else t.tasks![step.mark.id] = { ...t.tasks![step.mark.id]!, moved_to: step.mark.to };
+    }
+    return;
+  }
   const old = op.kind === 'cmd' ? undefined : t[op.entity]?.[op.id];
   const me = op.kind === 'create' ? member(t, op.group_id, user) : null;
   applyOp(t, { ...op, seq: 0, op_id: 'server' } as Op);

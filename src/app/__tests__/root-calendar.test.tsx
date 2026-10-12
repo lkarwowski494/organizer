@@ -99,7 +99,7 @@ it('N-4: kalendarz lustra utworzony po zalogowaniu trafia na listę w pęku kluc
   await signOut();
   await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-1'));
   expect(calendars.size).toBe(0);
-}, 20000);
+});
 
 it('N-4: lista zapisana przez build 22 w bazie konta przechodzi do pęku kluczy, a wylogowanie usuwa i te kalendarze', async () => {
   const calendars = new Set<string>(['cal-22']);
@@ -112,4 +112,4 @@ it('N-4: lista zapisana przez build 22 w bazie konta przechodzi do pęku kluczy,
   await signOut();
   await waitFor(() => expect(sync.deleteCalendar).toHaveBeenCalledWith('cal-22'));
   expect(calendars.has('cal-22')).toBe(false);
-}, 20000);
+});

@@ -1,6 +1,6 @@
 /**
  * Wzorzec do testów równoważności (audyt 3, N-6, N-16): plan przypomnień, Moje sprawy, rozwinięcie wydarzeń, RRULE
- * zagnieżdżenie i miesiąc Kalendarza w wersji sprzed optymalizacji (stan z commita 0430562), słowo w słowo — 14 pełnych przeliczeń myDays,
+ * zagnieżdżenie i miesiąc Kalendarza w wersji sprzed optymalizacji (stan z commita 91df9ab), słowo w słowo — 14 pełnych przeliczeń myDays,
  * filtry całych tabel i przeglądanie serii od początku. Nowa wersja ma dawać ten sam wynik.
  */
 import { config } from '../../../config';
@@ -24,7 +24,7 @@ import type { Nested, ParentLabel } from '../../views/nesting';
 import type { Reminder, ReminderSettings } from '../../views/reminders';
 import { silencedForMe } from '../../views/rsvp';
 import { doneTrips, tripEntries } from '../../views/shopping-trip';
-import { formatRepeat, repeatOf } from '../../views/task-repeat';
+import { formatRepeat, nextId, repeatOf } from '../../views/task-repeat';
 import { type Person, personOf } from '../../views/who';
 
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -137,8 +137,14 @@ export function refExpandEvents(t: Tables, userId: string, from: CivilDate, to: 
     const kids = mine.filter((m): m is Member => m?.role === 'child' && m.deleted_at === null);
     const lessonFor = children.length ? children.map((c) => ({ memberId: c.member_id, name: c.display_name })) : null;
     const byDate = new Map(overrides.filter((o) => o.event_id === e.id).map((o) => [o.occurrence_date, o]));
-    for (const d of refOccurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS))) {
-      const occ = formatIsoDate(d);
+    // Jedyna zmiana względem 91df9ab (audyt 3, seed -253130834): wyjątek przeniesiony do zakresu z dalszej daty niż okno
+    // ±MOVE_WINDOW_DAYS też się liczy (RFC 5545, RECURRENCE-ID), żeby wynik nie zależał od szerokości zakresu.
+    const window = refOccurrences(parseIsoDate(e.start_date), rule, addDays(from, -MOVE_WINDOW_DAYS), addDays(to, MOVE_WINDOW_DAYS)).map(formatIsoDate);
+    const far = [...byDate.values()]
+      .filter((o) => o.start_date !== null && o.start_date >= isoFrom && o.start_date <= isoTo && !window.includes(o.occurrence_date))
+      .filter((o) => refOccurrences(parseIsoDate(e.start_date), rule, parseIsoDate(o.occurrence_date), parseIsoDate(o.occurrence_date)).length > 0)
+      .map((o) => o.occurrence_date);
+    for (const occ of [...window, ...far].sort()) {
       const o = byDate.get(occ);
       if (o?.cancelled) continue;
       const date = o?.start_date ?? occ;
@@ -496,7 +502,7 @@ export function refCalendarMonth(t: Tables, userId: string, year: number, month:
     add(due.date, { ...item, doneOn: doneOn(due.date, x.completed_at), projected: false, expired, overdueDays: overdue ? dayDiff(isoToday, due.date) : 0 });
     // PWD-15 A: kolejne terminy otwartego zadania powtarzanego według kalendarza (od wykonania — nie da się ich
     // przewidzieć), tylko w oknie siatki; zadanie powstanie dopiero po odhaczeniu poprzedniego (task-repeat.ts).
-    for (const date of x.completed_at === null && x.parent_id === null ? futureRepeats(t, x, due, last) : []) add(date, { ...item, due: { date, time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
+    for (const date of x.completed_at === null && x.parent_id === null ? futureRepeats(t, x, due, last, isoToday) : []) add(date, { ...item, due: { date, time: due.time }, doneOn: null, projected: true, expired: false, overdueDays: 0 });
   }
   // Zaplanowane zakupy z dniem (D73) — także cudze, jak zadania grupy; ostatnie zrobione — przekreślone (PWD-11 A).
   for (const trip of tripEntries(t, groups, true)) {
@@ -515,10 +521,16 @@ export function refCalendarMonth(t: Tables, userId: string, year: number, month:
 
 const dayDiff = (a: string, b: string) => toDayNumber(parseIsoDate(a)) - toDayNumber(parseIsoDate(b));
 
-/** Daty kolejnych terminów zadania powtarzanego według kalendarza po `due`, do `last` włącznie (PWD-15 A). */
-function futureRepeats(t: Tables, x: Task, due: NonNullable<Due>, last: string): string[] {
+/**
+ * Daty kolejnych terminów zadania powtarzanego według kalendarza do `last` włącznie (PWD-15 A; audyt 3, N-24): pierwszy
+ * dzień reguły po najpóźniejszym z (termin, pierwotny dzień, dziś — przy minionym „Tylko tego dnia” wczoraj); zadanie
+ * z następnym nie przewiduje nic.
+ */
+function futureRepeats(t: Tables, x: Task, due: NonNullable<Due>, last: string, isoToday: string): string[] {
   const r = x.deadline_mode === 'own' ? repeatOf(t, x.id) : null;
-  if (!r || r.kind === 'after' || due.date >= last) return [];
+  if (!r || r.kind === 'after' || t.tasks?.[nextId(x.id)]) return [];
   const start = parseIsoDate(due.date);
-  return refOccurrences(start, parseRule(formatRepeat(r)), addDays(start, 1), parseIsoDate(last)).map(formatIsoDate);
+  const today = !x.rollover && due.date < isoToday ? addDays(parseIsoDate(isoToday), -1) : parseIsoDate(isoToday);
+  const latest = [today, ...(x.cycle_date ? [parseIsoDate(x.cycle_date)] : [])].reduce((a, b) => (formatIsoDate(b) > formatIsoDate(a) ? b : a), start);
+  return refOccurrences(start, parseRule(formatRepeat(r)), addDays(latest, 1), parseIsoDate(last)).map(formatIsoDate);
 }

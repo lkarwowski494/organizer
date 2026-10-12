@@ -172,6 +172,7 @@ for n, now in enumerate(NOWS):
     cases.append(case(now, f"{t} 1.5 jutro", f"{t} 1.5", today + timedelta(days=1)))
     cases.append(case(now, f"{t} 1/2 w piątek", f"{t} 1/2", weekday_date(today, 4)))
     cases.append(case(now, f"{t} 2.5 pojutrze o 17", f"{t} 2.5", today + timedelta(days=2), (17, 0)))
+    cases.append(case(now, f"dzisiaj {t} 3/4", f"{t} 3/4", today))
     # Audyt 3, N-129: „İ” (mała forma ma dwa znaki) nie przesuwa pozycji.
     cases.append(case(now, f"İ{t} jutro o 17", f"İ{t}", today + timedelta(days=1), (17, 0)))
     # Bez rozpoznawalnych fragmentów: tytuł bez zmian, brak terminu.

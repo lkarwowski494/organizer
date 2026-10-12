@@ -17,6 +17,7 @@ import {
   type PullResponse,
   pushRequest,
   rejectedCreateIds,
+  rejectedDeleteIds,
 } from '../sync-engine/client';
 import { FakeServer } from './support/fake-server';
 
@@ -296,4 +297,10 @@ it('rejectedCreateIds: tylko odrzucone utworzenia', () => {
   const s = ops(initialState('c'), [task('a', 'x'), { kind: 'patch', entity: 'tasks', id: 'b', set: { title: 'y' } }]);
   const r = onPushResponse(s, { last_seq: 2, results: [{ seq: 1, status: 'rejected', code: 'forbidden' }, { seq: 2, status: 'rejected', code: 'not_found' }] });
   expect([...rejectedCreateIds(r)]).toEqual(['a']);
+});
+
+it('audyt 3 (N-123) rejectedDeleteIds: tylko odrzucone usunięcia', () => {
+  const s = ops(initialState('c'), [task('a', 'x'), { kind: 'delete', entity: 'tasks', id: 'b' }]);
+  const r = onPushResponse(s, { last_seq: 2, results: [{ seq: 1, status: 'rejected', code: 'forbidden' }, { seq: 2, status: 'rejected', code: 'forbidden:child' }] });
+  expect([...rejectedDeleteIds(r)]).toEqual(['b']);
 });

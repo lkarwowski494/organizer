@@ -3,7 +3,7 @@ import { migrate } from '../../data/db/migrations';
 import { readState, writeState } from '../../data/store';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { FakeServer } from '../../domain/__tests__/support/fake-server';
-import { initialState, type PullResponse } from '../../domain/sync-engine/client';
+import { type ClientState, ENTITIES, initialState, type PullResponse } from '../../domain/sync-engine/client';
 import { pullStep, SyncRuntime } from '../runtime';
 import { TransportError, errorKind, type SyncTransport } from '../transport';
 
@@ -213,6 +213,14 @@ describe('pętla synchronizacji w działaniu', () => {
     rt.stop();
   });
 
+  /** Bartek tworzy ukrytą listę z zadaniem i udostępnia ją Ali (sync_fetch_scope dociąga zadanie ze starą wersją). */
+  const shareFromBartek = (server: FakeServer) =>
+    server.push('bartek', { client_id: 'cb', ops: [
+      { seq: 1, op_id: 'b1', kind: 'create', entity: 'lists', id: 'ukryta', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } },
+      { seq: 2, op_id: 'b2', kind: 'create', entity: 'tasks', id: 'prezent', group_id: G, set: { list_id: 'ukryta', title: 'Rower' } },
+      { seq: 3, op_id: 'b3', kind: 'cmd', cmd: 'grant_scope', args: { list_id: 'ukryta', user: 'ala' } },
+    ] });
+
   it('nowa ukryta lista: pobranie całej zawartości przez fetchScope', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala', 'bartek']);
@@ -220,10 +228,27 @@ describe('pętla synchronizacji w działaniu', () => {
     const a = harness(ala);
     a.rt.start();
     await a.flush();
-    a.rt.dispatch({ kind: 'create', entity: 'lists', id: 'ukryta', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } });
-    await a.advance(config.sync.PUSH_DEBOUNCE_MS);
+    shareFromBartek(server);
+    a.rt.event({ t: 'refresh' });
+    await a.flush();
     expect(ala.calls).toContain('scope:ukryta');
     expect(a.rt.getSnapshot().state.scopes).toEqual(['ukryta']);
+    expect(Object.keys(a.rt.getSnapshot().state.base.tasks ?? {})).toEqual(['prezent']);
+  });
+
+  it('N-94: bez dodatkowego pobrania listy, której wiersze i tak przychodzą — grupa pobierana od zera', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala', 'bartek']);
+    shareFromBartek(server);
+    // Nowy telefon (pobranie od zera): udostępniona lista przychodzi w całości z grupą.
+    const fresh = serverTransport(server, 'ala');
+    const b = harness(fresh);
+    b.rt.start();
+    await b.flush();
+    expect(fresh.calls.filter((c) => c.startsWith('scope:'))).toEqual([]);
+    expect(Object.keys(b.rt.getSnapshot().state.base.tasks ?? {})).toEqual(['prezent']);
+    expect(b.rt.getSnapshot().state.scopes).toEqual(['ukryta']);
+    expect(b.rt.getSnapshot().state.scopesToFetch).toEqual([]);
   });
 
   it('każde przejście trafia do bazy telefonu; po restarcie stan jest ten sam', async () => {
@@ -402,6 +427,71 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(sets).toHaveLength(1);
   });
 
+  it('N-1: wiersze z datą spoza zakresu (pobranie i ukryta lista) — pominięte i zgłoszone nazwą pola; błąd zgłoszenia nie psuje pobrania', async () => {
+    const bad = { e: 'events' as const, v: 1, row: { id: 'e1', group_id: G, start_date: 'infinity', version: 1 } };
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: async () => ({ groups: [{ group_id: G, cursor: 1, has_more: false, resync: false, rows: [bad] }], scopes: ['ukryta'] }),
+      fetchScope: async () => [{ ...bad, row: { ...bad.row, id: 'e2', start_time: '24:00:00', start_date: '2026-10-07' } }, { e: 'lists', v: 1, row: { id: 'ukryta', group_id: G, version: 1 } }],
+    };
+    let st = initialState('c-1');
+    const seen: string[][] = [];
+    await pullStep(() => st, (n) => (st = n), tr, () => 0, () => true, (f) => seen.push(f));
+    expect(seen).toEqual([['events.start_date'], ['events.start_time']]);
+    expect(st.base.events ?? {}).toEqual({});
+    expect(Object.keys(st.base.lists ?? {})).toEqual(['ukryta']);
+    // Bez zgłaszającego (odświeżenie w tle) — tylko pominięcie; zgłaszający, który rzuca, nie przerywa pętli.
+    st = initialState('c-1');
+    await pullStep(() => st, (n) => (st = n), tr, () => 0);
+    expect(st.scopes).toEqual(['ukryta']);
+    const { rt, flush } = harness(tr, {
+      onInvalidRows: () => {
+        throw new Error('zgłoszenie');
+      },
+    });
+    rt.start();
+    await flush();
+    expect(rt.getSnapshot().indicator.state).toBe('synced');
+  });
+
+  it('N-100: własny sygnał Realtime w trakcie pobrania po wysyłce nie każe pobierać drugi raz; cudza nowsza wersja — tak', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const real = serverTransport(server, 'ala');
+    let gate: Promise<void> | null = null;
+    let open = () => {};
+    let version = 0;
+    const tr: SyncTransport = {
+      ...real,
+      // Serwer z migracją 20261010030000: wersja grupy po zapisie.
+      push: async (r) => ({ ...(await real.push(r)), versions: { [G]: (version = 1000) } }),
+      pull: async (c, l) => {
+        if (gate) await gate;
+        return real.pull(c, l);
+      },
+    };
+    const { rt, flush, advance } = harness(tr);
+    rt.start();
+    await flush();
+    expect(rt.isFresh(G, 1000)).toBe(true);
+    rt.dispatch({ kind: 'create', entity: 'lists', id: 'l1', group_id: G, set: { kind: 'tasks', name: 'Dom' } });
+    gate = new Promise((r) => (open = r));
+    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    const pullsBefore = real.calls.filter((c) => c === 'pull').length;
+    // Pobranie po wysyłce czeka na sieć; przychodzi mój sygnał z wersją z sync_push.
+    rt.event({ t: 'poke', fresh: rt.isFresh(G, version) });
+    gate = null;
+    open();
+    await flush();
+    await advance(60_000);
+    expect(real.calls.filter((c) => c === 'pull').length).toBe(pullsBefore + 1);
+    // Wersja wyższa niż moja (ktoś inny zapisał po mnie) i kanał użytkownika — nowe.
+    expect(rt.isFresh(G, version + 1)).toBe(true);
+    expect(rt.isFresh(G, null)).toBe(true);
+    expect(rt.isFresh('inna', 1)).toBe(true);
+    expect(rt.isFresh(G, version)).toBe(false);
+  });
+
   it('M-55: odpowiedź, która przyszła po stop() („Wyczyść dane”), nie trafia do bazy ani do stanu', async () => {
     const server = new FakeServer();
     server.addGroup(G, ['ala']);
@@ -431,17 +521,40 @@ describe('pętla synchronizacji w działaniu', () => {
     expect(b.rt.getSnapshot().state.ackedSeq).toBe(0);
   });
 
+  it('N-94: trwały błąd pobrania udostępnionej listy nie blokuje porcji dużej grupy — lista po ostatniej porcji', async () => {
+    let page = 0;
+    const scopeCalls: number[] = [];
+    const tr: SyncTransport = {
+      push: async () => ({ last_seq: 0, results: [] }),
+      pull: async (r) => {
+        page++;
+        const since = r.cursors[G]?.v ?? 0;
+        return { groups: [{ group_id: G, cursor: since + 1, has_more: since + 1 < 3, resync: false, rows: [] }], scopes: ['ukryta'] };
+      },
+      fetchScope: async () => (scopeCalls.push(page), Promise.reject(new Error('błąd serwera'))),
+    };
+    let st: ClientState = { ...initialState('c-1'), cursors: { [G]: 0 }, entities: [...ENTITIES] };
+    const set = (n: ClientState) => void (st = n);
+    expect(await pullStep(() => st, set, tr, () => 0)).toBe(true);
+    expect(await pullStep(() => st, set, tr, () => 0)).toBe(true);
+    await expect(pullStep(() => st, set, tr, () => 0)).rejects.toThrow('błąd serwera');
+    expect(st.cursors[G]).toBe(3);
+    expect(scopeCalls).toEqual([3]);
+    expect(st.scopesToFetch).toEqual(['ukryta']);
+  });
+
   it('M-53: nieudane pobranie udostępnionej listy ponawia się przy następnym pobraniu', async () => {
     const server = new FakeServer();
-    server.addGroup(G, ['ala']);
+    server.addGroup(G, ['ala', 'bartek']);
     const real = serverTransport(server, 'ala');
     let fail = true;
     const tr: SyncTransport = { ...real, fetchScope: (id) => (fail ? Promise.reject(new TypeError('Network request failed')) : real.fetchScope(id)) };
     const { rt, flush, advance } = harness(tr);
     rt.start();
     await flush();
-    rt.dispatch({ kind: 'create', entity: 'lists', id: 'ukryta', group_id: G, set: { kind: 'tasks', name: 'Prezenty', visibility: 'restricted' } });
-    await advance(config.sync.PUSH_DEBOUNCE_MS);
+    shareFromBartek(server);
+    rt.event({ t: 'refresh' });
+    await flush();
     expect(rt.getSnapshot().state.scopesToFetch).toEqual(['ukryta']);
     expect(rt.getSnapshot().indicator).toMatchObject({ state: 'error', error: 'network' });
     fail = false;

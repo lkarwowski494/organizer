@@ -1801,6 +1801,18 @@
  },
  {
   "now": "2026-10-06T10:00",
+  "text": "dzisiaj kupić mleko 3/4",
+  "expected": {
+   "title": "kupić mleko 3/4",
+   "due": {
+    "date": "2026-10-06",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-06T10:00",
   "text": "İkupić mleko jutro o 17",
   "expected": {
    "title": "İkupić mleko",
@@ -3670,6 +3682,18 @@
    "due": {
     "date": "2026-10-11",
     "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-10-09T20:00",
+  "text": "dzisiaj zadzwonić do mamy 3/4",
+  "expected": {
+   "title": "zadzwonić do mamy 3/4",
+   "due": {
+    "date": "2026-10-09",
+    "time": null
    },
    "rrule": null
   }
@@ -5551,6 +5575,18 @@
  },
  {
   "now": "2026-12-31T23:30",
+  "text": "dzisiaj odebrać paczkę 3/4",
+  "expected": {
+   "title": "odebrać paczkę 3/4",
+   "due": {
+    "date": "2026-12-31",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2026-12-31T23:30",
   "text": "İodebrać paczkę jutro o 17",
   "expected": {
    "title": "İodebrać paczkę",
@@ -7426,6 +7462,18 @@
  },
  {
   "now": "2028-02-28T08:00",
+  "text": "dzisiaj wizyta u dentysty 3/4",
+  "expected": {
+   "title": "wizyta u dentysty 3/4",
+   "due": {
+    "date": "2028-02-28",
+    "time": null
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2028-02-28T08:00",
   "text": "İwizyta u dentysty jutro o 17",
   "expected": {
    "title": "İwizyta u dentysty",
@@ -9295,6 +9343,18 @@
    "due": {
     "date": "2027-03-30",
     "time": "17:00"
+   },
+   "rrule": null
+  }
+ },
+ {
+  "now": "2027-03-28T01:15",
+  "text": "dzisiaj kupić mleko 3/4",
+  "expected": {
+   "title": "kupić mleko 3/4",
+   "due": {
+    "date": "2027-03-28",
+    "time": null
    },
    "rrule": null
   }

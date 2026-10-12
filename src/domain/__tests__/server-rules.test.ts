@@ -5,6 +5,7 @@
 import { applyOnServer, type ServerTables, serverVerdict } from '../server-rules';
 import { overrideId } from '../views/events';
 import { scopeRowId } from '../views/my-scope';
+import { nextId } from '../views/task-repeat';
 import type { NewOp, Row } from '../sync-engine/client';
 
 const U = { owner: 'u-o', admin: 'u-a', member: 'u-m', child: 'u-c', stranger: 'u-x' };
@@ -136,6 +137,69 @@ describe('model reguł serwera', () => {
     delete w.object_members;
     expect(v(U.member, create('event_rsvps', { event_id: 'ev', occurrence_date: '2026-10-14', member_id: M.member, answer: 'yes' }), w)).toBe('ok');
     expect(v(U.admin, create('tasks', { list_id: 'l-r', title: 'x' }), w)).toBe('forbidden');
+  });
+
+  it('audyt 3 (Q16 A, N-123): dziecko — następny termin swojego zadania powtarzanego i kopie podzadań, jak robi je telefon', () => {
+    const t = world();
+    const put = (k: string, r: Row) => void (t.tasks![k] = { group_id: 'g', list_id: 'l', parent_id: null, assignee_member_id: null, completed_at: null, deleted_at: null, ...r, id: k });
+    put('r', { title: 'Łóżko', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    put('rs', { title: 'Pościel', parent_id: 'r', deadline_mode: 'inherit' });
+    put('rss', { title: 'Poszewka', parent_id: 'rs', deadline_mode: 'own', due_time: '08:00' });
+    put('o', { title: 'Rachunki', assignee_member_id: M.owner, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    const c = nextId('r');
+    const root = (extra: Row = {}, id = c) => create('tasks', { list_id: 'l', parent_id: null, title: 'Łóżko', note: null, sort_key: 'a0', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-13', due_time: null, rollover: true, repeat: 'FREQ=DAILY', ...extra }, 'g', id);
+    expect(v(U.child, root(), t)).toBe('ok');
+    expect(v(U.child, root({ assignee_member_id: null }), t)).toBe('ok');
+    for (const bad of [{ title: 'Inne' }, { assignee_member_id: M.owner }, { repeat: null }, { due_date: null }, { deadline_mode: 'none' }, { cycle_date: '2026-10-12' }, { due_time: '09:00' }, { rollover: false }])
+      expect([bad, v(U.child, root(bad), t)]).toEqual([bad, 'forbidden:child']);
+    expect(v(U.child, root({}, 'zwykle'), t)).toBe('forbidden:child');
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Rachunki', assignee_member_id: M.owner, deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('o')), t)).toBe('forbidden:child');
+    // Kopie podzadań — pod następnym (gdy już jest), bez powtarzania.
+    const sub = (id: string, parent: string, extra: Row = {}) => create('tasks', { list_id: 'l', parent_id: parent, title: 'Pościel', deadline_mode: 'inherit', ...extra }, 'g', id);
+    expect(v(U.child, sub(nextId('rs'), c), t)).toBe('forbidden:child'); // następnego jeszcze nie ma
+    put(c, { title: 'Łóżko', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' });
+    expect(v(U.child, sub(nextId('rs'), c), t)).toBe('ok');
+    expect(v(U.child, sub(nextId('rs'), c, { repeat: 'FREQ=DAILY' }), t)).toBe('forbidden:child');
+    expect(v(U.child, sub(nextId('rs'), c, { deadline_mode: 'event' }), t)).toBe('forbidden:child');
+    expect(v(U.child, sub(nextId('rs'), 'nie-ma'), t)).toBe('forbidden:child');
+    expect(v(U.child, sub('inne-id', c), t)).toBe('forbidden:child');
+    put(nextId('rs'), { title: 'Pościel', parent_id: c, deadline_mode: 'inherit' });
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { title: 'Poszewka', deadline_mode: 'own', due_date: '2026-10-13', due_time: '08:00' }), t)).toBe('ok');
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { title: 'Poszewka', due_time: '09:00' }), t)).toBe('forbidden:child');
+    // Zdjęcie i przywrócenie następnego (z wierszami pod nim), jego termin; reszta — nie.
+    expect(v(U.child, del('tasks', c), t)).toBe('ok');
+    expect(v(U.child, del('tasks', nextId('rs')), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { due_date: '2026-10-14', due_time: null, cycle_date: null }), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { title: 'x' }), t)).toBe('forbidden:child');
+    expect(v(U.child, patch('tasks', nextId('rs'), { due_date: '2026-10-14' }), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 'r'), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 'rs'), t)).toBe('forbidden:child');
+    t.tasks![c] = { ...t.tasks![c]!, completed_at: '2026-10-13T08:00:00Z' };
+    expect(v(U.child, del('tasks', c), t)).toBe('forbidden:child');
+    // Wartości domyślne kolumn (wiersz bez kolejności i „przenoś”), głębokie drzewo bez zadania głównego w 8 krokach.
+    put('m', { title: 'Mycie', assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY' });
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Mycie', deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('m')), t)).toBe('ok');
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Mycie', due_date: '2026-10-13', repeat: 'FREQ=DAILY' }, 'g', nextId('m')), t)).toBe('forbidden:child');
+    expect(v(U.child, del('tasks', 't-deep'), t)).toBe('forbidden:child');
+    // Pod następnym podzadanie dodane ręcznie (nie kopia) — pod nim dziecko nic nie zakłada.
+    put('reczne', { title: 'Ręczne', parent_id: c, deadline_mode: 'inherit' });
+    expect(v(U.child, sub(nextId('cokolwiek'), 'reczne'), t)).toBe('forbidden:child');
+  });
+
+  it('długości tekstów (audyt 3, N-134): CHECK char_length — znaki, nie jednostki UTF-16; null przechodzi', () => {
+    const x = (n: number) => 'x'.repeat(n);
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: x(500) }))).toBe('ok');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: '😀'.repeat(500) }))).toBe('ok');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: x(501) }))).toBe('invalid:23514');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: '' }))).toBe('invalid:23514');
+    expect(v(U.owner, create('tasks', { list_id: 'l', title: 'x', note: null }))).toBe('ok');
+    expect(v(U.owner, patch('tasks', 't', { note: x(10_001) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('tasks', 't', { note: '' }))).toBe('ok');
+    expect(v(U.owner, patch('events', 'ev', { title: x(201) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('events', 'ev', { location: x(301) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('events', 'ev', { location: null }))).toBe('ok');
+    expect(v(U.owner, patch('event_task_series', 's', { title: x(501) }))).toBe('invalid:23514');
+    expect(v(U.owner, patch('lists', 'l', { name: x(201) }))).toBe('invalid:23514');
   });
 
   it('powtórzone utworzenie: widoczne — przyjęte, niewidoczne — konflikt klucza', () => {
@@ -396,12 +460,16 @@ describe('model reguł serwera', () => {
       expect(run(U.member, patch('events', 'new', { start_time: '09:00' }), t).events!.new).toMatchObject({ days: 1 });
     });
 
-    it('zrobione zakupy: kto zrobił nadaje serwer; wyjście z grupy zdejmuje zakres Moich spraw tej osoby', () => {
+    it('zrobione zakupy: kto zrobił nadaje serwer; wyjście z grupy zdejmuje zakres Moich spraw tej osoby (do kosza, N-87)', () => {
       expect(run(U.member, create('shopping_trips', { list_id: 'l-shop', done_at: AT })).shopping_trips!.new).toMatchObject({ done_by: M.member });
       const t = world();
       (t.my_day_scopes ??= {}).a = { id: 'a', group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: null };
       t.my_day_scopes.b = { id: 'b', group_id: 'g', member_id: M.admin, scope: 'all', deleted_at: null };
-      expect(Object.keys(run(U.member, del('group_members', M.member), t).my_day_scopes!)).toEqual(['b']);
+      t.my_day_scopes.c = { id: 'c', group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: '2026-10-01T00:00:00Z' };
+      const s = run(U.member, del('group_members', M.member), t).my_day_scopes!;
+      expect([s.a!.deleted_at, s.b!.deleted_at, s.c!.deleted_at]).toEqual([AT, null, '2026-10-01T00:00:00Z']);
+      applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+      expect([t.my_day_scopes!.a!.deleted_at, t.my_day_scopes!.c!.deleted_at]).toEqual([null, '2026-10-01T00:00:00Z']); // wcześniej usunięty zostaje
     });
 
     it('utworzenie: wartości domyślne, klucz główny, twórca listy, nadawca i stan przekazania', () => {
@@ -481,6 +549,59 @@ describe('model reguł serwera', () => {
       expect(bare.group_members![M.member]!.deleted_at).toBeNull();
     });
 
+    it('audyt 3 (N-40, N-87): „Cofnij” po usunięciu przywraca przekazania, które nadal mają sens, udostępnienia i zakres Moich spraw', () => {
+      const t = world();
+      const h = (id: string, from: string, to: string, entity: string, entityId: string, extra: Row = {}) =>
+        (t.handoffs![id] = { id, group_id: 'g', entity, entity_id: entityId, occurrence_date: null, from_member: from, to_member: to, status: 'pending', closed: false, decided_at: null, ...extra });
+      const task = (id: string, list: string, assignee: string, extra: Row = {}) =>
+        (t.tasks![id] = { id, group_id: 'g', list_id: list, parent_id: null, title: id, assignee_member_id: assignee, completed_at: null, deleted_at: null, ...extra });
+      task('t-m1', 'l', M.member);
+      task('t-m2', 'l', M.member);
+      task('t-m3', 'l', M.member);
+      task('t-m4', 'l', M.member);
+      task('t-mr', 'l-r', M.member);
+      task('t-mdel', 'l', M.member, { deleted_at: '2026-10-01T00:00:00Z' });
+      t.events!['ev-mem'] = { id: 'ev-mem', group_id: 'g', title: 'x', audience: 'group', responsible_member_id: M.member, deleted_at: null };
+      t.event_overrides!.o2 = { ...t.event_overrides!.o2!, responsible_member_id: M.member };
+      h('h-task', M.member, M.admin, 'tasks', 't-m1'); // od niej
+      h('h-list', M.member, M.admin, 'lists', 'l-shop2'); // zakupy, za które odpowiada
+      h('h-series', M.member, M.admin, 'events', 'ev-mem');
+      h('h-day', M.member, M.admin, 'events', 'ev-resp', { occurrence_date: '2026-10-21' }); // termin z wyjątkiem: ona
+      h('h-r', M.owner, M.member, 'tasks', 't-r'); // do niej, na liście „Wybrane osoby” (dostęp wraca wcześniej)
+      h('h-r-no', M.member, M.admin, 'tasks', 't-mr'); // admin nie widzi listy „Wybrane osoby”
+      h('h-moved', M.member, M.admin, 'tasks', 't-m2'); // zadanie zmieni osobę w czasie usunięcia
+      h('h-gone', 'm-gone', M.member, 'tasks', 't-gone'); // nadawcy już nie ma
+      h('h-child', M.member, M.child, 'tasks', 't-m3'); // odbiorca to dziecko
+      h('h-profile', M.member, M.profile, 'tasks', 't-m3', { status: 'declined' }); // odbiorca bez konta (niżej: anulowane z usunięciem)
+      h('h-busy', M.member, M.admin, 'tasks', 't-m4'); // w czasie usunięcia ktoś inny przekazał tę rzecz
+      h('h-del', M.member, M.admin, 'tasks', 't-mdel'); // zadanie w koszu
+      h('h-old', M.member, M.admin, 'tasks', 't-m1', { status: 'cancelled', decided_at: '2026-10-01T00:00:00Z' }); // anulowane wcześniej
+      const sid = scopeRowId(M.member);
+      t.my_day_scopes = { [sid]: { id: sid, group_id: 'g', member_id: M.member, scope: 'mine', deleted_at: null }, x: { id: 'x', group_id: 'g', member_id: M.admin, scope: 'mine', deleted_at: null } };
+      applyOnServer(t, U.owner, del('group_members', M.member), AT);
+      // N-87: zakres do kosza (nagrobek), nie skasowany; cudzy bez zmian.
+      expect(t.my_day_scopes[sid]).toMatchObject({ scope: 'mine', deleted_at: AT });
+      expect(t.my_day_scopes.x!.deleted_at).toBeNull();
+      t.tasks!['t-m2'] = { ...t.tasks!['t-m2']!, assignee_member_id: M.owner };
+      h('h-busy2', M.owner, M.admin, 'tasks', 't-m4');
+      t.handoffs!['h-profile'] = { ...t.handoffs!['h-profile']!, status: 'cancelled', decided_at: AT };
+      applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+      const st = Object.fromEntries(Object.entries(t.handoffs!).map(([k, x]) => [k, x.status]));
+      expect(st).toMatchObject({ h: 'pending', 'h-task': 'pending', 'h-list': 'pending', 'h-series': 'pending', 'h-day': 'pending', 'h-r': 'pending', 'h-busy2': 'pending' });
+      expect(st).toMatchObject({ 'h-r-no': 'cancelled', 'h-moved': 'cancelled', 'h-gone': 'cancelled', 'h-child': 'cancelled', 'h-profile': 'cancelled', 'h-busy': 'cancelled', 'h-del': 'cancelled', 'h-old': 'cancelled' });
+      expect(t.handoffs!['h-task']!.decided_at).toBeNull();
+      expect(t.object_members!['l-r:m-m']!.deleted_at).toBeNull();
+      expect(t.object_members!['l-r:m-a']!.deleted_at).toBe('2026-10-01T00:00:00Z');
+      expect(t.my_day_scopes[sid]!.deleted_at).toBeNull();
+      // Bez tabel przekazań i zakresów (świeży serwer) — nic do zrobienia.
+      const bare = world();
+      delete bare.handoffs;
+      delete bare.object_members;
+      applyOnServer(bare, U.owner, del('group_members', M.member), AT);
+      applyOnServer(bare, U.owner, del('group_members', M.member, 'restore'), AT);
+      expect(bare.group_members![M.member]!.deleted_at).toBeNull();
+    });
+
     it('przekazanie: odrzucenie i anulowanie zapisują decyzję; przyjęcie zmienia osobę zadania, zakupów, wydarzenia i terminu', () => {
       expect(run(U.member, patch('handoffs', 'h', { status: 'declined' }))).toMatchObject({ handoffs: { h: { status: 'declined', decided_at: AT } }, tasks: { 't-owner': { assignee_member_id: M.owner } } });
       expect(run(U.member, patch('handoffs', 'h', { status: 'accepted' })).tasks!['t-owner']!.assignee_member_id).toBe(M.member);
@@ -511,5 +632,79 @@ describe('model reguł serwera', () => {
       applyOnServer(again, U.member, patch('handoffs', 'nie-ma', { status: 'accepted' }), AT);
       expect(again.handoffs!['nie-ma']).toBeUndefined();
     });
+  });
+});
+
+describe('przeniesienie do innej grupy jednym poleceniem (audyt 3: N-12, N-131; pgTAP move_task_to_group.test.sql)', () => {
+  const AT = '2026-10-07T10:00:00Z';
+  /** Druga grupa właściciela: Klasa (lista ogólna lk, usunięta lk-del), w niej też członek, ale bez dziecka. */
+  const two = () => {
+    const t = world();
+    t.groups!.gk = { id: 'gk', name: 'Klasa', deleted_at: null };
+    t.group_members!['k-o'] = { member_id: 'k-o', group_id: 'gk', user_id: U.owner, role: 'owner', display_name: 'O', deleted_at: null };
+    t.group_members!['k-m'] = { member_id: 'k-m', group_id: 'gk', user_id: U.member, role: 'member', display_name: 'M', deleted_at: null };
+    t.lists!.lk = { id: 'lk', group_id: 'gk', kind: 'tasks', name: 'Ogólne', visibility: 'group', owner_member_id: 'k-o', deleted_at: null };
+    t.lists!['lk-del'] = { ...t.lists!.lk, id: 'lk-del', deleted_at: '2026-10-01T00:00:00Z' };
+    t.tasks!['t-subm'] = { ...t.tasks!.t!, id: 't-subm', parent_id: 't-member', title: 'pod' };
+    return t;
+  };
+  const cp = (id: string, from: string, list: string, extra: Row = {}) => ({ id, from, set: { list_id: list, parent_id: null, title: from, ...extra } });
+  const mv = (task: string, group: string, tasks: Row[], list: Row | null = null): NewOp => ({ kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: task, group_id: group, list, tasks } });
+  const un = (task: string, copy: string): NewOp => ({ kind: 'cmd', cmd: 'unmove_task', args: { task_id: task, copy_id: copy, title: 'x' } });
+
+  it('odrzucenia przed zapisami: niewidoczne, dziecko, ta sama grupa, podzadanie, w koszu, kształt kopii', () => {
+    const t = two();
+    expect(v(U.stranger, mv('t-member', 'gk', [cp('c', 't-member', 'lk')]), t)).toBe('not_found');
+    expect(v(U.child, mv('t-member', 'gk', [cp('c', 't-member', 'lk')]), t)).toBe('forbidden:child');
+    expect(v(U.owner, mv('t-member', 'g', [cp('c', 't-member', 'l')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-subm', 'gk', [cp('c', 't-subm', 'lk')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-del', 'gk', [cp('c', 't-del', 'lk')]), t)).toBe('deleted');
+    expect(v(U.owner, mv('t-member', 'gk', []), t)).toBe('invalid_value');
+    expect(v(U.owner, { kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: 't-member' } }, t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-subm', 'lk')]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk', { parent_id: 'x' })]), t)).toBe('invalid_value');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk'), cp('c2', 't', 'lk')]), t)).toBe('invalid_value');
+    // Kopia o id istniejącego zadania (utworzenie = powtórzenie) — nie.
+    expect(v(U.owner, mv('t-member', 'gk', [cp('t', 't-member', 'lk')]), t)).toBe('invalid_value');
+  });
+
+  it('N-12: pierwsze odrzucenie kroku odrzuca całe polecenie', () => {
+    const t = two();
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'lk-del')]), t)).toBe('deleted:list');
+    expect(v(U.owner, mv('t-member', 'gk', [cp('c', 't-member', 'nl'), { ...cp('c2', 't-subm', 'nl', { assignee_member_id: M.member }), set: { list_id: 'nl', parent_id: 'c', title: 'pod', assignee_member_id: M.member } }], { id: 'nl', set: { kind: 'tasks', name: 'Ogólne' } }), t)).toBe('invalid_assignee');
+    expect(t.lists!.nl).toBeUndefined();
+  });
+
+  it('przyjęte: kopie, oryginał w koszu ze znacznikiem; przywrócenie — „moved”; „Cofnij” i jego odrzucenia', () => {
+    const t = two();
+    const op = mv('t-member', 'gk', [cp('c', 't-member', 'lk', { assignee_member_id: 'k-m' }), { id: 'c2', from: 't-subm', set: { list_id: 'lk', parent_id: 'c', title: 'pod' } }]);
+    expect(v(U.owner, op, t)).toBe('ok');
+    applyOnServer(t, U.owner, op, AT);
+    expect(t.tasks!['t-member']).toMatchObject({ deleted_at: AT, moved_to: 'c' });
+    expect(t.tasks!['t-subm']!.deleted_at).toBe(AT);
+    expect(t.tasks!.c2).toMatchObject({ group_id: 'gk', parent_id: 'c', deleted_at: null });
+    expect(v(U.owner, del('tasks', 't-member', 'restore'), t)).toBe('moved');
+    expect(v(U.owner, un('t-member', 'inna'), t)).toBe('invalid_value');
+    expect(v(U.child, un('t-member', 'c'), t)).toBe('forbidden:child');
+    expect(v(U.owner, un('brak', 'c'), t)).toBe('not_found');
+    expect(v(U.owner, { kind: 'cmd', cmd: 'unmove_task', args: {} }, t)).toBe('invalid_value');
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('ok');
+    applyOnServer(t, U.owner, un('t-member', 'c'), AT);
+    expect(t.tasks!['t-member']).toMatchObject({ deleted_at: null, moved_to: null });
+    expect(t.tasks!.c).toMatchObject({ deleted_at: AT, moved_to: 't-member' });
+    expect(v(U.owner, del('tasks', 'c', 'restore'), t)).toBe('moved');
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('ok');
+  });
+
+  it('bez tabeli zadań — nie ma czego przenieść', () => {
+    expect(v(U.owner, mv('t', 'gk', [cp('c', 't', 'lk')]), { groups: world().groups })).toBe('not_found');
+  });
+
+  it('cofnięcie, gdy kopii już nie widzę, a żyje — „moved”', () => {
+    const t = two();
+    const op = mv('t-member', 'gk', [cp('c', 't-member', 'lk')]);
+    applyOnServer(t, U.owner, op, AT);
+    t.group_members!['k-o'] = { ...t.group_members!['k-o']!, deleted_at: AT };
+    expect(v(U.owner, un('t-member', 'c'), t)).toBe('moved');
   });
 });

@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Keyboard, Pressable, Text, View } from 'react-native';
 
-import { WEEKDAYS_ABBREVIATED } from '../config/calendar.pl';
+import { WEEKDAYS_ABBREVIATED, WEEKDAYS_NOMINATIVE } from '../config/calendar.pl';
 import type { CivilDate } from '../domain/civil-date';
 import { formatIsoDate, isValidDate } from '../domain/civil-date';
 import { formatLongDate, formatMonth, parseIsoDate } from '../domain/format';
@@ -72,14 +72,7 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
             <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
             <PeriodArrow dir={1} label={strings['today.next.month']} testID={`${testID}-next`} onPress={() => setYm(shiftMonth(ym, 1))} />
           </View>
-          {/* Skróty dni tygodnia tylko dla oka — każdy dzień siatki podaje pełną nazwę (audyt 2, M-263, A-46). */}
-          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
-            {WEEKDAYS_ABBREVIATED.map((w) => (
-              <Text key={w} style={{ width: `${100 / 7}%`, textAlign: 'center', fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>
-                {w}
-              </Text>
-            ))}
-          </View>
+          <WeekdayHeader />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {monthGrid(ym.y, ym.m).map((d) => {
               const selected = d.date === value.trim();
@@ -108,6 +101,26 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
           ) : null}
         </Card>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Nagłówek kolumn siatki miesiąca („pon.” … „niedz.”) — ten sam w Kalendarzu i mini kalendarzu. Dla VoiceOvera jeden
+ * przystanek z pełnymi nazwami zamiast siedmiu skrótów (audyt 2, A-46: każdy dzień siatki i tak podaje dzień tygodnia).
+ * Nie ukryty: ukryty widoczny tekst audyt XCUITest zgłaszał jako „Potentially inaccessible text” (D186, 9.10.2026);
+ * Apple (WWDC19 „Accessibility Inspector”, https://developer.apple.com/videos/play/wwdc2019/257/) — tekst bez elementu
+ * dostępności: „set the isAccessibilityElement to true. Next, I'll have to give it a meaningful Label”.
+ */
+export function WeekdayHeader() {
+  const { c, font, size } = useTheme();
+  return (
+    <View testID="weekday-header" accessible accessibilityRole="text" accessibilityLabel={strings['calendar.weekdaysA11y'](WEEKDAYS_NOMINATIVE)} style={{ flexDirection: 'row' }}>
+      {WEEKDAYS_ABBREVIATED.map((w) => (
+        <Text key={w} style={{ flex: 1, textAlign: 'center', fontFamily: font.text600, fontSize: size.META, color: c.inkMuted }}>
+          {w}
+        </Text>
+      ))}
     </View>
   );
 }
