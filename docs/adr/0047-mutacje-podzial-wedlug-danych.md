@@ -50,3 +50,20 @@ Pomiar lokalny (plan Strykera dla wszystkich plików, 4 procesy): przewidywana p
 - **Większe maszyny** — płatne („larger runners”), wykluczone.
 - **Skalowanie budżetu czasu przy Strykerze** zamiast wyłączenia — budżet pod instrumentacją nie mierzy wydajności
   aplikacji, a próg trzeba by zgadywać.
+
+## Pierwszy przebieg (11.10.2026, https://github.com/lkarwowski494/organizer/actions/runs/38172300136)
+Plan bez pomiaru poprzedniej nocy (sam model): 13 części, przewidywane 84–88 min, limit kroku 168–177 min. Zadanie
+mutation-plan ok. 4 min. 12 części zielonych w 51–98 min (zadanie z npm ci; części z `shopping.pl.ts`: 77 i 73 min przy
+przewidywanych 88 i 87). Model więc nie zaniżał czasu, a rozrzut części to ok. 0,6–1,2 × przewidywania — mieści się
+w SAFETY = 2. Część 9 przerwana po 5 min komunikatem GitHuba „The runner has received a shutdown signal” (zatrzymanie
+maszyny, nie limit czasu ani nowszy push: commit dc58fdf powstał 20:51, część padła 20:36, a grupa `nightly` ma
+`cancel-in-progress: false`). Przed zatrzymaniem postęp stanął na 231 z 1 440 mutantów; lokalnie ta sama część na tym
+samym mutancie: jeden proces testów do 6,3 GB (mutanty `src/domain/sync-engine/client.ts`, wiersze 270–290, np. pusty
+blok — sync-sim rośnie aż do limitu czasu mutanta; limit sterty `--max-old-space-size` nie pomaga, bo pamięć jest poza
+stertą). Naprawa: `oom_score_adj = 1000` dla Strykera i procesów testów w kroku części — przy braku pamięci jądro zabija
+proces testów (Stryker uruchamia go ponownie), a nie usługę runnera. mutation-score nie policzył wyniku, bo brakowało
+części 9 (sprawdzenie kompletności zadziałało).
+
+Odrzucone przy naprawie: mniejsza `concurrency` (wolniej o ok. ⅓ i nadal kilka mutantów naraz może przekroczyć pamięć);
+limit pamięci przez cgroup (`systemd-run` z sudo — zmienia środowisko i właściciela procesów, więcej ruchomych części);
+zmiana testu sync-sim (osłabiałaby test, który ma wykrywać właśnie te mutanty).
