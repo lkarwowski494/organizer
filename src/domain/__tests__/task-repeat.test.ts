@@ -197,6 +197,29 @@ describe('D133: powtarzanie po przeminięciu („Tylko tego dnia”)', () => {
     expect(expiredRepeatOps({ tasks: { leki: T() } }, today, () => true)).toEqual([]);
     expect(expiredRepeatOps(world({ leki: T() }), today, () => true, new Set([nextId('leki')]))).toEqual([]);
   });
+  // ADR 0047: podzadanie z własnym powtarzaniem, którego zadanie nadrzędne też minęło — jego następne powstaje tylko jako
+  // kopia podzadania pod następnym zadania nadrzędnego, niezależnie od kolejności wierszy (wcześniej: dziecko przed
+  // rodzicem dawało kopię pod starym zadaniem i drugie utworzenie tego samego id).
+  it('ADR 0047: minione podzadanie i minione zadanie nadrzędne — jedna kopia, pod następnym rodzica, w każdej kolejności wierszy', () => {
+    const p = T({ id: 'p' });
+    const c = T({ id: 'c', parent_id: 'p', title: 'Woda' });
+    const expected = [
+      [nextId('p'), null, 'FREQ=DAILY'],
+      [nextId('c'), nextId('p'), undefined],
+    ];
+    for (const tasks of [{ c, p }, { p, c }]) {
+      const ops = expiredRepeatOps(world(tasks), today, () => true);
+      expect(ops.map((o) => (o.kind === 'create' ? [o.id, o.set.parent_id, o.set.repeat] : [o.kind]))).toEqual(expected);
+      const out = withUpcomingCopies(world(tasks), today, 1, (iso) => iso.slice(0, 10));
+      expect([out.tasks![nextId('c')]?.parent_id, out.tasks![nextId('c')]?.repeat]).toEqual([nextId('p'), undefined]);
+    }
+    // Rodzic, który nie minął (albo przechodzi dalej) — podzadanie dostaje własne następne jak dotąd.
+    expect(expiredRepeatOps(world({ c, p: T({ id: 'p', rollover: true }) }), today, () => true).map((o) => o.kind === 'create' && [o.id, o.set.parent_id])).toEqual([[nextId('c'), 'p']]);
+    // Rodzica nie ma w danych telefonu albo jest w koszu — jak dotąd (kopia rodzica i tak nie powstanie).
+    for (const tasks of [{ c }, { c, p: T({ id: 'p', deleted_at: 'x' }) }] as Record<string, Row>[]) {
+      expect(expiredRepeatOps(world(tasks), today, () => true).map((o) => o.kind === 'create' && [o.id, o.set.parent_id])).toEqual([[nextId('c'), 'p']]);
+    }
+  });
 });
 
 describe('audyt 3 (N-25): termin przeniesiony „Tylko ten raz” na wcześniej zastępuje swój dzień cyklu (RFC 5545 RECURRENCE-ID)', () => {
@@ -346,11 +369,10 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
       due: fc.integer({ min: -4, max: 6 }),
       rollover: fc.boolean(),
       done: fc.option(fc.integer({ min: -9, max: 0 }), { nil: null }),
-      repeat: fc.constantFrom(null, 'FREQ=DAILY', 'FREQ=WEEKLY;BYDAY=MO,TH', 'AFTER=DAILY;INTERVAL=2'),
+      repeat: fc.constantFrom<string | null>(null, 'FREQ=DAILY', 'FREQ=WEEKLY;BYDAY=MO,TH', 'AFTER=DAILY;INTERVAL=2'),
     });
-    return fc.property(fc.array(item, { maxLength: 6 }), fc.integer({ min: 1, max: 6 }), (items, days) => {
-      const t = g();
-      t.tasks = {};
+    // `order` — kolejność wierszy w tabeli: dziecko może stać przed rodzicem (ADR 0047). Wynik nie może od niej zależeć.
+    return fc.property(fc.array(item, { maxLength: 6 }), fc.integer({ min: 1, max: 6 }), fc.array(fc.integer(), { minLength: 6, maxLength: 6 }), (items, days, order) => {
       // Tylko dane możliwe w aplikacji: najwyżej MAX_TASK_DEPTH poziomów pod zadaniem (D4; serwer odrzuca głębsze —
       // tasks_guard „depth_exceeded”, ograniczenie tasks_depth_range, move_task; ekran nie daje dodać podzadania niżej).
       // Rodzic, pod którym byłoby za głęboko — zadanie bez rodzica.
@@ -360,14 +382,23 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
         return p !== null && p < i && depth[p]! < config.MAX_TASK_DEPTH ? p : null;
       };
       items.forEach((_, i) => (depth[i] = parentOf(i) === null ? 0 : depth[parentOf(i)!]! + 1));
-      items.forEach((x, i) => {
-        t.tasks![`k${i}`] = {
-          ...g().tasks!.t1!, id: `k${i}`, title: `k${i}`, parent_id: parentOf(i) === null ? null : `k${parentOf(i)}`, due_date: formatIsoDate(addDays(d('2026-10-12'), x.due)),
-          rollover: x.rollover, repeat: x.repeat, completed_at: x.done === null ? null : `${formatIsoDate(addDays(d('2026-10-12'), x.done))}T08:00:00Z`,
-        };
-      });
+      const build = (rows: number[]) => {
+        const t = g();
+        t.tasks = {};
+        for (const i of rows) {
+          const x = items[i]!;
+          t.tasks[`k${i}`] = {
+            ...g().tasks!.t1!, id: `k${i}`, title: `k${i}`, parent_id: parentOf(i) === null ? null : `k${parentOf(i)}`, due_date: formatIsoDate(addDays(d('2026-10-12'), x.due)),
+            rollover: x.rollover, repeat: x.repeat, completed_at: x.done === null ? null : `${formatIsoDate(addDays(d('2026-10-12'), x.done))}T08:00:00Z`,
+          };
+        }
+        return t;
+      };
+      const t = build([...items.keys()].sort((a, b) => order[a]! - order[b]! || a - b));
       const local = (iso: string) => iso.slice(0, 10);
-      expect(withUpcomingCopies(t, d('2026-10-12'), days, local).tasks).toEqual(naive(t, d('2026-10-12'), days, local));
+      const expected = naive(t, d('2026-10-12'), days, local);
+      expect(withUpcomingCopies(t, d('2026-10-12'), days, local).tasks).toEqual(expected);
+      expect(naive(build([...items.keys()]), d('2026-10-12'), days, local)).toEqual(expected);
     });
   };
 
@@ -375,9 +406,20 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     fc.assert(upcomingMatchesNaive(), { numRuns: 300 });
   });
 
-  // Przebieg, który oblewał: generator zrobił łańcuch czterech zadań (poziom 3 > MAX_TASK_DEPTH), czego w aplikacji nie ma.
-  it('audyt 3 (N-27, własność): seed -891823534 — tylko dane z głębokością do MAX_TASK_DEPTH', () => {
-    fc.assert(upcomingMatchesNaive(), { numRuns: 300, seed: -891823534 });
+  // Przypadki, które oblewały: łańcuch czterech zadań (poziom 3 > MAX_TASK_DEPTH — generator robi z niego dane możliwe
+  // w aplikacji; seed -891823534) i minione podzadanie z powtarzaniem przed minionym rodzicem (ADR 0047).
+  it('audyt 3 (N-27, własność): łańcuch głębszy niż MAX_TASK_DEPTH; dziecko przed rodzicem', () => {
+    const once = (parent: number | null, repeat: string | null, due = 0) => ({ parent, due, rollover: false, done: null, repeat });
+    const weekly = 'FREQ=WEEKLY;BYDAY=MO,TH';
+    // numRuns obejmuje przykłady: tylko te trzy przypadki.
+    fc.assert(upcomingMatchesNaive(), {
+      numRuns: 3,
+      examples: [
+        [[once(null, weekly), once(0, null), once(1, weekly), once(2, null)], 2, [0, 0, 0, 0, 0, 0]],
+        [[once(null, 'FREQ=DAILY', -1), once(0, 'FREQ=DAILY', -1)], 1, [1, 0, 0, 0, 0, 0]],
+        [[{ ...once(null, 'FREQ=DAILY'), done: 0 }, { ...once(0, weekly), done: 0 }], 1, [1, 0, 0, 0, 0, 0]],
+      ],
+    });
   });
 
   it('T-3: kopia bez osoby usuniętej z grupy albo bez dostępu do listy; z dostępem — z osobą', () => {
@@ -419,6 +461,19 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     // Niezrobione — nie dla tej funkcji; puste dane — nic.
     expect(missingRepeatOps(g(), d('2026-10-13'), () => true, local)).toEqual([]);
     expect(missingRepeatOps({}, d('2026-10-13'), () => true, local)).toEqual([]);
+  });
+
+  it('ADR 0047: odhaczone podzadanie i odhaczone zadanie nadrzędne bez następnych (T-12) — jedna kopia, pod następnym rodzica, w każdej kolejności', () => {
+    const p = { ...g().tasks!.t1!, id: 'p', completed_at: done };
+    const c = { ...p, id: 'c', parent_id: 'p', repeat: 'FREQ=DAILY' };
+    const local = (iso: string) => iso.slice(0, 10);
+    for (const tasks of [{ c, p }, { p, c }]) {
+      const ops = missingRepeatOps({ ...g(), tasks }, d('2026-10-12'), () => true, local);
+      expect(ops.map((o) => (o.kind === 'create' ? [o.id, o.set.parent_id, o.set.repeat] : [o.kind]))).toEqual([
+        [nextId('p'), null, 'FREQ=WEEKLY;BYDAY=MO'],
+        [nextId('c'), nextId('p'), undefined],
+      ]);
+    }
   });
 
   it('okno brakujących kopii krótsze niż kosz (kopia wyczyszczona z kosza nie wraca)', () => {
