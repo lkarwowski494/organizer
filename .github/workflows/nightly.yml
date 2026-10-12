@@ -80,7 +80,17 @@ jobs:
         env:
           MUTATE: ${{ matrix.mutate }}
           STEP_MIN: ${{ matrix.stepMin }}
+        # Pamięć (11.10.2026, przebieg 38172300136, część 9): mutanty silnika synchronizacji (client.ts, np. pusty blok
+        # w wierszach 270–274) każą sync-sim rosnąć do limitu czasu mutanta — lokalnie jeden proces testów do 6,3 GB (limit
+        # sterty Node nie pomaga, pamięć jest poza stertą: bazy better-sqlite3). Kilka takich naraz wyczerpało pamięć
+        # maszyny i GitHub zatrzymał runner („The runner has received a shutdown signal”). oom_score_adj = 1000 dla
+        # Strykera i procesów testów (dziedziczą wartość) — przy braku pamięci jądro zabija największy proces testów,
+        # nie usługę runnera; Stryker uruchamia go ponownie (retry-rejected-decorator.js), a mutant po dwóch próbach
+        # dostaje RuntimeError. Zakres i działanie: https://www.kernel.org/doc/html/latest/filesystems/proc.html
+        # („Acceptable values range from -1000 (OOM_SCORE_ADJ_MIN) to +1000 (OOM_SCORE_ADJ_MAX)”); podnieść wartość
+        # może każdy proces, obniżyć — tylko z CAP_SYS_RESOURCE.
         run: |
+          echo 1000 > /proc/self/oom_score_adj || echo "::warning::oom_score_adj bez zmiany"
           mkdir -p reports/mutation
           printf '%s\n' "$MUTATE" > reports/mutation/mutate.txt
           timeout --kill-after=2m "${STEP_MIN}m" npx stryker run stryker.shard.config.mjs --mutate "$MUTATE"

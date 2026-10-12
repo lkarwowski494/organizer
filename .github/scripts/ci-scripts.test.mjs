@@ -82,6 +82,8 @@ describe('kontrakty workflow (audyt 2)', () => {
     assert.deepEqual(part.env, { MUTATE: '${{ matrix.mutate }}', STEP_MIN: '${{ matrix.stepMin }}' });
     const limit = /timeout --kill-after=(\d+)m "\$\{STEP_MIN\}m" npx stryker run stryker\.shard\.config\.mjs --mutate "\$MUTATE"/.exec(part.run);
     assert.ok(limit, 'stryker w części pod `timeout` z limitem z planu');
+    // Brak pamięci zabija proces testów, nie usługę runnera (część 9 przebiegu 38172300136).
+    assert.ok(part.run.indexOf('echo 1000 > /proc/self/oom_score_adj') >= 0 && part.run.indexOf('echo 1000') < part.run.indexOf('timeout '));
     // jobMin = stepMin + jobSetupMin (mutation-plan.mjs): zapas na kroki poza Strykerem musi objąć --kill-after.
     assert.ok(Number(limit[1]) < PARAMS.jobSetupMin);
     const upload = steps(jobs.mutation).find((s) => s.uses?.startsWith('actions/upload-artifact@'));
