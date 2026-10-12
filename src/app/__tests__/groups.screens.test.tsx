@@ -516,8 +516,11 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     await press(within(card).getByLabelText('Zaproś'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'member');
     expect(await screen.findByText('Dołączy jako: członek')).toBeTruthy();
+    // Audyt nawigacji (Z-6, ADR 0049): „Zaplanuj zakupy” otwiera listę od razu z planowaniem (dzień, osoba).
     await press(within(card).getByLabelText('Zaplanuj zakupy'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
+    expect(screen.getByTestId('trip-editor')).toBeTruthy();
+    expect(screen.queryByTestId('trip-plan')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(within(await screen.findByTestId('next-steps')).getByLabelText('Nie teraz'));
     expect(screen.queryByTestId('next-steps')).toBeNull();
@@ -531,6 +534,20 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     expect(within(card).queryByText('np. drugi rodzic')).toBeNull();
     await press(within(card).getByLabelText('Zaproś'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('gf', 'member');
+  });
+
+  it('Z-6 (ADR 0049): zakupy już zaplanowane — „Zaplanuj zakupy” z karty otwiera planowanie z bieżącym dniem i osobą', async () => {
+    const base = sampleBase();
+    put(base, 'lists', 'lz', { ...base.lists!.lz!, due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'ala' });
+    const s = await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    await press(within(await screen.findByTestId('next-steps')).getByLabelText('Zaplanuj zakupy'));
+    expect(await screen.findByTestId('trip-editor')).toBeTruthy();
+    expect(screen.getByLabelText('Jutro').props.accessibilityState).toMatchObject({ selected: true });
+    expect(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ala').props.accessibilityState).toMatchObject({ selected: true });
+    // Bez zmian „Zapisz zakupy” nic nie wysyła (N-126), a plan wraca do podsumowania.
+    await press(screen.getByTestId('trip-save'));
+    expect(s.store.dispatched).toEqual([]);
+    expect(screen.getByText('jutro, 17:00 · dla: Ala')).toBeTruthy();
   });
 
   it('N-156 (Q19 A): sam w grupie — usunięcie bez pytania, z „Cofnij”', async () => {

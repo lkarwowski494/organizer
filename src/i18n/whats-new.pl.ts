@@ -11,7 +11,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     // Build 25: nawigacja po audycie przepływów (decyzja właściciela 12.10.2026, wariant B, ADR 0049).
     fromBuild: 25,
     items: [
-      'Jedna nazwa na jedną rzecz: „Nowa lista zadań” obok „Nowa lista zakupów”, „Zaproś jako administratora” także na karcie „Następne kroki”.',
+      'Karta „Następne kroki” w nowej grupie: „Zaplanuj zakupy” od razu otwiera wybór dnia i osoby, a przyciski nazywają się jak na ekranie grupy („Zaproś jako administratora”, „Nowa lista zakupów”). W Listach jest „Nowa lista zadań” obok „Nowa lista zakupów”.',
     ],
   },
   {

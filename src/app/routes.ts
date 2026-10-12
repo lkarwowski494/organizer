@@ -7,7 +7,8 @@ import type { Lesson } from '../domain/views/timetable';
 export type RootStackParams = {
   /** Z zakładką — np. „Moje sprawy” po dotknięciu powiadomienia o przekazaniu (PWD-16). */
   Tabs: NavigatorScreenParams<TabParams> | undefined;
-  List: { listId: string };
+  /** `plan` — od razu z otwartym planowaniem zakupów (karta „Następne kroki”, audyt nawigacji Z-6, ADR 0049). */
+  List: { listId: string; plan?: boolean };
   Task: { taskId: string };
   NewList: { groupId?: string; kind?: 'tasks' | 'shopping' };
   /** `fresh` — grupa właśnie utworzona albo dołączona: do pierwszego pobrania „Pobieram grupę…” zamiast błędu (audyt 2, R-16). */

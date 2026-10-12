@@ -143,7 +143,7 @@ export function GroupScreen({ route, navigation }: Props) {
           )}
           {d.canManageMembers ? <Button kind="secondary" label={strings['groups.addChild']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
           {shopping ? (
-            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
+            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id, plan: true })} />
           ) : (
             <Button kind="secondary" label={strings['lists.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
           )}
