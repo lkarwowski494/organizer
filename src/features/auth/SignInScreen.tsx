@@ -2,17 +2,19 @@
  * Logowanie: jedyny ekran przed sesją. W becie tylko Sign in with Apple (decyzja właściciela 8.10.2026, D177 / audyt 2
  * M-77 — wbudowana wysyłka e-maili Supabase to 2 na godzinę na cały projekt). Logowanie linkiem z e-maila wróci razem
  * z własnym dostawcą wysyłki.
+ * `notice` — jednorazowy komunikat, np. „Konto zostało usunięte.” po usunięciu konta (audyt 3, N-72).
  */
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 
+import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import type { AccountApi } from '../../sync/account';
-import { Body, ErrorText, Screen, Title } from '../../ui/components';
+import { Body, Button, ErrorText, Screen, StatusText, Title } from '../../ui/components';
 import { useTheme } from '../../ui/theme';
 
-export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWithApple'> }) {
+export function SignInScreen({ account, notice }: { account: Pick<AccountApi, 'signInWithApple'>; notice?: string | null }) {
   const { size, scheme, line } = useTheme();
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +26,7 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
         ))}
       </View>
       <Title role="BRAND">{strings['auth.title']}</Title>
+      {notice ? <StatusText>{notice}</StatusText> : null}
       <Body muted>{strings['auth.tagline']}</Body>
       <Body muted>{strings['auth.info']}</Body>
       <AppleAuthentication.AppleAuthenticationButton
@@ -36,6 +39,9 @@ export function SignInScreen({ account }: { account: Pick<AccountApi, 'signInWit
       />
       <Body muted>{strings['auth.appleOnly']}</Body>
       {error ? <ErrorText>{error}</ErrorText> : null}
+      {/* Audyt 3: raporty błędów (N-74, Q3 A) i polityka prywatności przed założeniem konta (N-75, Q4 A). */}
+      <Body muted>{strings['auth.errorReports']}</Body>
+      <Button kind="secondary" label={strings['privacy.open']} testID="sign-in-privacy" onPress={() => void Linking.openURL(config.privacy.POLICY_URL).catch(() => {})} />
     </Screen>
   );
 }

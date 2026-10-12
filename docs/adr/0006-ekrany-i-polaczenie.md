@@ -1,6 +1,6 @@
 # ADR 0006 — Ekrany, tryb ciemny i połączenie z Supabase (7.10.2026)
 
-Status: przyjęte. Commity: 9753bab, 617081d, dbb3390.
+Status: przyjęte. Commity: 086a810, d0e2c5b, 8033671.
 
 ## Decyzje właściciela (7.10.2026)
 | ID | Pytanie | Decyzja | Odrzucone |

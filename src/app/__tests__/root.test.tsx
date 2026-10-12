@@ -9,7 +9,7 @@ import { AccessibilityInfo, AppState } from 'react-native';
 import { config } from '../../config';
 import { memoryDb } from '../../data/__tests__/sqlite';
 import { migrate } from '../../data/db/migrations';
-import { writeState } from '../../data/store';
+import { saveLocal, writeState } from '../../data/store';
 import { initialState, mutate, type PullResponse, type PushResponse } from '../../domain/sync-engine/client';
 import { type SyncTransport, TransportError } from '../../sync/transport';
 import { refreshInBackground } from '../background';
@@ -195,6 +195,52 @@ describe('wylogowanie a kalendarze „Organizer – …” (D172, audyt 2 M-27)'
   });
 });
 
+describe('raporty błędów tylko za zgodą (audyt 3, N-74)', () => {
+  const devicePrefs = () => {
+    const m = new Map<string, string>();
+    return { get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) };
+  };
+  const signedIn = () => ({ current: async () => ({ userId: ME, displayName: 'Ala' }) as Session, onChange: () => () => {} });
+
+  it('domyślnie: samosprawdzenie i nieobsłużony wyjątek idą na serwer', async () => {
+    const handlers: ((e: unknown, fatal?: boolean) => void)[] = [];
+    const g = globalThis as unknown as { ErrorUtils?: unknown };
+    const saved = g.ErrorUtils;
+    g.ErrorUtils = { getGlobalHandler: () => () => {}, setGlobalHandler: (h: (e: unknown, f?: boolean) => void) => void handlers.push(h) };
+    try {
+      const t = makeDeps({ session: signedIn(), prefs: devicePrefs() });
+      await render(<Root deps={t.deps} fontsLoaded />);
+      await screen.findByTestId('screen-today');
+      await waitFor(() => expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'diagnostic', screen: 'selfcheck' })));
+      await act(async () => handlers.at(-1)!(new Error('boom'), true));
+      expect(t.deps.account.reportError).toHaveBeenCalledWith(expect.objectContaining({ kind: 'crash', message: 'Error: boom' }));
+    } finally {
+      g.ErrorUtils = saved;
+    }
+  });
+
+  it('wyłączone w Ustawieniach → Konto i dane: ani samosprawdzenie, ani nieobsłużony wyjątek nie wychodzą', async () => {
+    const handlers: ((e: unknown, fatal?: boolean) => void)[] = [];
+    const g = globalThis as unknown as { ErrorUtils?: unknown };
+    const saved = g.ErrorUtils;
+    g.ErrorUtils = { getGlobalHandler: () => () => {}, setGlobalHandler: (h: (e: unknown, f?: boolean) => void) => void handlers.push(h) };
+    try {
+      const t = makeDeps({ session: signedIn(), prefs: devicePrefs() });
+      const db = memoryDb();
+      migrate(db);
+      saveLocal(db, 'errorReports', 'off');
+      t.dbs.set(ME, db);
+      await render(<Root deps={t.deps} fontsLoaded />);
+      await screen.findByTestId('screen-today');
+      await act(async () => {});
+      await act(async () => handlers.at(-1)!(new Error('boom'), true));
+      expect(t.deps.account.reportError).not.toHaveBeenCalled();
+    } finally {
+      g.ErrorUtils = saved;
+    }
+  });
+});
+
 describe('korzeń aplikacji', () => {
   it('ładowanie, potem logowanie; po zalogowaniu pobranie, „Moje sprawy” i kanały Realtime', async () => {
     const t = makeDeps();
@@ -367,6 +413,31 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
     await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
   });
 
+  // Audyt 3, N-19: „odwołuję i chowam telefon” — serwer przyjmuje zmianę już po wyjściu, uśpiona aplikacja nie doczeka odstępu.
+  it('zmiana przyjęta przez serwer już po wyjściu z aplikacji — prośba od razu', async () => {
+    const t = makeDeps({ session });
+    const instant = t.deps.setTimer!;
+    t.deps.setTimer = (fn, ms) => (ms === config.wake.DEBOUNCE_MS ? () => {} : instant(fn, ms));
+    const push = t.deps.transport.push;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((ok) => (release = ok));
+    t.deps.transport = { ...t.deps.transport, push: async (req) => (await gate, push(req)) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await quickAdd('chleb jutro');
+    expect(t.pushes).toHaveLength(0);
+    // Atrapa RN ma tu funkcję; w aplikacji to napis ze stanem (https://reactnative.dev/docs/appstate#currentstate).
+    const mock = Object.getOwnPropertyDescriptor(AppState, 'currentState')!;
+    Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+    try {
+      await act(() => appStateHandlers.forEach((h) => h('background')));
+      expect(t.deps.account.notifyGroups).not.toHaveBeenCalled();
+      await act(async () => release());
+      await waitFor(() => expect(t.deps.account.notifyGroups).toHaveBeenCalledWith({ groups: [ME], retry: false }));
+    } finally {
+      Object.defineProperty(AppState, 'currentState', mock);
+    }
+  });
+
   it('ciche powiadomienie przy działającej aplikacji: pobiera jej pętla, także w tle, potem plan przypomnień', async () => {
     const replaceReminders = jest.fn(async () => {});
     const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
@@ -484,8 +555,7 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
   it('M-9: po 401 jedna prośba o odświeżenie tokenu; nowy token tego konta wznawia synchronizację', async () => {
     let listener: (s: Session | null) => void = () => {};
     const refresh = jest.fn(async () => {});
-    const signOutLocal = jest.fn(async () => {});
-    const t = makeDeps({ session: signedIn({ onChange: (fn) => ((listener = fn), () => {}), refresh, signOutLocal }) });
+    const t = makeDeps({ session: signedIn({ onChange: (fn) => ((listener = fn), () => {}), refresh }) });
     const real = t.deps.transport;
     let expired = true;
     t.deps.transport = { ...real, pull: (r, l) => (expired ? Promise.reject(new TransportError('auth', 'jwt expired')) : real.pull(r, l)) };
@@ -504,17 +574,16 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
 
   it('M-9: sesja, której nie da się odświeżyć — w Ustawieniach „Zaloguj się ponownie” bez czyszczenia danych', async () => {
     const refresh = jest.fn(async () => Promise.reject(new Error('refresh_token_not_found')));
-    const signOutLocal = jest.fn(async () => {});
-    const t = makeDeps({ session: signedIn({ refresh, signOutLocal }), removeDb: jest.fn() });
+    const t = makeDeps({ session: signedIn({ refresh }), removeDb: jest.fn() });
     t.deps.transport = { ...t.deps.transport, pull: () => Promise.reject(new TransportError('auth', 'jwt expired')) };
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByTestId('screen-today');
     await fireEvent.press(screen.getByLabelText('Ustawienia'));
     expect(await screen.findByText(/Sesja wygasła/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('sign-in-again'));
-    expect(signOutLocal).toHaveBeenCalledTimes(1);
-    // Nie „Wyloguj” (sprzątanie konta) i nie usunięcie bazy: kolejka czeka na ponowne zalogowanie.
-    expect(t.deps.account.signOut).not.toHaveBeenCalled();
+    // Audyt 3, N-224: pełne wylogowanie (zdejmuje token powiadomień tego telefonu), ale bez usunięcia bazy: kolejka
+    // czeka na ponowne zalogowanie (D172 b).
+    expect(t.deps.account.signOut).toHaveBeenCalledTimes(1);
     expect(t.deps.removeDb).not.toHaveBeenCalled();
     // Powrót do aplikacji: kolejna próba i kolejna prośba o odświeżenie (nie w kółko w tle).
     await act(() => appStateHandlers.forEach((h) => h('active')));

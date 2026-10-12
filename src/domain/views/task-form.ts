@@ -9,7 +9,7 @@
  */
 import { config } from '../../config';
 import { LIST_NAMES } from '../../config/names.pl';
-import { type CivilDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
+import { type CivilDate, formatIsoDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
@@ -18,7 +18,7 @@ import { groupsView, listsView } from './index';
 import type { MentionTarget } from './mention';
 import type { Tables } from './model';
 import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
-import { type Repeat, setRepeat } from './task-repeat';
+import { cycleChange, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
   title: string;
@@ -142,13 +142,24 @@ export function formDate(f: TaskForm, today: CivilDate): CivilDate {
   return m && isValidDate(Number(m[1]), Number(m[2]), Number(m[3])) ? parseIsoDate(f.date.trim()) : today;
 }
 
+/**
+ * Zmiana dnia w formularzu (audyt 3, N-125): bez dnia nie ma godziny ani powtarzania; z powtarzaniem reguła idzie za
+ * dniem tak jak „Też kolejne” na ekranie zadania (cycleChange, D181) — bez pytania, bo zadania jeszcze nie ma. Inaczej
+ * pierwszy termin i cykl by się rozjechały (poniedziałek, a potem piątki).
+ */
+export function formDateChange(f: TaskForm, date: string, today: CivilDate): Partial<TaskForm> {
+  if (date === '') return { date: '', time: '', repeat: null };
+  const next = f.repeat ? cycleChange(f.repeat, formatIsoDate(formDate(f, today)), date) : null;
+  return next ? { date, repeat: next } : { date };
+}
+
 /** Operacje zapisu nowego zadania (formularz musi przejść `validateForm`). Zwraca też id zadania. */
 export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => string): { ops: NewOp[]; taskId: string } {
   const date = f.date.trim();
   const due = date ? { date, time: f.time.trim() || null } : null;
   const g = generalList(t, userId, f.groupId, newId);
   const id = newId();
-  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null }, assigneeId: f.assigneeId })];
+  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null, farDate: null }, assigneeId: f.assigneeId })];
   if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
   return { ops, taskId: id };
 }

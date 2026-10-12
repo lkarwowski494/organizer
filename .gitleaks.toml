@@ -49,3 +49,10 @@ id = "personal-email"
 description = "Prywatny adres e-mail (Gmail, Outlook, iCloud, polscy dostawcy) w treści pliku"
 regex = '''\b[A-Za-z0-9._%+-]+@(?:gmail|googlemail|outlook|hotmail|live|yahoo|icloud|me|proton|protonmail|aol|wp|o2|onet|interia|op|gazeta|tlen|vp|poczta\.onet|int)\.(?:com|pl|me|eu|ch|net)\b'''
 keywords = ["@"]
+# Wyjątek: teksty licencji bibliotek w aplikacji (audyt 3, N-78) powtarzają dosłownie informację o prawach autorów,
+# razem z ich adresami — wymaga tego licencja (MIT: „The above copyright notice and this permission notice shall be
+# included in all copies…”, https://github.com/facebook/react-native/blob/main/LICENSE). Plik generuje
+# scripts/licenses/gen-licenses.mjs z plików licencji w node_modules; nic innego tam nie trafia.
+[[rules.allowlists]]
+description = "Informacje o prawach autorów bibliotek (teksty licencji)"
+paths = ['''^src/licenses/third-party\.json$''']

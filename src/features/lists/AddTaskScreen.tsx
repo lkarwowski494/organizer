@@ -16,7 +16,7 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { namesOf, sanitizeTaskDraft } from '../../domain/views/form-choices';
-import { type FormError, formDate, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
+import { type FormError, formDate, formDateChange, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
 import { useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { AskPanel } from '../../ui/AskPanel';
@@ -133,7 +133,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
         onChange={(g) => set({ groupId: g, assigneeId: null })}
         options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))}
       />
-      <DueFields date={form.date} time={form.time} onDate={(v) => set(v === '' ? { date: '', time: '', repeat: null } : { date: v })} onTime={(v) => set({ time: v })} today={today} testID="form" />
+      <DueFields date={form.date} time={form.time} onDate={(v) => set(formDateChange(form, v, today))} onTime={(v) => set({ time: v })} today={today} testID="form" />
       <PersonPicker
         label={strings['task.assignee']}
         value={form.assigneeId ?? ''}

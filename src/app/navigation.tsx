@@ -11,6 +11,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
+import { tabBar } from '../config/theme';
 import { CalendarScreen } from '../features/calendar/CalendarScreen';
 import { EventEditScreen } from '../features/events/EventEditScreen';
 import { EventScreen } from '../features/events/EventScreen';
@@ -27,6 +28,7 @@ import { RejectedScreen } from '../features/settings/RejectedScreen';
 import { RecentScreen } from '../features/groups/RecentScreen';
 import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
+import { LicensesScreen } from '../features/settings/LicensesScreen';
 import { NameScreen } from '../features/profile/NameScreen';
 import { TimetableScreen } from '../features/groups/TimetableScreen';
 import { RoutineScreen } from '../features/events/RoutineScreen';
@@ -37,7 +39,7 @@ import { strings } from '../i18n/strings.pl';
 import { useTheme } from '../ui/theme';
 import { incomingHandoffs } from '../domain/views/handoffs';
 import { useAppData, useServices } from './context';
-import { appVersion, ErrorBoundary } from './diagnostics';
+import { appVersion, ErrorBoundary, reportsOn } from './diagnostics';
 import { GroupLossNotice } from './GroupLossNotice';
 import { HandoffNotifier } from './HandoffNotifier';
 import { NotificationOpener } from './NotificationOpener';
@@ -59,11 +61,12 @@ const Tab = createBottomTabNavigator<TabParams>();
  * zakładki i powrót (gest) działają dalej, a nie cała aplikacja przy każdym starcie. Zgłoszenie z nazwą ekranu (D80).
  */
 function ScreenGuard({ name, children }: { name: string; children: ReactNode }) {
-  const { account } = useServices();
+  const { account, local } = useServices();
   const { c } = useTheme();
   const report = useCallback((e: Parameters<typeof account.reportError>[0]) => void account.reportError(e).catch(() => {}), [account]);
+  // Audyt 3 (N-74): account.reportError z Root wysyła tylko przy włączonych raportach; ekran awarii mówi tak samo.
   return (
-    <ErrorBoundary report={report} version={appVersion()} colors={c} screen={name}>
+    <ErrorBoundary report={report} reporting={() => reportsOn(local)} version={appVersion()} colors={c} screen={name}>
       {children}
     </ErrorBoundary>
   );
@@ -77,9 +80,14 @@ const TAB_LABELS: Record<keyof TabParams, string> = {
   Groups: strings['tabs.groups'],
 };
 
-/** Pasek zakładek z makiety „Wstążki”: zaokrąglony u góry, aktywna zakładka w pigułce (nie tylko kolor). */
+/**
+ * Pasek zakładek z makiety „Wstążki”: zaokrąglony u góry, wybrana zakładka w pigułce (kształt, nie tylko kolor).
+ * Audyt 3 (N-67, N-68; Q11 A): napis stałej wielkości z Large Content Viewer, plakietka w rogu, wybrana zakładka we
+ * wzorze zaznaczenia z D198 — liczby, kolory i źródła w tabBar (src/config/theme.ts).
+ */
 function TabBar({ state, navigation }: BottomTabBarProps) {
-  const { c, font, size, fontScale } = useTheme();
+  const { c, font, size } = useTheme();
+  const t = tabBar.colors(c);
   const insets = useSafeAreaInsets();
   const { userId } = useServices();
   const { tables } = useAppData();
@@ -89,28 +97,31 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
     // Audyt 2 (M-40): na iOS role „tab” i „tablist” nie dają żadnej cechy (React Native, accessibilityPropsConversions.h:
     // brak gałęzi; React Navigation też daje na iOS „button”, BottomTabItem.tsx). Pasek dostaje cechę paska kart
     // („tabbar” → UIAccessibilityTraitTabBar: VoiceOver mówi „karta 1 z 4”), zakładki — „button” na iOS.
-    <View accessibilityRole="tabbar" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
+    <View accessibilityRole="tabbar" style={{ flexDirection: 'row', paddingTop: 8, paddingHorizontal: tabBar.BAR_PAD_H, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: t.bar, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border }}>
       {state.routes.map((r, i) => {
         const on = state.index === i;
         const label = TAB_LABELS[r.name as keyof TabParams];
         const badge = r.name === 'Today' && pending > 0 ? pending : 0;
+        const a11yLabel = badge ? `${label}, ${strings['handoff.badge'](badge)}` : label;
         return (
           <Pressable
             key={r.key}
             accessibilityRole={Platform.OS === 'ios' ? 'button' : 'tab'}
             accessibilityState={{ selected: on }}
-            accessibilityLabel={badge ? `${label}, ${strings['handoff.badge'](badge)}` : label}
+            accessibilityLabel={a11yLabel}
+            // N-67: przytrzymanie zakładki przy dużym tekście pokazuje nazwę w Large Content Viewer (RN 0.86 dodaje
+            // UILargeContentViewerInteraction, RCTViewComponentView.mm) — zamiast powiększania napisu na pasku.
+            accessibilityShowsLargeContentViewer
+            accessibilityLargeContentTitle={a11yLabel}
             testID={`tab-${r.name}`}
             onPress={() => !on && navigation.navigate(r.name)}
-            style={{ flex: 1, minHeight: size.TOUCH_TARGET + 8, alignItems: 'center', justifyContent: 'center', gap: 4 }}
+            style={{ flex: 1, minHeight: size.TOUCH_TARGET + 8, alignItems: 'center', justifyContent: 'center' }}
           >
-            {/* Aktywna zakładka jako pigułka w kolorze akcentu (D72) — wyróżniona kształtem, nie tylko kolorem. */}
-            {/* M-43: napis rośnie z Dynamic Type do 200% i mieści się w jednej linii (zmniejsza się zamiast łamać w środku słowa). */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? c.accentBg : 'transparent' }}>
-              <Text numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.TAB, color: on ? c.accentInk : c.inkTab }}>{label}</Text>
+            <View style={{ paddingVertical: tabBar.PILL_PAD_V, paddingHorizontal: tabBar.PILL_PAD_H, borderRadius: tabBar.PILL_RADIUS, backgroundColor: on ? t.pillOn : 'transparent' }}>
+              <Text numberOfLines={tabBar.LABEL_LINES} allowFontScaling={false} style={{ textAlign: 'center', fontFamily: font.text700, fontSize: size.TAB, color: on ? t.inkOn : t.inkOff }}>{label}</Text>
               {badge ? (
-                <View testID="tab-badge" style={{ minWidth: 18, minHeight: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: c.danger }}>
-                  <Text maxFontSizeMultiplier={fontScale.FIXED_MAX} style={{ fontFamily: font.text700, fontSize: size.BADGE, color: c.inverseInk }}>{badge}</Text>
+                <View testID="tab-badge" style={{ position: 'absolute', top: -tabBar.BADGE_OFFSET, right: -tabBar.BADGE_OFFSET, minWidth: tabBar.BADGE_MIN, minHeight: tabBar.BADGE_MIN, borderRadius: tabBar.BADGE_MIN / 2, borderWidth: tabBar.BADGE_RING, borderColor: t.badgeRing, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: t.badge }}>
+                  <Text allowFontScaling={false} style={{ fontFamily: font.text700, fontSize: size.BADGE, color: t.badgeInk }}>{badge}</Text>
                 </View>
               ) : null}
             </View>
@@ -161,6 +172,7 @@ export function RootStack() {
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       <Stack.Screen name="Recent" component={RecentScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
+      <Stack.Screen name="Licenses" component={LicensesScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />
       {/* Audyt 2 (M-242): pytanie o imię przy starcie bez gestu cofania (zamknąłby je bez zapisu); z Ustawień — z gestem. */}
       <Stack.Screen name="Name" component={NameScreen} options={({ route }) => ({ gestureEnabled: route.params?.from === 'settings' })} />

@@ -13,8 +13,13 @@ EN (dla recenzji Apple):
 
 **Feedback Email:** adres, na który testerzy mają pisać — wybierz sam (do repozytorium go nie wpisuję).
 
-**Privacy Policy URL:** link do `docs/privacy-policy.md` w publicznym repozytorium
-(https://github.com/lkarwowski494/organizer/blob/main/docs/privacy-policy.md) — po Twoim zatwierdzeniu treści.
+**Privacy Policy URL:** https://lkarwowski494.github.io/organizer/privacy/ (`config.privacy.POLICY_URL`; strona
+generowana z `docs/privacy-policy.md`, ADR 0044; ten sam adres otwiera link „Polityka prywatności” w aplikacji).
+Publikuje ją workflow `pages.yml` z katalogu `site/` tego repozytorium (decyzja z 9.10.2026) przy każdej zmianie `site/**`
+na `main`. **Jednorazowy krok przed wpisaniem adresu:** repozytorium `organizer` → **Settings → Pages → Build and
+deployment → Source: GitHub Actions**. Potem uruchomię `pages` ręcznie (Actions → pages → Run workflow) i sprawdzę, że
+adres się otwiera. Build 23 wychodzi bez adresu e-mail w polityce (kontakt przez „Wyślij uwagę”) — adres trzeba dodać
+przed App Store (`config.privacy.CONTACT_EMAIL`, ADR 0044).
 
 ## 2. Beta App Review Information
 - Contact: imię, nazwisko, telefon, e-mail — Twoje dane (tylko w App Store Connect).
@@ -45,7 +50,14 @@ EN (dla recenzji Apple):
 - [ ] Logowanie: tylko Apple (D177); imię z Apple w profilu i w grupach (M-186).
 - [ ] Wylogowanie (D176): drugi iPhone/iPad tego konta zostaje zalogowany.
 - [ ] Wylogowanie bez internetu (tryb samolotowy), potem sieć: powiadomienia starego konta przestają przychodzić.
-- [ ] Usunięcie konta: okno Apple (świeży kod), po usunięciu plik bazy konta znika (M-64, M-303).
+- [ ] Usunięcie konta: okno Apple (świeży kod), po usunięciu plik bazy konta znika (M-64, M-303); ekran logowania mówi
+      „Konto zostało usunięte.”, a zamknięcie okna Apple krzyżykiem nie pokazuje błędu (audyt 3, N-72).
+- [ ] Sekrety Sign in with Apple (audyt 3, N-99): w panelu Supabase → Edge Functions → Secrets są `APPLE_SIWA_KEY_P8`,
+      `APPLE_SIWA_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`; po pierwszym usunięciu konta testowego w logach funkcji
+      `delete-account` nie ma „not_configured”, a w tabeli `client_errors` nie ma wpisu „delete-account: apple not_configured”
+      (wtedy token Apple został unieważniony — odpowiedź `apple: "revoked"`).
+- [ ] Usunięcie konta z przerwaniem sieci zaraz po naciśnięciu (audyt 3, N-228): po powrocie sieci ponowna próba kończy
+      się ekranem „Konto zostało usunięte.”, a nie błędem.
 - [ ] Pęk kluczy po usunięciu aplikacji (M-165, W): zainstaluj ponownie — sesja i wygląd mogą zostać (Expo: „will persist
       across app uninstallations … not guaranteed”), ustawienia konta (wprowadzenie, przypomnienia) zaczynają od zera,
       bo są w bazie konta. Zapisz wynik.

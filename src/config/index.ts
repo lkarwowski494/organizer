@@ -84,8 +84,8 @@ export const config = {
 
   /**
    * Wydarzenia. LOCATION_MAX_LENGTH (miejsce wydarzenia, ADR 0029): najdłuższy adres — z ograniczenia SQL private.event_location_max_length()
-   * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie — tyle zapasu bierze
-   * rozwijanie serii; dalsze przeniesienie formularz odrzuca (audyt 8.10.2026). MAX_DAYS (D199): najdłuższe wydarzenie
+   * (test kontraktowy). MOVE_WINDOW_DAYS (ADR 0007): o ile dni wolno przenieść jedno wystąpienie; dalsze przeniesienie
+   * formularz odrzuca (audyt 8.10.2026). Widoki pokazują w nowym dniu także dalsze (audyt 3, occurrenceDates w events.ts). MAX_DAYS (D199): najdłuższe wydarzenie
    * całodniowe w dniach (obóz, wakacje u dziadków) — z ograniczenia SQL private.event_max_days() (test kontraktowy); tyle
    * dni wstecz widoki dnia szukają wydarzeń, które zaczęły się wcześniej. Wybory projektowe, bez źródła.
    * INTERVAL_MAX: największy odstęp powtarzania („co 99 tygodni”) — to samo sprawdza private.rrule_ok (test kontraktowy).
@@ -228,6 +228,13 @@ export const config = {
      * godzinie, górna granica zalecenia Apple. Ta sama wartość w private.wake_push_claim (test kontraktowy).
      */
     MIN_GAP_MIN: 20,
+    /**
+     * Osoba usunięta z grupy albo grupa w koszu jeszcze tyle minut liczy się do budzenia (audyt 3, N-17): jej telefon
+     * musi się obudzić, żeby skasować przypomnienia spraw, do których stracił dostęp (budzenie nie niesie treści).
+     * Trzy przerwy MIN_GAP_MIN: zaległe budzenie z przerwy wychodzi przy ponowieniu. Ta sama wartość w
+     * private.wake_left_grace_min() (test kontraktowy). Wybór projektowy.
+     */
+    LEFT_GRACE_MIN: 60,
     /** Telefon zbiera zmiany przez tyle ms po ostatniej, zanim poprosi serwer (seria edycji = jedno powiadomienie); wyjście z aplikacji wysyła od razu. Wybór projektowy. */
     DEBOUNCE_MS: 30_000,
     /** Najwyżej tyle grup w jednej prośbie (funkcja i baza odrzucają więcej — test kontraktowy). Wybór projektowy. */
@@ -323,6 +330,13 @@ export const config = {
     CODE_TTL_HOURS: 24,
     JOIN_FAILS_PER_USER: 5,
     JOIN_FAILS_PER_CODE: 100,
+    /**
+     * Audyt 3 (PK-11, decyzja koordynatora 9.10.2026): „Cofnij” po zmianie roli administratora przywraca jego zaproszenia
+     * osobiste tylko, gdy powrót roli dotrze na serwer w tym czasie od jej utraty (private.role_undo_window_sec). Pasek
+     * UNDO_MS + wysyłka PUSH_DEBOUNCE_MS + dwa ponowienia po BACKOFF_MAX_MS mieszczą się z zapasem (test kontraktowy).
+     * Wybór projektowy, bez źródła zewnętrznego.
+     */
+    ROLE_UNDO_WINDOW_SEC: 180,
     /** Strona z linkiem zaproszenia (GitHub Pages, D94). Universal Links dla /j/ dopiero po krokach z docs/join-links.md (bez associatedDomains w app.json). */
     JOIN_LINK: 'https://lkarwowski494.github.io/j/',
     /** D141: link w wiadomości zaproszenia dopiero, gdy strona działa (docs/join-links.md, krok właściciela). */
@@ -337,6 +351,22 @@ export const config = {
     MAX_TTL_HOURS: 720,
     DEFAULT_MAX_USES: 10,
     MAX_USES_LIMIT: 50,
+  },
+
+  /**
+   * Polityka prywatności (audyt 3, N-75 i N-76; decyzja właściciela Q4 A): strona site/privacy/ generowana
+   * z docs/privacy-policy.md, publikowana przez GitHub Pages tego repozytorium (.github/workflows/pages.yml, decyzja
+   * właściciela 9.10.2026 — dlatego /organizer/); link w Ustawieniach → Konto i dane i na ekranie logowania. Apple, App Review 5.1.1(i): „All apps must include a link to their privacy policy in the App Store Connect
+   * metadata field and within the app in an easily accessible manner.”
+   * (https://developer.apple.com/app-store/review/guidelines/). Administrator danych (RODO art. 13 ust. 1 lit. a —
+   * „swoją tożsamość i dane kontaktowe”): właściciel aplikacji. `CONTACT_EMAIL` — osobny adres tylko dla Organizera;
+   * build 23 wychodzi z `null` (świadomy wyjątek właściciela 9.10.2026: polityka wskazuje „Wyślij uwagę”), adres trzeba
+   * dodać przed App Store. Polityka musi podawać dokładnie te dane (test kontraktowy privacy-policy.contract.test.ts).
+   */
+  privacy: {
+    POLICY_URL: 'https://lkarwowski494.github.io/organizer/privacy/',
+    CONTROLLER: 'Łukasz Karwowski',
+    CONTACT_EMAIL: null as string | null,
   },
 
   /**
@@ -445,6 +475,10 @@ export const config = {
    * Kalendarz (miesiąc + 6 tygodni wydarzeń) ok. 250 ms; po niej ok. 90 / 55 / 60 ms. Budżet ok. 2,5× wyniku po, żeby
    * obciążony automat CI nie dawał fałszywych alarmów, a powrót kosztu rosnącego z historią oblewał test. Na iPhonie
    * (Hermes, bez JIT) czasy będą dłuższe — do sprawdzenia na urządzeniu.
+   * 9.10.2026 po kolejnych poprawkach (następne zadań w planie, przeniesienia daleko) CI pokazał 266 / 150+ ms; po
+   * optymalizacji (pamięć nextId i asTask, jeden przegląd historii, pierwszy termin bez rozwijania roku) lokalnie
+   * mediana ok. 120 ms planu i 45 ms Kalendarza (przedtem 177 / 100). Ta metoda (1 rozgrzewka, mediana 5) mierzy też
+   * dogrzewanie JIT: pierwsze przebiegi po rozgrzewce są 2–3× wolniejsze od ustalonych (plan ok. 70 ms).
    */
   perf: {
     FAMILY_YEARS: 3,

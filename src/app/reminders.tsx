@@ -129,7 +129,8 @@ export function RemindersProvider({ children }: { children: ReactNode }) {
       push.replaceReminders(reminderPlan(tables, userId, today, nowMs(), settings, travel.info, scopeOf)).catch((e: unknown) => {
         if (reported.current) return;
         reported.current = true;
-        account.reportError(toClientError(e, 'error', 'reminders', appVersion())).catch(() => {});
+        // Audyt 3 (N-77): komunikat modułu powiadomień może zawierać tytuł przypomnienia — bez treści, jak kalendarz i dojazd.
+        account.reportError(toClientError(e, 'error', 'reminders', appVersion(), { private: true })).catch(() => {});
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);

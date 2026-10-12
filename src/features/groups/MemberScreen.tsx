@@ -69,7 +69,7 @@ export function MemberScreen({ route, navigation }: Props) {
     try {
       setChildCode(await (renew ? account.renewChildCode(m.member_id) : account.createChildCode(m.member_id)));
     } catch (e) {
-      setError(groupErrorText(e));
+      setError(groupErrorText(e, { owner: d.group.me.role === 'owner' }));
     }
   };
   return (

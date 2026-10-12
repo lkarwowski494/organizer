@@ -45,6 +45,8 @@ export type RootStackParams = {
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;
+  /** Licencje bibliotek (audyt 3, N-78): bez `name` lista, z `name` („nazwa@wersja”) tekst jednej licencji. */
+  Licenses: { name?: string } | undefined;
   /** Plan lekcji osoby z tygodniami A/B (D112). */
   /** `copy` — plan skopiowany z innej grupy do sprawdzenia przed zapisem (audyt 3, Q27 B); `from` — „Tymek · Rodzina”. */
   Timetable: { groupId: string; memberId: string; copy?: { lessons: Lesson[]; thisWeek: 'A' | 'B'; until: string; from: string } };

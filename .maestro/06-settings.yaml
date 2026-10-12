@@ -14,10 +14,51 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings-account"
     timeout: 10000
+# Audyt 3 (N-74, N-75): przełącznik raportów błędów i link do polityki prywatności (strony nie otwieramy — sieć).
+- assertVisible:
+    id: "switch-error-reports"
+- assertVisible:
+    id: "open-privacy"
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
+    timeout: 10000
+# Audyt 3 (N-78): Licencje — lista i tekst jednej licencji.
+- tapOn: "Wróć"
+- extendedWaitUntil:
+    visible:
+      id: "screen-settings"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: "open-licenses"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "open-licenses"
+- extendedWaitUntil:
+    visible:
+      id: "screen-licenses"
+    timeout: 10000
+# Pozycja z początku listy (lista jest alfabetyczna, ponad 80 pozycji): react-native jest blisko końca i Maestro
+# w 20 s przewijał tylko do ok. 20. pozycji (E2E 65, 80ef39a). Krój pisma z licencją SIL OFL, jak na ekranie.
+- scrollUntilVisible:
+    element:
+      id: "license-@expo-google-fonts/atkinson-hyperlegible-next"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    id: "license-@expo-google-fonts/atkinson-hyperlegible-next"
+- extendedWaitUntil:
+    visible:
+      id: "license-text"
+    timeout: 10000
+- assertVisible: "@expo-google-fonts/atkinson-hyperlegible-next"
+- tapOn: "Wróć"
+- extendedWaitUntil:
+    visible:
+      id: "screen-licenses"
     timeout: 10000
 # Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
 - tapOn: "Wróć"

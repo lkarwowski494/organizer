@@ -18,6 +18,14 @@
    „nikt konkretny” (D132); termin z wydarzenia staje się własnym terminem. Historia zmian zostaje przy oryginale.
    Tylko zadanie główne, nie w trakcie przekazania. Odrzucone: RPC serwera zmieniające grupę (wymaga zmiany protokołu
    synchronizacji); kopia bez podzadań (gubiła je w koszu).
+   Zmiana 9.10.2026 (audyt 3, N-12, N-121, N-131, N-36): przeniesienie to jedno polecenie serwera `move_task_to_group`
+   (migracja 20261010060000) — wszystko albo nic także na serwerze (wcześniej odrzucona kopia zostawiała oryginał
+   w koszu i zadanie znikało z obu grup). Oryginał dostaje znacznik `moved_to`: nie stoi w koszu, nie wraca z niego,
+   dopóki żyje kopia (kod „moved”), a jego ekran mówi „Przeniesiono do …” z „Otwórz zadanie”. „Cofnij” to polecenie
+   `unmove_task` (kopia do kosza ze znacznikiem powrotu, oryginał wraca; lista ogólna założona dla przeniesienia zostaje).
+   Kopia z tą samą osobą nie wysyła „przypisuje Ci zadanie”. Zrobionego zadania się nie przenosi (zadanie powtarzane
+   dostałoby drugi następny termin). Ekran usuniętego zadania, listy i wydarzenia: „W koszu · Przywróć” tylko wtedy,
+   gdy kosz by tę rzecz pokazał, z tym samym paskiem; inaczej „Tego … już nie ma”.
 2. **Szkic (D179):** `app/form-draft.tsx` + `domain/drafts.ts`, jeden mechanizm dla nowego zadania, wydarzenia (także
    zmiany), rutyny, planu lekcji, nowej listy i nowej grupy. Szkic to tylko pola zmienione względem chwili otwarcia,
    w lokalnej bazie telefonu, osobno dla konta; przy zmianie istniejącej rzeczy nakłada się na jej obecne dane.
@@ -39,7 +47,10 @@
    wpisywana sprawdza się dopiero w pełnym kształcie albo po wyjściu z pola (M-206) — `ui/DueFields.tsx`.
 5. **Zmiana dnia zadania powtarzanego (D181):** pytanie tylko, gdy zmienia się cykl: co tydzień — inny dzień tygodnia,
    co miesiąc — inny dzień miesiąca (termin już przeniesiony poza cykl nie pyta). „Tylko ten raz” trzyma cykl (D137),
-   „Też kolejne” zamienia dzień w regule (`cycleChange`).
+   „Też kolejne” zamienia dzień w regule (`cycleChange`). Audyt 3 (N-25): przeniesienie „Tylko ten raz” na wcześniej
+   zapisuje pierwotny dzień (`tasks.cycle_date`), a następny liczy się od niego — przeniesiony termin zastępuje swój dzień
+   cyklu (RFC 5545, RECURRENCE-ID), zamiast wracać drugi raz. Formularz nowego zadania przestawia regułę za zmienionym
+   dniem bez pytania, jak „Też kolejne” (N-125: zadania jeszcze nie ma).
 6. **Ostatni dzień miesiąca (PWD-37):** `BYMONTHDAY=-1`. RFC 5545 §3.3.10 (https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10):
    „Valid values are 1 to 31 or -31 to -1. For example, -10 represents the tenth to the last day of the month”;
    przykład „Monthly on the first and last day of the month … BYMONTHDAY=1,-1”. Opcja jest, gdy termin to ostatni dzień

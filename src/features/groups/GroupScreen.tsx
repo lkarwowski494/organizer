@@ -6,7 +6,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, type TextInput, View } from 'react-native';
 
-import { useAdded } from '../../app/added';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
@@ -40,7 +39,6 @@ export function GroupScreen({ route, navigation }: Props) {
   const { c, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
   const undo = useUndo();
-  const added = useAdded();
   const actions = useTaskActions();
   const events = useEventActions();
   const lists = useMemo(() => listsView(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
@@ -84,21 +82,26 @@ export function GroupScreen({ route, navigation }: Props) {
   }
   const personal = d.group.kind === 'personal';
   // Decyzja właściciela z 8.10.2026 (PW-41 A): „Zaproś” pokazuje bieżący ważny kod tej roli (serwer tworzy nowy, gdy
-  // ważnego nie ma), „Nowy kod” tworzy kolejny i unieważnia poprzedni.
+  // ważnego nie ma albo gdy po jego wystawieniu ktoś został usunięty z grupy — audyt 3, N-38), „Nowy kod” tworzy kolejny
+  // i unieważnia poprzedni.
   const makeInvite = async (role: 'member' | 'admin', renew = false) => {
     setError(null);
     try {
       setInvite({ ...(await (renew ? account.renewJoinCode(d.group.id, role) : account.createJoinCode(d.group.id, role))), role });
     } catch (e) {
-      setError(groupErrorText(e));
+      setError(groupErrorText(e, { owner: d.group.me.role === 'owner' }));
     }
   };
   // Decyzja właściciela z 8.10.2026 (PW-34 A): w grupie z dziećmi domyślnie (pierwszy, główny przycisk) zaproszenie admina —
   // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
   const addChildNow = () => {
     if (child.trim() === '') return setChildError(strings['groups.error.childEmpty']);
-    // Audyt 3 (N-141): jak każde dodanie z formularza (D189) — „Dodano dziecko: … · Cofnij”.
-    added(strings['groups.childAdded'](child.trim(), d.group.name), [addChild({ memberId: newId(), groupId: d.group.id, name: child.trim() })]);
+    const memberId = newId();
+    const op = addChild({ memberId, groupId: d.group.id, name: child.trim() });
+    store.dispatch(op);
+    // Audyt 3 (N-163): jak każde dodanie — „Dodano + rodzaj: tytuł · gdzie” z „Cofnij” (docs/glossary.md); cofnięcie
+    // usuwa profil (bez konta, więc bez śladu usunięcia).
+    undo.show(strings['groups.childAdded'](child.trim(), d.group.name), { ops: [remove('group_members', memberId)] }, { changed: [op] });
     setChild('');
   };
   const adminFirst = d.canInviteAdmin && d.members.some((m) => m.role === 'child');

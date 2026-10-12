@@ -18,7 +18,7 @@ import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
-import { type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { type AppleSignIn, type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
@@ -35,8 +35,8 @@ const toSession = (u: User | null | undefined): Session | null => {
   return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email), ...(apple ? {} : { emailOnly: true }) };
 };
 
-const apple = async (scopes?: 'none') =>
-  AppleAuthentication.signInAsync({ requestedScopes: scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
+const apple: AppleSignIn = async (req = {}) =>
+  AppleAuthentication.signInAsync({ requestedScopes: req.scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
 
 const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
 
@@ -119,10 +119,6 @@ export function realDeps(): RootDeps {
         const { error } = await client.auth.refreshSession();
         if (error) throw error;
       },
-      signOutLocal: async () => {
-        const { error } = await client.auth.signOut({ scope: 'local' });
-        if (error) throw error;
-      },
     },
     // Audyt 2, M-8: identyfikator instalacji także w pęku kluczy „tylko to urządzenie” — wpis z tym atrybutem „is not
     // migrated to a new device when restoring from a backup” (https://docs.expo.dev/versions/v57.0.0/sdk/securestore/),
@@ -143,6 +139,9 @@ export function realDeps(): RootDeps {
     // expo-sqlite SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/): closeSync — „Close the database.”,
     // deleteDatabaseSync(databaseName) — „Delete a database file.”
     removeDb: (userId) => {
+      // Audyt 3 (N-77): identyfikator instalacji usuniętego konta nie zostaje w pęku kluczy (pęk kluczy przeżywa nawet
+      // usunięcie aplikacji). deleteItemAsync — SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/securestore/).
+      void SecureStore.deleteItemAsync(`clientId.${userId}`, DEVICE_ONLY).catch(() => {});
       try {
         openDbs.get(userId)?.closeSync();
         openDbs.delete(userId);

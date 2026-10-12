@@ -46,6 +46,11 @@ export type Task = {
   rollover: boolean;
   /** Kopia stałego zadania serii (D65) — definicja w event_task_series. */
   series_id: string | null;
+  /**
+   * Audyt 3 (N-25): pierwotny dzień terminu zadania powtarzanego przeniesionego „Tylko ten raz” (D137, D181) — następny
+   * liczy się od niego, gdy przeniesiony termin jest wcześniej. Kopia (następne) zaczyna bez niego.
+   */
+  cycle_date: string | null;
   completed_at: string | null;
   deleted_at: string | null;
 };
@@ -80,7 +85,21 @@ export function asList(r: Row): List {
     deleted_at: str(r.deleted_at),
   };
 }
+/**
+ * Zadanie z wiersza, pamiętane po samym wierszu: wiersze są niezmienne (applyOp i pull podmieniają wiersz na nowy obiekt,
+ * materialize kopiuje tabele płytko), a widoki przy każdej zmianie danych zamieniają całą historię — tysiące zadań
+ * (budżet czasu, config.perf). Wynik zamrożony: przypadkowa zmiana pola rzuca błąd zamiast psuć pamięć innym widokom.
+ */
+const tasks = new WeakMap<Row, Task>();
 export function asTask(r: Row): Task {
+  let x = tasks.get(r);
+  if (x === undefined) {
+    x = Object.freeze(toTask(r));
+    tasks.set(r, x);
+  }
+  return x;
+}
+function toTask(r: Row): Task {
   return {
     id: String(r.id),
     group_id: String(r.group_id),
@@ -98,9 +117,21 @@ export function asTask(r: Row): Task {
     occurrence_date: str(r.occurrence_date),
     rollover: r.rollover !== false,
     series_id: str(r.series_id),
+    cycle_date: str(r.cycle_date),
     completed_at: str(r.completed_at),
     deleted_at: str(r.deleted_at),
   };
+}
+
+/**
+ * Chwila usunięcia w ms (audyt 3, N-171). Usunięcie jeszcze niewysłane ma znacznik „pending:N” (applyOp) — liczy się od
+ * `nowMs`. Rozpoznajemy go jawnie: Date.parse('pending:5') w V8 (testy, Node) daje datę z 2001 r., a 'pending:2500' — rok
+ * 2500; Hermes zwraca NaN. Brak albo nieczytelny znacznik — też `nowMs`.
+ */
+export function stampMs(at: unknown, nowMs: number): number {
+  if (typeof at !== 'string' || at.startsWith('pending:')) return nowMs;
+  const ms = Date.parse(at);
+  return Number.isFinite(ms) ? ms : nowMs;
 }
 
 export const rows = <T>(t: Tables, e: string, f: (r: Row) => T): T[] => Object.values(t[e] ?? {}).map(f);
