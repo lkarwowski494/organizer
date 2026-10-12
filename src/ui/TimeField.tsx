@@ -3,7 +3,8 @@
  * (co config.time.MINUTE_STEP), jak mini kalendarz w DateField (D103). Wcześniej było pole tekstowe z podpowiedzią
  * „07:00”, którą łatwo wziąć za wpisaną godzinę. Inną minutę można wpisać ręcznie w panelu; pole opcjonalne ma
  * „Bez godziny”. Wartość jak dotąd: tekst „GG:MM” (sprawdza go formularz).
- * Audyt 2: ręcznie wpisana godzina trafia do formularza dopiero w pełnym kształcie „G:MM”/„GG:MM” albo po wyjściu z pola
+ * Audyt 2: ręcznie wpisana godzina trafia do formularza dopiero w pełnym kształcie „G:MM”/„GG:MM” (dopełniona do „GG:MM”,
+ * audyt 3 N-136) albo po wyjściu z pola
  * — w trakcie pisania („1”, „19:”) nie ma komunikatu o błędzie (M-206). `disabledNote` — pole nieaktywne z wyjaśnieniem,
  * np. „Najpierw wybierz dzień.” w zadaniu bez dnia (M-89: godzina bez dnia znikała bez słowa).
  * M-45 (decyzja PW-11 A z 8.10.2026, D195): „Początek” i „Koniec” obok siebie (TimeFieldPair) mają jeden panel kafelków
@@ -23,6 +24,11 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const HOURS = Array.from({ length: 24 }, (_, h) => pad(h));
 const MINUTES = Array.from({ length: 60 / config.time.MINUTE_STEP }, (_, i) => pad(i * config.time.MINUTE_STEP));
 const parts = (v: string) => /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+/** Audyt 3 (N-136): „7:05” → „07:05” w jednym miejscu — formularze sprawdzają kształt GG:MM. */
+const full = (v: string) => {
+  const m = parts(v);
+  return m ? `${pad(Number(m[1]))}:${m[2]}` : v;
+};
 
 /** `a11yLabel` — etykieta VoiceOver z kontekstem, gdy kilka pól na ekranie ma ten sam napis (audyt 2, M-145). */
 export type TimeFieldProps = { label: string; value: string; onChange: (v: string) => void; testID: string; optional?: boolean; a11yLabel?: string; disabledNote?: string };
@@ -40,10 +46,10 @@ function useTimeField({ label, value, onChange, testID, optional, a11yLabel, dis
   const [typed, setTyped] = useState<string | null>(null);
   const type = (v: string) => {
     setTyped(v);
-    if (parts(v) || v.trim() === '') onChange(v);
+    if (parts(v) || v.trim() === '') onChange(full(v));
   };
   const leave = () => {
-    if (typed !== null && typed !== value) onChange(typed);
+    if (typed !== null && full(typed) !== value) onChange(full(typed));
     setTyped(null);
   };
   const disabled = disabledNote !== undefined;

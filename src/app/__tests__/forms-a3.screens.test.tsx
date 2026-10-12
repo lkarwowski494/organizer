@@ -1,7 +1,6 @@
 /**
- * Audyt 3, paczka formularzy i szkiców (PK-16, poprawki do buildu 23): szkic z wyborami, których już nie ma (N-32),
- * miniony dzień (N-144), przełącznik „Rodzaj” (N-138), plan lekcji zmieniony w międzyczasie (N-31), „Cofnij” rutyny
- * i planu (N-35), limity długości (N-134), uwaga (N-143), zapis pól przy wyjściu z aplikacji (N-139).
+ * Audyt 3, paczka formularzy i szkiców (PK-16): szkic z wyborami, których już nie ma (N-32), miniony dzień (N-144),
+ * parametry otwarcia przed szkicem (N-146), „Odrzuć” z „Cofnij” (N-147), przełącznik „Rodzaj” (N-138).
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 
@@ -176,6 +175,57 @@ describe('N-144: szkic z dniem, który minął', () => {
   });
 });
 
+describe('N-146: parametry otwarcia mają pierwszeństwo przed szkicem nowej listy', () => {
+  it('szkic z „Rodzina”, potem „Nowa lista” z ekranu „Klasa 2b” — wybrana „Klasa 2b”, nazwa ze szkicu zostaje', async () => {
+    await start();
+    await openList();
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Szkic');
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    await press(screen.getByLabelText('Wróć'));
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('group-gk'));
+    await press(await screen.findByLabelText('Nowa lista'));
+    await screen.findByTestId('screen-new-list');
+    expect(selected('Klasa 2b')).toBe(true);
+    expect(screen.getByTestId('list-name').props.value).toBe('Szkic');
+  });
+});
+
+describe('N-147: „Odrzuć” szkic — czerwone, z paskiem „Cofnij”', () => {
+  it('„Odrzuć” czyści pola, pasek „Odrzucono niezapisane zmiany · Cofnij” przywraca je; poza „Ostatnimi zmianami”', async () => {
+    const s = await start();
+    await press(screen.getByTestId('add-more'));
+    await fireEvent.changeText(screen.getByTestId('form-title'), 'Basen');
+    await press(screen.getByLabelText('Wróć'));
+    await press(screen.getByTestId('add-more'));
+    await screen.findByTestId('screen-add-task');
+    await press(screen.getByLabelText('Odrzuć niezapisane zmiany'));
+    expect(screen.getByTestId('form-title').props.value).toBe('');
+    expect(within(screen.getByTestId('undo-bar')).getByText('Odrzucono niezapisane zmiany')).toBeTruthy();
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(screen.getByTestId('form-title').props.value).toBe('Basen');
+    expect(s.services.local!.load(draftKey(ME, 'task:new'))).toContain('Basen');
+    expect(screen.getByText('Przywrócono niezapisane zmiany.')).toBeTruthy();
+    // Szkic to nie zmiana danych grupy — w „Ostatnich zmianach” go nie ma (sam pasek).
+    expect(s.services.local!.load('recent') ?? '').not.toContain('Odrzucono');
+  });
+
+  it('„Cofnij” po wyjściu z ekranu przywraca szkic do następnego otwarcia', async () => {
+    const s = await start();
+    await press(screen.getByTestId('add-more'));
+    await fireEvent.changeText(screen.getByTestId('form-title'), 'Basen');
+    await press(screen.getByLabelText('Wróć'));
+    await press(screen.getByTestId('add-more'));
+    await press(await screen.findByLabelText('Odrzuć niezapisane zmiany'));
+    await press(screen.getByLabelText('Wróć'));
+    expect(s.services.local!.load(draftKey(ME, 'task:new'))).toBeNull();
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(s.services.local!.load(draftKey(ME, 'task:new'))).toContain('Basen');
+    await press(screen.getByTestId('add-more'));
+    expect((await screen.findByTestId('form-title')).props.value).toBe('Basen');
+  });
+});
+
 describe('N-138: przełącznik „Rodzaj” — przeniesione pola są szkicem', () => {
   it('„Więcej → Rutyna → Wróć” zostawia przeniesioną nazwę w szkicu rutyny', async () => {
     const s = await start();
@@ -305,31 +355,47 @@ describe('N-35: „Cofnij” rutyny i planu lekcji sprawdza, czy ktoś je zmieni
     await setTime('routine-start', '07:00');
     await fireEvent.changeText(screen.getByTestId('routine-step-0'), 'Zęby');
     await press(screen.getByTestId('routine-save'));
-    expect(within(await screen.findByTestId('undo-bar')).getByText('Dodano rutynę: Poranek')).toBeTruthy();
+    // N-141: pasek mówi, w której grupie.
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Dodano rutynę: Poranek · Rodzina')).toBeTruthy();
     const ev = creates(s, 'events')[0]! as unknown as { id: string; group_id: string; set: Row };
     await act(async () => s.store.pull((b) => ({ ...b, events: { ...b.events, [ev.id]: { id: ev.id, group_id: ev.group_id, ...ev.set, title: 'Poranek Tymka', deleted_at: null, version: 9 } } })));
     const n = s.store.dispatched.length;
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('open-recent'));
-    await press(await screen.findByLabelText('Cofnij: Dodano rutynę: Poranek'));
+    await press(await screen.findByLabelText('Cofnij: Dodano rutynę: Poranek · Rodzina'));
     expect(s.store.dispatched.slice(n).filter((o) => o.kind === 'delete')).toEqual([]);
     expect(screen.getByText(/zmieniło się od tamtej chwili/)).toBeTruthy();
   });
 
-  it('plan lekcji zmieniony po zapisie: „Cofnij” na pasku go nie cofa', async () => {
+  it('plan lekcji zmieniony po zapisie: „Cofnij” na pasku go nie cofa; pasek mówi, czyj plan', async () => {
     const s = await start();
     await openTimetable();
     await press(screen.getByTestId('lesson-add-0'));
     await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka');
     await setTime('lesson-end-0', '08:45');
     await press(screen.getByTestId('timetable-save'));
-    expect(within(await screen.findByTestId('undo-bar')).getByText('Dodano plan lekcji: 1 lekcja w tygodniu')).toBeTruthy();
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Dodano plan lekcji: 1 lekcja w tygodniu · Tymek · Rodzina')).toBeTruthy();
     const ev = creates(s, 'events')[0]! as unknown as { id: string; group_id: string; set: Row };
     await act(async () => s.store.pull((b) => ({ ...b, events: { ...b.events, [ev.id]: { id: ev.id, group_id: ev.group_id, ...ev.set, start_time: '08:10:00', deleted_at: null, version: 9 } } })));
     const n = s.store.dispatched.length;
     await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
     expect(s.store.dispatched.slice(n).filter((o) => o.kind === 'delete')).toEqual([]);
     expect(await screen.findByText(/to się w międzyczasie zmieniło/)).toBeTruthy();
+  });
+});
+
+describe('N-33: zakupy w nowej liście i „Zaplanuj zakupy” — błąd dopiero po naciśnięciu', () => {
+  it('przed „Utwórz” podpowiedź bez roli alert; po — jeden komunikat', async () => {
+    await start();
+    await openList();
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Na weekend');
+    await press(screen.getByLabelText('Zakupy'));
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    expect(screen.queryAllByRole('alert')).toEqual([]);
+    expect(screen.getByTestId('trip-required-hint')).toBeTruthy();
+    await press(screen.getByTestId('create-list'));
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByTestId('list-error').props.children).toBe('Wybierz osobę albo dzień zakupów.');
   });
 });
 
@@ -354,6 +420,147 @@ describe('N-134: pola nie przyjmują więcej, niż przyjmie serwer', () => {
     await press(screen.getByTestId('form-save'));
     expect(screen.getByRole('alert').props.children).toBe('Najwyżej 500 znaków.');
     expect(creates(s, 'tasks')).toEqual([]);
+  });
+});
+
+describe('N-137: Return w trakcie zapisu nie wysyła drugi raz', () => {
+  it('„Twoje imię”: dwa Return podczas zapisu — jeden zapis, jeden powrót', async () => {
+    const resolvers: (() => void)[] = [];
+    const s = setup({ base: sampleBase(), prefs: { get: jest.fn(async () => '1'), set: jest.fn(async () => {}) } as never });
+    s.account.setMyName.mockImplementation(() => new Promise<void>((r) => void resolvers.push(r)));
+    await s.renderApp(<RootStack />);
+    await act(async () => {});
+    await press(screen.getByLabelText('Ustawienia'));
+    await press(await screen.findByTestId('settings-account'));
+    await press(await screen.findByTestId('open-name'));
+    await fireEvent.changeText(await screen.findByTestId('name-field'), 'Łukasz K.');
+    await fireEvent(screen.getByTestId('name-field'), 'submitEditing');
+    await fireEvent(screen.getByTestId('name-field'), 'submitEditing');
+    await press(screen.getByTestId('name-save'));
+    expect(s.account.setMyName).toHaveBeenCalledTimes(1);
+    await act(async () => resolvers.forEach((r) => r()));
+    expect(await screen.findByTestId('screen-settings-account')).toBeTruthy();
+  });
+
+  it('dołączanie: Return i „Dołącz” w tej samej chwili — jedno wywołanie serwera', async () => {
+    let done: (v: { groupId: string }) => void = () => {};
+    const s = await start();
+    s.account.joinGroup.mockImplementation(() => new Promise((r) => void (done = r)));
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Dołącz do grupy'));
+    await fireEvent.changeText(await screen.findByTestId('invite-join-id'), '482913507');
+    await fireEvent.changeText(screen.getByTestId('invite-code'), '731064');
+    await fireEvent(screen.getByTestId('invite-name'), 'submitEditing');
+    await press(screen.getByTestId('invite-accept'));
+    expect(s.account.joinGroup).toHaveBeenCalledTimes(1);
+    await act(async () => done({ groupId: 'gk' }));
+  });
+
+  it('nowa grupa: dwa Return — jedno utworzenie', async () => {
+    const s = await start();
+    s.account.createGroup.mockImplementation(() => new Promise(() => {}));
+    await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByLabelText('Nowa grupa'));
+    await fireEvent.changeText(await screen.findByTestId('group-name'), 'Sąsiedzi');
+    await fireEvent(screen.getByTestId('group-my-name'), 'submitEditing');
+    await fireEvent(screen.getByTestId('group-my-name'), 'submitEditing');
+    expect(s.account.createGroup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('N-136: godzina wpisana ręcznie i brak godziny', () => {
+  it('„7:05” dopełnia się do „07:05” i zapisuje; bez godziny — „Wybierz godzinę początku.”', async () => {
+    const s = await start();
+    await openEvent();
+    await fireEvent.changeText(screen.getByTestId('event-title'), 'Dentysta');
+    await press(screen.getByTestId('event-save'));
+    expect(screen.getByText('Wybierz godzinę początku.')).toBeTruthy();
+    await press(screen.getByTestId('event-start-0'));
+    await fireEvent.changeText(screen.getByTestId('event-start-0-manual'), '7:05');
+    await fireEvent(screen.getByTestId('event-start-0-manual'), 'blur');
+    expect(screen.getByTestId('event-start-0').props.accessibilityValue.text).toMatch(/^07:05/);
+    await press(screen.getByTestId('event-save'));
+    expect(creates(s, 'events')[0]!.set!.start_time).toBe('07:05');
+  });
+});
+
+describe('N-145: Return w ostatnim polu zatwierdza', () => {
+  it('nowa lista: Return tworzy listę', async () => {
+    const s = await start();
+    await openList();
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Prezenty');
+    await fireEvent(screen.getByTestId('list-name'), 'submitEditing');
+    expect(creates(s, 'lists')).toHaveLength(1);
+  });
+
+  it('formularz zadania: Return zapisuje', async () => {
+    const s = await start();
+    await press(screen.getByTestId('add-more'));
+    await fireEvent.changeText(screen.getByTestId('form-title'), 'Mleko');
+    await fireEvent(screen.getByTestId('form-title'), 'submitEditing');
+    expect(creates(s, 'tasks')).toHaveLength(1);
+  });
+
+  it('rutyna: Return w ostatnim kroku zapisuje; wydarzenie: Return w miejscu zapisuje', async () => {
+    const s = await start();
+    await openRoutine();
+    await press(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina'));
+    await fireEvent.changeText(screen.getByTestId('routine-title'), 'Poranek');
+    await setTime('routine-start', '07:00');
+    await fireEvent.changeText(screen.getByTestId('routine-step-0'), 'Zęby');
+    await fireEvent(screen.getByTestId('routine-step-0'), 'submitEditing');
+    expect(creates(s, 'events')).toHaveLength(1);
+    await press(await screen.findByTestId('calendar-add-event'));
+    await screen.findByTestId('screen-event-edit');
+    await fireEvent.changeText(screen.getByTestId('event-title'), 'Dentysta');
+    await setTime('event-start-0', '10:00');
+    await fireEvent(screen.getByTestId('event-location'), 'submitEditing');
+    expect(creates(s, 'events')).toHaveLength(2);
+  });
+
+  it('plan lekcji: Return w nazwie lekcji przechodzi do następnej, w ostatniej — zapisuje', async () => {
+    const s = await start();
+    await openTimetable();
+    await press(screen.getByTestId('lesson-add-0'));
+    await press(screen.getByTestId('lesson-add-1'));
+    expect(screen.getByTestId('lesson-title-0').props.returnKeyType).toBe('next');
+    expect(screen.getByTestId('lesson-title-1').props.returnKeyType).toBe('done');
+    await fireEvent.changeText(screen.getByTestId('lesson-title-0'), 'Matematyka');
+    await setTime('lesson-end-0', '08:45');
+    await fireEvent.changeText(screen.getByTestId('lesson-title-1'), 'Plastyka');
+    await setTime('lesson-end-1', '08:45');
+    await fireEvent(screen.getByTestId('lesson-title-1'), 'submitEditing');
+    expect(creates(s, 'events')).toHaveLength(2);
+  });
+
+  it('pole bez własnego Return ma „Gotowe” (np. „Wpisz USUŃ” nie wysyła — operacja nieodwracalna)', async () => {
+    await start();
+    await openList();
+    expect(screen.getByTestId('list-name').props.returnKeyType).toBe('done');
+  });
+});
+
+describe('N-149: „Cofnij” na pasku „Dodano listę” na ekranie nowej listy', () => {
+  it('ekran wraca (jak po usunięciu), bez „ktoś ją usunął”', async () => {
+    await start();
+    await openList();
+    await fireEvent.changeText(screen.getByTestId('list-name'), 'Prezenty');
+    await press(screen.getByTestId('create-list'));
+    await screen.findByTestId('screen-list');
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(await screen.findByTestId('screen-lists')).toBeTruthy();
+    expect(screen.queryByTestId('screen-list-missing')).toBeNull();
+  });
+});
+
+describe('N-140: komunikat w formularzu wydarzenia znika po poprawce', () => {
+  it('„Wpisz nazwę wydarzenia.” znika po wpisaniu nazwy', async () => {
+    await start();
+    await openEvent();
+    await press(screen.getByTestId('event-save'));
+    expect(screen.getByText('Wpisz nazwę wydarzenia.')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('event-title'), 'D');
+    expect(screen.queryByText('Wpisz nazwę wydarzenia.')).toBeNull();
   });
 });
 
@@ -386,3 +593,17 @@ describe('N-139: pole zapisywane od razu zapisuje się przy wyjściu z aplikacji
   });
 });
 
+describe('N-141 (Q44 A): „Zapisano zmiany · Cofnij” po zmianie wydarzenia z formularza', () => {
+  it('jednorazowe wydarzenie: zmiana nazwy — pasek, „Cofnij” przywraca nazwę', async () => {
+    const base = sampleBase();
+    base.events = { 'ev-d': { id: 'ev-d', group_id: 'gf', title: 'Dentysta', note: null, start_date: '2026-10-07', start_time: '15:00:00', end_time: null, rrule: null, audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 } };
+    const s = await start({ base });
+    await press(await screen.findByTestId('today-event-ev-d-2026-10-07'));
+    await press(await screen.findByTestId('event-edit'));
+    await fireEvent.changeText(await screen.findByTestId('event-title'), 'Dentysta Tymka');
+    await press(screen.getByTestId('event-save'));
+    expect(within(await screen.findByTestId('undo-bar')).getByText('Zapisano zmiany: Dentysta Tymka')).toBeTruthy();
+    await press(within(screen.getByTestId('undo-bar')).getByLabelText('Cofnij'));
+    expect(s.store.dispatched.at(-1)).toEqual({ kind: 'patch', entity: 'events', id: 'ev-d', set: { title: 'Dentysta' } });
+  });
+});

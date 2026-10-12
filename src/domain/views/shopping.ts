@@ -18,6 +18,7 @@ import { config } from '../../config';
 import { SHOPPING_CATEGORIES, SHOPPING_FORMS, SHOPPING_KEYWORDS, SHOPPING_QUALIFIERS, type ShoppingCategory } from '../../config/shopping.pl';
 import type { NewOp, Row } from '../sync-engine/client';
 import { parseQuantity } from '../quantity';
+import { appendKey, keyBetween } from './sort-keys';
 
 type Tables = { readonly [e: string]: { readonly [id: string]: Row } };
 
@@ -220,13 +221,12 @@ export function missingStaples(t: Tables, listId: string): string[] {
 export function addStaplesOps(t: Tables, listId: string, newId: () => string): NewOp[] {
   const list = t.lists?.[listId];
   if (!list) return [];
-  return missingStaples(t, listId).map((title) => ({
-    kind: 'create',
-    entity: 'tasks',
-    id: newId(),
-    group_id: String(list.group_id),
-    set: { list_id: listId, parent_id: null, title, sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null },
-  }));
+  // Kolejność dodania (Q37 B): kolejne klucze za ostatnią pozycją listy.
+  let key: string | null = null;
+  return missingStaples(t, listId).map((title) => {
+    key = key === null ? appendKey(t, listId, null) : keyBetween(key, null);
+    return { kind: 'create', entity: 'tasks', id: newId(), group_id: String(list.group_id), set: { list_id: listId, parent_id: null, title, sort_key: key, deadline_mode: 'none', due_date: null, due_time: null } };
+  });
 }
 
 export type StaplesEdit = { ok: true; op: NewOp } | { ok: false; error: 'empty' | 'duplicate' | 'full' | 'tooLong' };

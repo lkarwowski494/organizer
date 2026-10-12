@@ -26,6 +26,7 @@
  */
 import { config } from '../config';
 import { applyOp, type NewOp, type Op, type Row } from './sync-engine/client';
+import { LIST_SCOPED_ENTITIES } from './sync-engine/list-scoped';
 import { type MoveArgs, moveCmdSteps, type MoveStep } from './task-move-cmd';
 import { overrideId } from './views/events';
 import { nextId } from './views/task-repeat';
@@ -95,7 +96,7 @@ function canSeeList(t: ServerTables, user: string, listId: unknown): boolean {
 function canSee(t: ServerTables, user: string, entity: string, row: Row): boolean {
   if (entity === 'groups') return !!member(t, String(row.id), user);
   if (entity === 'lists') return canSeeList(t, user, row.id);
-  if (entity === 'tasks' || entity === 'event_task_series' || entity === 'shopping_trips') return canSeeList(t, user, row.list_id);
+  if (LIST_SCOPED_ENTITIES.includes(entity)) return canSeeList(t, user, row.list_id);
   const me = member(t, String(row.group_id), user);
   if (entity === 'my_day_scopes') return !!me && row.member_id === me.member_id;
   if (entity === 'handoffs') return !!me && (row.from_member === me.member_id || row.to_member === me.member_id);

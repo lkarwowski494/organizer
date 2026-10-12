@@ -179,7 +179,7 @@ select set_eq($$ select p.oid::regprocedure::text from pg_proc p where p.proname
         'private.event_duration(time without time zone,time without time zone,integer)', 'private.event_location_max_length()',
         'private.event_max_days()', 'private.forget_rejections(uuid,bigint)', 'private.group_colors()',
         'private.group_rows_since(uuid,bigint,integer)', 'private.issue_child_code(uuid,boolean)', 'private.issue_join_code(uuid,text,boolean)',
-        'private.join_group(text,text,text)', 'private.legacy_entities()', 'private.lock_groups(uuid[])', 'private.max_task_depth()',
+        'private.join_group(text,text,text)', 'private.legacy_entities()', 'private.list_scoped_entities()', 'private.lock_groups(uuid[])', 'private.max_task_depth()',
         'private.minute_of(time without time zone)', 'private.move_task(uuid,uuid,uuid,text)', 'private.move_task_to_group(jsonb)', 'private.my_group_ids()',
         'private.my_member_id(uuid)', 'private.my_role(uuid)', 'private.op_group(jsonb)', 'private.poke_groups(uuid[])',
         'private.pull_limit_max()', 'private.push_batch_max()', 'private.recall_rejection(uuid,bigint,text)',
@@ -187,6 +187,7 @@ select set_eq($$ select p.oid::regprocedure::text from pg_proc p where p.proname
         'private.rrule_date_ok(text)', 'private.rrule_ok(text)', 'private.schema_version()', 'private.set_client_seq(uuid,bigint)',
         'private.set_group_trash(uuid,boolean)', 'private.shopping_categories()', 'private.split_event(jsonb)',
         'private.staple_cmd(text,jsonb)', 'private.task_moved(uuid,uuid,jsonb)', 'private.unmove_task(jsonb)', 'private.staple_max_length()', 'private.staples_max()', 'private.staples_ok(text[])',
+        'private.sync_rate_check(text)',
         'private.task_repeat_ok(text)', 'private.tasks_moved_out(uuid,bigint,bigint)', 'private.transfer_ownership(uuid,uuid)'],
   '45: authenticated wykonuje w private tylko funkcje potrzebne politykom, ograniczeniom i funkcjom INVOKER (nowa — dopisz świadomie)');
 select pg_temp.as_user('');

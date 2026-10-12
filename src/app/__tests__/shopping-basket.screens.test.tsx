@@ -63,7 +63,7 @@ describe('ten sam produkt drugi raz (Q8 A, N-7)', () => {
     expect(screen.getByTestId('quick-add').props.value).toBe('2 chleb żytni');
     await add('2 chleb żytni');
     await press(within(screen.getByTestId('shop-duplicate')).getByLabelText('Dodaj jeszcze raz'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: '2 chleb żytni', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: '2 chleb żytni', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 

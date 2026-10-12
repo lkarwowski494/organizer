@@ -39,7 +39,11 @@ import { AppNavigation } from './navigation';
 
 /** `needsName` i `emailName` — D100 (konto bez imienia; dawne imię zastępcze z adresu e-mail). */
 /** `emailOnly` — konto bez logowania Apple (D177: w becie po wylogowaniu nie da się do niego wrócić). */
-export type Session = { userId: string; displayName: string; needsName?: boolean; emailName?: string | null; emailOnly?: boolean };
+/** `appleUserId` — identyfikator Apple tego konta (tożsamość „apple” w Supabase Auth), do sprawdzania zgody (N-225). */
+export type Session = { userId: string; displayName: string; needsName?: boolean; emailName?: string | null; emailOnly?: boolean; appleUserId?: string };
+
+/** Stan zgody Sign in with Apple dla tego konta na tym iPhonie (AppleAuthenticationCredentialState, SDK 57). */
+export type AppleCredentialState = 'authorized' | 'revoked' | 'not_found' | 'transferred';
 
 export type RootDeps = {
   /** Bieżąca sesja i zmiany (logowanie, wylogowanie, wygaśnięcie). */
@@ -49,6 +53,11 @@ export type RootDeps = {
     /** Odświeżenie tokenu po 401 z serwera (audyt 2, M-9); sukces przychodzi przez onChange. */
     refresh?(): Promise<void>;
   };
+  /**
+   * Zgoda Sign in with Apple (audyt 3, N-225): stan przy starcie i po powrocie do aplikacji oraz sygnał cofnięcia zgody.
+   * Brak = bez sprawdzania (testy, build E2E — na symulatorze getCredentialStateAsync zawsze rzuca).
+   */
+  apple?: { credentialState(appleUserId: string): Promise<AppleCredentialState>; onRevoked(fn: () => void): () => void };
   /**
    * Identyfikator instalacji w pęku kluczy „tylko to urządzenie” (audyt 2, M-8): nie przechodzi do kopii iCloud, więc
    * baza odtworzona z kopii dostaje nowy. Brak = bez sprawdzania (testy).
@@ -314,6 +323,30 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
     [deps, runtime, runLeaving, onDeleted, reportError],
   );
 
+  // N-225: cofnięta zgoda Apple („Przestań używać Apple ID” w Ustawieniach iPhone'a) albo brak poświadczenia — zwykłe
+  // wylogowanie. Apple: „If the user revoked authorization for the app, or the user's credential state not found, the app
+  // displays the log in form” (https://developer.apple.com/documentation/authenticationservices/implementing-user-authentication-with-sign-in-with-apple).
+  // Supabase Auth nie przyjmuje powiadomień serwer–serwer Apple, więc sprawdza telefon: przy starcie, po powrocie
+  // i na sygnał credentialRevokedNotification.
+  useEffect(() => {
+    const apple = deps.apple;
+    const id = session.appleUserId;
+    if (!apple || !id) return;
+    const leave = () => void account.signOut().catch(() => {});
+    const check = () =>
+      void apple
+        .credentialState(id)
+        .then((s) => (s === 'revoked' || s === 'not_found') && leave())
+        .catch(() => {});
+    check();
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && check());
+    const off = apple.onRevoked(leave);
+    return () => {
+      sub.remove();
+      off();
+    };
+  }, [deps, session.appleUserId, account]);
+
   const services: AppServices = useMemo(
     () => ({
       store: { getSnapshot: runtime.getSnapshot, subscribe: runtime.subscribe, dispatch: (op) => runtime.dispatch(op), refresh: () => runtime.event({ t: 'refresh' }), clearRejected: () => runtime.clearRejected() },
@@ -405,6 +438,8 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
     const who = session?.userId ?? null;
     if (who === null || (shownFor.current != null && shownFor.current !== who)) {
       void deps.push?.replaceReminders([]).catch(() => {});
+      // N-109: także pokazane już powiadomienia (ekran blokady, Centrum powiadomień).
+      void deps.push?.dismissShown().catch(() => {});
       void removeMirrorCalendars(deps.calendar, deps.prefs).catch(() => {});
     }
     shownFor.current = who;

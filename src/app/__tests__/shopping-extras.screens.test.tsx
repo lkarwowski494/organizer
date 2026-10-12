@@ -1,6 +1,8 @@
 /** Działy, podpowiedzi i stałe zakupy na liście zakupów (D85, D86). */
 import { fireEvent, screen, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
+import { palettes } from '../../config/theme';
 import { RootStack } from '../navigation';
 import { expectOps, put, sampleBase, setup } from './harness';
 
@@ -61,7 +63,7 @@ describe('działy', () => {
     await press(within(screen.getByTestId('shop-duplicate')).getByLabelText('Dodaj jeszcze raz'));
     expect(within(screen.getByTestId('section-household')).getAllByText(/mydło/i)).toHaveLength(2);
     // Dział z pamięci grupy czyta wyświetlanie — nowa pozycja nie wysyła własnego działu.
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mydło', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'mydło', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     // Ponowne dotknięcie zamyka panel; „Gotowe” też.
     await press(screen.getByLabelText(/^jabłek(,|$)/));
     await press(screen.getByLabelText(/^jabłek(,|$)/));
@@ -90,7 +92,7 @@ describe('podpowiedzi', () => {
     await press(within(s).getByLabelText('Dodaj: Makaron'));
     // Makaron leży w koszyku (Q8 A, N-7) — „Dodaj jeszcze raz” dokłada nową pozycję.
     await press(within(screen.getByTestId('shop-duplicate')).getByLabelText('Dodaj jeszcze raz'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Makaron', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Makaron', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
   });
 });
@@ -124,9 +126,11 @@ describe('stałe zakupy', () => {
     // Mydło czeka na liście, mleko jest w koszyku (PWD-19 A: też „już na liście”) — brakuje tylko jajek.
     expect(screen.getByTestId('staples-add').props.accessibilityLabel).toBe('Dodaj stałe (1)');
     await press(screen.getByTestId('staples-add'));
-    expectOps(store, [{ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } }, { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mleko' } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Jajka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mydło' } }, { kind: 'cmd', cmd: 'staple_add', args: { list_id: 'lz', name: 'Mleko' } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'Jajka', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(within(card()).getByText('Wszystkie stałe zakupy są już na liście.')).toBeTruthy();
     await press(screen.getByTestId('staples-edit'));
+    // Audyt 3 (N-147, M-241): „✕” usuwa — czerwony.
+    expect(StyleSheet.flatten(screen.getByLabelText('Usuń ze stałych: Mydło').props.style).borderColor).toBe(palettes.light.danger);
     await press(screen.getByLabelText('Usuń ze stałych: Mydło'));
     expectOps(store, [{ kind: 'cmd', cmd: 'staple_remove', args: { list_id: 'lz', names: ['Mydło'] } }]);
     expect(screen.queryByLabelText('Usuń ze stałych: Mydło')).toBeNull();

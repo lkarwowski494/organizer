@@ -100,6 +100,27 @@ export const NEXT_FORMS = [
   'następny', 'następnego', 'następnemu', 'następnych', 'następnym', 'następnymi', 'następni', 'następna', 'następną', 'następne', 'następnej',
 ] as const;
 
+/**
+ * Pora dnia przy godzinie (audyt 3, N-127): „o 7 wieczorem”, „wieczorem o 7”, „o 3 po południu”, „o 7 rano”.
+ * Znaczenia ze słownika sjp.pl: wieczór — „część doby poprzedzająca noc; czas między zachodem słońca a nocą”, także
+ * „o siódmej wieczór” (https://sjp.pl/wieczór); popołudnie — „okres w ciągu dnia mierzony zwykle od południa (obiadu) do
+ * wieczora (kolacji)” (https://sjp.pl/popołudnie); rano — „o wczesnej porze dnia, przed południem” (https://sjp.pl/rano).
+ * Więc `pm` przesuwa godzinę 1–11 o 12 h (godzina 13–23 zostaje), a `am` trzyma 1–11 rano (bez odwracania z D43).
+ * „W nocy” celowo nie: noc to „czas od zachodu do wschodu słońca” (https://sjp.pl/noc) — „o 2 w nocy” i „o 11 w nocy”
+ * to różne połówki doby, więc zostaje w nazwie, a godzinę rozstrzyga D43.
+ */
+export const DAY_PARTS = {
+  am: ['rano', 'przed południem'],
+  pm: ['po południu', 'wieczorem', 'wieczór'],
+} as const;
+
+/**
+ * Powtarzanie w szybkim polu (audyt 3, N-128): te same rodzaje co w formularzu („Codziennie”, „Co tydzień”, „Co miesiąc”).
+ * „Codziennie” — przysłówek od „codzienny”: „odbywający się, powtarzający się każdego dnia” (https://sjp.pl/codziennie).
+ * „Co miesiąc” powtarza w dniu miesiąca terminu (jak w formularzu, D137), „co tydzień” — w jego dniu tygodnia.
+ */
+export const RECURRENCE_WORDS = { daily: 'codziennie', weekly: 'co tydzień', monthly: 'co miesiąc' } as const;
+
 /** Kody dni tygodnia w RRULE (RFC 5545, sekcja 3.3.10, „weekday”), indeks 0 = poniedziałek. */
 export const RRULE_WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 

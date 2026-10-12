@@ -12,6 +12,7 @@ import { config } from '../../config';
 import { groupDigits, parseInviteToken, parseJoin } from '../../domain/invite-link';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, Screen, StatusText, Title } from '../../ui/components';
+import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Invite'>;
@@ -41,7 +42,6 @@ export function InviteScreen({ route, navigation }: Props) {
   const [nameEdited, setNameEdited] = useState(false);
   const [already, setAlready] = useState<{ groupId: string; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   // Audyt 2 (R-39): wpisane ID i kod mają pierwszeństwo przed starym 64-znakowym kodem z wklejonej wiadomości.
   const typed = only(joinId).length > 0 && only(code).length > 0;
   const legacy = p.token ?? (typed ? null : parseInviteToken(paste));
@@ -61,7 +61,6 @@ export function InviteScreen({ route, navigation }: Props) {
   const accept = async () => {
     if (!ready) return setError(strings['invite.error.missing']);
     if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
-    setBusy(true);
     setError(null);
     try {
       const name = needsName || nameEdited ? me.trim() : null;
@@ -69,7 +68,6 @@ export function InviteScreen({ route, navigation }: Props) {
       if (alreadyMember) {
         const mine = lowerRole(alreadyMember.role, alreadyMember.inviteRole);
         setAlready({ groupId, text: strings['invite.alreadyMember'](mine && strings[`groups.role.${mine}`]) });
-        setBusy(false);
         return;
       }
       // Audyt 3 (N-45, Q14 A): dołączona grupa zostaje ostatnio użytą, jak nowo utworzona (NewGroupScreen).
@@ -78,9 +76,10 @@ export function InviteScreen({ route, navigation }: Props) {
       navigation.replace('Group', { groupId, fresh: true });
     } catch (e) {
       setError(groupErrorText(e));
-      setBusy(false);
     }
   };
+  // Audyt 3 (N-137): Return i „Dołącz” — jedna wysyłka naraz (drugie wywołanie serwera liczyłoby się jako próba kodu).
+  const { busy, submit } = useSubmit(accept);
   const ready = !!legacy || typed;
 
   return (
@@ -95,7 +94,7 @@ export function InviteScreen({ route, navigation }: Props) {
           <Field label={strings['invite.paste']} value={paste} onChangeText={onPaste} autoCapitalize="none" autoCorrect={false} multiline testID="invite-input" />
         </>
       )}
-      <Field label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setNameEdited(true), setError(null))} placeholder={strings['groups.myName.placeholder']} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="join" onSubmitEditing={() => void accept()} testID="invite-name" />
+      <Field label={strings['groups.myName']} value={me} onChangeText={(v) => (setMe(v), setNameEdited(true), setError(null))} placeholder={strings['groups.myName.placeholder']} maxLength={config.profile.NAME_MAX_LENGTH} textContentType="givenName" autoComplete="name-given" returnKeyType="join" onSubmitEditing={submit} testID="invite-name" />
       {error ? <ErrorText>{error}</ErrorText> : null}
       {already ? (
         <>
@@ -103,7 +102,7 @@ export function InviteScreen({ route, navigation }: Props) {
           <Button label={strings['invite.openGroup']} onPress={() => navigation.replace('Group', { groupId: already.groupId })} testID="invite-open-group" />
         </>
       ) : (
-        <Button label={strings['invite.accept']} onPress={accept} busy={busy} testID="invite-accept" />
+        <Button label={strings['invite.accept']} onPress={submit} busy={busy} testID="invite-accept" />
       )}
     </Screen>
   );

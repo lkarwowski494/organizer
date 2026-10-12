@@ -59,7 +59,7 @@ describe('adresat zadania (D68)', () => {
 
   it('nowe zadanie z osobą wybraną po dodaniu', () => {
     const p = parseQuickAdd('rosół', { y: 2026, m: 10, d: 7, hh: 10, mm: 0 });
-    expect(createTask({ id: 't', groupId: 'gf', listId: 'lf', parsed: p, assigneeId: 'mf' })).toMatchObject({ set: { assignee_member_id: 'mf', deadline_mode: 'none' } });
-    expect(createTask({ id: 't', groupId: 'gf', listId: 'lf', parsed: p }).kind === 'create' && 'assignee_member_id' in (createTask({ id: 't', groupId: 'gf', listId: 'lf', parsed: p }) as { set: object }).set).toBe(false);
+    expect(createTask({ sortKey: 'a0', id: 't', groupId: 'gf', listId: 'lf', parsed: p, assigneeId: 'mf' })).toMatchObject({ set: { assignee_member_id: 'mf', deadline_mode: 'none' } });
+    expect(createTask({ sortKey: 'a0', id: 't', groupId: 'gf', listId: 'lf', parsed: p }).kind === 'create' && 'assignee_member_id' in (createTask({ sortKey: 'a0', id: 't', groupId: 'gf', listId: 'lf', parsed: p }) as { set: object }).set).toBe(false);
   });
 });

@@ -35,6 +35,12 @@ export interface DevicePush {
    * N-105). Błąd pojedynczej pozycji nie zatrzymuje pozostałych — obietnica odrzuca się pierwszym z nich po reszcie.
    */
   replaceReminders(list: Reminder[]): Promise<void>;
+  /**
+   * Zdjęcie pokazanych już powiadomień z Centrum powiadomień (wylogowanie, usunięcie konta, inne konto — audyt 3 N-109).
+   * Zaplanowane zdejmuje `replaceReminders([])`: Apple, removeAllDeliveredNotifications — „does not affect any
+   * notification requests that are scheduled”.
+   */
+  dismissShown(): Promise<void>;
 }
 
 // „Nie teraz” i ustawienia przypomnień należą do konta (D175) — src/app/account-prefs.ts. Tu tylko plan na tym telefonie.
@@ -192,6 +198,9 @@ export const expoDevicePush: DevicePush = {
   env: () => apnsEnv(),
   onOpen: (fn) => openedPaths(Notifications, fn),
   replaceReminders: reminderScheduler(Notifications, Date.now, scheduleMemory()),
+  // SDK 57: „Removes all application's notifications displayed in the notification tray (Notification Center).”
+  // (https://docs.expo.dev/versions/v57.0.0/sdk/notifications/, dismissAllNotificationsAsync)
+  dismissShown: () => Notifications.dismissAllNotificationsAsync(),
 };
 
 type Responses = Pick<typeof Notifications, 'getLastNotificationResponse' | 'clearLastNotificationResponse' | 'addNotificationResponseReceivedListener'>;

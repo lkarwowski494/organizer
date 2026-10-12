@@ -134,21 +134,26 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('wylogowanie a przypomnienia (audyt 2, N-4)', () => {
-  it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają', async () => {
+  it('po wylogowaniu i przy zmianie konta zaplanowane przypomnienia poprzedniego konta znikają, a pokazane — z Centrum powiadomień (audyt 3, N-109)', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const dismissShown = jest.fn(async () => Promise.reject(new Error('brak zgody')));
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown };
     const t = makeDeps({ push });
     await render(<Root deps={t.deps} fontsLoaded />);
     // Start bez sesji: przypomnienia z poprzedniego uruchomienia (np. sprzed wylogowania) też idą precz.
     await waitFor(() => expect(replaceReminders).toHaveBeenCalledWith([]));
     replaceReminders.mockClear();
+    dismissShown.mockClear();
     await t.signIn({ userId: ME, displayName: 'Ala' });
     expect(replaceReminders).not.toHaveBeenCalledWith([]);
+    expect(dismissShown).not.toHaveBeenCalled();
     await t.signIn({ userId: 'u-2', displayName: 'Ola' });
     expect(replaceReminders).toHaveBeenCalledWith([]);
+    expect(dismissShown).toHaveBeenCalledTimes(1);
     replaceReminders.mockClear();
     await t.signIn(null);
     expect(replaceReminders).toHaveBeenCalledWith([]);
+    expect(dismissShown).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -440,7 +445,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 
   it('ciche powiadomienie przy działającej aplikacji: pobiera jej pętla, także w tle, potem plan przypomnień', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const push = { status: async () => 'granted' as const, request: async () => true, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown: async () => {} };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);
@@ -458,7 +463,7 @@ describe('przypomnienia aktualne bez otwierania aplikacji (D159)', () => {
 
   it('bez zgody na powiadomienia — samo pobranie', async () => {
     const replaceReminders = jest.fn(async () => {});
-    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders };
+    const push = { status: async () => 'denied' as const, request: async () => false, token: async () => null, onToken: () => () => {}, onOpen: () => () => {}, env: async () => 'sandbox' as const, replaceReminders, dismissShown: async () => {} };
     const t = makeDeps({ session, push });
     await render(<Root deps={t.deps} fontsLoaded />);
     await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/);

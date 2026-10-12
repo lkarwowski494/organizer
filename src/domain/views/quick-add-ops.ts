@@ -1,6 +1,6 @@
 /**
  * Dodanie zadania z pola szybkiego dodawania: gdzie trafia i jakie operacje wysyła.
- * Bez wskazanej listy — ogólna lista grupy (D97, `generalList`): w osobistej pierwsza lista zadań albo nowa „Moje zadania”,
+ * Bez wskazanej listy — ogólna lista grupy (D97, `generalList`): w osobistej „Moje zadania” (przemianowana — najstarsza lista zadań, N-26) albo nowa,
  * w grupie z „@imię” (D91) lista „Zadania” (powstaje, gdy jej nie ma).
  * Na liście zakupów tytuł zostaje taki, jak go wpisano (audyt 2, M-20): „mąka 1.5 kg” to produkt z ilością (D77,
  * parseQuantity), a nie termin 1 maja — termin i osobę ma cała lista (D73).
@@ -9,6 +9,7 @@ import type { LocalDateTime } from '../civil-date';
 import { parseQuickAdd, type QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import { createTask } from './commands';
+import { appendKey } from './sort-keys';
 import { groupsView, listsView, type Tables } from '.';
 import { generalList, PERSONAL_LIST_NAME } from './task-form';
 
@@ -45,6 +46,6 @@ export function quickAddOps(a: {
     target = { groupId, listId: g.listId };
     ops.push(...g.ops);
   } else return [];
-  ops.push(createTask({ id: a.newId(), groupId: target.groupId, listId: target.listId, parsed, assigneeId: a.assigneeId }));
+  ops.push(createTask({ id: a.newId(), groupId: target.groupId, listId: target.listId, parsed, sortKey: appendKey(a.tables, target.listId, null), assigneeId: a.assigneeId }));
   return ops;
 }

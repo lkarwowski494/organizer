@@ -80,3 +80,42 @@ describe('zaległe na dziś (D111)', () => {
     expect(screen.queryByTestId('move-overdue')).toBeNull();
   });
 });
+
+describe('audyt 3: zaległe — moje i „Biorę to”', () => {
+  it('N-122: zaległe bez osoby z mojej listy „Tylko ja” we wspólnej grupie — przycisk je liczy i przenosi', async () => {
+    const base = sampleBase();
+    put(base, 'lists', 'lpriv', { ...base.lists!.lf!, id: 'lpriv', name: 'Tylko ja', visibility: 'private', owner_member_id: 'mf' });
+    put(base, 'tasks', 'prv', { ...base.tasks!['t-kwiaty']!, id: 'prv', list_id: 'lpriv', title: 'Prezent dla Ali', due_date: '2026-10-05' });
+    const s = setup({ base });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    expect(screen.getByLabelText('Przenieś zaległe na dziś (1)')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('move-overdue'));
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'prv', set: { deadline_mode: 'own', due_date: '2026-10-07' } }]);
+  });
+
+  it('N-133 (Q35 A): wspólne zaległe bez osoby — „Biorę to” na ekranie zadania: moje i na dziś, z „Cofnij”', async () => {
+    const base = sampleBase();
+    put(base, 'tasks', 't-kwiaty', { ...base.tasks!['t-kwiaty']!, due_date: '2026-10-05' });
+    const s = setup({ base });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    // Nie moje, więc „Przenieś zaległe” go nie rusza.
+    expect(screen.queryByTestId('move-overdue')).toBeNull();
+    await fireEvent.press(screen.getByLabelText(/^Kupić kwiaty, zaległe/));
+    await screen.findByTestId('screen-task');
+    await fireEvent.press(screen.getByLabelText('Biorę to'));
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: 'mf' } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07' } },
+    ]);
+    expect(screen.queryByLabelText('Biorę to')).toBeNull();
+    const bar = screen.getByTestId('undo-bar');
+    expect(within(bar).getByText('Bierzesz na dziś: Kupić kwiaty')).toBeTruthy();
+    await fireEvent.press(within(bar).getByLabelText('Cofnij'));
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-05' } },
+    ]);
+  });
+});

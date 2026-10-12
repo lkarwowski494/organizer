@@ -62,11 +62,12 @@ def no_year_date(today, d, m):
     return None
 
 
-def resolve_time(now, day, h, mi):
-    """D43: godzina 1–11 bez dopowiedzenia = najbliższa przyszła; bez dnia: dziś albo jutro."""
+def resolve_time(now, day, h, mi, fixed=False):
+    """D43: godzina 1–11 bez dopowiedzenia = najbliższa przyszła; bez dnia: dziś albo jutro.
+    `fixed` — pora dnia podana słowem (audyt 3, N-127): bez wyboru rano/po południu."""
     def fut(dd, hh):
         return datetime(dd.year, dd.month, dd.day, hh, mi) > now
-    amb = 1 <= h <= 11
+    amb = 1 <= h <= 11 and not fixed
     if day is not None:
         if amb and not fut(day, h) and fut(day, h + 12):
             return day, h + 12
@@ -85,9 +86,12 @@ def unrecognized(now, text):
     return case(now, text, text, None)
 
 
-def case(now, text, title, day, hm=None, weekly=False):
+def case(now, text, title, day, hm=None, weekly=False, freq=None, fixed=False):
+    """`freq` — powtarzanie: "weekly" (jak `weekly=True`), "daily", "monthly" (audyt 3, N-128)."""
+    freq = freq or ("weekly" if weekly else None)
+    weekly = freq is not None
     if hm is not None:
-        day, h = resolve_time(now, day, *hm)
+        day, h = resolve_time(now, day, *hm, fixed=fixed)
         due = {"date": iso(day), "time": f"{h:02d}:{hm[1]:02d}"}
     elif day is not None:
         due = {"date": iso(day), "time": None}  # D45
@@ -96,7 +100,13 @@ def case(now, text, title, day, hm=None, weekly=False):
         due = {"date": iso(day), "time": None}
     else:
         due = None
-    rrule = f"FREQ=WEEKLY;BYDAY={BYDAY[day.weekday()]}" if weekly and day else None
+    rrule = None
+    if freq == "weekly":
+        rrule = f"FREQ=WEEKLY;BYDAY={BYDAY[day.weekday()]}"
+    elif freq == "daily":
+        rrule = "FREQ=DAILY"
+    elif freq == "monthly":
+        rrule = f"FREQ=MONTHLY;BYMONTHDAY={day.day}"
     return {"now": now.strftime("%Y-%m-%dT%H:%M"), "text": text,
             "expected": {"title": title, "due": due, "rrule": rrule}}
 
@@ -142,11 +152,29 @@ for n, now in enumerate(NOWS):
     cases.append(case(now, f"{t} jutro o 17 zamiast we wtorek", f"{t} zamiast we wtorek", today + timedelta(days=1), (17, 0)))
     cases.append(case(now, f"{t} w piątek o 18, nie w przyszły czwartek", f"{t}, nie w przyszły czwartek",
                       weekday_date(today, 4), (18, 0)))
+    # Audyt 3, N-128: „codziennie” i „co miesiąc” (miesięcznie w dniu miesiąca startu).
+    cases.append(case(now, f"{t} codziennie", t, None, freq="daily"))
+    cases.append(case(now, f"{t} jutro o 17 codziennie", t, today + timedelta(days=1), (17, 0), freq="daily"))
+    cases.append(case(now, f"{t} co miesiąc", t, None, freq="monthly"))
+    cases.append(case(now, f"{t} 15.10 co miesiąc", t, no_year_date(today, 15, 10), freq="monthly"))
+    cases.append(case(now, f"{t} co miesiac w piątek", t, weekday_date(today, 4), freq="monthly"))
+    # Audyt 3, N-127: pora dnia (sjp.pl: wieczór, popołudnie, rano) — po południu/wieczorem +12 h dla 1–11, rano bez zmian;
+    # przed godziną albo po niej. Sprzeczna z godziną albo „w nocy” zostaje w tytule (D43 dla godziny).
+    for word, pm in [("rano", False), ("przed południem", False), ("po południu", True), ("wieczorem", True), ("wieczór", True)]:
+        for h in (1, 7, 11):
+            hh = h + 12 if pm else h
+            cases.append(case(now, f"{t} jutro o {h} {word}", t, today + timedelta(days=1), (hh, 0), fixed=True))
+            cases.append(case(now, f"{t} {word} o {h}:15", t, None, (hh, 15), fixed=True))
+    cases.append(case(now, f"{t} o 19 wieczorem", t, None, (19, 0), fixed=True))
+    cases.append(case(now, f"{t} o 19 rano", f"{t} rano", None, (19, 0)))
+    cases.append(case(now, f"{t} o 2 w nocy", f"{t} w nocy", None, (2, 0)))
     # Audyt 3, N-28: słowo dnia wygrywa z liczbą bez roku, liczba zostaje w tytule.
     cases.append(case(now, f"{t} 1.5 jutro", f"{t} 1.5", today + timedelta(days=1)))
     cases.append(case(now, f"{t} 1/2 w piątek", f"{t} 1/2", weekday_date(today, 4)))
     cases.append(case(now, f"{t} 2.5 pojutrze o 17", f"{t} 2.5", today + timedelta(days=2), (17, 0)))
     cases.append(case(now, f"dzisiaj {t} 3/4", f"{t} 3/4", today))
+    # Audyt 3, N-129: „İ” (mała forma ma dwa znaki) nie przesuwa pozycji.
+    cases.append(case(now, f"İ{t} jutro o 17", f"İ{t}", today + timedelta(days=1), (17, 0)))
     # Bez rozpoznawalnych fragmentów: tytuł bez zmian, brak terminu.
     for txt in [t, f"{t} do piątku", f"{t} 2 litry", f"{t} 31.04", f"{t} jutrzejsze", f"{t} 24.00", f"{t} 18.60"]:
         cases.append(case(now, txt, txt, None))

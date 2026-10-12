@@ -11,6 +11,7 @@
  * z src/domain/server-rules.ts (ten sam co atrapa w testach ekranów, zgodny z SQL — tests/db/rules-vs-sql.test.ts).
  */
 import type { DbAdapter } from '../data/db/adapter';
+import { keyBetween } from '../domain/views/sort-keys';
 import { applyOnServer, serverVerdict } from '../domain/server-rules';
 import { type Entity, type PulledRow, type PullRequest, type PullResponse, type PushResponse, type Row, rowKey } from '../domain/sync-engine/client';
 import { LEGACY_KEYS } from './account-prefs';
@@ -65,10 +66,12 @@ export function e2eSeed(): Seed[] {
     row: { id, group_id, kind, name, visibility: 'group', owner_member_id: null, sort_key: 'a0', deleted_at: null },
   });
   let n = 100;
+  // Audyt 3 (N-130): klucze kolejności jak w aplikacji (sort-keys.ts — kolejność dodania), nie „a101, a102…”.
+  let key: string | null = null;
   const task = (list_id: string, group_id: string, title: string, extra: Row = {}): Seed => ({
     e: 'tasks',
     row: {
-      id: uuid(++n), group_id, list_id, parent_id: null, title, note: null, sort_key: `a${n}`, assignee_member_id: null,
+      id: uuid(++n), group_id, list_id, parent_id: null, title, note: null, sort_key: (key = keyBetween(key, null)), assignee_member_id: null,
       deadline_mode: 'none', due_date: null, due_time: null, start_date: null, completed_at: null, deleted_at: null, ...extra,
     },
   });
@@ -246,6 +249,7 @@ export const e2ePush: DevicePush = {
   onOpen: () => () => {},
   env: async () => 'sandbox',
   replaceReminders: ok,
+  dismissShown: ok,
 };
 
 /** Drobne ustawienia telefonu (nie konta) w pamięci. */
