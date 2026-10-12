@@ -67,3 +67,14 @@ części 9 (sprawdzenie kompletności zadziałało).
 Odrzucone przy naprawie: mniejsza `concurrency` (wolniej o ok. ⅓ i nadal kilka mutantów naraz może przekroczyć pamięć);
 limit pamięci przez cgroup (`systemd-run` z sudo — zmienia środowisko i właściciela procesów, więcej ruchomych części);
 zmiana testu sync-sim (osłabiałaby test, który ma wykrywać właśnie te mutanty).
+
+## Drugi przebieg (12.10.2026, https://github.com/lkarwowski494/organizer/actions/runs/38208658558)
+Plan skalibrowany pomiarem z 38172300136: 12 części po 87–88 min przewidywania (praca 1 021 min maszyny). 11 części
+zielonych w 49–90 min (bez zatrzymania maszyny — naprawa pamięci zadziałała); wynik z 11 części 90,08% (15 461 z 17 164
+ważnych). Część 11 padła po 2 min na przebiegu wstępnym: test własności sync-sim z losowym ziarnem znalazł kontrprzykład
+(seed -2063473931; ten sam znany błąd synchronizacji co seed 1793355819 — osobne zadanie, poza tą zmianą).
+Naprawa: w testach mutacyjnych stałe ziarno fast-check (`jest.mutation-setup.js`). Uzasadnienie: Stryker porównuje
+mutanta z przebiegiem wstępnym, więc test zależny od losowania daje niepowtarzalny wynik mutanta; losowe ziarna zostają
+w `npm run check`, gdzie testy własności dalej szukają nowych kontrprzykładów. Odrzucone: naprawa błędu sync-sim w tej
+zmianie (osobna mechanika, wymaga własnego testu i decyzji), pominięcie sync-sim w testach mutacyjnych (to on wykrywa
+mutanty silnika synchronizacji).
