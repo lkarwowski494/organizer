@@ -8,6 +8,11 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 24: animacja przy starcie (decyzja właściciela 10.10.2026, ADR-0045).
+    fromBuild: 24,
+    items: ['Przy starcie aplikacji splątane wstążki rozplatają się i składają w ikonę Organizera. Tapnięcie pomija animację, a przy włączonym „Ogranicz ruch” w ustawieniach iPhone’a jej nie ma.'],
+  },
+  {
     // Build 23: poprawki audytu 3 (9.10.2026) — jedna karta, najwyżej 8 punktów. „Nawiguj” tylko w Mapach Apple — ADR 0043;
     // prywatność — ADR 0044. Licencje: ścieżka sprawdzana w texts.test.ts.
     fromBuild: 23,
