@@ -10,6 +10,8 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
     visible:
       id: "screen-settings"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 # Po testID wiersza; przy AX5 wiersz jest poniżej ekranu (przebieg 38171092887: dotknięcie bez przewinięcia).
 - scrollUntilVisible:
     element:
@@ -22,6 +24,8 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
     visible:
       id: "screen-settings-account"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 # Przez common/scroll-to.yaml: przy AX5 strona ma kilkanaście ekranów, `scrollUntilVisible` nie doszedł do przycisku
 # w 60 s (E2E 38220289381, iPhone 17e).
 - runFlow:

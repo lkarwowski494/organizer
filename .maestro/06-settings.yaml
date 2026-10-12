@@ -7,6 +7,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "Ustawienia"
 # Wylogowanie jest na podstronie „Konto i dane” (D131).
 # Po testID wiersza; przy AX5 wiersz jest poniżej ekranu (przebieg 38171092887: dotknięcie bez przewinięcia).
@@ -21,6 +23,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings-account"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 # Audyt 3 (N-74, N-75): przełącznik raportów błędów i link do polityki prywatności (strony nie otwieramy — sieć).
 - scrollUntilVisible:
     element:
@@ -47,6 +51,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element:
       id: "open-licenses"
@@ -58,14 +64,33 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-licenses"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 # Pozycja z najkrótszym tekstem licencji (SQLite, „blessing”, ok. 270 znaków). Maestro widzi element, gdy co najmniej
 # 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds), a przy AX5 na ekran iPhone'a 17e mieści się ok. 110
 # znaków tekstu: tekst kroju pisma (ok. 5500 znaków, E2E 38237288337) ani MIT (ok. 1100 znaków, E2E 38256361018 — zrzut:
-# cały ekran tekstu) nigdy nie był „widoczny”. Do pozycji (blisko końca listy, ponad 80 pozycji) przez
-# common/scroll-to.yaml — wolne kroki bez limitu czasu; `scrollUntilVisible` w 20 s dochodził do ok. 20. pozycji (E2E 65,
-# 80ef39a), a przy AX5 mijał pozycję z rozpędem (E2E 38220289381).
+# cały ekran tekstu) nigdy nie był „widoczny”. SQLite jest blisko końca listy (ponad 80 pozycji): wolne kroki od góry
+# trwały przy AX5 16–20 min (E2E 38283348025 — przebieg przekroczył limit czasu). Dlatego najpierw szybkie przeciągnięcia
+# do końca listy (ostatnia pozycja: wybieg listy kończy się na końcu treści, nic się nie mija), potem wolne kroki
+# w górę przez common/scroll-up-to.yaml. Przy domyślnym tekście SQLite jest wtedy na ekranie, przy AX5 ponad nim.
+- repeat:
+    while:
+      notVisible:
+        id: "license-whatwg-url-minimum"
+    times: 60
+    commands:
+      - swipe:
+          start: "50%, 85%"
+          end: "50%, 25%"
+          duration: 300
+      - waitForAnimationToEnd:
+          timeout: 2000
+- assertVisible:
+    id: "license-whatwg-url-minimum"
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
-    file: common/scroll-to.yaml
+    file: common/scroll-up-to.yaml
     env:
       ID: "license-SQLite"
 - tapOn:
@@ -75,6 +100,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-license"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - assertVisible: "SQLite"
 # Przy AX5 tytuł i wersja zajmują cały ekran, tekst licencji zaczyna się niżej (E2E 38220289381, iPhone 17e) —
 # wolne kroki w dół, aż tekst wejdzie na ekran.
@@ -101,6 +128,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-licenses"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 # Zrzut ze strony głównej Ustawień (wskaźnik synchronizacji jest tylko tam).
 # Lista przewinięta do SQLite (przy AX5 ok. 25 ekranów): na górę szybkimi przeciągnięciami w dół — na początku listy
 # ruch z rozpędem się kończy, nic się nie mija (scrollUntilVisible w 60 s mógłby nie zdążyć).
@@ -121,6 +150,8 @@ name: 06 Ustawienia się otwierają
     visible:
       id: "screen-settings"
     timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element: "Ustawienia"
     direction: UP

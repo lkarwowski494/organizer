@@ -33,7 +33,7 @@ function syncChecksBelowTop(text: string): number[] {
   steps(text).forEach((step, i) => {
     if (/^- scrollUntilVisible/.test(step)) scrolledDown = !/direction: UP/.test(step);
     // common/scroll-tap*.yaml i common/scroll-to.yaml przewijają w dół.
-    else if (/^- runFlow:\s*\n\s+file: common\/scroll-(tap(-text)?|to)\.yaml/.test(step)) scrolledDown = true;
+    else if (/^- runFlow:\s*\n\s+file: common\/scroll-(tap(-text)?|to|up-to)\.yaml/.test(step)) scrolledDown = true;
     // Wspólny start (launch.yaml) otwiera ekran od góry; wpisanie tekstu (type.yaml) nie przewija w górę.
     else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|runFlow:\s*\n\s+file: common\/open-tab\.yaml)/.test(step)) scrolledDown = false;
     else if (scrolledDown && checksSyncChip(step)) bad.push(i);
@@ -143,8 +143,8 @@ describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () =>
  * ok. 110 znaków — tekst MIT (ok. 1100 znaków) nie był „widoczny” (E2E 38256361018). Scenariusz otwiera najkrótszy tekst.
  */
 const LICENSES = JSON.parse(readFileSync(join(__dirname, '../../licenses/third-party.json'), 'utf8')) as { packages: { name: string; kind: string; text: string }[]; texts: Record<string, string> };
-// `id:` w kroku albo `ID:` w env common/scroll-to.yaml.
-const licenseRows = (text: string) => [...text.matchAll(/\b(?:id|ID): "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
+// Otwierane pozycje: dotknięcie wiersza `license-<nazwa>`.
+const licenseRows = (text: string) => [...text.matchAll(/- tapOn:\s*\n\s+id: "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
 const licenseText = (name: string) => LICENSES.texts[LICENSES.packages.find((p) => p.name === name)!.text]!;
 const SHORT_TEXT = 400;
 
@@ -160,7 +160,18 @@ describe('scenariusze Maestro — pozycja ekranu Licencje z krótkim tekstem, pr
     const shortest = Math.min(...LICENSES.packages.map((p) => LICENSES.texts[p.text]!.length));
     expect(licenseText('SQLite').length).toBe(shortest);
     expect(shortest).toBeLessThan(SHORT_TEXT);
-    expect(steps(text).filter((x) => /^- scrollUntilVisible/.test(x) && /license-SQLite/.test(x))).toEqual([]);
+    expect(steps(text).filter((x) => /^- scrollUntilVisible/.test(x) && /license-/.test(x))).toEqual([]);
+  });
+
+  it('06 dochodzi do końca listy szybkimi przeciągnięciami (ostatnia pozycja z pliku licencji), potem wolno w górę do SQLite (E2E 38283348025: wolne kroki od góry 16–20 min przy AX5)', () => {
+    const st = steps(readFileSync(join(DIR, '06-settings.yaml'), 'utf8'));
+    const last = LICENSES.packages[LICENSES.packages.length - 1]!.name;
+    const toEnd = st.findIndex((x) => /^- repeat:/.test(x) && x.includes(`id: "license-${last}"`));
+    expect(toEnd).toBeGreaterThan(-1);
+    expect(st[toEnd]).toMatch(/duration: 300/);
+    const up = st.findIndex((x) => /^- runFlow:\s*\n\s+file: common\/scroll-up-to\.yaml\s*\n\s+env:\s*\n\s+ID: "license-SQLite"/.test(x));
+    expect(up).toBeGreaterThan(toEnd);
+    expect(st[up + 1]).toBe('- tapOn:\n    id: "license-SQLite"\n    point: "20,10"');
   });
 
   it.each(flows)('%s: każda pozycja ekranu Licencje z krótkim tekstem', (f) => {
@@ -253,7 +264,7 @@ describe('scenariusze Maestro — dotknięcie po przewinięciu nad zasłonami', 
   });
 
   it('bez hideKeyboard z Maestro (przesunięcie o 3% w 50 ms trafiało w pole „Miejsce”, przebieg 38171092887)', () => {
-    for (const f of [...flows, 'common/scroll-tap.yaml', 'common/scroll-tap-text.yaml', 'common/scroll-to.yaml']) expect([f, steps(readFileSync(join(DIR, f), 'utf8')).filter((x) => /^- hideKeyboard/.test(x))]).toEqual([f, []]);
+    for (const f of [...flows, 'common/scroll-tap.yaml', 'common/scroll-tap-text.yaml', 'common/scroll-to.yaml', 'common/scroll-up-to.yaml']) expect([f, steps(readFileSync(join(DIR, f), 'utf8')).filter((x) => /^- hideKeyboard/.test(x))]).toEqual([f, []]);
   });
 
   it('wspólny start nie czeka na wiersz danych poza pierwszym wierszem ekranu (AX5: wszystkie scenariusze oblewały na starcie)', () => {
@@ -284,6 +295,24 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
     expect(scrolledTo(after)).toEqual(['delete-start']);
   });
 
+  it('common/scroll-up-to.yaml: jak scroll-to, w górę — wolne kroki i jeszcze 25% w dół; bez scrollUntilVisible', () => {
+    const s = steps(readFileSync(join(DIR, 'common/scroll-up-to.yaml'), 'utf8'));
+    expect(s).toHaveLength(2);
+    expect(s[0]).toMatch(/^- runFlow:\s*\n\s+when:\s*\n\s+notVisible:\s*\n\s+id: \$\{ID\}\s*\n\s+commands:\s*\n\s+- repeat:/);
+    expect([...s[0]!.matchAll(/start: "50%, 35%"\s*\n\s+end: "50%, 60%"\s*\n\s+duration: 700/g)]).toHaveLength(2);
+    expect(s[0]).not.toMatch(/scrollUntilVisible/);
+    expect(s[1]).toMatch(/^- assertVisible:\s*\n\s+id: \$\{ID\}$/);
+  });
+
+  it('06 i 07: po wejściu na ekran stosu koniec animacji przed dotknięciem (E2E 38283348025: „Konto i dane” dotknięte w trakcie przejścia, Ustawienia zostały)', () => {
+    for (const f of ['06-settings.yaml', '07-keyboard.yaml']) {
+      const st = steps(readFileSync(join(DIR, f), 'utf8'));
+      const waits = st.flatMap((x, i) => (/^- extendedWaitUntil:\s*\n\s+visible:\s*\n\s+id: "screen-/.test(x) ? [i] : []));
+      expect(waits.length).toBeGreaterThan(1);
+      for (const i of waits) expect([f, i, st[i + 1]?.split('\n')[0]]).toEqual([f, i, '- waitForAnimationToEnd:']);
+    }
+  });
+
   it('common/scroll-to.yaml: tylko gdy elementu nie ma na ekranie — wolne kroki do elementu i jeszcze 15%; bez scrollUntilVisible', () => {
     const s = steps(SCROLL_TO);
     expect(s).toHaveLength(2);
@@ -297,7 +326,7 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
   it('06 i 07: pozycja Licencji, „Usuń konto” i przycisk pod polem „Wpisz USUŃ” przez common/scroll-to.yaml', () => {
     const s06 = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
     const s07 = readFileSync(join(DIR, '07-keyboard.yaml'), 'utf8');
-    expect(scrolledTo(s06)).toEqual(['license-SQLite']);
+    expect(scrolledTo(s06)).toEqual([]);
     expect(scrolledTo(s07)).toEqual(['delete-start', 'delete-confirm']);
     expect(fastScrolls(s06, scrolledTo(s06) as string[])).toEqual([]);
     expect(fastScrolls(s07, ['delete-start', 'delete-confirm', 'delete-word'])).toEqual([]);
