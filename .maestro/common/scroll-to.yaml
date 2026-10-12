@@ -1,0 +1,33 @@
+# Przewinięcie w dół do elementu na ekranie stosu bez paska zakładek (ID = testID), np. Ustawienia, Licencje.
+# Po co: przy AX5 strony są wielokrotnie wyższe niż ekran (E2E 38220289381, 12.10.2026):
+#  - `scrollUntilVisible` przewija szybkim ruchem i lista toczy się dalej po puszczeniu: na iPhonie 17 Pro Max
+#    minął pozycję „@expo-google-fonts/atkinson-hyperlegible-next” (zrzut: lista już przy „@react-native/…”);
+#  - na „Konto i dane” (iPhone 17e) w 60 s nie doszedł do „Usuń konto”.
+# Dlatego:
+#  1. wolne kroki po 40% ekranu (700 ms — bez rozpędu), aż element pojawi się na ekranie (Maestro: co najmniej 10%
+#     elementu, ViewHierarchy filterOutOfBounds; https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/ViewHierarchy.kt);
+#  2. `scrollUntilVisible` z najmniejszą prędkością, aż cały element będzie na ekranie (element jest już tuż pod
+#     dolną krawędzią, więc wystarcza jeden ruch) — dotknięcie trafia w środek elementu, który wtedy jest na ekranie.
+# Element wyższy niż ekran (tekst licencji) — tylko krok 1, bez tego pliku (w scenariuszu).
+appId: io.github.lkarwowski494.organizer
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 60
+    commands:
+      - swipe:
+          start: "50%, 70%"
+          end: "50%, 30%"
+          duration: 700
+      - waitForAnimationToEnd:
+          timeout: 2000
+- scrollUntilVisible:
+    element:
+      id: ${ID}
+    direction: DOWN
+    speed: 10
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000

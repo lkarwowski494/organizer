@@ -114,7 +114,11 @@ jobs:
           exit "$status"
       - name: audyt dostępności na symulatorze (XCUITest)
         if: ${{ !cancelled() }}
+        # Po wariantach Pro Max ten symulator był nadal uruchomiony obok iPhone'a 17e audytu: nocą i ręcznie audyt szedł
+        # ok. 3 razy wolniej niż po pushu (E2E 38220289381: 712 s testów, „Audit failed to complete in time” na dwóch
+        # ekranach; przy pushu, z jednym symulatorem, ok. 7 min całego kroku). Audyt na jedynym uruchomionym symulatorze.
         run: |
+          xcrun simctl shutdown all
           udid="$(scripts/e2e/boot-simulator.sh "$E2E_DEVICE" | tail -n 1)"
           xcrun simctl ui "$udid" content_size large
           args=()

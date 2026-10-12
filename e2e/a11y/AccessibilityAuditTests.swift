@@ -123,10 +123,25 @@ final class AccessibilityAuditTests: XCTestCase {
     return parts.joined(separator: " | ")
   }
 
+  /// Audyt, który nie zdążył się skończyć (błąd XCTest „Audit failed to complete in time”, domena
+  /// com.apple.xcode.xctest.accessibilityAudit, kod -56; E2E 38220289381: testGrupy i testMojeSprawy po 2 h wariantów,
+  /// testMojeSprawyTydzien na tym samym ekranie przeszedł) nie daje wyniku — ani problemów, ani ich braku. Wtedy jeden
+  /// raz od nowa, po końcu animacji, z wierszem „A11Y-RETRY” w logu. Problemy zgłoszone w pierwszej próbie zostają
+  /// porażkami testu (handler zwraca false), a druga przekroczona próba oblewa test tym samym błędem.
   private func audit(_ screen: String, file: StaticString = #filePath, line: UInt = #line) throws {
     expectScreen(screen, file: file, line: line)
     settle()
     continueAfterFailure = true
+    do {
+      try runAudit()
+    } catch let e as NSError where e.domain == "com.apple.xcode.xctest.accessibilityAudit" && e.code == -56 {
+      print("A11Y-RETRY | \(name) | \(e.localizedDescription)")
+      settle()
+      try runAudit()
+    }
+  }
+
+  private func runAudit() throws {
     try app.performAccessibilityAudit { issue in
       let keyboard = (issue.element.map { $0.exists && self.inSystemKeyboard($0) } ?? false) || self.systemPrediction(issue)
       print(self.describe(issue, keyboard: keyboard))

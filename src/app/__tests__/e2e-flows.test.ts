@@ -32,8 +32,8 @@ function syncChecksBelowTop(text: string): number[] {
   const bad: number[] = [];
   steps(text).forEach((step, i) => {
     if (/^- scrollUntilVisible/.test(step)) scrolledDown = !/direction: UP/.test(step);
-    // common/scroll-tap*.yaml przewija w dół (i jeszcze o 20% ekranu).
-    else if (/^- runFlow:\s*\n\s+file: common\/scroll-tap(-text)?\.yaml/.test(step)) scrolledDown = true;
+    // common/scroll-tap*.yaml i common/scroll-to.yaml przewijają w dół.
+    else if (/^- runFlow:\s*\n\s+file: common\/scroll-(tap(-text)?|to)\.yaml/.test(step)) scrolledDown = true;
     // Wspólny start (launch.yaml) otwiera ekran od góry; wpisanie tekstu (type.yaml) nie przewija w górę.
     else if (/^- (tapOn: "Wróć"|runFlow: common\/launch\.yaml|runFlow:\s*\n\s+file: common\/open-tab\.yaml)/.test(step)) scrolledDown = false;
     else if (scrolledDown && checksSyncChip(step)) bad.push(i);
@@ -142,7 +142,8 @@ describe('scenariusze Maestro — wpisywanie tekstu ze sprawdzeniem pola', () =>
  * (lista → tekst licencji), bez zależności od szybkości runnera.
  */
 const LICENSES = JSON.parse(readFileSync(join(__dirname, '../../licenses/third-party.json'), 'utf8')) as { packages: { name: string; kind: string }[] };
-const licenseRows = (text: string) => [...text.matchAll(/id: "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
+// `id:` w kroku albo `ID:` w env common/scroll-to.yaml.
+const licenseRows = (text: string) => [...text.matchAll(/\b(?:id|ID): "license-(?!text")([^"]+)"/g)].map((m) => m[1]!);
 const NEAR_TOP = 3;
 
 describe('scenariusze Maestro — pozycje ekranu Licencje z początku listy', () => {
@@ -251,12 +252,93 @@ describe('scenariusze Maestro — dotknięcie po przewinięciu nad zasłonami', 
   });
 
   it('bez hideKeyboard z Maestro (przesunięcie o 3% w 50 ms trafiało w pole „Miejsce”, przebieg 38171092887)', () => {
-    for (const f of [...flows, 'common/scroll-tap.yaml', 'common/scroll-tap-text.yaml']) expect([f, steps(readFileSync(join(DIR, f), 'utf8')).filter((x) => /^- hideKeyboard/.test(x))]).toEqual([f, []]);
+    for (const f of [...flows, 'common/scroll-tap.yaml', 'common/scroll-tap-text.yaml', 'common/scroll-to.yaml']) expect([f, steps(readFileSync(join(DIR, f), 'utf8')).filter((x) => /^- hideKeyboard/.test(x))]).toEqual([f, []]);
   });
 
   it('wspólny start nie czeka na wiersz danych poza pierwszym wierszem ekranu (AX5: wszystkie scenariusze oblewały na starcie)', () => {
     const s = steps(readFileSync(join(DIR, 'common/launch.yaml'), 'utf8'));
     const waits = s.filter((x) => /^- extendedWaitUntil/.test(x));
     expect(waits.map((x) => /visible:\s*\n?\s*(?:id: )?"([^"]+)"/.exec(x)?.[1])).toEqual(['screen-today', 'Stan synchronizacji: Przed chwilą']);
+  });
+});
+
+/**
+ * Długie strony stosu przy AX5 (E2E 38220289381, 12.10.2026): `scrollUntilVisible` przewija szybkim ruchem z rozpędem —
+ * na iPhonie 17 Pro Max minął pozycję Licencji, na iPhonie 17e nie doszedł w 60 s do „Usuń konto”. Na ekranach bez
+ * paska zakładek (Ustawienia i podstrony) przewijanie do elementu idzie przez common/scroll-to.yaml: wolne kroki,
+ * aż element wejdzie na ekran, potem `scrollUntilVisible` z najmniejszą prędkością do całego elementu.
+ */
+const SCROLL_TO = readFileSync(join(DIR, 'common/scroll-to.yaml'), 'utf8');
+const scrolledTo = (text: string) => steps(text).flatMap((step) => (/^- runFlow:\s*\n\s+file: common\/scroll-to\.yaml/.test(step) ? [/ID: "([^"]+)"/.exec(step)?.[1]] : []));
+const fastScrolls = (text: string, ids: readonly string[]) =>
+  steps(text).flatMap((step, i) => (/^- scrollUntilVisible/.test(step) && ids.some((id) => step.includes(`id: "${id}"`)) ? [i] : []));
+
+describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.yaml', () => {
+  it('wykrywa szybkie przewijanie do „Usuń konto” (wersja 07 z ad9dfff)', () => {
+    const before = ['appId: x', '---', '- scrollUntilVisible:', '    element:', '      id: "delete-start"', '    direction: DOWN', '    timeout: 60000', '- tapOn:', '    id: "delete-start"'].join('\n');
+    expect(fastScrolls(before, ['delete-start'])).toEqual([0]);
+    const after = ['appId: x', '---', '- runFlow:', '    file: common/scroll-to.yaml', '    env:', '      ID: "delete-start"', '- tapOn:', '    id: "delete-start"'].join('\n');
+    expect(fastScrolls(after, ['delete-start'])).toEqual([]);
+    expect(scrolledTo(after)).toEqual(['delete-start']);
+  });
+
+  it('common/scroll-to.yaml: wolne kroki do elementu, potem cały element najmniejszą prędkością', () => {
+    const s = steps(SCROLL_TO);
+    expect(s[0]).toMatch(/^- repeat:\s*\n\s+while:\s*\n\s+notVisible:\s*\n\s+id: \$\{ID\}/);
+    expect(s[0]).toMatch(/duration: 700/);
+    expect(s[1]).toMatch(/^- scrollUntilVisible:\s*\n\s+element:\s*\n\s+id: \$\{ID\}\s*\n\s+direction: DOWN\s*\n\s+speed: 10/);
+    expect(s[1]).not.toMatch(/visibilityPercentage|centerElement/);
+  });
+
+  it('06 i 07: pozycja Licencji, „Usuń konto” i przycisk pod polem „Wpisz USUŃ” przez common/scroll-to.yaml', () => {
+    const s06 = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
+    const s07 = readFileSync(join(DIR, '07-keyboard.yaml'), 'utf8');
+    expect(scrolledTo(s06)).toEqual(['license-@expo-google-fonts/atkinson-hyperlegible-next']);
+    expect(scrolledTo(s07)).toEqual(['delete-start', 'delete-confirm']);
+    expect(fastScrolls(s06, scrolledTo(s06) as string[])).toEqual([]);
+    expect(fastScrolls(s07, ['delete-start', 'delete-confirm', 'delete-word'])).toEqual([]);
+    // Pole wpisywane dopiero, gdy przycisk pod nim jest na ekranie.
+    const st = steps(s07);
+    const confirm = st.findIndex((x) => /ID: "delete-confirm"/.test(x));
+    const typing = st.findIndex((x) => /FIELD: "delete-word"/.test(x));
+    expect(confirm).toBeGreaterThan(-1);
+    expect(typing).toBeGreaterThan(confirm);
+  });
+
+  it('06: tekst licencji sprawdzany po przewinięciu (przy AX5 jest pod tytułem, poza ekranem)', () => {
+    const st = steps(readFileSync(join(DIR, '06-settings.yaml'), 'utf8'));
+    const loop = st.findIndex((x) => /^- repeat:/.test(x) && /id: "license-text"/.test(x));
+    expect(loop).toBeGreaterThan(-1);
+    expect(st.findIndex((x) => /^- extendedWaitUntil/.test(x) && /id: "license-text"/.test(x))).toBe(-1);
+    expect(st[loop + 1]).toMatch(/^- assertVisible:\s*\n\s+id: "license-text"/);
+  });
+});
+
+/**
+ * Pasek „Cofnij” po zapisie (D194: treść paska otwiera „Ostatnie zmiany”). Przy AX5 pasek jest wysoki, a przeciągnięcie
+ * zaczęte i skończone na nim jest dotknięciem (E2E 38220289381, 08 na iPhonie 17 Pro Max: przewijanie Kalendarza w górę
+ * otworzyło „Ostatnie zmiany”). Po zapisie wydarzenia scenariusz czeka, aż pasek zniknie, zanim przewinie.
+ */
+const scrollsUnderUndoBar = (text: string) => {
+  let bar = false;
+  const bad: number[] = [];
+  steps(text).forEach((step, i) => {
+    if (/^- tapOn:\s*\n\s+id: "event-save"/.test(step)) bar = true;
+    else if (/^- extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id: "undo-bar"/.test(step)) bar = false;
+    else if (bar && /^- (scrollUntilVisible|swipe|runFlow:\s*\n\s+file: common\/scroll-)/.test(step)) bad.push(i);
+  });
+  return bad;
+};
+
+describe('scenariusze Maestro — przewijanie po zapisie dopiero bez paska „Cofnij”', () => {
+  it('wykrywa przewijanie przy pasku (wersja 08 z ad9dfff)', () => {
+    const before = ['appId: x', '---', '- tapOn:', '    id: "event-save"', '- extendedWaitUntil:', '    visible:', '      id: "screen-calendar"', '    timeout: 30000', '- scrollUntilVisible:', '    element:', '      id: "day-2026-10-08"', '    direction: UP'].join('\n');
+    expect(scrollsUnderUndoBar(before)).toEqual([2]);
+    const after = before.replace('- scrollUntilVisible', '- extendedWaitUntil:\n    notVisible:\n      id: "undo-bar"\n    timeout: 15000\n- scrollUntilVisible');
+    expect(scrollsUnderUndoBar(after)).toEqual([]);
+  });
+
+  it.each(flows)('%s nie przewija przy pasku „Cofnij” po zapisie wydarzenia', (f) => {
+    expect(scrollsUnderUndoBar(readFileSync(join(DIR, f), 'utf8'))).toEqual([]);
   });
 });

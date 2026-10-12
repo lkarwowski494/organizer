@@ -85,6 +85,13 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     visible:
       id: "screen-calendar"
     timeout: 30000
+# Po zapisie pasek „Cofnij” (treść paska otwiera „Ostatnie zmiany”, D194). Przy AX5 jest wysoki, a przeciągnięcie
+# zaczęte i skończone na nim to dotknięcie — E2E 38220289381 (08, iPhone 17 Pro Max): przewijanie w górę otworzyło
+# „Ostatnie zmiany”. Przewijamy dopiero, gdy pasek zniknie (config.UNDO_MS), jak w 05.
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
 # Kalendarz zostaje przewinięty do „Dodaj wydarzenie” (koniec treści) — wiersz dnia jest wyżej.
 - scrollUntilVisible:
     element: "Wywiadówka, 18:30.*"
