@@ -224,6 +224,9 @@ describe('telefon dziecka z kontem', () => {
   it('grupa: bez „Wyjdź z grupy” — usuwa owner albo admin', async () => {
     await open({ base: childBase() });
     await openGroup('gk');
+    // ADR 0049 (K5): napis o wyjściu stoi w „Ustawieniach grupy”.
+    await press(screen.getByTestId('group-settings'));
+    await screen.findByTestId('screen-group-settings');
     expect(screen.queryByTestId('leave')).toBeNull();
     expect(screen.getByText('Z tej grupy usuwa Cię właściciel albo administrator.')).toBeTruthy();
     // Audyt 3 (N-161): zakres Moich spraw nic u dziecka nie zmienia — bez wyboru.

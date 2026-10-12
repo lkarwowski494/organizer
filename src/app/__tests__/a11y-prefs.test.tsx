@@ -20,6 +20,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Kalendarz', async (p) => p('Kalendarz')],
   ['Nowa rutyna z kafelkami godzin', async (p) => (await p('Kalendarz'), await fireEvent.press(await screen.findByTestId('calendar-add-event')), await fireEvent.press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')), await fireEvent.press(await screen.findByTestId('routine-start')))],
   ['Grupa', async (p) => (await p('Grupy'), await p(/^Rodzina, /))],
+  ['Ustawienia grupy', async (p) => (await p('Grupy'), await p(/^Rodzina, /), await p('Ustawienia grupy'))],
   ['Ustawienia', async (p) => p('Ustawienia')],
 ];
 

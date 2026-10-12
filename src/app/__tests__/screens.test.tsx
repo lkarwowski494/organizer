@@ -254,8 +254,9 @@ describe('Grupy', () => {
     expect(await screen.findByLabelText('Zosia, dziecko')).toBeTruthy();
     // Audyt 3 (N-141): dodanie dziecka jak każde dodanie z formularza — pasek „Dodano … · Cofnij” (D189).
     expect(within(screen.getByTestId('undo-bar')).getByText('Dodano dziecko: Zosia · Rodzina')).toBeTruthy();
-    // D130 (audyt 2): nazwa zapisuje się po wyjściu z pola, bez przycisku.
-    await type(screen.getByTestId('group-rename'), 'Rodzina K.');
+    // D130 (audyt 2): nazwa zapisuje się po wyjściu z pola, bez przycisku — w „Ustawieniach grupy” (ADR 0049, K5).
+    await press(screen.getByTestId('group-settings'));
+    await type(await screen.findByTestId('group-rename'), 'Rodzina K.');
     await fireEvent(screen.getByTestId('group-rename'), 'blur');
     expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { name: 'Rodzina K.' } }]);
     share.mockRestore();
@@ -268,7 +269,8 @@ describe('Grupy', () => {
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByTestId('invite'));
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
-    await press(screen.getByTestId('leave'));
+    await press(screen.getByTestId('group-settings'));
+    await press(await screen.findByTestId('leave'));
     await answerAlert('Anuluj');
     expect(store.dispatched.some((o) => 'entity' in o && o.entity === 'group_members')).toBe(false);
     await press(screen.getByTestId('leave'));
@@ -286,16 +288,19 @@ describe('Grupy', () => {
     await press(await screen.findByTestId('group-gf'));
     await press(await screen.findByLabelText('Zaproś jako administratora'));
     expect(account.createJoinCode).toHaveBeenCalledWith('gf', 'admin');
-    // Owner może zmienić ID grupy (z potwierdzeniem); kod znika, bo przestał działać.
+    // Owner może zmienić ID grupy (z potwierdzeniem, w „Ustawieniach grupy”); kod znika, bo przestał działać.
     expect(screen.getByTestId('invite-ready')).toBeTruthy();
-    await press(screen.getByTestId('rotate-join-id'));
+    await press(screen.getByTestId('group-settings'));
+    await press(await screen.findByTestId('rotate-join-id'));
     await answerAlert('Anuluj');
     expect(account.rotateJoinId).not.toHaveBeenCalled();
     await press(screen.getByTestId('rotate-join-id'));
     await answerAlert('Zmień ID grupy');
     expect(account.rotateJoinId).toHaveBeenCalledWith('gf');
-    expect(screen.queryByTestId('invite-ready')).toBeNull();
     expect(screen.getByText(/Właściciel nie wychodzi z grupy/)).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-group');
+    expect(screen.queryByTestId('invite-ready')).toBeNull();
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByTestId(`group-${ME}`));
     expect(await screen.findByText('Osobiste')).toBeTruthy();
@@ -374,6 +379,7 @@ describe('Edycja grup (D54–D56)', () => {
     const { store, account } = await open({ base: asOwner() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('group-settings'));
     await press(await screen.findByLabelText('Kolor: morski'));
     expectOps(store, [{ kind: 'patch', entity: 'groups', id: 'gf', set: { color: 'teal' } }]);
     expect(screen.getByLabelText('Kolor: morski').props.accessibilityState.selected).toBe(true);
@@ -398,6 +404,7 @@ describe('Edycja grup (D54–D56)', () => {
     await open({ base: asOwner(), account });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('group-settings'));
     await press(await screen.findByTestId('delete-group'));
     await answerAlert('Usuń grupę');
     expect(await screen.findByText(/Ta czynność wymaga internetu/)).toBeTruthy();
@@ -409,6 +416,8 @@ describe('Edycja grup (D54–D56)', () => {
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
     expect(await screen.findByTestId('screen-group')).toBeTruthy();
+    await press(screen.getByTestId('group-settings'));
+    expect(await screen.findByTestId('screen-group-settings')).toBeTruthy();
     expect(screen.queryByLabelText('Kolor: morski')).toBeNull();
     expect(screen.queryByTestId('delete-group')).toBeNull();
   });

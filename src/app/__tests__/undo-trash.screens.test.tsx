@@ -587,6 +587,7 @@ describe('czerwone przyciski (M-241)', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(await screen.findByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('group-settings'));
     expect(red(await screen.findByTestId('rotate-join-id'))).toBe(palettes.light.danger);
   });
 });
@@ -636,6 +637,7 @@ describe('cofnięcie przez serwer (grupa) bez internetu (audyt 3, N-34)', () => 
     s.account.restoreGroup.mockRejectedValueOnce(offline());
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
+    await press(await screen.findByTestId('group-settings'));
     await press(await screen.findByTestId('delete-group'));
     await answerAlert('Usuń grupę');
     await press(within(await screen.findByTestId('undo-bar')).getByLabelText('Cofnij'));

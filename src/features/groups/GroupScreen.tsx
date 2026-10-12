@@ -18,7 +18,7 @@ import { nextStepsKey } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
 import type { JoinInvite } from '../../sync/account';
 import { buttonA11y } from '../../ui/a11y';
-import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
+import { BackButton, Body, Button, Card, CardTitle, ErrorText, Field, GroupLine, GroupMark, NavRow, Screen, SectionTitle, Segmented, SwipeRow, Title } from '../../ui/components';
 import { useMyScope } from '../../app/my-scope';
 import { MY_SCOPES } from '../../domain/views/my-scope';
 import { useUndo } from '../../ui/undo';
@@ -122,18 +122,19 @@ export function GroupScreen({ route, navigation }: Props) {
   const adult = d.group.me.role !== 'child';
   // Plany lekcji dzieci (D128) — tylko grupa wspólna z dziećmi, prowadzą dorośli.
   const kids = d.group.kind === 'shared' && adult ? d.members.filter((m) => m.role === 'child') : [];
-  // Audyt nawigacji (ADR 0049, B1): rzadkie ustawienia grupy (zakres, nazwa, kolor, ID, wyjście, usunięcie) po treści;
-  // od K5 na podstronie „Ustawienia grupy”.
+  const hasScope = !personal && d.group.me.role !== 'child';
+  // Audyt nawigacji (ADR 0049, B1): rzadkie ustawienia grupy (zakres, nazwa, kolor, ID, wyjście, usunięcie) na podstronie
+  // „Ustawienia grupy” — ten sam ekran z parametrem `section`, jak Ustawienia (D131). Wiersz do niej, gdy jest tam co
+  // zrobić albo przeczytać (napis, kto nie wychodzi z grupy).
+  const hasSettings = hasScope || d.canRename || d.canSetColor || (d.group.me.role === 'owner' && !personal) || d.canLeave || !personal || d.canDelete;
+  // Wyjście i usunięcie zabierają grupę — wracamy na zakładki, nie na ekran grupy pod podstroną.
+  const leaveGroupScreens = () => navigation.popToTop();
   const settings = (
     <>
       {/* Audyt 3 (N-161): dziecko z kontem widzi w Moich sprawach tylko swoje sprawy (PW-14 B, child.ts) — zakres nic by
           nie zmienił, więc go nie ma. */}
-      {personal || d.group.me.role === 'child' ? null : (
+      {!hasScope ? null : (
         <View style={{ gap: 6 }}>
-          {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
-          {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
-            <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
-          ) : null}
           <Segmented
             label={strings['myScope.title']}
             value={myScope.scopeOf(d.group.id)}
@@ -211,7 +212,7 @@ export function GroupScreen({ route, navigation }: Props) {
                 onPress: () => {
                   dropNameEdit();
                   store.dispatch(remove('group_members', d.group.me.member_id));
-                  navigation.goBack();
+                  leaveGroupScreens();
                 },
               },
             ])
@@ -228,12 +229,26 @@ export function GroupScreen({ route, navigation }: Props) {
           testID="delete-group"
           onPress={() => {
             setSettingsError(null);
-            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: () => navigation.goBack() });
+            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: leaveGroupScreens });
           }}
         />
       ) : null}
     </>
   );
+
+  if (route.params.section === 'settings') {
+    return (
+      <Screen testID="screen-group-settings">
+        <BackButton onPress={() => navigation.goBack()} />
+        <Title>{strings['groups.settings']}</Title>
+        <GroupLine name={personal ? strings['groups.personal'] : d.group.name} line={d.group.line} />
+        {settings}
+      </Screen>
+    );
+  }
+  // Karta kodu chowa się przy przejściu do ustawień: „Zmień ID grupy” na podstronie unieważnia ten kod, a ekran grupy
+  // o tym nie wie (ID grupy nie ma w danych telefonu). „Zaproś” pokaże bieżący kod od nowa (PW-41 A).
+  const openSettings = () => (setInvite(null), navigation.push('Group', { groupId: d.group.id, section: 'settings' }));
 
   return (
     <Screen testID="screen-group">
@@ -275,6 +290,14 @@ export function GroupScreen({ route, navigation }: Props) {
             }}
           />
         </Card>
+      ) : null}
+      {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko” — zakres jest w „Ustawieniach
+          grupy” (ADR 0049, B1), więc z przyciskiem do nich. */}
+      {route.params.fresh && hasScope && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
+        <View style={{ gap: 8 }}>
+          <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
+          <Button kind="secondary" label={strings['myScope.open']} testID="my-scope-open" onPress={openSettings} />
+        </View>
       ) : null}
       {/* Audyt nawigacji (ADR 0049, B1): Osoby — zaproszenia i dziecko bez konta pod nagłówkiem, potem lista osób. */}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
@@ -358,7 +381,7 @@ export function GroupScreen({ route, navigation }: Props) {
           />
         </SwipeRow>
       ))}
-      {settings}
+      {hasSettings ? <NavRow title={strings['groups.settings']} testID="group-settings" onPress={openSettings} /> : null}
     </Screen>
   );
 }

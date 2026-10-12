@@ -58,6 +58,7 @@ describe('ogłoszenia błędów i potwierdzeń (M-39)', () => {
     await open();
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText(/^Rodzina/));
+    await press(await screen.findByTestId('group-settings'));
     await fireEvent.changeText(await screen.findByTestId('group-rename'), '   ');
     await fireEvent(screen.getByTestId('group-rename'), 'blur');
     await waitFor(() => expect(AccessibilityInfo.announceForAccessibilityWithOptions).toHaveBeenCalledWith('Wpisz nazwę grupy.', { queue: true }));
@@ -158,6 +159,7 @@ describe('fokus paneli i tytułów (M-44, M-269)', () => {
     await open(sampleBase(), { resetLocal: jest.fn() });
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByLabelText(/^Klasa 2b/));
+    await press(await screen.findByTestId('group-settings'));
     await press(await screen.findByTestId('leave'));
     expect(lastAlert().message).toMatch(/^Na pewno wyjść\?/);
   });

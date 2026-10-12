@@ -239,8 +239,11 @@ describe('limity długości (M-228)', () => {
     // Grupa: nazwa (200), imię dziecka (100), imię osoby (100).
     await press(await screen.findByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gf'));
+    expect((await screen.findByTestId('child-name')).props.maxLength).toBe(100);
+    await press(screen.getByTestId('group-settings'));
     expect((await screen.findByTestId('group-rename')).props.maxLength).toBe(200);
-    expect(screen.getByTestId('child-name').props.maxLength).toBe(100);
+    await press(screen.getByLabelText('Wróć'));
+    await screen.findByTestId('screen-group');
     await press(screen.getByTestId('member-tymek'));
     expect((await screen.findByTestId('member-name')).props.maxLength).toBe(100);
     await press(screen.getByLabelText('Wróć'));

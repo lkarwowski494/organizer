@@ -634,11 +634,14 @@ export const strings = {
   'groups.leaveConfirm': (days: number) =>
     `Na pewno wyjść? Stracisz dostęp do list tej grupy. Twoje listy „Tylko ja” trafią do kosza na ${days} ${plural(days, { one: 'dzień', few: 'dni', many: 'dni' })} i wrócą, jeśli w tym czasie dołączysz ponownie. Twoje zadania zostaną w grupie bez osoby, a plan lekcji, obecności i historia dzieci — w grupie (plan skopiujesz przed wyjściem: Plan lekcji → „Skopiuj plan lekcji do…”).`,
   // Audyt 3 (N-163): gdy nie ma komu przekazać własności (brak innego dorosłego z kontem), zostaje „Usuń grupę”.
-  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (dotknij jej imienia) albo usuń grupę.',
+  // ADR 0049 (K5): napis stoi w „Ustawieniach grupy”, a osoby są na ekranie grupy.
+  'groups.ownerCannotLeave': 'Właściciel nie wychodzi z grupy. Najpierw przekaż własność innej osobie (na ekranie grupy dotknij jej imienia) albo usuń grupę.',
   // Decyzja właściciela z 8.10.2026 (PW-14 B): dziecko z kontem nie wychodzi samo z grupy.
   // Audyt 3 (N-163): to samo słowo co przycisk „Usuń z grupy” (docs/glossary.md).
   'groups.childCannotLeave': 'Z tej grupy usuwa Cię właściciel albo administrator.',
   'groups.lists': 'Listy grupy',
+  // ADR 0049 (B1): podstrona ekranu grupy z rzadkimi ustawieniami.
+  'groups.settings': 'Ustawienia grupy',
   'groups.color': 'Kolor grupy',
   'groups.colorAuto': 'Automatyczny',
   // Audyt 2 (A-9): nazwa koloru po polsku (VoiceOver czytał klucz, np. „teal”); klucze z config/theme.ts (groupLines).
@@ -1112,11 +1115,13 @@ export const strings = {
   'missing.group': 'Tej grupy już nie ma — ktoś ją usunął albo już do niej nie należysz.',
   // PW-2 A (M-35, D149): zakres Moich spraw w grupie.
   'myScope.title': 'W Moich sprawach',
+  // ADR 0049 (K5): przycisk przy podpowiedzi zakresu — otwiera „Ustawienia grupy”.
+  'myScope.open': 'Zmień „W Moich sprawach”',
   'myScope.all': 'Wszystko',
   'myScope.mineAndEvents': 'Przypisane do mnie i wydarzenia',
   'myScope.mine': 'Tylko przypisane do mnie',
   'myScope.info': 'Co z tej grupy pokazywać w Moich sprawach, przypomnieniach, porannym podsumowaniu i kalendarzu iPhone’a. Ustawienie Twojego konta (także na innych urządzeniach) — nikt z grupy go nie widzi.',
-  'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz niżej „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
+  'myScope.hint': (n: number) => `Ta grupa ma ${n} ${plural(n, { one: 'osobę', few: 'osoby', many: 'osób' })}. Jeśli jej sprawy zaleją Moje sprawy, wybierz w ustawieniach grupy „Przypisane do mnie i wydarzenia” albo „Tylko przypisane do mnie”.`,
   // PW-38 A (M-119, D192): chipy grup filtrują Moje sprawy i Kalendarz.
   'filter.label': 'Pokaż grupy',
   'filter.chipA11y': (name: string) => `Tylko grupa ${name}`,

@@ -12,7 +12,8 @@ export type RootStackParams = {
   Task: { taskId: string };
   NewList: { groupId?: string; kind?: 'tasks' | 'shopping' };
   /** `fresh` — grupa właśnie utworzona albo dołączona: do pierwszego pobrania „Pobieram grupę…” zamiast błędu (audyt 2, R-16). */
-  Group: { groupId: string; fresh?: boolean };
+  /** `section: 'settings'` — podstrona „Ustawienia grupy” (ADR 0049, B1; wzór Ustawień, D131). */
+  Group: { groupId: string; fresh?: boolean; section?: 'settings' };
   Member: { groupId: string; memberId: string };
   /** `name` — podpowiedź nazwy (pierwsze kroki: „Rodzina”); `starter` — z Pierwszych kroków: listy i „Następne kroki” (PW-36 A). */
   NewGroup: { name?: string; starter?: boolean } | undefined;
