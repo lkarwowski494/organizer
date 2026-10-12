@@ -48,7 +48,7 @@ describe('nowa lista zakupów', () => {
     expect(screen.getByText(/We wspólnej grupie wybierz osobę albo dzień zakupów/)).toBeTruthy();
     // PWD-5 A (M-274): przycisk aktywny — po naciśnięciu komunikat zamiast utworzenia.
     await press(screen.getByTestId('create-list'));
-    expect(screen.getByTestId('list-error').props.children).toMatch(/^We wspólnej grupie wybierz osobę albo dzień zakupów/);
+    expect(screen.getByTestId('list-error').props.children).toBe('Wybierz osobę albo dzień zakupów.');
     expect(store.dispatched).toEqual([]);
     // Dzieci nie robią zakupów.
     const who = screen.getByLabelText('Kto robi zakupy');
@@ -138,7 +138,7 @@ describe('zakupy na liście', () => {
     expect(within(trip).getByText('Bez zaplanowanych zakupów. Zaplanuj dzień albo osobę, żeby lista pojawiła się w Moich sprawach.')).toBeTruthy();
     await press(screen.getByTestId('trip-plan'));
     await press(screen.getByTestId('trip-save'));
-    expect(screen.getByTestId('trip-error').props.children).toMatch(/^We wspólnej grupie wybierz osobę albo dzień zakupów/);
+    expect(screen.getByTestId('trip-error').props.children).toBe('Wybierz osobę albo dzień zakupów.');
     await press(screen.getByLabelText('Anuluj'));
     await press(screen.getByTestId('trip-plan'));
     await press(screen.getByLabelText('Dziś'));

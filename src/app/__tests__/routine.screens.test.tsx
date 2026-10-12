@@ -77,7 +77,7 @@ describe('rutyny (D113)', () => {
     expect(ev).toMatchObject({ group_id: 'gf', set: { title: 'Poranek Tymka', start_time: '07:00', rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA', audience: 'members' } });
     expect(s.store.dispatched.filter((o) => o.kind === 'create' && o.entity === 'event_task_series').map((o) => (o as unknown as { set: { title: string } }).set.title)).toEqual(['Zęby', 'Plecak']);
     const bar = await screen.findByTestId('undo-bar');
-    expect(within(bar).getByText('Dodano rutynę: Poranek Tymka')).toBeTruthy();
+    expect(within(bar).getByText('Dodano rutynę: Poranek Tymka · Rodzina')).toBeTruthy();
     await press(within(bar).getByLabelText('Cofnij'));
     // Audyt 2 (E-3): definicje kroków, wydarzenie i nowa (pusta) lista; kopie kroków też, jeśli już powstały.
     expect(s.store.dispatched.slice(-4).map((o) => [o.kind, (o as { entity: string }).entity])).toEqual([['delete', 'event_task_series'], ['delete', 'event_task_series'], ['delete', 'events'], ['delete', 'lists']]);

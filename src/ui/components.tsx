@@ -680,6 +680,9 @@ export function Field({ label, ref, a11yFocus, ...input }: TextInputProps & { la
         accessibilityLabel={label}
         placeholderTextColor={c.inkMuted}
         inputAccessoryViewID={numeric ? accessory : undefined}
+        // Audyt 3 (N-145): jedna zasada klawisza Return — „Gotowe” (zamyka klawiaturę), chyba że formularz poda inny
+        // (np. „Dalej” do następnego pola). Pole wielowierszowe — nowa linia.
+        returnKeyType={input.multiline ? undefined : 'done'}
         style={{ minHeight: size.TOUCH_TARGET + 4, borderRadius: radius.FIELD, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface, paddingHorizontal: 14, color: c.ink, fontFamily: font.text400, fontSize: size.BODY }}
         {...input}
       />

@@ -21,7 +21,9 @@ import { useDefaultGroup } from '../../app/default-group';
 import { formatDateInline, parseIsoDate } from '../../domain/format';
 import { emptyForm, type EventForm, formOf, moveStart, type Repeat, type Slot, validateForm, weekdayPosition } from '../../domain/views/event-form';
 import { coveredDays, endsNextDay } from '../../domain/span';
+import { inverseOps } from '../../domain/views/commands';
 import { choicesError, sanitizeEventDraft } from '../../domain/views/form-choices';
+import { useUndo } from '../../ui/undo';
 import { type SeriesEffects, seriesEditEffects, seriesEditOps } from '../../domain/views/event-tasks';
 import { createEvent, editEvent, eventDetail, expandEvents, fieldsOf, moveTooFar } from '../../domain/views/events';
 import { occurrenceOwner } from '../../domain/views/event-rows';
@@ -50,12 +52,14 @@ export function EventEditScreen({ route, navigation }: Props) {
   const detail = useMemo(() => (eventId ? eventDetail(tables, userId, eventId) : null), [tables, userId, eventId]);
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
   const added = useAdded();
+  const undo = useUndo();
   const occurrence = route.params.date ?? formatIsoDate(today);
   // PW-37 A (M-118, D191): nowe wydarzenie bez wskazanej grupy (także „Dodaj do grupy” z kalendarza iPhone'a) startuje
   // z „Grupy domyślnej”, jak szybkie dodawanie; zapis zapamiętuje grupę jako ostatnio użytą.
   const defaultGroup = useDefaultGroup();
   const [fallback] = useState(() => startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? '');
-  const [groupId, setGroupId] = useState(detail?.event.group_id ?? (groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : fallback));
+  const fixedGroup = !detail && groups.some((g) => g.id === route.params.groupId) ? route.params.groupId! : undefined;
+  const [groupId, setGroupId] = useState(detail?.event.group_id ?? fixedGroup ?? fallback);
   const [form, setForm] = useState<EventForm>(() => {
     if (detail) return formOf(fieldsOf(detail, occurrence, scope));
     // D98: przejście z formularza zadania (przełącznik „Rodzaj”) — to, co już wpisane.
@@ -86,12 +90,13 @@ export function EventEditScreen({ route, navigation }: Props) {
   // D66: osobą odpowiedzialną jest tylko dorosły (serwer odrzuci dziecko); w grupie osobistej nie ma kogo wybierać.
   const adults = members.filter((m) => m.role !== 'child' && !personal);
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
-  const set = (patch: Partial<EventForm>) => setForm((f) => ({ ...f, ...patch }));
+  // Audyt 3 (N-140): zmiana pola chowa komunikat o błędzie, jak w innych formularzach.
+  const set = (patch: Partial<EventForm>) => (setForm((f) => ({ ...f, ...patch })), setError(null));
   const prefilled = route.params.title !== undefined || route.params.start !== undefined;
   // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest (fokus zostaje na „Wróć”).
   useAnnounce(route.params.kindSwitch ? strings['event.new'] : null);
   // Audyt 3: pola przeniesione przełącznikiem „Rodzaj” to zmiany pustego formularza (N-138); przywrócony szkic bez grupy,
-  // osób i minionego dnia (N-32, N-144).
+  // osób i minionego dnia (N-32, N-144); grupa i dzień z parametrów otwarcia wygrywają ze szkicem (N-146).
   const draft = useFormDraft(
     detail ? `event:${eventId}:${occurrence}:${scope}` : 'event:new',
     { ...form, groupId },
@@ -99,7 +104,7 @@ export function EventEditScreen({ route, navigation }: Props) {
     {
       restore: !prefilled,
       initial: route.params.kindSwitch ? { ...emptyForm(occurrence), groupId: fallback } : undefined,
-      sanitize: (d, init) => sanitizeEventDraft(tables, userId, today, d, init, !detail),
+      sanitize: (d, init) => sanitizeEventDraft(tables, userId, today, d, init, !detail, { groupId: fixedGroup, date: detail ? undefined : route.params.date }),
     },
   );
 
@@ -117,7 +122,7 @@ export function EventEditScreen({ route, navigation }: Props) {
     );
   }
 
-  const setSlot = (i: number, patch: Partial<Slot>) => setForm((f) => ({ ...f, slots: f.slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
+  const setSlot = (i: number, patch: Partial<Slot>) => (setForm((f) => ({ ...f, slots: f.slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) })), setError(null));
   const only = detail !== null && scope === 'this';
   const series = !only && form.repeat !== 'none';
   const multi = !detail && form.repeat === 'weekly';
@@ -163,7 +168,11 @@ export function EventEditScreen({ route, navigation }: Props) {
   const commit = (ops: NewOp[]) => {
     // Szkic znika dopiero przy zapisie — „Wróć” z podglądu zmian serii go nie gubi (D179).
     draft.saved();
+    // Audyt 3 (Q44 A, N-141): po zmianie „wszystkie” i „tylko to” pasek „Zapisano zmiany · Cofnij”, jak po zapisie planu
+    // lekcji; „ten i następne” (polecenie serwera, bez odwrotności) — bez paska.
+    const back = inverseOps(tables, ops);
     store.dispatch(ops);
+    if (back) undo.show(strings['event.savedUndo'](form.title.trim()), { ops: back }, { changed: ops });
     leaving.current = true;
     // Audyt 2 (M-246): po zmianie wracamy do szczegółów wystąpienia, gdy ono nadal istnieje (także przeniesione do nowej
     // serii po „to i następne” — ekran wydarzenia sam trafia do właściciela terminu); gdy zniknęło (np. seria skończyła
@@ -228,11 +237,22 @@ export function EventEditScreen({ route, navigation }: Props) {
         <Segmented label={strings['common.group']} value={groupId} onChange={(g) => (setGroupId(g), set({ participantIds: [], responsibleId: null }))} options={groups.map((g) => ({ value: g.id, label: g.kind === 'personal' ? strings['groups.personal'] : g.name }))} />
       ) : null}
       {/* M-247: kursor w pierwszym polu pustego formularza tworzenia; M-243: Return przechodzi do miejsca. */}
-      {/* Audyt 3 (N-134): limity z SQL. */}
-      <Field label={strings['common.name']} value={form.title} onChangeText={(title) => set({ title })} placeholder={strings['event.titlePlaceholder']} autoFocus={!detail && !prefilled} maxLength={config.lengths.EVENT_TITLE} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => locationField.current?.focus()} testID="event-title" />
+      {/* Audyt 3: limity z SQL (N-134); Return w ostatnim polu tekstowym zapisuje (ADR 0038 p. 8, N-145). */}
+      <Field
+        label={strings['common.name']}
+        value={form.title}
+        onChangeText={(title) => set({ title })}
+        placeholder={strings['event.titlePlaceholder']}
+        autoFocus={!detail && !prefilled}
+        maxLength={config.lengths.EVENT_TITLE}
+        returnKeyType={only ? 'done' : 'next'}
+        submitBehavior={only ? undefined : 'submit'}
+        onSubmitEditing={() => (only ? save() : locationField.current?.focus())}
+        testID="event-title"
+      />
       {only ? null : (
         // D115: miejsce całej serii („Tylko to” go nie zmienia).
-        <Field ref={locationField} label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} maxLength={config.events.LOCATION_MAX_LENGTH} testID="event-location" />
+        <Field ref={locationField} label={strings['event.location']} value={form.location} onChangeText={(location) => set({ location })} placeholder={strings['event.locationPlaceholder']} maxLength={config.events.LOCATION_MAX_LENGTH} onSubmitEditing={() => save()} testID="event-location" />
       )}
       {/* Audyt 2: w serii „to i następne” zaczyna się od tego wystąpienia (E-6, napis wyżej), a „wszystkie” — od początku
           serii; dzień wybiera się tylko, gdy seria staje się jednorazowa (E-7). */}

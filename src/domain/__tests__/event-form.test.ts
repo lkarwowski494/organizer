@@ -49,7 +49,9 @@ describe('formularz wydarzenia', () => {
     [{ title: '  ' }, 'title'],
     [{ date: '2026-02-30' }, 'date'],
     [{ date: 'jutro' }, 'date'],
-    [{ slots: [{ days: [0], start: '', end: '' }] }, 'time'],
+    // Audyt 3 (N-136): brak godziny początku — osobny błąd („Wybierz godzinę początku.”).
+    [{ slots: [{ days: [0], start: '', end: '' }] }, 'noStart'],
+    [{ slots: [{ days: [0], start: '  ', end: '' }] }, 'noStart'],
     // Audyt 3 (N-134): nazwa do config.lengths.EVENT_TITLE znaków.
     [{ title: 'x'.repeat(config.lengths.EVENT_TITLE + 1) }, 'titleLong'],
     [{ slots: [{ days: [0], start: '24:00', end: '' }] }, 'time'],

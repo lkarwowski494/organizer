@@ -34,7 +34,8 @@ export function RoutineScreen({ route, navigation }: Props) {
   // PW-37 A (M-118, D191): bez wskazanej grupy — „Grupa domyślna”, jak szybkie dodawanie; zapis ją zapamiętuje.
   const defaultGroup = useDefaultGroup();
   const [fallback] = useState(() => startGroup(groups, defaultGroup.setting, defaultGroup.last) ?? '');
-  const [groupId, setGroupId] = useState(groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : fallback);
+  const fixedGroup = groups.some((g) => g.id === route.params?.groupId) ? route.params!.groupId! : undefined;
+  const [groupId, setGroupId] = useState(fixedGroup ?? fallback);
   const [title, setTitle] = useState(route.params?.title ?? '');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4]);
   const [start, setStart] = useState('');
@@ -46,11 +47,11 @@ export function RoutineScreen({ route, navigation }: Props) {
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
   // D179 (audyt 2, M-123): szkic na telefonie — wyjście bez „Zapisz” zostawia wpisane pola (app/form-draft).
   // Audyt 3: pola przeniesione przełącznikiem „Rodzaj” to zmiany pustego formularza (N-138); przywrócony szkic bez grupy
-  // i osób, których już nie ma (N-32).
+  // i osób, których już nie ma (N-32); grupa z parametru otwarcia wygrywa ze szkicem (N-146).
   const draft = useFormDraft('routine:new', { groupId, title, days, start, end, who, steps }, { groupId: setGroupId, title: setTitle, days: setDays, start: setStart, end: setEnd, who: setWho, steps: setSteps }, {
     restore: route.params?.title === undefined,
     initial: route.params?.kindSwitch ? { groupId: fallback, title: '', days: [0, 1, 2, 3, 4], start: '', end: '', who: [], steps: [''] } : undefined,
-    sanitize: (d, init) => sanitizeRoutineDraft(tables, userId, d, init),
+    sanitize: (d, init) => sanitizeRoutineDraft(tables, userId, d, init, { groupId: fixedGroup }),
   });
   // M-255: po przełączeniu rodzaju VoiceOver słyszy, w jakim formularzu jest.
   useAnnounce(route.params?.kindSwitch ? strings['routine.title'] : null);
@@ -68,8 +69,9 @@ export function RoutineScreen({ route, navigation }: Props) {
     defaultGroup.remember(groupId);
     // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie (przepis „routine”
     // w AppProvider, także po ponownym uruchomieniu — D194 b). Audyt 3 (N-35): rutyna zmieniona w międzyczasie (np. przez
-    // drugiego rodzica) nie znika po „Cofnij” — odcisk utworzonych wierszy (D194).
-    undo.show(strings['routine.saved'](title.trim()), { ops: r.ops, recipe: 'routine' }, { changed: r.ops });
+    // drugiego rodzica) nie znika po „Cofnij” — odcisk utworzonych wierszy (D194); N-141: pasek mówi, w której grupie.
+    const g = groups.find((x) => x.id === groupId);
+    undo.show(strings['routine.saved'](title.trim(), g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), { ops: r.ops, recipe: 'routine' }, { changed: r.ops });
     navigation.goBack();
   };
 
@@ -113,7 +115,7 @@ export function RoutineScreen({ route, navigation }: Props) {
       {steps.map((s, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Field ref={(r) => void (stepRefs.current[i] = r)} label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} maxLength={config.lengths.TASK_TITLE} returnKeyType={i < steps.length - 1 ? 'next' : 'done'} submitBehavior={i < steps.length - 1 ? 'submit' : undefined} onSubmitEditing={() => stepRefs.current[i + 1]?.focus()} testID={`routine-step-${i}`} />
+            <Field ref={(r) => void (stepRefs.current[i] = r)} label={strings['routine.step'](i + 1)} value={s} onChangeText={(v) => (setSteps(steps.map((x, j) => (j === i ? v : x))), setError(null))} maxLength={config.lengths.TASK_TITLE} returnKeyType={i < steps.length - 1 ? 'next' : 'done'} submitBehavior={i < steps.length - 1 ? 'submit' : undefined} onSubmitEditing={() => (i < steps.length - 1 ? stepRefs.current[i + 1]?.focus() : save())} testID={`routine-step-${i}`} />
           </View>
           {steps.length > 1 ? <Button kind="danger" label={strings['common.delete']} a11yLabel={strings['routine.removeStepA11y'](i + 1)} onPress={() => setSteps(steps.filter((_, j) => j !== i))} /> : null}
         </View>

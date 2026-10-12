@@ -37,7 +37,7 @@ export type EventForm = {
   /** Miejsce (D115): adres albo nazwa; pusto = brak. */
   location: string;
 };
-export type FormError = 'title' | 'titleLong' | 'date' | 'time' | 'endBeforeStart' | 'endDate' | 'endTime' | 'tooLong' | 'overlap' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
+export type FormError = 'title' | 'titleLong' | 'date' | 'noStart' | 'time' | 'endBeforeStart' | 'endDate' | 'endTime' | 'tooLong' | 'overlap' | 'days' | 'interval' | 'until' | 'participants' | 'monthly' | 'location';
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -147,6 +147,8 @@ export function validateForm(s: EventForm, opts: { overnight?: boolean } = {}): 
   const slots = s.repeat === 'weekly' ? s.slots : s.slots.slice(0, 1);
   for (const slot of slots) {
     if (!s.allDay) {
+      // Audyt 3 (N-136): brak godziny to nie zły zapis — godzinę wybiera się kafelkami.
+      if (slot.start.trim() === '') return { error: 'noStart' };
       if (!TIME.test(slot.start.trim()) || (slot.end.trim() !== '' && !TIME.test(slot.end.trim()))) return { error: 'time' };
       if (!opts.overnight && slot.end.trim() !== '' && slot.end.trim() <= slot.start.trim()) return { error: 'endBeforeStart' };
     }

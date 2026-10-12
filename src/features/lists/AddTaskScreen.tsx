@@ -117,8 +117,8 @@ export function AddTaskScreen({ route, navigation }: Props) {
         ]}
       />
       {/* M-247: kursor w pierwszym polu, gdy formularz jest pusty (z „Więcej” tekst już jest). */}
-      {/* Audyt 3 (N-134): limit z SQL. */}
-      <Field ref={titleRef} label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} maxLength={config.lengths.TASK_TITLE} returnKeyType="done" testID="form-title" />
+      {/* Audyt 3: limit z SQL (N-134); jedyne pole tekstowe — Return zapisuje (ADR 0038 p. 8, N-145). */}
+      <Field ref={titleRef} label={strings['task.title']} value={form.title} onChangeText={(v) => set({ title: v })} autoFocus={initialEmpty} maxLength={config.lengths.TASK_TITLE} onSubmitEditing={save} testID="form-title" />
       {choices.length && initial.mention ? (
         <AskPanel
           testID="mention-choices"
