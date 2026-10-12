@@ -303,6 +303,10 @@ export class FakeServer {
       let since = c?.v ?? 0;
       const resync = since > 0 && since < g.purged && c?.p !== g.purged;
       if (resync) since = 0;
+      // Kursor 0 w zapytaniu: telefon nie ma jeszcze żadnej porcji tej grupy (grupa wróciła odłożona przy pobraniu od zera),
+      // a pustej porcji w toku baza telefonu nie przechowuje — porcja od zera idzie z resync, żeby grupa przyszła
+      // w komplecie (20261012020000_pull_deferred_resync, seed 1482257602).
+      const fromZero = c !== undefined && c.v === 0;
       // Grupa bez zmian (N-102): bez wierszy i bez „lists”.
       if (!resync && g.version <= since) {
         groups.push({ group_id: gid, cursor: since, has_more: false, resync: false, rows: [], purged: g.purged, gone: [] });
@@ -337,7 +341,7 @@ export class FakeServer {
         group_id: gid,
         cursor: top,
         has_more: page.length > 0 && !page.some((x) => x.e === 'groups'),
-        resync,
+        resync: resync || fromZero,
         rows: req.entities ? page.filter((x) => req.entities!.includes(x.e)) : page,
         purged: g.purged,
         lists: [...this.lists.values()].filter((l) => l.group_id === gid && this.canSeeList(user, l)).map((l) => String(l.id)).sort(),

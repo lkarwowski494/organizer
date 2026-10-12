@@ -568,6 +568,28 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
     expect(() => check(cmds)).not.toThrow();
   });
 
+  // Grupa odłożona z braku budżetu porcji (seed 1482257602, N-101). Po lokalnej migracji telefon Ali pobiera wszystko od
+  // zera; porcja o jednym wierszu idzie na grupę rodziny, a grupa Bartka (działka) wraca odłożona z kursorem 0 i bez
+  // wierszy. Telefon zapamiętał kursor 0 i pustą porcję w toku, której baza nie przechowuje — po ponownym uruchomieniu
+  // grupa szła już jak zwykłe pobranie od wersji 0, bez podmiany wierszy na komplecie. Ala usuwa zadanie „Skosić”, nocne
+  // czyszczenie kosza zabiera jego nagrobek i telefon pokazywał je na zawsze jako niezrobione.
+  it('regresja: grupa odłożona przez budżet pobierania przychodzi w komplecie także po ponownym uruchomieniu', () => {
+    const cmds: Cmd[] = [
+      { t: 'restart', who: 0, resetCursors: true },
+      { t: 'pull', who: 0, lim: 1, fate: 'ok', failScope: false },
+      { t: 'restart', who: 0, resetCursors: false },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 'mt' } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'purge', keep: 0 },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  it('regresja: kontrprzykład fast-check (seed 1482257602)', () => {
+    const cmds: Cmd[] = [{"t":"restart","who":0,"resetCursors":true},{"t":"mutate","who":0,"op":{"kind":"delete","entity":"tasks","id":"mt"}},{"t":"removeMember","who":1},{"t":"purge","keep":0},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"rejoin","who":1},{"t":"mutate","who":0,"op":{"kind":"create","entity":"lists","id":"l1","group_id":"g1","set":{"kind":"tasks","name":"Dom","visibility":"group"}}},{"t":"removeMember","who":1},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"lists","id":"l1","set":{"name":"A"}}},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"lists","id":"l1","set":{"name":"A"}}},{"t":"purge","keep":0},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"push","who":0,"fate":"ok"},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"push","who":0,"fate":"ok"},{"t":"restart","who":0,"resetCursors":false},{"t":"push","who":0,"fate":"ok"},{"t":"purge","keep":0}] as Cmd[];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
   it('granica obrotów zgłasza nieskończone pobieranie (serwer z błędem M-1: resync w każdej porcji)', () => {
     let s = initialState('c');
     const looping: PullResponse = { groups: [{ group_id: GROUP, cursor: 1, has_more: true, resync: true, rows: [] }], scopes: [] };
