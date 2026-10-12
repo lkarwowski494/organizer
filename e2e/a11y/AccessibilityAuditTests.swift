@@ -218,6 +218,13 @@ final class AccessibilityAuditTests: XCTestCase {
     try audit("screen-group-settings")
   }
 
+  // ADR 0049 (K6): Kosz osobnym ekranem z wiersza w Grupach.
+  func testKosz() throws {
+    open("tab-Groups")
+    open("open-trash")
+    try audit("screen-trash")
+  }
+
   func testUstawienia() throws {
     app.buttons["Ustawienia"].firstMatch.tap()
     try audit("screen-settings")

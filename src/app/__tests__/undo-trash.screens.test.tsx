@@ -48,6 +48,7 @@ describe('kosz na ekranie Grupy (M-34, D151)', () => {
     base.group_members!.mk = { ...base.group_members!.mk, role: 'child' };
     const { store } = await open(base);
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     const trash = await screen.findByTestId('trash');
     expect(within(trash).getByText(/czekają tu 30 dni/)).toBeTruthy();
     expect(within(screen.getByTestId('trash-list')).getByText('Rodzina · z 1 zadaniem · usunięcie za 29 dni')).toBeTruthy();
@@ -78,6 +79,7 @@ describe('kosz na ekranie Grupy (M-34, D151)', () => {
     put(base, 'tasks', 's-maslo', { ...base.tasks!['s-maslo']!, deleted_at: ago(1) });
     await open(base);
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     expect(await screen.findByText('Rodzina · z 2 pozycjami · usunięcie za 29 dni')).toBeTruthy();
     expect(screen.queryByText(`Usunięte ${config.TRASH_PREVIEW}`)).toBeNull();
     await press(screen.getByLabelText(`Pokaż wszystkie (${config.TRASH_PREVIEW + 1})`));
@@ -86,13 +88,41 @@ describe('kosz na ekranie Grupy (M-34, D151)', () => {
     expect(screen.queryByText(`Usunięte ${config.TRASH_PREVIEW}`)).toBeNull();
   });
 
-  it('pusto — bez sekcji kosza; „Ostatnie zmiany” są zawsze', async () => {
+  it('pusto — wiersz „Kosz” bez liczby, ekran mówi, że pusty; „Ostatnie zmiany” są zawsze', async () => {
     await open();
     await press(screen.getByLabelText('Grupy'));
     await screen.findByTestId('screen-groups');
-    expect(screen.queryByTestId('trash')).toBeNull();
-    await press(screen.getByTestId('open-recent'));
+    expect(screen.getByTestId('open-trash').props.accessibilityLabel).toBe('Kosz');
+    await press(screen.getByTestId('open-trash'));
+    const page = await screen.findByTestId('screen-trash');
+    expect(within(page).getByText('Kosz jest pusty.')).toBeTruthy();
+    expect(within(page).queryByTestId('trash')).toBeNull();
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('open-recent'));
     expect(await screen.findByText('Nie ma jeszcze zmian do cofnięcia.')).toBeTruthy();
+  });
+
+  it('ADR 0049 (K6, Q4 a): Kosz to osobny ekran z wiersza pod „Ostatnimi zmianami”, z liczbą rzeczy; na zakładce Grupy nie ma sekcji', async () => {
+    await open(trashBase());
+    await press(screen.getByLabelText('Grupy'));
+    await screen.findByTestId('screen-groups');
+    expect(screen.queryByTestId('trash')).toBeNull();
+    const row = screen.getByTestId('open-trash');
+    expect(row.props.accessibilityLabel).toBe('Kosz, 6 rzeczy');
+    type Host = { props: Record<string, unknown>; children: (Host | string)[] };
+    const ids: string[] = [];
+    const walk = (n: Host | string) => {
+      if (typeof n === 'string') return;
+      if (typeof n.props.testID === 'string') ids.push(n.props.testID);
+      n.children.forEach(walk);
+    };
+    walk(screen.root as unknown as Host);
+    // Zaraz pod „Ostatnimi zmianami” — między nimi tylko strzałka wiersza.
+    expect(ids.slice(ids.indexOf('open-recent') + 1, ids.indexOf('open-trash'))).toEqual(['glyph-next']);
+    await press(row);
+    const page = await screen.findByTestId('screen-trash');
+    expect(within(page).getByRole('header', { name: 'Kosz' })).toBeTruthy();
+    expect(within(page).getByTestId('trash')).toBeTruthy();
   });
 });
 
@@ -653,6 +683,7 @@ describe('cofnięcie przez serwer (grupa) bez internetu (audyt 3, N-34)', () => 
     base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
     const s = await open(base);
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await press(await screen.findByLabelText('Przywróć: Rodzina'));
     expect(within(await screen.findByTestId('undo-bar')).getByText('Przywrócono: Rodzina')).toBeTruthy();
     s.account.deleteGroup.mockRejectedValueOnce(offline());
@@ -666,7 +697,8 @@ describe('cofnięcie przez serwer (grupa) bez internetu (audyt 3, N-34)', () => 
     await act(async () => {});
     expect(s.account.deleteGroup).toHaveBeenCalledTimes(2);
     expect(await screen.findByTestId('trash-gf')).toBeTruthy();
-    await press(screen.getByTestId('open-recent'));
+    await press(screen.getByLabelText('Wróć'));
+    await press(await screen.findByTestId('open-recent'));
     expect(await screen.findByText('Cofnięto')).toBeTruthy();
   });
 });

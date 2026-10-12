@@ -900,6 +900,9 @@ export const strings = {
     shopping ? `z ${n} ${plural(n, { one: 'pozycją', few: 'pozycjami', many: 'pozycjami' })}` : `z ${n} ${plural(n, { one: 'zadaniem', few: 'zadaniami', many: 'zadaniami' })}`,
   'trash.showAll': (n: number) => `Pokaż wszystkie (${n})`,
   'trash.showLess': 'Pokaż mniej',
+  // ADR 0049 (K6): podpis wiersza „Kosz” w Grupach i pusty ekran kosza.
+  'trash.count': (n: number) => `${n} ${plural(n, { one: 'rzecz', few: 'rzeczy', many: 'rzeczy' })}`,
+  'trash.empty': 'Kosz jest pusty.',
 
   'task.noAddressee': 'Nikt nie widzi tego zadania w Moich sprawach. Wybierz osobę („Dla kogo”) albo ustaw termin.',
 

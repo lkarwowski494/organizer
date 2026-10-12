@@ -24,7 +24,7 @@ import { useTaskActions } from '../../app/task-actions';
 import { patchTask, renameList } from '../../domain/views/commands';
 import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDoneRows, type TaskNode } from '../../domain/views';
 import { personOf } from '../../domain/views/who';
-import { InTrashScreen } from '../groups/TrashSection';
+import { InTrashScreen } from '../groups/TrashScreen';
 import { strings } from '../../i18n/strings.pl';
 import { buttonA11y, useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, GroupLine, META_SEP } from '../../ui/components';

@@ -380,6 +380,7 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
   it('przycisk „Przywróć” w wierszu (bez „›”); pasek „Przywrócono” z „Cofnij” z powrotem do kosza', async () => {
     const s = await open({ base: trashed() });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     const row = await screen.findByTestId('trash-gf');
     expect(within(row).getByText('Rodzina')).toBeTruthy();
     expect(within(row).getByText('usunięcie za 29 dni')).toBeTruthy();
@@ -400,6 +401,7 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
     });
     await open({ base: trashed(), account });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await press(await screen.findByLabelText('Przywróć: Rodzina'));
     expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.')).toBeTruthy();
     expect(screen.getByTestId('trash-gf')).toBeTruthy();
@@ -410,9 +412,13 @@ describe('kosz grup (audyt 2, G-38, A-49, R-18)', () => {
   it('grupa wrzucona do kosza ponownie znów jest w koszu (po pobraniu z nową datą)', async () => {
     const s = await open({ base: trashed() });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     await press(await screen.findByLabelText('Przywróć: Rodzina'));
     await remote(s, 'groups', 'gf', { deleted_at: null });
+    await press(screen.getByLabelText('Wróć'));
     expect(await screen.findByTestId('group-gf')).toBeTruthy();
+    await press(screen.getByTestId('open-trash'));
+    await screen.findByTestId('screen-trash');
     await remote(s, 'groups', 'gf', { deleted_at: '2026-10-07T07:00:00Z' });
     expect(await screen.findByTestId('trash-gf')).toBeTruthy();
     expect(screen.getByText('usunięcie za 30 dni')).toBeTruthy();
@@ -490,6 +496,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
     await open({ base });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     const row = await screen.findByTestId('trash-gf');
     expect(within(row).getByText('Grupa Rodzina w koszu (właściciel może przywrócić do: czwartek, 5 listopada)')).toBeTruthy();
     expect(within(row).queryByRole('button')).toBeNull();

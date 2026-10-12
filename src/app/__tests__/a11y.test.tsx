@@ -57,8 +57,9 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
   {
     re: /^etykieta „[^”]*” bez widocznych słów: (h|min|pon|wt|śr|czw|pt|sob|niedz)(, (h|min|pon|wt|śr|czw|pt|sob|niedz))*$/,
     why: 'M-263, N-65: skróty z dopisków aplikacji są w etykiecie słowami („1 h” → „1 godzina”, „śr.” → „środa”; spoken() w src/ui/a11y.ts), tytuł na początku etykiety jest widoczny; jak Sterowanie głosem dopasowuje takie etykiety — do sprawdzenia na iPhonie',
-    // 120 → 124 (ADR 0049, K5): scenariusz „Ustawienia grupy” ma pod spodem ekran grupy z wierszami serii (2 × 2 tryby).
-    max: 124,
+    // 120 → 126 (ADR 0049): nowe scenariusze „Ustawienia grupy” (K5) i „Kosz” (K6) mają pod spodem ekrany z takimi
+    // wierszami (ekran grupy z seriami, zakładki) — po 1–2 na tryb.
+    max: 126,
     hits: 0,
   },
   {
@@ -115,6 +116,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
+  ['Kosz', async (p) => (await p('Usuń: Odebrać paczkę'), await p('Grupy'), await p(/^Kosz/))],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
   ['Ustawienia grupy', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Ustawienia grupy'))],
   ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'))],

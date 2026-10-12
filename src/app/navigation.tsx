@@ -26,6 +26,7 @@ import { NewListScreen } from '../features/lists/NewListScreen';
 import { TaskScreen } from '../features/lists/TaskScreen';
 import { RejectedScreen } from '../features/settings/RejectedScreen';
 import { RecentScreen } from '../features/groups/RecentScreen';
+import { TrashScreen } from '../features/groups/TrashScreen';
 import { AddTaskScreen } from '../features/lists/AddTaskScreen';
 import { FeedbackScreen } from '../features/settings/FeedbackScreen';
 import { LicensesScreen } from '../features/settings/LicensesScreen';
@@ -171,6 +172,7 @@ export function RootStack() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Rejected" component={RejectedScreen} />
       <Stack.Screen name="Recent" component={RecentScreen} />
+      <Stack.Screen name="Trash" component={TrashScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="Licenses" component={LicensesScreen} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} />

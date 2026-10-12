@@ -44,6 +44,8 @@ export type RootStackParams = {
   Rejected: undefined;
   /** Ostatnie zmiany z „Cofnij” bez limitu czasu (D194). */
   Recent: undefined;
+  /** Kosz (D54, D151) — osobny ekran z wiersza w Grupach (ADR 0049, K6). */
+  Trash: undefined;
   /** Pierwsze kroki (D79): wprowadzenie i wybór startu. */
   Welcome: undefined;
   Feedback: undefined;

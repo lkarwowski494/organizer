@@ -427,6 +427,7 @@ describe('Edycja grup (D54–D56)', () => {
     base.groups!.gf = { ...base.groups!.gf, deleted_at: '2026-10-06T08:00:00Z' };
     const { account, store } = await open({ base });
     await press(screen.getByLabelText('Grupy'));
+    await press(await screen.findByTestId('open-trash'));
     expect(screen.queryByTestId('group-gf')).toBeNull();
     expect(await screen.findByText('usunięcie za 29 dni')).toBeTruthy();
     await press(screen.getByLabelText('Przywróć: Rodzina'));
