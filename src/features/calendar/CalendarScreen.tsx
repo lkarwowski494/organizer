@@ -18,7 +18,7 @@ import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../
 import { agenda } from '../../domain/views/agenda';
 import { type Nested, nestEntries } from '../../domain/views/nesting';
 import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
-import { eventsByDate } from '../../domain/views/events';
+import { cancelledEventDays, eventsByDate } from '../../domain/views/events';
 import { daySpan, isContinuation } from '../../domain/span';
 import { occurrenceRow } from '../../ui/when';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
@@ -64,6 +64,9 @@ export function CalendarScreen() {
     setYm({ y: Math.floor(idx / 12), m: (idx % 12) + 1 });
   };
   const day = days.find((d) => d.date === selected);
+  // ADR 0049 (K7, Q3 a): odwołane terminy wybranego dnia — wyszarzone wiersze „Odwołany: …” z drogą do „Przywróć termin”
+  // (tylko grupy, w których jestem dorosłym; bez kropki w siatce i bez miejsca w planie dnia — nic się wtedy nie dzieje).
+  const dayCancelled = useMemo(() => cancelledEventDays(tables, userId, parseIsoDate(selected), parseIsoDate(selected)).filter((e) => shown(e.groupId)), [tables, userId, selected, shown]);
   const dayEvents = day ? (events.get(day.date) ?? []) : [];
   const roles = myMemberships(tables, userId);
   const isoToday = formatIsoDate(today);
@@ -195,7 +198,7 @@ export function CalendarScreen() {
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
-          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 && dayCancelled.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
           {/* D122: wydarzenia z iPhone'a według godziny i przerwy „wolne …” (dziś od teraz, bez minionych dni). */}
           {dayPlan(nestEntries(agenda(day.items, dayEvents), tables), dayDevice, spanOf, { nowMin: day.date === isoToday ? now().hh * 60 + now().mm : null, gaps: day.date >= isoToday }).map((r) =>
             r.kind === 'device' ? (
@@ -206,6 +209,20 @@ export function CalendarScreen() {
               calRow(r.item, day.date)
             ),
           )}
+          {dayCancelled.map((e) => (
+            <EventRow
+              key={`cancelled-${occurrenceKey(e)}-${e.date}`}
+              testID={`cal-cancelled-${e.eventId}-${e.occurrenceDate}`}
+              title={strings['calendar.cancelledRow'](e.title)}
+              {...occurrenceRow(e)}
+              line={e.line}
+              group={groupLabel(e.groupId, e.groupName)}
+              cancelled
+              faded={day.date < isoToday}
+              hint={strings['calendar.cancelledHint']}
+              onPress={() => nav.navigate('Event', { eventId: e.eventId, date: e.occurrenceDate })}
+            />
+          ))}
           <HiddenDuplicates entries={daySplit.hidden} testID={`cal-hidden-${day.date}`} />
         </View>
       ) : null}

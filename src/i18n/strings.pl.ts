@@ -418,6 +418,9 @@ export const strings = {
   'calendar.addEvent': 'Dodaj wydarzenie',
   // Audyt nawigacji (Q6 a, ADR 0049): jeden przycisk pod siatką Kalendarza — rodzaj (wydarzenie, zadanie, rutyna) w formularzu.
   'calendar.addOn': (day: string) => `Dodaj na ${day}`,
+  // ADR 0049 (K7, Q3 a): odwołany termin serii w Kalendarzu — wyszarzony wiersz, który prowadzi do „Przywróć termin”.
+  'calendar.cancelledRow': (title: string) => `Odwołany: ${title}`,
+  'calendar.cancelledHint': 'Otwiera termin, tam „Przywróć termin”',
 
   'event.new': 'Nowe wydarzenie',
   'event.edit': 'Zmień wydarzenie',

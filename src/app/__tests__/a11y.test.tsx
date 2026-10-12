@@ -21,6 +21,8 @@ function baseWithEvent() {
   const t = sampleBase();
   put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', location: 'Szkoła tańca, ul. Długa 5', deleted_at: null, version: 1 });
   put(t, 'event_participants', 'p', { id: 'p', event_id: 'ev', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
+  // ADR 0049 (K7): odwołany termin za tydzień — wiersz „Odwołany: Tańce” w Kalendarzu.
+  put(t, 'event_overrides', 'o14', { id: 'o14', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-14', cancelled: true, deleted_at: null, version: 1 });
   // Przekazania (D70): jedno do mnie, jedno moje odrzucone — „Do potwierdzenia” i plakietka na zakładce.
   const h = { group_id: 'gf', entity: 'tasks', occurrence_date: null, closed: false, decided_at: null, version: 1, created_at: '2026-10-07T07:00:00Z', deleted_at: null };
   put(t, 'handoffs', 'h1', { ...h, id: 'h1', entity_id: 't-ala', from_member: 'ala', to_member: 'mf', status: 'pending' });
@@ -57,9 +59,9 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
   {
     re: /^etykieta „[^”]*” bez widocznych słów: (h|min|pon|wt|śr|czw|pt|sob|niedz)(, (h|min|pon|wt|śr|czw|pt|sob|niedz))*$/,
     why: 'M-263, N-65: skróty z dopisków aplikacji są w etykiecie słowami („1 h” → „1 godzina”, „śr.” → „środa”; spoken() w src/ui/a11y.ts), tytuł na początku etykiety jest widoczny; jak Sterowanie głosem dopasowuje takie etykiety — do sprawdzenia na iPhonie',
-    // 120 → 126 (ADR 0049): nowe scenariusze „Ustawienia grupy” (K5) i „Kosz” (K6) mają pod spodem ekrany z takimi
-    // wierszami (ekran grupy z seriami, zakładki) — po 1–2 na tryb.
-    max: 126,
+    // 120 → 130 (ADR 0049): nowe scenariusze „Ustawienia grupy” (K5), „Kosz” (K6) i „Kalendarz: odwołany termin” (K7,
+    // wiersz z „1 h” w etykiecie słowami) mają takie wiersze na ekranie albo pod spodem — po 1–2 na tryb.
+    max: 130,
     hits: 0,
   },
   {
@@ -115,6 +117,7 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
   ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Co miesiąc'), await p('Do dnia'))],
+  ['Kalendarz: odwołany termin', async (p) => (await p('Kalendarz'), await p(/^Środa, 14 października/))],
   ['Grupy', async (p) => p('Grupy')],
   ['Kosz', async (p) => (await p('Usuń: Odebrać paczkę'), await p('Grupy'), await p(/^Kosz/))],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
