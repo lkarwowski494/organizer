@@ -8,7 +8,8 @@
  */
 import type { Due } from '../deadlines';
 import type { GroupItem } from './index';
-import { asMember, type List, type Member, rows, type Tables } from './model';
+import { config } from '../../config';
+import { asMember, type List, type Member, rows, type Tables, type Task } from './model';
 import type { MyScope } from './my-scope';
 
 /** Żywi członkowie (bez usuniętych) po identyfikatorze — osoba usunięta z grupy to „nikt konkretny” (D132). */
@@ -23,6 +24,23 @@ export function liveMembers(t: Tables): Map<string, Member> {
 /** Osoba sprawy według D132: usunięta z grupy albo nieznana → `null` (nikt konkretny). */
 export function livePerson(memberId: string | null, live: ReadonlyMap<string, Member>): string | null {
   return memberId !== null && live.has(memberId) ? memberId : null;
+}
+
+/**
+ * Osoba sprawy z dziedziczeniem (decyzja właściciela z 9.10.2026, audyt 3: Q15 A, N-29): podzadanie bez (żywej) osoby
+ * należy do osoby najbliższego zadania nadrzędnego — jak termin „jak nadrzędne” (D15). Dotąd podpunkty „tort”, „balony”
+ * zadania Ali stały w Moich sprawach i przypomnieniach wszystkich dorosłych, a samo zadanie tylko u Ali. Kroki ograniczone
+ * jak w effectiveDue (uszkodzone dane lokalne, np. cykl).
+ */
+export function inheritedPerson(t: Tables, x: Pick<Task, 'assignee_member_id' | 'parent_id'>, live: ReadonlyMap<string, Member>): string | null {
+  let cur: Pick<Task, 'assignee_member_id' | 'parent_id'> = x;
+  for (let step = 0; step <= config.MAX_TASK_DEPTH; step++) {
+    const who = livePerson(cur.assignee_member_id, live);
+    const parent = cur.parent_id === null ? undefined : t.tasks?.[cur.parent_id];
+    if (who !== null || !parent) return who;
+    cur = { assignee_member_id: parent.assignee_member_id == null ? null : String(parent.assignee_member_id), parent_id: parent.parent_id == null ? null : String(parent.parent_id) };
+  }
+  return null;
 }
 
 /**

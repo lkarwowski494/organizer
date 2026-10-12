@@ -187,9 +187,13 @@ describe('podpowiedzi i stałe zakupy (D86)', () => {
     expect(missingStaples(tables([{ title: 'Mleko 2', completed_at: 'x' }, { title: 'chleb' }]), 'lz')).toEqual([]);
     let n = 0;
     expect(addStaplesOps(t, 'lz', () => `n${++n}`)).toEqual([
-      { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'g', set: { list_id: 'lz', parent_id: null, title: 'Chleb', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } },
+      // Za ostatnią pozycją listy (Q37 B: kolejność dodania).
+      { kind: 'create', entity: 'tasks', id: 'n1', group_id: 'g', set: { list_id: 'lz', parent_id: null, title: 'Chleb', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } },
     ]);
     expect(addStaplesOps(t, 'brak', () => 'x')).toEqual([]);
+    // Kilka brakujących — kolejne klucze w kolejności stałych.
+    const two = tables([]);
+    expect(addStaplesOps(two, 'lz', () => `m${++n}`).map((o) => (o as unknown as { set: { title: string; sort_key: string } }).set)).toMatchObject([{ title: 'Mleko', sort_key: 'a0' }, { title: 'Chleb', sort_key: 'a1' }]);
     expect(missingStaples(t, 'lz2')).toEqual([]);
   });
 

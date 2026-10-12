@@ -135,7 +135,7 @@ describe('jeden klucz na jedno pojęcie (U-60)', () => {
     'rsvp.maybe, rsvp.other.maybe': 'zestawy odpowiedzi za siebie i za dziecko (`rsvp.${a}`, `rsvp.other.${a}`)',
     'due.when, timetable.week': 'termin zadania i wybór tygodnia A/B',
     'timetable.both, event.repeat.weekly, repeat.weekly': 'opcja planu lekcji i zestawy opcji powtarzania (`event.repeat.${r}`, `repeat.${k}`)',
-    'lists.kind.tasks, event.defaultList, trash.kind.task': 'rodzaj listy, nazwa nadawana liście (names.pl.ts) i rodzaj w koszu',
+    'lists.kind.tasks, trash.kind.task': 'rodzaj listy i rodzaj w koszu',
     'lists.kind.shopping, trip.section': 'rodzaj listy i sekcja planu zakupów',
     'lists.visibility.group, event.audience.group': 'kto widzi listę i kogo dotyczy wydarzenie',
     'lists.done, common.done': 'nagłówek sekcji i przycisk potwierdzenia',

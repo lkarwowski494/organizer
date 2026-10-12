@@ -7,6 +7,7 @@
 import { config } from '../../config';
 import type { Row } from '../sync-engine/client';
 import { asTask, rows, type Tables, type Task } from './model';
+import { taskOrder } from './sort-keys';
 
 /**
  * Potomkowie zadania w kolejności drzewa (rodzic przed dziećmi, rodzeństwo po sort_key), najwyżej `config.MAX_TASK_DEPTH`
@@ -29,14 +30,15 @@ export function childIndex(t: Tables): ChildIndex {
 
 export function descendants(t: Tables, rootId: string, keep: (x: Task) => boolean, index: ChildIndex = childIndex(t)): Task[] {
   // Audyt 3 (N-27): dzieci po rodzicu bez zamiany i sortowania całej tabeli — plan przypomnień robi to dla każdej
-  // przewidywanej kopii, a historia ma tysiące zadań. Kolejność jak dotąd (sort_key, potem id).
+  // przewidywanej kopii, a historia ma tysiące zadań. Kolejność rodzeństwa: taskOrder
+  // (klucz porównywany bajtowo, potem id — sort-keys.ts, N-130).
   const out: Task[] = [];
   const walk = (id: string, level: number) => {
     if (level > config.MAX_TASK_DEPTH) return;
     const kids = (index.get(id) ?? [])
       .map(asTask)
       .filter(keep)
-      .sort((a, b) => a.sort_key.localeCompare(b.sort_key) || a.id.localeCompare(b.id));
+      .sort(taskOrder);
     for (const x of kids) {
       out.push(x);
       walk(x.id, level + 1);

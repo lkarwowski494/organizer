@@ -145,7 +145,7 @@ describe('podzadanie (M-81, M-204, M-251, M-244)', () => {
     expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'wstążka jutro', sort_key: 'a0', deadline_mode: 'inherit', due_date: null, due_time: null } }]);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'kokarda jutro');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'kokarda', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: 't-kwiaty', title: 'kokarda', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: null } }]);
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'jutro');
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
     expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
@@ -239,9 +239,9 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
   it('„@Ala” przypisuje osobę, „@ja” — mnie; „@” znika z nazwy', async () => {
     const s = await openList();
     await add('odkurzyć jutro @Ala');
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'odkurzyć', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'odkurzyć', sort_key: 'a1', deadline_mode: 'own', due_date: '2026-10-08', due_time: null, assignee_member_id: 'ala' } }]);
     await add('zmyć @ja');
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zmyć', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zmyć', sort_key: 'a2', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'mf' } }]);
   });
 
   it('kilka osób — pytanie; nikt o tym imieniu nie widzi listy — „Dodaj bez osoby” zostawia „@…” w nazwie', async () => {
@@ -251,12 +251,12 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
     await add('zebranie @al');
     expect(s.store.dispatched).toEqual([]);
     await press(within(screen.getByTestId('mention-choices')).getByLabelText('Alek'));
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'alek' } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null, assignee_member_id: 'alek' } }]);
     expect(screen.getByTestId('quick-add').props.value).toBe('');
     await add('basen @Zosia');
     expect(screen.getByText('Nikt o imieniu @Zosia nie widzi tej listy')).toBeTruthy();
     await press(screen.getByLabelText('Dodaj bez osoby'));
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'basen @Zosia', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'basen @Zosia', sort_key: 'a2', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect((s.store.dispatched.at(-1) as { set: object }).set).not.toHaveProperty('assignee_member_id');
   });
 
@@ -265,7 +265,7 @@ describe('pole dodawania na liście zadań: „@imię”, „@ja”, „#…” 
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'zebranie #Klasa');
     expect(screen.getByText('Na liście „#Klasa” nie zmienia grupy — zostanie w nazwie.')).toBeTruthy();
     await fireEvent(screen.getByTestId('quick-add'), 'submitEditing');
-    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie #Klasa', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(s.store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'zebranie #Klasa', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     await add('@ja');
     expect(screen.getByText('Wpisz, co jest do zrobienia.')).toBeTruthy();
   });

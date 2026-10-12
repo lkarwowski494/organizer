@@ -69,7 +69,7 @@ describe('Moje sprawy', () => {
     await press(screen.getByLabelText(/jutro, rozpoznane/));
     expect(screen.queryByLabelText(/jutro, rozpoznane/)).toBeNull();
     await press(screen.getByLabelText('Dodaj'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'new-1', parent_id: null, title: 'wtorek jutro', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-3', group_id: 'u-me', set: { list_id: 'new-1', parent_id: null, title: 'wtorek jutro', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
   });
 
   it('pusty tekst nic nie dodaje; odhaczenie znika z widoku', async () => {
@@ -116,7 +116,7 @@ describe('Listy i zadania', () => {
     expect(screen.getByLabelText('Włóż do koszyka: Chleb żytni')).toBeTruthy();
     await type(screen.getByTestId('quick-add'), 'jabłka');
     await press(screen.getByLabelText('Dodaj'));
-    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jabłka', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }]);
+    expectOps(store, [{ kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: '2026-10-07T08:00:00.000Z' } }, { kind: 'patch', entity: 'tasks', id: 's-chleb', set: { completed_at: null } }, { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lz', parent_id: null, title: 'jabłka', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }]);
     expect(within(screen.getByTestId(`task-${(store.dispatched.at(-1) as { id: string }).id}`)).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 

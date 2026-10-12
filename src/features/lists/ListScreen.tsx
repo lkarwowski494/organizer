@@ -41,6 +41,8 @@ import { addStaple, addStaplesOps, categoryMemory, categoryOf, duplicateOf, item
 import { listMarks } from './ListsScreen';
 import { BoughtSection, ItemPanel, stapleError, StaplesCard, Suggestions } from './ShoppingExtras';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
+import { reorderItems, ReorderRows } from './ReorderRows';
+import { moveInList } from '../../domain/views/sort-keys';
 
 type ListAnswers = Pick<QuickAnswers, 'person' | 'skipMention'>;
 
@@ -105,6 +107,7 @@ export function ListScreen({ route, navigation }: Props) {
   const [doneOpen, setDoneOpen] = useState(false);
   const [olderOpen, setOlderOpen] = useState(false);
   const [boughtOpen, setBoughtOpen] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   // Q8 A (N-7): ten sam produkt już na liście — pytanie pod polem zamiast cichego dubla.
   const [dup, setDup] = useState<{ value: string; hit: NonNullable<ReturnType<typeof duplicateOf>> } | null>(null);
   const detail = useMemo(() => listDetail(tables, userId, route.params.listId, today), [tables, userId, route.params.listId, today]);
@@ -135,6 +138,10 @@ export function ListScreen({ route, navigation }: Props) {
     return p ? [strings['who.task'](p)] : [];
   };
   const canDelete = me?.role !== 'child';
+  // Q37 B: ręczna kolejność na liście zadań (zakupy stoją według działów), od dwóch otwartych zadań.
+  // Same zadania główne: otwarte podzadanie zrobionego zadania (M-82) ma kolejność wśród swojego rodzeństwa.
+  const roots = detail.open.filter((n) => n.parent_id === null);
+  const canOrder = !shopping && canDelete && roots.length >= 2;
   // PW-14 B: dziecko z kontem odhacza tylko swoje sprawy (serwer: forbidden:not_own) — reszta bez pola odhaczenia.
   const canCheck = checkOff(tables, userId);
   // D73: zakupy (dzień i osoba) — tylko na liście zakupów; dziecko ich nie planuje (serwer: lists_guard).
@@ -380,6 +387,12 @@ export function ListScreen({ route, navigation }: Props) {
         />
       ) : null}
       {detail.open.length === 0 && detail.done.length === 0 ? <Body muted>{shopping ? strings['lists.emptyShopping'] : strings['lists.emptyItems']}</Body> : null}
+      {canOrder ? (
+        <View style={{ gap: 6 }}>
+          <Button kind="secondary" label={ordering ? strings['common.finish'] : strings['order.edit']} testID="list-order" onPress={() => setOrdering(!ordering)} />
+          {ordering ? <Body muted>{strings['order.hint']}</Body> : null}
+        </View>
+      ) : null}
       {shopping ? (
         sections(detail.open, tables, list.group_id).map((sec) => (
           <View key={sec.key} testID={`section-${sec.key}`}>
@@ -387,6 +400,9 @@ export function ListScreen({ route, navigation }: Props) {
             {rows(sec.items, false)}
           </View>
         ))
+      ) : ordering && canOrder ? (
+        // Q37 B (N-130): zmiana kolejności — same zadania główne (podzadania mają swoją na ekranie zadania).
+        <ReorderRows items={reorderItems(roots, today, whoOf)} onMove={(from, to) => store.dispatch(moveInList(roots, from, to))} testID="order" />
       ) : (
         <View>{rows(detail.open, false)}</View>
       )}

@@ -113,7 +113,7 @@ dbDescribe('łańcuch serii z telefonami (SQL)', () => {
     const ops: NewOp[] = [
       ...answerOps(stale, { groupId: G, eventId: E, date: '2026-11-09', memberId: M.a, answer: 'no' }),
       ...cancelEvent(eventDetail(stale, U.a, E)!, '2026-11-16', 'this'),
-      createEventTask({ id: id('00d', 1), groupId: G, listId: LIST, eventId: E, occurrenceDate: '2026-11-23', title: 'Strój' }),
+      createEventTask({ sortKey: 'a0', id: id('00d', 1), groupId: G, listId: LIST, eventId: E, occurrenceDate: '2026-11-23', title: 'Strój' }),
       createHandoff({ id: id('00e', 2), groupId: G, entity: 'events', entityId: E, occurrenceDate: '2026-11-30', toMember: M.b }),
     ];
     let n = 0;

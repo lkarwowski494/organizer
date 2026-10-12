@@ -28,6 +28,8 @@ const GLYPHS = {
   add: { sf: 'plus', text: '+' },
   more: { sf: 'chevron.down', text: '˅' },
   less: { sf: 'chevron.up', text: '˄' },
+  /** Uchwyt przeciągania wiersza (audyt 3, Q37 B) — ten sam znak co uchwyt zmiany kolejności w listach iOS. */
+  reorder: { sf: 'line.3.horizontal', text: '≡' },
   /** Wejście do Ustawień na górnym pasku zakładek (PW-28 A, D188). */
   settings: { sf: 'gearshape', text: '⚙︎' },
 } as const;

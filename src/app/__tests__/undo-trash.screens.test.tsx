@@ -539,7 +539,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
     const created = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks')!;
     expect(within(bar()).getByText('Dodano zadanie: Zadzwonić do mamy · Osobiste')).toBeTruthy();
     await press(within(bar()).getByLabelText('Cofnij'));
-    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zadzwonić do mamy', sort_key: 'a0', deadline_mode: 'none', due_date: null, due_time: null } }, { kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' }]);
+    expectOps(store, [{ kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'u-me', set: { list_id: 'lp', parent_id: null, title: 'Zadzwonić do mamy', sort_key: 'a1', deadline_mode: 'none', due_date: null, due_time: null } }, { kind: 'delete', entity: 'tasks', id: 'id' in created ? created.id : '' }]);
   });
 
   it('nowa lista i nowe wydarzenie z formularza — „Cofnij”; szybkie dodanie na liście zadań — „Zmień” otwiera zadanie', async () => {
