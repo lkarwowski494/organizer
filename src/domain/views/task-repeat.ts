@@ -226,6 +226,28 @@ const copyable = (t: Tables, x: Task, canCreate: CanCreate, skip: ReadonlySet<st
   t.lists[x.list_id]!.deleted_at == null &&
   canCreate(x);
 
+/** D133: otwarte „Tylko tego dnia” z powtarzaniem, które minęło przed `isoToday` i którego następne ten telefon może dołożyć. */
+const expired = (t: Tables, x: Task, isoToday: string, canCreate: CanCreate, skip: ReadonlySet<string>) =>
+  x.completed_at === null && x.rollover === false && x.due_date !== null && x.due_date < isoToday && copyable(t, x, canCreate, skip);
+
+/**
+ * ADR 0048 (12.10.2026): podzadanie z własnym powtarzaniem, którego przodek dostaje w tym samym przebiegu następne (D133
+ * albo T-12), dostaje swoje razem z nim — jako kopię podzadania pod następnym przodka (copyOps), nie osobno pod starym. Inaczej wynik
+ * zależałby od kolejności wierszy. Idzie w górę tylko przez żywe zadania i najwyżej MAX_TASK_DEPTH poziomów, jak
+ * `descendants` przy kopiowaniu podzadań.
+ */
+function copiedWithAncestor(t: Tables, x: Task, isExpired: (a: Task) => boolean): boolean {
+  let id = x.parent_id;
+  for (let level = 1; id !== null && level <= config.MAX_TASK_DEPTH; level++) {
+    const row = t.tasks?.[id];
+    if (!row || row.deleted_at != null) return false;
+    const a = asTask(row);
+    if (isExpired(a)) return true;
+    id = a.parent_id;
+  }
+  return false;
+}
+
 /**
  * D133: zadanie powtarzane z „Tylko tego dnia”, które minęło niezrobione, i tak dostaje następne — z pierwszym terminem
  * od dziś (opuszczone dni przepadają). Ten sam identyfikator co przy odhaczeniu (nextId), więc dwa telefony nie zrobią
@@ -234,11 +256,12 @@ const copyable = (t: Tables, x: Task, canCreate: CanCreate, skip: ReadonlySet<st
  */
 export function expiredRepeatOps(t: Tables, today: CivilDate, canCreate: CanCreate, skip: ReadonlySet<string> = new Set()): NewOp[] {
   const isoToday = formatIsoDate(today);
+  const isExpired = (x: Task) => expired(t, x, isoToday, canCreate, skip);
   const out: NewOp[] = [];
   for (const row of Object.values(t.tasks ?? {})) {
     if (row.completed_at != null || row.rollover !== false || row.repeat == null) continue;
     const x = asTask(row);
-    if (x.due_date === null || x.due_date >= isoToday || !copyable(t, x, canCreate, skip)) continue;
+    if (!isExpired(x) || copiedWithAncestor(t, x, isExpired)) continue;
     const r = repeatOf(t, x.id)!;
     out.push(...copyOps(t, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), today, cycleOf(x)))));
   }
@@ -264,13 +287,14 @@ export function missingRepeatOps(
   // (plan przypomnień woła to przy każdej zmianie danych, a historia ma tysiące zrobionych). Chwila ISO jest przed
   // `sinceUtc` (10 znaków) dokładnie wtedy, gdy jej data jest — porównanie napisów bez wycinania daty.
   const sinceUtc = formatIsoDate(addDays(today, -config.repeat.MISSING_COPY_DAYS - 1));
+  const isMissing = (x: Task) => x.completed_at !== null && String(x.completed_at) >= sinceUtc && localDate(x.completed_at) >= since && copyable(t, x, canCreate, skip);
   const out: NewOp[] = [];
   for (const row of rows) {
     if (row.completed_at == null || String(row.completed_at) < sinceUtc) continue;
     const x = asTask(row);
-    const done = localDate(x.completed_at!);
-    if (done < since || !copyable(t, x, canCreate, skip)) continue;
-    out.push(...repeatOps(t, { ...x, completed_at: null }, parseIsoDate(done)));
+    // ADR 0048: podzadanie, którego przodek też dostaje tu następne — razem z nim (kopia podzadania), jak w expiredRepeatOps.
+    if (!isMissing(x) || copiedWithAncestor(t, x, isMissing)) continue;
+    out.push(...repeatOps(t, { ...x, completed_at: null }, parseIsoDate(localDate(x.completed_at!))));
   }
   return out;
 }
@@ -341,8 +365,9 @@ export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, lo
     const iso = formatIsoDate(day);
     open = open.flatMap((x) => {
       if (x.due_date! >= iso) return [x];
-      // Następne mogło już powstać z innym (kopia podzadania razem z zadaniem nadrzędnym) — wtedy nic, jak w expiredRepeatOps.
-      if (!copyable(out, x, all, none)) return [];
+      // Następne mogło już powstać z innym (kopia podzadania razem z zadaniem nadrzędnym) albo powstanie z przodkiem,
+      // który mija tego samego dnia (ADR 0048) — wtedy nic, jak w expiredRepeatOps.
+      if (!copyable(out, x, all, none) || copiedWithAncestor(out, x, (a) => expired(out, a, iso, all, none))) return [];
       const r = repeatOf(out, x.id)!;
       put(copyOps(out, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), day, cycleOf(x))), index));
       return pending([tasks[nextId(x.id)]]);
