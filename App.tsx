@@ -5,10 +5,16 @@ import { AtkinsonHyperlegibleNext_700Bold } from '@expo-google-fonts/atkinson-hy
 import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
 import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque/800ExtraBold';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { registerWakeTask } from './src/app/background';
 import { Root } from './src/app/Root';
 import { appDeps } from './src/app/wiring';
+
+// ADR-0045: ekran startowy iOS zostaje, dopóki nakładka animacji (src/ui/Intro.tsx) nie narysuje tej samej klatki — Root
+// chowa go sam (deps.intro.hideSplash). expo-splash-screen 57 (JSDoc preventAutoHideAsync, https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/):
+// „It is recommended to call this in global scope without awaiting, rather than inside React components or hooks”.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const deps = appDeps();
 // D159: zadanie cichego powiadomienia — w zasięgu modułu, zanim iOS przekaże powiadomienie (dokumentacja SDK 57).
