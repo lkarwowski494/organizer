@@ -6,7 +6,7 @@
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { NavigationContext } from '@react-navigation/native';
 import { createContext, type ReactNode, type Ref, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Dimensions, InputAccessoryView, useWindowDimensions, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -148,7 +148,7 @@ export function Title({ children, a11yFocus, role = 'TITLE' }: { children: strin
   const ref = useA11yFocus<Text>(null, !!a11yFocus);
   useScreenTitleFocus(ref);
   return (
-    <Text ref={ref} accessibilityRole="header" maxFontSizeMultiplier={titleScale(pt)} style={{ fontFamily: font.display800, fontSize: pt, lineHeight: pt * fontScale.TITLE_LEADING, letterSpacing: role === 'BRAND' ? -1.5 : -1, color: c.ink }}>
+    <Text ref={ref} accessibilityRole="header" maxFontSizeMultiplier={titleScale(pt)} style={{ flexShrink: 1, fontFamily: font.display800, fontSize: pt, lineHeight: pt * fontScale.TITLE_LEADING, letterSpacing: role === 'BRAND' ? -1.5 : -1, color: c.ink }}>
       {children}
     </Text>
   );
@@ -268,6 +268,35 @@ export function PeriodTitle({ children, testID }: { children: string; testID?: s
 }
 
 /** Strzałka poprzedni/następny okres obok PeriodTitle. */
+/**
+ * Pasek okresu (Moje sprawy, Kalendarz, wybór dnia): strzałki, nazwa okresu i opcjonalnie „Dziś”. Od rozmiaru tekstu
+ * fontScale.STACK_FROM nazwa stoi nad przyciskami na całą szerokość (src/config/theme.ts) — w wierszu zostawało jej
+ * kilka liter szerokości.
+ */
+export function PeriodBar({ prev, title, next, extra, testID }: { prev: ReactNode; title: ReactNode; next: ReactNode; extra?: ReactNode; testID?: string }) {
+  const scale = useWindowDimensions().fontScale;
+  if (scale >= fontScale.STACK_FROM) {
+    return (
+      <View testID={testID} style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row' }}>{title}</View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+          {prev}
+          {next}
+          {extra}
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {prev}
+      {title}
+      {next}
+      {extra}
+    </View>
+  );
+}
+
 export function PeriodArrow({ dir, label, onPress, testID }: { dir: -1 | 1; label: string; onPress: () => void; testID?: string }) {
   const { c, size } = useTheme();
   return (
@@ -406,10 +435,10 @@ function SyncChipBody({ indicator, nowMs }: { indicator: Indicator; nowMs: numbe
       accessibilityLabel={strings['sync.a11y'](spoken(label))}
       accessibilityLiveRegion="polite"
       testID="sync-chip"
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
+      style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: warn ? c.warnBorder : c.border, backgroundColor: warn ? c.warnBg : c.surface }}
     >
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: warn ? c.warnBorder : indicator.state === 'synced' ? c.ok : c.inkMuted }} />
-      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: warn ? c.warnInk : c.ink }}>{label}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.META, color: warn ? c.warnInk : c.ink }}>{label}</Text>
     </View>
   );
 }
@@ -419,7 +448,7 @@ export function LineChip({ name, line }: { name: string; line: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, paddingLeft: 6, paddingRight: 10, borderRadius: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border }}>
       <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: lineOf(line).line }} />
-      <Text style={{ fontFamily: font.text600, fontSize: size.META, color: c.ink }}>{name}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text600, fontSize: size.META, color: c.ink }}>{name}</Text>
     </View>
   );
 }
@@ -547,7 +576,7 @@ export function Collapsible({ title, open, onToggle, children, testID }: { title
         onPress={onToggle}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: size.TOUCH_TARGET }}
       >
-        <Text style={{ fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted }}>{title}</Text>
+        <Text style={{ flexShrink: 1, fontFamily: font.display700, fontSize: size.SECTION, letterSpacing: 1.2, textTransform: 'uppercase', color: c.inkMuted }}>{title}</Text>
         <Glyph name={open ? 'less' : 'more'} color={c.inkMuted} place="inline" />
       </Pressable>
       {open ? children : null}
@@ -822,9 +851,9 @@ export function Segmented<T extends string>({ value, options, onChange, label, a
               accessibilityLabel={contextual ? `${o.label}, ${a11yLabel ?? label}` : o.label}
               accessibilityHint={o.hint}
               onPress={() => onChange(o.value)}
-              style={{ minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
+              style={{ maxWidth: '100%', minHeight: size.TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
-              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
+              <Text style={{ flexShrink: 1, fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -885,7 +914,7 @@ export function GapRow({ length, testID }: { length: string; testID?: string }) 
   return (
     <View testID={testID} accessible accessibilityLabel={strings['day.gapA11y'](spoken(length))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30, paddingLeft: 38 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />
-      <Text style={{ fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['day.gap'](length)}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text400, fontSize: size.META, color: c.inkMuted }}>{strings['day.gap'](length)}</Text>
       <View style={{ flex: 1, height: 1, backgroundColor: c.control }} />
     </View>
   );
@@ -910,10 +939,10 @@ export function Toggles<T extends string | number>({ values, options, onChange, 
               {...buttonA11y({ selected: on })}
               accessibilityLabel={o.a11y ?? o.label}
               onPress={() => onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])}
-              style={{ minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
+              style={{ maxWidth: '100%', minHeight: size.TOUCH_TARGET, minWidth: size.TOUCH_TARGET, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: on ? c.ink : c.control, backgroundColor: on ? c.ink : c.surface }}
             >
               {on ? <Glyph name="check" color={c.surface} place="inline" /> : null}
-              <Text style={{ fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
+              <Text style={{ flexShrink: 1, fontFamily: on ? font.text700 : font.text600, fontSize: size.CONTROL, color: on ? c.surface : c.ink }}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -993,7 +1022,7 @@ export function BackButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={strings['common.back']} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
       <Glyph name="prev" color={c.ink} />
-      <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.back']}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.back']}</Text>
     </Pressable>
   );
 }

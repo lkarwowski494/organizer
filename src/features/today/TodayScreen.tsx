@@ -43,7 +43,7 @@ import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, onlyGroups, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, Collapsible, EventRow, GapRow, PeriodArrow, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, Collapsible, EventRow, GapRow, PeriodArrow, PeriodBar, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { GroupFilterBar, useGroupFilter } from '../../app/group-filter';
 import { useMyScope } from '../../app/my-scope';
@@ -442,23 +442,27 @@ export function TodayScreen() {
         />
       ) : null}
       <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <PeriodArrow dir={-1} label={strings[`today.prev.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, -1))} />
-        <PeriodTitle testID="today-range-label">{label}</PeriodTitle>
-        <PeriodArrow dir={1} label={strings[`today.next.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, 1))} />
-        {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={strings['common.today']}
-          accessibilityState={{ disabled: showsToday }}
-          disabled={showsToday}
-          testID="go-today"
-          onPress={() => setAnchor(null)}
-          style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
-        >
-          <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
-        </Pressable>
-      </View>
+      <PeriodBar
+        prev={<PeriodArrow dir={-1} label={strings[`today.prev.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, -1))} />}
+        title={<PeriodTitle testID="today-range-label">{label}</PeriodTitle>}
+        next={<PeriodArrow dir={1} label={strings[`today.next.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, 1))} />}
+        extra={
+          <>
+          {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={strings['common.today']}
+            accessibilityState={{ disabled: showsToday }}
+            disabled={showsToday}
+            testID="go-today"
+            onPress={() => setAnchor(null)}
+            style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
+          >
+            <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
+          </Pressable>
+          </>
+        }
+      />
       {/* PWD-31 A: „Do potwierdzenia” (pilne) nad kartami informacyjnymi. */}
       <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       <WhatsNew />

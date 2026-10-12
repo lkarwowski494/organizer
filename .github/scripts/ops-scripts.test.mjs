@@ -13,7 +13,7 @@ import { describe, it } from 'node:test';
 import { parse } from 'yaml';
 
 import { evaluate, main, measure, missingSecret, monthlyReminder, projectRef, report } from './free-limits.mjs';
-import { ROOT } from './mutation-shards.mjs';
+import { ROOT } from './mutation-files.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const workflow = (name) => parse(read(`.github/workflows/${name}`));
@@ -267,7 +267,8 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
   it('e2e.yml: warianty bazowy przy push/PR i wszystkie nocą; porównanie i audyt oblewają tylko nocą i ręcznie; standardowy runner', () => {
     const { jobs } = workflow('e2e.yml');
     assert.equal(jobs.ios['runs-on'], 'macos-26');
-    assert.ok(jobs.ios['timeout-minutes'] <= 150);
+    // Nocą 8 wariantów (ok. 2 h 10 min) i audyt — 150 min nie wystarczało (E2E 38237288337); limit GitHuba 6 h.
+    assert.ok(jobs.ios['timeout-minutes'] >= 200 && jobs.ios['timeout-minutes'] <= 240);
     assert.equal(jobs.ios.env.E2E_VARIANTS, "${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'all' || 'base' }}");
     assert.equal(jobs.ios.env.E2E_STRICT, "${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}");
     assert.equal(jobs.ios.env.E2E_DEVICE, 'iPhone 17e');
@@ -275,7 +276,14 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     assert.match(run, /run-matrix\.sh "\$E2E_APP" "\$E2E_OUT" "\$E2E_VARIANTS"/);
     assert.match(run, /compare-screenshots\.mjs --name "\$v" --baselines "\.maestro\/baselines\/\$v"/);
     assert.match(run, /a11y-audit\.sh "\$udid" "\$E2E_OUT\/a11y" "\$\{args\[@\]\}"/);
+    // Audyt na jedynym uruchomionym symulatorze (E2E 38220289381: Pro Max z wariantów nadal działał obok 17e).
+    const audit = jobs.ios.steps.find((s) => /a11y-audit\.sh/.test(s.run ?? '')).run;
+    assert.match(audit, /^xcrun simctl shutdown all\nudid="\$\(scripts\/e2e\/boot-simulator\.sh "\$E2E_DEVICE"/);
     assert.ok(!JSON.stringify(jobs.ios).includes('secrets.'));
+    // Artefakt (zrzuty) także po przekroczeniu limitu czasu (E2E 38237288337: przerwany, bez zrzutów porażek).
+    const art = jobs.ios.steps.filter((s) => s.name === 'artefakt (tylko zrzuty i koniec logu)' || /upload-artifact@/.test(s.uses ?? ''));
+    assert.equal(art.length, 2);
+    for (const s of art) assert.equal(s.if, '${{ always() }}');
   });
 
   it('audyt XCUITest: każdy test kończy się performAccessibilityAudit na nazwanym ekranie; ekrany z danych demo', () => {
@@ -285,9 +293,15 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     for (const [, name, body] of tests) assert.match(body, /try audit\("screen-[\w-]+"\)/, name);
     // Każdy problem oblewa test (handler zwraca false), ale najpierw trafia do logu z elementem; wszystkie problemy
     // ekranu, nie tylko pierwszy; audyt po końcu animacji (przebiegi e2e 57 i 58 z 9.10.2026).
-    // Pominąć wolno tylko element klawiatury systemowej (i też z wpisem w logu).
-    assert.match(swift, /settle\(\)\n    continueAfterFailure = true\n    try app\.performAccessibilityAudit \{ issue in\n      let keyboard = issue\.element\.map \{ \$0\.exists && self\.inSystemKeyboard\(\$0\) \} \?\? false\n      print\(self\.describe\(issue, keyboard: keyboard\)\)\n      return keyboard\n    \}/);
+    // Pominąć wolno tylko element klawiatury systemowej i komórkę jej paska podpowiedzi (TUIPredictionViewCell bez opisu,
+    // nocny przebieg 38106362581) — też z wpisem w logu.
+    assert.match(swift, /settle\(\)\n    continueAfterFailure = true\n    do \{\n      try runAudit\(\)\n    \} catch let e as NSError where e\.domain == "com\.apple\.xcode\.xctest\.accessibilityAudit" && e\.code == -56 \{\n      print\("A11Y-RETRY \| \\\(name\) \| \\\(e\.localizedDescription\)"\)\n      settle\(\)\n      try runAudit\(\)\n    \}\n  \}/);
+    // Ponowienie tylko przy audycie, który nie zdążył się skończyć (kod -56, E2E 38220289381) — jedno, bez pętli.
+    assert.equal([...swift.matchAll(/try runAudit\(\)/g)].length, 2);
+    assert.match(swift, /private func runAudit\(\) throws \{\n    try app\.performAccessibilityAudit \{ issue in\n      let keyboard = \(issue\.element\.map \{ \$0\.exists && self\.inSystemKeyboard\(\$0\) \} \?\? false\) \|\| self\.systemPrediction\(issue\)\n      print\(self\.describe\(issue, keyboard: keyboard\)\)\n      return keyboard\n    \}/);
     assert.equal([...swift.matchAll(/return true/g)].length, 1, 'jedyne „return true” — element typu klawiatura');
+    // Filtr paska podpowiedzi wąski jak w przykładzie Apple (WWDC23): rodzaj problemu, klasa systemowa, widoczna klawiatura.
+    assert.match(swift, /issue\.auditType == \.sufficientElementDescription\n      && issue\.detailedDescription\.contains\("TUIPredictionViewCell"\)\n      && app\.keyboards\.firstMatch\.exists/);
     assert.match(swift, /"A11Y-ISSUE"/);
     assert.match(swift, /XCUIApplication\(bundleIdentifier: "io\.github\.lkarwowski494\.organizer"\)/);
     const appJson = JSON.parse(read('app.json'));
@@ -296,7 +310,7 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     for (const id of ['000000000021', '000000000022', '000000000010', '000000000030']) assert.ok(swift.includes(`0199a000-0000-7000-8000-${id}`));
     const audit = read('scripts/e2e/a11y-audit.sh');
     assert.match(audit, /grep -v -E '\^\[\[:space:\]\]\*export '/);
-    assert.match(audit, /\|A11Y-ISSUE" "\$out\/xcodebuild\.log"/);
+    assert.match(audit, /\|A11Y-RETRY\|A11Y-ISSUE" "\$out\/xcodebuild\.log"/);
   });
 });
 

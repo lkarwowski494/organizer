@@ -59,8 +59,12 @@ jobs:
     # acquired by Runner of type hosted even after multiple attempts” (8.10.2026 15:21–17:35 UTC trzy razy; standardowa
     # pula arm64 ma stałą adnotację „Due to capacity constraints…”). To brak maszyny, nie błąd testów: ponów ręcznie.
     runs-on: macos-26
-    # Build ok. 25 min + ok. 6–8 min na wariant (8 wariantów nocą).
-    timeout-minutes: 150
+    # Build ok. 15–25 min + ok. 10 min na wariant z domyślnym tekstem i ok. 20 min przy AX5 (8 wariantów nocą: ok. 2 h 10 min)
+    # + audyt XCUITest ok. 10–20 min. Przy 150 min E2E 38237288337 przerwał limit w trakcie audytu (bez artefaktu).
+    # Limit GitHuba: „Each job in a workflow can run for up to 6 hours of execution time” (runnery GitHuba,
+    # https://docs.github.com/en/actions/reference/limits);
+    # w repo publicznym standardowy runner jest bez opłat (D143).
+    timeout-minutes: 210
     env:
       # Telefon wariantu bazowego (pierwszy w scripts/e2e/run-matrix.sh): build i audyt dostępności.
       E2E_DEVICE: iPhone 17e
@@ -114,15 +118,22 @@ jobs:
           exit "$status"
       - name: audyt dostępności na symulatorze (XCUITest)
         if: ${{ !cancelled() }}
+        # Po wariantach Pro Max ten symulator był nadal uruchomiony obok iPhone'a 17e audytu: nocą i ręcznie audyt szedł
+        # ok. 3 razy wolniej niż po pushu (E2E 38220289381: 712 s testów, „Audit failed to complete in time” na dwóch
+        # ekranach; przy pushu, z jednym symulatorem, ok. 7 min całego kroku). Audyt na jedynym uruchomionym symulatorze.
         run: |
+          xcrun simctl shutdown all
           udid="$(scripts/e2e/boot-simulator.sh "$E2E_DEVICE" | tail -n 1)"
           xcrun simctl ui "$udid" content_size large
           args=()
           if [ "$E2E_STRICT" = "true" ]; then args+=(--fail); fi
           scripts/e2e/a11y-audit.sh "$udid" "$E2E_OUT/a11y" "${args[@]}"
       - name: artefakt (tylko zrzuty i koniec logu)
-        if: ${{ !cancelled() }}
-        # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro, opis symulatora (dla e2e:accept) i ostatnie
+        # always(): artefakt także po przekroczeniu limitu czasu (E2E 38237288337: przerwany audyt, bez zrzutów porażek).
+        # GitHub: „Causes the step to always execute, and returns true, even when canceled” — „you can use always to send
+        # logs even when a job is canceled” (https://docs.github.com/en/actions/reference/workflows-and-actions/expressions).
+        if: ${{ always() }}
+        # Zrzuty scenariuszy, obrazy różnic, zrzuty z chwili błędu Maestro i audytu XCUITest, opis symulatora (dla e2e:accept) i ostatnie
         # 200 wierszy logu xcodebuild bez wierszy `export` (zmienne środowiska buildu z faz skryptów).
         run: |
           mkdir -p e2e-artifacts/screenshots e2e-artifacts/diff e2e-artifacts/failures e2e-artifacts/devices
@@ -130,14 +141,20 @@ jobs:
             mkdir -p "e2e-artifacts/screenshots/$v" "e2e-artifacts/diff/$v" "e2e-artifacts/failures/$v"
             find "$E2E_OUT/$v/screenshots" -maxdepth 1 -name '*.png' -exec cp {} "e2e-artifacts/screenshots/$v/" \; 2>/dev/null || true
             find "$E2E_OUT/diff/$v" -maxdepth 1 -name '*.diff.png' -exec cp {} "e2e-artifacts/diff/$v/" \; 2>/dev/null || true
-            find "$E2E_OUT/$v/maestro" -name '*.png' ! -name '[0-9][0-9]-*.png' -exec cp {} "e2e-artifacts/failures/$v/" \; 2>/dev/null || true
+            # Nazwa z całą ścieżką względną (katalog scenariusza): Maestro nazywa zrzut kroku step-NNN-<polecenie>, więc
+            # te same kroki różnych scenariuszy nadpisywały się (nocny przebieg 38106362581: 2 zrzuty na 8 scenariuszy).
+            (cd "$E2E_OUT/$v/maestro" 2>/dev/null && find . -name '*.png' ! -name '[0-9][0-9]-*.png' | while IFS= read -r f; do
+              cp "$f" "$GITHUB_WORKSPACE/e2e-artifacts/failures/$v/$(printf '%s' "${f#./}" | tr '/' '_')"
+            done) || true
             cp "$E2E_OUT/device-$v.txt" "e2e-artifacts/devices/$v.txt" 2>/dev/null || true
           done < "$E2E_OUT/variants.txt" 2>/dev/null || true
+          mkdir -p e2e-artifacts/failures/a11y
+          find "$E2E_OUT/a11y/failures" -maxdepth 1 -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' -o -name '*.heic' \) -exec cp {} e2e-artifacts/failures/a11y/ \; 2>/dev/null || true
           if [ -f ios/build/e2e-xcodebuild.log ]; then
             tail -n 200 ios/build/e2e-xcodebuild.log | grep -v -E '^[[:space:]]*export ' > e2e-artifacts/xcodebuild-tail.txt || true
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() }}
+        if: ${{ always() }}
         with:
           name: e2e-${{ github.run_number }}-${{ github.run_attempt }}
           path: e2e-artifacts/

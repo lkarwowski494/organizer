@@ -3,10 +3,29 @@ name: 01 „Moje sprawy” pokazują dane demo
 ---
 - runFlow: common/launch.yaml
 - assertVisible: "Moje sprawy"
-- assertVisible: "Odebrać paczkę,.*"
-- assertVisible:
-    id: "today-event-0199a000-0000-7000-8000-000000000030-2026-10-07"
-- assertVisible: "Basen Tymka, 17:00.*"
+# Wiersze w kolejności z ekranu (bez terminu, 17:00, 18:00); przy AX5 każdy dopiero po przewinięciu, a wiersz
+# wydarzenia jest wyższy niż ekran (przebieg 38171092887) — wystarcza 10% elementu na ekranie.
+- scrollUntilVisible:
+    element: "Oddać książki do biblioteki,.*"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element:
+      id: "today-event-0199a000-0000-7000-8000-000000000030-2026-10-07"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element: "Basen Tymka, 17:00.*"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element: "Odebrać paczkę,.*"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
 # Zadanie Ali nie dotyczy mnie — nie ma go w „Moich sprawach”.
 - assertNotVisible: ".*Umówić przegląd auta.*"
 - takeScreenshot: 01-today

@@ -1,0 +1,62 @@
+# Dotknięcie elementu na zakładce (ID = testID), do którego może trzeba przewinąć.
+# Maestro 2.11.0 liczy widoczność tylko względem ramki ekranu (UiElement.getVisiblePercentage), nie zasłaniania:
+# element za paskiem zakładek albo pod klawiaturą jest dla niego „widoczny”, a tapOn trafia wtedy w zasłonę
+# (https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/UiElement.kt).
+# Nocny przebieg 38106362581 (iPhone 17 Pro Max): „Dodaj wydarzenie” za paskiem — dotknięta zakładka Kalendarz.
+# Przebieg 38171092887 (AX5): scrollUntilVisible wymaga 100% elementu na ekranie, a wiersz wydarzenia przy AX5 jest
+# wyższy niż ekran — krok nie kończył się nigdy; krokami po 40% ekranu przeskakiwał też niższe elementy.
+# Dlatego małe, stałe kroki:
+#  1. przeciągnięcie chowa klawiaturę (ScrollView: keyboardDismissMode „on-drag”, src/ui/components.tsx);
+#  2. kroki po 30% ekranu, aż element pojawi się na ekranie (Maestro: co najmniej 10% elementu, ViewHierarchy
+#     filterOutOfBounds);
+#  3. kroki po 15%, aż górna krawędź elementu będzie wyżej niż zakładka „Moje sprawy” (selektor `above` porównuje
+#     górne krawędzie, Filters.kt);
+#  4. jeszcze 8% ekranu i dotknięcie 10 pt pod górną krawędzią elementu — nad paskiem zakładek także przy elemencie
+#     wyższym niż ekran.
+appId: io.github.lkarwowski494.organizer
+---
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 30%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 3000
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+    times: 30
+    commands:
+      - swipe:
+          start: "50%, 70%"
+          end: "50%, 40%"
+          duration: 700
+      - waitForAnimationToEnd:
+          timeout: 2000
+- repeat:
+    while:
+      notVisible:
+        id: ${ID}
+        above:
+          id: "tab-Today"
+    times: 10
+    commands:
+      - swipe:
+          start: "50%, 55%"
+          end: "50%, 40%"
+          duration: 700
+      - waitForAnimationToEnd:
+          timeout: 2000
+- assertVisible:
+    id: ${ID}
+    above:
+      id: "tab-Today"
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 42%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: ${ID}
+    point: "20,10"

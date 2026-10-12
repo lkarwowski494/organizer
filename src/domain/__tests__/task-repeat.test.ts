@@ -407,15 +407,18 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
   });
 
   // Przypadki, które oblewały: łańcuch czterech zadań (poziom 3 > MAX_TASK_DEPTH — generator robi z niego dane możliwe
-  // w aplikacji; seed -891823534) i minione podzadanie z powtarzaniem przed minionym rodzicem (ADR 0048).
+  // w aplikacji; seed -891823534 i seed -1654176574: ten sam łańcuch z podzadaniem „od wykonania” na poziomie 2,
+  // zgłoszony 12.10.2026 z przebiegu na kodzie sprzed b921ca3 — nie regresja ADR 0048) i minione podzadanie
+  // z powtarzaniem przed minionym rodzicem (ADR 0048).
   it('audyt 3 (N-27, własność): łańcuch głębszy niż MAX_TASK_DEPTH; dziecko przed rodzicem', () => {
     const once = (parent: number | null, repeat: string | null, due = 0) => ({ parent, due, rollover: false, done: null, repeat });
     const weekly = 'FREQ=WEEKLY;BYDAY=MO,TH';
-    // numRuns obejmuje przykłady: tylko te trzy przypadki.
+    // numRuns obejmuje przykłady: tylko te cztery przypadki.
     fc.assert(upcomingMatchesNaive(), {
-      numRuns: 3,
+      numRuns: 4,
       examples: [
         [[once(null, weekly), once(0, null), once(1, weekly), once(2, null)], 2, [0, 0, 0, 0, 0, 0]],
+        [[once(null, 'FREQ=DAILY'), once(0, null), once(null, null), once(1, 'AFTER=DAILY;INTERVAL=2'), once(3, null)], 2, [0, 0, 0, 0, 0, 0]],
         [[once(null, 'FREQ=DAILY', -1), once(0, 'FREQ=DAILY', -1)], 1, [1, 0, 0, 0, 0, 0]],
         [[{ ...once(null, 'FREQ=DAILY'), done: 0 }, { ...once(0, weekly), done: 0 }], 1, [1, 0, 0, 0, 0, 0]],
       ],

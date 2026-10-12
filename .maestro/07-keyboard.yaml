@@ -10,18 +10,33 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
     visible:
       id: "screen-settings"
     timeout: 10000
-- tapOn: "Konto i dane"
+# Po testID wiersza; przy AX5 wiersz jest poniżej ekranu (przebieg 38171092887: dotknięcie bez przewinięcia).
+- scrollUntilVisible:
+    element:
+      id: "settings-account"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings-account"
 - extendedWaitUntil:
     visible:
       id: "screen-settings-account"
     timeout: 10000
-- scrollUntilVisible:
-    element:
-      id: "delete-start"
-    direction: DOWN
-    timeout: 10000
+# Przez common/scroll-to.yaml: przy AX5 strona ma kilkanaście ekranów, `scrollUntilVisible` nie doszedł do przycisku
+# w 60 s (E2E 38220289381, iPhone 17e).
+- runFlow:
+    file: common/scroll-to.yaml
+    env:
+      ID: "delete-start"
 - tapOn:
     id: "delete-start"
+    point: "20,10"
+# Pole „Wpisz USUŃ” i przycisk pod nim pojawiają się pod objaśnieniem; przy AX5 poniżej ekranu (E2E 38220289381,
+# iPhone 17 Pro Max: dotknięcie pola nie znalazło go na ekranie). Przewinięcie do przycisku pod polem — oba na ekranie.
+- runFlow:
+    file: common/scroll-to.yaml
+    env:
+      ID: "delete-confirm"
 - runFlow:
     file: common/type.yaml
     env:

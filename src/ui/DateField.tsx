@@ -15,7 +15,7 @@ import { formatLongDate, formatMonth, parseIsoDate } from '../domain/format';
 import { monthGrid, monthOf, shiftMonth } from '../domain/month-grid';
 import { strings } from '../i18n/strings.pl';
 import { buttonA11y, useA11yFocus, useClosedPanel } from './a11y';
-import { Card, FieldCaption, PeriodArrow, PeriodTitle } from './components';
+import { Card, FieldCaption, PeriodArrow, PeriodBar, PeriodTitle } from './components';
 import { useTheme } from './theme';
 
 const valid = (s: string) => {
@@ -67,11 +67,11 @@ export function DateField({ label, value, onChange, today, testID, openSignal = 
       </Pressable>
       {open ? (
         <Card kind="panel" testID={`${testID}-calendar`}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <PeriodArrow dir={-1} label={strings['today.prev.month']} testID={`${testID}-prev`} onPress={() => setYm(shiftMonth(ym, -1))} />
-            <PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>
-            <PeriodArrow dir={1} label={strings['today.next.month']} testID={`${testID}-next`} onPress={() => setYm(shiftMonth(ym, 1))} />
-          </View>
+          <PeriodBar
+            prev={<PeriodArrow dir={-1} label={strings['today.prev.month']} testID={`${testID}-prev`} onPress={() => setYm(shiftMonth(ym, -1))} />}
+            title={<PeriodTitle>{formatMonth(ym.y, ym.m)}</PeriodTitle>}
+            next={<PeriodArrow dir={1} label={strings['today.next.month']} testID={`${testID}-next`} onPress={() => setYm(shiftMonth(ym, 1))} />}
+          />
           <WeekdayHeader />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {monthGrid(ym.y, ym.m).map((d) => {

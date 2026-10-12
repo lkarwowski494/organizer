@@ -17,17 +17,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  mutation-plan:
+    # Podział testów mutacyjnych według danych (mutation-plan.mjs; 11.10.2026 przy 18 863 mutantach stałe 8 części
+    # przekraczało 110 min): plan Strykera (mutanty statyczne, czas testów każdego mutanta), testy powiązane z każdym
+    # plikiem i pomiar z poprzedniego przebiegu (artefakt mutation-timings) dają przewidywany czas; liczba części i limit
+    # czasu każdej wynikają z tego przewidywania.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read # lista przebiegów nightly i pobranie artefaktu mutation-timings z poprzedniego
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: pomiar z poprzedniego przebiegu
+        # Najnowszy zakończony przebieg nightly na tej gałęzi (a gdy go nie ma — na main) z artefaktem mutation-timings.
+        # Brak pomiaru nie jest błędem: plan liczy wtedy z samego modelu.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: .github/scripts/mutation-prev-timings.sh "$BRANCH" reports/previous
+      - name: plan części
+        id: plan
+        run: node .github/scripts/mutation-plan.mjs --timings reports/previous/timings.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-plan
+          path: reports/mutation/plan.json
+          retention-days: 3
+          if-no-files-found: error
+
   mutation:
-    # Audyt 2 (M-47): 8537 mutantów w 64 plikach to kilka godzin pracy jednego runnera (plan Strykera z 8.10.2026:
-    # 1512 mutantów statycznych, każdy uruchamia wszystkie powiązane testy), a limit zadania GitHub to 6 h. Pliki
-    # dzielone na równoległe części (.github/scripts/mutation-shards.mjs, wzorce mutate ze stryker.config.json);
-    # próg liczy zadanie mutation-score na wyniku całości.
+    # Części z planu: zakresy `--mutate` (pliki albo grupy mutantów jednego pliku) i limit czasu kroku = SAFETY ×
+    # przewidywany czas części (mutation-plan.mjs). Próg liczy zadanie mutation-score na wyniku całości.
+    needs: mutation-plan
+    name: mutation (${{ matrix.part }})
     strategy:
       fail-fast: false
-      matrix:
-        part: [1, 2, 3, 4, 5, 6, 7, 8]
+      matrix: ${{ fromJSON(needs.mutation-plan.outputs.matrix) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: ${{ matrix.jobMin }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,24 +77,41 @@ jobs:
       - name: testy mutacyjne, część ${{ matrix.part }}
         # Po timeout-minutes GitHub oznacza zadanie jako „cancelled” (8.10.2026 przerwany pomiar wyglądał na anulowany,
         # nie na błąd); `timeout` kończy wcześniej z kodem 124, więc przekroczenie czasu oblewa przebieg.
+        env:
+          MUTATE: ${{ matrix.mutate }}
+          STEP_MIN: ${{ matrix.stepMin }}
+        # Pamięć (11.10.2026, przebieg 38172300136, część 9): mutanty silnika synchronizacji (client.ts, np. pusty blok
+        # w wierszach 270–274) każą sync-sim rosnąć do limitu czasu mutanta — lokalnie jeden proces testów do 6,3 GB (limit
+        # sterty Node nie pomaga, pamięć jest poza stertą: bazy better-sqlite3). Kilka takich naraz wyczerpało pamięć
+        # maszyny i GitHub zatrzymał runner („The runner has received a shutdown signal”). oom_score_adj = 1000 dla
+        # Strykera i procesów testów (dziedziczą wartość) — przy braku pamięci jądro zabija największy proces testów,
+        # nie usługę runnera; Stryker uruchamia go ponownie (retry-rejected-decorator.js), a mutant po dwóch próbach
+        # dostaje RuntimeError. Zakres i działanie: https://www.kernel.org/doc/html/latest/filesystems/proc.html
+        # („Acceptable values range from -1000 (OOM_SCORE_ADJ_MIN) to +1000 (OOM_SCORE_ADJ_MAX)”); podnieść wartość
+        # może każdy proces, obniżyć — tylko z CAP_SYS_RESOURCE.
         run: |
-          files="$(node .github/scripts/mutation-shards.mjs "${{ strategy.job-index }}" "${{ strategy.job-total }}")"
+          echo 1000 > /proc/self/oom_score_adj || echo "::warning::oom_score_adj bez zmiany"
           mkdir -p reports/mutation
-          printf '%s\n' "$files" > reports/mutation/files.txt
-          timeout --kill-after=2m 110m npx stryker run stryker.shard.config.mjs --mutate "$files"
+          printf '%s\n' "$MUTATE" > reports/mutation/mutate.txt
+          timeout --kill-after=2m "${STEP_MIN}m" npx stryker run stryker.shard.config.mjs --mutate "$MUTATE"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        # Także po przekroczeniu czasu: pomiar mutantów, które zdążyły się wykonać, poprawia następny plan.
+        if: always()
         with:
           name: mutation-part-${{ matrix.part }}
           path: |
             reports/mutation/mutation.json
-            reports/mutation/files.txt
+            reports/mutation/mutate.txt
+            reports/mutation/timings.jsonl
           retention-days: 3
           if-no-files-found: error
 
   mutation-score:
     # Próg: co najmniej 90% wykrytych celowych usterek w logice (stryker.config.json → thresholds.break), liczony jak
-    # w Strykerze na scalonych raportach wszystkich części; sprawdza też, że części objęły każdy plik z `mutate`.
-    needs: mutation
+    # w Strykerze na scalonych raportach wszystkich części; sprawdza też, że części objęły każdy mutant z planu dokładnie
+    # raz. Rusza także po porażce części, żeby zapisać pomiar czasu dla następnego planu (artefakt mutation-timings).
+    needs: [mutation-plan, mutation]
+    if: ${{ always() && needs.mutation-plan.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -71,9 +125,20 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
+          name: mutation-plan
+          path: reports/plan
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
           pattern: mutation-part-*
           path: reports/parts
-      - run: node .github/scripts/mutation-merge.mjs reports/parts/*
+      - run: mkdir -p reports/timings && node .github/scripts/mutation-merge.mjs --plan reports/plan/plan.json --timings-out reports/timings/timings.json reports/parts/*
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mutation-timings
+          path: reports/timings/timings.json
+          retention-days: 7
+          if-no-files-found: error
 
   secrets-full-history:
     # Audyt 3 (N-84, N-258): ten sam skrypt co w ci.yml, na wszystkich gałęziach i tagach, z diffem każdego scalenia

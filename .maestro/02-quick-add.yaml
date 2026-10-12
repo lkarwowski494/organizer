@@ -8,15 +8,26 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
       FIELD: "quick-add"
       TEXT: "Kupić mleko jutro"
 - tapOn: "Dodaj"
-- tapOn: "Następny dzień"
-- extendedWaitUntil:
-    visible:
-      id: "today-day-2026-10-08"
-    timeout: 10000
-- assertVisible: "Kupić mleko,.*"
-# Pasek „Dodano … · Zmień” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
+# Pasek „Dodano … · Zmień” (config.UNDO_MS) — przewijanie dopiero po nim: przy AX5 pasek jest wysoki, a przeciągnięcie
+# na nim to dotknięcie (E2E 38220289381 i 38237288337: „Ostatnie zmiany” po przeciągnięciu na pasku „Cofnij”).
 - extendedWaitUntil:
     notVisible:
       id: "undo-bar"
     timeout: 15000
+- runFlow:
+    file: common/scroll-tap-text.yaml
+    env:
+      TEXT: "Następny dzień"
+# Przy AX5 sekcja dnia jest pod paskiem okresu, poniżej ekranu (E2E 38208123607).
+- scrollUntilVisible:
+    element:
+      id: "today-day-2026-10-08"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element: "Kupić mleko,.*"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
 - takeScreenshot: 02-quick-add-tomorrow

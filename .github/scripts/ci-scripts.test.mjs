@@ -4,7 +4,6 @@
  * mutation-testing-metrics).
  */
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -13,138 +12,12 @@ import { describe, it } from 'node:test';
 import { minimatch } from 'minimatch';
 import { parse } from 'yaml';
 
-import { coverageProblems, mergeReports, metricsOf } from './mutation-merge.mjs';
-import { mutateFiles, ROOT, shard } from './mutation-shards.mjs';
+import { ROOT } from './mutation-files.mjs';
+import { PARAMS } from './mutation-plan.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 const workflow = (name) => parse(read(`.github/workflows/${name}`));
 const steps = (job) => job.steps ?? [];
-const node = (script, args, opts = {}) => spawnSync(process.execPath, [join(ROOT, '.github/scripts', script), ...args], { encoding: 'utf8', ...opts });
-
-describe('podział testów mutacyjnych na części (M-47)', () => {
-  const files = mutateFiles();
-
-  it('pliki z `mutate` takie jak przy niezależnym odczycie wzorców (bez minimatch)', () => {
-    const { mutate } = JSON.parse(read('stryker.config.json'));
-    const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' }).stdout.split('\0').filter(Boolean);
-    const chosen = new Set();
-    for (const pattern of mutate) {
-      const include = /^([\w./-]+)\/\*\*\/\*(\.\w+)$/.exec(pattern); // katalog/**/*.roz
-      const exclude = /^!\*\*\/([\w.-]+)\/\*\*$/.exec(pattern); // !**/katalog/**
-      assert.ok(include || exclude, `wzorzec spoza obsługiwanej postaci (rozszerz test): ${pattern}`);
-      for (const f of tracked) {
-        if (include && f.startsWith(`${include[1]}/`) && f.endsWith(include[2])) chosen.add(f);
-        if (exclude && f.split('/').slice(0, -1).includes(exclude[1])) chosen.delete(f);
-      }
-    }
-    assert.deepEqual(files, [...chosen].sort());
-    assert.ok(files.length > 0);
-  });
-
-  it('części są rozłączne, razem dają wszystkie pliki i różnią się liczbą plików najwyżej o 1', () => {
-    for (const total of [1, 2, 3, 8, 13]) {
-      const parts = Array.from({ length: total }, (_, i) => shard(files, i, total));
-      assert.deepEqual(parts.flat().sort(), files);
-      const counts = parts.map((p) => p.length);
-      assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${total} części: ${counts}`);
-    }
-  });
-
-  it('pliki od największego rozdawane wężykiem', () => {
-    const size = { a: 4, b: 3, c: 2, d: 1, e: 0 };
-    const sizeOf = (f) => size[f];
-    assert.deepEqual(shard(['e', 'd', 'c', 'b', 'a'], 0, 2, sizeOf), ['a', 'd', 'e']);
-    assert.deepEqual(shard(['e', 'd', 'c', 'b', 'a'], 1, 2, sizeOf), ['b', 'c']);
-  });
-
-  it('wiersz poleceń: --all, część po przecinku, złe argumenty i pusta część', () => {
-    assert.equal(node('mutation-shards.mjs', ['--all']).stdout, `${files.join('\n')}\n`);
-    assert.deepEqual(node('mutation-shards.mjs', ['1', '8']).stdout.split(','), shard(files, 1, 8));
-    assert.equal(node('mutation-shards.mjs', ['8', '8']).status, 2);
-    assert.equal(node('mutation-shards.mjs', ['x', '8']).status, 2);
-    const empty = node('mutation-shards.mjs', [String(files.length), String(files.length + 1)]);
-    assert.equal(empty.status, 1);
-    assert.match(empty.stderr, /pusta/);
-  });
-
-  it('konfiguracja części: ustawienia ze stryker.config.json, bez progu, z raportem JSON', async () => {
-    const base = JSON.parse(read('stryker.config.json'));
-    const { default: part } = await import(join(ROOT, 'stryker.shard.config.mjs'));
-    assert.equal(part.thresholds.break, null);
-    assert.equal(typeof base.thresholds.break, 'number');
-    assert.ok(part.reporters.includes('json'));
-    for (const key of ['mutate', 'coverageAnalysis', 'concurrency', 'testRunner', 'jest']) assert.deepEqual(part[key], base[key], key);
-    assert.equal(part.$schema, undefined);
-  });
-});
-
-const mutant = (id, status) => ({ id: String(id), mutatorName: 'ConditionalExpression', status, location: { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } } });
-const file = (statuses) => ({ language: 'typescript', source: 'x', mutants: statuses.map((s, i) => mutant(i + 1, s)) });
-const report = (files) => ({ schemaVersion: '1.0', thresholds: { high: 95, low: 90, break: 90 }, files, testFiles: { 't.test.ts': { tests: [{ id: '1', name: 't' }] } } });
-const times = (n, s) => Array.from({ length: n }, () => s);
-
-describe('wynik testów mutacyjnych z części (M-47)', () => {
-  it('wynik całości jak wzór Strykera: (Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)', () => {
-    const a = report({ 'src/a.ts': file(['Killed', 'Killed', 'Survived', 'RuntimeError']) });
-    const b = report({ 'src/b.ts': file(['Timeout', 'NoCoverage', 'Killed', 'Ignored', 'CompileError']) });
-    const merged = mergeReports([a, b]);
-    assert.deepEqual(Object.keys(merged.files).sort(), ['src/a.ts', 'src/b.ts']);
-    assert.equal(merged.testFiles, undefined);
-    assert.deepEqual(merged.files['src/b.ts'].mutants.map((m) => m.id), ['2-1', '2-2', '2-3', '2-4', '2-5']);
-    const m = metricsOf(merged);
-    assert.ok(Math.abs(m.mutationScore - (100 * (3 + 1)) / (3 + 1 + 1 + 1)) < 1e-9, String(m.mutationScore));
-    assert.equal(m.totalValid, 6);
-  });
-
-  it('ten sam plik w dwóch częściach to błąd', () => {
-    assert.throws(() => mergeReports([report({ 'src/a.ts': file(['Killed']) }), report({ 'src/a.ts': file(['Killed']) })]), /dwóch części/);
-  });
-
-  it('wykrywa plik bez części, w dwóch częściach, spoza mutate i raport spoza listy części', () => {
-    const r = (names) => report(Object.fromEntries(names.map((n) => [n, file(['Killed'])])));
-    assert.deepEqual(coverageProblems(['a', 'b'], [['a'], ['b']], [r(['a']), r(['b'])]), []);
-    assert.equal(coverageProblems(['a', 'b'], [['a'], []], [r(['a']), r([])]).length, 1);
-    assert.match(coverageProblems(['a'], [['a'], ['a']], [r(['a']), r([])]).join(), /w częściach 1 i 2/);
-    assert.match(coverageProblems(['a'], [['a', 'z']], [r(['a'])]).join(), /z: spoza wzorców mutate/);
-    assert.match(coverageProblems(['a', 'b'], [['a'], ['b']], [r(['a', 'b']), r(['b'])]).join(), /nie było go na jej liście/);
-  });
-
-  describe('wiersz poleceń na prawdziwej liście plików i progu ze stryker.config.json', () => {
-    const files = mutateFiles();
-    const threshold = JSON.parse(read('stryker.config.json')).thresholds.break;
-    const run = (detected, undetected, { drop = 0 } = {}) => {
-      const dir = mkdtempSync(join(tmpdir(), 'mutation-merge-'));
-      const halves = [files.slice(0, Math.ceil(files.length / 2)), files.slice(Math.ceil(files.length / 2))];
-      halves.forEach((names, i) => {
-        const listed = i === 1 && drop ? names.slice(drop) : names;
-        const statuses = (j) => (i === 0 && j === 0 ? [...times(detected, 'Killed'), ...times(undetected, 'Survived')] : []);
-        mkdirSync(join(dir, `part-${i + 1}`));
-        writeFileSync(join(dir, `part-${i + 1}`, 'files.txt'), `${listed.join(',')}\n`);
-        writeFileSync(join(dir, `part-${i + 1}`, 'mutation.json'), JSON.stringify(report(Object.fromEntries(listed.map((n, j) => [n, file(statuses(j))])))));
-      });
-      return node('mutation-merge.mjs', [join(dir, 'part-1'), join(dir, 'part-2')], { env: { ...process.env, GITHUB_STEP_SUMMARY: join(dir, 'summary.md') } });
-    };
-
-    it('wynik równy progowi przechodzi (jak w Strykerze: błąd dopiero poniżej progu)', () => {
-      const ok = run(threshold, 100 - threshold);
-      assert.equal(ok.status, 0, ok.stdout + ok.stderr);
-      assert.match(ok.stdout, new RegExp(`Wynik \\*\\*${threshold},00%\\*\\*`));
-    });
-
-    it('wynik poniżej progu oblewa przebieg', () => {
-      const low = run(threshold - 1, 101 - threshold);
-      assert.equal(low.status, 1);
-      assert.match(low.stdout, /poniżej progu/);
-    });
-
-    it('brak ważnych mutantów albo plik bez części oblewa przebieg', () => {
-      assert.equal(run(0, 0).status, 1);
-      const missing = run(threshold, 100 - threshold, { drop: 1 });
-      assert.equal(missing.status, 1);
-      assert.match(missing.stdout, /nie ma go w żadnej części/);
-    });
-  });
-});
 
 describe('zależności skryptów CI zadeklarowane w package.json (audyt 3, N-240)', () => {
   it('każdy pakiet importowany w .github/scripts i scripts jest w dependencies albo devDependencies (nie tylko przechodnio)', () => {
@@ -153,7 +26,7 @@ describe('zależności skryptów CI zadeklarowane w package.json (audyt 3, N-240
     const sources = ['.github/scripts', 'scripts', 'scripts/e2e'].flatMap((d) =>
       readdirSync(join(ROOT, d)).filter((f) => /\.m?js$/.test(f)).map((f) => `${d}/${f}`),
     );
-    sources.push('stryker.shard.config.mjs');
+    sources.push('stryker.shard.config.mjs', 'stryker.plan.config.mjs');
     const used = new Map();
     for (const f of sources) {
       for (const m of read(f).matchAll(/(?:^|\n)\s*import\s[^'"]*?from\s*['"]([^'".][^'"]*)['"]|import\(\s*['"]([^'".][^'"]*)['"]\s*\)/g)) {
@@ -193,16 +66,33 @@ describe('kontrakty workflow (audyt 2)', () => {
     assert.ok(on.schedule?.length > 0 && 'workflow_dispatch' in on);
   });
 
-  it('nightly.yml: części testów mutacyjnych kończą się błędem przed limitem czasu, próg na całości (M-47)', () => {
+  it('nightly.yml: części testów mutacyjnych z planu, limit czasu z przewidywania, próg na całości (M-47, 11.10.2026)', () => {
     const { jobs } = workflow('nightly.yml');
-    assert.ok(jobs.mutation.strategy.matrix.part.length > 1);
-    const run = steps(jobs.mutation).map((s) => s.run ?? '').join('\n');
-    assert.match(run, /mutation-shards\.mjs "\$\{\{ strategy\.job-index \}\}" "\$\{\{ strategy\.job-total \}\}"/);
-    const limit = /timeout --kill-after=(\d+)m (\d+)m npx stryker run stryker\.shard\.config\.mjs --mutate "\$files"/.exec(run);
-    assert.ok(limit, 'stryker w części pod `timeout`');
-    assert.ok(Number(limit[1]) + Number(limit[2]) < jobs.mutation['timeout-minutes']);
-    assert.equal(jobs['mutation-score'].needs, 'mutation');
-    assert.match(steps(jobs['mutation-score']).map((s) => s.run ?? '').join('\n'), /mutation-merge\.mjs reports\/parts\/\*/);
+    const plan = jobs['mutation-plan'];
+    assert.deepEqual(plan.permissions, { contents: 'read', actions: 'read' });
+    const planRun = steps(plan).map((s) => s.run ?? '').join('\n');
+    assert.match(planRun, /mutation-prev-timings\.sh "\$BRANCH" reports\/previous/);
+    assert.match(planRun, /mutation-plan\.mjs --timings reports\/previous\/timings\.json/);
+    assert.equal(plan.outputs.matrix, '${{ steps.plan.outputs.matrix }}');
+    assert.equal(jobs.mutation.needs, 'mutation-plan');
+    assert.equal(jobs.mutation.strategy.matrix, '${{ fromJSON(needs.mutation-plan.outputs.matrix) }}');
+    assert.equal(jobs.mutation.strategy['fail-fast'], false);
+    assert.equal(jobs.mutation['timeout-minutes'], '${{ matrix.jobMin }}');
+    const part = steps(jobs.mutation).find((s) => /stryker run/.test(s.run ?? ''));
+    assert.deepEqual(part.env, { MUTATE: '${{ matrix.mutate }}', STEP_MIN: '${{ matrix.stepMin }}' });
+    const limit = /timeout --kill-after=(\d+)m "\$\{STEP_MIN\}m" npx stryker run stryker\.shard\.config\.mjs --mutate "\$MUTATE"/.exec(part.run);
+    assert.ok(limit, 'stryker w części pod `timeout` z limitem z planu');
+    // Brak pamięci zabija proces testów, nie usługę runnera (część 9 przebiegu 38172300136).
+    assert.ok(part.run.indexOf('echo 1000 > /proc/self/oom_score_adj') >= 0 && part.run.indexOf('echo 1000') < part.run.indexOf('timeout '));
+    // jobMin = stepMin + jobSetupMin (mutation-plan.mjs): zapas na kroki poza Strykerem musi objąć --kill-after.
+    assert.ok(Number(limit[1]) < PARAMS.jobSetupMin);
+    const upload = steps(jobs.mutation).find((s) => s.uses?.startsWith('actions/upload-artifact@'));
+    assert.equal(upload.if, 'always()');
+    assert.match(upload.with.path, /timings\.jsonl/);
+    assert.deepEqual(jobs['mutation-score'].needs, ['mutation-plan', 'mutation']);
+    assert.equal(jobs['mutation-score'].if, "${{ always() && needs.mutation-plan.result == 'success' }}");
+    assert.match(steps(jobs['mutation-score']).map((s) => s.run ?? '').join('\n'), /mutation-merge\.mjs --plan reports\/plan\/plan\.json --timings-out reports\/timings\/timings\.json reports\/parts\/\*/);
+    assert.ok(steps(jobs['mutation-score']).some((s) => s.with?.name === 'mutation-timings' && s.if === 'always()'));
   });
 
   it('e2e.yml: maszyna macOS nie dla PR z forka; artefakt bez pełnego logu xcodebuild i logów Maestro (M-79, PW-48 A)', () => {

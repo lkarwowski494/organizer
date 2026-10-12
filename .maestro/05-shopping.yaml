@@ -7,42 +7,62 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
     env:
       TAB: "tab-Lists"
       SCREEN: "screen-lists"
-- tapOn:
-    id: "list-0199a000-0000-7000-8000-000000000022"
+- runFlow:
+    file: common/scroll-tap.yaml
+    env:
+      ID: "list-0199a000-0000-7000-8000-000000000022"
 - extendedWaitUntil:
     visible:
       id: "screen-list"
-    timeout: 10000
+    timeout: 30000
+# Przy AX5 pole dodawania jest poniżej nagłówka listy (przebieg 38171092887: „Element not found: quick-add”).
+- scrollUntilVisible:
+    element:
+      id: "quick-add"
+    direction: DOWN
+    timeout: 30000
 - runFlow:
     file: common/type.yaml
     env:
       FIELD: "quick-add"
       TEXT: "Ser żółty"
 - tapOn: "Dodaj"
+# Pasek „Cofnij” znika, zanim scenariusz przeciągnie albo dotknie wiersza: Maestro nie widzi, że pasek zasłania wiersz,
+# a przy AX5 pasek jest wysoki i przeciągnięcie na nim to dotknięcie (otwiera „Ostatnie zmiany”, E2E 38237288337).
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
+# Klawiatura chowa się przy przeciągnięciu (w górę — na górze listy przeciągnięcie w dół odświeża).
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 30%"
+    duration: 600
+# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
 - scrollUntilVisible:
     element: "Włóż do koszyka: Ser żółty"
     direction: DOWN
-    timeout: 10000
-# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
+    timeout: 30000
 - tapOn: "Włóż do koszyka: Ser żółty"
+# Pasek „W koszyku: … · Cofnij” — przewijanie dopiero po nim (E2E 38237288337, iPhone 17e przy AX5: przewijanie w górę
+# do wskaźnika otworzyło „Ostatnie zmiany” i wskaźnika nie było).
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
 - scrollUntilVisible:
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 # Wskaźnik jest w pierwszym wierszu ekranu, a po przewinięciu w dół poza ekranem — Maestro nie widzi elementów
 # spoza ekranu, więc najpierw powrót na górę (jak w 06).
 - scrollUntilVisible:
     element:
       id: "sync-chip"
     direction: UP
-    timeout: 10000
+    timeout: 30000
 # Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
 - extendedWaitUntil:
     visible: "Stan synchronizacji: Przed chwilą"
-    timeout: 15000
-# Pasek „W koszyku: … · Cofnij” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
-- extendedWaitUntil:
-    notVisible:
-      id: "undo-bar"
     timeout: 15000
 - takeScreenshot: 05-shopping

@@ -8,53 +8,79 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
       TAB: "tab-Calendar"
       SCREEN: "screen-calendar"
 # Jak w 04: koniec ruchu przed dotknięciem przycisku na końcu treści.
-- scrollUntilVisible:
-    element:
-      id: "calendar-add-event"
-    direction: DOWN
-    timeout: 10000
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    id: "calendar-add-event"
+# Jak w 04: przycisk na końcu treści, często za paskiem zakładek.
+- runFlow:
+    file: common/scroll-tap.yaml
+    env:
+      ID: "calendar-add-event"
 - extendedWaitUntil:
     visible:
       id: "screen-event-edit"
-    timeout: 10000
+    timeout: 30000
+- runFlow: common/hide-keyboard.yaml
+- scrollUntilVisible:
+    element: "Rodzina"
+    direction: DOWN
+    timeout: 30000
 - tapOn: "Rodzina"
 - runFlow:
     file: common/type.yaml
     env:
       FIELD: "event-title"
       TEXT: "Obóz"
-- hideKeyboard
+- runFlow: common/hide-keyboard.yaml
+- scrollUntilVisible:
+    element: "Cały dzień"
+    direction: DOWN
+    timeout: 30000
 - tapOn: "Cały dzień"
 - scrollUntilVisible:
     element:
       id: "event-end-date"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 # Dziś w danych demo: środa 7.10.2026 — obóz do piątku 9.10 (3 dni).
 - tapOn:
     id: "event-end-date"
+# Kalendarz wyboru dnia przy AX5 jest wyższy niż ekran (E2E 38208123607) — 10% wystarcza; dzień osobno.
 - scrollUntilVisible:
     element:
       id: "event-end-date-calendar"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element: "Piątek, 9 października.*"
+    direction: DOWN
+    timeout: 30000
 - tapOn: "Piątek, 9 października.*"
 - scrollUntilVisible:
     element:
       id: "event-save"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-save"
 - extendedWaitUntil:
     visible:
       id: "screen-calendar"
-    timeout: 10000
+    timeout: 30000
+# Po zapisie pasek „Cofnij” (treść paska otwiera „Ostatnie zmiany”, D194). Przy AX5 jest wysoki, a przeciągnięcie
+# zaczęte i skończone na nim to dotknięcie — E2E 38220289381 (08, iPhone 17 Pro Max): przewijanie w górę otworzyło
+# „Ostatnie zmiany”. Przewijamy dopiero, gdy pasek zniknie (config.UNDO_MS), jak w 05.
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
 # Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj wydarzenie”).
+- waitForAnimationToEnd:
+    timeout: 3000
+# Kalendarz zostaje przewinięty do „Dodaj wydarzenie”; siatka dni jest wyżej.
+- scrollUntilVisible:
+    element:
+      id: "day-2026-10-08"
+    direction: UP
+    timeout: 30000
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn:
@@ -62,5 +88,6 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
 - scrollUntilVisible:
     element: "Obóz, cały dzień, dzień 2 z 3.*"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 10
 - takeScreenshot: 08-multi-day
