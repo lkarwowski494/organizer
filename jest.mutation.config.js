@@ -7,6 +7,8 @@
  * (wszystkie mutanty wstawione naraz, przełączane zmienną) jest kilka razy wolniejszy. 11.10.2026 test oblał przebieg
  * wstępny Strykera na wszystkich plikach (Kalendarz 289 ms przy budżecie 150 ms), a w części mógłby „zabijać” mutanta
  * samym narzutem instrumentacji, czyli zawyżać wynik. Budżet pilnuje `npm run check` na kodzie bez mutantów.
+ *
+ * Stałe ziarno fast-check (jest.mutation-setup.js): ten sam wynik mutanta przy każdym uruchomieniu.
  */
 const base = require('./jest.config');
 
@@ -15,5 +17,9 @@ const PERF = '<rootDir>/src/domain/__tests__/perf-budget.test.ts';
 module.exports = {
   projects: base.projects
     .filter((p) => p.displayName === 'domain')
-    .map((p) => ({ ...p, testPathIgnorePatterns: [...(p.testPathIgnorePatterns ?? ['/node_modules/']), PERF] })),
+    .map((p) => ({
+      ...p,
+      testPathIgnorePatterns: [...(p.testPathIgnorePatterns ?? ['/node_modules/']), PERF],
+      setupFilesAfterEnv: [...(p.setupFilesAfterEnv ?? []), '<rootDir>/jest.mutation-setup.js'],
+    })),
 };

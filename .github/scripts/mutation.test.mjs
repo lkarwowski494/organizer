@@ -66,6 +66,9 @@ describe('pliki z `mutate` (stryker.config.json)', () => {
     assert.equal(cfg.projects.length, 1);
     assert.ok(cfg.projects[0].testPathIgnorePatterns.some((p) => p.endsWith('src/domain/__tests__/perf-budget.test.ts')));
     assert.ok(cfg.projects[0].testPathIgnorePatterns.includes('/node_modules/'));
+    // Stałe ziarno fast-check: wynik mutanta nie zależy od losowania (ADR 0047, przebieg 38208658558).
+    assert.ok(cfg.projects[0].setupFilesAfterEnv.includes('<rootDir>/jest.mutation-setup.js'));
+    assert.match(read('jest.mutation-setup.js'), /fc\.configureGlobal\(\{ seed: \d+ \}\)/);
   });
 });
 
