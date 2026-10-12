@@ -21,8 +21,6 @@ function baseWithEvent() {
   const t = sampleBase();
   put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE', audience: 'members', location: 'Szkoła tańca, ul. Długa 5', deleted_at: null, version: 1 });
   put(t, 'event_participants', 'p', { id: 'p', event_id: 'ev', group_id: 'gf', member_id: 'tymek', deleted_at: null, version: 1 });
-  // ADR 0049 (K7): odwołany termin za tydzień — wiersz „Odwołany: Tańce” w Kalendarzu.
-  put(t, 'event_overrides', 'o14', { id: 'o14', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-14', cancelled: true, deleted_at: null, version: 1 });
   // Przekazania (D70): jedno do mnie, jedno moje odrzucone — „Do potwierdzenia” i plakietka na zakładce.
   const h = { group_id: 'gf', entity: 'tasks', occurrence_date: null, closed: false, decided_at: null, version: 1, created_at: '2026-10-07T07:00:00Z', deleted_at: null };
   put(t, 'handoffs', 'h1', { ...h, id: 'h1', entity_id: 't-ala', from_member: 'ala', to_member: 'mf', status: 'pending' });
@@ -59,9 +57,7 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
   {
     re: /^etykieta „[^”]*” bez widocznych słów: (h|min|pon|wt|śr|czw|pt|sob|niedz)(, (h|min|pon|wt|śr|czw|pt|sob|niedz))*$/,
     why: 'M-263, N-65: skróty z dopisków aplikacji są w etykiecie słowami („1 h” → „1 godzina”, „śr.” → „środa”; spoken() w src/ui/a11y.ts), tytuł na początku etykiety jest widoczny; jak Sterowanie głosem dopasowuje takie etykiety — do sprawdzenia na iPhonie',
-    // 120 → 130 (ADR 0049): nowe scenariusze „Ustawienia grupy” (K5), „Kosz” (K6) i „Kalendarz: odwołany termin” (K7,
-    // wiersz z „1 h” w etykiecie słowami) mają takie wiersze na ekranie albo pod spodem — po 1–2 na tryb.
-    max: 130,
+    max: 120,
     hits: 0,
   },
   {
@@ -117,11 +113,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
   ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
   ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Co miesiąc'), await p('Do dnia'))],
-  ['Kalendarz: odwołany termin', async (p) => (await p('Kalendarz'), await p(/^Środa, 14 października/))],
   ['Grupy', async (p) => p('Grupy')],
-  ['Kosz', async (p) => (await p('Usuń: Odebrać paczkę'), await p('Grupy'), await p(/^Kosz/))],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
-  ['Ustawienia grupy', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Ustawienia grupy'))],
   ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'))],
   ['Nowa grupa', async (p) => (await p('Grupy'), await p('Nowa grupa'))],
   ['Zaproszenie', async (p) => (await p('Grupy'), await p('Dołącz do grupy'))],
@@ -168,6 +161,42 @@ describe.each(['light', 'dark'] as Scheme[])('tryb %s', (scheme) => {
     const bg = screen.getAllByTestId(/^screen-/);
     expect(bg.length).toBeGreaterThan(0);
     expect(StyleSheet.flatten(bg.at(-1)!.props.style).backgroundColor).toBe(palettes[scheme].ground);
+  });
+});
+
+/**
+ * ADR 0049: nowe ekrany i wiersze nawigacji audytowane bez listy znanych odstępstw (ostrzej niż SCREENS) — na danych bez
+ * wierszy ze skrótami („1 h”, „śr.”), żeby ekrany pod spodem nie dokładały trafień, które liczą już ich scenariusze.
+ */
+describe.each(['light', 'dark'] as Scheme[])('ADR 0049, tryb %s: bez żadnych odstępstw', (scheme) => {
+  const ago = (days: number) => new Date(Date.UTC(2026, 9, 7, 8, 0) - days * 86_400_000).toISOString();
+  const plain = () => {
+    const t = sampleBase();
+    put(t, 'tasks', 'del', { ...t.tasks!['t-kwiaty']!, id: 'del', title: 'Usunięte zadanie', deleted_at: ago(2) });
+    return t;
+  };
+  const cancelled = () => {
+    const t = plain();
+    put(t, 'events', 'ev', { id: 'ev', group_id: 'gf', title: 'Tańce', note: null, start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY;BYDAY=WE;UNTIL=20261007', audience: 'group', deleted_at: null, version: 1 });
+    put(t, 'event_overrides', 'o7', { id: 'o7', event_id: 'ev', group_id: 'gf', occurrence_date: '2026-10-07', cancelled: true, deleted_at: null, version: 1 });
+    return t;
+  };
+  const cases: [string, () => ReturnType<typeof sampleBase>, Record<string, string>, (p: (l: string | RegExp) => Promise<void>) => Promise<void>, string][] = [
+    ['Ustawienia grupy', plain, {}, async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Ustawienia grupy')), 'screen-group-settings'],
+    ['Grupa z kartą „Następne kroki” (Q7: te same nazwy, różne etykiety VoiceOvera)', plain, { 'nextSteps.gf': '1' }, async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator')), 'next-steps'],
+    ['Kosz', plain, {}, async (p) => (await p('Grupy'), await p(/^Kosz/)), 'screen-trash'],
+    ['Kalendarz: odwołany termin', cancelled, {}, async (p) => p('Kalendarz'), 'cal-cancelled-ev-2026-10-07'],
+  ];
+  it.each(cases)('%s', async (name, base, prefs, go, shown) => {
+    const m = new Map(Object.entries({ welcomeSeen: '1', ...prefs }));
+    const s = setup({ scheme, base: base(), prefs: { get: async (k: string) => m.get(k) ?? null, set: async (k: string, v: string) => void m.set(k, v) } });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await go(async (label) => {
+      await fireEvent.press(await screen.findByLabelText(label));
+    });
+    expect(await screen.findByTestId(shown)).toBeTruthy();
+    expect(check(screen.root!, scheme, name, { screen: true })).toEqual([]);
   });
 });
 

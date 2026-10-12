@@ -537,20 +537,20 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     const focus = (TextInput as unknown as { prototype: { focus: jest.Mock } }).prototype.focus;
     focus.mockClear();
     // Audyt nawigacji (Z-7, ADR 0049): na karcie ta sama nazwa co przy polu niżej.
-    await press(within(card).getByLabelText('Dodaj dziecko (bez konta)'));
+    await press(within(card).getByLabelText('Dodaj dziecko (bez konta), Następne kroki'));
     expect(focus).toHaveBeenCalledTimes(1);
     // Audyt 3 (N-8, Q10 C): rola wybrana na karcie — partner jako administrator, choć dzieci jeszcze nie ma.
     // Audyt nawigacji (Q7 a, ADR 0049): jedna nazwa zaproszenia administratora, z dopiskiem „np. drugi rodzic”.
-    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś jako administratora', 'Zaproś']);
+    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś jako administratora, Następne kroki', 'Zaproś, Następne kroki']);
     expect(within(card).getByText('np. drugi rodzic')).toBeTruthy();
-    await press(within(card).getByLabelText('Zaproś jako administratora'));
+    await press(within(card).getByLabelText('Zaproś jako administratora, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'admin');
     expect(await screen.findByText('Dołączy jako: administrator')).toBeTruthy();
-    await press(within(card).getByLabelText('Zaproś'));
+    await press(within(card).getByLabelText('Zaproś, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'member');
     expect(await screen.findByText('Dołączy jako: członek')).toBeTruthy();
     // Audyt nawigacji (Z-6, ADR 0049): „Zaplanuj zakupy” otwiera listę od razu z planowaniem (dzień, osoba).
-    await press(within(card).getByLabelText('Zaplanuj zakupy'));
+    await press(within(card).getByLabelText('Zaplanuj zakupy, Następne kroki'));
     expect(await screen.findByTestId('screen-list')).toBeTruthy();
     expect(screen.getByTestId('trip-editor')).toBeTruthy();
     expect(screen.queryByTestId('trip-plan')).toBeNull();
@@ -563,9 +563,9 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
   it('N-8 (Q10 C): administrator (nie właściciel) widzi na karcie jeden przycisk — zaproszenie członka', async () => {
     const s = await openGroup(await open({ prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
     const card = await screen.findByTestId('next-steps');
-    expect(within(card).queryByLabelText('Zaproś jako administratora')).toBeNull();
+    expect(within(card).queryByLabelText('Zaproś jako administratora, Następne kroki')).toBeNull();
     expect(within(card).queryByText('np. drugi rodzic')).toBeNull();
-    await press(within(card).getByLabelText('Zaproś'));
+    await press(within(card).getByLabelText('Zaproś, Następne kroki'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('gf', 'member');
   });
 
@@ -573,7 +573,7 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     const base = sampleBase();
     put(base, 'lists', 'lz', { ...base.lists!.lz!, due_date: '2026-10-08', due_time: '17:00:00', responsible_member_id: 'ala' });
     const s = await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
-    await press(within(await screen.findByTestId('next-steps')).getByLabelText('Zaplanuj zakupy'));
+    await press(within(await screen.findByTestId('next-steps')).getByLabelText('Zaplanuj zakupy, Następne kroki'));
     expect(await screen.findByTestId('trip-editor')).toBeTruthy();
     expect(screen.getByLabelText('Jutro').props.accessibilityState).toMatchObject({ selected: true });
     expect(within(screen.getByLabelText('Kto robi zakupy')).getByLabelText('Ala').props.accessibilityState).toMatchObject({ selected: true });
@@ -581,6 +581,25 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     await press(screen.getByTestId('trip-save'));
     expect(s.store.dispatched).toEqual([]);
     expect(screen.getByText('jutro, 17:00 · dla: Ala')).toBeTruthy();
+  });
+
+  it('Q7 a (ADR 0049): karta i ekran grupy — ta sama widoczna nazwa, ale każdy przycisk ekranu ma inną etykietę VoiceOvera', async () => {
+    const base = asOwner();
+    delete base.lists!.lz;
+    await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    const page = screen.getByTestId('screen-group');
+    const labels = within(page).getAllByRole('button').map((b) => String(b.props.accessibilityLabel));
+    expect(labels.filter((l, i) => labels.indexOf(l) !== i)).toEqual([]);
+    const card = screen.getByTestId('next-steps');
+    for (const [id, text] of [['next-invite-admin', 'Zaproś jako administratora'], ['next-invite', 'Zaproś'], ['next-child', 'Dodaj dziecko (bez konta)'], ['next-new-shopping', 'Nowa lista zakupów']] as const) {
+      const b = within(card).getByTestId(id);
+      expect(within(b).getByText(text)).toBeTruthy();
+      expect(b.props.accessibilityLabel).toBe(`${text}, Następne kroki`);
+    }
+    // Na ekranie niżej te same przyciski z samą nazwą.
+    expect(screen.getByTestId('invite-admin').props.accessibilityLabel).toBe('Zaproś jako administratora');
+    expect(screen.getByTestId('add-child').props.accessibilityLabel).toBe('Dodaj dziecko (bez konta)');
+    expect(screen.getByTestId('group-new-shopping').props.accessibilityLabel).toBe('Nowa lista zakupów');
   });
 
   it('N-156 (Q19 A): sam w grupie — usunięcie bez pytania, z „Cofnij”', async () => {

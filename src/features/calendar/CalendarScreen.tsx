@@ -215,6 +215,8 @@ export function CalendarScreen() {
               testID={`cal-cancelled-${e.eventId}-${e.occurrenceDate}`}
               title={strings['calendar.cancelledRow'](e.title)}
               {...occurrenceRow(e)}
+              // Długość odwołanego terminu nic nie mówi — bez niej („1 h”) wiersz jest krótszy i czytelniejszy.
+              length={null}
               line={e.line}
               group={groupLabel(e.groupId, e.groupName)}
               cancelled

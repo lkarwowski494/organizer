@@ -38,6 +38,12 @@ Rozstrzygnięcia, których dokument nie opisuje wprost; przyjęty wariant najbli
   „Utwórz listę zakupów” → „Nowa lista zakupów”, „Nowa lista” → „Nowa lista zadań” (Listy, ekran grupy). Odrzucone:
   zostawić „Zaproś kogoś innego (członek)” — dokument wymienia go w Z-7 tylko pośrednio, ale to druga nazwa „Zaproś”.
   **Do potwierdzenia przez właściciela** (brzmienie przycisku członka na karcie).
+  Karta i ekran grupy mają wtedy na jednym ekranie przyciski o tej samej nazwie — widoczna nazwa zostaje (Q7), a etykieta
+  VoiceOvera przycisków karty ma dopisek „…, Następne kroki” (dwa elementy o jednej etykiecie myliłyby VoiceOver
+  i Sterowanie głosem; test RNTL i audyt bez odstępstw w `a11y.test.tsx`).
+- **Audyt dostępności.** Limit znanego odstępstwa (skróty w etykietach) zostaje 120. Nowe ekrany (Ustawienia grupy, Kosz,
+  karta „Następne kroki”, wiersz „Odwołany: …”) audytowane osobno, bez żadnych odstępstw; wiersz odwołanego terminu jest
+  bez długości („1 h”).
 - **K3, etykieta.** „Dodaj na <dzień tygodnia w bierniku>, <dzień> <miesiąc w dopełniaczu>”, np. „Dodaj na środę,
   7 października” — także dla dziś i jutra (stała forma, bez „Dodaj na dziś”); rok tylko spoza bieżącego. Przycisk
   widzi każdy, jak dotąd „Dodaj wydarzenie” w Kalendarzu (formularz pokazuje tylko grupy, w których wolno dodawać).

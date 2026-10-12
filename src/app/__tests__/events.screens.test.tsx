@@ -570,7 +570,7 @@ describe('ADR 0049 (K7, Q3 a): odwołany termin w Kalendarzu z „Przywróć ter
     expect(screen.queryByText('Odwołany: Tańce')).toBeNull();
     await press(screen.getByTestId('tab-Calendar'));
     const row = await screen.findByTestId('cal-cancelled-ev-tance-2026-10-07');
-    expect(row.props.accessibilityLabel).toBe('Odwołany: Tańce, 17:00–18:00, 1 godzina, Rodzina');
+    expect(row.props.accessibilityLabel).toBe('Odwołany: Tańce, 17:00–18:00, Rodzina');
     expect(row.props.accessibilityHint).toBe('Otwiera termin, tam „Przywróć termin”');
     expect(within(row).getByText('Odwołany: Tańce')).toBeTruthy();
     // Bez przesuwania (nie ma czego odwołać) i bez kropki w siatce (nic się wtedy nie dzieje).

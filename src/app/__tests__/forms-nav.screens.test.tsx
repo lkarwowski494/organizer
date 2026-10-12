@@ -137,7 +137,7 @@ describe('ekran grupy: „Następne kroki”, dziecko, puste listy', () => {
     expect(screen.queryByTestId('next-steps')).toBeNull();
     await act(async () => s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mk: { ...b.group_members!.mk!, role: 'admin' } } })));
     expect(await screen.findByTestId('next-steps')).toBeTruthy();
-    await press(within(screen.getByTestId('next-steps')).getByLabelText('Nowa lista zakupów'));
+    await press(within(screen.getByTestId('next-steps')).getByLabelText('Nowa lista zakupów, Następne kroki'));
     expect(within(await screen.findByTestId('screen-new-list')).getByText('Nowa lista zakupów')).toBeTruthy();
     expect(selected('Grupa', 'Klasa 2b')).toBe(true);
   });

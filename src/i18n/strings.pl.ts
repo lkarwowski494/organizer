@@ -670,6 +670,7 @@ export const strings = {
   // Audyt 3 (N-8, Q10 C): właściciel na karcie od razu wybiera rolę — partner jako administrator doda dzieci i babcię.
   // Audyt nawigacji (Q7 a, Z-7, ADR 0049): na karcie te same nazwy co na ekranie grupy, z dopiskiem pod przyciskiem.
   'groups.nextSteps.adminNote': 'np. drugi rodzic',
+  'groups.nextSteps.a11y': (label: string) => `${label}, Następne kroki`,
   // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
   'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
   'groups.error.nameEmpty': 'Wpisz nazwę grupy.',

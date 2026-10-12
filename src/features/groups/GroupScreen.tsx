@@ -263,22 +263,25 @@ export function GroupScreen({ route, navigation }: Props) {
             {strings['groups.nextSteps']}
           </CardTitle>
           <Body muted>{strings['groups.nextSteps.body']}</Body>
+          {/* Q7 a (ADR 0049): widoczne nazwy jak na ekranie grupy, a etykieta VoiceOvera z dopiskiem „Następne kroki” — te
+              same przyciski stoją niżej (Osoby, Listy grupy), więc dwa elementy o jednej etykiecie myliłyby VoiceOver i
+              Sterowanie głosem. */}
           {/* Audyt 3 (N-8, Q10 C): rola wybrana na karcie, nie przez kolejność kroków (wcześniej członek, gdy nie było
               jeszcze dzieci). Administratora zaprasza tylko właściciel — administrator widzi jeden przycisk „członek”. */}
           {d.canInviteAdmin ? (
             <>
-              <Button label={strings['groups.inviteAdmin']} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
+              <Button label={strings['groups.inviteAdmin']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.inviteAdmin'])} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
               <Body muted>{strings['groups.nextSteps.adminNote']}</Body>
-              <Button kind="secondary" label={strings['groups.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
+              <Button kind="secondary" label={strings['groups.invite']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.invite'])} testID="next-invite" onPress={() => void makeInvite('member')} />
             </>
           ) : (
-            <Button label={strings['groups.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
+            <Button label={strings['groups.invite']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.invite'])} testID="next-invite" onPress={() => void makeInvite('member')} />
           )}
-          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.addChild']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
+          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.addChild']} a11yLabel={strings['groups.nextSteps.a11y'](strings['groups.addChild'])} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
           {shopping ? (
-            <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id, plan: true })} />
+            <Button kind="secondary" label={strings['trip.plan']} a11yLabel={strings['groups.nextSteps.a11y'](strings['trip.plan'])} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id, plan: true })} />
           ) : (
-            <Button kind="secondary" label={strings['lists.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+            <Button kind="secondary" label={strings['lists.newShopping']} a11yLabel={strings['groups.nextSteps.a11y'](strings['lists.newShopping'])} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
           )}
           <Button
             kind="secondary"
