@@ -1,7 +1,7 @@
 /**
  * Kalendarz miesiąca: tydzień od poniedziałku, polskie dni wolne, kropki linii grup przy dniach
  * z wydarzeniami i zadaniami; pod siatką wydarzenia (wszystkie z moich grup, także serie RRULE) i zadania
- * wybranego dnia oraz dodawanie wydarzenia na ten dzień.
+ * wybranego dnia oraz dodawanie na ten dzień (wydarzenie, zadanie albo rutyna — ADR 0049).
  */
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,7 +11,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useAppData, useServices } from '../../app/context';
 import type { RootStackParams } from '../../app/routes';
 import { formatIsoDate } from '../../domain/civil-date';
-import { formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
+import { formatDateAccusative, formatLongDate, formatMinutes, formatMonth, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
 import { useEventActions } from '../../app/event-actions';
 import { type CalendarItem, calendarMonth, groupsView, myMemberships } from '../../domain/views';
@@ -186,6 +186,9 @@ export function CalendarScreen() {
           );
         })}
       </View>
+      {/* Audyt nawigacji (Q6 a, Z-2, Z-3, ADR 0049): dodawanie od razu pod siatką, nad listą dnia (przy AX5 nie za paskiem
+          zakładek). Otwiera formularz wydarzenia z tym dniem; „Rodzaj” prowadzi do zadania (z tym dniem) albo rutyny. */}
+      <Button kind="secondary" label={strings['calendar.addOn'](formatDateAccusative(parseIsoDate(selected), today))} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
       {day ? (
         <View style={{ gap: 4 }}>
           <Text accessibilityRole="header" style={{ fontFamily: font.display700, fontSize: size.CARD_TITLE, color: c.ink }}>
@@ -206,8 +209,6 @@ export function CalendarScreen() {
           <HiddenDuplicates entries={daySplit.hidden} testID={`cal-hidden-${day.date}`} />
         </View>
       ) : null}
-      <Button kind="secondary" label={strings['calendar.addEvent']} testID="calendar-add-event" onPress={() => nav.navigate('EventEdit', { date: selected })} />
-      <Button kind="secondary" label={strings['routine.add']} testID="calendar-add-routine" onPress={() => nav.navigate('Routine')} />
     </Screen>
   );
 }

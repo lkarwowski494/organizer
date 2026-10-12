@@ -111,8 +111,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wydarzenie: wybór zakresu', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'))],
   ['Zmiana serii', async (p) => (await p('Tańce, 17:00–18:00, 1 godzina, Rodzina'), await p('Zmień'), await p('Całą serię'))],
   // Grupa wspólna: w osobistej nie ma „Kogo dotyczy” (audyt 2, P-53).
-  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
-  ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p('Dodaj wydarzenie'), await p('Co miesiąc'), await p('Do dnia'))],
+  ['Nowe wydarzenie', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rodzina'), await p('Co tydzień'), await p('Dodaj wariant (inne dni albo godzina)'), await p('Wybrane osoby'))],
+  ['Nowe wydarzenie co miesiąc', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Co miesiąc'), await p('Do dnia'))],
   ['Grupy', async (p) => p('Grupy')],
   ['Grupa', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'))],
   ['Osoba', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'))],
@@ -129,8 +129,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   ['Wprowadzenie: start', async (p) => (await p('Ustawienia'), await p('Pokaż wprowadzenie'), await p('Pomiń'))],
   ['Mini kalendarz przy dacie', async (p) => (await p('Więcej'), await fireEvent.press(await screen.findByTestId('form-date')), await p('Następny miesiąc'))],
   ['Plan lekcji', async (p) => (await p('Grupy'), await p('Rodzina, 3 osoby, administrator'), await p('Tymek, dziecko'), await p('Plan lekcji'), await p('Dodaj lekcję: poniedziałek'))],
-  ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p('Dodaj krok'))],
-  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p('Dodaj rutynę'), await p(/^Początek$/))],
+  ['Nowa rutyna', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rutyna'), await p('Dodaj krok'))],
+  ['Wybór godziny', async (p) => (await p('Kalendarz'), await p(/^Dodaj na /), await p('Rutyna'), await p(/^Początek$/))],
   ['Twoje imię', async (p) => (await p('Ustawienia'), await p('Konto i dane'), await p('Twoje imię, Łukasz'))],
   ['Pełny formularz: wydarzenie (przełącznik Rodzaj)', async (p) => (await p('Więcej'), await p('Wydarzenie'))],
   ['Pasek „Dodano wydarzenie · Zmień”', async (p) => {

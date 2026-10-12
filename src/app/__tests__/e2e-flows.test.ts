@@ -66,7 +66,7 @@ describe('scenariusze Maestro — wskaźnik synchronizacji na górze ekranu (N-8
  * `centerElement` w `scrollUntilVisible` (Maestro 2.11.0, Orchestra.scrollUntilVisible): krok kończy się dopiero, gdy
  * środek elementu wejdzie w pas środka ekranu (UiElement.isElementNearScreenCenter: przy przewijaniu w dół środek wyżej
  * niż 70% wysokości), a zwykły warunek widoczności sprawdza dopiero po 4 próbach centrowania — każda z przesunięciem
- * i czekaniem na uspokojenie ekranu. Przyciski na końcu treści (Kalendarz: „Dodaj wydarzenie”, „Dodaj rutynę”) nie
+ * i czekaniem na uspokojenie ekranu. Przyciski na końcu treści (wtedy Kalendarz: „Dodaj wydarzenie”, „Dodaj rutynę”) nie
  * mogą wejść w ten pas, więc krok przewija do limitu czasu i zgłasza „No visible element found”, choć przycisk widać
  * (04 na main od 71abed3). Koniec ruchu przed dotknięciem daje `waitForAnimationToEnd`.
  * Źródło: https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-orchestra/src/main/java/maestro/orchestra/Orchestra.kt
@@ -84,12 +84,18 @@ describe('scenariusze Maestro — przewijanie bez centerElement', () => {
     expect(centered(readFileSync(join(DIR, f), 'utf8'))).toEqual([]);
   });
 
-  it('04 i 08 dotykają „Dodaj wydarzenie” przez common/scroll-tap.yaml (nocny przebieg 38106362581: za paskiem zakładek)', () => {
+  it('04 i 08 dotykają „Dodaj na <dzień>” przez common/scroll-tap.yaml (nocny przebieg 38106362581: za paskiem zakładek; ADR 0049)', () => {
     for (const f of ['04-event-form.yaml', '08-multi-day.yaml']) {
       const s = steps(readFileSync(join(DIR, f), 'utf8'));
       expect(s.filter((x) => /^- tapOn:\s*\n\s+id: "calendar-add-event"/.test(x))).toEqual([]);
       expect(s.some((x) => /^- runFlow:\s*\n\s+file: common\/scroll-tap\.yaml\s*\n\s+env:\s*\n\s+ID: "calendar-add-event"/.test(x))).toBe(true);
     }
+  });
+
+  it('04: nowy wiersz dnia jest pod przyciskiem „Dodaj na <dzień>” — po zapisie przewijanie w dół (ADR 0049, K3)', () => {
+    const s = steps(readFileSync(join(DIR, '04-event-form.yaml'), 'utf8'));
+    const row = s.find((x) => /^- scrollUntilVisible:\s*\n\s+element: "Wywiadówka/.test(x));
+    expect(row).toMatch(/direction: DOWN/);
   });
 });
 

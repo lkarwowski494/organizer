@@ -32,6 +32,7 @@ test `src/app/__tests__/texts.test.ts` (płeć, cudzysłów przy nazwach ekranó
 | Komunikat po usunięciu | **Usunięto + rodzaj: tytuł** | „Usunięto: X” | „Usunięto zadanie: Basen”, „Usunięto produkt: mleko”, „Usunięto wydarzenie: Wizyta”, „Usunięto serię: Tańce” |
 | Nowa lista (ADR 0049, Z-7) | **Nowa lista zadań / Nowa lista zakupów** — w Listach, na ekranie grupy i na karcie „Następne kroki” | „Nowa lista” bez rodzaju, „Utwórz listę zakupów” | |
 | Zaproszenie do grupy (ADR 0049, Q7 a) | **Zaproś** (członek) / **Zaproś jako administratora** — także na karcie „Następne kroki”, tam z dopiskiem „np. drugi rodzic” | „Zaproś partnera (administrator)”, „Zaproś kogoś innego (członek)”, „Zaproś do grupy” | |
+| Dodawanie w Kalendarzu (ADR 0049, Q6 a) | **Dodaj na + dzień w bierniku** („Dodaj na środę, 7 października”); rodzaj (Zadanie / Wydarzenie / Rutyna) w formularzu | „Dodaj wydarzenie” i „Dodaj rutynę” w Kalendarzu | |
 | Profil dziecka bez konta (ADR 0049, Z-7) | **Dodaj dziecko (bez konta)** | samo „Dodaj dziecko” | |
 | Usunięcie osoby z grupy | **usunąć z grupy** („Usuń z grupy”) | wypisać | „Z tej grupy usuwa Cię właściciel albo administrator.” |
 | Głos aplikacji | **my** | ja | „Synchronizujemy…”, „Pobieramy grupę…”, „spróbujemy ponownie” |

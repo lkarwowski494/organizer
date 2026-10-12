@@ -415,6 +415,8 @@ export const strings = {
   'calendar.repeatNext': 'kolejny termin',
   'calendar.repeatNextHint': 'Otwiera zadanie, z którego wynika ten termin',
   'calendar.addEvent': 'Dodaj wydarzenie',
+  // Audyt nawigacji (Q6 a, ADR 0049): jeden przycisk pod siatką Kalendarza — rodzaj (wydarzenie, zadanie, rutyna) w formularzu.
+  'calendar.addOn': (day: string) => `Dodaj na ${day}`,
 
   'event.new': 'Nowe wydarzenie',
   'event.edit': 'Zmień wydarzenie',

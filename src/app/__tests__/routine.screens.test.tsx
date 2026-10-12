@@ -56,7 +56,7 @@ describe('rutyny (D113)', () => {
     const s = setup();
     await s.renderApp(<RootStack />);
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     await screen.findByTestId('screen-routine');
     await press(screen.getByTestId('routine-save'));
     expect(screen.getByText('Wpisz nazwę rutyny.')).toBeTruthy();

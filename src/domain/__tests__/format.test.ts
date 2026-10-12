@@ -1,5 +1,5 @@
 import { lengthLabel } from '../views/events';
-import { formatDateInline, formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
+import { formatDateAccusative, formatDateInline, formatDue, formatLongDate, formatMonth, formatRange, formatTime, parseIsoDate } from '../format';
 
 const TODAY = { y: 2026, m: 10, d: 7 }; // środa
 
@@ -11,6 +11,14 @@ describe('daty na ekranach', () => {
     expect(formatDateInline(TODAY, TODAY)).toBe('środa, 7 października');
     expect(formatDateInline({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('poniedziałek, 4 stycznia 2027');
     expect(formatLongDate({ y: 2026, m: 10, d: 11 }, TODAY)).toBe('Niedziela, 11 października');
+  });
+
+  it('ADR 0049 (K3): data po „na” — dzień tygodnia w bierniku, małą literą, rok tylko inny niż bieżący', () => {
+    expect(formatDateAccusative(TODAY, TODAY)).toBe('środę, 7 października');
+    expect(formatDateAccusative({ y: 2026, m: 10, d: 10 }, TODAY)).toBe('sobotę, 10 października');
+    expect(formatDateAccusative({ y: 2026, m: 10, d: 11 }, TODAY)).toBe('niedzielę, 11 października');
+    expect(formatDateAccusative({ y: 2026, m: 10, d: 13 }, TODAY)).toBe('wtorek, 13 października');
+    expect(formatDateAccusative({ y: 2027, m: 1, d: 4 }, TODAY)).toBe('poniedziałek, 4 stycznia 2027');
   });
 
   it('miesiąc w mianowniku', () => {

@@ -7,8 +7,7 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     env:
       TAB: "tab-Calendar"
       SCREEN: "screen-calendar"
-# Jak w 04: koniec ruchu przed dotknięciem przycisku na końcu treści.
-# Jak w 04: przycisk na końcu treści, często za paskiem zakładek.
+# Jak w 04: „Dodaj na <dzień>” pod siatką dni, przy AX5 często za paskiem zakładek.
 - runFlow:
     file: common/scroll-tap.yaml
     env:
@@ -72,10 +71,10 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     notVisible:
       id: "undo-bar"
     timeout: 15000
-# Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj wydarzenie”).
+# Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj na <dzień>”).
 - waitForAnimationToEnd:
     timeout: 3000
-# Kalendarz zostaje przewinięty do „Dodaj wydarzenie”; siatka dni jest wyżej.
+# Kalendarz zostaje przewinięty do „Dodaj na <dzień>” (pod siatką); siatka dni jest wyżej.
 - scrollUntilVisible:
     element:
       id: "day-2026-10-08"

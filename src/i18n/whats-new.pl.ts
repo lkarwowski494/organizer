@@ -11,6 +11,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     // Build 25: nawigacja po audycie przepływów (decyzja właściciela 12.10.2026, wariant B, ADR 0049).
     fromBuild: 25,
     items: [
+      'Kalendarz: przycisk „Dodaj na …” (np. „Dodaj na środę, 7 października”) stoi od razu pod siatką dni i dodaje na wybrany dzień wydarzenie, zadanie albo rutynę — rodzaj wybierasz w formularzu.',
       'Karta „Następne kroki” w nowej grupie: „Zaplanuj zakupy” od razu otwiera wybór dnia i osoby, a przyciski nazywają się jak na ekranie grupy („Zaproś jako administratora”, „Nowa lista zakupów”). W Listach jest „Nowa lista zadań” obok „Nowa lista zakupów”.',
     ],
   },
@@ -54,7 +55,7 @@ export const whatsNewEntries: readonly WhatsNewEntry[] = [
     fromBuild: 19,
     items: [
       'Zaległe przeniesiesz na dziś jednym przyciskiem (z cofnięciem), a poranne przypomnienie podsumowuje cały dzień.',
-      'Plan lekcji z tygodniami A/B (Grupy → grupa → dziecko → „Plan lekcji”) i rutyny z krokami (Kalendarz → „Dodaj rutynę”) z licznikiem „N razy z rzędu”.',
+      'Plan lekcji z tygodniami A/B (Grupy → grupa → dziecko → „Plan lekcji”) i rutyny z krokami (w formularzu dodawania rodzaj „Rutyna”) z licznikiem „N razy z rzędu”.',
       'Wydarzenie może mieć miejsce: „Nawiguj” otwiera mapy, a gdy włączysz „Czas dojazdu do najbliższych wydarzeń” (Ustawienia → Kalendarz i dojazd), widzisz „Wyjdź o …”.',
       'W wierszach widać, kto odpowiada („dla Ciebie”, „odpowiada: Ala”) i ile trwa wydarzenie. „Wyczyść dane na telefonie” (Ustawienia → Konto i dane) pobiera wszystko od nowa.',
       'Dzień z przerwami: między sprawami widać „wolne 2 h 30 min”, a wydarzenia z iPhone’a stoją na swojej godzinie.',

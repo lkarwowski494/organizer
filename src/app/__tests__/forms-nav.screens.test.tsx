@@ -27,8 +27,7 @@ describe('PW-37 A (M-118): formularze wydarzenia, rutyny i listy startują z „
     await press(await screen.findByTestId('calendar-add-event'));
     await screen.findByTestId('screen-event-edit');
     expect(selected('Grupa', 'Rodzina')).toBe(true);
-    await press(screen.getByLabelText('Wróć'));
-    await press(screen.getByTestId('calendar-add-routine'));
+    await press(within(screen.getByLabelText('Rodzaj')).getByLabelText('Rutyna'));
     await screen.findByTestId('screen-routine');
     expect(selected('Grupa', 'Rodzina')).toBe(true);
     await press(screen.getByLabelText('Wróć'));
@@ -46,6 +45,55 @@ describe('PW-37 A (M-118): formularze wydarzenia, rutyny i listy startują z „
     await press(screen.getByTestId('tab-Calendar'));
     await press(await screen.findByTestId('calendar-add-event'));
     expect(selected('Grupa', 'Klasa 2b')).toBe(true);
+  });
+});
+
+describe('audyt nawigacji K3 (ADR 0049, Q6 a): Kalendarz — „Dodaj na <dzień>” pod siatką, rodzaj w formularzu', () => {
+  it('jeden przycisk z wybranym dniem, nad listą dnia; bez „Dodaj rutynę”', async () => {
+    await open();
+    await press(screen.getByTestId('tab-Calendar'));
+    const add = await screen.findByTestId('calendar-add-event');
+    expect(add.props.accessibilityLabel).toBe('Dodaj na środę, 7 października');
+    expect(screen.queryByTestId('calendar-add-routine')).toBeNull();
+    expect(screen.queryByLabelText('Dodaj rutynę')).toBeNull();
+    // Kolejność w drzewie (i dla VoiceOvera): siatka dni → przycisk → nagłówek dnia z jego sprawami.
+    type Host = { props: Record<string, unknown>; children: (Host | string)[] };
+    const ids: string[] = [];
+    const walk = (n: Host | string) => {
+      if (typeof n === 'string') return;
+      if (typeof n.props.testID === 'string') ids.push(n.props.testID);
+      n.children.forEach(walk);
+    };
+    walk(screen.root as unknown as Host);
+    const at = ids.indexOf('calendar-add-event');
+    expect(at).toBeGreaterThan(ids.lastIndexOf('day-2026-11-08'));
+    expect(ids.findIndex((id) => id.startsWith('cal-'))).toBeGreaterThan(at);
+    await press(screen.getByTestId('day-2026-10-13'));
+    expect(screen.getByTestId('calendar-add-event').props.accessibilityLabel).toBe('Dodaj na wtorek, 13 października');
+    await press(screen.getByTestId('day-2026-10-18'));
+    expect(screen.getByTestId('calendar-add-event').props.accessibilityLabel).toBe('Dodaj na niedzielę, 18 października');
+  });
+
+  it('Z-3: zadanie na wybrany dzień — „Dodaj na …” → Rodzaj: Zadanie → zadanie z tym dniem', async () => {
+    const s = await open();
+    await press(screen.getByTestId('tab-Calendar'));
+    await press(await screen.findByTestId('day-2026-10-13'));
+    await press(screen.getByTestId('calendar-add-event'));
+    await screen.findByTestId('screen-event-edit');
+    await press(within(screen.getByLabelText('Rodzaj')).getByLabelText('Zadanie'));
+    await screen.findByTestId('screen-add-task');
+    await fireEvent.changeText(screen.getByTestId('form-title'), 'Kupić prezent');
+    await press(screen.getByTestId('form-save'));
+    const created = s.store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks');
+    expect(created).toMatchObject({ set: { title: 'Kupić prezent', due_date: '2026-10-13' } });
+  });
+
+  it('rutyna z Kalendarza przez „Rodzaj”', async () => {
+    await open();
+    await press(screen.getByTestId('tab-Calendar'));
+    await press(await screen.findByTestId('calendar-add-event'));
+    await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna'));
+    expect(await screen.findByTestId('screen-routine')).toBeTruthy();
   });
 });
 

@@ -39,9 +39,11 @@ Rozstrzygnięcia, których dokument nie opisuje wprost; przyjęty wariant najbli
   zostawić „Zaproś kogoś innego (członek)” — dokument wymienia go w Z-7 tylko pośrednio, ale to druga nazwa „Zaproś”.
   **Do potwierdzenia przez właściciela** (brzmienie przycisku członka na karcie).
 - **K3, etykieta.** „Dodaj na <dzień tygodnia w bierniku>, <dzień> <miesiąc w dopełniaczu>”, np. „Dodaj na środę,
-  7 października” — także dla dziś i jutra (stała forma, bez „Dodaj na dziś”). Dziecko z kontem przycisku nie widzi
-  tylko wtedy, gdy nie ma żadnej grupy, w której może dodawać — formularz i tak wybiera grupę, więc przycisk zostaje
-  tak, jak dotąd był „Dodaj wydarzenie” w Kalendarzu.
+  7 października” — także dla dziś i jutra (stała forma, bez „Dodaj na dziś”); rok tylko spoza bieżącego. Przycisk
+  widzi każdy, jak dotąd „Dodaj wydarzenie” w Kalendarzu (formularz pokazuje tylko grupy, w których wolno dodawać).
+  testID zostaje `calendar-add-event` (otwiera formularz wydarzenia; scenariusze E2E i audyt XCUITest bez zmian).
+  Rutyna jest już tylko pod „Rodzajem”: przełączenie z niezmienionego formularza wydarzenia (bez nazwy, z grupą
+  domyślną) otwiera rutynę tak jak dawniej „Dodaj rutynę” — z jej szkicem (D179) i grupą domyślną.
 - **K4/K5, ekran grupy.** Kolejność z B1: „Następne kroki” → Osoby (zaproszenia, kod, dziecko bez konta, lista osób) →
   Plany lekcji → Listy grupy („Nowa lista zadań”, „Nowa lista zakupów”) → Wydarzenia grupy („Dodaj wydarzenie”) →
   wiersz „Ustawienia grupy”. „Dodaj rutynę” na ekranie grupy znika — rutyna przez „Rodzaj” w formularzu wydarzenia (B1).

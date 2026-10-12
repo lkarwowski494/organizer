@@ -62,7 +62,7 @@ describe('stany po polsku (N-9)', () => {
   it('wybór wielu (dni tygodnia) to przyciski ze stanem „wybrane”', async () => {
     await open();
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     const day = screen.getByLabelText('śr., w środę');
     expect(day.props.accessibilityRole).toBe('button');
     expect(day.props.accessibilityState).toMatchObject({ selected: true, checked: undefined });
@@ -86,7 +86,7 @@ describe('dni tygodnia z przyimkiem (N-64)', () => {
     WEEKDAYS_ON.forEach((on, i) => expect(on.split(' ')[1]).toBe(WEEKDAYS_ACCUSATIVE[i]));
     await open();
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     const labels = WEEKDAYS_ABBREVIATED.map((w, i) => `${w}, ${WEEKDAYS_ON[i]!}`);
     expect(labels[1]).toBe('wt., we wtorek');
     for (const l of labels) expect(screen.getByLabelText(l)).toBeTruthy();
@@ -180,7 +180,7 @@ describe('fokus po zamknięciu panelu (N-62)', () => {
   it('wybór minuty zwija kafelki: fokus wraca na pole godziny; otwarcie drugiego pola pary nie zabiera mu fokusu', async () => {
     await open();
     await press(screen.getByLabelText('Kalendarz'));
-    await press(await screen.findByTestId('calendar-add-routine'));
+    await (await press(await screen.findByTestId('calendar-add-event')), await press(within(await screen.findByLabelText('Rodzaj')).getByLabelText('Rutyna')));
     await press(screen.getByTestId('routine-start'));
     (AccessibilityInfo.sendAccessibilityEvent as jest.Mock).mockClear();
     await press(screen.getByTestId('routine-end'));
