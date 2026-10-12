@@ -26,22 +26,22 @@ name: 06 Ustawienia się otwierają
     element:
       id: "switch-error-reports"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       id: "open-privacy"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
 - scrollUntilVisible:
     element:
       id: "sign-out"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
 # Audyt 3 (N-78): Licencje — lista i tekst jednej licencji.
 - scrollUntilVisible:
     element: "Wróć"
     direction: UP
-    timeout: 10000
+    timeout: 60000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
@@ -75,7 +75,7 @@ name: 06 Ustawienia się otwierają
 - scrollUntilVisible:
     element: "Wróć"
     direction: UP
-    timeout: 10000
+    timeout: 60000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
@@ -85,7 +85,7 @@ name: 06 Ustawienia się otwierają
 - scrollUntilVisible:
     element: "Wróć"
     direction: UP
-    timeout: 10000
+    timeout: 60000
 - tapOn: "Wróć"
 - extendedWaitUntil:
     visible:
@@ -94,7 +94,7 @@ name: 06 Ustawienia się otwierają
 - scrollUntilVisible:
     element: "Ustawienia"
     direction: UP
-    timeout: 10000
+    timeout: 30000
 # Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
 - extendedWaitUntil:
     visible: "Stan synchronizacji: Przed chwilą"

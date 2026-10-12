@@ -42,9 +42,15 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
 # Dziś w danych demo: środa 7.10.2026 — obóz do piątku 9.10 (3 dni).
 - tapOn:
     id: "event-end-date"
+# Kalendarz wyboru dnia przy AX5 jest wyższy niż ekran (E2E 38208123607) — 10% wystarcza; dzień osobno.
 - scrollUntilVisible:
     element:
       id: "event-end-date-calendar"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
+- scrollUntilVisible:
+    element: "Piątek, 9 października.*"
     direction: DOWN
     timeout: 30000
 - tapOn: "Piątek, 9 października.*"

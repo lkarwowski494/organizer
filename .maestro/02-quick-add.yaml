@@ -12,10 +12,13 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
     file: common/scroll-tap-text.yaml
     env:
       TEXT: "Następny dzień"
-- extendedWaitUntil:
-    visible:
+# Przy AX5 sekcja dnia jest pod paskiem okresu, poniżej ekranu (E2E 38208123607).
+- scrollUntilVisible:
+    element:
       id: "today-day-2026-10-08"
-    timeout: 10000
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 10
 - scrollUntilVisible:
     element: "Kupić mleko,.*"
     direction: DOWN

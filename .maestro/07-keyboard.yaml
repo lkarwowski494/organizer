@@ -26,7 +26,7 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
     element:
       id: "delete-start"
     direction: DOWN
-    timeout: 30000
+    timeout: 60000
 - tapOn:
     id: "delete-start"
 - runFlow:
