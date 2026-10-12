@@ -59,19 +59,23 @@ name: 06 Ustawienia się otwierają
       id: "screen-licenses"
     timeout: 10000
 # Pozycja z początku listy (lista jest alfabetyczna, ponad 80 pozycji): react-native jest blisko końca i Maestro
-# w 20 s przewijał tylko do ok. 20. pozycji (E2E 65, 80ef39a). Krój pisma z licencją SIL OFL, jak na ekranie.
-# Przez common/scroll-to.yaml: przy AX5 `scrollUntilVisible` minął tę pozycję (E2E 38220289381, iPhone 17 Pro Max).
+# w 20 s przewijał tylko do ok. 20. pozycji (E2E 65, 80ef39a). Pierwsza pozycja, z najkrótszym tekstem na początku listy
+# (licencja MIT): Maestro widzi element, gdy co najmniej 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds),
+# a przy AX5 tekst licencji kroju pisma (MIT i SIL OFL, ok. 5500 znaków) ma kilkadziesiąt ekranów — nigdy nie był
+# „widoczny” (E2E 38237288337, iPhone 17e). Tekst MIT (ok. 1100 znaków) ma przy AX5 kilka ekranów.
+# Przez common/scroll-to.yaml: przy AX5 `scrollUntilVisible` minął pozycję Licencji (E2E 38220289381, iPhone 17 Pro Max).
 - runFlow:
     file: common/scroll-to.yaml
     env:
-      ID: "license-@expo-google-fonts/atkinson-hyperlegible-next"
+      ID: "license-@babel/runtime"
 - tapOn:
-    id: "license-@expo-google-fonts/atkinson-hyperlegible-next"
+    id: "license-@babel/runtime"
+    point: "20,10"
 - extendedWaitUntil:
-    visible: "@expo-google-fonts/atkinson-hyperlegible-next"
+    visible: "@babel/runtime"
     timeout: 10000
 # Przy AX5 tytuł i wersja zajmują cały ekran, tekst licencji zaczyna się niżej (E2E 38220289381, iPhone 17e) —
-# wolne kroki w dół, aż tekst wejdzie na ekran (tekst jest wyższy niż ekran: wystarcza jego część).
+# wolne kroki w dół, aż tekst wejdzie na ekran.
 - repeat:
     while:
       notVisible:

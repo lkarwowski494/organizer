@@ -264,9 +264,10 @@ describe('scenariusze Maestro — dotknięcie po przewinięciu nad zasłonami', 
 
 /**
  * Długie strony stosu przy AX5 (E2E 38220289381, 12.10.2026): `scrollUntilVisible` przewija szybkim ruchem z rozpędem —
- * na iPhonie 17 Pro Max minął pozycję Licencji, na iPhonie 17e nie doszedł w 60 s do „Usuń konto”. Na ekranach bez
- * paska zakładek (Ustawienia i podstrony) przewijanie do elementu idzie przez common/scroll-to.yaml: wolne kroki,
- * aż element wejdzie na ekran, potem `scrollUntilVisible` z najmniejszą prędkością do całego elementu.
+ * na iPhonie 17 Pro Max minął pozycję Licencji, na iPhonie 17e nie doszedł w 60 s do „Usuń konto”; z `scrollUntilVisible`
+ * do całego elementu na końcu Pro Max dalej nie znajdował pozycji (E2E 38237288337). Na ekranach bez paska zakładek
+ * (Ustawienia i podstrony) przewijanie do elementu idzie przez common/scroll-to.yaml: tylko gdy elementu nie ma na
+ * ekranie — wolne kroki, aż wejdzie na ekran, i jeszcze 15% ekranu; dotknięcie 10 pt pod górną krawędzią elementu.
  */
 const SCROLL_TO = readFileSync(join(DIR, 'common/scroll-to.yaml'), 'utf8');
 const scrolledTo = (text: string) => steps(text).flatMap((step) => (/^- runFlow:\s*\n\s+file: common\/scroll-to\.yaml/.test(step) ? [/ID: "([^"]+)"/.exec(step)?.[1]] : []));
@@ -282,27 +283,44 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
     expect(scrolledTo(after)).toEqual(['delete-start']);
   });
 
-  it('common/scroll-to.yaml: wolne kroki do elementu, potem cały element najmniejszą prędkością', () => {
+  it('common/scroll-to.yaml: tylko gdy elementu nie ma na ekranie — wolne kroki do elementu i jeszcze 15%; bez scrollUntilVisible', () => {
     const s = steps(SCROLL_TO);
-    expect(s[0]).toMatch(/^- repeat:\s*\n\s+while:\s*\n\s+notVisible:\s*\n\s+id: \$\{ID\}/);
-    expect(s[0]).toMatch(/duration: 700/);
-    expect(s[1]).toMatch(/^- scrollUntilVisible:\s*\n\s+element:\s*\n\s+id: \$\{ID\}\s*\n\s+direction: DOWN\s*\n\s+speed: 10/);
-    expect(s[1]).not.toMatch(/visibilityPercentage|centerElement/);
+    expect(s).toHaveLength(2);
+    expect(s[0]).toMatch(/^- runFlow:\s*\n\s+when:\s*\n\s+notVisible:\s*\n\s+id: \$\{ID\}\s*\n\s+commands:\s*\n\s+- repeat:\s*\n\s+while:\s*\n\s+notVisible:\s*\n\s+id: \$\{ID\}/);
+    expect(s[0]).toMatch(/start: "50%, 60%"\s*\n\s+end: "50%, 35%"\s*\n\s+duration: 700/);
+    expect(s[0]).toMatch(/start: "50%, 50%"\s*\n\s+end: "50%, 35%"\s*\n\s+duration: 600/);
+    expect(SCROLL_TO).not.toMatch(/^\s*- scrollUntilVisible/m);
+    expect(s[1]).toMatch(/^- assertVisible:\s*\n\s+id: \$\{ID\}$/);
   });
 
   it('06 i 07: pozycja Licencji, „Usuń konto” i przycisk pod polem „Wpisz USUŃ” przez common/scroll-to.yaml', () => {
     const s06 = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
     const s07 = readFileSync(join(DIR, '07-keyboard.yaml'), 'utf8');
-    expect(scrolledTo(s06)).toEqual(['license-@expo-google-fonts/atkinson-hyperlegible-next']);
+    expect(scrolledTo(s06)).toEqual(['license-@babel/runtime']);
     expect(scrolledTo(s07)).toEqual(['delete-start', 'delete-confirm']);
     expect(fastScrolls(s06, scrolledTo(s06) as string[])).toEqual([]);
     expect(fastScrolls(s07, ['delete-start', 'delete-confirm', 'delete-word'])).toEqual([]);
+    // Po scroll-to dotknięcie 10 pt pod górną krawędzią (dolna część elementu może być poza ekranem).
+    for (const [text, id] of [[s06, 'license-@babel/runtime'], [s07, 'delete-start']] as const) {
+      const st = steps(text);
+      const at = st.findIndex((x) => x.includes(`ID: "${id}"`));
+      expect(st[at + 1]).toBe(`- tapOn:\n    id: "${id}"\n    point: "20,10"`);
+    }
     // Pole wpisywane dopiero, gdy przycisk pod nim jest na ekranie.
     const st = steps(s07);
     const confirm = st.findIndex((x) => /ID: "delete-confirm"/.test(x));
     const typing = st.findIndex((x) => /FIELD: "delete-word"/.test(x));
     expect(confirm).toBeGreaterThan(-1);
     expect(typing).toBeGreaterThan(confirm);
+  });
+
+  it('06: tekst licencji krótki (MIT) — przy AX5 co najmniej 10% jego pola mieści się na ekranie (Maestro filterOutOfBounds)', () => {
+    const [name] = scrolledTo(readFileSync(join(DIR, '06-settings.yaml'), 'utf8')).map((x) => x!.replace(/^license-/, ''));
+    const p = LICENSES.packages.find((x) => x.name === name) as { text: string } | undefined;
+    const texts = (LICENSES as unknown as { texts: Record<string, string> }).texts;
+    expect(p).toBeDefined();
+    // Licencja kroju pisma (MIT i SIL OFL, ok. 5500 znaków) przy AX5 nigdy nie była „widoczna” (E2E 38237288337, 17e).
+    expect(texts[p!.text]!.length).toBeLessThan(1500);
   });
 
   it('06: tekst licencji sprawdzany po przewinięciu (przy AX5 jest pod tytułem, poza ekranem)', () => {
@@ -319,18 +337,20 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
  * zaczęte i skończone na nim jest dotknięciem (E2E 38220289381, 08 na iPhonie 17 Pro Max: przewijanie Kalendarza w górę
  * otworzyło „Ostatnie zmiany”). Po zapisie wydarzenia scenariusz czeka, aż pasek zniknie, zanim przewinie.
  */
+/** Dotknięcia, po których jest pasek: zapis wydarzenia, „Dodaj” (zadanie, produkt), włożenie do koszyka. */
+const BAR_TRIGGERS = [/^- tapOn:\s*\n\s+id: "event-save"/, /^- tapOn: "Dodaj"$/, /^- tapOn: "Włóż do koszyka: /];
 const scrollsUnderUndoBar = (text: string) => {
   let bar = false;
   const bad: number[] = [];
   steps(text).forEach((step, i) => {
-    if (/^- tapOn:\s*\n\s+id: "event-save"/.test(step)) bar = true;
+    if (BAR_TRIGGERS.some((r) => r.test(step))) bar = true;
     else if (/^- extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id: "undo-bar"/.test(step)) bar = false;
     else if (bar && /^- (scrollUntilVisible|swipe|runFlow:\s*\n\s+file: common\/scroll-)/.test(step)) bad.push(i);
   });
   return bad;
 };
 
-describe('scenariusze Maestro — przewijanie po zapisie dopiero bez paska „Cofnij”', () => {
+describe('scenariusze Maestro — przewijanie po zapisie, dodaniu i włożeniu do koszyka dopiero bez paska „Cofnij”', () => {
   it('wykrywa przewijanie przy pasku (wersja 08 z ad9dfff)', () => {
     const before = ['appId: x', '---', '- tapOn:', '    id: "event-save"', '- extendedWaitUntil:', '    visible:', '      id: "screen-calendar"', '    timeout: 30000', '- scrollUntilVisible:', '    element:', '      id: "day-2026-10-08"', '    direction: UP'].join('\n');
     expect(scrollsUnderUndoBar(before)).toEqual([2]);
@@ -338,7 +358,17 @@ describe('scenariusze Maestro — przewijanie po zapisie dopiero bez paska „Co
     expect(scrollsUnderUndoBar(after)).toEqual([]);
   });
 
-  it.each(flows)('%s nie przewija przy pasku „Cofnij” po zapisie wydarzenia', (f) => {
+  it('wykrywa przewijanie przy pasku po włożeniu do koszyka (wersja 05 z e15e445)', () => {
+    const before = ['appId: x', '---', '- tapOn: "Włóż do koszyka: Ser żółty"', '- scrollUntilVisible:', '    element:', '      id: "sync-chip"', '    direction: UP'].join('\n');
+    expect(scrollsUnderUndoBar(before)).toEqual([1]);
+    expect(scrollsUnderUndoBar(before.replace('- scrollUntilVisible', '- extendedWaitUntil:\n    notVisible:\n      id: "undo-bar"\n    timeout: 15000\n- scrollUntilVisible'))).toEqual([]);
+  });
+
+  it('scenariusze z paskiem po dotknięciu: 02, 04, 05, 08', () => {
+    expect(flows.filter((f) => steps(readFileSync(join(DIR, f), 'utf8')).some((x) => BAR_TRIGGERS.some((r) => r.test(x))))).toEqual(['02-quick-add.yaml', '04-event-form.yaml', '05-shopping.yaml', '08-multi-day.yaml']);
+  });
+
+  it.each(flows)('%s nie przewija przy pasku „Cofnij” po zapisie wydarzenia, dodaniu i włożeniu do koszyka', (f) => {
     expect(scrollsUnderUndoBar(readFileSync(join(DIR, f), 'utf8'))).toEqual([]);
   });
 });

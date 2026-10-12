@@ -8,6 +8,12 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
       FIELD: "quick-add"
       TEXT: "Kupić mleko jutro"
 - tapOn: "Dodaj"
+# Pasek „Dodano … · Zmień” (config.UNDO_MS) — przewijanie dopiero po nim: przy AX5 pasek jest wysoki, a przeciągnięcie
+# na nim to dotknięcie (E2E 38220289381 i 38237288337: „Ostatnie zmiany” po przeciągnięciu na pasku „Cofnij”).
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
 - runFlow:
     file: common/scroll-tap-text.yaml
     env:
@@ -24,9 +30,4 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
     direction: DOWN
     timeout: 30000
     visibilityPercentage: 10
-# Pasek „Dodano … · Zmień” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
-- extendedWaitUntil:
-    notVisible:
-      id: "undo-bar"
-    timeout: 15000
 - takeScreenshot: 02-quick-add-tomorrow

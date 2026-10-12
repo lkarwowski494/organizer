@@ -267,7 +267,8 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
   it('e2e.yml: warianty bazowy przy push/PR i wszystkie nocą; porównanie i audyt oblewają tylko nocą i ręcznie; standardowy runner', () => {
     const { jobs } = workflow('e2e.yml');
     assert.equal(jobs.ios['runs-on'], 'macos-26');
-    assert.ok(jobs.ios['timeout-minutes'] <= 150);
+    // Nocą 8 wariantów (ok. 2 h 10 min) i audyt — 150 min nie wystarczało (E2E 38237288337); limit GitHuba 6 h.
+    assert.ok(jobs.ios['timeout-minutes'] >= 200 && jobs.ios['timeout-minutes'] <= 240);
     assert.equal(jobs.ios.env.E2E_VARIANTS, "${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'all' || 'base' }}");
     assert.equal(jobs.ios.env.E2E_STRICT, "${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}");
     assert.equal(jobs.ios.env.E2E_DEVICE, 'iPhone 17e');
@@ -279,6 +280,10 @@ describe('warianty zrzutów E2E (PWD-38 B) i audyt dostępności na symulatorze 
     const audit = jobs.ios.steps.find((s) => /a11y-audit\.sh/.test(s.run ?? '')).run;
     assert.match(audit, /^xcrun simctl shutdown all\nudid="\$\(scripts\/e2e\/boot-simulator\.sh "\$E2E_DEVICE"/);
     assert.ok(!JSON.stringify(jobs.ios).includes('secrets.'));
+    // Artefakt (zrzuty) także po przekroczeniu limitu czasu (E2E 38237288337: przerwany, bez zrzutów porażek).
+    const art = jobs.ios.steps.filter((s) => s.name === 'artefakt (tylko zrzuty i koniec logu)' || /upload-artifact@/.test(s.uses ?? ''));
+    assert.equal(art.length, 2);
+    for (const s of art) assert.equal(s.if, '${{ always() }}');
   });
 
   it('audyt XCUITest: każdy test kończy się performAccessibilityAudit na nazwanym ekranie; ekrany z danych demo', () => {

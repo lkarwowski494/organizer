@@ -1,33 +1,42 @@
 # Przewinięcie w dół do elementu na ekranie stosu bez paska zakładek (ID = testID), np. Ustawienia, Licencje.
-# Po co: przy AX5 strony są wielokrotnie wyższe niż ekran (E2E 38220289381, 12.10.2026):
-#  - `scrollUntilVisible` przewija szybkim ruchem i lista toczy się dalej po puszczeniu: na iPhonie 17 Pro Max
-#    minął pozycję „@expo-google-fonts/atkinson-hyperlegible-next” (zrzut: lista już przy „@react-native/…”);
-#  - na „Konto i dane” (iPhone 17e) w 60 s nie doszedł do „Usuń konto”.
-# Dlatego:
-#  1. wolne kroki po 40% ekranu (700 ms — bez rozpędu), aż element pojawi się na ekranie (Maestro: co najmniej 10%
-#     elementu, ViewHierarchy filterOutOfBounds; https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/ViewHierarchy.kt);
-#  2. `scrollUntilVisible` z najmniejszą prędkością, aż cały element będzie na ekranie (element jest już tuż pod
-#     dolną krawędzią, więc wystarcza jeden ruch) — dotknięcie trafia w środek elementu, który wtedy jest na ekranie.
-# Element wyższy niż ekran (tekst licencji) — tylko krok 1, bez tego pliku (w scenariuszu).
+# Dotknięcie robi scenariusz: `tapOn` z `point: "20,10"` (10 pt pod górną krawędzią elementu, jak w scroll-tap.yaml).
+# Po co: przy AX5 strony są wielokrotnie wyższe niż ekran.
+#  - E2E 38220289381: szybkie `scrollUntilVisible` minęło pozycję Licencji z rozpędem (iPhone 17 Pro Max) i nie doszło
+#    w 60 s do „Usuń konto” (iPhone 17e).
+#  - E2E 38237288337: wersja z `scrollUntilVisible` na końcu (cały element na ekranie) dalej nie znajdowała pozycji
+#    Licencji na Pro Max przy AX5 (przebieg przerwany limitem czasu, bez zrzutu). Dlatego bez `scrollUntilVisible`.
+# Gdy elementu nie ma na ekranie:
+#  1. przeciągnięcia po 25% ekranu w 700 ms (z wybiegiem listy ok. 40%), aż element wejdzie na ekran — Maestro widzi
+#     element, gdy co najmniej 10% jego pola jest na ekranie (ViewHierarchy.filterOutOfBounds: `visiblePercentage < 0.1`,
+#     https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/ViewHierarchy.kt),
+#     więc jego górna krawędź jest wtedy w dolnej części ekranu;
+#  2. jeszcze 15% ekranu (z wybiegiem ok. 25%): górna krawędź w środkowej części ekranu, dotknięcie 10 pt pod nią
+#     trafia w element także wtedy, gdy jest wyższy niż reszta ekranu.
+# Element widoczny od razu zostaje na miejscu (dodatkowy ruch wsunąłby go pod pasek stanu).
 appId: io.github.lkarwowski494.organizer
 ---
-- repeat:
-    while:
+- runFlow:
+    when:
       notVisible:
         id: ${ID}
-    times: 60
     commands:
+      - repeat:
+          while:
+            notVisible:
+              id: ${ID}
+          times: 80
+          commands:
+            - swipe:
+                start: "50%, 60%"
+                end: "50%, 35%"
+                duration: 700
+            - waitForAnimationToEnd:
+                timeout: 2000
       - swipe:
-          start: "50%, 70%"
-          end: "50%, 30%"
-          duration: 700
+          start: "50%, 50%"
+          end: "50%, 35%"
+          duration: 600
       - waitForAnimationToEnd:
-          timeout: 2000
-- scrollUntilVisible:
-    element:
-      id: ${ID}
-    direction: DOWN
-    speed: 10
-    timeout: 20000
-- waitForAnimationToEnd:
-    timeout: 3000
+          timeout: 3000
+- assertVisible:
+    id: ${ID}

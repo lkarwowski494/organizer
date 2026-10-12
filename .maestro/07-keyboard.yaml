@@ -30,6 +30,7 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
       ID: "delete-start"
 - tapOn:
     id: "delete-start"
+    point: "20,10"
 # Pole „Wpisz USUŃ” i przycisk pod nim pojawiają się pod objaśnieniem; przy AX5 poniżej ekranu (E2E 38220289381,
 # iPhone 17 Pro Max: dotknięcie pola nie znalazło go na ekranie). Przewinięcie do przycisku pod polem — oba na ekranie.
 - runFlow:
