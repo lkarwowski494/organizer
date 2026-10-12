@@ -26,3 +26,10 @@ Ten zapis dotyczy punktu 5.
   - Odhaczenie zaległego „codziennie” daje następne jutro — dzisiejsze nie powstaje osobno (decyzja właściciela
     z 8.10.2026: zostaje jak jest, zgodnie z zasadą „zaległe nie wraca w przeszłość”).
   - Logika w `src/domain/views/overdue.ts`.
+
+## Audyt 3 (9.10.2026)
+- N-122: „moje” w „Przenieś zaległe” to ta sama reguła co w Moich sprawach przy zakresie „Tylko przypisane do mnie”
+  (`concernsMe`) — także sprawy bez osoby z mojej listy „Tylko ja” i podzadania bez osoby w moim zadaniu (Q15 A).
+- Q35 A (N-133): wspólne zaległe zadanie bez osoby ma na ekranie zadania „Biorę to” — przypisanie do mnie i termin na
+  dziś (godzina zostaje), z paskiem „Cofnij” (`takeOps` w `overdue.ts`).
+

@@ -13,6 +13,7 @@ import { asSeries, type SeriesDef, seriesChain } from './event-rows';
 import { createEventTask } from './event-tasks';
 import { groupsView } from './index';
 import { asList, asTask, rows, type Tables } from './model';
+import { appendKey } from './sort-keys';
 
 export { asSeries, type SeriesDef, seriesOf } from './event-rows';
 
@@ -44,7 +45,7 @@ export function fillOps(t: Tables, userId: string, today: CivilDate, skip: Reado
       if (!chain.has(o.eventId)) continue;
       const id = copyId(s.id, o.occurrenceDate);
       if (t.tasks?.[id] || skip.has(id)) continue;
-      ops.push(createEventTask({ id, groupId: s.group_id, listId: s.list_id, eventId: o.eventId, occurrenceDate: o.occurrenceDate, title: s.title, seriesId: s.id }));
+      ops.push(createEventTask({ id, groupId: s.group_id, listId: s.list_id, eventId: o.eventId, occurrenceDate: o.occurrenceDate, title: s.title, sortKey: appendKey(t, s.list_id, null), seriesId: s.id }));
     }
   }
   return ops;

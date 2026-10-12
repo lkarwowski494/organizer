@@ -58,6 +58,9 @@ d('współbieżne zapisy i pobieranie po kursorze', () => {
     const pull = async () => {
       for (let i = 0; ; i++) {
         if (i >= 10_000) throw new Error('pobieranie się nie kończy');
+        // Pętla pobiera tysiące razy na minutę — ponad limit częstości konta (quotas.SYNC_PULL_PER_MINUTE, audyt 3 N-96),
+        // który ten test nie bada: licznik pobierającego od zera przed każdym pobraniem.
+        await admin.query(`delete from private.rate_counters where user_id = $1 and kind = 'sync_pull'`, [users[0]]);
         const res = (await puller.query(`select public.sync_pull($1::jsonb, 7) r`, [JSON.stringify({ [group]: cursor })])).rows[0].r;
         const g = res.groups.find((x: { group_id: string }) => x.group_id === group);
         for (const r of g.rows as Row[]) if (r.e === 'tasks') seen.set(r.row.id!, r.row);

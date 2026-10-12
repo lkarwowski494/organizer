@@ -10,33 +10,72 @@ import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
+import * as SplashScreen from 'expo-splash-screen';
 import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
 import { config } from '../config';
 import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
+import { coldStartGate } from '../domain/intro';
 import { emailName, PLACEHOLDER_NAME } from '../domain/views/my-name';
 import { chunkedSecureStorage } from '../sync/session-storage';
-import { type AppleSignIn, type DetachedClient, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
+import { type AppleSignIn, type DetachedClient, type NonceSource, type PushTokenMemory, type SignOutJobMemory, supabaseAccount, supabaseTransport, type SupabaseLike } from '../sync/supabase';
 import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
 import { expoTravel } from './travel-service';
-import type { RootDeps, Session } from './Root';
+import type { AppleCredentialState, RootDeps, Session } from './Root';
 
-type User = { id: string; email?: string; user_metadata?: { full_name?: string; display_name?: string }; app_metadata?: { provider?: string; providers?: string[] } };
+type User = {
+  id: string;
+  email?: string;
+  user_metadata?: { full_name?: string; display_name?: string };
+  app_metadata?: { provider?: string; providers?: string[] };
+  identities?: { provider?: string; id?: string }[];
+};
 // D100: bez imienia w koncie (logowanie e-mailem) pytamy o nie; do tego czasu — początek adresu jak dotąd.
-const toSession = (u: User | null | undefined): Session | null => {
+export const toSession = (u: User | null | undefined): Session | null => {
   if (!u) return null;
   const named = u.user_metadata?.display_name || u.user_metadata?.full_name;
   // D177: konto bez Apple (założone dawniej linkiem z e-maila) — po wylogowaniu w tej wersji już do niego nie wrócisz.
   const apple = (u.app_metadata?.providers ?? [u.app_metadata?.provider]).includes('apple');
-  return { userId: u.id, displayName: named || emailName(u.email) || PLACEHOLDER_NAME, needsName: !named, emailName: emailName(u.email), ...(apple ? {} : { emailOnly: true }) };
+  // Identyfikator Apple konta: `id` tożsamości „apple” w Supabase Auth to `sub` z tokenu Apple („ProviderID string
+  // json:"id"”, https://github.com/supabase/auth/blob/master/internal/models/identity.go) — ten sam, co `user` w Expo.
+  const appleUserId = u.identities?.find((i) => i.provider === 'apple')?.id;
+  return {
+    userId: u.id,
+    displayName: named || emailName(u.email) || PLACEHOLDER_NAME,
+    needsName: !named,
+    emailName: emailName(u.email),
+    ...(apple ? {} : { emailOnly: true }),
+    ...(appleUserId ? { appleUserId } : {}),
+  };
 };
 
 const apple: AppleSignIn = async (req = {}) =>
-  AppleAuthentication.signInAsync({ requestedScopes: req.scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL] });
+  AppleAuthentication.signInAsync({
+    requestedScopes: req.scopes === 'none' ? [] : [AppleAuthentication.AppleAuthenticationScope.FULL_NAME, AppleAuthentication.AppleAuthenticationScope.EMAIL],
+    ...(req.nonce ? { nonce: req.nonce } : {}),
+  });
+
+/**
+ * Nonce logowania (N-226): 32 losowe bajty (expo-crypto getRandomBytes) jako hex; do Apple skrót SHA-256 —
+ * digestStringAsync „By default, the resolved value will be formatted as a HEX string”
+ * (https://docs.expo.dev/versions/v57.0.0/sdk/crypto/); małe litery jak `%x` w Supabase Auth.
+ */
+const nonce: NonceSource = {
+  raw: () => Array.from(Crypto.getRandomBytes(32), (b) => b.toString(16).padStart(2, '0')).join(''),
+  sha256: async (raw) => (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, raw)).toLowerCase(),
+};
+
+/** AppleAuthenticationCredentialState SDK 57: REVOKED = 0, AUTHORIZED = 1, NOT_FOUND = 2, TRANSFERRED = 3. */
+const CREDENTIAL: Record<number, AppleCredentialState> = {
+  [AppleAuthentication.AppleAuthenticationCredentialState.REVOKED]: 'revoked',
+  [AppleAuthentication.AppleAuthenticationCredentialState.AUTHORIZED]: 'authorized',
+  [AppleAuthentication.AppleAuthenticationCredentialState.NOT_FOUND]: 'not_found',
+  [AppleAuthentication.AppleAuthenticationCredentialState.TRANSFERRED]: 'transferred',
+};
 
 const newId = () => uuidv7((n) => Crypto.getRandomBytes(n));
 
@@ -66,6 +105,13 @@ const dbName = (userId: string) => `organizer-${userId}.db`;
 const openDbs = new Map<string, SQLiteDatabase>();
 
 /**
+ * Animacja przy starcie (ADR-0045) w zasięgu modułu: flaga zimnego startu raz na proces JS — też w buildzie E2E (scenariusze
+ * Maestro startują z animacją jak na telefonie). expo-splash-screen SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/splash-screen/):
+ * hide() — „Hides the native splash screen immediately.”
+ */
+const intro: NonNullable<RootDeps['intro']> = { coldStart: coldStartGate(), hideSplash: () => SplashScreen.hide() };
+
+/**
  * Zależności tego buildu. Build E2E (D143, EXPO_PUBLIC_E2E=1 tylko w .github/workflows/e2e.yml) dostaje atrapy w pamięci
  * (src/app/e2e.ts); każdy inny — Supabase. Porównanie wprost z `process.env.EXPO_PUBLIC_E2E`: tylko taki zapis Expo
  * podmienia przy budowaniu na stałą (https://docs.expo.dev/guides/environment-variables/), więc bez flagi warunek jest
@@ -73,13 +119,14 @@ const openDbs = new Map<string, SQLiteDatabase>();
  */
 export function appDeps(): RootDeps {
   if (process.env.EXPO_PUBLIC_E2E === '1') {
-    return e2eDeps({
+    const deps = e2eDeps({
       openDb: () => expoAdapter(openDatabaseSync(':memory:')),
       newId,
       isSimulator: async () => (await Application.getIosApplicationReleaseTypeAsync()) === Application.ApplicationReleaseType.SIMULATOR,
     });
+    return { ...deps, intro };
   }
-  return realDeps();
+  return { ...realDeps(), intro };
 }
 
 export function realDeps(): RootDeps {
@@ -102,7 +149,17 @@ export function realDeps(): RootDeps {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'organizer-signout' },
     }) as unknown as DetachedClient;
   return {
-    account: supabaseAccount(sb, apple, { pushToken: pushTokenMemory, signOutJobs, detached }),
+    account: supabaseAccount(sb, apple, { pushToken: pushTokenMemory, signOutJobs, detached, nonce }),
+    // N-225 (SDK 57): getCredentialStateAsync(user) — „Queries the current state of a user credential, to determine if it
+    // is still valid or if it has been revoked”; addRevokeListener — powiadomienie o cofnięciu zgody. Nieznany stan —
+    // jak zgoda (bez wylogowania).
+    apple: {
+      credentialState: async (id) => CREDENTIAL[await AppleAuthentication.getCredentialStateAsync(id)] ?? 'authorized',
+      onRevoked: (fn) => {
+        const sub = AppleAuthentication.addRevokeListener(fn);
+        return () => sub.remove();
+      },
+    },
     calendar: expoDeviceCalendar,
     travel: expoTravel,
     push: expoDevicePush,

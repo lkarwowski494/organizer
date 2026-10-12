@@ -26,7 +26,7 @@ type FunctionsError = { message: string; name?: string; context?: { json?(): Pro
 export type SupabaseLike = {
   rpc<T>(fn: string, args: object): PromiseLike<RpcResult<T>>;
   auth: {
-    signInWithIdToken(a: { provider: 'apple'; token: string }): Promise<{ error: AuthError }>;
+    signInWithIdToken(a: { provider: 'apple'; token: string; nonce?: string }): Promise<{ error: AuthError }>;
     signOut(a: { scope: 'local' }): Promise<{ error: { message: string } | null }>;
     /** Konto na serwerze (GET /user); usunięte konto — błąd z kodem user_not_found (N-228). */
     getUser(): Promise<{ error: AuthError }>;
@@ -41,11 +41,11 @@ export type SupabaseLike = {
 /**
  * Sign in with Apple na iPhonie. `fullName` Apple podaje tylko przy pierwszym logowaniu; `authorizationCode` (ważny
  * 5 min, jednorazowy) służy przy usuwaniu konta do unieważnienia tokenu Apple (wymóg Apple, ADR 0016). `scopes: 'none'` —
- * ponowne potwierdzenie bez imienia i adresu. Anulowanie okna:
+ * ponowne potwierdzenie bez imienia i adresu; `nonce` — skrót SHA-256 jednorazowej wartości (N-226). Anulowanie okna:
  * wyjątek z `code: 'ERR_REQUEST_CANCELED'` („rejects with ERR_REQUEST_CANCELED if the user cancels the sign-in
  * operation”, https://docs.expo.dev/versions/v57.0.0/sdk/apple-authentication/).
  */
-export type AppleSignIn = (req?: { scopes?: 'none' }) => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
+export type AppleSignIn = (req?: { scopes?: 'none'; nonce?: string }) => Promise<{ identityToken: string | null; authorizationCode?: string | null; fullName?: { givenName?: string | null; familyName?: string | null } | null }>;
 
 /**
  * Błędy trwałe protokołu (raise exception w sync_push / sync_pull, kod P0001): ponawianie nic nie zmieni, więc pętla
@@ -116,7 +116,15 @@ export type DetachedClient = {
   };
 };
 
-export type AccountOptions = { pushToken?: PushTokenMemory; signOutJobs?: SignOutJobMemory; detached?: () => DetachedClient };
+/**
+ * Nonce logowania Apple (audyt 3, N-226): Apple dostaje skrót SHA-256 (hex, małe litery) jednorazowej wartości, Supabase
+ * Auth — samą wartość i porównuje jej skrót z polem `nonce` tokenu tożsamości („// verify nonce to mitigate replay
+ * attacks … sha256.Sum256([]byte(params.Nonce))”, https://github.com/supabase/auth/blob/master/internal/api/token_oidc.go),
+ * więc przechwycony token bez tej wartości nie wystarczy do zalogowania.
+ */
+export type NonceSource = { raw(): string; sha256(raw: string): Promise<string> };
+
+export type AccountOptions = { pushToken?: PushTokenMemory; signOutJobs?: SignOutJobMemory; detached?: () => DetachedClient; nonce?: NonceSource };
 
 const isJob = (j: unknown): j is SignOutJob => typeof j === 'object' && j !== null && typeof (j as SignOutJob).token === 'string' && typeof (j as SignOutJob).refreshToken === 'string';
 function parseJobs(raw: string | null): SignOutJob[] {
@@ -131,7 +139,7 @@ function parseJobs(raw: string | null): SignOutJob[] {
 const retryable = (e: { status?: number }) => !e.status || e.status >= 500;
 
 /** Okno Apple: anulowanie osobno (bez komunikatu), każdy inny błąd — „Coś poszło nie tak” (N-72, N-73). */
-async function askApple(apple: AppleSignIn, req: { scopes?: 'none' }) {
+async function askApple(apple: AppleSignIn, req: { scopes?: 'none'; nonce?: string }) {
   try {
     return await apple(req);
   } catch (e) {
@@ -183,9 +191,10 @@ export function supabaseAccount(client: SupabaseLike, apple: AppleSignIn, opts: 
 
   return {
     async signInWithApple() {
-      const credential = await askApple(apple, {});
+      const raw = opts.nonce?.raw();
+      const credential = await askApple(apple, raw === undefined ? {} : { nonce: await opts.nonce!.sha256(raw) });
       if (!credential.identityToken) throw new AccountError('failed', 'apple:no_identity_token');
-      const signed = await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken });
+      const signed = await client.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken, ...(raw === undefined ? {} : { nonce: raw }) });
       if (signed.error) throw new AccountError(authCode(signed.error), signed.error.message);
       // O-036: imię z Apple (tylko przy pierwszym logowaniu) do konta i profilu — w grupach widać imię, nie „Ja”.
       // Profil tak jak przy „Twoje imię” (setMyName; audyt 2, M-186): wyzwalacz bazy tworzy go przy założeniu konta,

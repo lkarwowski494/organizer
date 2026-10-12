@@ -22,13 +22,17 @@
     "expo-location": "~57.0.20",
     "expo-notifications": "57.0.22",
     "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.4",
     "expo-symbols": "~57.0.3",
     "expo-task-manager": "~57.0.21",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@stryker-mutator/api": "10.0.0",
@@ -67,7 +71,7 @@
     "check": "npm run typecheck && npm run lint && npm run test:coverage && npm run check:functions && npm run check:corpus && npm run check:licenses",
     "check:functions": "deno check supabase/functions && deno lint supabase/functions && deno test --no-prompt --clean --coverage=coverage/deno supabase/functions && deno coverage coverage/deno --lcov --output=coverage/deno.lcov && node scripts/deno-coverage-check.mjs coverage/deno.lcov",
     "check:licenses": "node scripts/licenses/gen-licenses.mjs --check",
-    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json && python3 -I scripts/gen-contrast-corpus.py | diff -q - src/domain/__tests__/fixtures/contrast.json && python3 -I scripts/gen-theme-contrast-corpus.py | diff -q - src/config/__tests__/fixtures/theme-contrast.json && python3 -I scripts/gen-dst-corpus.py | diff -q - src/domain/__tests__/fixtures/dst-lengths.json",
+    "check:corpus": "python3 -I scripts/gen-quickadd-corpus.py 2>/dev/null | diff -q - src/domain/__tests__/fixtures/quickadd.pl.json && python3 -I scripts/gen-contrast-corpus.py | diff -q - src/domain/__tests__/fixtures/contrast.json && python3 -I scripts/gen-theme-contrast-corpus.py | diff -q - src/config/__tests__/fixtures/theme-contrast.json && python3 -I scripts/gen-dst-corpus.py | diff -q - src/domain/__tests__/fixtures/dst-lengths.json && python3 -I scripts/gen-intro-corpus.py | diff -q - src/domain/__tests__/fixtures/intro.json",
     "test:mutation": "stryker run",
     "test:coverage": "jest --coverage",
     "check:audit": "node scripts/audit-check.mjs",

@@ -9,7 +9,8 @@ import type { QuickAddResult } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
 import type { Tables, Task } from './model';
 
-export function createTask(a: { id: string; groupId: string; listId: string; parentId?: string | null; parsed: QuickAddResult; sortKey?: string; assigneeId?: string | null }): NewOp {
+/** `sortKey` — kolejność na liście (sort-keys.ts, `appendKey`: za ostatnim rodzeństwem — kolejność dodania, Q37 B). */
+export function createTask(a: { id: string; groupId: string; listId: string; parentId?: string | null; parsed: QuickAddResult; sortKey: string; assigneeId?: string | null }): NewOp {
   const due = a.parsed.due;
   return {
     kind: 'create',
@@ -20,7 +21,7 @@ export function createTask(a: { id: string; groupId: string; listId: string; par
       list_id: a.listId,
       parent_id: a.parentId ?? null,
       title: a.parsed.title,
-      sort_key: a.sortKey ?? 'a0',
+      sort_key: a.sortKey,
       // Podzadanie bez własnego terminu dziedziczy termin rodzica (D15); zadanie główne bez terminu jest przypięte (D16).
       deadline_mode: due ? 'own' : a.parentId ? 'inherit' : 'none',
       due_date: due?.date ?? null,

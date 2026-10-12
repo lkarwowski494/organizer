@@ -362,7 +362,13 @@ export function onPullResponse(state: ClientState, res: PullResponse, req: PullR
   const base = new CowTables(state.base);
   const staged: { [g: string]: CowTables } = {};
   const visibleGroups = new Set(res.groups.map((g) => g.group_id));
-  const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s)));
+  // Utracony zakres: ukryta lista, której nie ma już w „scopes” ani w listach widocznych żadnej grupy. Samo zniknięcie ze
+  // „scopes” nie znaczy utraty dostępu: sync_pull podaje tam tylko żywe ukryte listy (20261008484000_sync_perf.sql), więc
+  // lista usunięta (kosz, D151) albo poszerzona do „cała grupa” (D139) też z niego wypada, a nadal ją widzę — jest w „lists”
+  // (protokół 2, M-54). Czyszczenie jej wierszy gubiło te, których serwer nie przyśle ponownie (wersja ≤ kursor), np.
+  // nagrobki zadań usuniętych przed listą (seed -694076517). Stary serwer bez „lists” — jak dotąd.
+  const visibleLists = new Set(res.groups.flatMap((g) => g.lists ?? []));
+  const lostScopes = new Set(state.scopes.filter((s) => !res.scopes.includes(s) && !visibleLists.has(s)));
   // Grupa przychodzi w całości przy resync i przy pobraniu od zera (bez kursora w zapytaniu). Jej porcje odkładamy obok
   // (`staged`), a po ostatniej podmieniamy wiersze grupy naraz — także te, których na serwerze już nie ma (M-176).
   const fromScratch = new Set(res.groups.filter((g) => g.resync || !(g.group_id in req.cursors)).map((g) => g.group_id));

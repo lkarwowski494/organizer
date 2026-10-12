@@ -448,3 +448,87 @@ describe('minione kopie zadania powtarzanego (M-283, PWD-14 A)', () => {
   });
 });
 
+
+describe('kolejność zadań (Q37 B, N-130)', () => {
+  const base = () => {
+    const b = sampleBase();
+    // Te same stare klucze „a0” — kolejność dodania (id rośnie z czasem), nie alfabet.
+    for (const [id, title] of [['p1', 'Zmienić żarówkę'], ['p2', 'Analiza wyników'], ['p3', 'Mleko']] as const) put(b, 'tasks', id, { ...b.tasks!['t-books']!, id, title, list_id: 'lf', group_id: 'gf' });
+    return b;
+  };
+  const order = () => screen.getAllByTestId(/^task-(p\d|t-)/).map((x) => x.props.testID);
+  const reorderOrder = () => screen.getAllByTestId(/^order-row-/).map((x) => x.props.testID.replace('order-row-', ''));
+
+  it('domyślnie kolejność dodania; „Zmień kolejność” — strzałki w granicach tego samego terminu; „Gotowe” wraca do listy', async () => {
+    const s = await open(base());
+    await openList('lf');
+    expect(order().slice(0, 3)).toEqual(['task-p1', 'task-p2', 'task-p3']);
+    await press(screen.getByLabelText('Zmień kolejność'));
+    expect(screen.getByText(/Przeciągnij zadanie za ≡/)).toBeTruthy();
+    expect(screen.getByLabelText('Przesuń wyżej: Zmienić żarówkę').props.accessibilityState.disabled).toBe(true);
+    // Ostatnie bez terminu nie zejdzie między zadania z terminem.
+    expect(screen.getByLabelText('Przesuń niżej: Mleko').props.accessibilityState.disabled).toBe(true);
+    await press(screen.getByLabelText('Przesuń wyżej: Mleko'));
+    // Równe stare klucze — nowe dla całego fragmentu (tylko zmienione).
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'tasks', id: 'p3', set: { sort_key: 'a1' } },
+      { kind: 'patch', entity: 'tasks', id: 'p2', set: { sort_key: 'a2' } },
+    ]);
+    expect(reorderOrder().slice(0, 3)).toEqual(['p1', 'p3', 'p2']);
+    // Klucze już różne — jedna zmiana.
+    await press(screen.getByLabelText('Przesuń niżej: Zmienić żarówkę'));
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'p1', set: { sort_key: 'a1V' } }]);
+    await press(screen.getByLabelText('Gotowe'));
+    expect(order().slice(0, 3)).toEqual(['task-p3', 'task-p1', 'task-p2']);
+  });
+
+  it('przeciągnięcie za uchwyt: miejsce według wysokości wierszy, w granicach terminu; ekran nie przewija się w trakcie', async () => {
+    const s = await open(base());
+    await openList('lf');
+    await press(screen.getByLabelText('Zmień kolejność'));
+    for (const id of ['p1', 'p2', 'p3']) await fireEvent(screen.getByTestId(`order-row-${id}`), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 60 } } });
+    // Uchwyt to sam gest (VoiceOver ma strzałki), więc jest ukryty przed czytnikiem.
+    const hidden = { includeHiddenElements: true };
+    const handle = screen.getByTestId('order-handle-p1', hidden);
+    const at = (pageY: number) => ({ nativeEvent: { pageY } });
+    // Uchwyt bierze dotyk od razu i nie oddaje go przewijaniu w trakcie gestu.
+    expect([handle.props.onStartShouldSetResponder(), handle.props.onMoveShouldSetResponder(), handle.props.onResponderTerminationRequest()]).toEqual([true, true, false]);
+    await fireEvent(handle, 'responderGrant', at(100));
+    expect(screen.getByTestId('screen-list').props.scrollEnabled).toBe(false);
+    await fireEvent(handle, 'responderMove', at(150));
+    expect(screen.getByTestId('order-row-p1').props.style.transform).toEqual([{ translateY: 50 }]);
+    // Daleko w dół — najwyżej na koniec zadań bez terminu.
+    await fireEvent(handle, 'responderRelease', at(900));
+    expect(screen.getByTestId('screen-list').props.scrollEnabled).toBe(true);
+    // Za ostatnim „a0” — jeden nowy klucz (równe „a0” wyżej rozstrzyga id).
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'p1', set: { sort_key: 'a1' } }]);
+    expect(screen.getAllByTestId(/^order-row-/).map((x) => x.props.testID).slice(0, 3)).toEqual(['order-row-p2', 'order-row-p3', 'order-row-p1']);
+    // Krótki ruch (mniej niż pół wiersza) i przerwany gest — bez zmiany.
+    await fireEvent(screen.getByTestId('order-handle-p3', hidden), 'responderGrant', at(100));
+    await fireEvent(screen.getByTestId('order-handle-p3', hidden), 'responderTerminate', at(110));
+    expectOps(s.store, []);
+  });
+
+  it('bez przycisku: lista zakupów (stoi według działów) i lista z jednym zadaniem', async () => {
+    await open();
+    await openList('lz');
+    expect(screen.queryByLabelText('Zmień kolejność')).toBeNull();
+    await press(screen.getByLabelText('Wróć'));
+    await openList('lk');
+    expect(screen.queryByLabelText('Zmień kolejność')).toBeNull();
+  });
+
+  it('podzadania na ekranie zadania: ta sama zmiana kolejności', async () => {
+    const b = sampleBase();
+    for (const id of ['s1', 's2']) put(b, 'tasks', id, { ...b.tasks!['t-kwiaty']!, id, title: `Krok ${id}`, parent_id: 't-kwiaty', deadline_mode: 'inherit', due_date: null });
+    const s = await open(b);
+    await openList('lf');
+    await press(screen.getByLabelText(/^Kupić kwiaty(,|$)/));
+    await screen.findByTestId('screen-task');
+    await press(screen.getByLabelText('Zmień kolejność'));
+    await press(screen.getByLabelText('Przesuń niżej: Krok s1'));
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 's1', set: { sort_key: 'a1' } }]);
+    await press(screen.getByLabelText('Gotowe'));
+    expect(screen.getAllByTestId(/^sub-s\d$/).map((x) => x.props.testID)).toEqual(['sub-s2', 'sub-s1']);
+  });
+});

@@ -44,7 +44,10 @@
 7. **Po zapisie (M-246):** „pojemniki” (lista, grupa) otwierają się, „wpisy” (zadanie, wydarzenie, rutyna) wracają;
    po zmianie wydarzenia — do jego szczegółów, gdy termin nadal istnieje, inaczej o ekran dalej.
 8. **Formularze (M-243, M-247):** kursor w pierwszym polu pustego formularza tworzenia; Return w ostatnim polu zatwierdza,
-   w formularzu z kilkoma polami tekstowymi przechodzi do następnego.
+   w formularzu z kilkoma polami tekstowymi przechodzi do następnego (audyt 3, N-145: także nowa lista, formularz
+   zadania, ostatni krok rutyny, miejsce wydarzenia, nazwa ostatniej lekcji). Pole bez własnej obsługi ma „Gotowe”
+   (Field) — np. „Wpisz USUŃ” niczego nie wysyła. Formularze wysyłające do serwera (imię, nowa grupa, dołączanie)
+   wysyłają jeden raz naraz (`ui/use-submit.ts`, N-137).
 9. **Północ (M-203):** zegar dnia w `AppProvider`: odstęp do północy w Warszawie liczony z czasu lokalnego, timer czeka
    najwyżej godzinę i liczy od nowa (bez założeń o porze zmiany czasu), plus powrót aplikacji na pierwszy plan.
 10. **Wybór osoby (PWD-30 A):** wyszukiwanie od `config.people.PICKER_SEARCH_FROM` osób w wyborze jednej osoby, kilku

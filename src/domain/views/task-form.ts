@@ -9,7 +9,7 @@
  */
 import { config } from '../../config';
 import { LIST_NAMES } from '../../config/names.pl';
-import { type CivilDate, formatIsoDate, isoWeekday, isValidDate, type LocalDateTime } from '../civil-date';
+import { type CivilDate, formatIsoDate, isValidDate, type LocalDateTime } from '../civil-date';
 import { parseIsoDate } from '../format';
 import { parseQuickAdd } from '../quickadd';
 import type { NewOp } from '../sync-engine/client';
@@ -17,8 +17,10 @@ import { createList, createTask } from './commands';
 import { groupsView, listsView } from './index';
 import type { MentionTarget } from './mention';
 import type { Tables } from './model';
+import type { MyScope } from './my-scope';
+import { appendKey, compareKeys } from './sort-keys';
 import { type QuickAnswers, type QuickResolution, resolveQuick } from './quick-target';
-import { cycleChange, type Repeat, setRepeat } from './task-repeat';
+import { cycleChange, parseRepeat, type Repeat, setRepeat } from './task-repeat';
 
 export type TaskForm = {
   title: string;
@@ -39,14 +41,17 @@ export const PERSONAL_LIST_NAME = LIST_NAMES.PERSONAL;
 export const NEW_LIST_NAME = LIST_NAMES.GENERAL;
 
 /**
- * Ogólna lista zadań grupy (D97): tu trafia zadanie bez wybranej listy. Osobista — pierwsza lista zadań (jak dotąd),
- * wspólna — lista „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Szachy – Zosia”) wybiera się na liście.
+ * Ogólna lista zadań grupy (D97): tu trafia zadanie bez wybranej listy. Osobista — lista „Moje zadania”, a gdy ją
+ * przemianowano, najstarsza lista zadań (id to UUIDv7 nadawany przy tworzeniu, więc rośnie z czasem); wspólna — lista
+ * „Zadania”; gdy jej nie ma, powstaje. Listy tematyczne („Szachy – Zosia”) wybiera się na liście. Audyt 3 (N-26): dotąd
+ * osobista brała pierwszą alfabetycznie, więc po założeniu listy „Apteka” szybkie dodanie trafiało do „Apteka”.
  */
 export function generalList(t: Tables, userId: string, groupId: string, newId: () => string): { listId: string; ops: NewOp[] } {
   // Audyt 2 (R-6): tylko lista całej grupy — na prywatną „Zadania” zadanie z @imię innej osoby serwer by odrzucił.
   const lists = listsView(t, userId, groupId).filter((l) => l.kind === 'tasks' && l.visibility === 'group');
   const personal = groupsView(t, userId).find((g) => g.id === groupId)?.kind === 'personal';
-  const found = personal ? lists[0] : lists.find((l) => l.name === NEW_LIST_NAME);
+  const oldest = () => [...lists].sort((a, b) => compareKeys(a.id, b.id))[0];
+  const found = personal ? (lists.find((l) => l.name === PERSONAL_LIST_NAME) ?? oldest()) : lists.find((l) => l.name === NEW_LIST_NAME);
   if (found) return { listId: found.id, ops: [] };
   const listId = newId();
   return { listId, ops: [createList({ id: listId, groupId, kind: 'tasks', name: personal ? PERSONAL_LIST_NAME : NEW_LIST_NAME })] };
@@ -89,8 +94,8 @@ export function formFromText(
       date: parsed.due?.date ?? '',
       time: parsed.due?.time ?? '',
       assigneeId: target?.memberId ?? null,
-      // „co tydzień” (parser zawsze daje wtedy termin) — w dzień tygodnia terminu.
-      repeat: parsed.rrule && parsed.due ? { kind: 'weekly', days: [isoWeekday(parseIsoDate(parsed.due.date))] } : null,
+      // „codziennie”, „co tydzień”, „co miesiąc” (parser daje wtedy termin i regułę z dniem terminu, N-128).
+      repeat: parseRepeat(parsed.rrule),
     },
     candidates: many?.targets ?? [],
     mention: many?.name ?? null,
@@ -127,13 +132,15 @@ export function validateForm(t: Tables, userId: string, f: TaskForm): FormError 
 
 /**
  * Dopisek „nikt tego nie widzi w Moich sprawach” (D68, PW-18 b): zadanie we wspólnej grupie bez osoby (usunięta z grupy
- * to nikt konkretny — D132, audyt 2: T-15) i bez terminu. Nowe zadanie trafia na ogólną listę grupy, nigdy na listę
- * „Tylko ja”, więc wyjątek A tu nie zachodzi.
+ * to nikt konkretny — D132, audyt 2: T-15) i bez terminu (`nobody`). Nowe zadanie trafia na ogólną listę grupy, nigdy na
+ * listę „Tylko ja”, więc wyjątek A tu nie zachodzi. Audyt 3 (N-30): z terminem, ale przy moim zakresie grupy innym niż
+ * „Wszystko” — ja go nie zobaczę (`scope`), jak w polu szybkiego dodawania (unseenInMyDays).
  */
-export function formUnseen(t: Tables, userId: string, f: TaskForm): boolean {
-  if (formGroups(t, userId).find((g) => g.id === f.groupId)?.kind !== 'shared' || f.date.trim() !== '') return false;
+export function formUnseen(t: Tables, userId: string, f: TaskForm, scope: MyScope = 'all'): 'nobody' | 'scope' | null {
+  if (formGroups(t, userId).find((g) => g.id === f.groupId)?.kind !== 'shared') return null;
   const person = f.assigneeId === null ? undefined : t.group_members?.[f.assigneeId];
-  return !(person && person.deleted_at == null);
+  if (person && person.deleted_at == null) return null;
+  return f.date.trim() === '' ? 'nobody' : scope !== 'all' ? 'scope' : null;
 }
 
 /** Data z formularza (do edytora powtarzania: dzień tygodnia i miesiąca); bez poprawnej daty — dziś. */
@@ -159,7 +166,7 @@ export function formOps(t: Tables, userId: string, f: TaskForm, newId: () => str
   const due = date ? { date, time: f.time.trim() || null } : null;
   const g = generalList(t, userId, f.groupId, newId);
   const id = newId();
-  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null, farDate: null }, assigneeId: f.assigneeId })];
+  const ops: NewOp[] = [...g.ops, createTask({ id, groupId: f.groupId, listId: g.listId, parsed: { title: f.title.trim(), due, rrule: null, tokens: [], unrecognizedDay: null, farDate: null }, sortKey: appendKey(t, g.listId, null), assigneeId: f.assigneeId })];
   if (f.repeat) ops.push(setRepeat(id, f.repeat, due?.date));
   return { ops, taskId: id };
 }

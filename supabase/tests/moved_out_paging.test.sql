@@ -20,8 +20,13 @@ begin if r <> 'ok' then raise exception 'setup op failed: % -> %', op, r; end if
 create function pg_temp.g_of(res jsonb) returns jsonb language sql as $$
   select g from jsonb_array_elements(res -> 'groups') g where g ->> 'group_id' = 'd1d10000-0000-7000-8000-000000000001'
 $$;
+-- Pozostałe grupy z aktualnym kursorem, jak w telefonie: budżet porcji jest na całą odpowiedź (20261012010000_pull_budget),
+-- więc grupa bez kursora (np. osobista) zabierałaby go badanej.
 create function pg_temp.pull(since bigint, lim int) returns jsonb language sql as $$
-  select pg_temp.g_of(public.sync_pull(jsonb_build_object('d1d10000-0000-7000-8000-000000000001', jsonb_build_object('v', since, 'p', 0)), lim, 2))
+  select pg_temp.g_of(public.sync_pull(
+    coalesce((select jsonb_object_agg(gr.id, jsonb_build_object('v', gr.version, 'p', gr.purged_version)) from public.groups gr
+              where gr.id <> 'd1d10000-0000-7000-8000-000000000001'), '{}'::jsonb)
+    || jsonb_build_object('d1d10000-0000-7000-8000-000000000001', jsonb_build_object('v', since, 'p', 0)), lim, 2))
 $$;
 -- Wiersz zadania T w porcji (null, gdy go nie ma).
 create function pg_temp.t_row(g jsonb) returns jsonb language sql as $$

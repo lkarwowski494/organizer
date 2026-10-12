@@ -14,16 +14,17 @@ import { eventLink } from '../../domain/views/calendar-sync';
 import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { addDays, formatIsoDate } from '../../domain/civil-date';
-import type { NewOp } from '../../domain/sync-engine/client';
 import { formatDateInline, formatDue, formatLongDate, formatRange, parseIsoDate } from '../../domain/format';
 import { coveredDays, endDayOffset } from '../../domain/span';
-import { createList, inverseOps, plainChanges } from '../../domain/views/commands';
+import { inverseOps, plainChanges } from '../../domain/views/commands';
+import { AskPanel } from '../../ui/AskPanel';
 import { useUndo } from '../../ui/undo';
 import { checkOff, listsView } from '../../domain/views';
-import { affectedByCancel, createEventTask, nextInSeries, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
+import { type EventTaskAdd, type EventTaskAnswers, eventTaskOps, seriesMention } from '../../domain/views/event-task-add';
+import { affectedByCancel, nextInSeries, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
 import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, seriesRule, timeLabel } from '../../domain/views/events';
-import { createSeries, type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
+import { type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
 import { InTrashScreen } from '../groups/TrashSection';
@@ -55,6 +56,8 @@ export function EventScreen({ route, navigation }: Props) {
   // M-239: z przesunięcia wiersza z podpiętymi zadaniami — od razu pytanie D14.
   const [relink, setRelink] = useState<{ scope: Scope; picking: boolean } | null>(route.params.cancel ? { scope: route.params.cancel, picking: false } : null);
   const [taskTitle, setTaskTitle] = useState('');
+  const [taskAsk, setTaskAsk] = useState<{ r: Exclude<EventTaskAdd, { kind: 'ok' } | { kind: 'empty' }>; answers: EventTaskAnswers } | null>(null);
+  const [taskError, setTaskError] = useState<string | null>(null);
   const [listId, setListId] = useState<string | null>(null);
   const [every, setEvery] = useState<'one' | 'all'>('one');
   const [handing, setHanding] = useState(false);
@@ -149,20 +152,17 @@ export function EventScreen({ route, navigation }: Props) {
   };
   // D14: przy podpiętych zadaniach najpierw pytanie, potem odwołanie i przepięcie w jednym zapisie.
   const cancel = (scope: Scope) => (affectedByCancel(tables, d, date, scope).length ? (setAsk(null), setRelink({ scope, picking: false })) : finish(scope, null));
-  const addTask = () => {
-    const title = taskTitle.trim();
-    if (!title) return;
-    const ops: NewOp[] = [];
-    let list = chosenList?.id;
-    if (!list) {
-      // Grupa bez listy zadań: zakładamy listę „Zadania”, żeby zadanie miało gdzie trafić.
-      list = newId();
-      ops.push(createList({ id: list, groupId: d.event.group_id, kind: 'tasks', name: strings['event.defaultList'] }));
-    }
-    // D65: „na każde spotkanie” = definicja; kopie na najbliższe tygodnie dokłada SeriesFiller.
-    ops.push(every === 'all' && recurring ? createSeries({ id: newId(), groupId: d.event.group_id, eventId, listId: list, title }) : createEventTask({ id: newId(), groupId: d.event.group_id, listId: list, eventId, occurrenceDate: date, title }));
-    store.dispatch(ops);
+  // D65: „na każde spotkanie” = definicja; kopie na najbliższe tygodnie dokłada SeriesFiller. Grupa bez listy zadań:
+  // powstaje lista „Zadania”. Audyt 3 (N-51): „@imię” przypisuje osobę jak na liście; kilka osób albo żadna — pytanie.
+  const series = every === 'all' && recurring;
+  const addTask = (answers: EventTaskAnswers = {}) => {
+    if (!taskTitle.trim()) return;
+    const r = eventTaskOps(tables, userId, { groupId: d.event.group_id, eventId, occurrenceDate: date, listId: chosenList?.id ?? null, text: taskTitle, series, newId }, answers);
+    if (r.kind === 'empty') return setTaskError(strings['form.error.title']);
+    if (r.kind !== 'ok') return setTaskAsk({ r, answers });
+    store.dispatch(r.ops);
     setTaskTitle('');
+    setTaskAsk(null);
   };
   const inMirror = deviceCalendar.mirrorCalendar(eventId, date, occ.date);
   const addToCalendar = async () => {
@@ -281,9 +281,28 @@ export function EventScreen({ route, navigation }: Props) {
             />
           ) : null}
           {/* Audyt 2 (M-244): jak każde pole dodawania; terminu nie rozpoznajemy — daje go wydarzenie (tekst zostaje w nazwie). */}
-          <QuickAddField value={taskTitle} onChangeText={setTaskTitle} onSubmit={addTask} placeholder={strings['event.taskAdd']}>
+          <QuickAddField value={taskTitle} onChangeText={(v) => (setTaskTitle(v), setTaskAsk(null), setTaskError(null))} onSubmit={() => addTask()} placeholder={strings['event.taskAdd']}>
             <Body muted>{strings['event.taskAddHint']}</Body>
+            {series && seriesMention(taskTitle) ? <Body muted>{strings['event.seriesNoPerson']}</Body> : null}
+            {taskError ? <ErrorText>{taskError}</ErrorText> : null}
           </QuickAddField>
+          {/* Jak pole dodawania na liście (ListScreen): kilka osób o tym imieniu albo nikt — pytanie pod polem. */}
+          {taskAsk?.r.kind === 'many' ? (
+            <AskPanel
+              testID="mention-choices"
+              title={strings['mention.ask'](taskAsk.r.name)}
+              options={taskAsk.r.targets.map((t) => ({ key: t.memberId, label: t.displayName, onPress: () => addTask({ ...taskAsk.answers, person: t }) }))}
+              onCancel={() => setTaskAsk(null)}
+            />
+          ) : taskAsk?.r.kind === 'unknown' ? (
+            <AskPanel
+              testID="mention-unknown"
+              title={strings['mention.unknownList'](taskAsk.r.name)}
+              body={strings['mention.unknownInfo'](taskAsk.r.name)}
+              options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => addTask({ ...taskAsk.answers, skipMention: true }) }]}
+              onCancel={() => setTaskAsk(null)}
+            />
+          ) : null}
         </View>
       ) : null}
 

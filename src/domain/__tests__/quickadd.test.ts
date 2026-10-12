@@ -236,19 +236,29 @@ describe('parseQuickAdd — audyt 3', () => {
   const now = at('2026-10-09T10:00'); // piątek
   const p = (text: string, o?: Parameters<typeof parseQuickAdd>[2]) => parseQuickAdd(text, now, o);
 
+  it('N-129: litera, której mała forma jest dłuższa („İ”), nie przesuwa pozycji', () => {
+    const r = p('İstanbul jutro o 17');
+    expect(r.title).toBe('İstanbul');
+    expect(r.due).toEqual({ date: '2026-10-10', time: '17:00' });
+    for (const t of r.tokens) expect('İstanbul jutro o 17'.slice(t.start, t.end)).toBe(t.text);
+    expect(p('İİİ jutro').title).toBe('İİİ');
+  });
+
   it('N-28: „dziś/jutro/pojutrze” i dzień tygodnia wygrywają z liczbą bez roku („1.5”, „1/2”)', () => {
     expect(p('raport 1.5 strony jutro')).toMatchObject({ title: 'raport 1.5 strony', due: { date: '2026-10-10', time: null }, farDate: null });
     expect(p('1/2 kostki masła w środę')).toMatchObject({ title: '1/2 kostki masła', due: { date: '2026-10-14', time: null } });
-    // Data liczbowa z rokiem albo słowna dalej jest pierwszą datą.
+    // Data liczbowa z rokiem albo słowna dalej jest pierwszą datą (nie zgadujemy, która z dwóch dat jest „prawdziwa”).
     expect(p('jutro przenieść na 15.10.2026').due?.date).toBe('2026-10-10');
     expect(p('15.10.2026 zamiast jutro').due?.date).toBe('2026-10-15');
-    // Odklikane „jutro” oddaje termin liczbie.
-    expect(p('raport 1.5 strony jutro', { ignore: [{ start: 18, end: 23 }] }).due?.date).toBe('2027-05-01');
+    // Odklikane „jutro” oddaje termin liczbie (użytkownik powiedział, że „jutro” to nie termin).
+    const r = p('raport 1.5 strony jutro', { ignore: [{ start: 18, end: 23 }] });
+    expect(r.due?.date).toBe('2027-05-01');
   });
 
   it('N-28 (B): data liczbowa bez roku w przyszłym roku — ostrzeżenie z pełną datą', () => {
     expect(p('1/2 kostki masła').farDate).toEqual({ text: '1/2', label: 'poniedziałek, 1 lutego 2027' });
     expect(p('mąka 2.5 kg').farDate).toEqual({ text: '2.5', label: 'niedziela, 2 maja 2027' });
+    // W tym roku, z rokiem albo słownie — bez ostrzeżenia.
     expect(p('rachunek 31.12').farDate).toBeNull();
     expect(p('urlop 1.05.2027').farDate).toBeNull();
     expect(p('urlop 1 maja').farDate).toBeNull();
@@ -256,8 +266,47 @@ describe('parseQuickAdd — audyt 3', () => {
     expect(p('x 1.01').farDate).toMatchObject({ text: '1.01' });
   });
 
+  it('N-127: pora dnia przy godzinie — „wieczorem”, „po południu” (+12), „rano”, „przed południem”', () => {
+    expect(p('dentysta jutro o 7 wieczorem')).toMatchObject({ title: 'dentysta', due: { date: '2026-10-10', time: '19:00' } });
+    expect(p('dentysta jutro wieczorem o 7')).toMatchObject({ title: 'dentysta', due: { date: '2026-10-10', time: '19:00' } });
+    expect(p('kino o 8 wieczór')).toMatchObject({ title: 'kino', due: { date: '2026-10-09', time: '20:00' } });
+    expect(p('odbiór jutro o 3 po południu')).toMatchObject({ title: 'odbiór', due: { date: '2026-10-10', time: '15:00' } });
+    expect(p('odbiór jutro o 3:30 po południu').due).toEqual({ date: '2026-10-10', time: '15:30' });
+    // „rano” bez dnia: 7 już minęła dziś, więc jutro rano — nie dziś o 19 (D43 nie odwraca na popołudnie).
+    expect(p('bieganie o 7 rano')).toMatchObject({ title: 'bieganie', due: { date: '2026-10-10', time: '07:00' } });
+    expect(p('telefon przed południem o 11')).toMatchObject({ title: 'telefon', due: { date: '2026-10-09', time: '11:00' } });
+    expect(p('dziś o 9 rano').due).toEqual({ date: '2026-10-09', time: '09:00' });
+    expect(p('mecz o 19 wieczorem')).toMatchObject({ title: 'mecz', due: { time: '19:00' } });
+    expect(p('obiad o 13 po południu').due?.time).toBe('13:00');
+    expect(p('kino o 8 wieczorem').tokens.map((t) => t.text)).toEqual(['o 8 wieczorem']);
+  });
+
+  it('N-127: pora dnia sprzeczna z godziną albo bez godziny zostaje w nazwie', () => {
+    expect(p('pociąg o 19 rano')).toMatchObject({ title: 'pociąg rano', due: { time: '19:00' } });
+    expect(p('o 0 wieczorem coś')).toMatchObject({ title: 'wieczorem coś', due: { time: '00:00' } });
+    expect(p('o 12 wieczorem test')).toMatchObject({ title: 'wieczorem test', due: { time: '12:00' } });
+    expect(p('dentysta jutro wieczorem')).toMatchObject({ title: 'dentysta wieczorem', due: { date: '2026-10-10', time: null } });
+    expect(p('o 7 wieczorowa').title).toBe('wieczorowa');
+    // „w nocy” nie ma jednej pory (noc: od zachodu do wschodu słońca) — zostaje w nazwie, godzina według D43.
+    expect(p('lot o 2 w nocy')).toMatchObject({ title: 'lot w nocy', due: { date: '2026-10-09', time: '14:00' } });
+    // Odklikana godzina z porą dnia — cały fragment wraca do nazwy.
+    expect(p('kino o 8 wieczorem', { ignore: [{ start: 5, end: 18 }] })).toMatchObject({ title: 'kino o 8 wieczorem', due: null });
+  });
+
+  it('N-128: „codziennie” i „co miesiąc” jak w formularzu (co miesiąc — w dniu miesiąca terminu)', () => {
+    expect(p('leki codziennie')).toMatchObject({ title: 'leki', due: { date: '2026-10-09', time: null }, rrule: 'FREQ=DAILY' });
+    expect(p('leki o 8 rano codziennie')).toMatchObject({ title: 'leki', due: { date: '2026-10-10', time: '08:00' }, rrule: 'FREQ=DAILY' });
+    expect(p('czynsz 15.10 co miesiąc')).toMatchObject({ title: 'czynsz', due: { date: '2026-10-15', time: null }, rrule: 'FREQ=MONTHLY;BYMONTHDAY=15' });
+    expect(p('czynsz co miesiac')).toMatchObject({ title: 'czynsz', rrule: 'FREQ=MONTHLY;BYMONTHDAY=9' });
+    // Pierwsze powtarzanie wygrywa, kolejne zostaje w nazwie.
+    expect(p('x codziennie co tydzień')).toMatchObject({ title: 'x co tydzień', rrule: 'FREQ=DAILY' });
+    expect(p('codziennik').rrule).toBeNull();
+  });
+
   it('N-124: bez rozpoznawania powtarzania (pole podzadania) — „co tydzień” zostaje w nazwie, bez terminu', () => {
-    expect(p('podlać kwiaty co tydzień', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty co tydzień', due: null, rrule: null, tokens: [] });
+    const r = p('podlać kwiaty co tydzień', { recurrence: false });
+    expect(r).toMatchObject({ title: 'podlać kwiaty co tydzień', due: null, rrule: null, tokens: [] });
+    expect(p('podlać kwiaty jutro codziennie', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty codziennie', due: { date: '2026-10-10' }, rrule: null });
     expect(p('podlać kwiaty jutro co tydzień', { recurrence: false })).toMatchObject({ title: 'podlać kwiaty co tydzień', due: { date: '2026-10-10' }, rrule: null });
   });
 });

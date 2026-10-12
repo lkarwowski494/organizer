@@ -11,6 +11,7 @@ import { config } from '../../config';
 import { type NameError, renameMeOps, validateName } from '../../domain/views/my-name';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, Screen, Title } from '../../ui/components';
+import { useSubmit } from '../../ui/use-submit';
 import { WELCOME_SEEN } from '../welcome/WelcomeScreen';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Name'>;
@@ -28,7 +29,6 @@ export function NameScreen({ route, navigation }: Props) {
   const asked = route.params?.from !== 'settings';
   const [name, setName] = useState(asked && needsName ? '' : displayName);
   const [error, setError] = useState<NameError | 'server' | null>(null);
-  const [busy, setBusy] = useState(false);
 
   // Po pytaniu przy starcie — wprowadzenie, jeśli to konto jeszcze go nie widziało (D79, D175).
   const close = async () => {
@@ -41,16 +41,17 @@ export function NameScreen({ route, navigation }: Props) {
   const save = async () => {
     const e = validateName(name);
     if (e) return setError(e);
-    setBusy(true);
     try {
       await account.setMyName(name.trim());
     } catch {
-      setBusy(false);
       return setError('server');
     }
     store.dispatch(renameMeOps(tables, userId, name, [displayName, emailName]));
     await close();
   };
+
+  // Audyt 3 (N-137): Return i „Zapisz” — jedna wysyłka naraz.
+  const { busy, submit } = useSubmit(save);
 
   return (
     <Screen testID="screen-name">
@@ -58,11 +59,11 @@ export function NameScreen({ route, navigation }: Props) {
       {asked ? null : <BackButton onPress={() => navigation.goBack()} />}
       <Title>{asked ? strings['name.askTitle'] : strings['name.title']}</Title>
       <Body muted>{strings['name.info']}</Body>
-      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" onSubmitEditing={() => void save()} testID="name-field" />
+      <Field label={strings['name.field']} value={name} onChangeText={(v) => (setName(v), setError(null))} autoCapitalize="words" textContentType="givenName" autoComplete="name-given" maxLength={config.profile.NAME_MAX_LENGTH} returnKeyType="done" onSubmitEditing={submit} testID="name-field" />
       {error ? (
         <ErrorText>{ERRORS[error]}</ErrorText>
       ) : null}
-      <Button label={strings['name.save']} busy={busy} onPress={() => void save()} testID="name-save" />
+      <Button label={strings['name.save']} busy={busy} onPress={submit} testID="name-save" />
       <Button kind="secondary" label={asked ? strings['common.later'] : strings['common.cancel']} onPress={() => void close()} testID="name-later" />
     </Screen>
   );

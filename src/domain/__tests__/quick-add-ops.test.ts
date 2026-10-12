@@ -37,7 +37,7 @@ const task = (id: string, group: string, list: string, set: Row) => ({
 });
 
 describe('quickAddOps', () => {
-  it('bez listy: ogólna lista grupy osobistej (pierwsza lista zadań), termin z tekstu', () => {
+  it('bez listy: ogólna lista grupy osobistej („Moje zadania”), termin z tekstu', () => {
     expect(run(tables(), 'Oddać książki jutro')).toEqual([task('n1', 'p', 'lp', { title: 'Oddać książki', deadline_mode: 'own', due_date: '2026-10-08' })]);
   });
 

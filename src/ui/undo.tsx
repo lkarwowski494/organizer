@@ -38,6 +38,11 @@ export type UndoOptions = {
    * przez serwer (grupa), „plan” — plan lekcji liczony w chwili cofnięcia z całego planu.
    */
   lost?: RecentLost;
+  /**
+   * `false` — zmiana tylko na tym telefonie i w tym formularzu (np. odrzucony szkic, audyt 3 N-147): sam pasek, bez wpisu
+   * w „Ostatnich zmianach” (tam są zmiany danych grupy).
+   */
+  recent?: false;
 };
 
 /**
@@ -121,7 +126,8 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
       const ops = undo && 'ops' in undo ? undo : undefined;
       let onUndo = fn ?? (ops ? () => backend?.run(ops) : undefined);
       // Cofnięcie przez serwer zawsze jest zmianą do cofnięcia (wpis na liście), bo tylko tam widać jego wynik.
-      const listed = (onUndo !== undefined && action === strings['undo.action']) || later !== undefined;
+      // `recent: false` (N-147) — sam pasek, bez wpisu: zmiana tylko w tym formularzu, nie w danych grupy.
+      const listed = (onUndo !== undefined && action === strings['undo.action'] && o.recent !== false) || later !== undefined;
       if (listed) {
         const id = ++n.current;
         // Z paska ta sama ścieżka co z listy (sprawdzenie zmian w międzyczasie, stan „w toku”).

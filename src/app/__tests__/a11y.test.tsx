@@ -4,13 +4,14 @@
  * z palety bieżącego trybu i korpus par kontrastu kompletny względem ekranów (audyt 2, M-46, M-147).
  */
 import { getStateFromPath, NavigationContainer } from '@react-navigation/native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 
 import { contrastPairs, groupLines, palettes, type Scheme } from '../../config/theme';
 import { inviteUrl, joinUrl } from '../../domain/invite-link';
 import { SignInScreen } from '../../features/auth/SignInScreen';
+import { AccountError } from '../../sync/account';
 import { linking, RootStack } from '../navigation';
 import { audit } from './a11y-audit';
 import { fakeAccount, ME, put, sampleBase, setup } from './harness';
@@ -62,12 +63,6 @@ const KNOWN: { re: RegExp; why: string; max: number; hits: number }[] = [
   {
     re: /^switch „Wysyłaj raporty błędów” ma 0 pt wysokości$/,
     why: 'Audyt 3 (N-74): systemowy przełącznik iOS w SwitchRow ma stały rozmiar — Apple, UISwitch init(frame:): „The size components of this rectangle are ignored.” (https://developer.apple.com/documentation/uikit/uiswitch/init(frame:)); wiersz ma 52 pt, VoiceOver przełącza dwukrotnym dotknięciem gdziekolwiek; cel dotyku palcem — do sprawdzenia na iPhonie (dotyczy każdego SwitchRow, ten jest pierwszym na ekranie z audytu)',
-    max: 6,
-    hits: 0,
-  },
-  {
-    re: /^rola „alert” bez cechy iOS/,
-    why: 'M-39: komunikat błędu ogłasza announce() (ErrorText); rola „alert” na iOS nie daje cechy ani słów w wartości (RN dopisuje je tylko dla „checkbox” i „radio”), zostaje dla testów (getByRole("alert"))',
     max: 6,
     hits: 0,
   },
@@ -315,12 +310,36 @@ describe('logowanie', () => {
     expect(unexplained(check(screen.root!, scheme, 'Logowanie', { screen: false }), 'Logowanie')).toEqual([]);
   });
 
-  it('błąd logowania Apple pokazuje komunikat', async () => {
-    const account = fakeAccount({ signInWithApple: jest.fn(async () => Promise.reject(new Error('cancel'))) });
+  it('błąd logowania Apple pokazuje komunikat; zamknięte okno — bez komunikatu; brak sieci — o internecie (N-73)', async () => {
+    const errors: unknown[] = [new Error('x'), new AccountError('canceled'), new AccountError('network')];
+    const account = fakeAccount({ signInWithApple: jest.fn(async () => Promise.reject(errors.shift())) });
     const { wrap } = setup({ account });
     await render(wrap(<SignInScreen account={account} />));
     await fireEvent.press(screen.getByTestId('apple-sign-in'));
     expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('apple-sign-in'));
+    await waitFor(() => expect(screen.queryByText(/Coś poszło nie tak/)).toBeNull());
+    await fireEvent.press(screen.getByTestId('apple-sign-in'));
+    expect(await screen.findByText('Coś poszło nie tak. Spróbuj jeszcze raz. Ta czynność wymaga internetu.')).toBeTruthy();
+  });
+
+  it('N-73: w trakcie logowania przycisk zajęty, drugie dotknięcie nic nie robi; N-72: komunikat po usunięciu konta', async () => {
+    const spoken = jest.spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions').mockImplementation(() => {});
+    const announced = () => spoken.mock.calls.map((c) => c[0]);
+    let finish: () => void = () => {};
+    const account = fakeAccount({ signInWithApple: jest.fn(() => new Promise<void>((r) => (finish = r))) });
+    const { wrap } = setup({ account });
+    await render(wrap(<SignInScreen account={account} notice="Konto zostało usunięte." />));
+    expect(screen.getByText('Konto zostało usunięte.')).toBeTruthy();
+    expect(announced()).toContain('Konto zostało usunięte.');
+    await fireEvent.press(screen.getByTestId('apple-sign-in'));
+    await fireEvent.press(screen.getByTestId('apple-sign-in'));
+    expect(account.signInWithApple).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('apple-sign-in-busy')).toBeTruthy();
+    await act(async () => finish());
+    expect(screen.queryByTestId('apple-sign-in-busy')).toBeNull();
+    await fireEvent.press(screen.getByTestId('apple-sign-in'));
+    expect(account.signInWithApple).toHaveBeenCalledTimes(2);
   });
 
   it('N-72: komunikat po usunięciu konta, ogłaszany VoiceOverowi', async () => {

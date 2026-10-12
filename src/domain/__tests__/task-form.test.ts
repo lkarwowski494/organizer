@@ -52,6 +52,9 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formFromText(t, ME, 'Basen jutro 19.00 @ala', NOW).form).toEqual(form({ groupId: 'gf', assigneeId: 'ala' }));
     expect(formFromText(t, ME, 'basen w piątek co tydzień', NOW).form).toMatchObject({ date: '2026-10-09', time: '', repeat: { kind: 'weekly', days: [4] } });
     expect(formFromText(t, ME, 'basen co tydzień', NOW).form).toMatchObject({ date: '2026-10-08', repeat: { kind: 'weekly', days: [3] } });
+    // Audyt 3 (N-128): „codziennie” i „co miesiąc” — te same rodzaje co w formularzu.
+    expect(formFromText(t, ME, 'leki codziennie', NOW).form).toMatchObject({ date: '2026-10-08', repeat: { kind: 'daily' } });
+    expect(formFromText(t, ME, 'czynsz 15.10 co miesiąc', NOW).form).toMatchObject({ title: 'czynsz', date: '2026-10-15', repeat: { kind: 'monthly', day: 15 } });
   });
 
   it('@imię: kilka dopasowań — kandydaci, „@al” w nazwie do wyboru (audyt 2, M-170); brak dopasowania — @ zostaje w nazwie', () => {
@@ -105,22 +108,33 @@ describe('pełny formularz zadania (D90)', () => {
     expect(v({ title: 'x'.repeat(config.lengths.TASK_TITLE) })).toBeNull();
     expect(v({ title: '😀'.repeat(config.lengths.TASK_TITLE) })).toBeNull();
     expect(v({ title: 'x'.repeat(config.lengths.TASK_TITLE + 1) })).toBe('titleLong');
-    expect(formUnseen(t, ME, form({ groupId: 'gf', date: '', time: '', assigneeId: 'old' }))).toBe(true);
-    expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBe(false);
+    expect(formUnseen(t, ME, form({ groupId: 'gf', date: '', time: '', assigneeId: 'old' }))).toBe('nobody');
+    expect(formUnseen(t, ME, form({ groupId: 'gf', assigneeId: 'old' }))).toBeNull();
   });
 
   it('PW-18 b: dopisek „nikt tego nie widzi” tylko we wspólnej grupie, bez żywej osoby i bez terminu', () => {
     const t = base();
     const u = (o: Partial<TaskForm>) => formUnseen(t, ME, form(o));
-    expect(u({ groupId: 'gf', date: '', time: '' })).toBe(true);
-    expect(u({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBe(false);
-    expect(u({ groupId: 'gf' })).toBe(false); // z terminem
-    expect(u({ date: '', time: '' })).toBe(false); // grupa osobista
-    expect(u({ groupId: 'nie-ma', date: '' })).toBe(false);
+    expect(u({ groupId: 'gf', date: '', time: '' })).toBe('nobody');
+    expect(u({ groupId: 'gf', date: '', time: '', assigneeId: 'ala' })).toBeNull();
+    expect(u({ groupId: 'gf' })).toBeNull(); // z terminem
+    expect(u({ date: '', time: '' })).toBeNull(); // grupa osobista
+    expect(u({ groupId: 'nie-ma', date: '' })).toBeNull();
     // Osoba usunięta z grupy albo nieznana to nikt konkretny (D132).
     put(t, 'group_members', 'byla', { member_id: 'byla', group_id: 'gf', user_id: null, display_name: 'Była', role: 'member', deleted_at: '2026-10-01T00:00:00Z' });
-    expect(u({ groupId: 'gf', date: '', assigneeId: 'byla' })).toBe(true);
-    expect(u({ groupId: 'gf', date: '', assigneeId: 'nieznana' })).toBe(true);
+    expect(u({ groupId: 'gf', date: '', assigneeId: 'byla' })).toBe('nobody');
+    expect(u({ groupId: 'gf', date: '', assigneeId: 'nieznana' })).toBe('nobody');
+  });
+
+  it('audyt 3 (N-30): zakres grupy inny niż „Wszystko” — z terminem, bez osoby nie trafi do moich spraw', () => {
+    const t = base();
+    const u = (o: Partial<TaskForm>, scope: 'all' | 'mine' | 'mineAndEvents') => formUnseen(t, ME, form(o), scope);
+    expect(u({ groupId: 'gf' }, 'mine')).toBe('scope');
+    expect(u({ groupId: 'gf' }, 'mineAndEvents')).toBe('scope');
+    expect(u({ groupId: 'gf' }, 'all')).toBeNull();
+    expect(u({ groupId: 'gf', assigneeId: 'mf' }, 'mine')).toBeNull();
+    expect(u({ groupId: 'gf', date: '', time: '' }, 'mine')).toBe('nobody');
+    expect(u({}, 'mine')).toBeNull(); // grupa osobista
   });
 
   it('data do edytora powtarzania: z formularza albo dzisiejsza', () => {
@@ -130,7 +144,7 @@ describe('pełny formularz zadania (D90)', () => {
     expect(formDate(form({ date: '2026-13-01' }), today)).toEqual(today);
   });
 
-  it('ogólna lista grupy (D97): osobista — pierwsza lista zadań; wspólna — „Zadania” (nie tematyczna, nie zakupy); brak — nowa', () => {
+  it('ogólna lista grupy (D97): osobista — „Moje zadania”; wspólna — „Zadania” (nie tematyczna, nie zakupy); brak — nowa', () => {
     const t = base();
     const id = () => 'nl';
     expect(generalList(t, ME, ME, id)).toEqual({ listId: 'lp', ops: [] });
@@ -138,6 +152,21 @@ describe('pełny formularz zadania (D90)', () => {
     expect(generalList(t, ME, 'gk', id)).toEqual({ listId: 'nl', ops: [{ kind: 'create', entity: 'lists', id: 'nl', group_id: 'gk', set: { kind: 'tasks', name: NEW_LIST_NAME, visibility: 'group' } }] });
     delete t.lists!.lp;
     expect(generalList(t, ME, ME, id).ops[0]).toMatchObject({ group_id: ME, set: { name: PERSONAL_LIST_NAME } });
+  });
+
+  it('audyt 3 (N-26): osobista — „Moje zadania”, nie pierwsza alfabetycznie; przemianowana — najstarsza lista zadań', () => {
+    const t = base();
+    const id = () => 'nl';
+    const l = (lid: string, name: string, extra: Row = {}) => put(t, 'lists', lid, { id: lid, group_id: ME, kind: 'tasks', name, visibility: 'group', sort_key: 'a0', deleted_at: null, ...extra });
+    l('lp', PERSONAL_LIST_NAME);
+    l('lq-apteka', 'Apteka');
+    // Zakupy i lista usunięta się nie liczą.
+    l('la-zakupy', PERSONAL_LIST_NAME, { kind: 'shopping' });
+    l('la-old', PERSONAL_LIST_NAME, { deleted_at: '2026-10-01T00:00:00Z' });
+    expect(generalList(t, ME, ME, id).listId).toBe('lp');
+    // Przemianowana ogólna lista: najstarsza (UUIDv7 rośnie z czasem), nie „Apteka” tylko dlatego, że na „A”.
+    l('lp', 'Dom');
+    expect(generalList(t, ME, ME, id).listId).toBe('lp');
   });
 
   it('nowe: ogólna lista grupy, osoba, powtarzanie; grupa bez listy — nowa lista', () => {

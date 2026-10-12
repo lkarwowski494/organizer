@@ -208,7 +208,7 @@ function expectSameAsServer(state: ClientState | { base: ClientState['base'] }, 
 }
 
 /** Ile razy przebiegi doszły do sytuacji, które sprawdzamy (bez tego własność mogłaby przechodzić „na pusto”). */
-const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0, restored: 0, scopeRetried: 0, derived: 0 };
+const seen = { purged: 0, resync: 0, resyncPaged: 0, wiped: 0, narrowed: 0, gone: 0, recalled: 0, child: 0, moved: 0, restored: 0, scopeRetried: 0, derived: 0, deferred: 0, unchanged: 0 };
 /** Dzień symulacji dla generatorów kopii powtórzeń (zadanie r1 ma termin wcześniej — „minione”). */
 const TODAY = parseIsoDate('2026-10-08');
 /** Odrzucone utworzenia kopii powtórzeń (lista zawężona, osoba usunięta, rola dziecka — zanim telefon się dowiedział). */
@@ -223,6 +223,9 @@ function observe(p: Phone, res: PullResponse, req: ReturnType<typeof pullRequest
     if (!g.resync && !(g.group_id in req.cursors) && mine('tasks').length + mine('lists').length > 0) seen.wiped++;
     if (g.lists && mine('lists').some((l) => !g.lists!.includes(String(l.id)))) seen.narrowed++;
     if (g.gone?.some((id) => base.tasks?.[id])) seen.gone++;
+    // Budżet odpowiedzi (N-101): grupa odłożona bez wierszy; grupa bez zmian bez listy list (N-102).
+    if (g.has_more && g.rows.length === 0 && g.purged === undefined) seen.deferred++;
+    if (!g.has_more && !g.lists) seen.unchanged++;
   }
 }
 
@@ -526,6 +529,42 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
       { t: 'derive', who: 0 }, { t: 'restart', who: 0, resetCursors: false }, { t: 'hide', task: 't1' },
       { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 'mt' } },
     ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  // Usunięcie ukrytej listy (seed -694076517). Ala usuwa zadanie t3 z ukrytej listy l3, potem całą l3. Usunięta lista
+  // znika z „scopes” (tam tylko żywe ukryte listy), ale zostaje w „lists” grupy (widzę ją w koszu). Telefon brał zniknięcie
+  // ze „scopes” za utratę dostępu i czyścił wszystkie wiersze l3 — wróciły tylko te z nową wersją (lista i zadania usunięte
+  // razem z nią), a nagrobek t3 (wersja sprzed kursora) zniknął z telefonu, choć serwer nadal go pokazuje.
+  it('regresja: usunięcie ukrytej listy nie gubi nagrobków jej wcześniej usuniętych zadań', () => {
+    const cmds: Cmd[] = [
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 't3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'pull', who: 0, lim: 6, fate: 'ok', failScope: false },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'lists', id: 'l3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  // Druga strona tego samego „scopes” bez list z kosza (seed -694076517 po poprawce telefonu). Bartek pobrał zmiany po
+  // usunięciu t3 (nie widział go — kursor za nagrobkiem), potem dostał dostęp do l3, a Ala usunęła l3, zanim jego telefon
+  // się o tym dowiedział. Usunięta lista nie była w „scopes”, więc telefon nie pobierał jej zawartości (sync_fetch_scope)
+  // i nagrobek t3 nie docierał nigdy.
+  it('regresja: dostęp do ukrytej listy, którą zaraz usunięto — telefon pobiera jej zawartość', () => {
+    const cmds: Cmd[] = [
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'tasks', id: 't3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+      { t: 'pull', who: 1, lim: 6, fate: 'ok', failScope: false },
+      { t: 'mutate', who: 0, op: { kind: 'cmd', cmd: 'grant_scope', args: { list_id: 'l3', user: 'bartek' } } },
+      { t: 'mutate', who: 0, op: { kind: 'delete', entity: 'lists', id: 'l3' } },
+      { t: 'push', who: 0, fate: 'ok' },
+    ];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  it('regresja: kontrprzykład fast-check (seed -694076517)', () => {
+    const cmds: Cmd[] = [{"t":"mutate","who":0,"op":{"kind":"delete","entity":"tasks","id":"t3"}},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"purge","keep":1},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"mutate","who":0,"op":{"kind":"create","entity":"lists","id":"l1","group_id":"g1","set":{"kind":"tasks","name":"Dom","visibility":"group"}}},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"delete","entity":"lists","id":"l3"}},{"t":"rejoin","who":1},{"t":"narrow","list":"l1","to":"group"},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"tasks","id":"t1","set":{"completed_at":"2026-10-08T10:00:00Z"}}},{"t":"restart","who":0,"resetCursors":false},{"t":"setRole","who":1,"role":"admin"},{"t":"narrow","list":"l1","to":"group"},{"t":"push","who":0,"fate":"ok"},{"t":"derive","who":0},{"t":"restart","who":0,"resetCursors":false},{"t":"removeMember","who":1}] as Cmd[];
     expect(() => check(cmds)).not.toThrow();
   });
 

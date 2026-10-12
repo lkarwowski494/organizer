@@ -18,15 +18,17 @@ import { useTheme } from '../../ui/theme';
 /** Przycisk-pigułka podpowiedzi i „✕” (wybór działu to Segmented). */
 function Chip({ label, onPress, testID, a11yLabel }: { label: string; onPress: () => void; testID?: string; a11yLabel?: string }) {
   const { c, font, size } = useTheme();
+  // Audyt 3 (N-147, M-241): „✕” usuwa — czerwony, jak inne przyciski usuwania.
+  const remove = label === '✕';
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={a11yLabel ?? label}
       onPress={onPress}
-      style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, backgroundColor: c.surface }}
+      style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: remove ? c.danger : c.control, backgroundColor: c.surface }}
     >
-      {label === '✕' ? <Glyph name="close" color={c.ink} place="inline" /> : <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{label}</Text>}
+      {remove ? <Glyph name="close" color={c.danger} place="inline" /> : <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{label}</Text>}
     </Pressable>
   );
 }

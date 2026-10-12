@@ -42,4 +42,5 @@ Status: przyjęte.
 | N-72, N-228 | Potwierdzenie i błędy | Ekran logowania pokazuje raz „Konto zostało usunięte.”; błędy rozróżnione (zamknięte okno Apple — bez komunikatu, inne Apple ID, Apple niedostępne, sieć, inne). Zgubiona odpowiedź albo 401 przy ponownej próbie: `auth.getUser()` z kodem `user_not_found` = konto już usunięte → ścieżka sukcesu. | Osobny ekran „Konto usunięte”; idempotentna funkcja (wymaga JWT, który Auth już odrzuca). |
 | N-99 | Brak klucza Sign in with Apple w sekretach | Usunięcie dalej działa (prawo z 5.1.1(v)), ale `not_configured` trafia do logu funkcji i do `client_errors` (bez konta); sprawdzenie sekretów na liście kontrolnej `docs/testflight-beta.md`. | Odrzucanie usunięcia bez klucza. |
 | N-142 (Q45 A) | Słowo potwierdzenia | „USUŃ” albo „USUN”. | Tylko „USUŃ”. |
-
+| N-225 | Cofnięta zgoda Apple | Stan poświadczenia przy starcie, po powrocie i na sygnał cofnięcia; `revoked` / `not_found` → zwykłe wylogowanie (konto zostaje). | Własny endpoint powiadomień serwer–serwer Apple (Supabase Auth go nie obsługuje). |
+| N-226 | Nonce | Losowy nonce: Apple dostaje skrót SHA-256, Supabase Auth — wartość. | Przyjęte ryzyko bez nonce. |

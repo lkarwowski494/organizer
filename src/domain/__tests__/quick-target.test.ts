@@ -121,11 +121,23 @@ describe('„@ja” i „@imię” z grupą wpisu (audyt 2, M-24)', () => {
 describe('nikt nie zobaczy w Moich sprawach (D68 po PW-18 b)', () => {
   it('wspólna grupa bez osoby i terminu — tak; z osobą, terminem albo w osobistej — nie', () => {
     const t = base();
-    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, false)).toBe(true);
-    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, true)).toBe(false);
-    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBe(false);
-    expect(unseenInMyDays(t, ME, { groupId: ME, memberId: null }, false)).toBe(false);
-    expect(unseenInMyDays(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBe(false);
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, false)).toBe('nobody');
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, true)).toBeNull();
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: 'ala' }, false)).toBeNull();
+    expect(unseenInMyDays(t, ME, { groupId: ME, memberId: null }, false)).toBeNull();
+    expect(unseenInMyDays(t, ME, { groupId: 'nie-ma', memberId: null }, false)).toBeNull();
+  });
+
+  it('audyt 3 (N-30): zakres inny niż „Wszystko” — wpis z terminem bez osoby nie trafi do moich spraw', () => {
+    const t = base();
+    for (const scope of ['mine', 'mineAndEvents'] as const) {
+      expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, true, scope)).toBe('scope');
+      // Bez terminu nikt nie zobaczy — ważniejsze; z osobą (także mną) i w osobistej — w porządku.
+      expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, false, scope)).toBe('nobody');
+      expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: 'mf' }, true, scope)).toBeNull();
+      expect(unseenInMyDays(t, ME, { groupId: ME, memberId: null }, true, scope)).toBeNull();
+    }
+    expect(unseenInMyDays(t, ME, { groupId: 'gf', memberId: null }, true, 'all')).toBeNull();
   });
 });
 
