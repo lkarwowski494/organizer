@@ -203,7 +203,7 @@ describe('nowa lista (M-237)', () => {
   it('pole rodzaju listy nazywa się „Rodzaj listy”', async () => {
     await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await screen.findByTestId('screen-new-list');
     // Audyt 3 (N-9): bez roli „radiogroup” (na iOS bez cechy); opcje to przyciski ze stanem „wybrane”.
     expect(screen.getByLabelText('Rodzaj listy').props.accessibilityRole).toBeUndefined();
@@ -223,7 +223,7 @@ describe('limity długości (M-228)', () => {
     await fireEvent.changeText(quick, '');
     // Nazwa listy (200).
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     const name = await screen.findByTestId('list-name');
     expect(name.props.maxLength).toBe(200);
     await fireEvent.changeText(name, 'x'.repeat(199));

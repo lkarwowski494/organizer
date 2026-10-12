@@ -35,7 +35,7 @@ describe('dziecko w grupie (D34)', () => {
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gk'));
-    expect(screen.queryByLabelText('Nowa lista')).toBeNull();
+    expect(screen.queryByLabelText('Nowa lista zadań')).toBeNull();
     expect(screen.queryByTestId('group-add-event')).toBeNull();
   });
 });

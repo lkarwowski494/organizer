@@ -101,8 +101,8 @@ const SCREENS: [string, (press: (l: string | RegExp) => Promise<void>) => Promis
   }],
   ['Moje sprawy: wczoraj', async (p) => p('Poprzedni dzień')],
   ['Pasek „Cofnij”', async (p) => p('Usuń: Odebrać paczkę')],
-  ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista'))],
-  ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista'), await p('Zakupy'), await p('Rodzina'))],
+  ['Nowa lista', async (p) => (await p('Listy'), await p('Nowa lista zadań'))],
+  ['Nowa lista zakupów', async (p) => (await p('Listy'), await p('Nowa lista zadań'), await p('Zakupy'), await p('Rodzina'))],
   ['Lista zakupów: planowanie zakupów', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'))],
   // Audyt 3 (N-193): rozwinięty mini kalendarz przy planowaniu zakupów (dni ≥ 44 pt — reguła 15 liczy szerokość od rodzica).
   ['Lista zakupów: planowanie zakupów, inny dzień', async (p) => (await p('Listy'), await p('Zakupy na weekend, Rodzina, Zakupy, 1 do kupienia'), await p('Zaplanuj zakupy'), await p('Inny dzień'))],

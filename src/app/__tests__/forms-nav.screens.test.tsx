@@ -33,7 +33,7 @@ describe('PW-37 A (M-118): formularze wydarzenia, rutyny i listy startują z „
     expect(selected('Grupa', 'Rodzina')).toBe(true);
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByTestId('tab-Lists'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     expect(selected('Grupa', 'Rodzina')).toBe(true);
     await press(within(screen.getByLabelText('Grupa')).getByLabelText('Klasa 2b'));
     await fireEvent.changeText(screen.getByTestId('list-name'), 'Wycieczka');
@@ -78,7 +78,7 @@ describe('M-131: rzeczy, której nie ma — powód zamiast „Spróbuj jeszcze r
 });
 
 describe('ekran grupy: „Następne kroki”, dziecko, puste listy', () => {
-  it('M-117: grupa bez listy zakupów — „Utwórz listę zakupów” otwiera nową listę zakupów w tej grupie', async () => {
+  it('M-117: grupa bez listy zakupów — „Nowa lista zakupów” (Z-7: ta sama nazwa co w Listach) otwiera nową listę zakupów w tej grupie', async () => {
     const prefsMap = new Map([['welcomeSeen', '1'], ['nextSteps.gk', '1']]);
     const s = setup({ base: sampleBase(), prefs: { get: async (k) => prefsMap.get(k) ?? null, set: async (k, v) => void prefsMap.set(k, v) } });
     await s.renderApp(<RootStack />);
@@ -89,8 +89,8 @@ describe('ekran grupy: „Następne kroki”, dziecko, puste listy', () => {
     expect(screen.queryByTestId('next-steps')).toBeNull();
     await act(async () => s.store.pull((b) => ({ ...b, group_members: { ...b.group_members, mk: { ...b.group_members!.mk!, role: 'admin' } } })));
     expect(await screen.findByTestId('next-steps')).toBeTruthy();
-    await press(screen.getByTestId('next-new-shopping'));
-    expect(await screen.findByText('Nowa lista zakupów')).toBeTruthy();
+    await press(within(screen.getByTestId('next-steps')).getByLabelText('Nowa lista zakupów'));
+    expect(within(await screen.findByTestId('screen-new-list')).getByText('Nowa lista zakupów')).toBeTruthy();
     expect(selected('Grupa', 'Klasa 2b')).toBe(true);
   });
 

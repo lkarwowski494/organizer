@@ -17,7 +17,7 @@ test `src/app/__tests__/texts.test.ts` (płeć, cudzysłów przy nazwach ekranó
 | Dni i godzina w formularzu, z których powstaje osobna seria | **wariant** | „Termin 2”, „Usuń termin 2” | „Wariant 2”, „Dodaj wariant (inne dni albo godzina)” |
 | Ile razy z rzędu wszystko zrobione (rutyna, zadanie powtarzane) | **N razy z rzędu** | „seria: N z rzędu” | „3 razy z rzędu” |
 | Zadanie przy wydarzeniu | **podpięte** (Podepnij / Odepnij / Przepnij) | przypięte | „1 zadanie jest podpięte do odwoływanych terminów” |
-| Zadanie bez terminu w Moich sprawach | **Przypięte** | podpięte | sekcja „Przypięte” |
+| Zadanie bez terminu w Moich sprawach | **Bez terminu** (PWD-13 A; na ekranie zadania „Bez terminu (przypięte)”) | „Przypięte” jako nazwa sekcji, podpięte | sekcja „Bez terminu (3)” |
 | Osoba od zadania i zakupów (w wierszu) | **dla Ciebie / dla: Ala** | „robi: Ala” | zadanie i zakupy tym samym wzorem |
 | Osoba od wydarzenia (w wierszu) | **Ty odpowiadasz / odpowiada: Ala** | „odpowiadasz Ty” | |
 | Brak osoby | **Nikt konkretny** (w zdaniu: „nikt konkretny”) | ktokolwiek | „dziś · nikt konkretny” |
@@ -30,6 +30,9 @@ test `src/app/__tests__/texts.test.ts` (płeć, cudzysłów przy nazwach ekranó
 | Zamknięcie panelu, w którym wybór zapisał się od razu | **Gotowe** | Anuluj | panel pozycji zakupów, stałe zakupy |
 | Komunikat po dodaniu | **Dodano + rodzaj: tytuł · gdzie** | „Dodano: X” | „Dodano zadanie: Basen · Rodzina”, „Dodano produkt: mleko · Zakupy” |
 | Komunikat po usunięciu | **Usunięto + rodzaj: tytuł** | „Usunięto: X” | „Usunięto zadanie: Basen”, „Usunięto produkt: mleko”, „Usunięto wydarzenie: Wizyta”, „Usunięto serię: Tańce” |
+| Nowa lista (ADR 0049, Z-7) | **Nowa lista zadań / Nowa lista zakupów** — w Listach, na ekranie grupy i na karcie „Następne kroki” | „Nowa lista” bez rodzaju, „Utwórz listę zakupów” | |
+| Zaproszenie do grupy (ADR 0049, Q7 a) | **Zaproś** (członek) / **Zaproś jako administratora** — także na karcie „Następne kroki”, tam z dopiskiem „np. drugi rodzic” | „Zaproś partnera (administrator)”, „Zaproś kogoś innego (członek)”, „Zaproś do grupy” | |
+| Profil dziecka bez konta (ADR 0049, Z-7) | **Dodaj dziecko (bez konta)** | samo „Dodaj dziecko” | |
 | Usunięcie osoby z grupy | **usunąć z grupy** („Usuń z grupy”) | wypisać | „Z tej grupy usuwa Cię właściciel albo administrator.” |
 | Głos aplikacji | **my** | ja | „Synchronizujemy…”, „Pobieramy grupę…”, „spróbujemy ponownie” |
 | Etykiety pól | **bezosobowo** | głos użytkownika („Zwykle jadę”, „Liczę”) | „Domyślny dojazd”, „Jednostka” |

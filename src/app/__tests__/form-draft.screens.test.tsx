@@ -17,7 +17,7 @@ const forms: Form[] = [
   { name: 'nowe zadanie', open: async () => press(screen.getByTestId('add-more')), field: 'form-title', screen: 'screen-add-task' },
   { name: 'nowe wydarzenie', open: async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-event'))), field: 'event-title', screen: 'screen-event-edit' },
   { name: 'rutyna', open: async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-routine'))), field: 'routine-title', screen: 'screen-routine' },
-  { name: 'nowa lista', open: async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista'))), field: 'list-name', screen: 'screen-new-list' },
+  { name: 'nowa lista', open: async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista zadań'))), field: 'list-name', screen: 'screen-new-list' },
   { name: 'nowa grupa', open: async () => (await press(screen.getByLabelText('Grupy')), await press(await screen.findByLabelText('Nowa grupa'))), field: 'group-name', screen: 'screen-new-group' },
 ];
 

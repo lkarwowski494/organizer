@@ -411,7 +411,7 @@ describe('wybór terminu i nowa lista (audyt 2, G-14, P-71)', () => {
     base.group_members!.mf = { ...base.group_members!.mf, role: 'child' };
     await open({ base });
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     const groups = screen.getByLabelText('Grupa');
     expect(within(groups).queryByLabelText('Rodzina')).toBeNull();
     expect(within(groups).getByLabelText('Klasa 2b')).toBeTruthy();
@@ -503,14 +503,17 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
     // „Dodaj dziecko” przenosi do pola z imieniem dziecka (atrapa TextInput z jest-preset: focus to jest.fn).
     const focus = (TextInput as unknown as { prototype: { focus: jest.Mock } }).prototype.focus;
     focus.mockClear();
-    await press(within(card).getByLabelText('Dodaj dziecko'));
+    // Audyt nawigacji (Z-7, ADR 0049): na karcie ta sama nazwa co przy polu niżej.
+    await press(within(card).getByLabelText('Dodaj dziecko (bez konta)'));
     expect(focus).toHaveBeenCalledTimes(1);
     // Audyt 3 (N-8, Q10 C): rola wybrana na karcie — partner jako administrator, choć dzieci jeszcze nie ma.
-    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś partnera (administrator)', 'Zaproś kogoś innego (członek)']);
-    await press(within(card).getByLabelText('Zaproś partnera (administrator)'));
+    // Audyt nawigacji (Q7 a, ADR 0049): jedna nazwa zaproszenia administratora, z dopiskiem „np. drugi rodzic”.
+    expect(within(card).getAllByRole('button').map((b) => b.props.accessibilityLabel).slice(0, 2)).toEqual(['Zaproś jako administratora', 'Zaproś']);
+    expect(within(card).getByText('np. drugi rodzic')).toBeTruthy();
+    await press(within(card).getByLabelText('Zaproś jako administratora'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'admin');
     expect(await screen.findByText('Dołączy jako: administrator')).toBeTruthy();
-    await press(within(card).getByLabelText('Zaproś kogoś innego (członek)'));
+    await press(within(card).getByLabelText('Zaproś'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('new-1', 'member');
     expect(await screen.findByText('Dołączy jako: członek')).toBeTruthy();
     await press(within(card).getByLabelText('Zaplanuj zakupy'));
@@ -524,8 +527,9 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
   it('N-8 (Q10 C): administrator (nie właściciel) widzi na karcie jeden przycisk — zaproszenie członka', async () => {
     const s = await openGroup(await open({ prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
     const card = await screen.findByTestId('next-steps');
-    expect(within(card).queryByLabelText('Zaproś partnera (administrator)')).toBeNull();
-    await press(within(card).getByLabelText('Zaproś do grupy'));
+    expect(within(card).queryByLabelText('Zaproś jako administratora')).toBeNull();
+    expect(within(card).queryByText('np. drugi rodzic')).toBeNull();
+    await press(within(card).getByLabelText('Zaproś'));
     expect(s.account.createJoinCode).toHaveBeenLastCalledWith('gf', 'member');
   });
 

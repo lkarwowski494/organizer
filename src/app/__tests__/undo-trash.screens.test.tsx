@@ -545,7 +545,7 @@ describe('paski po dodaniu (M-126, D189)', () => {
   it('nowa lista i nowe wydarzenie z formularza — „Cofnij”; szybkie dodanie na liście zadań — „Zmień” otwiera zadanie', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await fireEvent.changeText(await screen.findByTestId('list-name'), 'Remont');
     await press(screen.getByTestId('create-list'));
     await screen.findByTestId('screen-list');

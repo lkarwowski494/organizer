@@ -8,6 +8,13 @@ import type { WhatsNewEntry } from '../domain/whats-new';
 
 export const whatsNewEntries: readonly WhatsNewEntry[] = [
   {
+    // Build 25: nawigacja po audycie przepływów (decyzja właściciela 12.10.2026, wariant B, ADR 0049).
+    fromBuild: 25,
+    items: [
+      'Jedna nazwa na jedną rzecz: „Nowa lista zadań” obok „Nowa lista zakupów”, „Zaproś jako administratora” także na karcie „Następne kroki”.',
+    ],
+  },
+  {
     // Build 24: animacja przy starcie (decyzja właściciela 10.10.2026, ADR-0045).
     fromBuild: 24,
     items: ['Przy starcie aplikacji splątane wstążki rozplatają się i składają w ikonę Organizera. Tapnięcie pomija animację, a przy włączonym „Ogranicz ruch” w ustawieniach iPhone’a jej nie ma.'],

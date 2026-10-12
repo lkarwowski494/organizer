@@ -140,7 +140,8 @@ export const strings = {
   'task.title': 'Tytuł',
   'form.newTitle': 'Nowe zadanie',
   'form.more': 'Więcej',
-  'form.moreHint': 'Pełny formularz: grupa, lista, osoba, powtarzanie',
+  // Audyt nawigacji (Z-5, ADR 0049): to, co formularz naprawdę ma — wyboru listy nie ma (D97).
+  'form.moreHint': 'Pełny formularz: rodzaj, grupa, osoba, termin, powtarzanie',
   'form.kind': 'Rodzaj',
   'form.kind.task': 'Zadanie',
   'form.kind.event': 'Wydarzenie',
@@ -322,7 +323,8 @@ export const strings = {
 
   // Audyt 3 (N-166): wskazuje przyciski pod spodem, zamiast listy „Dom”, której nic nie podpowiada.
   'lists.empty': 'Nie masz jeszcze list. Zacznij od listy zakupów — „Nowa lista zakupów” niżej.',
-  'lists.new': 'Nowa lista',
+  // Audyt nawigacji (Z-7, ADR 0049): jedna nazwa na rzecz — „Nowa lista zadań” obok „Nowa lista zakupów”.
+  'lists.new': 'Nowa lista zadań',
   'lists.newShopping': 'Nowa lista zakupów',
   'lists.name': 'Nazwa listy',
   'lists.kind.tasks': 'Zadania',
@@ -623,7 +625,6 @@ export const strings = {
   'groups.error.childEmpty': 'Wpisz imię dziecka.',
   'groups.error.myNameEmpty': 'Wpisz swoje imię w tej grupie.',
   'groups.noLists': 'Brak list. Dodaj listę zakupów albo zadań.',
-  'groups.nextSteps.newShopping': 'Utwórz listę zakupów',
   'groups.leave': 'Wyjdź z grupy',
   // Decyzja właściciela z 8.10.2026 (PW-43 A): listy „Tylko ja” osoby, która wyszła, idą do kosza i wracają z nią.
   // Audyt 3 (N-47, Q27): też co zostaje — zadania bez osoby (D132), plan lekcji i historia dzieci w grupie.
@@ -657,11 +658,9 @@ export const strings = {
   // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków — co dalej.
   'groups.nextSteps': 'Następne kroki',
   'groups.nextSteps.body': 'Zaproś bliskich, dodaj dziecko bez konta i zaplanuj pierwsze zakupy.',
-  'groups.nextSteps.invite': 'Zaproś do grupy',
   // Audyt 3 (N-8, Q10 C): właściciel na karcie od razu wybiera rolę — partner jako administrator doda dzieci i babcię.
-  'groups.nextSteps.invitePartner': 'Zaproś partnera (administrator)',
-  'groups.nextSteps.inviteOther': 'Zaproś kogoś innego (członek)',
-  'groups.nextSteps.child': 'Dodaj dziecko',
+  // Audyt nawigacji (Q7 a, Z-7, ADR 0049): na karcie te same nazwy co na ekranie grupy, z dopiskiem pod przyciskiem.
+  'groups.nextSteps.adminNote': 'np. drugi rodzic',
   // Audyt 2 (R-38): błędy operacji serwerowych w grupach według kodu serwera (src/features/groups/server-errors.ts).
   'groups.error.forbidden': 'Nie masz do tego uprawnień w tej grupie.',
   'groups.error.nameEmpty': 'Wpisz nazwę grupy.',

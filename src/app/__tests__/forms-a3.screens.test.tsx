@@ -24,7 +24,7 @@ const removeMember = (s: S, id: string) => act(async () => s.store.pull((b) => (
 const selected = (label: string, inside?: string) => (inside ? within(screen.getByTestId(inside)).getByLabelText(label) : screen.getByLabelText(label)).props.accessibilityState?.selected;
 const openRoutine = async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-routine')), await screen.findByTestId('screen-routine'));
 const openEvent = async () => (await press(screen.getByLabelText('Kalendarz')), await press(await screen.findByTestId('calendar-add-event')), await screen.findByTestId('screen-event-edit'));
-const openList = async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista')), await screen.findByTestId('screen-new-list'));
+const openList = async () => (await press(screen.getByLabelText('Listy')), await press(await screen.findByLabelText('Nowa lista zadań')), await screen.findByTestId('screen-new-list'));
 
 describe('N-32: szkic albo otwarty formularz z osobą lub grupą, której już nie ma', () => {
   it('zadanie: „Dla kogo: Ala” w szkicu, Ala usunięta — przywrócenie daje „nikt konkretny” z napisem, zapis bez odrzucenia', async () => {
@@ -184,7 +184,7 @@ describe('N-146: parametry otwarcia mają pierwszeństwo przed szkicem nowej lis
     await press(screen.getByLabelText('Wróć'));
     await press(screen.getByLabelText('Grupy'));
     await press(await screen.findByTestId('group-gk'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     await screen.findByTestId('screen-new-list');
     expect(selected('Klasa 2b')).toBe(true);
     expect(screen.getByTestId('list-name').props.value).toBe('Szkic');

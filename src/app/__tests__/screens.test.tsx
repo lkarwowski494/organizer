@@ -179,7 +179,7 @@ describe('Listy i zadania', () => {
   it('nowa lista prywatna w grupie wspólnej i usunięcie listy', async () => {
     const { store } = await open();
     await press(screen.getByLabelText('Listy'));
-    await press(await screen.findByLabelText('Nowa lista'));
+    await press(await screen.findByLabelText('Nowa lista zadań'));
     // PWD-5 A (M-274): przycisk aktywny, po naciśnięciu komunikat przy polu.
     await press(screen.getByLabelText('Utwórz listę'));
     expect(screen.getByTestId('list-error').props.children).toBe('Wpisz nazwę listy.');

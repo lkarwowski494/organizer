@@ -134,17 +134,18 @@ export function GroupScreen({ route, navigation }: Props) {
               jeszcze dzieci). Administratora zaprasza tylko właściciel — administrator widzi jeden przycisk „członek”. */}
           {d.canInviteAdmin ? (
             <>
-              <Button label={strings['groups.nextSteps.invitePartner']} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
-              <Button kind="secondary" label={strings['groups.nextSteps.inviteOther']} testID="next-invite" onPress={() => void makeInvite('member')} />
+              <Button label={strings['groups.inviteAdmin']} testID="next-invite-admin" onPress={() => void makeInvite('admin')} />
+              <Body muted>{strings['groups.nextSteps.adminNote']}</Body>
+              <Button kind="secondary" label={strings['groups.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
             </>
           ) : (
-            <Button label={strings['groups.nextSteps.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
+            <Button label={strings['groups.invite']} testID="next-invite" onPress={() => void makeInvite('member')} />
           )}
-          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.nextSteps.child']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
+          {d.canManageMembers ? <Button kind="secondary" label={strings['groups.addChild']} testID="next-child" onPress={() => childField.current?.focus()} /> : null}
           {shopping ? (
             <Button kind="secondary" label={strings['trip.plan']} testID="next-shopping" onPress={() => navigation.navigate('List', { listId: shopping.id })} />
           ) : (
-            <Button kind="secondary" label={strings['groups.nextSteps.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+            <Button kind="secondary" label={strings['lists.newShopping']} testID="next-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
           )}
           <Button
             kind="secondary"
@@ -281,7 +282,7 @@ export function GroupScreen({ route, navigation }: Props) {
           <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
         </SwipeRow>
       ))}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id })} />}
+      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'tasks' })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
       {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
       {series.map((e) => (
