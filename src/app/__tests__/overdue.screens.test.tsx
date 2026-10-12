@@ -91,7 +91,7 @@ describe('audyt 3: zaległe — moje i „Biorę to”', () => {
     await screen.findByTestId('screen-today');
     expect(screen.getByLabelText('Przenieś zaległe na dziś (1)')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('move-overdue'));
-    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'prv', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } }]);
+    expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 'prv', set: { deadline_mode: 'own', due_date: '2026-10-07' } }]);
   });
 
   it('N-133 (Q35 A): wspólne zaległe bez osoby — „Biorę to” na ekranie zadania: moje i na dziś, z „Cofnij”', async () => {
@@ -107,7 +107,7 @@ describe('audyt 3: zaległe — moje i „Biorę to”', () => {
     await fireEvent.press(screen.getByLabelText('Biorę to'));
     expectOps(s.store, [
       { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: 'mf' } },
-      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-07' } },
     ]);
     expect(screen.queryByLabelText('Biorę to')).toBeNull();
     const bar = screen.getByTestId('undo-bar');
@@ -115,7 +115,7 @@ describe('audyt 3: zaległe — moje i „Biorę to”', () => {
     await fireEvent.press(within(bar).getByLabelText('Cofnij'));
     expectOps(s.store, [
       { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { assignee_member_id: null } },
-      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: null } },
+      { kind: 'patch', entity: 'tasks', id: 't-kwiaty', set: { deadline_mode: 'own', due_date: '2026-10-05' } },
     ]);
   });
 });

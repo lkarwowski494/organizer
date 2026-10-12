@@ -87,15 +87,15 @@ describe('audyt 3: „moje” jak w Moich sprawach (N-122, Q15 A)', () => {
 
 describe('„Biorę to” (Q35 A, N-133)', () => {
   const raw = (o: Record<string, unknown> = {}) => asTask({ id: 'w', group_id: 'gf', list_id: 'lf', parent_id: null, title: 'Wynieść szkło', deadline_mode: 'own', due_date: '2026-10-05', due_time: '18:00:00', completed_at: null, deleted_at: null, assignee_member_id: null, ...o });
-  it('wspólne zaległe bez osoby: przypisanie do mnie i dziś (godzina zostaje); cofnięcie wraca', () => {
+  it('wspólne zaległe bez osoby: przypisanie do mnie i dziś — sam dzień, godzina z drugiego telefonu zostaje (N-126); cofnięcie wraca', () => {
     expect(takeOps(people, raw(), groups, '2026-10-08')).toEqual({
       ops: [
         { kind: 'patch', entity: 'tasks', id: 'w', set: { assignee_member_id: 'mf' } },
-        { kind: 'patch', entity: 'tasks', id: 'w', set: { deadline_mode: 'own', due_date: '2026-10-08', due_time: '18:00:00' } },
+        { kind: 'patch', entity: 'tasks', id: 'w', set: { deadline_mode: 'own', due_date: '2026-10-08' } },
       ],
       undo: [
         { kind: 'patch', entity: 'tasks', id: 'w', set: { assignee_member_id: null } },
-        { kind: 'patch', entity: 'tasks', id: 'w', set: { deadline_mode: 'own', due_date: '2026-10-05', due_time: '18:00:00' } },
+        { kind: 'patch', entity: 'tasks', id: 'w', set: { deadline_mode: 'own', due_date: '2026-10-05' } },
       ],
     });
     // Osoba usunięta z grupy to nikt konkretny (D132) — też można wziąć; cofnięcie przywraca jej id.

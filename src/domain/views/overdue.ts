@@ -53,8 +53,8 @@ export function moveOverdueOps(tasks: readonly MyTask[], isoToday: string, t: Ta
 }
 
 /**
- * „Biorę to” (Q35 A, N-133): wspólne zaległe zadanie bez osoby — przypisanie do mnie i termin na dziś (godzina zostaje),
- * tak jak „Przenieś zaległe”. `null` — nie dotyczy: zrobione, bez własnego terminu albo nie zaległe, z (żywą) osobą,
+ * „Biorę to” (Q35 A, N-133): wspólne zaległe zadanie bez osoby — przypisanie do mnie i termin na dziś; tak jak „Przenieś
+ * zaległe” (N-126) zmienia sam dzień, więc godzina zmieniona w tym czasie na drugim telefonie zostaje. `null` — nie dotyczy: zrobione, bez własnego terminu albo nie zaległe, z (żywą) osobą,
  * poza wspólną grupą albo jestem w niej dzieckiem. Zwraca też cofnięcie.
  */
 export function takeOps(t: Tables, x: Task, groups: readonly GroupItem[], isoToday: string): { ops: NewOp[]; undo: NewOp[] } | null {
@@ -63,7 +63,7 @@ export function takeOps(t: Tables, x: Task, groups: readonly GroupItem[], isoTod
   if (livePerson(x.assignee_member_id, liveMembers(t)) !== null) return null;
   const monthly = t.tasks?.[x.id]?.repeat === 'FREQ=MONTHLY';
   return {
-    ops: [patchTask(x.id, { assignee_member_id: g.me.member_id }), setDue(x.id, { date: isoToday, time: x.due_time }), ...(monthly ? [setRepeat(x.id, { kind: 'monthly' }, x.due_date)] : [])],
-    undo: [patchTask(x.id, { assignee_member_id: x.assignee_member_id }), setDue(x.id, { date: x.due_date, time: x.due_time }), ...(monthly ? [{ kind: 'patch', entity: 'tasks', id: x.id, set: { repeat: 'FREQ=MONTHLY' } } as NewOp] : [])],
+    ops: [patchTask(x.id, { assignee_member_id: g.me.member_id }), setDue(x.id, { date: isoToday, time: x.due_time }, { date: x.due_date, time: x.due_time }), ...(monthly ? [setRepeat(x.id, { kind: 'monthly' }, x.due_date)] : [])],
+    undo: [patchTask(x.id, { assignee_member_id: x.assignee_member_id }), setDue(x.id, { date: x.due_date, time: x.due_time }, { date: isoToday, time: x.due_time }), ...(monthly ? [{ kind: 'patch', entity: 'tasks', id: x.id, set: { repeat: 'FREQ=MONTHLY' } } as NewOp] : [])],
   };
 }
