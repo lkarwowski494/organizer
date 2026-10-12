@@ -607,3 +607,164 @@ describe('audyt 3: logowanie i usunięcie konta — rodzaje błędów, nonce, po
     await expect(a.deleteAccount()).resolves.toBeUndefined();
   });
 });
+
+describe('mutacje: dokładne argumenty RPC i drobne reguły konta', () => {
+  const noApple = async () => ({ identityToken: null });
+
+  it('każde wywołanie RPC niesie dokładnie swoje parametry (nazwy z SQL, wartości z wywołania)', async () => {
+    const { client, calls } = fakeClient(({ fn }) => ({
+      data: fn === 'sync_fetch_scope' ? { rows: [] } : fn === 'join_group' ? { group_id: 'g' } : {},
+      error: null,
+      status: 200,
+    }));
+    const t = supabaseTransport(client);
+    const a = supabaseAccount(client, noApple);
+    await t.push({ client_id: 'c', schema_version: 2, ops: [] });
+    await t.fetchScope('l1');
+    await a.createGroup({ groupId: 'g1', name: 'Rodzina', ownerMemberId: 'm1', displayName: 'Ala' });
+    await a.createInvite('g1', 'admin');
+    await a.revokeInvite('i1');
+    await a.createJoinCode('g1', 'member');
+    await a.rotateJoinId('g1');
+    await a.deleteGroup('g1');
+    await a.restoreGroup('g1');
+    await a.transferOwnership('g1', 'm2');
+    await a.registerPushToken('tok', 'sandbox');
+    await a.setPushMute('g1', true);
+    await a.reportError({ kind: 'crash', message: 'msg', stack: 'st', screen: 'scr', appVersion: '1.0' });
+    await a.sendFeedback({ message: 'fm', screen: 'fs', appVersion: '2.0' });
+    await a.getPushMutes();
+    expect(calls.map((c) => [c.fn, c.args])).toEqual([
+      ['sync_push', { client_id: 'c', schema_version: 2, ops: [] }],
+      ['sync_fetch_scope', { list_id: 'l1' }],
+      ['create_group', { group_id: 'g1', name: 'Rodzina', owner_member_id: 'm1', owner_display_name: 'Ala' }],
+      ['create_invite', { group_id: 'g1', role: 'admin' }],
+      ['revoke_invite', { invite_id: 'i1' }],
+      ['create_join_code', { group_id: 'g1', role: 'member' }],
+      ['rotate_join_id', { group_id: 'g1' }],
+      ['delete_group', { group_id: 'g1' }],
+      ['restore_group', { group_id: 'g1' }],
+      ['transfer_ownership', { group_id: 'g1', member_id: 'm2' }],
+      ['register_push_token', { p_token: 'tok', p_env: 'sandbox' }],
+      ['set_push_mute', { p_group: 'g1', p_muted: true }],
+      ['report_client_error', { p_kind: 'crash', p_message: 'msg', p_stack: 'st', p_screen: 'scr', p_app_version: '1.0' }],
+      ['send_feedback', { p_message: 'fm', p_screen: 'fs', p_app_version: '2.0' }],
+      ['my_push_mutes', {}],
+    ]);
+  });
+
+  it('kody błędów trwałych: dokładna lista, każdy kod istnieje w migracjach SQL', () => {
+    expect([...FATAL_CODES]).toEqual(['upgrade_required', 'client_mismatch', 'batch_too_large', 'invalid_batch', 'invalid_batch:seq', 'invalid_entities']);
+    const dir = join(__dirname, '../../../supabase/migrations');
+    const sql = readdirSync(dir).map((f) => readFileSync(join(dir, f), 'utf8')).join('\n');
+    for (const code of FATAL_CODES) expect(sql).toContain(code);
+  });
+
+  it('błędy rodzajów AccountError mają kod „failed”, nie pusty', async () => {
+    const { client } = fakeClient();
+    const e1 = await supabaseAccount(client, noApple).signInWithApple().catch((x: unknown) => x);
+    expect(e1).toMatchObject({ code: 'failed', message: 'apple:no_identity_token' });
+    const { client: c2, auth } = fakeClient();
+    auth.getSession.mockResolvedValue({ data: { session: { user: { app_metadata: { providers: ['apple'] } } } } });
+    const e2 = await supabaseAccount(c2, async () => ({ identityToken: 'x', authorizationCode: null })).deleteAccount().catch((x: unknown) => x);
+    expect(e2).toMatchObject({ code: 'failed', message: 'apple:no_authorization_code' });
+  });
+
+  it('komunikat błędu okna Apple: treść wyjątku, bez przedrostka nazwy błędu; nie-błąd zamieniony na tekst', async () => {
+    const { client } = fakeClient();
+    const e1 = await supabaseAccount(client, async () => { throw new Error('boom'); }).signInWithApple().catch((x: unknown) => x);
+    expect(e1).toMatchObject({ code: 'failed', message: 'boom' });
+    const e2 = await supabaseAccount(client, async () => { throw 'plain'; }).signInWithApple().catch((x: unknown) => x);
+    expect(e2).toMatchObject({ code: 'failed', message: 'plain' });
+    const e3 = await supabaseAccount(client, async () => { throw null; }).signInWithApple().catch((x: unknown) => x);
+    expect(e3).toMatchObject({ code: 'failed', message: 'null' });
+  });
+
+  it('logowanie bez nonce nie przekazuje klucza nonce; nazwisko z Apple przycięte', async () => {
+    const { client, auth } = fakeClient();
+    await supabaseAccount(client, async () => ({ identityToken: 'jwt', fullName: { givenName: 'Jan', familyName: '  Kowalski ' } })).signInWithApple();
+    expect(auth.signInWithIdToken.mock.calls[0]![0]).toStrictEqual({ provider: 'apple', token: 'jwt' });
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { display_name: 'Jan', full_name: 'Jan Kowalski' } });
+  });
+
+  describe('zadania wylogowania w pamięci', () => {
+    const job = (token: string, refreshToken: string) => ({ token, refreshToken });
+    function rig(initial: string | null, opts: { refreshStatus?: number; offline?: boolean } = {}) {
+      const state = { jobs: initial };
+      const { client, auth } = fakeClient(({ fn }) => (opts.offline && fn === 'unregister_push_token' ? { data: null, error: { message: 'Failed to fetch' }, status: 0 } : { data: {}, error: null, status: 200 }));
+      auth.getSession.mockResolvedValue({ data: { session: { refresh_token: 'rt-now', user: { id: 'u' } } } });
+      const refreshed: string[] = [];
+      const detached = jest.fn((): DetachedClient => ({
+        rpc: async <T,>() => ({ data: null as T, error: null, status: 200 }),
+        auth: {
+          refreshSession: async (a: { refresh_token: string }) => {
+            refreshed.push(a.refresh_token);
+            if (opts.refreshStatus) return { data: { session: null }, error: { message: 'x', status: opts.refreshStatus } };
+            return { data: { session: { refresh_token: `${a.refresh_token}-new` } }, error: null };
+          },
+          signOut: async () => ({ error: null }),
+        },
+      }));
+      const signOutJobs = { load: async () => state.jobs, save: async (v: string | null) => void (state.jobs = v) };
+      const pushToken = { load: async () => 'ab' as string | null, save: async () => {} };
+      return { state, client, auth, detached, refreshed, signOutJobs, pushToken };
+    }
+
+    it('wpisy bez tokenu, bez tokenu odświeżania, o złym typie albo nie-obiekty są pomijane; nie-tablica to brak zadań', async () => {
+      const t = rig(JSON.stringify([job('a', 'r1'), { token: 1, refreshToken: 'r' }, { token: 'a', refreshToken: 2 }, { token: 'a' }, { refreshToken: 'r' }, null, 'x', 7]));
+      await supabaseAccount(t.client, noApple, { signOutJobs: t.signOutJobs, detached: t.detached }).finishSignOut();
+      expect(t.refreshed).toEqual(['r1']);
+      const u = rig('{"token":"a","refreshToken":"r"}');
+      await supabaseAccount(u.client, noApple, { signOutJobs: u.signOutJobs, detached: u.detached }).finishSignOut();
+      expect(u.refreshed).toEqual([]);
+      const w = rig('nie json');
+      await supabaseAccount(w.client, noApple, { signOutJobs: w.signOutJobs, detached: w.detached }).finishSignOut();
+      expect(w.refreshed).toEqual([]);
+    });
+
+    it('bez pamięci zadań klient starej sesji nie jest tworzony', async () => {
+      const t = rig(null);
+      await supabaseAccount(t.client, noApple, { detached: t.detached }).finishSignOut();
+      expect(t.detached).not.toHaveBeenCalled();
+    });
+
+    it('błąd odświeżenia: 500 i więcej — zadanie zostaje; 4xx — porzucone', async () => {
+      const t500 = rig(JSON.stringify([job('a', 'r1')]), { refreshStatus: 500 });
+      await supabaseAccount(t500.client, noApple, { signOutJobs: t500.signOutJobs, detached: t500.detached }).finishSignOut();
+      expect(JSON.parse(t500.state.jobs!)).toEqual([job('a', 'r1')]);
+      const t499 = rig(JSON.stringify([job('a', 'r1')]), { refreshStatus: 499 });
+      await supabaseAccount(t499.client, noApple, { signOutJobs: t499.signOutJobs, detached: t499.detached }).finishSignOut();
+      expect(t499.state.jobs).toBeNull();
+    });
+
+    it('zrobione zadanie znika z listy, pozostałe zostają (także przy kolejnym, nieudanym)', async () => {
+      const t = rig(JSON.stringify([job('a', 'r1'), job('b', 'r2')]), { refreshStatus: 0 });
+      // pierwsze odświeżenie kończy się porzuceniem (błąd bez statusu = sieć -> zostaje), więc użyj zmiennego wyniku
+      let n = 0;
+      const base = t.detached;
+      const mixed = jest.fn((): DetachedClient => {
+        const d = base();
+        const refresh = d.auth.refreshSession;
+        d.auth.refreshSession = async (a) => (n++ === 0 ? refresh(a) : { data: { session: null }, error: { message: 'off', status: 503 } });
+        return d;
+      });
+      await supabaseAccount(t.client, noApple, { signOutJobs: t.signOutJobs, detached: mixed }).finishSignOut();
+      expect(JSON.parse(t.state.jobs!)).toEqual([job('b', 'r2')]);
+    });
+
+    it('po wylogowaniu zamkniętym przez serwer znika tylko własne zadanie, cudze zostają', async () => {
+      const t = rig(JSON.stringify([job('x', 'cudzy')]), { offline: true });
+      await supabaseAccount(t.client, noApple, { signOutJobs: t.signOutJobs, detached: t.detached, pushToken: t.pushToken }).signOut();
+      expect(JSON.parse(t.state.jobs!)).toEqual([job('x', 'cudzy')]);
+    });
+
+    it('sama pamięć zadań bez klienta starej sesji (albo odwrotnie) nie tworzy zadania', async () => {
+      const t = rig(null, { offline: true });
+      await supabaseAccount(t.client, noApple, { signOutJobs: t.signOutJobs, pushToken: t.pushToken }).signOut();
+      expect(t.state.jobs).toBeNull();
+      const u = rig(null, { offline: true });
+      await supabaseAccount(u.client, noApple, { detached: u.detached, pushToken: u.pushToken }).signOut();
+      expect(u.detached).not.toHaveBeenCalled();
+    });
+  });
+});

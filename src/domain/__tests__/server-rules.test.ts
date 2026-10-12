@@ -2,7 +2,8 @@
  * Model reguł serwera (server-rules.ts, audyt 2 M-50) na przykładach — każda reguła i kolejność sprawdzeń. Zgodność
  * z prawdziwym SQL na losowych operacjach: tests/db/rules-vs-sql.test.ts.
  */
-import { applyOnServer, type ServerTables, serverVerdict } from '../server-rules';
+import { config } from '../../config';
+import { applyOnServer, type ServerTables, SYNC_ENTITIES, serverVerdict } from '../server-rules';
 import { overrideId } from '../views/events';
 import { scopeRowId } from '../views/my-scope';
 import { nextId } from '../views/task-repeat';
@@ -706,5 +707,692 @@ describe('przeniesienie do innej grupy jednym poleceniem (audyt 3: N-12, N-131; 
     applyOnServer(t, U.owner, op, AT);
     t.group_members!['k-o'] = { ...t.group_members!['k-o']!, deleted_at: AT };
     expect(v(U.owner, un('t-member', 'c'), t)).toBe('moved');
+  });
+});
+
+/**
+ * Testy mutacyjne (nocny przebieg 38237696587): scenariusze, które rozróżniają subtelne warunki modelu. Oczekiwania z SQL
+ * (migracje w supabase/migrations), nie z kodu modelu.
+ */
+describe('model reguł serwera — kontrakt kolumn, długości, unikalność', () => {
+  // Kopia private.sync_entities (zgodność modelu z bazą pilnuje tests/db/rules-vs-sql.test.ts, więc ta kopia jest przypięta do SQL).
+  const EXPECTED_SYNC_ENTITIES = {
+    groups: { pk: 'id', insert: [], patch: ['name', 'color'], softDelete: false },
+    group_members: { pk: 'member_id', insert: ['member_id', 'group_id', 'display_name', 'color', 'role'], patch: ['display_name', 'color', 'role', 'week_a'], softDelete: true },
+    lists: { pk: 'id', insert: ['id', 'group_id', 'kind', 'name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], patch: ['name', 'visibility', 'sort_key', 'due_date', 'due_time', 'responsible_member_id', 'staples'], softDelete: true },
+    tasks: {
+      pk: 'id',
+      insert: ['id', 'group_id', 'list_id', 'parent_id', 'title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'series_id', 'repeat', 'category', 'cycle_date'],
+      patch: ['title', 'note', 'sort_key', 'assignee_member_id', 'deadline_mode', 'due_date', 'due_time', 'start_date', 'completed_at', 'event_id', 'occurrence_date', 'rollover', 'repeat', 'category', 'cycle_date'],
+      softDelete: true,
+    },
+    events: { pk: 'id', insert: ['id', 'group_id', 'title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'kind', 'days', 'duration_min'], patch: ['title', 'note', 'start_date', 'start_time', 'end_time', 'rrule', 'audience', 'responsible_member_id', 'location', 'days', 'duration_min'], softDelete: true },
+    event_participants: { pk: 'id', insert: ['id', 'event_id', 'member_id', 'group_id'], patch: [], softDelete: true },
+    event_overrides: { pk: 'id', insert: ['id', 'event_id', 'group_id', 'occurrence_date', 'cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days', 'duration_min'], patch: ['cancelled', 'start_date', 'start_time', 'end_time', 'title', 'responsible_member_id', 'all_day', 'responsible_cleared', 'days', 'duration_min'], softDelete: true },
+    event_rsvps: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'occurrence_date', 'member_id', 'answer'], patch: ['answer'], softDelete: true },
+    event_task_series: { pk: 'id', insert: ['id', 'group_id', 'event_id', 'list_id', 'title'], patch: ['event_id', 'title'], softDelete: true },
+    handoffs: { pk: 'id', insert: ['id', 'group_id', 'entity', 'entity_id', 'occurrence_date', 'to_member'], patch: ['status', 'closed'], softDelete: false },
+    my_day_scopes: { pk: 'id', insert: ['id', 'group_id', 'member_id', 'scope'], patch: ['scope'], softDelete: true },
+    shopping_trips: { pk: 'id', insert: ['id', 'group_id', 'list_id', 'planned_date', 'done_at'], patch: [], softDelete: true },
+  };
+
+  it('kolumny i klucze encji = private.sync_entities', () => {
+    expect(SYNC_ENTITIES).toEqual(EXPECTED_SYNC_ENTITIES);
+  });
+
+  const x = (n: number) => 'x'.repeat(n);
+  const L = config.lengths;
+  const cases: [string, string, string, number, number, string][] = [
+    ['groups', 'g', 'name', 1, L.GROUP_NAME, U.owner],
+    ['group_members', M.member, 'display_name', 1, config.profile.NAME_MAX_LENGTH, U.member],
+    ['lists', 'l', 'name', 1, L.LIST_NAME, U.owner],
+    ['tasks', 't', 'title', 1, L.TASK_TITLE, U.owner],
+    ['tasks', 't', 'note', 0, L.NOTE, U.owner],
+    ['events', 'ev', 'title', 1, L.EVENT_TITLE, U.owner],
+    ['events', 'ev', 'note', 0, L.NOTE, U.owner],
+    ['events', 'ev', 'location', 1, config.events.LOCATION_MAX_LENGTH, U.owner],
+    ['event_overrides', 'o', 'title', 1, L.EVENT_TITLE, U.owner],
+    ['event_task_series', 's', 'title', 1, L.TASK_TITLE, U.owner],
+  ];
+  it.each(cases)('%s.%s: granice długości', (entity, id, col, min, max, user) => {
+    expect(v(user, patch(entity, id, { [col]: x(max) }))).toBe('ok');
+    expect(v(user, patch(entity, id, { [col]: x(max + 1) }))).toBe('invalid:23514');
+    expect(v(user, patch(entity, id, { [col]: x(min) }))).toBe('ok');
+    expect(v(user, patch(entity, id, { [col]: min > 0 ? x(min - 1) : x(min) }))).toBe(min > 0 ? 'invalid:23514' : 'ok');
+  });
+
+  it('unikalność: konflikt tylko przy zgodności wszystkich kolumn indeksu', () => {
+    const ov = (event_id: string, occurrence_date: string) => create('event_overrides', { event_id, occurrence_date, cancelled: true });
+    expect(v(U.member, ov('ev-resp', '2026-10-14'))).toBe('invalid:23505');
+    expect(v(U.member, ov('ev', '2026-10-14'))).toBe('ok'); // inne wydarzenie, ta sama data
+    expect(v(U.member, ov('ev-resp', '2026-10-28'))).toBe('ok'); // to samo wydarzenie, inna data
+    const pa = (event_id: string, member_id: string) => create('event_participants', { event_id, member_id });
+    expect(v(U.member, pa('ev-m', M.child))).toBe('invalid:23505');
+    expect(v(U.member, pa('ev', M.child))).toBe('ok'); // ta sama osoba, inne wydarzenie
+    expect(v(U.member, pa('ev-m', M.admin))).toBe('ok'); // to samo wydarzenie, inna osoba
+    const rs = (event_id: string, occurrence_date: string, member_id: string) => create('event_rsvps', { event_id, occurrence_date, member_id, answer: 'yes' });
+    expect(v(U.member, rs('ev', '2026-10-07', M.member))).toBe('invalid:23505');
+    expect(v(U.member, rs('ev-m', '2026-10-07', M.member))).toBe('ok'); // inne wydarzenie
+    expect(v(U.member, rs('ev', '2026-10-14', M.member))).toBe('ok'); // inna data
+    expect(v(U.admin, rs('ev', '2026-10-07', M.admin))).toBe('ok'); // inna osoba
+    const h = (entity: string, entity_id: string, to: string, extra: Row = {}) => create('handoffs', { entity, entity_id, to_member: to, ...extra });
+    expect(v(U.owner, h('tasks', 't-owner', M.admin))).toBe('invalid:23505');
+    expect(v(U.owner, h('lists', 't-owner', M.admin))).not.toBe('invalid:23505'); // inna encja, ten sam identyfikator
+    expect(v(U.owner, h('tasks', 't-r', M.member))).toBe('ok'); // inny identyfikator
+    const w = world();
+    w.handoffs!.h2 = { ...w.handoffs!.h!, id: 'h2', entity: 'events', entity_id: 'ev-resp', occurrence_date: '2026-10-28' };
+    expect(v(U.owner, h('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-28' }), w)).toBe('invalid:23505');
+    expect(v(U.owner, h('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-21' }), w)).not.toBe('invalid:23505'); // inna data
+    // Rozstrzygnięte przekazanie nie blokuje nowego (indeks częściowy: tylko oczekujące).
+    const w2 = world();
+    w2.handoffs!.h = { ...w2.handoffs!.h!, status: 'accepted' };
+    expect(v(U.owner, h('tasks', 't-owner', M.admin), w2)).toBe('ok');
+  });
+});
+
+describe('model reguł serwera — warunki szczegółowe (nocne testy mutacyjne)', () => {
+  const AT = '2026-10-07T08:00:00.000Z';
+  const task = (extra: Row = {}) => create('tasks', { list_id: 'l', title: 'x', ...extra });
+  const run = (user: string, op: NewOp, t = world()) => {
+    expect(serverVerdict(t, user, op)).toBeNull();
+    applyOnServer(t, user, op, AT);
+    return t;
+  };
+
+  it('pierwszy zbędny klucz: krótsze nazwy najpierw, potem alfabetycznie (jak jsonb)', () => {
+    expect(v(U.owner, task({ ab: 1, bb: 2, cb: 3 }))).toBe('invalid_field:ab');
+    expect(v(U.owner, task({ cb: 3, bb: 2, ab: 1 }))).toBe('invalid_field:ab');
+    expect(v(U.owner, task({ zz: 1, a: 2 }))).toBe('invalid_field:a');
+    expect(v(U.owner, patch('tasks', 't', { cd: 1, ab: 2, ef: 3 }))).toBe('invalid_field:ab');
+  });
+
+  it('członkostwo: usunięty członek nie jest członkiem; członek innej grupy też nie', () => {
+    expect(v('u-gone', task())).toBe('forbidden');
+    expect(v('u-gone', create('lists', { kind: 'tasks', name: 'x' }))).toBe('forbidden'); // usunięty członek nie zakłada list
+    expect(v(U.stranger, task())).toBe('forbidden');
+    expect(v(U.member, task())).toBe('ok');
+  });
+
+  it('widoczność listy: prywatna tylko twórca; „Wybrane osoby” tylko żywy wpis tej listy i tej osoby', () => {
+    const inPrivate = (extra: Row = {}) => create('tasks', { list_id: 'l-p', title: 'x', ...extra });
+    expect(v(U.admin, inPrivate())).toBe('ok'); // twórca
+    expect(v(U.owner, inPrivate())).toBe('forbidden');
+    const w = world();
+    const share = (k: string, row: Row) => void (w.object_members![k] = { group_id: 'g', deleted_at: null, ...row });
+    share('p1', { scope_entity: 'lists', scope_id: 'l-p', member_id: M.member }); // udostępnienie nie otwiera listy prywatnej
+    expect(v(U.member, inPrivate(), w)).toBe('forbidden');
+    const r = (extra: Row = {}) => create('tasks', { list_id: 'l-r', title: 'x', ...extra });
+    expect(v(U.admin, r(), w)).toBe('forbidden'); // wpis admina w świecie jest usunięty
+    share('r1', { scope_entity: 'lists', scope_id: 'l', member_id: M.admin }); // inna lista
+    share('r2', { scope_entity: 'events', scope_id: 'l-r', member_id: M.admin }); // inny rodzaj obiektu
+    share('r3', { scope_entity: 'lists', scope_id: 'l-r', member_id: M.owner }); // inna osoba
+    expect(v(U.admin, r(), w)).toBe('forbidden');
+    expect(v(U.member, r(), w)).toBe('ok'); // żywy wpis
+    share('r4', { scope_entity: 'lists', scope_id: 'l-r', member_id: M.admin });
+    expect(v(U.admin, r(), w)).toBe('ok');
+  });
+
+  it('lista, której nie widzę, jest dla mnie „nie ma” (RLS SELECT)', () => {
+    expect(v(U.member, patch('lists', 'l-p', { name: 'y' }))).toBe('not_found');
+    expect(v(U.owner, del('lists', 'l-p'))).toBe('not_found');
+    expect(v(U.admin, patch('lists', 'l-p', { name: 'y' }))).toBe('ok');
+  });
+
+  it('osoba odpowiedzialna musi być żywym dorosłym tej grupy', () => {
+    const ev = (responsible_member_id: string) => create('events', { title: 'x', audience: 'group', responsible_member_id });
+    expect(v(U.member, ev(M.admin))).toBe('ok');
+    expect(v(U.member, ev(M.stranger))).toBe('invalid_member'); // z innej grupy
+    expect(v(U.member, ev('m-gone'))).toBe('invalid_member'); // usunięta
+    expect(v(U.member, ev(M.profile))).toBe('invalid_member'); // dziecko
+    const ov = (responsible_member_id: string) => create('event_overrides', { event_id: 'ev', occurrence_date: '2026-10-21', responsible_member_id });
+    expect(v(U.member, ov(M.stranger))).toBe('invalid_member');
+    expect(v(U.member, ov(M.admin))).toBe('ok');
+    const list = (responsible_member_id: string) => create('lists', { kind: 'shopping', name: 'x', responsible_member_id });
+    expect(v(U.member, list(M.stranger))).toBe('invalid_member');
+  });
+
+  it('zadanie: odhaczenie przez dorosłego nie wymaga „swojego”; dziecko tylko swoje', () => {
+    const done = { completed_at: '2026-10-07T10:00:00Z' };
+    expect(v(U.member, patch('tasks', 't', done))).toBe('ok');
+    expect(v(U.owner, patch('tasks', 't-child', done))).toBe('ok');
+    expect(v(U.admin, patch('tasks', 't-member', done))).toBe('ok');
+    expect(v(U.child, patch('tasks', 't-child', { completed_at: null }))).toBe('ok'); // jedno pole: odhaczenie bez innych zmian
+    expect(v(U.child, patch('tasks', 't-child', { ...done, title: 'inny' }))).toBe('forbidden:child');
+  });
+
+  it('przywrócenie podzadania: tylko pod usuniętym rodzicem odrzucone; zwykła zmiana żywego podzadania — nie', () => {
+    const w = world();
+    const put = (id: string, row: Row) => void (w.tasks![id] = { id, group_id: 'g', list_id: 'l', parent_id: null, title: id, assignee_member_id: null, completed_at: null, deleted_at: null, ...row });
+    put('s-live', { parent_id: 't', deleted_at: '2026-10-01T00:00:00Z' });
+    put('s-orphan', { parent_id: 't-del' });
+    expect(v(U.member, del('tasks', 's-live', 'restore'), w)).toBe('ok'); // rodzic żyje
+    expect(v(U.member, patch('tasks', 's-orphan', { title: 'y' }), w)).toBe('ok'); // żywe podzadanie pod usuniętym rodzicem
+    expect(v(U.member, del('tasks', 's-orphan'), w)).toBe('ok');
+    put('top-deleted', { deleted_at: '2026-10-01T00:00:00Z' });
+    expect(v(U.member, del('tasks', 'top-deleted', 'restore'), w)).toBe('ok');
+  });
+
+  it('usunięcie żywego zadania z usuniętej listy jest dozwolone; zmiana — nie', () => {
+    const w = world();
+    w.tasks!.live = { id: 'live', group_id: 'g', list_id: 'l-del', parent_id: null, title: 'x', assignee_member_id: null, completed_at: null, deleted_at: null };
+    expect(v(U.member, del('tasks', 'live'), w)).toBe('ok');
+    expect(v(U.member, patch('tasks', 'live', { title: 'y' }), w)).toBe('deleted:list');
+  });
+
+  it('osoba przypisana: sprawdzana tylko przy zmianie (zadanie z osobą bez dostępu można dalej edytować)', () => {
+    const w = world();
+    w.tasks!.hid = { id: 'hid', group_id: 'g', list_id: 'l-p', parent_id: null, title: 'x', assignee_member_id: M.member, completed_at: null, deleted_at: null };
+    expect(v(U.admin, patch('tasks', 'hid', { title: 'y' }), w)).toBe('ok');
+    expect(v(U.admin, patch('tasks', 'hid', { assignee_member_id: M.member }), w)).toBe('ok'); // ta sama wartość
+    expect(v(U.admin, patch('tasks', 'hid', { assignee_member_id: M.owner }), w)).toBe('invalid_assignee');
+    expect(v(U.admin, create('tasks', { list_id: 'l-p', title: 'x', assignee_member_id: M.member }), w)).toBe('invalid_assignee');
+    expect(v(U.admin, create('tasks', { list_id: 'l-p', title: 'x', assignee_member_id: null }), w)).toBe('ok');
+  });
+
+  it('dziecko dopisuje do zakupów tylko produkt: każde inne pole zamyka drogę', () => {
+    const item = (extra: Row = {}) => create('tasks', { list_id: 'l-shop', title: 'Mleko', ...extra });
+    expect(v(U.child, item())).toBe('ok');
+    expect(v(U.child, item({ deadline_mode: 'none' }))).toBe('ok');
+    const fields: Row = {
+      parent_id: 't-shop', assignee_member_id: M.child, due_date: '2026-10-08', due_time: '10:00', start_date: '2026-10-07', completed_at: '2026-10-07T10:00:00Z',
+      event_id: 'ev', occurrence_date: '2026-10-07', series_id: 's', repeat: 'FREQ=DAILY', note: 'uwaga', deadline_mode: 'own',
+    };
+    for (const [k, val] of Object.entries(fields)) expect([k, v(U.child, item({ [k]: val }))]).toEqual([k, 'forbidden:child']);
+    expect(v(U.child, create('tasks', { list_id: 'l', title: 'Mleko' }))).toBe('forbidden:child'); // nie lista zakupów
+  });
+
+  it('wyjście członka: tylko jego oczekujące przekazania i tylko jego prywatne listy w tej grupie', () => {
+    const t = world();
+    const ho = (id: string, row: Row) => void (t.handoffs![id] = { id, group_id: 'g', entity: 'tasks', entity_id: 't', occurrence_date: null, from_member: M.owner, to_member: M.admin, status: 'pending', closed: false, decided_at: null, ...row });
+    ho('h-other', {}); // nie dotyczy odchodzącego
+    ho('h-from', { from_member: M.member, to_member: M.admin, entity_id: 't-member' });
+    ho('h-to', { to_member: M.member, entity_id: 't-owner' });
+    ho('h-foreign', { group_id: 'g2', from_member: M.member }); // inna grupa
+    ho('h-accepted', { from_member: M.member, status: 'accepted' });
+    const L = (id: string, row: Row) => void (t.lists![id] = { id, group_id: 'g', kind: 'tasks', name: id, visibility: 'private', owner_member_id: M.member, deleted_at: null, ...row });
+    L('lp-mine', {});
+    L('lp-group-vis', { visibility: 'group' });
+    L('lp-other-owner', { owner_member_id: M.admin });
+    L('lp-other-group', { group_id: 'g2' });
+    L('lp-old-del', { deleted_at: '2026-09-01T00:00:00Z' });
+    t.tasks!['tk-mine'] = { id: 'tk-mine', group_id: 'g', list_id: 'lp-mine', parent_id: null, title: 'x', deleted_at: null };
+    const om = (k: string, row: Row) => void (t.object_members![k] = { group_id: 'g', scope_entity: 'lists', scope_id: 'l-r', member_id: M.member, deleted_at: null, ...row });
+    om('om-other', { member_id: M.admin });
+    om('om-old', { deleted_at: '2026-09-02T00:00:00Z' });
+    run(U.member, del('group_members', M.member), t);
+    const st = (id: string) => t.handoffs![id]!.status;
+    expect(['h', 'h-other', 'h-from', 'h-to', 'h-foreign', 'h-accepted'].map(st)).toEqual(['cancelled', 'pending', 'cancelled', 'cancelled', 'pending', 'accepted']);
+    expect(t.handoffs!['h-other']!.decided_at).toBeNull();
+    expect(t.handoffs!['h-from']!.decided_at).toBe(AT);
+    const del_ = (id: string) => t.lists![id]!.deleted_at;
+    expect(['lp-mine', 'lp-group-vis', 'lp-other-owner', 'lp-other-group', 'lp-old-del'].map(del_)).toEqual([AT, null, null, null, '2026-09-01T00:00:00Z']);
+    expect(t.tasks!['tk-mine']!.deleted_at).toBe(AT);
+    expect(['l-r:m-m', 'om-other', 'om-old'].map((k) => t.object_members![k]!.deleted_at)).toEqual([AT, null, '2026-09-02T00:00:00Z']);
+  });
+
+  it('powrót członka: tylko to, co ma znacznik jego wyjścia', () => {
+    const t = world();
+    const LEFT = '2026-10-05T00:00:00Z';
+    t.group_members![M.member] = { ...t.group_members![M.member]!, deleted_at: LEFT };
+    const L = (id: string, row: Row) => void (t.lists![id] = { id, group_id: 'g', kind: 'tasks', name: id, visibility: 'private', owner_member_id: M.member, deleted_at: LEFT, ...row });
+    L('lp-same', {}); // usunięta z członkiem
+    L('lp-later', { deleted_at: '2026-10-06T00:00:00Z' });
+    L('lp-earlier', { deleted_at: '2026-10-04T00:00:00Z' }); // usunięta wcześniej, sama
+    L('lp-live', { deleted_at: null });
+    L('lp-other-owner', { owner_member_id: M.admin });
+    L('lp-group', { visibility: 'group' });
+    L('lp-other-group', { group_id: 'g2' });
+    const om = (k: string, row: Row) => void (t.object_members![k] = { group_id: 'g', scope_entity: 'lists', scope_id: 'l-r', member_id: M.member, deleted_at: LEFT, ...row });
+    om('om-back', {});
+    om('om-other-time', { deleted_at: '2026-09-01T00:00:00Z' });
+    om('om-other-member', { member_id: M.admin });
+    om('om-live', { deleted_at: null });
+    const ho = (id: string, row: Row) => {
+      const h = { id, group_id: 'g', entity: 'tasks', entity_id: `tk-${id}`, occurrence_date: null, from_member: M.member, to_member: M.admin, status: 'cancelled', closed: false, decided_at: LEFT, ...row };
+      t.tasks![`tk-${id}`] = { id: `tk-${id}`, group_id: 'g', list_id: 'l', parent_id: null, title: id, assignee_member_id: h.from_member, completed_at: null, deleted_at: null };
+      t.handoffs![id] = h;
+    };
+    ho('hb-ok', {});
+    ho('hb-to', { from_member: M.owner, to_member: M.member });
+    ho('hb-pending', { status: 'pending', decided_at: null });
+    ho('hb-declined', { status: 'declined' });
+    ho('hb-time', { decided_at: '2026-09-01T00:00:00Z' });
+    ho('hb-uninvolved', { from_member: M.owner, to_member: M.admin });
+    ho('hb-group', { group_id: 'g2' });
+    applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+    const d = (id: string) => t.lists![id]!.deleted_at;
+    expect(['lp-same', 'lp-later', 'lp-earlier', 'lp-live', 'lp-other-owner', 'lp-group', 'lp-other-group'].map(d)).toEqual([null, null, '2026-10-04T00:00:00Z', null, LEFT, LEFT, LEFT]);
+    expect(['om-back', 'om-other-time', 'om-other-member', 'om-live'].map((k) => t.object_members![k]!.deleted_at)).toEqual([null, '2026-09-01T00:00:00Z', LEFT, null]);
+    const hs = (id: string) => t.handoffs![id]!.status;
+    expect(['hb-ok', 'hb-to', 'hb-pending', 'hb-declined', 'hb-time', 'hb-uninvolved', 'hb-group'].map(hs)).toEqual(['pending', 'pending', 'pending', 'declined', 'cancelled', 'cancelled', 'cancelled']);
+  });
+});
+
+describe('model reguł serwera — członkowie, przekazania, zakupy, kaskady (nocne testy mutacyjne, część 2)', () => {
+  const AT = '2026-10-07T08:00:00.000Z';
+  const row = (t: { [e: string]: { [k: string]: Row } }, e: string, id: string, r: Row) => void ((t[e] ??= {})[id] = { id, deleted_at: null, ...r });
+  const withNoAccount = () => {
+    const t = world();
+    // Dorosły bez konta (np. po odłączeniu): nie może dostać przekazania ani zmienić roli na dziecko.
+    t.group_members!['m-noacct'] = { member_id: 'm-noacct', group_id: 'g', user_id: null, role: 'member', display_name: 'Bez konta', color: null, week_a: null, deleted_at: null };
+    return t;
+  };
+  const ho = (entity: string, entity_id: string, to: string, extra: Row = {}) => create('handoffs', { entity, entity_id, to_member: to, ...extra });
+
+  it('przekazanie: odbiorca musi być żywym dorosłym z kontem z tej samej grupy', () => {
+    const t = withNoAccount();
+    t.tasks!['t-o2'] = { ...t.tasks!['t-owner']!, id: 't-o2' };
+    expect(v(U.owner, ho('tasks', 't-o2', M.admin), t)).toBe('ok');
+    expect(v(U.owner, ho('tasks', 't-o2', 'm-noacct'), t)).toBe('invalid_member'); // dorosły bez konta
+    expect(v(U.owner, ho('tasks', 't-o2', M.stranger), t)).toBe('invalid_member'); // z innej grupy
+    expect(v(U.owner, ho('tasks', 't-o2', 'm-gone'), t)).toBe('invalid_member'); // usunięty
+    expect(v(U.owner, ho('tasks', 't-o2', M.child), t)).toBe('invalid_member'); // dziecko z kontem, widzi listę
+  });
+
+  it('przekazanie: rzecz musi być żywa i z tej samej grupy', () => {
+    const t = world();
+    row(t, 'lists', 'l-shop-g2', { group_id: 'g2', kind: 'shopping', responsible_member_id: M.owner, visibility: 'group', owner_member_id: M.stranger });
+    expect(v(U.owner, ho('tasks', 't2', M.member), t)).toBe('invalid_entity');
+    expect(v(U.owner, ho('lists', 'l-shop-g2', M.member), t)).toBe('invalid_entity');
+    expect(v(U.owner, ho('lists', 'l-del', M.member), t)).toBe('invalid_entity');
+    expect(v(U.owner, ho('events', 'ev2', M.member), t)).toBe('invalid_entity');
+  });
+
+  it('przekazanie wydarzenia: osobę terminu wyznacza tylko żywy wyjątek tego wydarzenia', () => {
+    const t = world();
+    row(t, 'event_overrides', 'o-other-ev', { event_id: 'ev', group_id: 'g', occurrence_date: '2026-10-28', responsible_member_id: M.member, responsible_cleared: false });
+    row(t, 'event_overrides', 'o-deleted', { event_id: 'ev-resp', group_id: 'g', occurrence_date: '2026-11-11', responsible_member_id: M.member, responsible_cleared: false, deleted_at: '2026-10-02T00:00:00Z' });
+    expect(v(U.owner, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-28' }), t)).toBe('ok');
+    expect(v(U.member, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-28' }), t)).toBe('forbidden:not_responsible');
+    expect(v(U.owner, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-11-11' }), t)).toBe('ok');
+    expect(v(U.member, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-11-11' }), t)).toBe('forbidden:not_responsible');
+  });
+
+  it('decyzje stron: odrzucenie tylko przez adresata; zamknięcie przez nadawcę także po rozstrzygnięciu', () => {
+    expect(v(U.owner, patch('handoffs', 'h', { status: 'declined' }))).toBe('forbidden');
+    expect(v(U.member, patch('handoffs', 'h', { status: 'declined' }))).toBe('ok');
+    expect(v(U.owner, patch('handoffs', 'h-done', { closed: true }))).toBe('ok'); // status bez zmiany
+    expect(v(U.member, patch('handoffs', 'h-done', { closed: true }))).toBe('forbidden');
+    expect(v(U.owner, patch('handoffs', 'h-done', { status: 'cancelled' }))).toBe('invalid_value:status');
+  });
+
+  it('obecność: wydarzenie i osoba z tej samej grupy; dorosły za dorosłego bez konta nie może', () => {
+    const t = withNoAccount();
+    const r = (member: string, event = 'ev') => create('event_rsvps', { event_id: event, occurrence_date: '2026-10-14', member_id: member, answer: 'yes' });
+    expect(v(U.member, r(M.member, 'ev2'), t)).toBe('invalid_event');
+    expect(v(U.member, r(M.stranger), t)).toBe('invalid_member');
+    expect(v(U.member, r('m-noacct'), t)).toBe('forbidden:not_self');
+    expect(v(U.member, r(M.profile), t)).toBe('ok');
+  });
+
+  it('uczestnik wydarzenia: usunięcie nie sprawdza osoby, przywrócenie sprawdza', () => {
+    const t = world();
+    row(t, 'event_participants', 'p-g', { event_id: 'ev', group_id: 'g', member_id: 'm-gone' });
+    row(t, 'event_participants', 'p-g-del', { event_id: 'ev', group_id: 'g', member_id: 'm-gone', deleted_at: '2026-10-01T00:00:00Z' });
+    expect(v(U.member, del('event_participants', 'p-g'), t)).toBe('ok');
+    expect(v(U.member, del('event_participants', 'p-g-del', 'restore'), t)).toBe('invalid_member');
+    expect(v(U.member, del('event_participants', 'p-gone', 'restore'), t)).toBe('ok');
+  });
+
+  it('seria zadań przy wydarzeniu: usunięcie, zmiana i dalsze życie nie zależą od rodziców, którzy już zniknęli', () => {
+    const t = world();
+    row(t, 'event_task_series', 's-in-del-list', { event_id: 'ev', group_id: 'g', list_id: 'l-del', title: 's' });
+    row(t, 'event_task_series', 's-of-del-event', { event_id: 'ev-del', group_id: 'g', list_id: 'l', title: 's' });
+    expect(v(U.member, del('event_task_series', 's-in-del-list'), t)).toBe('ok');
+    expect(v(U.member, patch('event_task_series', 's-in-del-list', { title: 'y' }), t)).toBe('ok'); // lista zniknęła już po utworzeniu serii
+    expect(v(U.member, patch('event_task_series', 's-of-del-event', { title: 'y' }), t)).toBe('ok');
+    expect(v(U.member, patch('event_task_series', 's-of-del-event', { event_id: 'ev' }), t)).toBe('ok');
+    expect(v(U.member, patch('event_task_series', 's', { event_id: 'ev-del' }), t)).toBe('deleted:event');
+  });
+
+  it('zrobione zakupy: lista musi istnieć, żyć i być listą zakupów tej grupy; usunięcie wpisu nie sprawdza listy', () => {
+    const t = world();
+    row(t, 'lists', 'l-shop-del', { group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, deleted_at: '2026-10-01T00:00:00Z' });
+    row(t, 'shopping_trips', 'tr1', { group_id: 'g', list_id: 'l-shop-del', done_at: AT });
+    const trip = (list_id: string) => create('shopping_trips', { list_id, done_at: AT });
+    expect(v(U.member, trip('nie-ma'), t)).toBe('invalid_list');
+    expect(v(U.member, trip('l-shop-del'), t)).toBe('invalid_list');
+    expect(v(U.member, trip('l-shop'), t)).toBe('ok');
+    expect(v(U.member, del('shopping_trips', 'tr1'), t)).toBe('ok');
+  });
+
+  it('osoba od zakupów: widoczność sprawdzana tylko przy zmianie osoby albo widoczności listy', () => {
+    const t = world();
+    row(t, 'lists', 'l-shop-x', { group_id: 'g', kind: 'shopping', visibility: 'private', owner_member_id: M.admin, responsible_member_id: M.member });
+    expect(v(U.admin, patch('lists', 'l-shop-x', { name: 'nowa' }), t)).toBe('ok');
+    expect(v(U.admin, patch('lists', 'l-shop-x', { responsible_member_id: M.member }), t)).toBe('ok');
+    expect(v(U.admin, patch('lists', 'l-shop-x', { visibility: 'private' }), t)).toBe('ok');
+    expect(v(U.admin, patch('lists', 'l-shop-x', { sort_key: 'b1', responsible_member_id: M.owner }), t)).toBe('invalid_member');
+  });
+
+  it('członkowie: dorosły bez konta można zrobić dzieckiem; drugi właściciel i drugi admin', () => {
+    const t = withNoAccount();
+    t.group_members!['m-o2'] = { member_id: 'm-o2', group_id: 'g', user_id: 'u-o2', role: 'owner', display_name: 'O2', color: null, week_a: null, deleted_at: null };
+    t.group_members!['m-a2'] = { member_id: 'm-a2', group_id: 'g', user_id: 'u-a2', role: 'admin', display_name: 'A2', color: null, week_a: null, deleted_at: null };
+    expect(v(U.owner, patch('group_members', 'm-noacct', { role: 'child' }), t)).toBe('ok');
+    expect(v(U.owner, patch('group_members', 'm-o2', { role: 'admin' }), t)).toBe('ok'); // inny właściciel: to nie „zdegradowanie siebie”
+    expect(v(U.owner, patch('group_members', M.owner, { role: 'admin' }), t)).toBe('forbidden:owner_cannot_demote_self');
+    expect(v(U.admin, del('group_members', 'm-a2'), t)).toBe('forbidden:role');
+    expect(v(U.admin, del('group_members', 'm-o2'), t)).toBe('forbidden:role');
+    expect(v(U.admin, del('group_members', M.member), t)).toBe('ok');
+    expect(v(U.member, patch('group_members', M.profile, { display_name: 'Y' }), t)).toBe('forbidden'); // profil dziecka zmienia tylko owner/admin
+    expect(v(U.member, patch('group_members', M.profile, { color: '#00aa00' }), t)).toBe('forbidden');
+    expect(v(U.admin, patch('group_members', M.profile, { color: '#00aa00' }), t)).toBe('ok');
+    expect(v(U.member, del('group_members', 'm-o2'), t)).toBe('forbidden:role');
+  });
+
+  it('grupa w koszu: zmiana i usunięcie czegokolwiek w niej jest odrzucone', () => {
+    const t = world();
+    expect(v(U.owner, patch('tasks', 't3', { title: 'y' }), t)).toBe('deleted:group');
+    expect(v(U.owner, patch('lists', 'l3', { name: 'y' }), t)).toBe('deleted:group');
+    expect(v(U.owner, patch('groups', 'g3', { name: 'y' }), t)).toBe('deleted:group');
+  });
+
+  it('usunięcie i przywrócenie są idempotentne bez sprawdzania uprawnień (nic się nie zmienia)', () => {
+    expect(v(U.child, del('tasks', 't-del'))).toBe('ok'); // już usunięte
+    expect(v(U.child, del('tasks', 't', 'restore'))).toBe('ok'); // już żywe
+    expect(v(U.child, del('tasks', 't'))).toBe('forbidden:child');
+  });
+
+  it('kaskada serii zadań: tylko serie tego wydarzenia albo tej listy, tylko usunięte razem z nim', () => {
+    const t = world();
+    row(t, 'event_task_series', 's-other-ev', { event_id: 'ev-m', group_id: 'g', list_id: 'l', title: 's' });
+    row(t, 'event_task_series', 's-other-list', { event_id: 'ev', group_id: 'g', list_id: 'l-r', title: 's' });
+    row(t, 'event_task_series', 's-of-del-ev', { event_id: 'ev-del', group_id: 'g', list_id: 'l', title: 's' });
+    applyOnServer(t, U.member, del('events', 'ev'), AT);
+    expect([t.event_task_series!.s!.deleted_at, t.event_task_series!['s-other-ev']!.deleted_at, t.event_task_series!['s-other-list']!.deleted_at]).toEqual([AT, null, AT]);
+    applyOnServer(t, U.member, del('events', 'ev-del'), AT); // powtórne usunięcie już usuniętego nic nie kaskaduje
+    expect(t.event_task_series!['s-of-del-ev']!.deleted_at).toBeNull();
+    applyOnServer(t, U.member, del('lists', 'l-r'), AT);
+    expect(t.event_task_series!['s-other-list']!.deleted_at).toBe(AT); // już usunięta razem z wydarzeniem, znacznik bez zmian
+    expect(t.event_task_series!['s-other-ev']!.deleted_at).toBeNull();
+    const restored = world();
+    row(restored, 'event_task_series', 's-late', { event_id: 'ev', group_id: 'g', list_id: 'l', title: 's', deleted_at: '2026-09-01T00:00:00Z' });
+    applyOnServer(restored, U.member, del('events', 'ev'), AT);
+    applyOnServer(restored, U.member, del('events', 'ev', 'restore'), AT);
+    expect([restored.event_task_series!.s!.deleted_at, restored.event_task_series!['s-late']!.deleted_at]).toEqual([null, '2026-09-01T00:00:00Z']);
+  });
+
+  it('powrót członka: przekazania, które przestały mieć sens, zostają anulowane', () => {
+    const LEFT = '2026-10-05T00:00:00Z';
+    const t = withNoAccount();
+    t.group_members![M.member] = { ...t.group_members![M.member]!, deleted_at: LEFT };
+    t.lists!['l-shop-gone'] = { id: 'l-shop-gone', group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.member, deleted_at: null };
+    t.lists!['l-shop-moved'] = { id: 'l-shop-moved', group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.owner, deleted_at: null };
+    t.lists!['l-shop-deleted'] = { id: 'l-shop-deleted', group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.member, deleted_at: '2026-10-01T00:00:00Z' };
+    t.events!['ev-gone-day'] = { id: 'ev-gone-day', group_id: 'g', title: 'x', audience: 'group', responsible_member_id: M.owner, deleted_at: null };
+    t.events!['ev-deleted'] = { id: 'ev-deleted', group_id: 'g', title: 'x', audience: 'group', responsible_member_id: M.member, deleted_at: '2026-10-01T00:00:00Z' };
+    const h = (id: string, entity: string, entity_id: string, extra: Row = {}) =>
+      (t.handoffs![id] = { id, group_id: 'g', entity, entity_id, occurrence_date: null, from_member: M.member, to_member: M.admin, status: 'cancelled', closed: false, decided_at: LEFT, ...extra });
+    h('b-list', 'lists', 'l-shop-gone');
+    h('b-list-moved', 'lists', 'l-shop-moved');
+    h('b-list-del', 'lists', 'l-shop-deleted');
+    h('b-event-moved', 'events', 'ev-gone-day');
+    h('b-event-del', 'events', 'ev-deleted');
+    h('b-noacct', 'lists', 'l-shop-gone', { to_member: 'm-noacct' });
+    h('b-dup-date-a', 'events', 'ev-resp', { occurrence_date: '2026-10-21', from_member: M.member });
+    h('b-dup-date-b', 'events', 'ev-resp', { occurrence_date: '2026-10-28', from_member: M.owner, to_member: M.admin, status: 'pending', decided_at: null });
+    applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+    const st = (id: string) => t.handoffs![id]!.status;
+    expect(['b-list', 'b-list-moved', 'b-list-del', 'b-event-moved', 'b-event-del', 'b-noacct'].map(st)).toEqual(['pending', 'cancelled', 'cancelled', 'cancelled', 'cancelled', 'cancelled']);
+    // Oczekujące przekazanie tej samej rzeczy w innym terminie nie blokuje (inny termin = inna rzecz); w tym samym — blokuje.
+    expect(st('b-dup-date-a')).toBe('pending');
+    t.handoffs!['b-dup-date-b'] = { ...t.handoffs!['b-dup-date-b']!, occurrence_date: '2026-10-21' };
+    t.handoffs!['b-dup-date-a'] = { ...t.handoffs!['b-dup-date-a']!, status: 'cancelled', decided_at: LEFT };
+    applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), AT);
+    expect(st('b-dup-date-a')).toBe('cancelled');
+  });
+
+  it('przyjęcie przekazania nie nadpisuje rzeczy, która zmieniła osobę; wyjątki innych wydarzeń są nietknięte', () => {
+    const t = world();
+    row(t, 'event_overrides', 'ox', { event_id: 'ev', group_id: 'g', occurrence_date: '2026-10-28', responsible_member_id: M.member, responsible_cleared: false });
+    row(t, 'handoffs', 'ho1', { group_id: 'g', entity: 'events', entity_id: 'ev-resp', occurrence_date: '2026-10-28', from_member: M.owner, to_member: M.admin, status: 'pending', closed: false });
+    applyOnServer(t, U.admin, patch('handoffs', 'ho1', { status: 'accepted' }), AT);
+    expect(t.event_overrides!.ox).toMatchObject({ event_id: 'ev', responsible_member_id: M.member });
+    expect(t.event_overrides![overrideId('ev-resp', '2026-10-28')]).toMatchObject({ event_id: 'ev-resp', responsible_member_id: M.admin });
+    const u = world();
+    u.tasks!['t-owner'] = { ...u.tasks!['t-owner']!, assignee_member_id: M.admin }; // zadanie już ma kogoś innego
+    applyOnServer(u, U.member, patch('handoffs', 'h', { status: 'accepted' }), AT);
+    expect(u.tasks!['t-owner']!.assignee_member_id).toBe(M.admin);
+    // Rozstrzygnięte przekazanie (nie „oczekujące”) nie dostaje nowej decyzji ani skutku.
+    const d = world();
+    applyOnServer(d, U.member, patch('handoffs', 'h-done', { status: 'declined' }), AT);
+    expect(d.handoffs!['h-done']).toMatchObject({ status: 'declined' });
+    expect(d.handoffs!['h-done']!.decided_at).toBeUndefined();
+  });
+
+  it('nowy wiersz dostaje tylko pola nadawane dla swojej encji; usunięcie wydarzenia z godziną nie zmienia liczby dni', () => {
+    const t = run(U.member, create('tasks', { list_id: 'l', title: 'x' }));
+    expect(t.tasks!.new).not.toHaveProperty('owner_member_id');
+    expect(t.tasks!.new).not.toHaveProperty('done_by');
+    expect(t.tasks!.new).not.toHaveProperty('from_member');
+    const w = world();
+    w.events!.ev = { ...w.events!.ev!, start_time: '10:00', days: 3 };
+    applyOnServer(w, U.member, del('events', 'ev'), AT);
+    expect(w.events!.ev).toMatchObject({ days: 3, deleted_at: AT });
+    function run(user: string, op: NewOp) {
+      const world_ = world();
+      expect(serverVerdict(world_, user, op)).toBeNull();
+      applyOnServer(world_, user, op, AT);
+      return world_;
+    }
+  });
+
+  it('polecenie przeniesienia: kopie powstają, a oryginał trafia do kosza; zadania z niewidocznych list są dla mnie „nie ma”', () => {
+    const t = world();
+    t.groups!.gk = { id: 'gk', name: 'Klasa', deleted_at: null };
+    t.group_members!['k-o'] = { member_id: 'k-o', group_id: 'gk', user_id: U.owner, role: 'owner', display_name: 'O', deleted_at: null };
+    t.group_members!['k-a'] = { member_id: 'k-a', group_id: 'gk', user_id: U.admin, role: 'admin', display_name: 'A', deleted_at: null };
+    t.lists!.lk = { id: 'lk', group_id: 'gk', kind: 'tasks', name: 'Ogólne', visibility: 'group', owner_member_id: 'k-o', deleted_at: null };
+    const mv = (task: string): NewOp => ({ kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: task, group_id: 'gk', list: null, tasks: [{ id: 'c', from: task, set: { list_id: 'lk', parent_id: null, title: task } }] } });
+    expect(serverVerdict(t, U.admin, mv('t-r'))).toBe('not_found'); // lista „Wybrane osoby”, admin bez dostępu
+    expect(serverVerdict(t, U.owner, mv('t-r'))).toBeNull();
+    applyOnServer(t, U.owner, mv('t-r'), AT);
+    expect(t.tasks!.c).toMatchObject({ group_id: 'gk', list_id: 'lk' });
+    expect(t.tasks!['t-r']).toMatchObject({ deleted_at: AT, moved_to: 'c' });
+  });
+
+  it('polecenie przeniesienia: całe poddrzewo, także gdy wiersze są w tabeli w odwrotnej kolejności', () => {
+    const t = world();
+    t.groups!.gk = { id: 'gk', name: 'Klasa', deleted_at: null };
+    t.group_members!['k-o'] = { member_id: 'k-o', group_id: 'gk', user_id: U.owner, role: 'owner', display_name: 'O', deleted_at: null };
+    t.lists!.lk = { id: 'lk', group_id: 'gk', kind: 'tasks', name: 'Ogólne', visibility: 'group', owner_member_id: 'k-o', deleted_at: null };
+    const put = (id: string, parent: string | null) => void (t.tasks![id] = { id, group_id: 'g', list_id: 'l', parent_id: parent, title: id, assignee_member_id: null, completed_at: null, deleted_at: null });
+    put('gc', 'c1'); // wnuk przed dzieckiem
+    put('c1', 'root');
+    put('root', null);
+    put('stranger-sub', 'inne');
+    put('inne', null);
+    const set = (id: string, parent: string | null) => ({ id: `n-${id}`, from: id, set: { list_id: 'lk', parent_id: parent, title: id } });
+    const op = (tasks: Row[]): NewOp => ({ kind: 'cmd', cmd: 'move_task_to_group', args: { task_id: 'root', group_id: 'gk', list: null, tasks } });
+    expect(serverVerdict(t, U.owner, op([set('root', null), set('c1', 'n-root'), set('gc', 'n-c1')]))).toBeNull();
+    expect(serverVerdict(t, U.owner, op([set('root', null), set('stranger-sub', 'n-root')]))).toBe('invalid_value');
+    expect(serverVerdict(t, U.owner, op([set('root', null), set('inne', 'n-root')]))).toBe('invalid_value');
+  });
+});
+
+describe('model reguł serwera — własność zadania przez dziecko i następny termin (nocne testy mutacyjne, część 3)', () => {
+  const done = { completed_at: '2026-10-07T10:00:00Z' };
+  const putTask = (t: { [e: string]: { [k: string]: Row } }, id: string, r: Row = {}) =>
+    void (t.tasks![id] = { id, group_id: 'g', list_id: 'l', parent_id: null, title: id, assignee_member_id: null, completed_at: null, event_id: null, occurrence_date: null, deleted_at: null, ...r });
+  const putEvent = (t: { [e: string]: { [k: string]: Row } }, id: string, r: Row = {}) => void (t.events![id] = { id, group_id: 'g', title: id, audience: 'group', responsible_member_id: null, deleted_at: null, ...r });
+
+  it('odhaczanie przez dziecko: wydarzenie — osoba odpowiedzialna, uczestnicy, wyjątki tylko tego wydarzenia, tego dnia, nieusunięte', () => {
+    const t = world();
+    t.group_members!['m-c2'] = { member_id: 'm-c2', group_id: 'g', user_id: 'u-c2', role: 'child', display_name: 'D2', color: null, week_a: null, deleted_at: null };
+    putEvent(t, 'e-resp-child', { audience: 'members', responsible_member_id: M.child });
+    putEvent(t, 'e-grp-resp', { audience: 'group', responsible_member_id: M.owner });
+    putEvent(t, 'e-gone-grp', { audience: 'group', responsible_member_id: 'm-gone' });
+    putTask(t, 'k-resp-child', { event_id: 'e-resp-child', occurrence_date: '2026-10-07' });
+    putTask(t, 'k-grp-resp', { event_id: 'e-grp-resp', occurrence_date: '2026-10-07' });
+    putTask(t, 'k-gone-grp', { event_id: 'e-gone-grp', occurrence_date: '2026-10-07' });
+    t.event_participants!['p-grp-resp'] = { id: 'p-grp-resp', event_id: 'e-grp-resp', group_id: 'g', member_id: M.child, deleted_at: null };
+    expect(v(U.child, patch('tasks', 'k-resp-child', done), t)).toBe('ok'); // odpowiedzialne dziecko, bez udziału
+    expect(v(U.child, patch('tasks', 'k-grp-resp', done), t)).toBe('forbidden:not_own'); // odpowiada dorosły, wydarzenie dla całej grupy
+    expect(v(U.child, patch('tasks', 'k-gone-grp', done), t)).toBe('ok'); // odpowiedzialny odszedł — liczy się cała grupa
+    // Uczestnik innego dziecka nie jest uczestnikiem tego wydarzenia.
+    expect(v('u-c2', patch('tasks', 't-ev-m', done), t)).toBe('forbidden:not_own');
+    expect(v(U.child, patch('tasks', 't-ev-m', done), t)).toBe('ok');
+    // Wyjątki: tylko to samo wydarzenie, ten sam dzień i żywe.
+    const ov = (id: string, r: Row) => void (t.event_overrides![id] = { id, group_id: 'g', responsible_member_id: M.owner, responsible_cleared: false, deleted_at: null, ...r });
+    ov('o-other-event', { event_id: 'ev-m', occurrence_date: '2026-10-07' });
+    ov('o-other-day', { event_id: 'ev', occurrence_date: '2026-10-14' });
+    ov('o-deleted', { event_id: 'ev', occurrence_date: '2026-10-07', deleted_at: '2026-10-02T00:00:00Z' });
+    expect(v(U.child, patch('tasks', 't-ev', done), t)).toBe('ok');
+    ov('o-live', { event_id: 'ev', occurrence_date: '2026-10-07' });
+    expect(v(U.child, patch('tasks', 't-ev', done), t)).toBe('forbidden:not_own');
+  });
+
+  it('odhaczanie przez dziecko: zadanie z brakującym rodzicem, lista nie-zakupowa, za głębokie drzewo', () => {
+    const t = world();
+    t.lists!['l-tasks-resp'] = { id: 'l-tasks-resp', group_id: 'g', kind: 'tasks', name: 'x', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.child, deleted_at: null };
+    putTask(t, 'k-orphan', { parent_id: 'nie-ma' });
+    putTask(t, 'k-tasklist', { list_id: 'l-tasks-resp' });
+    putTask(t, 'k-gone-event', { assignee_member_id: 'm-gone', event_id: 'ev', occurrence_date: '2026-10-07' });
+    expect(v(U.child, patch('tasks', 'k-orphan', done), t)).toBe('forbidden:not_own');
+    expect(v(U.child, patch('tasks', 'k-tasklist', done), t)).toBe('forbidden:not_own'); // „osoba od zakupów” liczy się tylko na liście zakupów
+    expect(v(U.child, patch('tasks', 'k-gone-event', done), t)).toBe('ok'); // osoba przypisana odeszła — rozstrzyga wydarzenie
+    // Osiem kroków w górę: właściciel dziewiątego zadania w łańcuchu już się nie liczy.
+    t.tasks!.x8 = { ...t.tasks!.x8!, assignee_member_id: M.child };
+    expect(v(U.child, patch('tasks', 't-deep', done), t)).toBe('forbidden:not_own');
+    t.tasks!.x7 = { ...t.tasks!.x7!, assignee_member_id: M.child };
+    expect(v(U.child, patch('tasks', 't-deep', done), t)).toBe('ok');
+  });
+
+  it('następny termin dziecka: źródło tylko z tej samej listy, głównego i powtarzanego; reszta pól kopii zgodna ze źródłem', () => {
+    const t = world();
+    const put = (id: string, r: Row) => putTask(t, id, { assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY', title: 'Łóżko', ...r });
+    put('r', {});
+    put('r-other-list', { list_id: 'l-p' }); // nie ta lista
+    put('r-sub', { parent_id: 't' }); // nie główne
+    put('r-norepeat', { repeat: null });
+    const next = (id: string, extra: Row = {}) => create('tasks', { list_id: 'l', title: 'Łóżko', deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY', assignee_member_id: M.child, ...extra }, 'g', nextId(id));
+    expect(v(U.child, next('r'), t)).toBe('ok');
+    expect(v(U.child, next('r-other-list'), t)).toBe('forbidden:child');
+    expect(v(U.child, next('r-sub'), t)).toBe('forbidden:child');
+    expect(v(U.child, next('r-norepeat'), t)).toBe('forbidden:child');
+    for (const bad of [{ sort_key: 'zz' }, { note: 'x' }, { start_date: '2026-10-01' }, { completed_at: '2026-10-12T10:00:00Z' }, { event_id: 'ev' }, { occurrence_date: '2026-10-12' }, { series_id: 's' }, { category: 'dom' }, { cycle_date: '2026-10-12' }])
+      expect([bad, v(U.child, next('r', bad), t)]).toEqual([bad, 'forbidden:child']);
+    expect(v(U.child, next('r', { sort_key: 'a0' }), t)).toBe('ok');
+  });
+
+  it('następny termin dziecka: podzadania (czas jak w źródle albo bez), zmiany dozwolone tylko w wymienionych polach', () => {
+    const t = world();
+    const put = (id: string, r: Row) => putTask(t, id, r);
+    put('r', { assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-12', repeat: 'FREQ=DAILY', title: 'Łóżko' });
+    put('rs', { parent_id: 'r', title: 'Pościel', deadline_mode: 'inherit' });
+    put('rss', { parent_id: 'rs', title: 'Poszewka', deadline_mode: 'own', due_time: '08:00' });
+    const c = nextId('r');
+    put(c, { assignee_member_id: M.child, deadline_mode: 'own', due_date: '2026-10-13', repeat: 'FREQ=DAILY', title: 'Łóżko' });
+    put(nextId('rs'), { parent_id: c, title: 'Pościel', deadline_mode: 'inherit' });
+    const sub = (id: string, parent: string, extra: Row = {}) => create('tasks', { list_id: 'l', parent_id: parent, title: 'Poszewka', deadline_mode: 'own', ...extra }, 'g', id);
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { due_time: '08:00' }), t)).toBe('ok');
+    expect(v(U.child, sub(nextId('rss'), nextId('rs')), t)).toBe('ok'); // bez godziny
+    expect(v(U.child, sub(nextId('rss'), nextId('rs'), { sort_key: 'zz' }), t)).toBe('forbidden:child');
+    // Zmiany: każde pole z listy osobno, ale nic poza nią.
+    expect(v(U.child, patch('tasks', c, { due_time: '07:00' }), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { cycle_date: '2026-10-13' }), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', c, { due_date: '2026-10-14', title: 'inny' }), t)).toBe('forbidden:child');
+    expect(v(U.child, patch('tasks', c, { due_date: '2026-10-14', note: 'x' }), t)).toBe('forbidden:child');
+    // Podzadanie: tylko zdjęcie i przywrócenie, także zrobione; termin podzadania nie.
+    t.tasks![nextId('rs')] = { ...t.tasks![nextId('rs')]!, completed_at: '2026-10-13T08:00:00Z' };
+    expect(v(U.child, del('tasks', nextId('rs')), t)).toBe('ok');
+    expect(v(U.child, patch('tasks', nextId('rs'), { due_date: '2026-10-14' }), t)).toBe('forbidden:child');
+  });
+
+  it('przeniesione zadanie: zwykła zmiana żywego zadania ze wskaźnikiem kopii jest dozwolona; przywrócenie — dopiero po zniknięciu kopii', () => {
+    const t = world();
+    putTask(t, 'orig', { moved_to: 'copy' });
+    putTask(t, 'copy');
+    expect(v(U.member, patch('tasks', 'orig', { title: 'y' }), t)).toBe('ok');
+    t.tasks!.orig = { ...t.tasks!.orig!, deleted_at: '2026-10-01T00:00:00Z' };
+    expect(v(U.member, del('tasks', 'orig', 'restore'), t)).toBe('moved');
+    t.tasks!.copy = { ...t.tasks!.copy!, deleted_at: '2026-10-02T00:00:00Z' };
+    expect(v(U.member, del('tasks', 'orig', 'restore'), t)).toBe('ok');
+    t.tasks!.orig = { ...t.tasks!.orig!, moved_to: null };
+    t.tasks!.copy = { ...t.tasks!.copy!, deleted_at: null };
+    expect(v(U.member, del('tasks', 'orig', 'restore'), t)).toBe('ok');
+  });
+
+  it('seria zadań przy utworzeniu zadania: musi istnieć i być z tej samej grupy', () => {
+    const t = world();
+    t.event_task_series!['s-g2'] = { id: 's-g2', event_id: 'ev2', group_id: 'g2', list_id: 'l2', title: 's', deleted_at: null };
+    expect(v(U.member, create('tasks', { list_id: 'l', title: 'x', series_id: 's' }), t)).toBe('ok');
+    expect(v(U.member, create('tasks', { list_id: 'l', title: 'x', series_id: 's-g2' }), t)).toBe('invalid_series');
+    expect(v(U.member, create('tasks', { list_id: 'l', title: 'x', series_id: 'nie-ma' }), t)).toBe('invalid_series');
+  });
+
+  it('polecenia przeniesienia: brakujące albo błędne argumenty to invalid_value', () => {
+    const t = world();
+    t.groups!.gk = { id: 'gk', name: 'Klasa', deleted_at: null };
+    t.group_members!['k-o'] = { member_id: 'k-o', group_id: 'gk', user_id: U.owner, role: 'owner', display_name: 'O', deleted_at: null };
+    const cmd = (name: 'move_task_to_group' | 'unmove_task', args: Row): NewOp => ({ kind: 'cmd', cmd: name, args });
+    const one = [{ id: 'c', from: 't', set: { list_id: 'l', parent_id: null, title: 't' } }];
+    expect(serverVerdict(t, U.owner, cmd('move_task_to_group', { task_id: 't', tasks: one }))).toBe('invalid_value'); // bez grupy
+    expect(serverVerdict(t, U.owner, cmd('move_task_to_group', { task_id: 't', group_id: 'gk', tasks: 'x' }))).toBe('invalid_value'); // nie tablica
+    expect(serverVerdict(t, U.owner, cmd('move_task_to_group', { task_id: 't', group_id: 'gk' }))).toBe('invalid_value');
+    expect(serverVerdict(t, U.owner, cmd('move_task_to_group', { group_id: 'gk', tasks: one }))).toBe('invalid_value'); // bez zadania
+    expect(serverVerdict(t, U.owner, cmd('unmove_task', { task_id: 't' }))).toBe('invalid_value'); // bez kopii
+    expect(serverVerdict(t, U.owner, cmd('unmove_task', { copy_id: 'c' }))).toBe('invalid_value');
+  });
+
+  it('przekazanie wydarzenia: odbiorca musi być żywym dorosłym z kontem z tej samej grupy (wydarzenie nie sprawdza widoczności listy)', () => {
+    const t = world();
+    t.group_members!['m-noacct'] = { member_id: 'm-noacct', group_id: 'g', user_id: null, role: 'member', display_name: 'B', color: null, week_a: null, deleted_at: null };
+    const ev = (to: string) => create('handoffs', { entity: 'events', entity_id: 'ev-resp', to_member: to });
+    expect(v(U.owner, ev(M.admin), t)).toBe('ok');
+    for (const to of [M.stranger, 'm-gone', M.child, M.profile, 'm-noacct', 'nikt']) expect([to, v(U.owner, ev(to), t)]).toEqual([to, 'invalid_member']);
+  });
+
+  it('zrobione zakupy: lista z innej grupy jest nieprawidłowa', () => {
+    const t = world();
+    t.lists!['l-shop-g2'] = { id: 'l-shop-g2', group_id: 'g2', kind: 'shopping', visibility: 'group', owner_member_id: M.stranger, deleted_at: null };
+    expect(v(U.member, create('shopping_trips', { list_id: 'l-shop-g2', done_at: '2026-10-07T08:00:00.000Z' }), t)).toBe('invalid_list');
+  });
+
+  it('unikalność przekazań: inna encja o tym samym identyfikatorze i inny termin nie kolidują', () => {
+    const t = world();
+    const ho = (entity: string, entity_id: string, to: string, extra: Row = {}) => create('handoffs', { entity, entity_id, to_member: to, ...extra });
+    t.lists!['t-owner'] = { id: 't-owner', group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.owner, deleted_at: null };
+    expect(v(U.owner, ho('lists', 't-owner', M.admin), t)).toBe('ok'); // zadanie t-owner ma oczekujące przekazanie, lista o tym id — nie
+    t.handoffs!.h2 = { ...t.handoffs!.h!, id: 'h2', entity: 'events', entity_id: 'ev-resp', occurrence_date: '2026-10-28' };
+    expect(v(U.member, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-21' }), t)).toBe('ok'); // inny termin tego samego wydarzenia
+    expect(v(U.owner, ho('events', 'ev-resp', M.admin, { occurrence_date: '2026-10-28' }), t)).toBe('invalid:23505');
+  });
+
+  it('seria zadań: przywrócenie wydarzenia nie wskrzesza serii, której lista wciąż jest usunięta; powtórne usunięcie niczego nie wskrzesza', () => {
+    const AT1 = '2026-10-07T08:00:00.000Z';
+    const AT2 = '2026-10-08T08:00:00.000Z';
+    const AT3 = '2026-10-09T08:00:00.000Z';
+    const t = world();
+    const del_ = (e: string, id: string, kind: 'delete' | 'restore', at: string) => applyOnServer(t, U.member, { kind, entity: e as never, id }, at);
+    del_('events', 'ev', 'delete', AT1); // seria s znika z wydarzeniem
+    del_('lists', 'l', 'delete', AT2); // lista znika później
+    del_('events', 'ev', 'restore', AT3);
+    expect(t.event_task_series!.s!.deleted_at).toBe(AT1); // lista nadal usunięta
+    del_('lists', 'l', 'restore', AT3);
+    expect(t.event_task_series!.s!.deleted_at).toBe(AT1); // wydarzenie wróciło wcześniej, a znacznik serii jest jego — wraca dopiero z wydarzeniem
+    // Powtórne usunięcie już usuniętego wydarzenia nie rusza serii, której znacznik się zgadza.
+    const u = world();
+    applyOnServer(u, U.member, { kind: 'delete', entity: 'events', id: 'ev-del' }, AT3);
+    expect(u.event_task_series!['s-evdel']!.deleted_at).toBe('2026-10-01T00:00:00Z');
+  });
+
+  it('powrót członka: przekazanie wraca tylko, gdy nikt inny nie przekazuje tej samej rzeczy (ten sam rodzaj i identyfikator) i odbiorca ma konto', () => {
+    const LEFT = '2026-10-05T00:00:00Z';
+    const t = world();
+    t.group_members![M.member] = { ...t.group_members![M.member]!, deleted_at: LEFT };
+    t.group_members!['m-noacct'] = { member_id: 'm-noacct', group_id: 'g', user_id: null, role: 'member', display_name: 'B', color: null, week_a: null, deleted_at: null };
+    t.tasks!['tk-a'] = { id: 'tk-a', group_id: 'g', list_id: 'l', parent_id: null, title: 'a', assignee_member_id: M.member, completed_at: null, deleted_at: null };
+    t.tasks!['tk-b'] = { ...t.tasks!['tk-a']!, id: 'tk-b' };
+    t.lists!['tk-a'] = { id: 'tk-a', group_id: 'g', kind: 'shopping', visibility: 'group', owner_member_id: M.owner, responsible_member_id: M.owner, deleted_at: null };
+    const h = (id: string, row: Row) => (t.handoffs![id] = { id, group_id: 'g', entity: 'tasks', entity_id: 'tk-a', occurrence_date: null, from_member: M.member, to_member: M.admin, status: 'cancelled', closed: false, decided_at: LEFT, ...row });
+    h('h-back', {});
+    // Inna rzecz (lista) o tym samym identyfikatorze, przekazywana teraz przez kogoś innego — nie blokuje zadania.
+    t.handoffs!['h-list-pending'] = { id: 'h-list-pending', group_id: 'g', entity: 'lists', entity_id: 'tk-a', occurrence_date: null, from_member: M.owner, to_member: M.admin, status: 'pending', closed: false, decided_at: null };
+    h('h-noacct', { entity_id: 'tk-b', to_member: 'm-noacct' });
+    applyOnServer(t, U.owner, del('group_members', M.member, 'restore'), '2026-10-07T08:00:00.000Z');
+    expect(t.handoffs!['h-back']!.status).toBe('pending');
+    expect(t.handoffs!['h-noacct']!.status).toBe('cancelled');
   });
 });

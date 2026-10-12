@@ -166,4 +166,24 @@ describe('prośby o ciche powiadomienia (D159)', () => {
     await p;
     expect(k.pending()).toEqual([]);
   });
+
+  it('pusta lista grup nie uruchamia odliczania ani wysyłki', async () => {
+    const h = harness(async () => ({ retryInSec: null }));
+    h.w.add([]);
+    h.w.add([], true);
+    expect(h.pending()).toEqual([]);
+    await h.advance(DEBOUNCE_MS * 3);
+    await h.w.flush();
+    expect(h.sent).toEqual([]);
+  });
+
+  it('po stop zmiany nie ustawiają timera i nic nie wychodzi', async () => {
+    const h = harness(async () => ({ retryInSec: null }));
+    h.w.stop();
+    h.w.add(['g1']);
+    h.w.add(['g2'], true);
+    expect(h.pending()).toEqual([]);
+    await h.advance(DEBOUNCE_MS * 3);
+    expect(h.sent).toEqual([]);
+  });
 });

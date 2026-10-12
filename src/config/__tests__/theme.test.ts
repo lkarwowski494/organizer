@@ -131,3 +131,21 @@ describe('motyw — reszta', () => {
     expect(contrastRatio(palettes.light.border, palettes.light.surface)).toBeLessThan(contrastMin.NON_TEXT);
   });
 });
+
+describe('pary kontrastu — opisy (mutanty tekstowe)', () => {
+  it.each(['light', 'dark'] as const)('każda para (%s) ma niepusty, niepowtarzalny opis', (scheme) => {
+    const c = paletteOf(scheme, true);
+    const pairs = [...contrastPairs(c), ...highContrastPairs(c)];
+    for (const p of pairs) expect(p.use.trim().length).toBeGreaterThan(5);
+    expect(new Set(pairs.map((p) => p.use)).size).toBe(pairs.length);
+  });
+
+  it('zestaw „Zwiększ kontrast” to dokładnie trzy obwódki (karta, wiersz w karcie, pole)', () => {
+    const c = paletteOf('light', true);
+    expect(highContrastPairs(c).map((p) => [p.fg, p.bg, p.kind])).toEqual([
+      [c.border, c.ground, 'NON_TEXT'],
+      [c.border, c.surface, 'NON_TEXT'],
+      [c.control, c.surface, 'NON_TEXT'],
+    ]);
+  });
+});

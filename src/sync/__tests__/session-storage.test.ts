@@ -58,4 +58,19 @@ describe('sesja w pęku kluczy, w kawałkach', () => {
       { numRuns: 50 },
     );
   });
+
+  it('usunięcie kasuje dokładnie zapisane kawałki i licznik, nic ponad to', async () => {
+    const m = memory();
+    const deleted: string[] = [];
+    const del = m.deleteItemAsync;
+    m.deleteItemAsync = async (k, o) => (deleted.push(k), del(k, o));
+    const s = chunkedSecureStorage(m, OPTS);
+    await s.setItem('k', 'x'.repeat(CHUNK + 1));
+    deleted.length = 0;
+    await s.removeItem('k');
+    expect(deleted).toEqual(['k.0', 'k.1', 'k.n']);
+    deleted.length = 0;
+    await s.removeItem('brak');
+    expect(deleted).toEqual(['brak.n']);
+  });
 });

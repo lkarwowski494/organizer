@@ -1,7 +1,7 @@
 import { splitId } from '../event-split';
 import { applyOp, type NewOp, type Row } from '../sync-engine/client';
 import { editEvent, eventDetail, fieldsOf } from '../views/events';
-import { answerOps, RSVP_NAMESPACE, rsvpId, rsvpView, silencedForMe } from '../views/rsvp';
+import { ANSWERS, answerOps, RSVP_NAMESPACE, rsvpId, rsvpView, silencedForMe } from '../views/rsvp';
 
 type T = { [e: string]: { [id: string]: Row } };
 const put = (t: T, e: string, id: string, row: Row) => ((t[e] ??= {})[id] = row);
@@ -145,5 +145,11 @@ describe('wyciszone terminy (PW-23, D160)', () => {
     no(t, 'tymek');
     delete t.events;
     expect(silencedForMe(t, 'u1').size).toBe(0);
+  });
+});
+
+describe('odpowiedzi', () => {
+  it('trzy odpowiedzi w kolejności ekranu: tak, może, nie', () => {
+    expect([...ANSWERS]).toEqual(['yes', 'maybe', 'no']);
   });
 });

@@ -416,7 +416,12 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
 
   useEffect(() => {
     let alive = true;
-    void deps.session.current().then((s) => alive && setSession((old) => (old === undefined ? s : old)));
+    // Zapisanej sesji nie udało się odczytać (np. pęk kluczy niedostępny): jak bez sesji — ekran logowania zamiast wiecznego
+    // ładowania; zalogowanie albo zmiana sesji z onChange i tak ją ustawi (jak w background.ts: błąd odczytu = brak sesji).
+    void deps.session
+      .current()
+      .catch(() => null)
+      .then((s) => alive && setSession((old) => (old === undefined ? s : old)));
     const off = deps.session.onChange((s) => {
       // Link oddany nawigacji przy jej starcie (useState w AppNavigation) — po końcu tamtej sesji już nie wraca.
       if (signedIn.current) setPendingUrl(null);

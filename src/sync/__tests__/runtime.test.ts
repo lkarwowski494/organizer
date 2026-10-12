@@ -578,4 +578,39 @@ describe('pętla synchronizacji w działaniu', () => {
     await flush();
     expect(rt.getSnapshot().indicator.state).toBe('synced');
   });
+
+  it('refreshNow na pierwszym planie nie przenosi pętli w tło; inne zdarzenia (poke) nie zmieniają stanu aplikacji', async () => {
+    const server = new FakeServer();
+    server.addGroup(G, ['ala']);
+    const tr = serverTransport(server, 'ala');
+    const { rt, flush } = harness(tr);
+    rt.start();
+    await flush();
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    const afterPoke = tr.calls.length;
+    await rt.refreshNow();
+    await flush();
+    const n = tr.calls.length;
+    expect(n).toBeGreaterThan(afterPoke);
+    rt.event({ t: 'poke', fresh: true });
+    await flush();
+    expect(tr.calls.length).toBe(n + 1); // nadal pierwszy plan — poke pobiera
+  });
+
+  it('pullStep: po stop() w trakcie pobrania nic nie zapisuje i nie prosi o kolejną porcję; czysta odpowiedź nie zgłasza pominiętych pól', async () => {
+    const page = (more: boolean): PullResponse => ({ groups: [{ group_id: G, cursor: 1, has_more: more, resync: false, rows: [] }], scopes: [] });
+    let st = initialState('c-1');
+    const sets: unknown[] = [];
+    const set = (n: ClientState) => void (sets.push(n), (st = n));
+    const tr = (r: PullResponse): SyncTransport => ({ push: async () => ({ last_seq: 0, results: [] }), pull: async () => r, fetchScope: async () => [] });
+    expect(await pullStep(() => st, set, tr(page(true)), () => 0, () => false)).toBe(false);
+    expect(sets).toEqual([]);
+    const invalid = jest.fn();
+    expect(await pullStep(() => st, set, tr(page(true)), () => 0, () => true, invalid)).toBe(true);
+    expect(invalid).not.toHaveBeenCalled();
+    const scoped: SyncTransport = { ...tr({ groups: [{ group_id: G, cursor: 2, has_more: false, resync: false, rows: [] }], scopes: ['ukryta'] }), fetchScope: async () => [{ e: 'lists', v: 1, row: { id: 'l9', group_id: G, name: 'x', deleted_at: null } }] };
+    await pullStep(() => st, set, scoped, () => 0, () => true, invalid);
+    expect(invalid).not.toHaveBeenCalled();
+  });
 });

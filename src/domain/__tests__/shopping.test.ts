@@ -50,6 +50,9 @@ describe('działy zakupów (D85)', () => {
     expect(new Set(all).size).toBe(all.length);
     expect(all.filter((f) => !/^[a-ząćęłńóśźż]+$/.test(f))).toEqual([]);
     for (const forms of SHOPPING_FORMS) for (const f of forms) expect(itemKey(f)).toBe(forms[0]);
+    // Grupa to co najmniej dwie formy tego samego hasła (pusta albo jednoelementowa nic nie łączy).
+    expect(SHOPPING_FORMS.filter((forms) => forms.length < 2)).toEqual([]);
+    expect(SHOPPING_FORMS.length).toBeGreaterThan(50);
   });
 
   it.each([

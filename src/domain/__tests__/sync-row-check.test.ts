@@ -51,6 +51,46 @@ describe('badField: zakres dat, godzin i chwil = ograniczenia *_range serwera', 
   });
 });
 
+describe('badField: każde sprawdzane pole (kolumny z ograniczeniem *_range w bazie)', () => {
+  // Kontrakt z migracją 20261010010000_date_ranges.sql (kolumny z ograniczeniem *_range); jego zgodność z bazą pilnuje tests/db/config-sql.test.ts.
+  const EXPECTED = {
+    group_members: { date: ['week_a'] },
+    lists: { date: ['due_date'], time: ['due_time'] },
+    tasks: { date: ['due_date', 'start_date', 'occurrence_date', 'cycle_date'], time: ['due_time'], instant: ['completed_at'] },
+    events: { date: ['start_date'], time: ['start_time', 'end_time'] },
+    event_overrides: { date: ['occurrence_date', 'start_date'], time: ['start_time', 'end_time'] },
+    event_rsvps: { date: ['occurrence_date'] },
+    handoffs: { date: ['occurrence_date'] },
+    shopping_trips: { date: ['planned_date'], instant: ['done_at'] },
+  };
+  it('lista pól = kontrakt', () => {
+    expect(CHECKED_FIELDS).toEqual(EXPECTED);
+  });
+
+  const cases = Object.entries(EXPECTED).flatMap(([e, f]) => [
+    ...(f as { date?: string[] }).date?.map((k) => [e, k, '2026-10-07', 'infinity'] as const) ?? [],
+    ...(f as { time?: string[] }).time?.map((k) => [e, k, '18:30:00', '24:00:00'] as const) ?? [],
+    ...(f as { instant?: string[] }).instant?.map((k) => [e, k, '2026-10-07T10:00:00Z', 'infinity'] as const) ?? [],
+  ]);
+  it.each(cases)('%s.%s: poprawna wartość przechodzi, zła daje nazwę pola', (e, k, good, bad) => {
+    expect(badField(e as never, { [k]: good })).toBeNull();
+    expect(badField(e as never, { [k]: bad })).toBe(`${e}.${k}`);
+    expect(badField(e as never, { [k]: null })).toBeNull();
+  });
+
+  it('daty i godziny muszą pasować do wzorca w całości; ułamki sekund i granice chwil', () => {
+    expect(badField('events', { start_date: '2026-10-07 junk' })).toBe('events.start_date');
+    expect(badField('events', { start_date: 'x2026-10-07' })).toBe('events.start_date');
+    expect(badField('events', { start_date: '192026-10-07' })).toBe('events.start_date'); // przedrostek, który mieści się w zakresie przy porównaniu tekstów
+    expect(badField('events', { start_time: '18:00:00.55' })).toBeNull();
+    expect(badField('events', { start_time: '18:00:00.' })).toBe('events.start_time');
+    expect(badField('events', { start_time: '18:00junk' })).toBe('events.start_time');
+    expect(badField('events', { start_time: 'x18:00' })).toBe('events.start_time');
+    expect(badField('events', { start_time: '18:00' })).toBeNull();
+    expect(badField('tasks', { completed_at: `${config.dates.MIN}T00:00:00Z` })).toBeNull(); // początek zakresu włącznie
+  });
+});
+
 describe('pobranie z wierszem spoza zakresu', () => {
   it('wiersz pominięty, jego poprzednia wersja znika, pole zgłoszone; widok wydarzeń działa', () => {
     const who: PulledRow[] = [

@@ -613,3 +613,33 @@ describe('odporność synchronizacji (audyt 2, P2)', () => {
     await expect(render(<Root deps={t.deps} fontsLoaded />)).rejects.toThrow('dysk');
   });
 });
+
+describe('odczyt zapisanej sesji kończy się błędem (pęk kluczy niedostępny)', () => {
+  it('start nie wisi na ekranie ładowania i nie zostawia nieobsłużonego odrzucenia: jak bez sesji — ekran logowania', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => void unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const t = makeDeps({ session: { current: jest.fn(() => Promise.reject(new Error('pęk kluczy niedostępny'))), onChange: () => () => {} } });
+      await render(<Root deps={t.deps} fontsLoaded />);
+      expect(await screen.findByText('Sprawy rodziny i znajomych w jednym miejscu.')).toBeTruthy();
+      await act(async () => {
+        await new Promise((r) => setImmediate(r));
+      });
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('logowanie po nieudanym odczycie działa; późniejsza zmiana sesji nie jest nadpisywana wynikiem odczytu', async () => {
+    let fail: (e: Error) => void = () => {};
+    const current = jest.fn(() => new Promise<Session | null>((_, reject) => (fail = reject)));
+    const t = makeDeps({ session: { current, onChange: (fn) => (t0.add(fn), () => void t0.delete(fn)) } });
+    const t0 = new Set<(s: Session | null) => void>();
+    await render(<Root deps={t.deps} fontsLoaded />);
+    await act(async () => t0.forEach((fn) => fn({ userId: ME, displayName: 'Ala' })));
+    await act(async () => fail(new Error('późno')));
+    expect(screen.queryByText('Sprawy rodziny i znajomych w jednym miejscu.')).toBeNull();
+  });
+});

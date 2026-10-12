@@ -102,4 +102,50 @@ describe('ciche powiadomienia: które grupy obudzić (D159)', () => {
     const op = patch('tasks', 'sierota');
     expect(wakeGroups([op], ok(op.seq), { tasks: { sierota: { id: 'sierota' } } }, {}, H)).toEqual([]);
   });
+
+  it('każda encja, która może zmienić przypomnienia, budzi swoją grupę; inne — nie', () => {
+    const relevant = ['groups', 'group_members', 'lists', 'object_members', 'tasks', 'events', 'event_participants', 'event_overrides', 'event_rsvps', 'my_day_scopes'];
+    for (const e of relevant) {
+      const id = e === 'groups' ? 'gx' : 'r1'; // wiersz grupy ma identyfikator grupy, reszta — jej identyfikator w group_id
+      const tables: T = { [e]: { [id]: e === 'groups' ? { id } : { id, group_id: 'gx' } } };
+      const op = patch(e, id, {});
+      expect([e, wakeGroups([op], ok(op.seq), tables, tables, H)]).toEqual([e, ['gx']]);
+    }
+    for (const e of ['list_items', 'activity', 'handoffs_log', 'shopping_trips', 'event_task_series']) {
+      const op = patch(e, 'r1', {});
+      const tables: T = { [e]: { r1: { id: 'r1', group_id: 'gx' } } };
+      expect([e, wakeGroups([op], ok(op.seq), tables, tables, H)]).toEqual([e, []]);
+    }
+  });
+
+  it('stałe zakupy (dodanie i usunięcie) nie budzą, inne polecenia z grupą — tak', () => {
+    const cmd = (name: string): Op => ({ seq: ++n, op_id: `k${n}`, kind: 'cmd', cmd: name, args: { group_id: 'gk' } });
+    const add = cmd('staple_add');
+    const remove = cmd('staple_remove');
+    const other = cmd('split_event');
+    expect(wakeGroups([add, remove], ok(add.seq, remove.seq), before, before, H)).toEqual([]);
+    expect(wakeGroups([other], ok(other.seq), before, before, H)).toEqual(['gk']);
+  });
+
+  it('granica okna planu: termin równy ostatniemu dniowi jest w oknie, dzień później już nie', () => {
+    const tbl = (e: string, row: Row): T => ({ [e]: { x: { id: 'x', group_id: 'gb', ...row } } });
+    const wake = (e: string, row: Row) => {
+      const op = patch(e, 'x');
+      return wakeGroups([op], ok(op.seq), tbl(e, row), tbl(e, row), H);
+    };
+    expect(wake('tasks', { due_date: H })).toEqual(['gb']);
+    expect(wake('tasks', { due_date: '2026-10-22' })).toEqual([]);
+    expect(wake('lists', { due_date: H })).toEqual(['gb']);
+    expect(wake('lists', { due_date: '2026-10-22' })).toEqual([]);
+    expect(wake('events', { start_date: H, rrule: null })).toEqual(['gb']);
+    expect(wake('events', { start_date: '2026-10-22', rrule: null })).toEqual([]);
+    expect(wake('events', { start_date: '2026-10-22', rrule: 'FREQ=WEEKLY' })).toEqual(['gb']); // seria — zawsze w oknie
+    expect(wake('events', { start_date: null, rrule: null })).toEqual(['gb']); // bez daty — ostrożnie budzimy
+    expect(wake('event_overrides', { occurrence_date: H, start_date: null })).toEqual(['gb']);
+    expect(wake('event_overrides', { occurrence_date: '2026-10-22', start_date: null })).toEqual([]);
+    expect(wake('event_overrides', { occurrence_date: '2026-10-22', start_date: H })).toEqual(['gb']); // przeniesiony do okna
+    expect(wake('event_overrides', { occurrence_date: '2026-10-22', start_date: '2026-10-22' })).toEqual([]);
+    expect(wake('event_rsvps', { occurrence_date: H })).toEqual(['gb']);
+    expect(wake('event_rsvps', { occurrence_date: '2026-10-22' })).toEqual([]);
+  });
 });
