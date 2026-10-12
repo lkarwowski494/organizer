@@ -590,6 +590,19 @@ describe('symulacja synchronizacji (wiele telefonów, zawodna sieć)', () => {
     expect(() => check(cmds)).not.toThrow();
   });
 
+  // Ten sam błąd co seed -694076517 (usunięta ukryta lista znikała ze „scopes”, telefon gubił nagrobki jej zadań),
+  // znaleziony 12.10.2026 na gałęzi bez poprawki a1ac5d8 (przebieg wstępny testów mutacyjnych i drugie zgłoszenie).
+  // Na kodzie sprzed a1ac5d8 oba oblewają; od a1ac5d8 (migracja 20261011010000_scopes_deleted_lists) przechodzą.
+  it('regresja: kontrprzykład fast-check (seed -2063473931)', () => {
+    const cmds: Cmd[] = [{"t":"mutate","who":0,"op":{"kind":"delete","entity":"tasks","id":"t4"}},{"t":"backup","who":0},{"t":"purge","keep":0},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"move_task","args":{"id":"t1","list_id":"l1"}}},{"t":"hide","task":"t1"},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"restore","who":0},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"tasks","id":"t1","set":{"completed_at":"2026-10-08T10:00:00Z"}}},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"rejoin","who":1},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"purge","keep":1},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"delete","entity":"lists","id":"l3"}},{"t":"push","who":1,"fate":"ok"},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"restore","who":1}] as Cmd[];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
+  it('regresja: kontrprzykład fast-check (seed 1793355819)', () => {
+    const cmds: Cmd[] = [{"t":"mutate","who":0,"op":{"kind":"delete","entity":"tasks","id":"t3"}},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"backup","who":0},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"move_task","args":{"id":"t1","list_id":"l1"}}},{"t":"mutate","who":0,"op":{"kind":"delete","entity":"lists","id":"l3"}},{"t":"push","who":0,"fate":"lostRequest"},{"t":"deliverPush","who":0},{"t":"share","who":1,"other":2,"list":"s1","grant":false},{"t":"deliverPull","who":0},{"t":"pull","who":0,"lim":1,"fate":"ok","failScope":false},{"t":"mutate","who":0,"op":{"kind":"create","entity":"lists","id":"l1","group_id":"g1","set":{"kind":"tasks","name":"Prezenty","visibility":"restricted"}}},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"share","who":0,"other":1,"list":"s1","grant":false},{"t":"hide","task":"t1"},{"t":"restart","who":0,"resetCursors":false},{"t":"purge","keep":2},{"t":"mutate","who":0,"op":{"kind":"cmd","cmd":"grant_scope","args":{"list_id":"l1","user":"ala"}}},{"t":"mutate","who":0,"op":{"kind":"patch","entity":"tasks","id":"mt","set":{"title":"x"}}},{"t":"restart","who":0,"resetCursors":false},{"t":"deliverPull","who":0}] as Cmd[];
+    expect(() => check(cmds)).not.toThrow();
+  });
+
   it('granica obrotów zgłasza nieskończone pobieranie (serwer z błędem M-1: resync w każdej porcji)', () => {
     let s = initialState('c');
     const looping: PullResponse = { groups: [{ group_id: GROUP, cursor: 1, has_more: true, resync: true, rows: [] }], scopes: [] };
