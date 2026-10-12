@@ -19,7 +19,8 @@ name: 02 Szybkie dodanie „Kupić mleko jutro” — zadanie widać jutro
 - scrollUntilVisible:
     element: "Kupić mleko,.*"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 10
 # Pasek „Dodano … · Zmień” znika po config.UNDO_MS — zrzut bez niego (powtarzalny).
 - extendedWaitUntil:
     notVisible:

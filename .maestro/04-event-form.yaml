@@ -17,39 +17,39 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
 - extendedWaitUntil:
     visible:
       id: "screen-event-edit"
-    timeout: 10000
+    timeout: 30000
 # Pole nazwy ma autoFocus — klawiatura może zasłaniać wybór grupy (AX5); Maestro widzi elementy pod klawiaturą.
-- hideKeyboard
+- runFlow: common/hide-keyboard.yaml
 - scrollUntilVisible:
     element: "Rodzina"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn: "Rodzina"
 - runFlow:
     file: common/type.yaml
     env:
       FIELD: "event-title"
       TEXT: "Wywiadówka"
-- hideKeyboard
+- runFlow: common/hide-keyboard.yaml
 - scrollUntilVisible:
     element:
       id: "event-start-0"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-start-0"
 - scrollUntilVisible:
     element:
       id: "event-start-0-h-18"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-start-0-h-18"
 - scrollUntilVisible:
     element:
       id: "event-start-0-m-30"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 # Minuta zamyka panel.
 - tapOn:
     id: "event-start-0-m-30"
@@ -57,37 +57,38 @@ name: 04 Nowe wydarzenie z formularza — kafelki godzin i minut (TimeField)
     element:
       id: "event-end-0"
     direction: UP
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-end-0"
 - scrollUntilVisible:
     element:
       id: "event-end-0-h-19"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-end-0-h-19"
 - scrollUntilVisible:
     element:
       id: "event-end-0-m-15"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-end-0-m-15"
 - scrollUntilVisible:
     element:
       id: "event-save"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-save"
 - extendedWaitUntil:
     visible:
       id: "screen-calendar"
-    timeout: 10000
+    timeout: 30000
 # Kalendarz zostaje przewinięty do „Dodaj wydarzenie” (koniec treści) — wiersz dnia jest wyżej.
 - scrollUntilVisible:
     element: "Wywiadówka, 18:30.*"
     direction: UP
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 10
 - takeScreenshot: 04-event-form

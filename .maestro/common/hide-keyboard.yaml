@@ -1,0 +1,13 @@
+# Schowanie klawiatury na formularzu (ekran stosu bez „przeciągnij, by odświeżyć”): przeciągnięcie w dół.
+# hideKeyboard z Maestro 2.11.0 przesuwa palec o 3% ekranu w 50 ms (IOSDriver.hideKeyboard) — iOS bierze to za
+# dotknięcie: w przebiegu 38171092887 (iPhone 17 Pro Max) trafiło w pole „Miejsce”, klawiatura została i krok oblał.
+# Przeciągnięcie rusza ScrollView (alwaysBounceVertical — także przy krótkiej treści i na górze), a
+# keyboardDismissMode „on-drag” chowa klawiaturę (Screen, src/ui/components.tsx).
+appId: io.github.lkarwowski494.organizer
+---
+- swipe:
+    start: "50%, 20%"
+    end: "50%, 35%"
+    duration: 600
+- waitForAnimationToEnd:
+    timeout: 3000

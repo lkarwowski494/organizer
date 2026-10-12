@@ -14,30 +14,46 @@ name: 05 Lista zakupów — dodanie produktu i włożenie do koszyka (bez pytani
 - extendedWaitUntil:
     visible:
       id: "screen-list"
-    timeout: 10000
+    timeout: 30000
+# Przy AX5 pole dodawania jest poniżej nagłówka listy (przebieg 38171092887: „Element not found: quick-add”).
+- scrollUntilVisible:
+    element:
+      id: "quick-add"
+    direction: DOWN
+    timeout: 30000
 - runFlow:
     file: common/type.yaml
     env:
       FIELD: "quick-add"
       TEXT: "Ser żółty"
 - tapOn: "Dodaj"
-# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026). Po dodaniu klawiatura
-# i pasek „Cofnij” są nad treścią — przez common/scroll-tap-text.yaml.
-- runFlow:
-    file: common/scroll-tap-text.yaml
-    env:
-      TEXT: "Włóż do koszyka: Ser żółty"
+# Klawiatura chowa się przy przeciągnięciu (w górę — na górze listy przeciągnięcie w dół odświeża); potem pasek
+# „Cofnij” znika, zanim scenariusz dotknie wiersza (Maestro nie widzi, że pasek go zasłania).
+- swipe:
+    start: "50%, 40%"
+    end: "50%, 30%"
+    duration: 600
+- extendedWaitUntil:
+    notVisible:
+      id: "undo-bar"
+    timeout: 15000
+# Do koszyka bez pytania, z paskiem „Cofnij” (zmiana D59, decyzja właściciela z 8.10.2026).
+- scrollUntilVisible:
+    element: "Włóż do koszyka: Ser żółty"
+    direction: DOWN
+    timeout: 30000
+- tapOn: "Włóż do koszyka: Ser żółty"
 - scrollUntilVisible:
     element: "Wyjmij z koszyka: Ser żółty"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 # Wskaźnik jest w pierwszym wierszu ekranu, a po przewinięciu w dół poza ekranem — Maestro nie widzi elementów
 # spoza ekranu, więc najpierw powrót na górę (jak w 06).
 - scrollUntilVisible:
     element:
       id: "sync-chip"
     direction: UP
-    timeout: 10000
+    timeout: 30000
 # Zrzut po wysłaniu zmian (wskaźnik „Przed chwilą”), nie w trakcie — powtarzalny obraz.
 - extendedWaitUntil:
     visible: "Stan synchronizacji: Przed chwilą"

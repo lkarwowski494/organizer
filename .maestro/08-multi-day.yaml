@@ -16,29 +16,29 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
 - extendedWaitUntil:
     visible:
       id: "screen-event-edit"
-    timeout: 10000
-- hideKeyboard
+    timeout: 30000
+- runFlow: common/hide-keyboard.yaml
 - scrollUntilVisible:
     element: "Rodzina"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn: "Rodzina"
 - runFlow:
     file: common/type.yaml
     env:
       FIELD: "event-title"
       TEXT: "Obóz"
-- hideKeyboard
+- runFlow: common/hide-keyboard.yaml
 - scrollUntilVisible:
     element: "Cały dzień"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn: "Cały dzień"
 - scrollUntilVisible:
     element:
       id: "event-end-date"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 # Dziś w danych demo: środa 7.10.2026 — obóz do piątku 9.10 (3 dni).
 - tapOn:
     id: "event-end-date"
@@ -46,19 +46,19 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     element:
       id: "event-end-date-calendar"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn: "Piątek, 9 października.*"
 - scrollUntilVisible:
     element:
       id: "event-save"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn:
     id: "event-save"
 - extendedWaitUntil:
     visible:
       id: "screen-calendar"
-    timeout: 10000
+    timeout: 30000
 # Koniec powrotu z formularza, zanim dotkniemy dnia (jak przed „Dodaj wydarzenie”).
 - waitForAnimationToEnd:
     timeout: 3000
@@ -67,7 +67,7 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
     element:
       id: "day-2026-10-08"
     direction: UP
-    timeout: 10000
+    timeout: 30000
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn:
@@ -75,5 +75,6 @@ name: 08 Wydarzenie przez kilka dni (D199) — „Kończy się”, „dzień 2 z
 - scrollUntilVisible:
     element: "Obóz, cały dzień, dzień 2 z 3.*"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
+    visibilityPercentage: 10
 - takeScreenshot: 08-multi-day

@@ -234,18 +234,24 @@ describe('scenariusze Maestro — przejście na zakładkę ze sprawdzeniem ekran
 describe('scenariusze Maestro — dotknięcie po przewinięciu nad zasłonami', () => {
   it.each([
     ['common/scroll-tap.yaml', 'id: ${ID}'],
-    ['common/scroll-tap-text.yaml', '${TEXT}'],
-  ])('%s: schowanie klawiatury, przewinięcie w dół, przesunięcie o 20 procent, koniec ruchu, dotknięcie', (file, sel) => {
+    ['common/scroll-tap-text.yaml', 'text: ${TEXT}'],
+  ])('%s: przeciągnięcie, kroki do elementu, kroki nad zakładki, dotknięcie pod górną krawędzią', (file, sel) => {
     const s = steps(readFileSync(join(DIR, file), 'utf8'));
-    expect(s).toHaveLength(5);
-    expect(s[0]).toBe('- hideKeyboard');
-    expect(s[1]).toMatch(/^- scrollUntilVisible:/);
-    expect(s[1]).toContain(sel);
-    expect(s[1]).toMatch(/direction: DOWN/);
-    expect(s[2]).toMatch(/^- swipe:\s*\n\s+start: "50%, 60%"\s*\n\s+end: "50%, 40%"/);
-    expect(s[3]).toMatch(/^- waitForAnimationToEnd/);
-    expect(s[4]).toMatch(/^- tapOn:/);
-    expect(s[4]).toContain(sel);
+    expect(s[0]).toMatch(/^- swipe:/);
+    // Bez scrollUntilVisible (wymaga 100% elementu — wiersz przy AX5 jest wyższy niż ekran, przebieg 38171092887).
+    expect(s.filter((x) => /^- scrollUntilVisible/.test(x))).toEqual([]);
+    const loops = s.filter((x) => /^- repeat:/.test(x));
+    expect(loops).toHaveLength(2);
+    expect(loops[0]).toContain(sel);
+    expect(loops[1]).toMatch(/above:\s*\n\s+id: "tab-Today"/);
+    const tap = s[s.length - 1]!;
+    expect(tap).toMatch(/^- tapOn:/);
+    expect(tap).toContain(sel);
+    expect(tap).toMatch(/point: "20,10"/);
+  });
+
+  it('bez hideKeyboard z Maestro (przesunięcie o 3% w 50 ms trafiało w pole „Miejsce”, przebieg 38171092887)', () => {
+    for (const f of [...flows, 'common/scroll-tap.yaml', 'common/scroll-tap-text.yaml']) expect([f, steps(readFileSync(join(DIR, f), 'utf8')).filter((x) => /^- hideKeyboard/.test(x))]).toEqual([f, []]);
   });
 
   it('wspólny start nie czeka na wiersz danych poza pierwszym wierszem ekranu (AX5: wszystkie scenariusze oblewały na starcie)', () => {

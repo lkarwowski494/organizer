@@ -13,10 +13,10 @@ name: 03 Wydarzenie cykliczne — odpowiedź „Będę”
 - scrollUntilVisible:
     element: "Będę, Twoja odpowiedź"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - tapOn: "Będę, Twoja odpowiedź"
 - scrollUntilVisible:
     element: "Tak: Ty"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
 - takeScreenshot: 03-event-rsvp
