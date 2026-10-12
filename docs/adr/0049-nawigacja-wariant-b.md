@@ -44,18 +44,30 @@ Rozstrzygnięcia, których dokument nie opisuje wprost; przyjęty wariant najbli
   testID zostaje `calendar-add-event` (otwiera formularz wydarzenia; scenariusze E2E i audyt XCUITest bez zmian).
   Rutyna jest już tylko pod „Rodzajem”: przełączenie z niezmienionego formularza wydarzenia (bez nazwy, z grupą
   domyślną) otwiera rutynę tak jak dawniej „Dodaj rutynę” — z jej szkicem (D179) i grupą domyślną.
+- **K2.** Trasa `List` z parametrem `plan`: lista zakupów otwiera się z edytorem planu — z bieżącym planem (jak „Zmień”),
+  inaczej pusty.
 - **K4/K5, ekran grupy.** Kolejność z B1: „Następne kroki” → Osoby (zaproszenia, kod, dziecko bez konta, lista osób) →
-  Plany lekcji → Listy grupy („Nowa lista zadań”, „Nowa lista zakupów”) → Wydarzenia grupy („Dodaj wydarzenie”) →
-  wiersz „Ustawienia grupy”. „Dodaj rutynę” na ekranie grupy znika — rutyna przez „Rodzaj” w formularzu wydarzenia (B1).
-  Podstrona „Ustawienia grupy”: zakres „W Moich sprawach”, nazwa, kolor, „Zmień ID grupy”, „Wyjdź z grupy”,
-  „Usuń grupę”. Wiersz „Ustawienia grupy” widzi każdy, kto ma tam cokolwiek do zrobienia (także dziecko z kontem —
-  napis, że z grupy usuwa je dorosły); grupa osobista — tylko kolor i nazwa, jeśli wolno je zmieniać.
-- **K6, Kosz.** Wiersz „Kosz” z liczbą rzeczy w podpisie; pusty Kosz — wiersz zostaje (ścieżka „Grupy → Kosz” z polityki
-  prywatności ma zawsze dokąd prowadzić), ekran mówi, że jest pusty.
+  Plany lekcji (nagłówek tylko w grupie wspólnej z dziećmi) → Listy grupy („Nowa lista zadań”, „Nowa lista zakupów”)
+  → Wydarzenia grupy („Dodaj wydarzenie”) → wiersz „Ustawienia grupy”. „Dodaj rutynę” na ekranie grupy znika — rutyna
+  przez „Rodzaj” w formularzu wydarzenia (B1); klucz `routine.add` usunięty. Podstrona (ten sam ekran z
+  `section: 'settings'`, jak Ustawienia — D131): zakres „W Moich sprawach”, nazwa, kolor, „Zmień ID grupy”, „Wyjdź
+  z grupy” albo napis, kto nie wychodzi, „Usuń grupę”. Wiersz widzi każdy, kto ma tam coś do zrobienia albo
+  przeczytania (dziecko z kontem — napis, że z grupy usuwa je dorosły); grupa osobista — tylko kolor. Wyjście i
+  usunięcie z podstrony wracają na zakładki (`popToTop`), nie na ekran grupy, której już nie ma. Napis właściciela:
+  „…(na ekranie grupy dotknij jej imienia)…”, bo osoby są na poprzednim ekranie.
+  Podpowiedź zakresu dużej grupy (D149) zostaje na ekranie grupy z przyciskiem **„Zmień „W Moich sprawach””** do
+  podstrony — **do potwierdzenia przez właściciela** (brzmienie przycisku; dokument mówi tylko „z przyciskiem do
+  podstrony”). Karta kodu zaproszenia chowa się przy przejściu do ustawień, bo „Zmień ID grupy” na podstronie
+  unieważnia kod, a ekran grupy by o tym nie wiedział (ID grupy nie ma w danych telefonu); „Zaproś” pokaże bieżący kod.
+- **K6, Kosz.** Trasa `Trash`. Wiersz „Kosz” zaraz pod „Ostatnimi zmianami”, z podpisem „N rzeczy”; pusty Kosz — wiersz
+  zostaje (ścieżka „Grupy → Kosz” z polityki prywatności ma zawsze dokąd prowadzić), ekran mówi „Kosz jest pusty.”.
 - **K7, odwołany termin.** Wiersz „Odwołany: <tytuł>” tylko w Kalendarzu, tylko dla dorosłych grupy (dziecko z kontem nie
-  odwołuje i nie przywraca), wyszarzony, bez przesuwania i bez odhaczania; nie liczy się do kropek ani etykiety dnia
-  w siatce (nic się wtedy nie dzieje). Domena: osobna funkcja `cancelledEventDays`, a `expandEvents`/`expandEventDays`
+  odwołuje i nie przywraca), wyszarzony, bez przesuwania; pod planem dnia (nie zajmuje czasu — przerwy „wolne …” bez
+  zmian); nie liczy się do kropek ani etykiety dnia w siatce. Ekran terminu ma już „Ten termin jest odwołany.” i
+  „Przywróć termin” (E-18). Domena: `cancelledEventDays` ze wspólnym rdzeniem `expandEvents`/`expandEventDays`, które
   (Moje sprawy, przypomnienia, lustro, dojazd, zadania serii) dalej pomijają odwołane — testy to sprawdzają.
+- **K8.** „Do potwierdzenia” zaraz pod tytułem Moich spraw — nad chipami grup i polem dodawania (najwyżej, jak się da);
+  bez przekazań karty nie ma. W danych demo E2E nie ma przekazań, więc scenariusz 01 i jego zrzut się nie zmieniają.
 
 ## Testy
 Każdy krok: najpierw test RNTL albo domeny opisujący nowe zachowanie (czerwony przed zmianą), potem kod; logika
