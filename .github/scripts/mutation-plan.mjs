@@ -51,18 +51,19 @@ export const PARAMS = {
   /** Najwięcej części w jednej macierzy (limit GitHub). */
   maxParts: 256,
   /**
-   * Docelowy przewidywany czas części (min). Wybór projektowy: przy danych z 11.10.2026 (ok. 23 h pracy maszyn) daje
-   * ok. 16 części, czyli mniej niż 20 zadań naraz w planie Free — cała noc kończy się w czasie jednej części — a limit
-   * kroku (SAFETY × przewidywanie) zostaje daleko od 6 h. Krótsze części to więcej narzutu (npm ci, przebieg wstępny
-   * w każdej) i kolejka ponad 20 zadań.
+   * Docelowy przewidywany czas części (min). Wybór projektowy: krótsza część zostawia więcej zapasu do limitu kroku przy
+   * tym samym SAFETY. 12.10.2026 (19 757 mutantów, ok. 18 h pracy maszyn) daje to ok. 16–18 części, czyli wciąż nie
+   * więcej niż 20 zadań naraz w planie Free (cała noc kończy się w czasie jednej części). Do 12.10.2026 było 90 min —
+   * przy SAFETY = 2 część 1 przebiegu 38219361652 przekroczyła limit (przewidziane 83 min, potrzebne ok. 3,7 h).
    */
-  targetMin: 90,
+  targetMin: 60,
   /**
-   * Limit kroku = SAFETY × przewidywany czas. 11.10.2026 model bez pomiaru (czas testów + narzut) dopasowany do
-   * czterech ukończonych części mylił się w innych do ok. 1,6× (część 1: przewidziane ~100 min, po 108 min 88% mutantów);
-   * pomiar z poprzedniego przebiegu zmniejsza błąd, ale dane i testy zmieniają się z dnia na dzień.
+   * Limit kroku = SAFETY × przewidywany czas. Zmierzony rozrzut rzeczywisty / przewidywany: 11.10.2026 (sam model)
+   * 0,6–1,2; 12.10.2026 rano (kalibracja pomiarem) 0,6–1,0; 12.10.2026 po scaleniu main i ze stałym ziarnem fast-check
+   * 1,1–2,7 (część 1: 2 734 z 2 843 mutantów po 166 min przy przewidywanych 83). Pomiar poprzedniej nocy nie nadąża za
+   * zmianą testów z dnia na dzień, więc zapas 3× (przy targetMin 60 limit kroku ok. 180 min, daleko od 6 h GitHuba).
    */
-  safety: 2,
+  safety: 3,
   /** Najkrótszy limit kroku (min): przebieg wstępny i wahania maszyny przy bardzo małej części. */
   minStepMin: 20,
   /**
