@@ -12,3 +12,13 @@ jest.mock('expo-symbols', () => {
   const { createElement } = jest.requireActual('react');
   return { SymbolView: ({ fallback: _fallback, ...props }) => createElement('ExpoSymbolView', props) };
 });
+// ADR-0045: animacja przy starcie (src/ui/Intro.tsx) używa react-native-reanimated, a ten modułu natywnego worklets.
+// W Jest — oficjalna atrapa biblioteki (react-native-worklets/src/mock.ts: worklety jako zwykłe funkcje w wątku JS). Atrapa
+// podmienia też globalne requestAnimationFrame; przywracamy wersję z presetu React Native, żeby pozostałe testy ekranów
+// działały jak dotąd.
+jest.mock('react-native-worklets', () => {
+  const raf = globalThis.requestAnimationFrame;
+  const mock = jest.requireActual('react-native-worklets/src/mock');
+  globalThis.requestAnimationFrame = raf;
+  return mock;
+});

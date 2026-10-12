@@ -63,7 +63,20 @@
           "enableBackgroundRemoteNotifications": true
         }
       ],
-      "expo-task-manager"
+      "expo-task-manager",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 260,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F2EA",
+          "dark": {
+            "image": "./assets/splash.png",
+            "backgroundColor": "#17140F"
+          }
+        }
+      ]
     ]
   }
 }
