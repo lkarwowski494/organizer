@@ -6,7 +6,7 @@ import { apnsEnv, expoDevicePush, openedPaths, registerIfAllowed, reminderSchedu
 import { fakePush } from './harness';
 import { parseReminderSettings } from '../reminders';
 
-jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), getAllScheduledNotificationsAsync: jest.fn(async () => []), cancelScheduledNotificationAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), SchedulableTriggerInputTypes: { DATE: 'date' } }));
+jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn(), requestPermissionsAsync: jest.fn(), getDevicePushTokenAsync: jest.fn(), addPushTokenListener: jest.fn(), getAllScheduledNotificationsAsync: jest.fn(async () => []), cancelScheduledNotificationAsync: jest.fn(async () => {}), scheduleNotificationAsync: jest.fn(async () => 'id'), getLastNotificationResponse: jest.fn(() => null), clearLastNotificationResponse: jest.fn(), addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })), dismissAllNotificationsAsync: jest.fn(async () => {}), SchedulableTriggerInputTypes: { DATE: 'date' } }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}), AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'afterFirstUnlockThisDeviceOnly' }));
 jest.mock('expo-application', () => ({ getIosPushNotificationServiceEnvironmentAsync: jest.fn(async () => null) }));
 const m = Notifications as jest.Mocked<typeof Notifications>;
@@ -47,6 +47,9 @@ describe('powiadomienia na iPhonie (D70)', () => {
     expect(await expoDevicePush.env()).toBe('production');
     app.getIosPushNotificationServiceEnvironmentAsync.mockResolvedValueOnce('development');
     expect(await expoDevicePush.env()).toBe('sandbox');
+    // Audyt 3 (N-109): pokazane powiadomienia znikają z Centrum powiadomień.
+    await expoDevicePush.dismissShown();
+    expect(m.dismissAllNotificationsAsync).toHaveBeenCalledTimes(1);
   });
 
   it('przypomnienia: podmiana zaplanowanych; ustawienia (zły zapis = domyślne)', async () => {

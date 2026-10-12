@@ -246,6 +246,7 @@ export const e2ePush: DevicePush = {
   onOpen: () => () => {},
   env: async () => 'sandbox',
   replaceReminders: ok,
+  dismissShown: ok,
 };
 
 /** Drobne ustawienia telefonu (nie konta) w pamięci. */

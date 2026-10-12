@@ -99,6 +99,40 @@ describe('koniec sesji na tym telefonie', () => {
     expect(screen.queryByText('Konto zostało usunięte.')).toBeNull();
   });
 
+  it('N-225: cofnięta zgoda Apple albo brak poświadczenia — wylogowanie; przy starcie, po powrocie i na sygnał cofnięcia', async () => {
+    const states: string[] = ['authorized', 'revoked'];
+    const credentialState = jest.fn(async () => {
+      const s = states.shift();
+      if (!s) throw new Error('symulator');
+      return s as 'authorized';
+    });
+    let revoked: () => void = () => {};
+    const offRevoked = jest.fn();
+    const t = makeDeps();
+    t.deps.apple = { credentialState, onRevoked: (fn) => ((revoked = fn), offRevoked) };
+    await render(<Root deps={t.deps} fontsLoaded />);
+    // Bez identyfikatora Apple (dawne konto e-mailowe) — bez sprawdzania.
+    await t.signIn({ userId: ME, displayName: 'Ala' });
+    await screen.findByText('sonda');
+    expect(credentialState).not.toHaveBeenCalled();
+    await t.signIn({ userId: 'u-2', displayName: 'Ola', appleUserId: 'apple-2' });
+    await waitFor(() => expect(credentialState).toHaveBeenCalledWith('apple-2'));
+    expect(t.account.signOut).not.toHaveBeenCalled();
+    await act(() => appState.forEach((fn) => fn('active')));
+    await waitFor(() => expect(t.account.signOut).toHaveBeenCalledTimes(1));
+    // Stan nieznany (wyjątek, np. symulator) — bez wylogowania; sygnał cofnięcia — wylogowanie.
+    await act(() => appState.forEach((fn) => fn('active')));
+    expect(t.account.signOut).toHaveBeenCalledTimes(1);
+    await act(async () => revoked());
+    expect(t.account.signOut).toHaveBeenCalledTimes(2);
+    states.push('not_found');
+    await act(() => appState.forEach((fn) => fn('background')));
+    await act(() => appState.forEach((fn) => fn('active')));
+    await waitFor(() => expect(t.account.signOut).toHaveBeenCalledTimes(3));
+    await t.signIn(null);
+    expect(offRevoked).toHaveBeenCalled();
+  });
+
   it('nieudane usunięcie konta nic nie sprząta; bez removeDb w zależnościach — bez błędu', async () => {
     const t = makeDeps();
     t.account.deleteAccount.mockRejectedValue(new Error('offline'));
