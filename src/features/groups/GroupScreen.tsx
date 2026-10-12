@@ -50,6 +50,8 @@ export function GroupScreen({ route, navigation }: Props) {
   // zapisujemy — komunikat (PW-20 A). Mechanizm wspólny z tytułem zadania (ui/live-text).
   const name = useLiveText(d?.group.name ?? '', (n) => d?.canRename && store.dispatch(renameGroup(d.group.id, n)), { empty: strings['groups.error.nameEmpty'] });
   const [error, setError] = useState<string | null>(null);
+  // Błędy zmiany ID i usunięcia grupy — przy tych przyciskach (ustawienia grupy), nie przy zaproszeniach.
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [childError, setChildError] = useState<string | null>(null);
   const myScope = useMyScope();
   // Karta „Następne kroki” nowej grupy (PW-36 A; od audytu 2 M-117 — każdej nowej, także z ekranu Grupy), do „Nie teraz”
@@ -68,7 +70,7 @@ export function GroupScreen({ route, navigation }: Props) {
   }, [prefs, route.params.groupId]);
   // Przy wyjściu z grupy i przy koszu niezapisana nazwa przepada (serwer odrzuciłby zmianę w grupie, której już nie ma).
   const dropNameEdit = name.drop;
-  const deleteGroup = useDeleteGroup(setError);
+  const deleteGroup = useDeleteGroup(setSettingsError);
 
   if (!d) {
     // Grupa właśnie utworzona albo dołączona (parametr trasy) dochodzi z pierwszym pobraniem — bez komunikatu o błędzie.
@@ -117,6 +119,122 @@ export function GroupScreen({ route, navigation }: Props) {
     undo.show(strings['undo.memberRemoved'](m.display_name), { ops: [restore('group_members', m.member_id)] }, { changed: [op] });
   };
 
+  const adult = d.group.me.role !== 'child';
+  // Plany lekcji dzieci (D128) — tylko grupa wspólna z dziećmi, prowadzą dorośli.
+  const kids = d.group.kind === 'shared' && adult ? d.members.filter((m) => m.role === 'child') : [];
+  // Audyt nawigacji (ADR 0049, B1): rzadkie ustawienia grupy (zakres, nazwa, kolor, ID, wyjście, usunięcie) po treści;
+  // od K5 na podstronie „Ustawienia grupy”.
+  const settings = (
+    <>
+      {/* Audyt 3 (N-161): dziecko z kontem widzi w Moich sprawach tylko swoje sprawy (PW-14 B, child.ts) — zakres nic by
+          nie zmienił, więc go nie ma. */}
+      {personal || d.group.me.role === 'child' ? null : (
+        <View style={{ gap: 6 }}>
+          {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
+          {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
+            <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
+          ) : null}
+          <Segmented
+            label={strings['myScope.title']}
+            value={myScope.scopeOf(d.group.id)}
+            options={MY_SCOPES.map((v) => ({ value: v, label: strings[`myScope.${v}`] }))}
+            onChange={(v) => myScope.set(d.group.id, v)}
+          />
+          <Body muted>{strings['myScope.info']}</Body>
+        </View>
+      )}
+      {d.canRename ? (
+        <View style={{ gap: 6 }}>
+          <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} returnKeyType="done" testID="group-rename" />
+          {name.error ? <ErrorText>{name.error}</ErrorText> : null}
+        </View>
+      ) : null}
+      {d.canSetColor ? (
+        <View style={{ gap: 8 }}>
+          <SectionTitle>{strings['groups.color']}</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {groupLines.map((g, i) => {
+              const on = d.group.color === g.key;
+              return (
+                <Pressable
+                  key={g.key}
+                  {...buttonA11y({ selected: on })}
+                  accessibilityLabel={strings['groups.colorA11y'](g.key)}
+                  onPress={() => store.dispatch(setGroupColor(d.group.id, g.key))}
+                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: on ? 3 : 0, borderColor: c.ink }}
+                >
+                  <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: line(i).line }} />
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button kind="secondary" label={strings['groups.colorAuto']} disabled={d.group.color === null} onPress={() => store.dispatch(setGroupColor(d.group.id, null))} />
+        </View>
+      ) : null}
+      {d.group.me.role === 'owner' && !personal ? (
+        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
+        <Button
+          kind="danger"
+          label={strings['groups.rotate']}
+          testID="rotate-join-id"
+          onPress={() =>
+            Alert.alert(strings['groups.rotate'], strings['groups.rotateConfirm'], [
+              { text: strings['common.cancel'], style: 'cancel' },
+              {
+                text: strings['groups.rotate'],
+                style: 'destructive',
+                onPress: () => {
+                  setInvite(null);
+                  account.rotateJoinId(d.group.id).then(
+                    () => store.refresh(),
+                    (e: unknown) => setSettingsError(groupErrorText(e)),
+                  );
+                },
+              },
+            ])
+          }
+        />
+      ) : null}
+      {settingsError ? <ErrorText>{settingsError}</ErrorText> : null}
+      {/* PWD-4 A (M-273): proste tak/nie — okno systemowe (wybór z kilku opcji zostaje panelem w ekranie). */}
+      {d.canLeave ? (
+        <Button
+          kind="danger"
+          label={strings['groups.leave']}
+          testID="leave"
+          onPress={() =>
+            Alert.alert(strings['groups.leave'], strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS), [
+              { text: strings['common.cancel'], style: 'cancel' },
+              {
+                text: strings['groups.leave'],
+                style: 'destructive',
+                onPress: () => {
+                  dropNameEdit();
+                  store.dispatch(remove('group_members', d.group.me.member_id));
+                  navigation.goBack();
+                },
+              },
+            ])
+          }
+        />
+      ) : !personal ? (
+        <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
+      ) : null}
+      {/* D187 i Q19 A (audyt 3, N-156): do kosza z „Cofnij”; pytanie tylko, gdy w grupie są inni (delete-group.ts). */}
+      {d.canDelete ? (
+        <Button
+          kind="danger"
+          label={strings['groups.delete']}
+          testID="delete-group"
+          onPress={() => {
+            setSettingsError(null);
+            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: () => navigation.goBack() });
+          }}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <Screen testID="screen-group">
       <BackButton onPress={() => navigation.goBack()} />
@@ -158,35 +276,8 @@ export function GroupScreen({ route, navigation }: Props) {
           />
         </Card>
       ) : null}
-      {/* Audyt 3 (N-161): dziecko z kontem widzi w Moich sprawach tylko swoje sprawy (PW-14 B, child.ts) — zakres nic by
-          nie zmienił, więc go nie ma. */}
-      {personal || d.group.me.role === 'child' ? null : (
-        <View style={{ gap: 6 }}>
-          {/* PW-2 A (M-35): podpowiedź po dołączeniu do dużej grupy, dopóki zakres to „Wszystko”. */}
-          {route.params.fresh && d.members.length >= config.myDays.LARGE_GROUP_MEMBERS && myScope.scopeOf(d.group.id) === 'all' ? (
-            <Body testID="my-scope-hint">{strings['myScope.hint'](d.members.length)}</Body>
-          ) : null}
-          <Segmented
-            label={strings['myScope.title']}
-            value={myScope.scopeOf(d.group.id)}
-            options={MY_SCOPES.map((v) => ({ value: v, label: strings[`myScope.${v}`] }))}
-            onChange={(v) => myScope.set(d.group.id, v)}
-          />
-          <Body muted>{strings['myScope.info']}</Body>
-        </View>
-      )}
+      {/* Audyt nawigacji (ADR 0049, B1): Osoby — zaproszenia i dziecko bez konta pod nagłówkiem, potem lista osób. */}
       <SectionTitle>{strings['groups.members'](d.members.length)}</SectionTitle>
-      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
-      {d.members.map((m) => (
-        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
-          <NavRow
-            testID={`member-${m.member_id}`}
-            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
-            subtitle={strings[`groups.role.${m.role}`]}
-            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
-          />
-        </SwipeRow>
-      ))}
       {d.canInvite ? (
         <View style={{ gap: 8 }}>
           {adminFirst ? inviteButtons.reverse() : inviteButtons}
@@ -214,30 +305,6 @@ export function GroupScreen({ route, navigation }: Props) {
           testIDs={{ card: 'invite-ready', code: 'join-code', renew: 'invite-new-code' }}
         />
       ) : null}
-      {d.group.me.role === 'owner' && !personal ? (
-        // Audyt 2 (M-241): unieważnia wysłane kody — czerwony w obu krokach (przycisk i potwierdzenie).
-        <Button
-          kind="danger"
-          label={strings['groups.rotate']}
-          testID="rotate-join-id"
-          onPress={() =>
-            Alert.alert(strings['groups.rotate'], strings['groups.rotateConfirm'], [
-              { text: strings['common.cancel'], style: 'cancel' },
-              {
-                text: strings['groups.rotate'],
-                style: 'destructive',
-                onPress: () => {
-                  setInvite(null);
-                  account.rotateJoinId(d.group.id).then(
-                    () => store.refresh(),
-                    (e: unknown) => setError(groupErrorText(e)),
-                  );
-                },
-              },
-            ])
-          }
-        />
-      ) : null}
       {error ? <ErrorText>{error}</ErrorText> : null}
       {d.canManageMembers ? (
         <View style={{ gap: 8 }}>
@@ -247,43 +314,37 @@ export function GroupScreen({ route, navigation }: Props) {
           <Button kind="secondary" label={strings['groups.addChild']} testID="add-child" onPress={addChildNow} />
         </View>
       ) : null}
-      {d.canRename ? (
-        <View style={{ gap: 6 }}>
-          <Field label={strings['groups.name']} {...name.field} maxLength={config.lengths.GROUP_NAME} returnKeyType="done" testID="group-rename" />
-          {name.error ? <ErrorText>{name.error}</ErrorText> : null}
-        </View>
-      ) : null}
-      {d.canSetColor ? (
-        <View style={{ gap: 8 }}>
-          <SectionTitle>{strings['groups.color']}</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {groupLines.map((g, i) => {
-              const on = d.group.color === g.key;
-              return (
-                <Pressable
-                  key={g.key}
-                  {...buttonA11y({ selected: on })}
-                  accessibilityLabel={strings['groups.colorA11y'](g.key)}
-                  onPress={() => store.dispatch(setGroupColor(d.group.id, g.key))}
-                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: on ? 3 : 0, borderColor: c.ink }}
-                >
-                  <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: line(i).line }} />
-                </Pressable>
-              );
-            })}
-          </View>
-          <Button kind="secondary" label={strings['groups.colorAuto']} disabled={d.group.color === null} onPress={() => store.dispatch(setGroupColor(d.group.id, null))} />
-        </View>
-      ) : null}
+      {/* Audyt 2 (M-239): osoby, listy i wydarzenia usuwa się przesunięciem jak zadania — z prawami jak na ich ekranach. */}
+      {d.members.map((m) => (
+        <SwipeRow key={m.member_id} title={m.display_name} enabled={memberActions(d, m).remove} onDelete={() => removeMember(m)} testID={`swipe-${m.member_id}`}>
+          <NavRow
+            testID={`member-${m.member_id}`}
+            title={m.user_id === userId ? strings['who.meSuffix'](m.display_name) : m.display_name}
+            subtitle={strings[`groups.role.${m.role}`]}
+            onPress={() => navigation.navigate('Member', { groupId: d.group.id, memberId: m.member_id })}
+          />
+        </SwipeRow>
+      ))}
+      {kids.length ? <SectionTitle>{strings['timetable.plans']}</SectionTitle> : null}
+      {kids.map((m) => (
+        <NavRow key={m.member_id} title={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />
+      ))}
       <SectionTitle>{strings['groups.lists']}</SectionTitle>
+      {adult ? (
+        <>
+          <Button kind="secondary" label={strings['lists.new']} testID="group-new-list" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'tasks' })} />
+          <Button kind="secondary" label={strings['lists.newShopping']} testID="group-new-shopping" onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'shopping' })} />
+        </>
+      ) : null}
       {lists.length === 0 ? <Body muted>{strings['groups.noLists']}</Body> : null}
       {lists.map((l) => (
         <SwipeRow key={l.id} title={l.name} enabled={d.group.me.role !== 'child'} onDelete={() => actions.removeList(l)} testID={`swipe-${l.id}`}>
           <NavRow testID={`group-list-${l.id}`} title={l.name} subtitle={listMarks(l, listOpenCount(tables, l, today)).join(' · ')} line={l.line} onPress={() => navigation.navigate('List', { listId: l.id })} />
         </SwipeRow>
       ))}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['lists.new']} onPress={() => navigation.navigate('NewList', { groupId: d.group.id, kind: 'tasks' })} />}
       <SectionTitle>{strings['event.groupEvents']}</SectionTitle>
+      {/* Rutyna — przez „Rodzaj” w formularzu wydarzenia (ADR 0049, B1). */}
+      {adult ? <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} /> : null}
       {series.length === 0 ? <Body muted>{strings['event.noGroupEvents']}</Body> : null}
       {series.map((e) => (
         <SwipeRow key={e.id} title={e.title} enabled={d.group.me.role !== 'child'} onDelete={() => events.cancel(e.id, e.nextOccurrence ?? e.start, true)} testID={`swipe-${e.id}`}>
@@ -297,50 +358,7 @@ export function GroupScreen({ route, navigation }: Props) {
           />
         </SwipeRow>
       ))}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['calendar.addEvent']} testID="group-add-event" onPress={() => navigation.navigate('EventEdit', { groupId: d.group.id })} />}
-      {/* Audyt 2 (PWD-26): rutyna i plan lekcji dziecka (D128) także z ekranu grupy, nie tylko z Kalendarza i ekranu osoby. */}
-      {d.group.me.role === 'child' ? null : <Button kind="secondary" label={strings['routine.add']} testID="group-add-routine" onPress={() => navigation.navigate('Routine', { groupId: d.group.id })} />}
-      {d.group.kind === 'shared' && d.group.me.role !== 'child'
-        ? d.members
-            .filter((m) => m.role === 'child')
-            .map((m) => <Button key={m.member_id} kind="secondary" label={strings['timetable.title'](m.display_name)} testID={`group-timetable-${m.member_id}`} onPress={() => navigation.navigate('Timetable', { groupId: d.group.id, memberId: m.member_id })} />)
-        : null}
-      {/* PWD-4 A (M-273): proste tak/nie — okno systemowe (wybór z kilku opcji zostaje panelem w ekranie). */}
-      {d.canLeave ? (
-        <Button
-          kind="danger"
-          label={strings['groups.leave']}
-          testID="leave"
-          onPress={() =>
-            Alert.alert(strings['groups.leave'], strings['groups.leaveConfirm'](config.sync.TOMBSTONE_DAYS), [
-              { text: strings['common.cancel'], style: 'cancel' },
-              {
-                text: strings['groups.leave'],
-                style: 'destructive',
-                onPress: () => {
-                  dropNameEdit();
-                  store.dispatch(remove('group_members', d.group.me.member_id));
-                  navigation.goBack();
-                },
-              },
-            ])
-          }
-        />
-      ) : !personal ? (
-        <Body muted>{strings[d.group.me.role === 'child' ? 'groups.childCannotLeave' : 'groups.ownerCannotLeave']}</Body>
-      ) : null}
-      {/* D187 i Q19 A (audyt 3, N-156): do kosza z „Cofnij”; pytanie tylko, gdy w grupie są inni (delete-group.ts). */}
-      {d.canDelete ? (
-        <Button
-          kind="danger"
-          label={strings['groups.delete']}
-          testID="delete-group"
-          onPress={() => {
-            setError(null);
-            deleteGroup(d.group.id, d.group.name, d.members.length - 1, { before: dropNameEdit, after: () => navigation.goBack() });
-          }}
-        />
-      ) : null}
+      {settings}
     </Screen>
   );
 }

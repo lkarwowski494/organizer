@@ -575,6 +575,57 @@ describe('decyzje właściciela z 8.10.2026 (paczka grup)', () => {
   });
 });
 
+/** Kolejność na ekranie (i dla VoiceOvera): `testID` elementów i nagłówki („h:…”) w kolejności drzewa. */
+function order(): string[] {
+  type Host = { type: unknown; props: Record<string, unknown>; children: (Host | string)[] };
+  const out: string[] = [];
+  const text = (n: Host | string): string => (typeof n === 'string' ? n : n.children.map(text).join(''));
+  const walk = (n: Host | string) => {
+    if (typeof n === 'string') return;
+    if (typeof n.props.testID === 'string') out.push(n.props.testID);
+    if (n.type === 'Text' && n.props.accessibilityRole === 'header') out.push(`h:${text(n)}`);
+    n.children.forEach(walk);
+  };
+  walk(screen.root as unknown as Host);
+  return out;
+}
+
+describe('audyt nawigacji K4 (ADR 0049, B1): ekran grupy — treść w kolejności przepływów, dodawanie pod nagłówkami', () => {
+  it('Następne kroki → Osoby (zaproszenia, dziecko, osoby) → Plany lekcji → Listy grupy → Wydarzenia grupy → ustawienia', async () => {
+    const base = asOwner();
+    put(base, 'events', 'ev-basen', { id: 'ev-basen', group_id: 'gf', title: 'Basen', start_date: '2026-10-07', start_time: '17:00:00', end_time: '18:00:00', rrule: 'FREQ=WEEKLY', audience: 'group', responsible_member_id: null, deleted_at: null, version: 1 });
+    await openGroup(await open({ base, prefs: memoryPrefs({ welcomeSeen: '1', 'nextSteps.gf': '1' }) }));
+    const ids = order();
+    const at = (id: string) => {
+      const i = ids.indexOf(id);
+      expect(i >= 0 ? id : `brak: ${id}`).toBe(id);
+      return i;
+    };
+    const seq = ['next-steps', 'h:3 osoby', 'invite-admin', 'child-name', 'add-child', 'member-mf', 'h:Plany lekcji', 'group-timetable-tymek', 'h:Listy grupy', 'group-new-list', 'group-new-shopping', 'group-list-lf', 'h:Wydarzenia grupy', 'group-add-event', 'series-ev-basen', 'group-rename', 'rotate-join-id', 'delete-group'];
+    const pos = seq.map(at);
+    expect(pos).toEqual([...pos].sort((x, y) => x - y));
+    // Bez „Dodaj rutynę” — rutyna tylko przez „Rodzaj” w formularzu wydarzenia.
+    expect(screen.queryByTestId('group-add-routine')).toBeNull();
+    expect(screen.getByTestId('group-new-list').props.accessibilityLabel).toBe('Nowa lista zadań');
+    expect(screen.getByTestId('group-new-shopping').props.accessibilityLabel).toBe('Nowa lista zakupów');
+  });
+
+  it('„Nowa lista zakupów” pod nagłówkiem list otwiera listę zakupów w tej grupie', async () => {
+    await openGroup(await open());
+    await press(screen.getByTestId('group-new-shopping'));
+    const form = await screen.findByTestId('screen-new-list');
+    expect(within(form).getByText('Nowa lista zakupów')).toBeTruthy();
+    expect(within(screen.getByLabelText('Grupa')).getByLabelText('Rodzina').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('grupa bez dzieci — bez nagłówka „Plany lekcji”', async () => {
+    const base = asOwner();
+    delete base.group_members!.tymek;
+    await openGroup(await open({ base }));
+    expect(order()).not.toContain('h:Plany lekcji');
+  });
+});
+
 describe('audyt 3: grupy i role (PK-12)', () => {
   it('N-166: grupa osobista „tylko Ty” (bez „1 osoba · właściciel”); puste Listy wskazują przycisk listy zakupów', async () => {
     const base = sampleBase();

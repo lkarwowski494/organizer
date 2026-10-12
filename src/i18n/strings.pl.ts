@@ -213,7 +213,6 @@ export const strings = {
   'event.locationPlaceholder': 'np. Basen Delfin, ul. Wodna 1, Kraków',
   'event.navigate': 'Nawiguj',
   'event.myMode': 'Twój dojazd (widzisz tylko Ty)',
-  'routine.add': 'Dodaj rutynę',
   'routine.title': 'Nowa rutyna',
   'routine.info': 'Rutyna to stałe kroki o stałej porze, np. „Poranek Tymka”: zęby, ubranie, plecak. Kroki pojawiają się w wybrane dni pod rutyną; niezrobione po dniu znikają, a licznik „N razy z rzędu” pokazuje, ile razy z rzędu wszystko było zrobione.',
   'routine.namePlaceholder': 'np. Poranek Tymka',
@@ -230,6 +229,8 @@ export const strings = {
   'streak': (n: number) => `${n} ${plural(n, { one: 'raz', few: 'razy', many: 'razy' })} z rzędu`,
   'timetable.open': 'Plan lekcji',
   'timetable.title': (name: string) => `Plan lekcji — ${name}`,
+  // ADR 0049 (B1): sekcja ekranu grupy z planem każdego dziecka.
+  'timetable.plans': 'Plany lekcji',
   'timetable.info': 'Każda lekcja staje się wydarzeniem cyklicznym z tą osobą jako uczestnikiem — widać je w Kalendarzu, Moich sprawach i kalendarzu iPhone’a. Zmiany w planie obowiązują od jutra; pojedynczą lekcję zmienisz jak zwykłe wydarzenie.',
   'timetable.thisWeek': (range: string) => `Ten tydzień (${range}) to`,
   // D171: przełącznik zmienia nazwy tygodni, nie dni lekcji.
