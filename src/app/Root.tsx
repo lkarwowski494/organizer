@@ -21,6 +21,7 @@ import type { SyncTransport } from '../sync/transport';
 import { SignInScreen } from '../features/auth/SignInScreen';
 import { announce } from '../ui/a11y';
 import { Body, Button, Screen, syncAnnouncer, Title } from '../ui/components';
+import { Intro } from '../ui/Intro';
 import { type AppearanceStore, ThemeProvider, useTheme } from '../ui/theme';
 import { config } from '../config';
 import { accountPrefs, adoptLegacyPrefs, type LegacyStore } from './account-prefs';
@@ -77,6 +78,12 @@ export type RootDeps = {
   links: { onUrl(fn: (url: string) => void): () => void };
   /** Zapamiętany wygląd (D69). */
   appearance?: AppearanceStore;
+  /**
+   * Animacja przy starcie (ADR-0045, src/ui/Intro.tsx): `coldStart` — czy to zimny start (raz na proces JS, nie proces
+   * obudzony w tle), `hideSplash` — schowanie ekranu startowego iOS (expo-splash-screen; App.tsx zatrzymuje jego
+   * samoczynne zniknięcie). Brak = bez animacji i bez ekranu startowego (testy ekranów).
+   */
+  intro?: { coldStart(appState: string | null | undefined): boolean; hideSplash(): void };
   nowMs?: () => number;
   setTimer?: (fn: () => void, ms: number) => () => void;
 };
@@ -356,6 +363,13 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
 }
 
 export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boolean }) {
+  // ADR-0045: animacja tylko przy zimnym starcie; dane (kroje, sesja, baza) ładują się w tym czasie równolegle pod nakładką.
+  const [intro, setIntro] = useState(() => deps.intro?.coldStart(AppState.currentState) ?? false);
+  const endIntro = useCallback(() => setIntro(false), []);
+  // Bez animacji (powrót z tła, proces obudzony w tle) albo po jej końcu ekran startowy chowamy od razu (Intro robi to samo).
+  useEffect(() => {
+    if (!intro) deps.intro?.hideSplash();
+  }, [intro, deps]);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   // Audyt 2 (M-221): link (np. zaproszenie) dotknięty, gdy nikt nie był zalogowany — nawigacja dostaje go po zalogowaniu.
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
@@ -419,9 +433,18 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
   else if (session === null) body = <SignInScreen account={deps.account} notice={deleted ? strings['auth.deleted'] : null} />;
   else body = <SignedIn key={session.userId} deps={deps} session={session} pendingUrl={pendingUrl} onDeleted={onDeleted} />;
 
+  // Gotowe = widać już właściwy ekran (logowanie, aplikacja albo „Dane z nowszej wersji”), nie „Ładowanie…”.
+  const ready = fontsLoaded && session !== undefined;
+  // Na czas animacji treść pod nakładką jest ukryta dla VoiceOvera (i dla E2E: scenariusze czekają na ekran, aż nakładka
+  // zniknie). Ten sam układ widoków z animacją i bez — koniec animacji nie montuje aplikacji od nowa.
   return (
-    <SafeAreaProvider>
-      <ThemeProvider store={deps.appearance}>{body}</ThemeProvider>
-    </SafeAreaProvider>
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }} accessibilityElementsHidden={intro} importantForAccessibility={intro ? 'no-hide-descendants' : 'auto'}>
+        <SafeAreaProvider>
+          <ThemeProvider store={deps.appearance}>{body}</ThemeProvider>
+        </SafeAreaProvider>
+      </View>
+      {intro && deps.intro ? <Intro ready={ready} onDone={endIntro} hideSplash={deps.intro.hideSplash} /> : null}
+    </View>
   );
 }

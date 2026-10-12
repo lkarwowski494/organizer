@@ -330,8 +330,9 @@ export class FakeServer {
         gone: since > 0 ? [...new Set(this.moves.filter(movedOut).map((m) => m.task))].sort() : [],
       });
     }
+    // Ukryte listy, które widzę, także z kosza (20261011010000_scopes_deleted_lists): usunięta nie jest utratą dostępu.
     const scopes = [...this.lists.values()]
-      .filter((l) => l.visibility !== 'group' && !l.deleted_at && this.canSee(user, 'lists', l))
+      .filter((l) => l.visibility !== 'group' && this.canSee(user, 'lists', l))
       .map((l) => String(l.id))
       .sort();
     return { groups, scopes };
