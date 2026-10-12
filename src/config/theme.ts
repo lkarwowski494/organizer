@@ -250,7 +250,15 @@ export const sizes = {
  * więc tytuł nie łamie się w środku słowa bardziej niż w aplikacjach systemowych.
  * Interlinia tytułów: TITLE_LEADING — „Large Title 34 / 41” w tej samej tabeli (rozmiar Large) ≈ 1,2 (M-270: Ś, Ż, Ł).
  */
-export const fontScale = { FIXED_MAX: 2, TITLE_MAX_PT: 60, TITLE_LEADING: 1.2 } as const;
+/**
+ * STACK_FROM — mnożnik, od którego pasek okresu (strzałki, nazwa okresu, „Dziś”) układa nazwę nad przyciskami: pierwszy
+ * rozmiar dostępności AX1. React Native 0.86 podaje fontScale z tabeli kategorii (RCTAccessibilityManager.mm:
+ * „UIContentSizeCategoryExtraExtraExtraLarge : @1.353”, „UIContentSizeCategoryAccessibilityMedium : @1.786”). Apple HIG
+ * Typography: „consider using a stacked layout where text appears above secondary items”
+ * (https://developer.apple.com/design/human-interface-guidelines/typography). E2E 38208123607 (AX5): „Czwartek, 8”
+ * między strzałkami i „Dziś” łamał się po 2–3 litery w wierszu.
+ */
+export const fontScale = { FIXED_MAX: 2, TITLE_MAX_PT: 60, TITLE_LEADING: 1.2, STACK_FROM: 1.786 } as const;
 
 /**
  * Promienie i odstępy (audyt 2, M-281; decyzja PWD-12 B z 8.10.2026): karta informacyjna 18, panel i wiersz 14,

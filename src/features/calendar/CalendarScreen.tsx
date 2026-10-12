@@ -24,7 +24,7 @@ import { occurrenceRow } from '../../ui/when';
 import { dayPlan, type Span } from '../../domain/views/day-plan';
 import type { PlainEntry } from '../../domain/views/agenda';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodTitle, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, EventRow, GapRow, PeriodArrow, PeriodBar, PeriodTitle, Screen, StationRow, SwipeRow, Title } from '../../ui/components';
 import { DayNumber, WeekdayHeader } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
 import { useDeviceCalendar } from '../../app/calendar-sync';
@@ -129,26 +129,30 @@ export function CalendarScreen() {
       <Title>{strings['tabs.calendar']}</Title>
       <GroupFilterBar groups={groups} testID="calendar-filter" />
       <DeviceCalendarCard />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        <PeriodArrow dir={-1} label={strings['today.prev.month']} onPress={() => shift(-1)} />
-        <PeriodTitle testID="calendar-month">{formatMonth(ym.y, ym.m)}</PeriodTitle>
-        <PeriodArrow dir={1} label={strings['today.next.month']} onPress={() => shift(1)} />
-        {/* PWD-8 A: „Dziś” jak w Moich sprawach — stałe miejsce, na bieżącym miesiącu z wybranym dziś wyszarzony. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={strings['common.today']}
-          accessibilityState={{ disabled: atToday }}
-          disabled={atToday}
-          testID="calendar-go-today"
-          onPress={() => {
-            setYm({ y: today.y, m: today.m });
-            setSelected(isoToday);
-          }}
-          style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: atToday ? 0.35 : 1 }}
-        >
-          <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
-        </Pressable>
-      </View>
+      <PeriodBar
+        prev={<PeriodArrow dir={-1} label={strings['today.prev.month']} onPress={() => shift(-1)} />}
+        title={<PeriodTitle testID="calendar-month">{formatMonth(ym.y, ym.m)}</PeriodTitle>}
+        next={<PeriodArrow dir={1} label={strings['today.next.month']} onPress={() => shift(1)} />}
+        extra={
+          <>
+          {/* PWD-8 A: „Dziś” jak w Moich sprawach — stałe miejsce, na bieżącym miesiącu z wybranym dziś wyszarzony. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={strings['common.today']}
+            accessibilityState={{ disabled: atToday }}
+            disabled={atToday}
+            testID="calendar-go-today"
+            onPress={() => {
+              setYm({ y: today.y, m: today.m });
+              setSelected(isoToday);
+            }}
+            style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: atToday ? 0.35 : 1 }}
+          >
+            <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
+          </Pressable>
+          </>
+        }
+      />
       <WeekdayHeader />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {days.map((d) => {

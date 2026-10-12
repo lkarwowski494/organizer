@@ -6,7 +6,7 @@
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { NavigationContext } from '@react-navigation/native';
 import { createContext, type ReactNode, type Ref, type RefObject, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, InputAccessoryView, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Dimensions, InputAccessoryView, useWindowDimensions, Keyboard, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, type TextInputProps, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
@@ -268,6 +268,35 @@ export function PeriodTitle({ children, testID }: { children: string; testID?: s
 }
 
 /** Strzałka poprzedni/następny okres obok PeriodTitle. */
+/**
+ * Pasek okresu (Moje sprawy, Kalendarz, wybór dnia): strzałki, nazwa okresu i opcjonalnie „Dziś”. Od rozmiaru tekstu
+ * fontScale.STACK_FROM nazwa stoi nad przyciskami na całą szerokość (src/config/theme.ts) — w wierszu zostawało jej
+ * kilka liter szerokości.
+ */
+export function PeriodBar({ prev, title, next, extra, testID }: { prev: ReactNode; title: ReactNode; next: ReactNode; extra?: ReactNode; testID?: string }) {
+  const scale = useWindowDimensions().fontScale;
+  if (scale >= fontScale.STACK_FROM) {
+    return (
+      <View testID={testID} style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row' }}>{title}</View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+          {prev}
+          {next}
+          {extra}
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View testID={testID} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {prev}
+      {title}
+      {next}
+      {extra}
+    </View>
+  );
+}
+
 export function PeriodArrow({ dir, label, onPress, testID }: { dir: -1 | 1; label: string; onPress: () => void; testID?: string }) {
   const { c, size } = useTheme();
   return (
