@@ -78,3 +78,14 @@ mutanta z przebiegiem wstępnym, więc test zależny od losowania daje niepowtar
 w `npm run check`, gdzie testy własności dalej szukają nowych kontrprzykładów. Odrzucone: naprawa błędu sync-sim w tej
 zmianie (osobna mechanika, wymaga własnego testu i decyzji), pominięcie sync-sim w testach mutacyjnych (to on wykrywa
 mutanty silnika synchronizacji).
+
+## Trzeci przebieg (12.10.2026, https://github.com/lkarwowski494/organizer/actions/runs/38219361652)
+Po scaleniu main (19 757 mutantów, 3 157 statycznych) i ze stałym ziarnem: plan skalibrowany pomiarem z 38208658558
+przewidział 725 min pracy i 9 części po 83–84 min. 8 części zielonych, ale w 75–162 min (1,1–1,9 × przewidywania);
+część 1 przekroczyła limit kroku 166 min (2 734 z 2 843 mutantów, Stryker szacował jeszcze ~57 min, czyli ok. 2,7 ×
+przewidywania). Wynik z 8 części 90,48% (15 204 z 16 804 ważnych), brak części 1 → mutation-score czerwony.
+Pomiar z 38208658558 był poprawny (suma zmierzonej pracy / 4 = 772 min przy 787 min trwania części), więc to testy
+zmieniły się między nocami (scalenie main, inne ziarno), a nie błąd pomiaru. Zmiana: targetMin 90 → 60 min i SAFETY
+2 → 3 (limit kroku ok. 180 min). Odrzucone: dolna granica współczynnika kalibracji 1 (stała bez danych; zawyżałaby
+plan w nocy bez zmian) i limit kroku zawsze 350 min (zbyt późne wykrycie zawieszonej części, wbrew zasadzie limitów
+z danych).
