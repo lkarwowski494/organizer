@@ -197,10 +197,10 @@ describe('D133: powtarzanie po przeminięciu („Tylko tego dnia”)', () => {
     expect(expiredRepeatOps({ tasks: { leki: T() } }, today, () => true)).toEqual([]);
     expect(expiredRepeatOps(world({ leki: T() }), today, () => true, new Set([nextId('leki')]))).toEqual([]);
   });
-  // ADR 0047: podzadanie z własnym powtarzaniem, którego zadanie nadrzędne też minęło — jego następne powstaje tylko jako
+  // ADR 0048: podzadanie z własnym powtarzaniem, którego zadanie nadrzędne też minęło — jego następne powstaje tylko jako
   // kopia podzadania pod następnym zadania nadrzędnego, niezależnie od kolejności wierszy (wcześniej: dziecko przed
   // rodzicem dawało kopię pod starym zadaniem i drugie utworzenie tego samego id).
-  it('ADR 0047: minione podzadanie i minione zadanie nadrzędne — jedna kopia, pod następnym rodzica, w każdej kolejności wierszy', () => {
+  it('ADR 0048: minione podzadanie i minione zadanie nadrzędne — jedna kopia, pod następnym rodzica, w każdej kolejności wierszy', () => {
     const p = T({ id: 'p' });
     const c = T({ id: 'c', parent_id: 'p', title: 'Woda' });
     const expected = [
@@ -371,7 +371,7 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
       done: fc.option(fc.integer({ min: -9, max: 0 }), { nil: null }),
       repeat: fc.constantFrom<string | null>(null, 'FREQ=DAILY', 'FREQ=WEEKLY;BYDAY=MO,TH', 'AFTER=DAILY;INTERVAL=2'),
     });
-    // `order` — kolejność wierszy w tabeli: dziecko może stać przed rodzicem (ADR 0047). Wynik nie może od niej zależeć.
+    // `order` — kolejność wierszy w tabeli: dziecko może stać przed rodzicem (ADR 0048). Wynik nie może od niej zależeć.
     return fc.property(fc.array(item, { maxLength: 6 }), fc.integer({ min: 1, max: 6 }), fc.array(fc.integer(), { minLength: 6, maxLength: 6 }), (items, days, order) => {
       // Tylko dane możliwe w aplikacji: najwyżej MAX_TASK_DEPTH poziomów pod zadaniem (D4; serwer odrzuca głębsze —
       // tasks_guard „depth_exceeded”, ograniczenie tasks_depth_range, move_task; ekran nie daje dodać podzadania niżej).
@@ -407,7 +407,7 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
   });
 
   // Przypadki, które oblewały: łańcuch czterech zadań (poziom 3 > MAX_TASK_DEPTH — generator robi z niego dane możliwe
-  // w aplikacji; seed -891823534) i minione podzadanie z powtarzaniem przed minionym rodzicem (ADR 0047).
+  // w aplikacji; seed -891823534) i minione podzadanie z powtarzaniem przed minionym rodzicem (ADR 0048).
   it('audyt 3 (N-27, własność): łańcuch głębszy niż MAX_TASK_DEPTH; dziecko przed rodzicem', () => {
     const once = (parent: number | null, repeat: string | null, due = 0) => ({ parent, due, rollover: false, done: null, repeat });
     const weekly = 'FREQ=WEEKLY;BYDAY=MO,TH';
@@ -463,7 +463,7 @@ describe('łańcuch powtarzania (audyt 2: T-1, T-3, T-4, T-12)', () => {
     expect(missingRepeatOps({}, d('2026-10-13'), () => true, local)).toEqual([]);
   });
 
-  it('ADR 0047: odhaczone podzadanie i odhaczone zadanie nadrzędne bez następnych (T-12) — jedna kopia, pod następnym rodzica, w każdej kolejności', () => {
+  it('ADR 0048: odhaczone podzadanie i odhaczone zadanie nadrzędne bez następnych (T-12) — jedna kopia, pod następnym rodzica, w każdej kolejności', () => {
     const p = { ...g().tasks!.t1!, id: 'p', completed_at: done };
     const c = { ...p, id: 'c', parent_id: 'p', repeat: 'FREQ=DAILY' };
     const local = (iso: string) => iso.slice(0, 10);

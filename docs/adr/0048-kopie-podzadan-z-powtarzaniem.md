@@ -1,4 +1,4 @@
-# 0047. Następne podzadania z powtarzaniem, gdy zadanie nadrzędne też je dostaje (12.10.2026)
+# 0048. Następne podzadania z powtarzaniem, gdy zadanie nadrzędne też je dostaje (12.10.2026)
 
 Decyzja z 12.10.2026, podjęta według reguły delegacji właściciela: wybrana opcja rekomendowana. Właściciel może ją
 zawetować. Dotyczy D133 (minione „Tylko tego dnia”) i T-12 (kopia dokładana po odhaczeniu przez dziecko).
@@ -33,7 +33,7 @@ nakładać operacje na kopię danych w trakcie liczenia, czyli przejść na inny
 używają wszyscy wywołujący i symulator synchronizacji.
 
 ## Testy
-- `task-repeat.test.ts`: „ADR 0047: minione podzadanie i minione zadanie nadrzędne…” oraz „ADR 0047: odhaczone
+- `task-repeat.test.ts`: „ADR 0048: minione podzadanie i minione zadanie nadrzędne…” oraz „ADR 0048: odhaczone
   podzadanie i odhaczone zadanie nadrzędne…” sprawdzają obie kolejności wierszy. Oba były czerwone przed poprawką.
 - Test własności N-27 losuje teraz kolejność wierszy i sprawdza, że wynik od niej nie zależy. Generator buduje tylko
   drzewa do `MAX_TASK_DEPTH` poziomów, bo głębszych serwer nie przyjmie (`tasks_guard`, `tasks_depth_range`,

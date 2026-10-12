@@ -231,7 +231,7 @@ const expired = (t: Tables, x: Task, isoToday: string, canCreate: CanCreate, ski
   x.completed_at === null && x.rollover === false && x.due_date !== null && x.due_date < isoToday && copyable(t, x, canCreate, skip);
 
 /**
- * ADR 0047 (12.10.2026): podzadanie z własnym powtarzaniem, którego przodek dostaje w tym samym przebiegu następne (D133
+ * ADR 0048 (12.10.2026): podzadanie z własnym powtarzaniem, którego przodek dostaje w tym samym przebiegu następne (D133
  * albo T-12), dostaje swoje razem z nim — jako kopię podzadania pod następnym przodka (copyOps), nie osobno pod starym. Inaczej wynik
  * zależałby od kolejności wierszy. Idzie w górę tylko przez żywe zadania i najwyżej MAX_TASK_DEPTH poziomów, jak
  * `descendants` przy kopiowaniu podzadań.
@@ -292,7 +292,7 @@ export function missingRepeatOps(
   for (const row of rows) {
     if (row.completed_at == null || String(row.completed_at) < sinceUtc) continue;
     const x = asTask(row);
-    // ADR 0047: podzadanie, którego przodek też dostaje tu następne — razem z nim (kopia podzadania), jak w expiredRepeatOps.
+    // ADR 0048: podzadanie, którego przodek też dostaje tu następne — razem z nim (kopia podzadania), jak w expiredRepeatOps.
     if (!isMissing(x) || copiedWithAncestor(t, x, isMissing)) continue;
     out.push(...repeatOps(t, { ...x, completed_at: null }, parseIsoDate(localDate(x.completed_at!))));
   }
@@ -366,7 +366,7 @@ export function withUpcomingCopies(t: Tables, today: CivilDate, days: number, lo
     open = open.flatMap((x) => {
       if (x.due_date! >= iso) return [x];
       // Następne mogło już powstać z innym (kopia podzadania razem z zadaniem nadrzędnym) albo powstanie z przodkiem,
-      // który mija tego samego dnia (ADR 0047) — wtedy nic, jak w expiredRepeatOps.
+      // który mija tego samego dnia (ADR 0048) — wtedy nic, jak w expiredRepeatOps.
       if (!copyable(out, x, all, none) || copiedWithAncestor(out, x, (a) => expired(out, a, iso, all, none))) return [];
       const r = repeatOf(out, x.id)!;
       put(copyOps(out, x, r, formatIsoDate(firstDueFrom(r, parseIsoDate(x.due_date!), day, cycleOf(x))), index));
