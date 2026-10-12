@@ -1,6 +1,6 @@
 # 0047. Nocne testy mutacyjne: podział na części według danych (11.10.2026)
 
-Status: wdrożone na gałęzi `fix3/mutshards` (rola Integrator, diagnoza czerwonego `nightly.yml`); do akceptacji właściciela.
+Status: przyjęte — zaakceptowane przez właściciela 12.10.2026; wdrożone na main (81876e4, rola Integrator, diagnoza czerwonego `nightly.yml`).
 Zasady właściciela, z których wynika: „Limity czasu w testach i CI rosną z danymi, nie są stałe”, „Testy mutacyjne ≥ 90%”,
 standardowe maszyny GitHub Actions (repozytorium publiczne — bez opłat), bez płatnych „larger runners”.
 
