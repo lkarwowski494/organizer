@@ -89,3 +89,10 @@ zmieniły się między nocami (scalenie main, inne ziarno), a nie błąd pomiaru
 2 → 3 (limit kroku ok. 180 min). Odrzucone: dolna granica współczynnika kalibracji 1 (stała bez danych; zawyżałaby
 plan w nocy bez zmian) i limit kroku zawsze 350 min (zbyt późne wykrycie zawieszonej części, wbrew zasadzie limitów
 z danych).
+
+## Czwarty przebieg — zielony (12.10.2026, https://github.com/lkarwowski494/organizer/actions/runs/38237696587)
+targetMin 60, SAFETY 3, kalibracja pomiarem z 38219361652 (także z przerwanej części 1): przewidywana praca 1 166 min,
+20 części, każda zielona w 24–80 min; cały przebieg 92 min (10:39–12:11 UTC). mutation-score: **90,63%** (17 780
+z 19 619 ważnych mutantów; zabite 17 261, przekroczony czas 519, przeżyły 1 839, bez pokrycia 0, błędy 138), każdy
+mutant z planu dokładnie raz. Obszary: src/config 89,44%, src/data 95,77%, src/domain 90,68%, src/sync 89,94% — próg
+dotyczy całości, ale wynik jest blisko progu (zapas 0,63 pkt), a config i sync są poniżej 90%: do backlogu.
