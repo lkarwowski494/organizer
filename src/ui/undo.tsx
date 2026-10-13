@@ -14,11 +14,12 @@
  *    działa tylko poza iOS (https://reactnative.dev/docs/0.86/accessibility#accessibilityliveregion-android).
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { type GestureResponderEvent, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { config } from '../config';
 import type { NewOp } from '../domain/sync-engine/client';
+import { isTap, type Point } from '../domain/tap';
 import { type Fingerprint, parseRecent, type RecentLost, type RecentRecord, type RecentUndo } from '../domain/views/recent';
 import { strings } from '../i18n/strings.pl';
 import { announce, focusLater, pinFocus, spoken, useScreenReader } from './a11y';
@@ -199,6 +200,20 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
     return () => clearTimeout(t);
   }, [bar, reader]);
 
+  // ADR 0049: przyciski paska reagują na dotknięcie (puszczenie bez przesunięcia), nie na przeciągnięcie — przy dużym tekście
+  // pasek jest wysoki i przewijanie zaczęte na nim otwierało „Ostatnie zmiany”. Punkt pressIn pamiętamy do puszczenia;
+  // bez zdarzenia (dotknięcie z VoiceOvera) akcja idzie zawsze.
+  const touch = useRef<Point | null>(null);
+  const point = (e?: GestureResponderEvent): Point | null => (e?.nativeEvent ? { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY } : null);
+  const tap = (act: () => void) => ({
+    onPressIn: (e: GestureResponderEvent) => void (touch.current = point(e)),
+    onPress: (e?: GestureResponderEvent) => {
+      const start = touch.current;
+      touch.current = null;
+      if (isTap(start, point(e), layout.TAP_SLOP)) act();
+    },
+  });
+
   const press = (b: Bar) => {
     setBar(null);
     b.onUndo?.();
@@ -235,7 +250,7 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
                     accessibilityRole="button"
                     accessibilityLabel={spoken(bar.message)}
                     accessibilityHint={strings['recent.openHint']}
-                    onPress={() => (setBar(null), link())}
+                    {...tap(() => (setBar(null), link()))}
                     style={{ flex: 1, minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   >
                     {message}
@@ -246,12 +261,12 @@ export function UndoProvider({ children, nowMs = Date.now, backend }: { children
                   </View>
                 )}
                 {bar.onUndo ? (
-                  <Pressable accessibilityRole="button" accessibilityLabel={bar.action} onPress={() => press(bar)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center' }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={bar.action} {...tap(() => press(bar))} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 14, justifyContent: 'center' }}>
                     <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{bar.action}</Text>
                   </Pressable>
                 ) : null}
                 {reader ? (
-                  <Pressable testID="undo-close" accessibilityRole="button" accessibilityLabel={strings['common.close']} onPress={() => setBar(null)} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 10, justifyContent: 'center' }}>
+                  <Pressable testID="undo-close" accessibilityRole="button" accessibilityLabel={strings['common.close']} {...tap(() => setBar(null))} style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 10, justifyContent: 'center' }}>
                     <Text style={{ fontFamily: font.text700, fontSize: size.BODY, color: c.inverseInk }}>{strings['common.close']}</Text>
                   </Pressable>
                 ) : null}

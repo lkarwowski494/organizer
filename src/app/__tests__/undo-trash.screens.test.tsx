@@ -145,6 +145,62 @@ describe('Ostatnie zmiany (M-38, D194)', () => {
     expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-paczka' }, { kind: 'restore', entity: 'tasks', id: 't-paczka' }]);
   });
 
+  describe('tylko dotknięcie, nie przeciągnięcie (ADR 0049; przy AX5 pasek jest wysoki)', () => {
+    const at = (x: number, y: number) => ({ nativeEvent: { pageX: x, pageY: y } });
+    const deleted = async () => {
+      const { store } = await open();
+      await press(screen.getByLabelText('Usuń: Przynieść korki na trening'));
+      return store;
+    };
+
+    it('samo dotknięcie palcem (press-in bez puszczenia) niczego nie otwiera', async () => {
+      await deleted();
+      await fireEvent(within(bar()).getByTestId('undo-message'), 'pressIn', at(100, 700));
+      expect(screen.queryByTestId('screen-recent')).toBeNull();
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+    });
+
+    it('przeciągnięcie zaczęte na treści paska (puszczone w jego obrębie) nie otwiera „Ostatnich zmian”', async () => {
+      await deleted();
+      const msg = within(bar()).getByTestId('undo-message');
+      await fireEvent(msg, 'pressIn', at(100, 700));
+      await fireEvent.press(msg, at(100, 640));
+      expect(screen.queryByTestId('screen-recent')).toBeNull();
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+    });
+
+    it('przeciągnięcie zaczęte na „Cofnij” nie cofa; dotknięcie z małym drżeniem cofa', async () => {
+      const store = await deleted();
+      const undo = within(bar()).getByLabelText('Cofnij');
+      await fireEvent(undo, 'pressIn', at(300, 700));
+      await fireEvent.press(undo, at(300, 650));
+      expectOps(store, [{ kind: 'delete', entity: 'tasks', id: 't-korki' }]); // tylko usunięcie, bez przywrócenia
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+      await fireEvent(undo, 'pressIn', at(300, 700));
+      await fireEvent.press(undo, at(303, 704));
+      expectOps(store, [{ kind: 'restore', entity: 'tasks', id: 't-korki' }]);
+    });
+
+    it('dotknięcie z małym drżeniem otwiera „Ostatnie zmiany”', async () => {
+      await deleted();
+      const msg = within(bar()).getByTestId('undo-message');
+      await fireEvent(msg, 'pressIn', at(100, 700));
+      await fireEvent.press(msg, at(103, 702));
+      await screen.findByTestId('screen-recent');
+    });
+
+    it('przeciągnięcie zaczęte na „Zamknij” (VoiceOver) nie zamyka paska', async () => {
+      jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(true);
+      await deleted();
+      const close = await screen.findByTestId('undo-close');
+      await fireEvent(close, 'pressIn', at(300, 700));
+      await fireEvent.press(close, at(300, 600));
+      expect(screen.getByTestId('undo-bar')).toBeTruthy();
+      await fireEvent.press(close);
+      expect(screen.queryByTestId('undo-bar')).toBeNull();
+    });
+  });
+
   it('„Zmień” po szybkim dodaniu i „Zobacz” to nie zmiany do cofnięcia — nie trafiają na listę', async () => {
     await open();
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'Kupić mleko');

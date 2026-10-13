@@ -280,4 +280,10 @@ export const layout = {
    */
   UNDO_BAR_OFFSET: 72,
   UNDO_BAR_MIN_HEIGHT: 52,
+  /**
+   * Przyciski paska „Cofnij” reagują tylko na dotknięcie (ADR 0049): palec, który między dotknięciem a puszczeniem
+   * przesunął się dalej niż tyle punktów, to przeciągnięcie (przewijanie), nie dotknięcie. Wartość wybrana przez nas
+   * (małe drżenie palca mieści się, przeciągnięcie nie); nie pochodzi z dokumentacji Apple.
+   */
+  TAP_SLOP: 10,
 } as const;
