@@ -2,7 +2,11 @@ appId: io.github.lkarwowski494.organizer
 name: 06 Ustawienia się otwierają
 ---
 - runFlow: common/launch.yaml
-- tapOn: "Ustawienia"
+# Dotknięcie przycisku „Ustawienia” tuż po starcie raz nie zadziałało (E2E 38308089458, Pro Max, ciemny: zrzut —
+# „Moje sprawy” bez zmian); ponowienie dotknięcia, gdy ekran się nie zmienił (retryTapIfNoChange, Maestro).
+- tapOn:
+    text: "Ustawienia"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: "screen-settings"
@@ -89,8 +93,16 @@ name: 06 Ustawienia się otwierają
     id: "license-whatwg-url-minimum"
 - waitForAnimationToEnd:
     timeout: 3000
+# W górę do pozycji „semver” (3 pozycje nad SQLite), potem w dół do SQLite przez common/scroll-to.yaml: SQLite wchodzi
+# wtedy od dołu ekranu i dotknięcie 10 pt pod jego górną krawędzią jest na ekranie. E2E 38308089458 (17e, AX5):
+# po przewinięciu w górę prosto do SQLite jego górna krawędź była pod paskiem stanu, a dotknięcie paska stanu
+# przewinęło listę na początek (iOS: przewinięcie do góry).
 - runFlow:
     file: common/scroll-up-to.yaml
+    env:
+      ID: "license-semver"
+- runFlow:
+    file: common/scroll-to.yaml
     env:
       ID: "license-SQLite"
 - tapOn:

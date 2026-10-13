@@ -5,7 +5,10 @@ name: 07 Pole na dole ekranu nad klawiaturą (audyt 2, M-41)
 # (automaticallyAdjustKeyboardInsets w Screen), więc pole i przycisk pod nim zostają widoczne nad klawiaturą.
 # Przycisku „Usuń konto” nie dotykamy.
 - runFlow: common/launch.yaml
-- tapOn: "Ustawienia"
+# Jak w 06: ponowienie dotknięcia, gdy ekran się nie zmienił (E2E 38308089458).
+- tapOn:
+    text: "Ustawienia"
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible:
       id: "screen-settings"

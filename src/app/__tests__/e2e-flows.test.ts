@@ -175,9 +175,23 @@ describe('scenariusze Maestro — pozycja ekranu Licencje z krótkim tekstem, pr
     const toEnd = st.findIndex((x) => /^- repeat:/.test(x) && x.includes(`id: "license-${last}"`));
     expect(toEnd).toBeGreaterThan(-1);
     expect(st[toEnd]).toMatch(/duration: 300/);
-    const up = st.findIndex((x) => /^- runFlow:\s*\n\s+file: common\/scroll-up-to\.yaml\s*\n\s+env:\s*\n\s+ID: "license-SQLite"/.test(x));
+    // W górę do pozycji nad SQLite (nie do SQLite: górna krawędź pod paskiem stanu, dotknięcie przewinęło listę na początek —
+    // E2E 38308089458), potem w dół do SQLite; dotknięcie po scroll-to.
+    const names = LICENSES.packages.map((p) => p.name);
+    const up = st.findIndex((x) => /^- runFlow:\s*\n\s+file: common\/scroll-up-to\.yaml/.test(x));
     expect(up).toBeGreaterThan(toEnd);
-    expect(st[up + 1]).toBe('- tapOn:\n    id: "license-SQLite"\n    point: "20,10"');
+    const above = /ID: "license-([^"]+)"/.exec(st[up]!)![1]!;
+    expect(names.indexOf(above)).toBeLessThan(names.indexOf('SQLite'));
+    expect(names.indexOf('SQLite') - names.indexOf(above)).toBeGreaterThanOrEqual(2);
+    expect(st[up + 1]).toMatch(/^- runFlow:\s*\n\s+file: common\/scroll-to\.yaml\s*\n\s+env:\s*\n\s+ID: "license-SQLite"$/);
+    expect(st[up + 2]).toBe('- tapOn:\n    id: "license-SQLite"\n    point: "20,10"');
+    // Po scroll-up-to nigdy dotknięcie wprost.
+    for (const f of flows) {
+      const fs = steps(readFileSync(join(DIR, f), 'utf8'));
+      fs.forEach((x, i) => {
+        if (/file: common\/scroll-up-to\.yaml/.test(x)) expect([f, fs[i + 1]?.split('\n')[0]]).not.toEqual([f, '- tapOn:']);
+      });
+    }
   });
 
   it.each(flows)('%s: każda pozycja ekranu Licencje z krótkim tekstem', (f) => {
@@ -310,6 +324,14 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
     expect(s[1]).toMatch(/^- assertVisible:\s*\n\s+id: \$\{ID\}$/);
   });
 
+  it('06 i 07: dotknięcie „Ustawienia” z ponowieniem, gdy ekran się nie zmienił (E2E 38308089458: dotknięcie po starcie nie zadziałało)', () => {
+    for (const f of ['06-settings.yaml', '07-keyboard.yaml']) {
+      const st = steps(readFileSync(join(DIR, f), 'utf8'));
+      expect(st.filter((x) => /^- tapOn: "Ustawienia"$/.test(x))).toEqual([]);
+      expect(st.some((x) => x === '- tapOn:\n    text: "Ustawienia"\n    retryTapIfNoChange: true')).toBe(true);
+    }
+  });
+
   it('06 i 07: po wejściu na ekran stosu koniec animacji przed dotknięciem (E2E 38283348025: „Konto i dane” dotknięte w trakcie przejścia, Ustawienia zostały)', () => {
     for (const f of ['06-settings.yaml', '07-keyboard.yaml']) {
       const st = steps(readFileSync(join(DIR, f), 'utf8'));
@@ -332,7 +354,7 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
   it('06 i 07: pozycja Licencji, „Usuń konto” i przycisk pod polem „Wpisz USUŃ” przez common/scroll-to.yaml', () => {
     const s06 = readFileSync(join(DIR, '06-settings.yaml'), 'utf8');
     const s07 = readFileSync(join(DIR, '07-keyboard.yaml'), 'utf8');
-    expect(scrolledTo(s06)).toEqual([]);
+    expect(scrolledTo(s06)).toEqual(['license-SQLite']);
     expect(scrolledTo(s07)).toEqual(['delete-start', 'delete-confirm']);
     expect(fastScrolls(s06, scrolledTo(s06) as string[])).toEqual([]);
     expect(fastScrolls(s07, ['delete-start', 'delete-confirm', 'delete-word'])).toEqual([]);

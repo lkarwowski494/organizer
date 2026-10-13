@@ -1,6 +1,8 @@
 # Przewinięcie w górę do elementu na ekranie stosu bez paska zakładek (ID = testID) — odpowiednik common/scroll-to.yaml
 # dla elementu powyżej ekranu (np. pozycja Licencji blisko końca listy, gdy lista jest już przewinięta do końca).
-# Dotknięcie robi scenariusz: `tapOn` z `point: "20,10"` (10 pt pod górną krawędzią elementu).
+# Bez dotknięcia: element wchodzi od góry, więc jego górna krawędź może być pod paskiem stanu — dotknięcie tam przewija
+# listę na początek (E2E 38308089458). Scenariusz przewija w górę do elementu powyżej celu, a do celu w dół przez
+# common/scroll-to.yaml.
 # Gdy elementu nie ma na ekranie:
 #  1. przeciągnięcia w dół po 25% ekranu w 700 ms, aż element wejdzie na ekran od góry (Maestro widzi element, gdy
 #     co najmniej 10% jego pola jest na ekranie — ViewHierarchy.filterOutOfBounds, https://github.com/mobile-dev-inc/maestro/blob/cli-2.11.0/maestro-client/src/main/java/maestro/ViewHierarchy.kt);
