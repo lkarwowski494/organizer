@@ -186,12 +186,11 @@ describe('scenariusze Maestro — pozycja ekranu Licencje z krótkim tekstem, pr
     expect(st[up + 1]).toMatch(/^- runFlow:\s*\n\s+file: common\/scroll-to\.yaml\s*\n\s+env:\s*\n\s+ID: "license-SQLite"$/);
     expect(st[up + 2]).toBe('- tapOn:\n    id: "license-SQLite"\n    point: "20,10"');
     // Po scroll-up-to nigdy dotknięcie wprost.
-    for (const f of flows) {
+    const tapsAfterUp = flows.flatMap((f) => {
       const fs = steps(readFileSync(join(DIR, f), 'utf8'));
-      fs.forEach((x, i) => {
-        if (/file: common\/scroll-up-to\.yaml/.test(x)) expect([f, fs[i + 1]?.split('\n')[0]]).not.toEqual([f, '- tapOn:']);
-      });
-    }
+      return fs.flatMap((x, i) => (/file: common\/scroll-up-to\.yaml/.test(x) && /^- tapOn:/.test(fs[i + 1] ?? '') ? [`${f}:${i + 1}`] : []));
+    });
+    expect(tapsAfterUp).toEqual([]);
   });
 
   it.each(flows)('%s: każda pozycja ekranu Licencje z krótkim tekstem', (f) => {
