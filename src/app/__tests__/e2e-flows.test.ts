@@ -323,6 +323,15 @@ describe('scenariusze Maestro — długie strony stosu przez common/scroll-to.ya
     expect(s[1]).toMatch(/^- assertVisible:\s*\n\s+id: \$\{ID\}$/);
   });
 
+  it('06: po szybkich przeciągnięciach na górę listy koniec wybiegu i scrollUntilVisible przed „Wróć” (E2E 38328635338: dotknięcie zatrzymało przewijanie)', () => {
+    const st = steps(readFileSync(join(DIR, '06-settings.yaml'), 'utf8'));
+    const fast = st.findIndex((x) => /^- repeat:\s*\n\s+while:\s*\n\s+notVisible: "Wróć"/.test(x));
+    expect(fast).toBeGreaterThan(-1);
+    const tap = st.findIndex((x, i) => i > fast && x === '- tapOn: "Wróć"');
+    const between = st.slice(fast + 1, tap).map((x) => x.split('\n')[0]);
+    expect(between).toEqual(['- waitForAnimationToEnd:', '- scrollUntilVisible:', '- waitForAnimationToEnd:']);
+  });
+
   it('06 i 07: dotknięcie „Ustawienia” z ponowieniem, gdy ekran się nie zmienił (E2E 38308089458: dotknięcie po starcie nie zadziałało)', () => {
     for (const f of ['06-settings.yaml', '07-keyboard.yaml']) {
       const st = steps(readFileSync(join(DIR, f), 'utf8'));
