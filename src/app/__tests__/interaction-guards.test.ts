@@ -119,4 +119,16 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
     expect(code).toContain("strings['event.cancelledSeriesDates']");
     expect(code).toContain('restoreOccurrence');
   });
+
+  test('ListsScreen zawiera AddButton w nagłówku ekranu', () => {
+    const code = readFileSync(join(srcDir, 'features/lists/ListsScreen.tsx'), 'utf8');
+    expect(code).toContain('AddButton');
+    expect(code).toContain('lists-header-add');
+  });
+
+  test('ListScreen używa dynamicznego licznika w koszyku lists.inCartCount', () => {
+    const code = readFileSync(join(srcDir, 'features/lists/ListScreen.tsx'), 'utf8');
+    expect(code).toContain("strings['lists.inCartCount']");
+    expect(strings['lists.inCartCount'](5)).toBe('W koszyku (5)');
+  });
 });

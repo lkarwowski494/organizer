@@ -9,7 +9,7 @@ import type { RootStackParams } from '../../app/routes';
 import { useTaskActions } from '../../app/task-actions';
 import { type List, listOpenCount, listsView, myMemberships } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
+import { AddButton, Body, Button, NavRow, Screen, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 
 /** Licznik listy (audyt 2, M-83, U-61): „N otwarte”, a przy zakupach „N do kupienia” — jak w Moich sprawach. */
@@ -31,7 +31,10 @@ export function ListsScreen() {
   return (
     <Screen testID="screen-lists" refresh={refresh}>
       <TabHeader />
-      <Title>{strings['tabs.lists']}</Title>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Title>{strings['tabs.lists']}</Title>
+        <AddButton label={strings['lists.new']} testID="lists-header-add" onPress={() => nav.navigate('NewList', { kind: 'tasks' })} />
+      </View>
       {lists.length === 0 ? <Body muted>{strings['lists.empty']}</Body> : null}
       <View style={{ gap: 10 }}>
         {/* Audyt 2 (M-239): listę usuwa się przesunięciem jak zadanie (dorośli, D34); z zadaniami — pytanie z liczbą (D187). */}
