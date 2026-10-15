@@ -1,21 +1,27 @@
 # Organizer 📋👨‍👩‍👧‍👦
 
+[![iOS](https://img.shields.io/badge/iOS-16.0%2B-black?style=flat&logo=apple)](https://www.apple.com/ios/)
+[![Expo](https://img.shields.io/badge/Expo_SDK-57-000020?style=flat&logo=expo)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React_Native-0.86-61DAFB?style=flat&logo=react)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-100%25_Offline--First-003B57?style=flat&logo=sqlite)](https://sqlite.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Frankfurt-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![Coverage](https://img.shields.io/badge/Coverage-100%25_Domain-brightgreen?style=flat)](docs/testing.md)
+[![TestFlight](https://img.shields.io/badge/TestFlight-Active-blue?style=flat&logo=testflight)](https://developer.apple.com/testflight/)
+
 > **„Wszystkie sprawy Twojej rodziny i bliskich w jednym miejscu — prosto, przejrzyście i zawsze pod ręką.”**
 
 Aplikacja mobilna na system iOS do organizacji codzienności w wielu grupach (rodzina, dom, znajomi, projekty), stworzona w architekturze **100% Offline-First** z widokiem zbiorczym **„Moje sprawy”** integrującym zadania z podzadaniami, wspólne listy zakupów oraz kalendarz.
 
-**Status projektu:** Wersja testowa w TestFlight (8.10.2026).  
-**Stos technologiczny:** Expo SDK 57, React Native, TypeScript, SQLite (`expo-sqlite`, zwykły SQL), Supabase.
-
 ---
 
-## 🌟 Główne Zasady Produktowe & Architektura
+## 🌟 Główne Zasady Produktowe
 
-- **100% Offline-First (SQLite + pending_ops):** Ekrany czytają wyłącznie z lokalnej bazy SQLite (`expo-sqlite`, zwykły SQL w `src/data/db`). Każda modyfikacja (odznaczenie zadania, dodanie pozycji do listy zakupów) zapisuje się natychmiastowo w lokalnej transakcji bazodanowej wraz z wpisem do kolejki `pending_ops` (D2, R1). Aplikacja działa w pełni bez dostępu do sieci.
+- **100% Offline-First (SQLite + pending_ops):** Ekrany czytają wyłącznie z lokalnej bazy SQLite (`expo-sqlite`, zwykły SQL w `src/data/db`). Każda modyfikacja (odznaczenie zadania, dodanie pozycji do listy zakupów) zapisuje się natychmiastowo w lokalnej transakcji bazodanowej wraz z wpisem do kolejki `pending_ops` (D2, R1). Aplikacja działa bez opóźnień nawet przy całkowitym braku sieci.
 - **Grupa jako Kontener i Granica Bezpieczeństwa:** Pełna separacja spraw domowych, rodzinnych i towarzyskich. Trzy poziomy widoczności (`group` / `restricted` / `private`) gwarantują, że prywatne notatki nie trafiają do nieuprawnionych osób (D3).
-- **Zero-Friction dla Bliskich (Profile bez Kont):** Domownicy, dzieci i seniorzy mogą uczestniczyć w życiu grupy jako profile lokalne (`member_id`) bez konieczności rejestracji, posiadania adresu e-mail czy smartfona (D10, D34).
+- **Zero-Friction dla Bliskich (Profile bez Kont):** Domownicy, dzieci i seniorzy mogą uczestniczyć w życiu grupy jako profile lokalne (`member_id`) bez konieczności rejestracji, podawania adresu e-mail czy posiadania smartfona (D10, D34).
 - **Deterministyczna Synchronizacja Chmurowa:** Oparta o backend Supabase (Frankfurt, D1). Zmiany wysyłane są atomowo przez procedurę RPC `sync_push` pod ścisłą kontrolą Row-Level Security (RLS jako jedyna kontrola dostępu). Pobieranie zmian (pull) opiera się na kursorze wersji per grupa (D32), a sygnały Realtime Broadcast informują o zdarzeniach bez przesyłania wrażliwych treści.
-- **Odporność na Konflikty (UUIDv7 & UUIDv5):** Każdy obiekt posiada unikalny, sortowalny czasowo identyfikator UUIDv7 nadawany lokalnie na telefonie (`src/domain/ids.ts`, R3). Dla cyklicznych instancji zadań i deklaracji obecności stosowane są deterministyczne identyfikatory UUIDv5, co eliminuje duble przy równoległej pracy wielu urządzeń.
+- **Odporność na Konflikty (UUIDv7 & UUIDv5):** Każdy obiekt posiada unikalny, sortowalny czasowo identyfikator UUIDv7 nadawany lokalnie na telefonie (`src/domain/ids.ts`, R3). Dla cyklicznych instancji zadań i deklaracji obecności stosowane są deterministyczne identyfikatory UUIDv5, co eliminuje duble przy równoległej pracy wielu urządzeń offline.
 - **Pojedyncze Źródło Prawdy (Single Source of Truth):** Wszystkie limity (w tym maksymalna głębokość podzadań `MAX_TASK_DEPTH = 2`, D4), stałe czasowe i reguły biznesowe zdefiniowane są centralnie w module `src/config/`, podlegając automatycznym testom kontraktowym.
 
 ---
@@ -23,36 +29,89 @@ Aplikacja mobilna na system iOS do organizacji codzienności w wielu grupach (ro
 ## 📱 Moduły i Ekrany
 
 1. **📋 Moje sprawy (Today / Dashboard):**
-   - Inteligentne centrum dowodzenia zbierające wszystko ze wszystkich Twoich grup w jednym miejscu.
+   - Inteligentne centrum dowodzenia zbierające zadania i wydarzenia ze wszystkich Twoich grup w jednym spójnym widoku.
    - Zadania z bieżącym terminem, pilne sprawy, dedykowane obowiązki oraz dzisiejsze wydarzenia z kalendarza.
+   - Dynamiczne wskaźniki synchronizacji stanu w czasie rzeczywistym (`„czeka na wysłanie”`).
+   - Nawigacja czasowa (Dzień, Tydzień, Miesiąc) z zachowaniem kontekstu daty.
 2. **✅ Zadania z Podzadaniami (Hierarchical Tasks):**
-   - Hierarchiczne drzewo zadań z obsługą zagłębienia do 2 poziomów (`MAX_TASK_DEPTH`).
-   - Przypisywanie odpowiedzialnych osób, terminy, priorytety, etykiety oraz natychmiastowe odznaczanie w SQLite.
+   - Hierarchiczne drzewo zadań z obsługą zagłębienia do 2 poziomów (`MAX_TASK_DEPTH`) i wcięciem wizualnym.
+   - Przypisywanie odpowiedzialnych osób, terminy (własne lub dziedziczone) oraz cykliczność RFC 5545 RRULE.
+   - Ochronne dialogi potwierdzenia odhaczenia (D59) z wyborem: „Zostaw podzadania” lub „Oznacz wszystko”.
 3. **🛒 Wspólne Listy Zakupów (Shared Shopping Lists):**
-   - Kategoryzowane pozycje z błyskawicznym wprowadzaniem produktów i odznaczaniem w sklepie.
-   - Synchronizacja koszyka w czasie rzeczywistym między domownikami.
+   - Kategoryzowane pozycje z inteligentnym podziałem na działy sklepowe, lematyzacją (`itemKey`) i pamięcią nawyków w grupie.
+   - Błyskawiczne odznaczanie produktów w sklepie i natychmiastowy pasek cofania (*Undo*).
+   - Wycieczka zakupowa (*Shopping Trip*) planowana w kalendarzu jako zadanie z terminem i zintegrowana z Moimi sprawami.
 4. **📅 Wspólny Kalendarz & Wydarzenia (Calendar & Events):**
-   - Kalendarz grupy z pełnym wsparciem reguł powtarzalności (standard RFC 5545 RRULE).
-   - Terminy, deklaracje obecności uczestników z unikalnym UUIDv5 oraz obsługa dni świątecznych.
+   - Siatka miesięcy od poniedziałku (zgodna z normą PN-EN ISO 8601 i CLDR dla PL) z polskimi dniami wolnymi.
+   - Wydarzenia jedno- i wielodniowe, obsługa stref czasowych i przejść czasu letniego/zimowego (DST).
+   - Potwierdzanie obecności RSVP (Idę / Nie idę / Może) z automatycznymi odpowiedziami dorosłych w imieniu dzieci.
+   - Obliczanie czasu dojazdu i wyjścia oraz zarządzanie odwołanymi terminami serii z możliwością ich przywracania.
+   - Dyskretne lustro kalendarza iPhone'a z automatycznym ukrywaniem dubli wpisów aplikacji.
 5. **⚡ Szybkie Dodawanie (QuickAdd Natural Language):**
    - Inteligentny parser języka naturalnego w języku polskim (`src/domain/quickadd.ts`).
-   - Rozpoznaje w locie daty, godziny, powtarzalność, osoby oraz grupy bezpośrednio z pojedynczej linii tekstu.
+   - Rozpoznaje w locie daty słowne, godziny, powtarzalność, osoby (`@Imię`) oraz grupy (`#Grupa`) z pojedynczej linii tekstu.
+   - Interaktywne chipy edycyjne pod polem z natychmiastowym podglądem rozpoznanych pól przed zatwierdzeniem.
 6. **👥 Zarządzanie Grupami & Członkowie (Groups & Roles):**
-   - Konteksty grupowe (Dom, Dalsza rodzina, Znajomi, Szkoła), bezpieczne linki zaproszeniowe oraz zarządzanie profilami.
+   - Konteksty grupowe (Osobiste, Dom, Rodzina, Znajomi, Szkoła) z 3 poziomami widoczności (`group` / `restricted` / `private`).
+   - Role dostępu: właściciel (*owner*), administrator (*admin*), członek (*member*) oraz dziecko (*child*).
+   - Profile lokalne bez kont dla domowników oraz bezpieczne zaproszenia kodem 6-cyfrowym i linkiem.
 7. **⚙️ Ustawienia, Synchronizacja i Bezpieczny Kosz:**
-   - Monitor stanu kolejki offline (`pending_ops`), diagnostyka bazy oraz usuwanie z mechanizmem kosza (`KOSZ`) i natychmiastową możliwością cofnięcia (*Undo*).
+   - Monitor stanu kolejki offline (`pending_ops`), diagnostyka bazy oraz natychmiastowy feedback stanu synchronizacji.
+   - Bezpieczne usuwanie z mechanizmem kosza (`KOSZ`), retencją oraz paskiem natychmiastowego cofnięcia (*Undo*).
+
+---
+
+## 🔄 Architektura Przepływu Danych & Synchronizacji
+
+```mermaid
+flowchart LR
+    subgraph UI ["📱 Interfejs Użytkownika (React Native / Expo 57)"]
+        Today["📋 Moje sprawy"]
+        Tasks["✅ Zadania"]
+        Shopping["🛒 Zakupy"]
+        Cal["📅 Kalendarz"]
+    end
+
+    subgraph Local ["💾 Baza Lokalna (100% Offline-First)"]
+        SQLite[("SQLite (expo-sqlite)\nCzysty SQL / Transakcje")]
+        Pending[("Kolejka pending_ops\nop.seq > ackedSeq")]
+    end
+
+    subgraph Cloud ["☁️ Chmura Supabase (Frankfurt)"]
+        RPC["RPC sync_push\n(SECURITY INVOKER + RLS)"]
+        Pull["Pull kursorowy\n(per-group cursor)"]
+        Realtime["Realtime Broadcast\n(sygnały o zmianach)"]
+    end
+
+    UI <-->|"Natychmiastowy odczyt i zapis"| SQLite
+    UI -->|"Zapis operacji z ID UUIDv7"| Pending
+    Pending -->|"Push w tle (atomowo)"| RPC
+    Pull -->|"Pobranie przyrostowe"| SQLite
+    Realtime -.->|"Powiadomienie o zmianach"| UI
+```
+
+| Mechanizm | Implementacja w kodzie | Gwarancja biznesowa |
+|---|---|---|
+| **Odczyt/Zapis** | `expo-sqlite`, `src/data/db/` | Czas odpowiedzi interfejsu $< 16\,\text{ms}$, brak blokad sieciowych |
+| **Generowanie ID** | `UUIDv7` (czasowe) / `UUIDv5` (deterministyczne) | Brak konfliktów kluczy przy pracy wielu telefonów offline |
+| **Weryfikacja uprawnień** | PostgreSQL Row-Level Security (`RLS`) | Serwer odrzuca nieautoryzowane operacje (`forbidden:not_own`) |
+| **Kolejka oczekujących** | `pending_ops` w `ClientState` | Wizualny wskaźnik `„czeka na wysłanie”` do czasu potwierdzenia `ackedSeq` |
 
 ---
 
 ## 🧪 9 Warstw Weryfikacji Jakości (Testing Rigor)
 
 Projekt realizowany jest zgodnie z rygorystyczną definicją ukończenia (DoD):
-- **100% Pokrycia Linii i Gałęzi:** Bezwzględny wymóg pełnego pokrycia testami dla logiki domenowej (`src/domain`, `src/config`, `src/sync`, `src/data`).
-- **Testy Mutacyjne (Stryker):** Wymóg $\ge 90\%$ wykrytych mutacji kodu w warstwach kluczowych (`stryker.config.json`).
-- **Testy Własnościowe (Property-Based):** Weryfikacja niezmienników z użyciem biblioteki `fast-check`.
-- **Testy Niezależnych Korpusów:** Walidacja parsera QuickAdd, kontrastu kolorów WCAG, odmiany liczebników w języku polskim i przesunięć czasu (DST) z niezależnymi wzorcami generowanymi w Pythonie.
-- **Testy Bazodanowe i RLS:** Weryfikacja transakcji SQLite oraz polityk dostępu Supabase RLS za pomocą testów pgTAP.
-- **E2E & Wizualny Regres:** Automatyczne scenariusze Maestro na symulatorze iOS z rygorystycznym porównywaniem zrzutów ekranu (`pixelmatch`).
+
+1. **100% Pokrycia Linii i Gałęzi:** Bezwzględny wymóg pełnego pokrycia testami dla logiki domenowej (`src/domain`, `src/config`, `src/sync`, `src/data`).
+2. **Testy Mutacyjne (Stryker):** Wymóg $\ge 90\%$ wykrytych mutacji kodu w warstwach kluczowych (`stryker.config.json`).
+3. **Testy Własnościowe (Property-Based):** Weryfikacja niezmienników z użyciem biblioteki `fast-check`.
+4. **Testy Niezależnych Korpusów:** Walidacja parsera QuickAdd, kontrastu kolorów WCAG, odmiany liczebników w języku polskim i przesunięć czasu (DST) z niezależnymi wzorcami generowanymi w Pythonie.
+5. **Testy Bazodanowe i RLS:** Weryfikacja transakcji SQLite oraz polityk dostępu Supabase RLS za pomocą testów pgTAP.
+6. **E2E & Wizualny Regres:** Automatyczne scenariusze Maestro na symulatorze iOS z rygorystycznym porównywaniem zrzutów ekranu (`pixelmatch`).
+7. **Kontrakty Dostępności (WCAG AAA & Apple HIG):** Minimalna powierzchnia dotyku $44 \times 44\,\text{pt}$, unikalne etykiety VoiceOver i obsługa Dynamic Type.
+8. **Strażnicy Wzorców Interakcji (`interaction-guards.test.ts`):** Zautomatyzowana kontrola czystych formularzy, przycisków rezygnacji i dialogów `Alert.alert`.
+9. **Weryfikacja Licencji i Zależności iOS:** Zgodność licencji bibliotek na ekranie Ustawień z faktyczną paczką iOS (`check:licenses`).
 
 ---
 
@@ -100,7 +159,7 @@ organizer/
 │   │   ├── today/              # Widok zbiorczy „Moje sprawy” (agregacja międzygrupowa)
 │   │   ├── lists/              # Zadania z podzadaniami oraz wspólne listy zakupów
 │   │   ├── calendar/           # Kalendarz, siatka miesięcy i widok agendy
-│   │   ├── events/             # Wydarzenia, reguły RRULE i obecności
+│   │   ├── events/             # Wydarzenia, reguły RRULE i obecności RSVP
 │   │   ├── groups/             # Zarządzanie grupami, zaproszenia i uprawnienia
 │   │   ├── auth/               # Uwierzytelnianie Apple & Supabase
 │   │   ├── profile/            # Profile użytkowników i domowników bez kont
@@ -132,5 +191,6 @@ organizer/
 
 ## 📄 Status & Dystrybucja
 
-- **Status:** Wersja testowa w Apple TestFlight (od 8.10.2026).
-- **Zasady interakcji:** iOS Human Interface Guidelines, wsparcie VoiceOver, Dynamic Type i wysoki kontrast WCAG.
+- **Dystrybucja:** Wersja testowa w Apple TestFlight (od 8.10.2026).
+- **Zasady interakcji:** Pełna zgodność z iOS Human Interface Guidelines, wsparcie VoiceOver, Dynamic Type i wysoki kontrast WCAG AAA.
+- **Prywatność:** Architektura 100% Offline-First — dane przechowywane lokalnie w SQLite, synchronizacja chmurowa pod kontrolą Row-Level Security (RLS).
