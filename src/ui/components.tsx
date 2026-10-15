@@ -1019,10 +1019,10 @@ function MissingText({ children }: { children: string }) {
   );
 }
 
-export function BackButton({ onPress }: { onPress: () => void }) {
+export function BackButton({ onPress, testID }: { onPress: () => void; testID?: string }) {
   const { c, font, size } = useTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={strings['common.back']} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={strings['common.back']} testID={testID} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
       <Glyph name="prev" color={c.ink} />
       <Text style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.back']}</Text>
     </Pressable>

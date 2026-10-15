@@ -21,7 +21,7 @@ import { type FormError, formDate, formDateChange, formFromText, formGroups, for
 import { strings } from '../../i18n/strings.pl';
 import { useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { AskPanel } from '../../ui/AskPanel';
-import { Body, Button, CancelButton, ErrorText, Field, Screen, Segmented, Title, useFormError } from '../../ui/components';
+import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, useFormError } from '../../ui/components';
 import { DueFields } from '../../ui/DueFields';
 import { PersonPicker } from '../../ui/PersonPicker';
 import { useTheme } from '../../ui/theme';
@@ -89,7 +89,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-add-task">
-      <CancelButton testID="add-task-cancel" onPress={() => navigation.goBack()} />
+      <BackButton testID="add-task-cancel" onPress={() => navigation.goBack()} />
       <Title>{strings['form.newTitle']}</Title>
       <DraftNote draft={draft} />
       {/* D98: zadanie, wydarzenie albo rutyna (PWD-26) — wpisane nazwa, dzień, godzina, grupa i osoba przechodzą. */}

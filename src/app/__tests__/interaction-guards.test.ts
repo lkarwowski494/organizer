@@ -25,7 +25,7 @@ function walk(dir: string, filter: (f: string) => boolean): string[] {
 }
 
 describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.md)', () => {
-  test('ekrany tworzenia i edycji używają CancelButton', () => {
+  test('ekrany tworzenia i edycji używają BackButton z testID rezygnacji', () => {
     const screens = [
       'src/features/lists/AddTaskScreen.tsx',
       'src/features/events/EventEditScreen.tsx',
@@ -34,7 +34,7 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
     ];
     for (const rel of screens) {
       const code = readFileSync(join(root, rel), 'utf8');
-      expect(code).toContain('CancelButton');
+      expect(code).toContain('BackButton');
       expect(code).toMatch(/testID="[a-z0-9-]+-cancel"/);
     }
   });

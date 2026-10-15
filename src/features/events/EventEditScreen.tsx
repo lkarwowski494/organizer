@@ -30,8 +30,7 @@ import { occurrenceOwner } from '../../domain/views/event-rows';
 import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
-import { strings } from '../../i18n/strings.pl';
-import { BackButton, Body, Button, CancelButton, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
+import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
@@ -204,7 +203,7 @@ export function EventEditScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-event-edit">
-      <CancelButton testID="event-edit-cancel" onPress={() => navigation.goBack()} />
+      <BackButton testID="event-edit-cancel" onPress={() => navigation.goBack()} />
       <Title>{detail ? strings['event.edit'] : strings['event.new']}</Title>
       <DraftNote draft={draft} />
       {detail ? null : (

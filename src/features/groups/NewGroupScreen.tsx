@@ -9,8 +9,7 @@ import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
-import { strings } from '../../i18n/strings.pl';
-import { Button, CancelButton, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
+import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
 import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';
 
@@ -58,7 +57,7 @@ export function NewGroupScreen({ navigation, route }: Props) {
 
   return (
     <Screen testID="screen-new-group">
-      <CancelButton testID="new-group-cancel" onPress={() => navigation.goBack()} />
+      <BackButton testID="new-group-cancel" onPress={() => navigation.goBack()} />
       <Title>{strings['groups.new']}</Title>
       <DraftNote draft={draft} />
       {/* M-243: w formularzu z kilkoma polami Return przechodzi do następnego, w ostatnim — tworzy. */}
