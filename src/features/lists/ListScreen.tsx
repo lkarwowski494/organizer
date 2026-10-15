@@ -423,7 +423,7 @@ export function ListScreen({ route, navigation }: Props) {
       )}
       {detail.done.length && shopping ? (
         <View>
-          <SectionTitle>{strings['lists.inCart']}</SectionTitle>
+          <SectionTitle>{strings['lists.inCartCount'](detail.done.length)}</SectionTitle>
           {detail.doneRows.flatMap(doneRow)}
         </View>
       ) : null}
