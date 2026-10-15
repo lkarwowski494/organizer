@@ -418,6 +418,7 @@ export const strings = {
   'calendar.addEvent': 'Dodaj wydarzenie',
   // Audyt nawigacji (Q6 a, ADR 0049): jeden przycisk pod siatką Kalendarza — rodzaj (wydarzenie, zadanie, rutyna) w formularzu.
   'calendar.addOn': (day: string) => `Dodaj na ${day}`,
+  'calendar.addTask': 'Dodaj zadanie na ten dzień',
   // ADR 0049 (K7, Q3 a): odwołany termin serii w Kalendarzu — wyszarzony wiersz, który prowadzi do „Przywróć termin”.
   'calendar.cancelledRow': (title: string) => `Odwołany: ${title}`,
   'calendar.cancelledHint': 'Otwiera termin, tam „Przywróć termin”',
@@ -526,6 +527,7 @@ export const strings = {
   'event.moved': (from: string) => `Przeniesione z: ${from}`,
   'event.cancelledInfo': 'Ten termin jest odwołany.',
   'event.restore': 'Przywróć termin',
+  'event.cancelledSeriesDates': 'Odwołane terminy w tej serii',
   'event.missingInfo': 'Tego terminu nie ma już w serii (zmieniła się albo skończyła).',
   'event.readOnly': 'Dzieci nie zmieniają wydarzeń.',
   // Audyt 2 (M-263): minione wydarzenie jest tylko wyszarzone — VoiceOver mówi to słowem.

@@ -198,7 +198,12 @@ export function CalendarScreen() {
             {formatLongDate(parseIsoDate(day.date), today)}
             {day.holiday ? ` · ${day.holiday}` : ''}
           </Text>
-          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 && dayCancelled.length === 0 ? <Body muted>{strings['calendar.empty']}</Body> : null}
+          {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 && dayCancelled.length === 0 ? (
+            <View style={{ gap: 8 }}>
+              <Body muted>{strings['calendar.empty']}</Body>
+              <Button kind="ghost" label={strings['calendar.addTask']} testID="calendar-add-task" onPress={() => nav.navigate('AddTask', { date: selected })} />
+            </View>
+          ) : null}
           {/* D122: wydarzenia z iPhone'a według godziny i przerwy „wolne …” (dziś od teraz, bez minionych dni). */}
           {dayPlan(nestEntries(agenda(day.items, dayEvents), tables), dayDevice, spanOf, { nowMin: day.date === isoToday ? now().hh * 60 + now().mm : null, gaps: day.date >= isoToday }).map((r) =>
             r.kind === 'device' ? (
