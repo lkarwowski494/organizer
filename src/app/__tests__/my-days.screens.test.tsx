@@ -277,7 +277,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
   it('N3: zadanie ze zmianą oczekującą na wysłanie wyświetla „czeka na wysłanie” w Moich sprawach', async () => {
     await open();
     expect(within(screen.getByTestId('today-t-paczka')).queryByText(/czeka na wysłanie/)).toBeNull();
-    await press(screen.getByLabelText(/^Zrobione: Odebrać paczkę/));
+    await press(screen.getByLabelText(/^Oznacz jako zrobione: Odebrać paczkę/));
     expect(within(screen.getByTestId('today-t-paczka')).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 
@@ -286,7 +286,7 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     await press(screen.getByTestId('tab-Calendar'));
     await screen.findByTestId('screen-calendar');
     expect(within(screen.getByTestId('cal-t-paczka')).queryByText(/czeka na wysłanie/)).toBeNull();
-    await press(screen.getByLabelText(/^Zrobione: Odebrać paczkę/));
+    await press(screen.getByLabelText(/^Oznacz jako zrobione: Odebrać paczkę/));
     expect(within(screen.getByTestId('cal-t-paczka')).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 });
