@@ -17,7 +17,7 @@ function open(nav: NavigationContainerRef<RootStackParams>, t: Target) {
   if (t.screen === 'task') nav.navigate('Task', { taskId: t.id });
   else if (t.screen === 'list') nav.navigate('List', { listId: t.id });
   else if (t.screen === 'event') nav.navigate('Event', t.date ? { eventId: t.id, date: t.date } : { eventId: t.id });
-  else nav.navigate('Tabs', { screen: 'Today' });
+  else nav.navigate('Tabs', { screen: 'Today', params: t.handoffId ? { handoffId: t.handoffId } : undefined });
 }
 
 export function NotificationOpener() {

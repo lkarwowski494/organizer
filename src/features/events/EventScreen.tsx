@@ -44,7 +44,7 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
-  const { tables, today, state: appState } = useAppData();
+  const { tables, today, state: appState, indicator } = useAppData();
   const pendingIds = useMemo(() => new Set(appState.pending.filter((op) => op.seq > appState.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [appState]);
   const { c, font, size } = useTheme();
   const actions = useTaskActions();
@@ -73,6 +73,14 @@ export function EventScreen({ route, navigation }: Props) {
 
   // Audyt 3 (N-36): usunięte — jak kosz („W koszu · Przywróć”, gdy kosz by je pokazał), inaczej „Tego wydarzenia już nie ma”.
   if (!d || d.event.deleted_at !== null) {
+    if (!d && indicator.state === 'syncing') {
+      return (
+        <Screen testID="screen-event-loading">
+          <BackButton onPress={() => navigation.goBack()} />
+          <Title>{strings['event.loading']}</Title>
+        </Screen>
+      );
+    }
     return <InTrashScreen entity="events" id={eventId} missing={strings['missing.event']} testID="screen-event" onBack={() => navigation.goBack()} />;
   }
   // PWD-16: link do całej serii (powiadomienie o przypisaniu serii) — najbliższy termin od dziś, a gdy go nie ma — pierwszy.

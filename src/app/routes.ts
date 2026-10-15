@@ -67,4 +67,4 @@ export type RootStackParams = {
 
 export type SettingsSection = 'notifications' | 'calendar' | 'appearance' | 'adding' | 'account';
 
-export type TabParams = { Today: undefined; Lists: undefined; Calendar: undefined; Groups: undefined };
+export type TabParams = { Today: { handoffId?: string } | undefined; Lists: undefined; Calendar: undefined; Groups: undefined };

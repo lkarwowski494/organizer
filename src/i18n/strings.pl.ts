@@ -664,6 +664,9 @@ export const strings = {
   'groups.restored': (name: string) => `Przywrócono: ${name}`,
   // Audyt 2 (R-16): ekran grupy tuż po utworzeniu albo dołączeniu, zanim dojdą jej dane.
   'groups.loading': 'Pobieramy grupę…',
+  'task.loading': 'Pobieramy zadanie…',
+  'event.loading': 'Pobieramy wydarzenie…',
+  'list.loading': 'Pobieramy listę…',
   // Audyt 3 (N-162, Q33 A): ktoś usunął mnie z grupy — grupa nie znika bez słowa.
   'groups.lost': (names: string[]) => (names.length === 1 ? `Nie należysz już do grupy ${names[0]}` : `Nie należysz już do grup: ${names.join(', ')}`),
   // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków — co dalej.
@@ -1097,6 +1100,8 @@ export const strings = {
   'handoff.declineA11y': (title: string) => `Odrzuć: ${title}`,
   'handoff.okA11y': (title: string) => `OK: ${title}`,
   'handoff.badge': (n: number) => `${n} do potwierdzenia`,
+  'handoff.alreadyDecided': 'To przekazanie zostało już przyjęte, odrzucone lub wycofane.',
+  'handoff.focusCard': 'Wybrane przekazanie',
 
   // Audyt 2 (U-60): jeden klucz na jedno pojęcie — te teksty znaczą to samo na każdym ekranie.
   'common.today': 'Dziś',

@@ -2,7 +2,7 @@
  * „Moje sprawy” (D89) — rdzeń produktu: moje sprawy ze wszystkich grup na jednej liście, z kolorem grupy. Dzień / tydzień /
  * miesiąc ze strzałkami (wczoraj, jutro…), zaległe przechodzą na dziś z czerwonym znacznikiem (D61).
  */
-import { useNavigation } from '@react-navigation/native';
+import { type RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, type TextInput, View } from 'react-native';
@@ -12,7 +12,7 @@ import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quic
 import { type Nesting, nestEntries } from '../../domain/views/nesting';
 import { moveOverdueOps } from '../../domain/views/overdue';
 import { occurrenceKey, splitDuplicates } from '../../domain/views/calendar-sync';
-import type { RootStackParams } from '../../app/routes';
+import type { RootStackParams, TabParams } from '../../app/routes';
 import { useAppData, useServices } from '../../app/context';
 import { formatLongDate, formatMinutes, formatMonth, formatRange, parseIsoDate } from '../../domain/format';
 import { useTaskActions } from '../../app/task-actions';
@@ -61,6 +61,8 @@ export function TodayScreen() {
   const events = useEventActions();
   const { tables, today, state } = useAppData();
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
+  const route = useRoute<RouteProp<TabParams, 'Today'>>();
+  const focusHandoffId = route.params?.handoffId;
   const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
@@ -361,7 +363,7 @@ export function TodayScreen() {
       {/* ADR 0049 (Q5 a, Z-10): „Do potwierdzenia” (pilne, z plakietką na zakładce) zaraz pod tytułem — nad chipami, polem
           dodawania i paskiem okresu, więc na pierwszym ekranie także przy dużym tekście (dawniej PWD-31 A: nad kartami
           informacyjnymi). Bez przekazań karty nie ma i pole stoi jak dotąd. */}
-      <HandoffInbox incoming={incoming} declined={declined} today={today} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
+      <HandoffInbox incoming={incoming} declined={declined} today={today} focusHandoffId={focusHandoffId} onDecide={(h, accept) => store.dispatch(decideHandoff(h.id, accept))} onClose={(h) => store.dispatch(closeHandoff(h.id))} />
       <GroupFilterBar groups={filterGroups} testID="today-filter" />
       <QuickAddField inputRef={quickInput} value={text} onChangeText={(s) => (setText(s), setIgnore([]), setAsk(null), setError(null))} onSubmit={submit} placeholder={strings['quick.placeholder']}>
         {(addGroups.length > 1 && shownGroup) || shopList ? (

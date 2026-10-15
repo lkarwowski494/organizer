@@ -140,6 +140,14 @@ export function ListScreen({ route, navigation }: Props) {
 
   // Audyt 3 (N-36): usunięta — jak kosz („W koszu · Przywróć”, gdy kosz by ją pokazał), inaczej „Tej listy już nie ma”.
   if (!detail) {
+    if (indicator.state === 'syncing') {
+      return (
+        <Screen testID="screen-list-loading">
+          <BackButton onPress={() => navigation.goBack()} />
+          <Title>{strings['list.loading']}</Title>
+        </Screen>
+      );
+    }
     return <InTrashScreen entity="lists" id={route.params.listId} missing={strings['missing.list']} testID="screen-list" onBack={() => navigation.goBack()} />;
   }
   const { list } = detail;
