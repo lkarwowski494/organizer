@@ -23,7 +23,8 @@ export const listMarks = (l: Pick<List, 'kind' | 'visibility'>, n: number) => [.
 
 export function ListsScreen() {
   const { userId } = useServices();
-  const { tables, today } = useAppData();
+  const { tables, today, state } = useAppData();
+  const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const refresh = usePullRefresh();
   const actions = useTaskActions();
@@ -40,7 +41,7 @@ export function ListsScreen() {
             <NavRow
               testID={`list-${l.id}`}
               title={l.name}
-              subtitle={[l.groupName, l.kind === 'shopping' ? strings['lists.kind.shopping'] : strings['lists.kind.tasks'], ...listMarks(l, l.open)].join(' · ')}
+              subtitle={[l.groupName, l.kind === 'shopping' ? strings['lists.kind.shopping'] : strings['lists.kind.tasks'], ...listMarks(l, l.open), ...(pendingIds.has(l.id) ? [strings['lists.pendingItem']] : [])].join(' · ')}
               line={l.line}
               onPress={() => nav.navigate('List', { listId: l.id })}
             />

@@ -91,6 +91,7 @@ export function TodayScreen() {
   // swoich spraw, a następne, które zostało po cofnięciu odhaczenia na starszej wersji, znika (orphanRepeatOps).
   const rejectedIds = useMemo(() => rejectedCreateIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
   const rejectedDeletes = useMemo(() => rejectedDeleteIds(state), [state.rejected]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   useEffect(() => {
     const canCreate = copiesRepeats(tables, userId);
     const local = (iso: string) => formatIsoDate(localNow(Date.parse(iso)));
@@ -271,6 +272,7 @@ export function TodayScreen() {
         meta={m.meta}
         alert={m.alert}
         checked={false}
+        pending={pendingIds.has(task.id)}
         // PW-14 B (audyt 2, R-11): dziecko z kontem widzi zakupy bez pola odhaczenia — serwer nie przyjmie ich zakończenia.
         onToggle={canDelete(task.group_id) ? () => actions.finishTrip(task.id, task.title) : undefined}
         onOpen={() => nav.navigate('List', { listId: task.id })}
@@ -295,6 +297,7 @@ export function TodayScreen() {
           depth={n?.depth}
           alert={m.alert}
           checked={task.completed_at !== null}
+          pending={pendingIds.has(task.id)}
           onToggle={() => actions.toggle(task)}
           onOpen={() => nav.navigate('Task', { taskId: task.id })}
         />

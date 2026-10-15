@@ -46,6 +46,7 @@ describe('zadania na spotkaniu (D13)', () => {
       { kind: 'create', entity: 'tasks', id: 'new-1', group_id: 'gf', set: { list_id: 'lf', parent_id: null, title: 'Kupić baletki', sort_key: 'a1', deadline_mode: 'event', due_date: null, due_time: null, event_id: 'ev', occurrence_date: '2026-10-07' } },
     ]);
     expect(screen.getByTestId('event-task-new-1')).toBeTruthy();
+    expect(within(screen.getByTestId('event-task-new-1')).getByText(/czeka na wysłanie/)).toBeTruthy();
   });
 
   it('audyt 3 (N-51): „namiot @Ala” przypisuje Alę, „@ja” — mnie; nieznane imię — pytanie; sama osoba — komunikat', async () => {
