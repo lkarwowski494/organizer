@@ -201,7 +201,7 @@ export function CalendarScreen() {
           {day.items.length === 0 && dayEvents.length === 0 && dayDevice.length === 0 && dayCancelled.length === 0 ? (
             <View style={{ gap: 8 }}>
               <Body muted>{strings['calendar.empty']}</Body>
-              <Button kind="ghost" label={strings['calendar.addTask']} testID="calendar-add-task" onPress={() => nav.navigate('AddTask', { date: selected })} />
+              <Button kind="secondary" label={strings['calendar.addTask']} testID="calendar-add-task" onPress={() => nav.navigate('AddTask', { date: selected })} />
             </View>
           ) : null}
           {/* D122: wydarzenia z iPhone'a według godziny i przerwy „wolne …” (dziś od teraz, bez minionych dni). */}

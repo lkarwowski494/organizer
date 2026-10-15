@@ -98,7 +98,7 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
     expect(strings['common.cancel']).toBe('Anuluj');
     expect(strings['common.back']).toBe('Wróć');
     expect(strings['common.close']).toBe('Zamknij');
-    expect(strings['common.undo']).toBe('Cofnij');
+    expect(strings['undo.action']).toBe('Cofnij');
     expect(strings['calendar.addTask']).toBe('Dodaj zadanie na ten dzień');
     expect(strings['event.cancelledSeriesDates']).toBe('Odwołane terminy w tej serii');
   });

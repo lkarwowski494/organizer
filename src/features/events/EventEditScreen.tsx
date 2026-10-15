@@ -31,7 +31,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
-import { Body, Button, CancelButton, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
+import { BackButton, Body, Button, CancelButton, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { PeopleToggles, PersonPicker } from '../../ui/PersonPicker';
