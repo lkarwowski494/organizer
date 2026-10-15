@@ -17,7 +17,7 @@ import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { strings } from '../../i18n/strings.pl';
 import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
-import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
+import { Button, CancelButton, ErrorText, Field, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
 type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
@@ -69,7 +69,7 @@ export function NewListScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-new-list">
-      <BackButton onPress={() => navigation.goBack()} />
+      <CancelButton testID="new-list-cancel" onPress={() => navigation.goBack()} />
       <Title>{kind === 'shopping' ? strings['lists.newShopping'] : strings['lists.new']}</Title>
       <DraftNote draft={saved} />
       {/* Audyt 3 (N-145): jedyne pole tekstowe — Return tworzy listę (ADR 0038 p. 8). */}

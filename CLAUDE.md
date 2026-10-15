@@ -5,6 +5,7 @@ Aplikacja iOS (Expo / React Native, TypeScript) do organizacji codzienności w w
 Claude prowadzi kod i dokumentację; decyzje produktowe podejmuje właściciel.
 
 Dokumentacja projektu (Google Drive, folder „Organizer grup”):
+- Wymagania biznesowe (02 BRD, 117 stron): https://drive.google.com/drive/folders/19bkpKxmaDqCTqIZVO8tvav1cDku7QnxK
 - Rejestr decyzji: https://docs.google.com/document/d/1ta-8A-_mhrFnvrv3GJY0QAKwOF0USgl9MZu5CglBYyk/edit
 - Roadmapa: https://docs.google.com/document/d/1RD4HBt8hhX7rDYekSRtnFGtyVS6x6rmlJbVksWb8Pqo/edit
 - Architektura i plan MVP: https://docs.google.com/document/d/1BiNrwQwPbpwOXcc8FHXmLpvTEwitrwj_TeMxK8bowxg/edit
@@ -62,6 +63,7 @@ ma w komentarzu adres źródła.
   przy nowej funkcji — tylko z zapisanym powodem.
 - Oczekiwania w korpusach liczy niezależna implementacja (inny język lub biblioteka), nie testowany kod.
 - Kod nieosiągalny usuń zamiast wyłączać z pokrycia; `istanbul ignore` tylko z uzasadnieniem w komentarzu.
+- Definicja ukończenia z 9 warstwami testów: `docs/20-definicja-ukonczenia.md`.
 
 ## Architektura (skrót — szczegóły w dokumencie „Architektura i plan MVP”)
 
@@ -89,10 +91,19 @@ ma w komentarzu adres źródła.
 Nawigacja: React Navigation (D26), linki głębokie konfigurowane ręcznie i testowane.
 Natywne katalogi `ios/` i `android/` nie trafiają do repozytorium — generuje je `expo prebuild` w CI.
 
+## Wzorce interakcji (szczegóły: docs/32-wzorce-interakcji.md)
+
+- Okno modalne i arkusz: przycisk rezygnacji „Anuluj” zawsze w lewym górnym rogu nagłówka (`headerLeft`), akcja zatwierdzenia („Dodaj” / „Zapisz”) po prawej stronie (`headerRight`).
+- Ekrany list: stały przycisk dodawania „+” w prawym górnym rogu nagłówka (`headerRight`), etykieta VoiceOver „Dodaj {obiekt}”.
+- Edycja na szkicu (draft) z ostrzeżeniem przed porzuceniem zmian vs natychmiastowy lokalny zapis przełączników i odznaczeń do SQLite (`pending_ops`).
+- Usuwanie z koszem (`KOSZ`) i natychmiastową możliwością cofnięcia („Cofnij” w pasku). Potwierdzenie destrukcyjne `[Anuluj, Usuń ...]`.
+- Słownik terminów: Anuluj (rezygnacja), Wróć (nawigacja stosu), Zamknij (panele info), Cofnij (ostatnia operacja), Przywróć (z kosza), Usuń (destrukcja), Dodaj (tworzenie).
+
 ## Polecenia
 
 ```bash
 npm run check        # typy + lint (0 ostrzeżeń) + wszystkie testy
+npm run test:fast    # szybki przebieg zmienionych testów (jest --onlyChanged)
 npm run test:domain  # tylko testy logiki (Node)
 npx expo install <pakiet>   # zawsze zamiast npm install dla pakietów z kodem natywnym
 ```
@@ -154,10 +165,19 @@ Przed użyciem jakiegokolwiek API Expo/React Native sprawdź dokumentację dla w
 ## Moduły i role (decyzja właściciela 11.10.2026, ADR-0046)
 
 Wspólne standardy z dokumentu „Biblioteka zasad i ról” na Dysku Google właściciela. Obowiązują moduły „aplikacje” oraz
-„research i treści merytoryczne”, a także role: Analityk produktu, Badacz merytoryczny, Programista, Tłumacz, Tester E2E,
-Audytor, Wydawca, Projektant UX (audyt przepływów) i Integrator. Treść zasad i ról jest w bibliotece, a tutaj obowiązuje
-w całości. Gdy podobne zlecenie albo ten sam rodzaj błędu wraca trzeci raz, zaproponuj właścicielowi nową rolę albo
-zasadę do biblioteki.
+„research i treści merytoryczne”, a także role opisane w plikach `.claude/agents/*.md`:
+- `analityk-produktu.md` — specyfikacja wymagań, opcje decyzyjne, przepływy użytkownika,
+- `badacz-merytoryczny.md` — weryfikacja wiedzy dziedzinowej, reguły RRULE/DST, hierarchia źródeł,
+- `programista.md` — implementacja w TypeScript/Expo/SQLite z testami (TDD red-green),
+- `tlumacz.md` — polskie teksty UI (`strings.pl.ts`), odmiana (`plural.ts`), spójny słownik,
+- `tester-e2e.md` — analiza i pisanie scenariuszy Maestro, zrzuty ekranu,
+- `audytor.md` — niezależny audyt przed wydaniem (tylko krytyczne i wysokie blokują),
+- `wydawca.md` — przygotowanie wydań TestFlight i App Store,
+- `marketing.md` — organiczne dotarcie, ASO, brak śledzenia,
+- `projektant-ux.md` — spójność interakcji (`docs/32-wzorce-interakcji.md`) i dostępność,
+- `integrator.md` — synchronizacja Supabase, RLS, migracje bazy i testy kontraktowe.
+
+Treść zasad i ról jest w bibliotece, a tutaj obowiązuje w całości. Gdy podobne zlecenie albo ten sam rodzaj błędu wraca trzeci raz, zaproponuj właścicielowi nową rolę albo zasadę do biblioteki.
 
 ## Koszty i limity (właściciel płaci tylko za Apple Developer)
 

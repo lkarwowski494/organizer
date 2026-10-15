@@ -1029,6 +1029,26 @@ export function BackButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** Przycisk rezygnacji w nagłówku formularzy i arkuszy (docs/32 wzorzec 1: zawsze „Anuluj” po lewej). */
+export function CancelButton({ onPress, testID = 'cancel-button' }: { onPress: () => void; testID?: string }) {
+  const { c, font, size } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={strings['common.cancel']} testID={testID} onPress={onPress} style={{ minHeight: size.TOUCH_TARGET, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' }}>
+      <Text style={{ flexShrink: 1, fontFamily: font.text700, fontSize: size.BODY, color: c.ink }}>{strings['common.cancel']}</Text>
+    </Pressable>
+  );
+}
+
+/** Przycisk dodawania w nagłówku ekranów (docs/32 wzorzec 2: „+” po prawej z etykietą dostępności). */
+export function AddButton({ onPress, label, testID = 'header-add-button' }: { onPress: () => void; label: string; testID?: string }) {
+  const { c, size } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testID} onPress={onPress} style={{ minWidth: size.TOUCH_TARGET, minHeight: size.TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' }}>
+      <Glyph name="add" color={c.ink} />
+    </Pressable>
+  );
+}
+
 /**
  * Włącz/wyłącz w Ustawieniach (audyt 2, M-308; decyzja PWD-39 A z 8.10.2026): systemowy przełącznik iOS w wierszu zamiast
  * pigułek z trzema różnymi napisami. Apple HIG Toggles (https://developer.apple.com/design/human-interface-guidelines/toggles):

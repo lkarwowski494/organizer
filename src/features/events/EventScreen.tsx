@@ -127,6 +127,15 @@ export function EventScreen({ route, navigation }: Props) {
   const defs = seriesOf(tables, eventId);
   const taskLists = listsView(tables, userId, d.event.group_id).filter((l) => l.kind === 'tasks');
   const chosenList = taskLists.find((l) => l.id === listId) ?? taskLists[0];
+  const cancelledOverrides = useMemo(
+    () =>
+      recurring
+        ? d.overrides
+            .filter((o) => o.cancelled && o.occurrence_date !== date)
+            .sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date))
+        : [],
+    [recurring, d.overrides, date],
+  );
 
   const edit = (scope: Scope) => navigation.navigate('EventEdit', { eventId, date, scope });
   const finish = (scope: Scope, to: Relink | null) => {
@@ -303,6 +312,25 @@ export function EventScreen({ route, navigation }: Props) {
               onCancel={() => setTaskAsk(null)}
             />
           ) : null}
+        </View>
+      ) : null}
+
+      {recurring && cancelledOverrides.length > 0 ? (
+        <View style={{ gap: 8 }}>
+          <SectionTitle>{strings['event.cancelledSeriesDates']}</SectionTitle>
+          {cancelledOverrides.map((o) => (
+            <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <Body muted style={{ flex: 1 }}>{formatLongDate(parseIsoDate(o.occurrence_date), today)}</Body>
+              {d.canEdit ? (
+                <Button
+                  kind="secondary"
+                  label={strings['event.restore']}
+                  testID={`event-restore-${o.occurrence_date}`}
+                  onPress={() => store.dispatch(restoreOccurrence(d, o.occurrence_date))}
+                />
+              ) : null}
+            </View>
+          ))}
         </View>
       ) : null}
 

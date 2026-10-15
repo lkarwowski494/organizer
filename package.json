@@ -67,6 +67,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "jest",
+    "test:fast": "jest --onlyChanged",
     "test:domain": "jest --selectProjects domain",
     "check": "npm run typecheck && npm run lint && npm run test:coverage && npm run check:functions && npm run check:corpus && npm run check:licenses",
     "check:functions": "deno check supabase/functions && deno lint supabase/functions && deno test --no-prompt --clean --coverage=coverage/deno supabase/functions && deno coverage coverage/deno --lcov --output=coverage/deno.lcov && node scripts/deno-coverage-check.mjs coverage/deno.lcov",
