@@ -202,7 +202,7 @@ export const linking: LinkingOptions<RootStackParams> = {
     // (https://reactnavigation.org/docs/configuring-links/).
     initialRouteName: 'Tabs',
     screens: {
-      Tabs: { screens: { Today: 'today', Lists: 'lists', Calendar: 'calendar', Groups: 'groups' } },
+      Tabs: { screens: { Today: { path: 'today/:handoffId?', alias: ['handoff/:handoffId'] }, Lists: 'lists', Calendar: 'calendar', Groups: 'groups' } },
       Invite: { path: 'invite/:token', alias: ['join', 'j'] },
       List: 'list/:listId',
       Task: 'task/:taskId',

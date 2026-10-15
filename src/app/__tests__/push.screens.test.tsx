@@ -376,4 +376,44 @@ describe('dotknięcie powiadomienia otwiera sprawę (PWD-16, decyzja właścicie
     expect(await screen.findByTestId('screen-task')).toBeTruthy();
     expect(screen.getByDisplayValue('Kupić kwiaty')).toBeTruthy();
   });
+
+  it('przekazanie: dotknięcie otwiera Moje sprawy z wyróżnieniem albo komunikatem o zakończonym', async () => {
+    const { push, tap } = opener();
+    const base = sampleBase();
+    put(base, 'handoffs', 'h-in', {
+      id: 'h-in', group_id: 'gf', entity: 'tasks', entity_id: 't-paczka', occurrence_date: null,
+      from_member: 'ala', to_member: 'mf', status: 'pending', closed: false, version: 1, created_at: '2026-10-07T07:00:00Z', deleted_at: null,
+    });
+    await open({ push, base });
+    await tap('handoff/h-in');
+    expect(await screen.findByTestId('screen-today')).toBeTruthy();
+    expect(screen.getByTestId('handoff-h-in')).toBeTruthy();
+
+    await tap('handoff/h-unknown');
+    expect(await screen.findByTestId('handoff-already-handled')).toBeTruthy();
+    expect(screen.getByText('To przekazanie zostało już przyjęte, odrzucone lub wycofane.')).toBeTruthy();
+    await press(screen.getByTestId('handoff-dismiss-handled'));
+    expect(screen.queryByTestId('handoff-already-handled')).toBeNull();
+  });
+
+  it('sprawa jeszcze niepobrana w trakcie pobierania (syncing) — ekran ładowania zamiast braku', async () => {
+    const { push, tap } = opener();
+    const s = setup({ push, indicator: { state: 'syncing', pending: 0 } });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    await tap('task/t-nieznane');
+    expect(await screen.findByTestId('screen-task-loading')).toBeTruthy();
+    expect(screen.getByText('Pobieramy zadanie…')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+
+    await tap('event/e-nieznane');
+    expect(await screen.findByTestId('screen-event-loading')).toBeTruthy();
+    expect(screen.getByText('Pobieramy wydarzenie…')).toBeTruthy();
+    await press(screen.getByLabelText('Wróć'));
+
+    await tap('list/l-nieznane');
+    expect(await screen.findByTestId('screen-list-loading')).toBeTruthy();
+    expect(screen.getByText('Pobieramy listę…')).toBeTruthy();
+  });
 });
+

@@ -78,7 +78,7 @@ export function TaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
   const actions = useTaskActions();
   const undo = useUndo();
-  const { tables, today, state } = useAppData();
+  const { tables, today, state, indicator } = useAppData();
   const { c, font, size } = useTheme();
   const raw = tables.tasks?.[route.params.taskId];
   const task = raw ? asTask(raw) : null;
@@ -109,6 +109,14 @@ export function TaskScreen({ route, navigation }: Props) {
   const closeCycle = () => (setCycleAsk(null), setDueFocus((k) => k + 1));
 
   if (!task || !detail) {
+    if (indicator.state === 'syncing') {
+      return (
+        <Screen testID="screen-task-loading">
+          <BackButton onPress={() => navigation.goBack()} />
+          <Title>{strings['task.loading']}</Title>
+        </Screen>
+      );
+    }
     return (
       <MissingScreen testID="screen-task-missing" text={strings['missing.task']} onBack={() => navigation.goBack()} />
     );

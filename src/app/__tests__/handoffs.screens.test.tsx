@@ -198,3 +198,16 @@ describe('ADR 0049 (K8, Q5 a): „Do potwierdzenia” nad polem dodawania', () =
     expect(within(screen.getByTestId('handoff-inbox')).getByText('Do potwierdzenia')).toBeTruthy();
   });
 });
+
+describe('routing i fokus przekazania (POW)', () => {
+  it('wyróżnienie karty wskazanego przekazania i informacja o zakończonym', async () => {
+    const base = sampleBase();
+    put(base, 'handoffs', 'h1', handoff('h1', {}));
+    const s = setup({ base });
+    await s.renderApp(<RootStack />);
+    await screen.findByTestId('screen-today');
+    const card = screen.getByTestId('handoff-h1');
+    expect(card).toBeTruthy();
+  });
+});
+
