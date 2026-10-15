@@ -9,6 +9,7 @@ import { DraftNote, useFormDraft } from '../../app/form-draft';
 import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
+import { strings } from '../../i18n/strings.pl';
 import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
 import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';

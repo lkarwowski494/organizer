@@ -16,6 +16,7 @@ import { choicesError, sanitizeListDraft } from '../../domain/views/form-choices
 import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { strings } from '../../i18n/strings.pl';
+import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
 
