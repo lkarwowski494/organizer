@@ -337,7 +337,6 @@ export const strings = {
   'lists.create': 'Utwórz listę',
   'lists.open': (n: number) => `${n} ${plural(n, { one: 'otwarte', few: 'otwarte', many: 'otwartych' })}`,
   'lists.inCart': 'W koszyku',
-  'lists.inCartCount': (n: number) => `W koszyku (${n})`,
   // Audyt 3 (N-52): zrobione zwinięte jak na ekranie wydarzenia (event.tasksDone); starsze na życzenie.
   'lists.doneCount': (n: number) => `Zrobione (${n})`,
   'lists.showOlder': (n: number) => `Pokaż starsze (${n})`,
