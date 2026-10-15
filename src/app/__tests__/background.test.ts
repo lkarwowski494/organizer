@@ -265,4 +265,15 @@ describe('odświeżenie w tle (D159)', () => {
     registerWakeTask(deps({ session: { current: async () => Promise.reject(new Error('x')), onChange: () => () => {} } }).d, tm as never, n as never);
     expect(await task()).toBe(R.Failed);
   });
+
+  it('odświeżenie w tle z mostkiem widżetu: aktualizuje zrzut danych po pobraniu zmian', async () => {
+    const updateSnapshot = jest.fn();
+    const clearSnapshot = jest.fn();
+    const widget = { updateSnapshot, clearSnapshot };
+    const { d } = deps({ widget });
+    expect(await refreshInBackground(d)).toBe('new');
+    expect(updateSnapshot).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(updateSnapshot.mock.calls[0]![0]);
+    expect(payload.version).toBe(1);
+  });
 });

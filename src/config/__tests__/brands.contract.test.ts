@@ -69,7 +69,7 @@ function files(p: string): string[] {
   } catch {
     return [];
   }
-  if (st.isFile()) return TEXT.has(extname(p)) ? [p] : [];
+  if (st.isFile()) return TEXT.has(extname(p)) ? [p.replace(/\\/g, '/')] : [];
   return readdirSync(abs).filter((n) => !SKIP_DIRS.has(n)).flatMap((n) => files(join(p, n)));
 }
 

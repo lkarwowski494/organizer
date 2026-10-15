@@ -500,3 +500,4 @@ export function calendarMonth(t: Tables, userId: string, year: number, month: nu
 
 const dayDiff = (a: string, b: string) => toDayNumber(parseIsoDate(a)) - toDayNumber(parseIsoDate(b));
 
+export { buildWidgetPayload, type WidgetPayload, type WidgetItem, type WidgetItemKind } from './widget';
