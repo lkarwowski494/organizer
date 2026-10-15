@@ -2,8 +2,8 @@
  * Testy kontraktowe wzorców interakcji (docs/32-wzorce-interakcji.md).
  * Pilnują spójności interfejsu, wzorców przycisków, etykiet dostępności i braku zakazanych symboli.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { strings } from '../../i18n/strings.pl';
 
 const root = join(__dirname, '../../..');
@@ -85,12 +85,11 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
       .concat(walk(join(srcDir, 'app'), (f) => f.endsWith('.ts') || f.endsWith('.tsx')))
       .filter((f) => !f.includes('__tests__'));
 
-    for (const file of tsFiles) {
+    const alertFiles = tsFiles.filter((file) => readFileSync(file, 'utf8').includes('Alert.alert('));
+    expect(alertFiles.length).toBeGreaterThan(0);
+    for (const file of alertFiles) {
       const content = readFileSync(file, 'utf8');
-      if (content.includes('Alert.alert(')) {
-        // Wszystkie wywołania Alert.alert z przyciskiem Anuluj mają określony style: 'cancel'
-        expect(content).toContain("style: 'cancel'");
-      }
+      expect(content).toContain("style: 'cancel'");
     }
   });
 
@@ -104,12 +103,14 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
   });
 
   test('brak ogólnikowych i pustych komunikatów błędów „Błąd” bez kontekstu', () => {
-    const errorEntries = Object.entries(strings).filter(([key]) => key.includes('error'));
-    for (const [, val] of errorEntries) {
-      if (typeof val === 'string') {
-        expect(val.trim()).not.toBe('Błąd');
-        expect(val.trim()).not.toBe('Nie udało się');
-      }
+    const errorStrings = Object.entries(strings)
+      .filter(([key, val]) => key.includes('error') && typeof val === 'string')
+      .map(([, val]) => val as string);
+
+    expect(errorStrings.length).toBeGreaterThan(0);
+    for (const val of errorStrings) {
+      expect(val.trim()).not.toBe('Błąd');
+      expect(val.trim()).not.toBe('Nie udało się');
     }
   });
 
