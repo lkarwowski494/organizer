@@ -42,7 +42,8 @@ export function CalendarScreen() {
   const refresh = usePullRefresh();
   const actions = useTaskActions();
   const eventActions = useEventActions();
-  const { tables, today } = useAppData();
+  const { tables, today, state } = useAppData();
+  const pendingIds = useMemo(() => new Set(state.pending.filter((op) => op.seq > state.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [state]);
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const { c, font, size, line } = useTheme();
   const [ym, setYm] = useState({ y: today.y, m: today.m });
@@ -102,6 +103,7 @@ export function CalendarScreen() {
           // PWD-11 A: zrobione zakupy — przekreślone, bez odhaczania (cofnięcie jest na pasku „Cofnij”).
           readOnly={task.completed_at !== null}
           checked={task.completed_at !== null}
+          pending={pendingIds.has(task.id)}
           // PW-14 B (audyt 2, R-11): dziecko z kontem — zakupy bez pola odhaczenia.
           onToggle={roles.get(task.group_id)?.role !== 'child' ? () => actions.finishTrip(task.id, task.title) : undefined}
           onOpen={() => nav.navigate('List', { listId: task.trip!.listId })}
@@ -109,7 +111,7 @@ export function CalendarScreen() {
       );
     return (
       <SwipeRow key={x.key} title={task.title} enabled={roles.get(task.group_id)?.role !== 'child'} onDelete={() => actions.remove(task)} testID={`swipe-cal-${task.id}`}>
-        <StationRow testID={`cal-${task.id}`} title={task.title} line={task.line} group={groupLabel(task.group_id, task.groupName)} depth={n.depth} when={m.when} meta={m.meta} alert={m.alert} checked={task.completed_at !== null} onToggle={() => actions.toggle(task)} onOpen={() => nav.navigate('Task', { taskId: task.id })} />
+        <StationRow testID={`cal-${task.id}`} title={task.title} line={task.line} group={groupLabel(task.group_id, task.groupName)} depth={n.depth} when={m.when} meta={m.meta} alert={m.alert} checked={task.completed_at !== null} pending={pendingIds.has(task.id)} onToggle={() => actions.toggle(task)} onOpen={() => nav.navigate('Task', { taskId: task.id })} />
       </SwipeRow>
     );
   };

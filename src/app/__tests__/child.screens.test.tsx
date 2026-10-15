@@ -51,7 +51,7 @@ describe('zadanie dziecka bez konta (decyzja właściciela z 8.10.2026, PW-1)', 
     await fireEvent.changeText(screen.getByTestId('quick-add'), 'spakować plecak dziś 20:00 @Tymek');
     await press(screen.getByLabelText('Dodaj'));
     expectOps(s.store, [{ kind: 'create', entity: 'lists', id: 'new-1', group_id: 'gf', set: { kind: 'tasks', name: 'Zadania', visibility: 'group' } }, { kind: 'create', entity: 'tasks', id: 'new-2', group_id: 'gf', set: { list_id: 'new-1', parent_id: null, title: 'spakować plecak', sort_key: 'a0', deadline_mode: 'own', due_date: '2026-10-07', due_time: '20:00', assignee_member_id: 'tymek' } }]);
-    expect(await screen.findByLabelText('spakować plecak, 20:00, Rodzina, dla: Tymek')).toBeTruthy();
+    expect(await screen.findByLabelText(/^spakować plecak, 20:00, Rodzina, dla: Tymek/)).toBeTruthy();
     await press(screen.getByLabelText('Listy'));
     await press(await screen.findByTestId('list-lf'));
     expect(await screen.findByLabelText(/^Posprzątać pokój/)).toBeTruthy();

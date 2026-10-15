@@ -273,6 +273,22 @@ describe('Kalendarz jak Moje sprawy (M-129) i decyzje PWD', () => {
     expect(within(row).getByText('Zakupy na weekend').props.style.textDecorationLine).toBe('line-through');
     expect(within(row).getByText(/zrobione dziś/)).toBeTruthy();
   });
+
+  it('N3: zadanie ze zmianą oczekującą na wysłanie wyświetla „czeka na wysłanie” w Moich sprawach', async () => {
+    const s = await open();
+    expect(within(screen.getByTestId('today-t-paczka')).queryByText(/czeka na wysłanie/)).toBeNull();
+    await act(async () => s.store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { note: 'ważne' } }));
+    expect(within(screen.getByTestId('today-t-paczka')).getByText(/czeka na wysłanie/)).toBeTruthy();
+  });
+
+  it('N3: zadanie ze zmianą oczekującą na wysłanie wyświetla „czeka na wysłanie” w Kalendarzu', async () => {
+    const s = await open();
+    await press(screen.getByTestId('tab-Calendar'));
+    await screen.findByTestId('screen-calendar');
+    expect(within(screen.getByTestId('cal-t-paczka')).queryByText(/czeka na wysłanie/)).toBeNull();
+    await act(async () => s.store.dispatch({ kind: 'patch', entity: 'tasks', id: 't-paczka', set: { note: 'ważne' } }));
+    expect(within(screen.getByTestId('cal-t-paczka')).getByText(/czeka na wysłanie/)).toBeTruthy();
+  });
 });
 
 describe('M-203: zegar dnia', () => {

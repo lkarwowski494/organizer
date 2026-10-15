@@ -44,7 +44,8 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
-  const { tables, today } = useAppData();
+  const { tables, today, state: appState } = useAppData();
+  const pendingIds = useMemo(() => new Set(appState.pending.filter((op) => op.seq > appState.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [appState]);
   const { c, font, size } = useTheme();
   const actions = useTaskActions();
   const undo = useUndo();
@@ -117,6 +118,7 @@ export function EventScreen({ route, navigation }: Props) {
           when={m.when}
           meta={m.meta}
           checked={t.completed_at !== null}
+          pending={pendingIds.has(t.id)}
           onToggle={canCheck(t) ? () => actions.toggle(t) : undefined}
           onOpen={() => navigation.navigate('Task', { taskId: t.id })}
         />
