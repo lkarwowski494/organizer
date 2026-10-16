@@ -17,6 +17,7 @@ import { config } from '../../config';
 import { strings } from '../../i18n/strings.pl';
 import { BackButton, Body, Button, ErrorText, Field, NavRow, Screen, SectionTitle, Segmented, SwitchRow, SyncChip, Title } from '../../ui/components';
 import { useAppearance } from '../../ui/theme';
+import { LANGUAGE_PREF_KEY, useLanguage } from '../../i18n';
 import { useReminderSettings } from '../../app/reminders';
 import { useDeviceCalendar } from '../../app/calendar-sync';
 import { CAL_ASKED } from '../calendar/DeviceCalendarCard';
@@ -39,6 +40,7 @@ export function SettingsScreen({ navigation, route }: Props) {
   const access = useAppAccess();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
+  const { language, setLanguage } = useLanguage();
   const reminders = useReminderSettings();
   const calendar = useDeviceCalendar();
   const travel = useTravel();
@@ -161,16 +163,30 @@ export function SettingsScreen({ navigation, route }: Props) {
       <BackButton onPress={() => navigation.goBack()} />
       <Title>{strings[`settings.section.${section}`]}</Title>
       {section === 'appearance' ? (
-        <Segmented
-          label={strings['settings.section.appearance']}
-          value={appearance}
-          onChange={setAppearance}
-          options={[
-            { value: 'system', label: strings['settings.appearance.system'] },
-            { value: 'light', label: strings['settings.appearance.light'] },
-            { value: 'dark', label: strings['settings.appearance.dark'] },
-          ]}
-        />
+        <>
+          <Segmented
+            label={strings['settings.section.appearance']}
+            value={appearance}
+            onChange={setAppearance}
+            options={[
+              { value: 'system', label: strings['settings.appearance.system'] },
+              { value: 'light', label: strings['settings.appearance.light'] },
+              { value: 'dark', label: strings['settings.appearance.dark'] },
+            ]}
+          />
+          <Segmented
+            label={strings['settings.language']}
+            value={language}
+            onChange={(l) => {
+              setLanguage(l as 'pl' | 'en');
+              prefs?.set(LANGUAGE_PREF_KEY, l).catch(() => {});
+            }}
+            options={[
+              { value: 'pl', label: strings['settings.language.pl'] },
+              { value: 'en', label: strings['settings.language.en'] },
+            ]}
+          />
+        </>
       ) : null}
       {section === 'adding' ? (
         <>

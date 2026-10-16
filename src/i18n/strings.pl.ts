@@ -11,8 +11,9 @@ import type { CivilDate } from '../domain/civil-date';
 import type { Entity } from '../domain/sync-engine/client';
 import { formatMinutes } from '../domain/format';
 import { plural } from '../domain/plural';
+import { getEnDictionary, getLanguage } from './state';
 
-export const strings = {
+const plStrings = {
   'app.loading': 'Wczytywanie…',
 
   /** Podpis członka po usunięciu konta (D49); serwer wpisuje ten sam tekst (private.deleted_user_label, test kontraktowy). */
@@ -806,6 +807,9 @@ export const strings = {
   'settings.appearance.system': 'Jak w iPhonie',
   'settings.appearance.light': 'Jasny',
   'settings.appearance.dark': 'Ciemny',
+  'settings.language': 'Język',
+  'settings.language.pl': 'Polski',
+  'settings.language.en': 'English',
   'settings.rejectedCount': (n: number) => `${n} ${plural(n, { one: 'zmiana', few: 'zmiany', many: 'zmian' })}`,
 
   'rejected.title': 'Odrzucone zmiany',
@@ -1180,3 +1184,43 @@ export const strings = {
   'settings.subscriptionExpired': 'Okres próbny wygasł (tryb do odczytu)',
   'settings.subscriptionManage': 'Zarządzaj subskrypcją',
 } as const;
+
+export type Strings = typeof plStrings;
+
+export const rawStringsPl: Strings = plStrings;
+
+let cachedEn: Record<string | symbol, unknown> | null = null;
+function resolveEn(): Record<string | symbol, unknown> | null {
+  if (cachedEn) return cachedEn;
+  const dict = getEnDictionary();
+  if (dict) {
+    cachedEn = dict;
+    return dict;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const req = require('./strings.en') as { strings?: Record<string | symbol, unknown> };
+    if (req?.strings) {
+      cachedEn = req.strings;
+      return req.strings;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export const strings: Strings = new Proxy(plStrings as unknown as Strings, {
+  get(_target, prop: string | symbol) {
+    if (getLanguage() === 'en') {
+      const en = resolveEn();
+      if (en) {
+        const val = en[prop];
+        if (val !== undefined) return val;
+      }
+    }
+    return (plStrings as Record<string | symbol, unknown>)[prop];
+  },
+});
+
+

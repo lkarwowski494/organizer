@@ -12,6 +12,7 @@ import type { DbAdapter } from '../data/db/adapter';
 import { isNewerSchema, migrate } from '../data/db/migrations';
 import { adoptDevice, materialize } from '../domain/sync-engine/client';
 import { strings } from '../i18n/strings.pl';
+import { LANGUAGE_PREF_KEY, setLanguage } from '../i18n';
 import type { AccountApi, ClientError } from '../sync/account';
 import { SyncRuntime, type Timer } from '../sync/runtime';
 import { groupWaker } from '../sync/wake';
@@ -157,6 +158,11 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   const local = useMemo(() => ({ load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) }), [db]);
   // D175: ustawienia konta w jego bazie; dawne wspólne ustawienia z pęku kluczy przejmuje pierwsze konto.
   const prefs = useMemo(() => accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local)), [local, deps]);
+  useEffect(() => {
+    prefs.get(LANGUAGE_PREF_KEY).then((l) => {
+      if (l === 'en' || l === 'pl') setLanguage(l);
+    }).catch(() => {});
+  }, [prefs]);
   // Audyt 3 (N-74): każde zgłoszenie błędu i samosprawdzenia tylko przy włączonych raportach (Ustawienia → Konto i dane).
   const reportError = useMemo(() => gatedReport(local, (e) => deps.account.reportError(e)), [local, deps]);
   // Ustawienia telefonu (pęk kluczy). Audyt 3 (N-4): build 22 zapisywał listę kalendarzy lustra w bazie konta, a

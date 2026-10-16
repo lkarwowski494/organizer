@@ -283,4 +283,48 @@ describe('features/monetization: useAppAccess i PaywallModal', () => {
     });
     expect(screen.getByTestId('restore-result').props.children).toBe('false');
   });
+
+  it('checkCanCreateOrShowPaywall() blokuje tworzenie i otwiera paywall po wygaśnięciu trialu', async () => {
+    let checkResult = true;
+    function GateConsumer() {
+      const access = useAppAccess();
+      return (
+        <View>
+          <Text testID="gate-can">{String(access.canCreate)}</Text>
+          <Text testID="gate-show">{String(access.showPaywall)}</Text>
+          <Button
+            title="Gate Check"
+            testID="gate-check-btn"
+            onPress={() => {
+              checkResult = access.checkCanCreateOrShowPaywall();
+            }}
+          />
+        </View>
+      );
+    }
+
+    await render(
+      <ThemeProvider>
+        <AppAccessProvider
+          initialState={{
+            plan: 'free_trial',
+            trialStartedAt: '2026-09-01T00:00:00.000Z',
+            expiresAt: null,
+            createdCount: 20,
+          }}
+          nowIso={() => '2026-10-16T12:00:00.000Z'}
+        >
+          <GateConsumer />
+        </AppAccessProvider>
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByTestId('gate-can').props.children).toBe('false');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('gate-check-btn'));
+    });
+    expect(checkResult).toBe(false);
+    expect(screen.getByTestId('gate-show').props.children).toBe('true');
+  });
 });
+

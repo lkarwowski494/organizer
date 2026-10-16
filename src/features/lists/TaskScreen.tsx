@@ -43,6 +43,7 @@ import { DueFields } from '../../ui/DueFields';
 import { useLiveText } from '../../ui/live-text';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { PersonPicker } from '../../ui/PersonPicker';
+import { useAppAccess } from '../monetization';
 import { useTheme } from '../../ui/theme';
 import { useUndo } from '../../ui/undo';
 
@@ -76,6 +77,7 @@ const groupName = (g: { kind: string; name: string }) => (g.kind === 'personal' 
 
 export function TaskScreen({ route, navigation }: Props) {
   const { userId, store, now, newId } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, state, indicator } = useAppData();
@@ -198,7 +200,9 @@ export function TaskScreen({ route, navigation }: Props) {
   const addSub = () => {
     if (sub.trim() === '') return;
     if (subParsed.title.trim() === '') return setSubError(strings['form.error.title']);
+    if (!checkCanCreateOrShowPaywall()) return;
     store.dispatch(createTask({ id: newId(), groupId: task.group_id, listId: task.list_id, parentId: task.id, parsed: subParsed, sortKey: appendKey(tables, task.list_id, task.id) }));
+    void recordCreation();
     setSub('');
     setSubIgnore([]);
     setSubError(null);

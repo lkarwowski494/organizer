@@ -28,6 +28,7 @@ import { BackButton, Body, Button, Card, ErrorText, Field, MissingScreen, Screen
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
 import { useTheme } from '../../ui/theme';
+import { useAppAccess } from '../monetization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Timetable'>;
 const SCHOOL_DAYS = [0, 1, 2, 3, 4];
@@ -36,6 +37,7 @@ const cap = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(1);
 
 export function TimetableScreen({ route, navigation }: Props) {
   const { userId, store, newId } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const { tables, today } = useAppData();
   const { c } = useTheme();
   const undo = useUndo();
@@ -88,6 +90,7 @@ export function TimetableScreen({ route, navigation }: Props) {
   // `choice` — po podglądzie (audyt 2, M-14): co z zadaniami z terminów, których po zmianie nie będzie.
   // `base` — znacznik planu, który zastępuję (po „Zapisz mój plan” — obecny).
   const save = (choice?: LostChoice, base = known) => {
+    if (!checkCanCreateOrShowPaywall()) return;
     const now = memberTimetable(tables, d.group.id, m.member_id, today);
     if (planStamp(now) !== base) return (setPreview(null), setChangedMeanwhile(true));
     const edit = now.series.length ? { tables, userId, series: now.series } : undefined;
@@ -101,6 +104,7 @@ export function TimetableScreen({ route, navigation }: Props) {
     if (!choice && (r.effects.lost.length || r.effects.overridesLost)) return setPreview(r.effects);
     draft.saved();
     store.dispatch(r.ops);
+    void recordCreation();
     // Cofnięcie: nowe serie do kosza, stary plan wraca — liczone w chwili cofnięcia (kopie stałych zadań z międzyczasu).
     // Audyt 3 (N-35): plan zmieniony od zapisu (np. przez drugiego rodzica) nie jest cofany — odcisk zmienionych wierszy
     // (D194); N-141: pasek mówi, czyj plan i w której grupie.

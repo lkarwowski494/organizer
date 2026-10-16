@@ -37,6 +37,7 @@ import { useTheme } from '../../ui/theme';
 import { OccurrencePicker } from './OccurrencePicker';
 import { RsvpBox } from './RsvpBox';
 import { rsvpView } from '../../domain/views/rsvp';
+import { useAppAccess } from '../monetization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Event'>;
 
@@ -44,6 +45,7 @@ const SCOPES: Scope[] = ['this', 'following', 'all'];
 
 export function EventScreen({ route, navigation }: Props) {
   const { userId, store, newId, calendar } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const { tables, today, state: appState, indicator } = useAppData();
   const pendingIds = useMemo(() => new Set(appState.pending.filter((op) => op.seq > appState.ackedSeq).flatMap((op) => ('id' in op ? [op.id] : []))), [appState]);
   const { c, font, size } = useTheme();
@@ -172,10 +174,12 @@ export function EventScreen({ route, navigation }: Props) {
   const series = every === 'all' && recurring;
   const addTask = (answers: EventTaskAnswers = {}) => {
     if (!taskTitle.trim()) return;
+    if (!checkCanCreateOrShowPaywall()) return;
     const r = eventTaskOps(tables, userId, { groupId: d.event.group_id, eventId, occurrenceDate: date, listId: chosenList?.id ?? null, text: taskTitle, series, newId }, answers);
     if (r.kind === 'empty') return setTaskError(strings['form.error.title']);
     if (r.kind !== 'ok') return setTaskAsk({ r, answers });
     store.dispatch(r.ops);
+    void recordCreation();
     setTaskTitle('');
     setTaskAsk(null);
   };

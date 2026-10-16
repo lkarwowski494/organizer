@@ -23,6 +23,7 @@ import { BackButton, Body, Button, ErrorText, Field, Screen, SectionTitle, Segme
 import { PeopleToggles } from '../../ui/PersonPicker';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { useUndo } from '../../ui/undo';
+import { useAppAccess } from '../monetization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Routine'>;
 
@@ -42,6 +43,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   const [end, setEnd] = useState('');
   const [who, setWho] = useState<string[]>([]);
   const [steps, setSteps] = useState<string[]>(['']);
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const [error, setError, attempt] = useFormError<string>();
   const stepRefs = useRef<(TextInput | null)[]>([]);
   const members = groupDetail(tables, userId, groupId)?.members ?? [];
@@ -57,6 +59,7 @@ export function RoutineScreen({ route, navigation }: Props) {
   useAnnounce(route.params?.kindSwitch ? strings['routine.title'] : null);
 
   const save = () => {
+    if (!checkCanCreateOrShowPaywall()) return;
     const r = routineOps({ tables, userId, groupId, title, days, start, end, participantIds: who, steps, today, newId });
     if ('error' in r) {
       const e = r.error;
@@ -66,6 +69,7 @@ export function RoutineScreen({ route, navigation }: Props) {
     }
     draft.saved();
     store.dispatch(r.ops);
+    void recordCreation();
     defaultGroup.remember(groupId);
     // Audyt 2 (E-3): cofnięcie liczone w chwili cofnięcia — z kopiami kroków dołożonymi w międzyczasie (przepis „routine”
     // w AppProvider, także po ponownym uruchomieniu — D194 b). Audyt 3 (N-35): rutyna zmieniona w międzyczasie (np. przez

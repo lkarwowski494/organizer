@@ -30,11 +30,13 @@ import { useLiveText } from '../../ui/live-text';
 import { useDeleteGroup } from './delete-group';
 import { JoinCodeCard } from './JoinCodeCard';
 import { groupErrorText } from './server-errors';
+import { useAppAccess } from '../monetization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Group'>;
 
 export function GroupScreen({ route, navigation }: Props) {
   const { userId, store, account, newId, prefs } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const { tables, today } = useAppData();
   const { c, line } = useTheme();
   const d = useMemo(() => groupDetail(tables, userId, route.params.groupId), [tables, userId, route.params.groupId]);
@@ -98,9 +100,11 @@ export function GroupScreen({ route, navigation }: Props) {
   // drugi rodzic jako członek nie doda dziecka ani nie zaprosi babci. Admina zaprasza tylko owner (canInviteAdmin).
   const addChildNow = () => {
     if (child.trim() === '') return setChildError(strings['groups.error.childEmpty']);
+    if (!checkCanCreateOrShowPaywall()) return;
     const memberId = newId();
     const op = addChild({ memberId, groupId: d.group.id, name: child.trim() });
     store.dispatch(op);
+    void recordCreation();
     // Audyt 3 (N-163): jak każde dodanie — „Dodano + rodzaj: tytuł · gdzie” z „Cofnij” (docs/glossary.md); cofnięcie
     // usuwa profil (bez konta, więc bez śladu usunięcia).
     undo.show(strings['groups.childAdded'](child.trim(), d.group.name), { ops: [remove('group_members', memberId)] }, { changed: [op] });

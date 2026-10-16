@@ -380,7 +380,22 @@ export function ListScreen({ route, navigation }: Props) {
           )}
         </TripBox>
       ) : null}
-      {editable ? <StaplesCard list={listRow} missing={missingStaples(tables, list.id).length} onAddMissing={() => store.dispatch(addStaplesOps(tables, list.id, newId))} onEdit={(op) => store.dispatch(op)} onRemove={dropStaple} /> : null}
+      {editable ? (
+        <StaplesCard
+          list={listRow}
+          missing={missingStaples(tables, list.id).length}
+          onAddMissing={() => {
+            if (!checkCanCreateOrShowPaywall()) return;
+            store.dispatch(addStaplesOps(tables, list.id, newId));
+            void recordCreation();
+          }}
+          onEdit={(op) => {
+            if (!checkCanCreateOrShowPaywall()) return;
+            store.dispatch(op);
+          }}
+          onRemove={dropStaple}
+        />
+      ) : null}
       {/* Dziecko (D34) tylko odhacza — bez usuwania listy; dopisuje tylko produkty na listę zakupów (audyt 3, Q6d A;
           serwer: tasks_guard z migracji 20261010120000). */}
       {canDelete || shopping ? (
@@ -454,7 +469,18 @@ export function ListScreen({ route, navigation }: Props) {
           {olderOpen ? doneSplit.older.flatMap(doneRow) : null}
         </Collapsible>
       ) : null}
-      {editable ? <BoughtSection items={boughtItems(tables, list.id)} open={boughtOpen} onToggle={() => setBoughtOpen(!boughtOpen)} onBuyAgain={(b) => store.dispatch(buyAgainOps(b.id))} /> : null}
+      {editable ? (
+        <BoughtSection
+          items={boughtItems(tables, list.id)}
+          open={boughtOpen}
+          onToggle={() => setBoughtOpen(!boughtOpen)}
+          onBuyAgain={(b) => {
+            if (!checkCanCreateOrShowPaywall()) return;
+            store.dispatch(buyAgainOps(b.id));
+            void recordCreation();
+          }}
+        />
+      ) : null}
       {canDelete ? <Field label={strings['lists.name']} {...rename.field} maxLength={config.lengths.LIST_NAME} testID="list-rename" /> : null}
       {rename.error ? <ErrorText>{rename.error}</ErrorText> : null}
       {canDelete ? (
