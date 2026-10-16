@@ -4,7 +4,11 @@
  */
 import * as Application from 'expo-application';
 
-jest.mock('expo-sqlite', () => ({ openDatabaseSync: jest.fn(() => ({ execSync: jest.fn(), runSync: jest.fn(), getAllSync: jest.fn(() => []), withTransactionSync: (f: () => void) => f(), closeSync: jest.fn() })), deleteDatabaseSync: jest.fn() }));
+jest.mock('expo-sqlite', () => ({
+  defaultDatabaseDirectory: '/var/mobile/Containers/Data/Application/123/Documents/SQLite',
+  openDatabaseSync: jest.fn(() => ({ execSync: jest.fn(), runSync: jest.fn(), getAllSync: jest.fn(() => []), withTransactionSync: (f: () => void) => f(), closeSync: jest.fn() })),
+  deleteDatabaseSync: jest.fn(),
+}));
 jest.mock('expo-application', () => ({
   ...jest.requireActual('expo-application'),
   getIosApplicationReleaseTypeAsync: jest.fn(),
@@ -134,6 +138,7 @@ describe('appDeps (D143)', () => {
     const w = load({ EXPO_PUBLIC_E2E: undefined, EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test' }, Application.ApplicationReleaseType.SIMULATOR);
     const deps = w.appDeps();
     deps.openDb('u-1');
+    expect(w.sqlite.openDatabaseSync).toHaveBeenCalledWith('organizer-u-1.db', undefined, '/var/mobile/Containers/Data/Application/123/Library/SQLite');
     const db = w.sqlite.openDatabaseSync.mock.results.at(-1)!.value as { closeSync: jest.Mock };
     deps.deviceClientId!.save('u-1', 'c-1');
     deps.removeDb!('u-1');
@@ -141,7 +146,7 @@ describe('appDeps (D143)', () => {
     // Audyt 3 (N-77): identyfikator instalacji usuniętego konta znika też z pęku kluczy (polityka: „usuwamy dane techniczne”).
     await Promise.resolve();
     expect(deps.deviceClientId!.load('u-1')).toBeNull();
-    expect(w.sqlite.deleteDatabaseSync).toHaveBeenCalledWith('organizer-u-1.db');
+    expect(w.sqlite.deleteDatabaseSync).toHaveBeenCalledWith('organizer-u-1.db', '/var/mobile/Containers/Data/Application/123/Library/SQLite');
     w.sqlite.deleteDatabaseSync.mockImplementationOnce(() => {
       throw new Error('DeleteDatabaseException');
     });
