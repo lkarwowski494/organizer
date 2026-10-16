@@ -16,7 +16,7 @@ const inline = (s) =>
     .replace(/https:\/\/[^\s)<]+?(?=[.,;]?(?:\s|\)|$))/g, (u) => `<a href="${u}">${u}</a>`);
 
 function render(md) {
-  const lines = md.replace(/<!--[\s\S]*?-->\n?/g, '').split('\n');
+  const lines = md.replace(/\r\n/g, '\n').replace(/<!--[\s\S]*?-->\n?/g, '').split('\n');
   const out = [];
   let para = [];
   // Otwarte listy: wcięcie każdego poziomu; bieżący punkt na każdym poziomie zbiera tekst.

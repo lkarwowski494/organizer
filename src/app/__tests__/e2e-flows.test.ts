@@ -13,6 +13,7 @@ const flows = readdirSync(DIR).filter((f) => /\.ya?ml$/.test(f) && f !== 'config
 /** Kroki scenariusza: każdy zaczyna się od `- ` w pierwszej kolumnie (bez komentarzy). */
 const steps = (s: string) =>
   s
+    .replace(/\r\n/g, '\n')
     .split('---')
     .slice(1)
     .join('---')

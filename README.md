@@ -26,38 +26,65 @@ Aplikacja mobilna na system iOS do organizacji codzienności w wielu grupach (ro
 
 ---
 
-## 📱 Moduły i Ekrany
+## 📱 Moduły i Ekrany (Status wdrożenia wg BRD 0.1)
 
-1. **📋 Moje sprawy (Today / Dashboard):**
+Poniższa tabela przedstawia mapowanie modułów i wymagań biznesowych (02 BRD, Rozdział 6.2) na fizyczne ekrany i komponenty aplikacji wraz z aktualnym stanem wdrożenia:
+
+| Moduł BRD | Kody wymagań | Główne ekrany i komponenty | Status wdrożenia | Kluczowe funkcje i gwarancje |
+|---|---|---|:---:|---|
+| **DOT: Moje sprawy (Dashboard)** | Z-111…Z-113, Z-039 | [`TodayScreen`](src/features/today/TodayScreen.tsx) | ✅ **100% Wdrożone** | Zbiorczy pulpit dnia/tygodnia/miesiąca, rolowanie zaległości, podsumowanie poranne, karty akcji, obsługa offline |
+| **WIDŻET: Widżet iOS „Moje sprawy”** | Z-114, Z-115, D17 | [`OrganizerWidget`](targets/widget/OrganizerWidget.swift), [`widget-bridge`](modules/widget-bridge/) | ✅ **100% Wdrożone** | WidgetKit SwiftUI (Small, Medium, Lock Screen), synchronizacja w tle przez App Group i ciche pushe APNs |
+| **ZAD: Zadania z podzadaniami** | Z-026…Z-040 | [`TaskScreen`](src/features/lists/TaskScreen.tsx), [`AddTaskScreen`](src/features/lists/AddTaskScreen.tsx) | ✅ **100% Wdrożone** | Hierarchia do 2 poziomów (`MAX_TASK_DEPTH`), cykliczność RRULE, dziedziczenie powtórzeń (ADR 0048), adresaci |
+| **ZAK: Wspólne zakupy** | Z-056…Z-066 | [`ListScreen`](src/features/lists/ListScreen.tsx), [`ListsScreen`](src/features/lists/ListsScreen.tsx), [`TripEditor`](src/features/lists/TripEditor.tsx) | ✅ **Wdrożone (MVP)**<br>*(Etap 1.1 w toku)* | 20 alejek, scalanie lematyzowane (`itemKey`), wycieczki zakupowe (*Shopping Trip*), sekcja kupionych |
+| **KAL: Kalendarz i wydarzenia** | Z-081…Z-092 | [`CalendarScreen`](src/features/calendar/CalendarScreen.tsx), [`EventScreen`](src/features/events/EventScreen.tsx), [`EventEditScreen`](src/features/events/EventEditScreen.tsx) | ✅ **100% Wdrożone** | Siatka miesięcy (CLDR/ISO), wydarzenia wielodniowe, obsługa DST, RSVP, dialog osieroconych zadań, masowe przywracanie |
+| **NLP: Szybkie dodawanie** | Z-034, Z-035 | [`QuickAddField`](src/ui/components.tsx), [`QuickAddExtras`](src/ui/QuickAddExtras.tsx), [`QuickGroupChip`](src/features/today/QuickGroupChip.tsx) | ✅ **100% Wdrożone** | Polski parser języka naturalnego w locie, rozpoznawanie dat, godzin, osób (`@`), grup (`#`) i chipy edycyjne |
+| **GRP: Grupy, role i profile** | Z-126…Z-133 | [`GroupsScreen`](src/features/groups/GroupsScreen.tsx), [`GroupScreen`](src/features/groups/GroupScreen.tsx), [`MemberScreen`](src/features/groups/MemberScreen.tsx) | ✅ **100% Wdrożone** | Grupy osobiste i wspólne, role (właściciel, admin, członek, dziecko), profile bez kont, plany lekcji, kody zaproszeń |
+| **POW: Powiadomienia i Handoffs** | Z-157, Z-158 | [`HandoffInbox`](src/features/handoffs/HandoffInbox.tsx), [`HandoffPicker`](src/features/handoffs/HandoffPicker.tsx), [`PushPrompt`](src/features/today/PushPrompt.tsx) | ✅ **100% Wdrożone** | Przekazywanie spraw, routing deep linków, ciche wybudzanie APNs, wyciszenia per kategoria i grupa |
+| **SYN: Synchronizacja & Offline** | Z-151…Z-156 | [`expo-adapter`](src/data/db/expo-adapter.ts), [`sync-engine`](src/domain/sync-engine/), [`TabHeader`](src/app/TabHeader.tsx) | ✅ **100% Wdrożone** | 100% Offline-First SQLite, atomowy push RPC `sync_push`, kursorowy pull z budżetem, wskaźnik `pending_ops` |
+| **KOSZ: Bezpieczne usuwanie** | Z-005, Z-006 | [`TrashScreen`](src/features/groups/TrashScreen.tsx), [`RecentScreen`](src/features/groups/RecentScreen.tsx), [`undo`](src/ui/undo.tsx) | ✅ **100% Wdrożone** | Osobny ekran kosza, retencja 30 dni, historia ostatnich zmian (90 dni), natychmiastowe cofanie akcji (*Undo*) |
+| **DANE: Eksport i kopia JSON** | Z-013, ZP-11, NIGDY-04 | [`SettingsScreen`](src/features/settings/SettingsScreen.tsx) | ✅ **100% Wdrożone** | Eksport wszystkich danych użytkownika do otwartego pliku JSON (prawo do danych, brak paywalla) |
+| **MON: Monetyzacja i StoreKit** | Z-171…Z-174 | Warstwa subskrypcyjna | 🔜 **Etap 1.0 (Premiera)** | W fazie publicznej bety TestFlight cała funkcjonalność jest w 100% bezpłatna |
+
+### Szczegółowy opis modułów:
+
+1. **📋 Moje sprawy (`TodayScreen`):**
    - Inteligentne centrum dowodzenia zbierające zadania i wydarzenia ze wszystkich Twoich grup w jednym spójnym widoku.
    - Zadania z bieżącym terminem, pilne sprawy, dedykowane obowiązki oraz dzisiejsze wydarzenia z kalendarza.
    - Dynamiczne wskaźniki synchronizacji stanu w czasie rzeczywistym (`„czeka na wysłanie”`).
    - Nawigacja czasowa (Dzień, Tydzień, Miesiąc) z zachowaniem kontekstu daty.
-2. **✅ Zadania z Podzadaniami (Hierarchical Tasks):**
+2. **📱 Widżet iOS (`targets/widget/OrganizerWidget.swift`):**
+   - Widżet WidgetKit na ekran początkowy iPhone'a (Small, Medium) oraz ekran blokady (Inline, Rectangular).
+   - Współdzielenie danych z aplikacją przez App Group (`group.io.github.lkarwowski494.organizer`) i pamięć podręczną `today-widget.json`.
+   - Błyskawiczne odświeżanie po cichych pushach APNs i powrocie do tła.
+3. **✅ Zadania z Podzadaniami (`TaskScreen`, `AddTaskScreen`):**
    - Hierarchiczne drzewo zadań z obsługą zagłębienia do 2 poziomów (`MAX_TASK_DEPTH`) i wcięciem wizualnym.
    - Przypisywanie odpowiedzialnych osób, terminy (własne lub dziedziczone) oraz cykliczność RFC 5545 RRULE.
    - Ochronne dialogi potwierdzenia odhaczenia (D59) z wyborem: „Zostaw podzadania” lub „Oznacz wszystko”.
-3. **🛒 Wspólne Listy Zakupów (Shared Shopping Lists):**
+4. **🛒 Wspólne Listy Zakupów (`ListScreen`, `ListsScreen`, `TripEditor`):**
    - Kategoryzowane pozycje z inteligentnym podziałem na działy sklepowe, lematyzacją (`itemKey`) i pamięcią nawyków w grupie.
    - Błyskawiczne odznaczanie produktów w sklepie i natychmiastowy pasek cofania (*Undo*).
    - Wycieczka zakupowa (*Shopping Trip*) planowana w kalendarzu jako zadanie z terminem i zintegrowana z Moimi sprawami.
-4. **📅 Wspólny Kalendarz & Wydarzenia (Calendar & Events):**
+5. **📅 Wspólny Kalendarz & Wydarzenia (`CalendarScreen`, `EventScreen`, `EventEditScreen`):**
    - Siatka miesięcy od poniedziałku (zgodna z normą PN-EN ISO 8601 i CLDR dla PL) z polskimi dniami wolnymi.
    - Wydarzenia jedno- i wielodniowe, obsługa stref czasowych i przejść czasu letniego/zimowego (DST).
    - Potwierdzanie obecności RSVP (Idę / Nie idę / Może) z automatycznymi odpowiedziami dorosłych w imieniu dzieci.
-   - Obliczanie czasu dojazdu i wyjścia oraz zarządzanie odwołanymi terminami serii z możliwością ich przywracania.
+   - Obliczanie czasu dojazdu i wyjścia oraz zarządzanie odwołanymi terminami serii z możliwością ich masowego przywracania.
    - Dyskretne lustro kalendarza iPhone'a z automatycznym ukrywaniem dubli wpisów aplikacji.
-5. **⚡ Szybkie Dodawanie (QuickAdd Natural Language):**
+6. **⚡ Szybkie Dodawanie (`QuickAddField`, `QuickAddExtras`):**
    - Inteligentny parser języka naturalnego w języku polskim (`src/domain/quickadd.ts`).
    - Rozpoznaje w locie daty słowne, godziny, powtarzalność, osoby (`@Imię`) oraz grupy (`#Grupa`) z pojedynczej linii tekstu.
    - Interaktywne chipy edycyjne pod polem z natychmiastowym podglądem rozpoznanych pól przed zatwierdzeniem.
-6. **👥 Zarządzanie Grupami & Członkowie (Groups & Roles):**
+7. **👥 Zarządzanie Grupami & Członkowie (`GroupsScreen`, `GroupScreen`, `MemberScreen`, `TimetableScreen`):**
    - Konteksty grupowe (Osobiste, Dom, Rodzina, Znajomi, Szkoła) z 3 poziomami widoczności (`group` / `restricted` / `private`).
    - Role dostępu: właściciel (*owner*), administrator (*admin*), członek (*member*) oraz dziecko (*child*).
    - Profile lokalne bez kont dla domowników oraz bezpieczne zaproszenia kodem 6-cyfrowym i linkiem.
-7. **⚙️ Ustawienia, Synchronizacja i Bezpieczny Kosz:**
+8. **⚙️ Ustawienia, Synchronizacja i Bezpieczny Kosz (`SettingsScreen`, `TrashScreen`, `RecentScreen`):**
    - Monitor stanu kolejki offline (`pending_ops`), diagnostyka bazy oraz natychmiastowy feedback stanu synchronizacji.
    - Bezpieczne usuwanie z mechanizmem kosza (`KOSZ`), retencją oraz paskiem natychmiastowego cofnięcia (*Undo*).
+9. **📦 Eksport Danych i Kopia Zapasowa (`buildUserExport`, `SettingsScreen`):**
+   - 100% otwarty format JSON obejmujący wszystkie grupy użytkownika, listy zadań i zakupów, zadania hierarchiczne i wydarzenia (wymóg Z-013, ZP-11, NIGDY-04).
+   - Natywne udostępnianie systemowym arkuszem iOS (`Share.share`) bez blokad i paywalla.
+
 
 ---
 

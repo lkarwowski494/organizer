@@ -3,7 +3,7 @@
  * link do polityki prywatności w Ustawieniach i na ekranie logowania (N-75, Q4 A), ekran Licencje (N-78, Q22 A).
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Share } from 'react-native';
 
 import { config } from '../../config';
 import { SignInScreen } from '../../features/auth/SignInScreen';
@@ -81,5 +81,26 @@ describe('licencje (N-78)', () => {
     await press(screen.getByTestId('license-react-native'));
     expect(await screen.findByTestId('screen-license')).toBeTruthy();
     expect(screen.getByTestId('license-text').props.children).toMatch(/^MIT License\n\nCopyright \(c\) Meta Platforms/);
+  });
+});
+
+describe('eksport danych (Z-013, ZP-11, NIGDY-04)', () => {
+  it('Ustawienia → Konto i dane: „Eksportuj dane” wywołuje systemowe udostępnianie JSON z danymi użytkownika', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+    await openSettings();
+    await press(await screen.findByTestId('settings-account'));
+    expect(screen.getByText('Pobierz pełną kopię swoich grup, list, zadań i wydarzeń w otwartym formacie JSON.')).toBeTruthy();
+    await press(screen.getByTestId('export-data'));
+    expect(share).toHaveBeenCalledTimes(1);
+    const call = share.mock.calls[0]![0];
+    expect(call.title).toBe('Organizer — eksport danych');
+    const parsed = JSON.parse(call.message as string);
+    expect(parsed).toMatchObject({
+      version: 1,
+      groups: expect.any(Array),
+      lists: expect.any(Array),
+      tasks: expect.any(Array),
+      events: expect.any(Array),
+    });
   });
 });
