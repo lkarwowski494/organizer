@@ -27,6 +27,7 @@ import { checkOff, type DoneRow, groupsView, listDetail, myMemberships, splitDon
 import { personOf } from '../../domain/views/who';
 import { InTrashScreen } from '../groups/TrashScreen';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { buttonA11y, useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { BackButton, Body, Button, Card, Collapsible, ErrorText, Field, Glyph, QuickAddField, Screen, SectionTitle, StationRow, SwipeRow, SyncChip, Title, GroupLine, META_SEP } from '../../ui/components';
 import { useLiveText } from '../../ui/live-text';
@@ -102,6 +103,7 @@ function ShoppingKeepAwake() {
 
 export function ListScreen({ route, navigation }: Props) {
   const { userId, store, now, nowMs, newId } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const actions = useTaskActions();
   const undo = useUndo();
   const { tables, today, indicator, state } = useAppData();
@@ -194,8 +196,10 @@ export function ListScreen({ route, navigation }: Props) {
     const hit = shopping && !again ? duplicateOf(tables, list.id, value) : null;
     if (hit) return setDup({ value, hit });
     setDup(null);
+    if (!checkCanCreateOrShowPaywall()) return;
     const ops = quickAddOps({ tables, userId, text: value, now: now(), ignore: ign, newId, listId: list.id, assigneeId });
     store.dispatch(ops);
+    void recordCreation();
     // D189 (audyt 2: PW-29 A, M-126): po szybkim dodaniu zadania „Dodano … · Zmień” — jak w Moich sprawach. Pozycje
     // zakupów dodaje się seriami, a dotknięcie pozycji już ją edytuje — bez paska.
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');

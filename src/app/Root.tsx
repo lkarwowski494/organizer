@@ -38,6 +38,7 @@ import type { DevicePush } from './push';
 import type { WidgetBridge } from './widget-bridge';
 import { updateWidgetSnapshot } from './widget-updater';
 import { AppNavigation } from './navigation';
+import { AppAccessProvider, PaywallModal } from '../features/monetization';
 
 /** `needsName` i `emailName` — D100 (konto bez imienia; dawne imię zastępcze z adresu e-mail). */
 /** `emailOnly` — konto bez logowania Apple (D177: w becie po wylogowaniu nie da się do niego wrócić). */
@@ -409,7 +410,10 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
   return (
     <AppProvider services={services}>
       <ErrorBoundary report={report} reporting={() => reportsOn(local)} version={appVersion()} colors={c}>
-        <AppNavigation pendingUrl={pendingUrl} />
+        <AppAccessProvider nowIso={services.nowIso}>
+          <AppNavigation pendingUrl={pendingUrl} />
+          <PaywallModal />
+        </AppAccessProvider>
       </ErrorBoundary>
     </AppProvider>
   );

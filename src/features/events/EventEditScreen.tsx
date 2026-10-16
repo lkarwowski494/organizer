@@ -31,6 +31,7 @@ import { config } from '../../config';
 import type { NewOp } from '../../domain/sync-engine/client';
 import { groupDetail, groupsView } from '../../domain/views';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { BackButton, Body, Button, CardTitle, ErrorText, Field, MissingScreen, Screen, Segmented, Title, Toggles, useFormError } from '../../ui/components';
 import { TimeFieldPair } from '../../ui/TimeField';
 import { DateField } from '../../ui/DateField';
@@ -51,6 +52,7 @@ export function EventEditScreen({ route, navigation }: Props) {
   const { eventId, scope = 'all' } = route.params;
   const detail = useMemo(() => (eventId ? eventDetail(tables, userId, eventId) : null), [tables, userId, eventId]);
   const groups = useMemo(() => groupsView(tables, userId).filter((g) => g.me.role !== 'child'), [tables, userId]);
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const added = useAdded();
   const undo = useUndo();
   const occurrence = route.params.date ?? formatIsoDate(today);
@@ -152,7 +154,9 @@ export function EventEditScreen({ route, navigation }: Props) {
     if (gone) return setError(gone.error === 'group' ? strings['form.error.groupGone'] : strings['form.error.peopleGone'](gone.names));
     setError(null);
     if (!detail) {
+      if (!checkCanCreateOrShowPaywall()) return;
       draft.saved();
+      void recordCreation();
       // D189: „Dodano wydarzenie: … · Cofnij”.
       const g = groups.find((x) => x.id === groupId);
       added(strings['form.addedEvent'](r.fields[0]!.title, g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), r.fields.flatMap((f) => createEvent(groupId, f, newId).ops));

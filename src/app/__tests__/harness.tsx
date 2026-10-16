@@ -26,6 +26,8 @@ import { ThemeProvider } from '../../ui/theme';
 import { AppProvider, type AppServices } from '../context';
 import type { DeviceCalendar } from '../device-calendar';
 import type { DevicePush } from '../push';
+import type { AccessState } from '../../domain/access';
+import { AppAccessProvider, PaywallModal } from '../../features/monetization';
 
 export const ME = 'u-me';
 /**
@@ -207,7 +209,7 @@ export function fakeAccount(over: Partial<AccountApi> = {}): jest.Mocked<Account
   } as jest.Mocked<AccountApi>;
 }
 
-export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; devicePrefs?: AppServices['devicePrefs']; onSignOut?: AppServices['onSignOut']; travel?: AppServices['travel']; resetLocal?: () => void; local?: ReturnType<typeof memoryLocal>; clock?: { at: LocalDateTime; ms: number }; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>> } = {}) {
+export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; account?: jest.Mocked<AccountApi>; calendar?: DeviceCalendar; push?: DevicePush; prefs?: AppServices['prefs']; devicePrefs?: AppServices['devicePrefs']; onSignOut?: AppServices['onSignOut']; travel?: AppServices['travel']; resetLocal?: () => void; local?: ReturnType<typeof memoryLocal>; clock?: { at: LocalDateTime; ms: number }; session?: Partial<Pick<AppServices, 'displayName' | 'needsName' | 'emailName' | 'emailOnly'>>; access?: AccessState } = {}) {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const base = opts.base ?? sampleBase();
   // Dane jak po pobraniu: każda grupa ma kursor (bez tego lustro kalendarza czeka, mirrorReady).
@@ -246,7 +248,12 @@ export function setup(opts: { base?: T; scheme?: Scheme; indicator?: Indicator; 
   const wrap = (ui: ReactElement) => (
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } }}>
       <ThemeProvider scheme={opts.scheme ?? 'light'}>
-        <AppProvider services={services}>{ui}</AppProvider>
+        <AppProvider services={services}>
+          <AppAccessProvider nowIso={services.nowIso} initialState={opts.access}>
+            {ui}
+            <PaywallModal />
+          </AppAccessProvider>
+        </AppProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

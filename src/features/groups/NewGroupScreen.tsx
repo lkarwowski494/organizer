@@ -10,6 +10,7 @@ import type { RootStackParams } from '../../app/routes';
 import { config } from '../../config';
 import { nextStepsKey, starterListsOps } from '../../domain/views/starter';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { BackButton, Button, ErrorText, Field, Screen, Title, useFormError } from '../../ui/components';
 import { useSubmit } from '../../ui/use-submit';
 import { groupErrorText } from './server-errors';
@@ -18,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'NewGroup'>;
 
 export function NewGroupScreen({ navigation, route }: Props) {
   const { account, newId, displayName, needsName, store, prefs } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const defaultGroup = useDefaultGroup();
   const [name, setName] = useState(route.params?.name ?? '');
   // Audyt 3 (N-164): konto bez imienia — pole puste z przykładem zamiast imienia zastępczego („Ja”, początek adresu).
@@ -35,10 +37,12 @@ export function NewGroupScreen({ navigation, route }: Props) {
   const create = async () => {
     if (name.trim() === '') return setError(strings['groups.error.nameEmpty']);
     if (me.trim() === '') return setError(strings['groups.error.myNameEmpty']);
+    if (!checkCanCreateOrShowPaywall()) return;
     setError(null);
     try {
       await account.createGroup({ ...ids, name: name.trim(), displayName: me.trim() });
       draft.saved();
+      void recordCreation();
       // Decyzja właściciela z 8.10.2026 (PW-36 A): grupa z Pierwszych kroków dostaje od razu „Zakupy” i „Zadania”
       // (kolejka, jak każda nowa lista). Kartę „Następne kroki” (pamiętaną na tym telefonie) dostaje każda nowa grupa,
       // także z ekranu Grupy (audyt 2, M-117, zasada właściciela A).

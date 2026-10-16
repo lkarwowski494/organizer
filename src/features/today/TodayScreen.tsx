@@ -43,6 +43,7 @@ import { DeviceEventRow } from '../calendar/DeviceEventRow';
 import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, onlyGroups, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { Body, Button, Collapsible, EventRow, GapRow, PeriodArrow, PeriodBar, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { GroupFilterBar, useGroupFilter } from '../../app/group-filter';
@@ -57,6 +58,7 @@ const MODES: RangeMode[] = ['day', 'week', 'month'];
 
 export function TodayScreen() {
   const { userId, store, now, newId, prefs, needsName } = useServices();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const actions = useTaskActions();
   const events = useEventActions();
   const { tables, today, state } = useAppData();
@@ -166,12 +168,14 @@ export function TodayScreen() {
   // Szybkie dodanie (D90, D91, M-24): grupa z chipa, „#Grupa” albo „@imię”, osoba z „@imię”/„@ja”; po dodaniu pasek
   // „Dodano … · Zmień” otwiera ekran zadania (jedyny ekran zmiany zadania, D178). Użyte „#…”/„@…” są w `body` spacjami, więc odklikane fragmenty zostają.
   const addWith = (t: QuickTarget) => {
+    if (!checkCanCreateOrShowPaywall()) return;
     const group = addGroups.find((g) => g.id === t.groupId)!.name;
     const q = quickEvent({ tables, userId, text: t.body, now: now(), ignore, groupId: t.groupId, memberId: t.memberId ?? undefined });
     const event = q ? quickEventOps(q, newId) : null;
     if (q && event) {
       // D99: zakres godzin = czas trwania = wydarzenie; „Zmień” otwiera wydarzenie.
       store.dispatch(event.ops);
+      void recordCreation();
       // D189 (audyt 2: PW-29 A, M-126): „Zmień” otwiera od razu edycję wydarzenia, jak „Zmień” zadania — formularz.
       undo.show(strings['form.addedEvent'](q.form.title, group), () => nav.navigate('EventEdit', { eventId: event.id, date: q.form.date, scope: 'all' }), strings['common.change']);
       return done(t);
@@ -180,16 +184,19 @@ export function TodayScreen() {
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
+    void recordCreation();
     undo.show(strings['form.added'](String(created.set.title), group), () => nav.navigate('Task', { taskId: created.id }), strings['common.change']);
     done(t);
   };
   // Podpowiedź listy zakupów dotknięta: produkt na listę (tytuł dosłowny, M-20), pasek „Dodano … · Zmień” otwiera listę.
   // `t` — wpis z pola (ostatnio użyta grupa jak przy dodaniu); `null` — produkt do grupy, w której jestem dzieckiem (N-44).
   const toShopping = (t: QuickTarget | null, item: string, list: { id: string; name: string }) => {
+    if (!checkCanCreateOrShowPaywall()) return;
     const ops = quickAddOps({ tables, userId, text: item, now: now(), ignore: [], newId, listId: list.id });
     const created = ops.find((o) => o.kind === 'create' && o.entity === 'tasks');
     if (!created || created.kind !== 'create') return fail(strings['common.error']);
     store.dispatch(ops);
+    void recordCreation();
     undo.show(strings['form.addedItem'](String(created.set.title), list.name), () => nav.navigate('List', { listId: list.id }), strings['common.change']);
     if (t) done(t);
     else clear();
