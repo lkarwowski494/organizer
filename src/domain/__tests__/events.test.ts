@@ -26,6 +26,7 @@ import {
   occurrenceState,
   overrideId,
   participantId,
+  restoreAllCancelled,
   restoreOccurrence,
   ruleOf,
   todayEvents,
@@ -721,8 +722,23 @@ describe('audyt 2: zmiany pojedynczych terminów i serii', () => {
     expect(occurrenceState(detail(t, 'chor'), '2026-10-12')).toBe('active');
     expect(occurrenceState(detail(t, 'chor'), '2026-10-13')).toBe('missing');
     expect(restoreOccurrence(detail(t, 'chor'), '2026-10-12')).toEqual([]);
+    expect(restoreAllCancelled(detail(t, 'chor'))).toEqual([]);
     run(t, cancelEvent(detail(t, 'chor'), '2026-10-12', 'this'));
+    run(t, cancelEvent(detail(t, 'chor'), '2026-10-19', 'this'));
     expect(occurrenceState(detail(t, 'chor'), '2026-10-12')).toBe('cancelled');
+    expect(occurrenceState(detail(t, 'chor'), '2026-10-19')).toBe('cancelled');
+    expect(restoreAllCancelled(detail(t, 'chor'), '2026-10-12')).toEqual([
+      { kind: 'patch', entity: 'event_overrides', id: overrideId('chor', '2026-10-19'), set: { cancelled: false } },
+    ]);
+    const restoreAll = restoreAllCancelled(detail(t, 'chor'));
+    expect(restoreAll).toEqual([
+      { kind: 'patch', entity: 'event_overrides', id: overrideId('chor', '2026-10-12'), set: { cancelled: false } },
+      { kind: 'patch', entity: 'event_overrides', id: overrideId('chor', '2026-10-19'), set: { cancelled: false } },
+    ]);
+    run(t, restoreAll);
+    expect(occurrenceState(detail(t, 'chor'), '2026-10-12')).toBe('active');
+    expect(occurrenceState(detail(t, 'chor'), '2026-10-19')).toBe('active');
+    run(t, cancelEvent(detail(t, 'chor'), '2026-10-12', 'this'));
     const restore = restoreOccurrence(detail(t, 'chor'), '2026-10-12');
     expect(restore).toEqual([{ kind: 'patch', entity: 'event_overrides', id: overrideId('chor', '2026-10-12'), set: { cancelled: false } }]);
     run(t, restore);

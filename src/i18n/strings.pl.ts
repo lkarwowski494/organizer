@@ -527,6 +527,7 @@ export const strings = {
   'event.moved': (from: string) => `Przeniesione z: ${from}`,
   'event.cancelledInfo': 'Ten termin jest odwołany.',
   'event.restore': 'Przywróć termin',
+  'event.restoreAllCancelled': 'Przywróć wszystkie odwołane terminy',
   'event.cancelledSeriesDates': 'Odwołane terminy w tej serii',
   'event.missingInfo': 'Tego terminu nie ma już w serii (zmieniła się albo skończyła).',
   'event.readOnly': 'Dzieci nie zmieniają wydarzeń.',

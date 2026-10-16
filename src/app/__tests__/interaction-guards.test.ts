@@ -119,5 +119,7 @@ describe('Wzorce interakcji — standardy interfejsu (docs/32-wzorce-interakcji.
     expect(code).toContain('cancelledOverrides');
     expect(code).toContain("strings['event.cancelledSeriesDates']");
     expect(code).toContain('restoreOccurrence');
+    expect(code).toContain('restoreAllCancelled');
+    expect(code).toContain('event-restore-all');
   });
 });
