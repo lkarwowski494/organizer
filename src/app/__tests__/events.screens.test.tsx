@@ -603,4 +603,40 @@ describe('ADR 0049 (K7, Q3 a): odwołany termin w Kalendarzu z „Przywróć ter
     await press(screen.getByTestId('calendar-filter-gk'));
     expect(screen.queryByTestId('cal-cancelled-ev-tance-2026-10-07')).toBeNull();
   });
+
+  it('masowe przywracanie odwołanych terminów serii (gdy > 1)', async () => {
+    const base = withDances();
+    put(base, 'event_overrides', 'o14', { id: 'o14', event_id: 'ev-tance', group_id: 'gf', occurrence_date: '2026-10-14', cancelled: true, deleted_at: null, version: 1 });
+    put(base, 'event_overrides', 'o21', { id: 'o21', event_id: 'ev-tance', group_id: 'gf', occurrence_date: '2026-10-21', cancelled: true, deleted_at: null, version: 1 });
+    const s = await open(base);
+    await press(screen.getByTestId('tab-Calendar'));
+    await screen.findByTestId('screen-calendar');
+    const row = await screen.findByTestId('cal-event-ev-tance-2026-10-07');
+    await press(row);
+    await screen.findByTestId('screen-event');
+    expect(screen.getByText('Odwołane terminy w tej serii')).toBeTruthy();
+    expect(screen.getByTestId('event-restore-2026-10-14')).toBeTruthy();
+    expect(screen.getByTestId('event-restore-2026-10-21')).toBeTruthy();
+    const restoreAll = screen.getByTestId('event-restore-all');
+    expect(restoreAll).toBeTruthy();
+    await press(restoreAll);
+    expectOps(s.store, [
+      { kind: 'patch', entity: 'event_overrides', id: 'o14', set: { cancelled: false } },
+      { kind: 'patch', entity: 'event_overrides', id: 'o21', set: { cancelled: false } },
+    ]);
+  });
+
+  it('przycisk masowego przywracania nie pokazuje się, gdy odwołany jest tylko 1 inny termin', async () => {
+    const base = withDances();
+    put(base, 'event_overrides', 'o14', { id: 'o14', event_id: 'ev-tance', group_id: 'gf', occurrence_date: '2026-10-14', cancelled: true, deleted_at: null, version: 1 });
+    await open(base);
+    await press(screen.getByTestId('tab-Calendar'));
+    await screen.findByTestId('screen-calendar');
+    const row = await screen.findByTestId('cal-event-ev-tance-2026-10-07');
+    await press(row);
+    await screen.findByTestId('screen-event');
+    expect(screen.getByText('Odwołane terminy w tej serii')).toBeTruthy();
+    expect(screen.getByTestId('event-restore-2026-10-14')).toBeTruthy();
+    expect(screen.queryByTestId('event-restore-all')).toBeNull();
+  });
 });

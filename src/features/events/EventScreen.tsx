@@ -23,7 +23,7 @@ import { checkOff, listsView } from '../../domain/views';
 import { type EventTaskAdd, type EventTaskAnswers, eventTaskOps, seriesMention } from '../../domain/views/event-task-add';
 import { affectedByCancel, nextInSeries, nextOccurrence, occurrenceTasks, type Relink, relinkOps, seriesCopiesCancelOps, upcomingInGroup } from '../../domain/views/event-tasks';
 import { occurrenceOwner } from '../../domain/views/event-rows';
-import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreOccurrence, type Scope, seriesRule, timeLabel } from '../../domain/views/events';
+import { cancelEvent, describeRule, eventDetail, fieldsOf, lengthLabel, occurrenceState, restoreAllCancelled, restoreOccurrence, type Scope, seriesRule, timeLabel } from '../../domain/views/events';
 import { type SeriesDef, seriesOf, stopOps } from '../../domain/views/series-tasks';
 import { cancelHandoff, createHandoff, handoffKey, handoffTargets, outgoingPending } from '../../domain/views/handoffs';
 import { HandoffPicker } from '../handoffs/HandoffPicker';
@@ -337,6 +337,14 @@ export function EventScreen({ route, navigation }: Props) {
               ) : null}
             </View>
           ))}
+          {d.canEdit && cancelledOverrides.length > 1 ? (
+            <Button
+              kind="secondary"
+              label={strings['event.restoreAllCancelled']}
+              testID="event-restore-all"
+              onPress={() => store.dispatch(restoreAllCancelled(d, date))}
+            />
+          ) : null}
         </View>
       ) : null}
 

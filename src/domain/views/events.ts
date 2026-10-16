@@ -726,6 +726,14 @@ export function restoreOccurrence(d: EventDetail, occurrenceDate: string): NewOp
   return o?.cancelled ? [{ kind: 'patch', entity: 'event_overrides', id: o.id, set: { cancelled: false } }] : [];
 }
 
+/** Przywrócenie wszystkich odwołanych terminów serii (opcjonalnie z pominięciem wskazanego dnia). */
+export function restoreAllCancelled(d: EventDetail, exceptDate?: string): NewOp[] {
+  return d.overrides
+    .filter((o) => o.cancelled && (exceptDate === undefined || o.occurrence_date !== exceptDate))
+    .sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date))
+    .map((o) => ({ kind: 'patch', entity: 'event_overrides', id: o.id, set: { cancelled: false } }));
+}
+
 const liveOrNull = (d: EventDetail, id: string | null) => (id !== null && d.members.some((m) => m.member_id === id) ? id : null);
 
 /**
