@@ -5,6 +5,7 @@
  * (Q9 B, N-49). Pozycja jeszcze niewysłana ma dopisek „czeka na wysłanie”.
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useKeepAwake } from 'expo-keep-awake';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, type TextInput, View } from 'react-native';
 
@@ -91,6 +92,12 @@ function openTrip(tables: Tables, listId: string): TripDraft {
   const groupId = String(tables.lists?.[listId]?.group_id ?? '');
   const person = tripAdults(tables, groupId).some((m) => m.member_id === trip.responsibleId && memberCanSeeList(tables, m.member_id, listId)) ? trip.responsibleId : null;
   return tripDraft(trip, person);
+}
+
+/** Tryb sklepowy (Z-063): zapobieganie uśpieniu ekranu podczas aktywnych zakupów. */
+function ShoppingKeepAwake() {
+  useKeepAwake();
+  return null;
 }
 
 export function ListScreen({ route, navigation }: Props) {
@@ -302,6 +309,7 @@ export function ListScreen({ route, navigation }: Props) {
 
   return (
     <Screen testID="screen-list" refresh={refresh}>
+      {shopping ? <ShoppingKeepAwake /> : null}
       {/* Przy AX5 wskaźnik nie mieści się obok „Wróć” (E2E 38171092887: „Przed c” ucięte) — schodzi do drugiego wiersza. */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <BackButton onPress={() => navigation.goBack()} />

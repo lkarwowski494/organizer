@@ -453,16 +453,17 @@ export function LineChip({ name, line }: { name: string; line: number }) {
   );
 }
 
-export function Checkbox({ checked, onPress, label, round = true }: { checked: boolean; onPress: () => void; label: string; round?: boolean }) {
+export function Checkbox({ checked, onPress, label, round = true, large = false }: { checked: boolean; onPress: () => void; label: string; round?: boolean; large?: boolean }) {
   const { c, size, radius } = useTheme();
+  const dimension = large ? 48 : size.TOUCH_TARGET;
   return (
     <Pressable
       {...buttonA11y({ selected: checked })}
       accessibilityLabel={label}
       onPress={onPress}
-      style={{ width: size.TOUCH_TARGET, height: size.TOUCH_TARGET, borderRadius: round ? size.TOUCH_TARGET / 2 : radius.FIELD, borderWidth: 2, borderColor: checked ? c.ok : c.control, backgroundColor: checked ? c.ok : c.surface, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: dimension, height: dimension, borderRadius: round ? dimension / 2 : radius.FIELD, borderWidth: 2, borderColor: checked ? c.ok : c.control, backgroundColor: checked ? c.ok : c.surface, alignItems: 'center', justifyContent: 'center' }}
     >
-      {/* M-43: pole ma stały kształt 44 pt, więc ✓ nie rośnie z Dynamic Type ponad to pole (wielkość = rola GLYPH_CHECK). */}
+      {/* M-43: pole ma stały kształt 44 pt (lub 48 pt dla zakupów Z-063), więc ✓ nie rośnie z Dynamic Type ponad to pole (wielkość = rola GLYPH_CHECK). */}
       {checked ? <Glyph name="check" color={c.surface} place="check" /> : null}
     </Pressable>
   );
@@ -555,7 +556,7 @@ export function StationRow(props: {
       )}
       {props.onToggle && !props.readOnly ? (
         <View style={{ justifyContent: 'center' }}>
-          <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} />
+          <Checkbox checked={done} onPress={props.onToggle} label={toggleLabel} round={!props.shopping} large={props.shopping} />
         </View>
       ) : null}
     </View>
