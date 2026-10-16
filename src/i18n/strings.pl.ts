@@ -773,6 +773,10 @@ export const strings = {
   'defaultGroup.last': 'Ostatnio użyta',
   'defaultGroup.info': 'Od tej grupy zaczyna chip przy polu dodawania w Moich sprawach. „Ostatnio użyta” to ta, którą ostatnio wybrano chipem albo przez #nazwę grupy. W tekście „#Rodzina” wybiera grupę, a „@ja” przypisuje sprawę Tobie.',
   'settings.section.account': 'Konto i dane',
+  'settings.exportTitle': 'Eksportuj moje dane (JSON)',
+  'settings.exportInfo': 'Pobierz pełną kopię swoich grup, list, zadań i wydarzeń w otwartym formacie JSON.',
+  'settings.exportButton': 'Eksportuj dane',
+  'settings.exportShareTitle': 'Organizer — eksport danych',
   'settings.errorReports': 'Wysyłaj raporty błędów',
   'settings.errorReportsInfo': 'Raport to opis techniczny błędu: komunikat, miejsce w kodzie, nazwa ekranu i wersja aplikacji, a po każdej aktualizacji także wynik samosprawdzenia telefonu. Jest przypisany do Twojego konta. Bez treści list, zadań, wydarzeń i imion. Dotyczy tego iPhone’a.',
   // Audyt 3 (N-78, Q22 A): licencje bibliotek i krojów pisma z paczki aplikacji.

@@ -7,8 +7,9 @@
  */
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Alert, Linking, Share, View } from 'react-native';
 
+import { buildUserExport } from '../../domain/views';
 import { useAppData, useServices } from '../../app/context';
 import { useErrorReports } from '../../app/diagnostics';
 import type { RootStackParams, SettingsSection } from '../../app/routes';
@@ -33,7 +34,7 @@ const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appe
 
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
-  const { account, nowMs, displayName, resetLocal, signInAgain, userId, emailOnly, prefs } = useServices();
+  const { account, nowIso, nowMs, displayName, resetLocal, signInAgain, userId, emailOnly, prefs } = useServices();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
@@ -54,6 +55,15 @@ export function SettingsScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteEntries, setDeleteEntries] = useState(false);
+
+  const handleExport = async () => {
+    const data = buildUserExport(tables, userId, nowIso());
+    const json = JSON.stringify(data, null, 2);
+    await Share.share({
+      title: strings['settings.exportShareTitle'],
+      message: json,
+    });
+  };
 
   // N-72: każdy błąd mówi, co się stało; zamknięte okno Apple to rezygnacja, nie błąd. Po sukcesie ekran logowania
   // pokazuje „Konto zostało usunięte.” (Root).
@@ -271,6 +281,9 @@ export function SettingsScreen({ navigation, route }: Props) {
           <SwitchRow label={strings['settings.errorReports']} value={errorReports.on} onChange={errorReports.setOn} testID="switch-error-reports" />
           <Body muted>{strings['settings.errorReportsInfo']}</Body>
           <NavRow title={strings['privacy.open']} onPress={() => void Linking.openURL(config.privacy.POLICY_URL).catch(() => {})} testID="open-privacy" />
+          <SectionTitle>{strings['settings.exportTitle']}</SectionTitle>
+          <Body muted>{strings['settings.exportInfo']}</Body>
+          <Button label={strings['settings.exportButton']} onPress={() => void handleExport()} testID="export-data" />
           <Button kind="danger" label={strings['settings.signOut']} onPress={signOut} testID="sign-out" />
           {resetLocal ? (
             <View testID="reset-local" style={{ gap: 8 }}>

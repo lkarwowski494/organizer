@@ -43,7 +43,7 @@ describe('czysta logika w warstwach aplikacji ma próg 100% (M-51)', () => {
     .flatMap((d) => files(join(root, d)))
     // Same typy (bez kodu wykonywalnego, np. routes.ts) nie mają czego pokrywać.
     .filter((f) => f.endsWith('.ts') && /^export (async )?(function|const|class|let)\b/m.test(readFileSync(f, 'utf8')) && !platformBound(f))
-    .map((f) => relative(root, f));
+    .map((f) => relative(root, f).replace(/\\/g, '/'));
 
   it('wykrywa znane pliki czystej logiki (próba sanity)', () => {
     expect(pure).toEqual(expect.arrayContaining(['src/app/self-check.ts', 'src/features/groups/server-errors.ts']));
