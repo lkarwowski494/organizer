@@ -19,6 +19,7 @@ import { formatIsoDate, isValidDate } from '../../domain/civil-date';
 import { namesOf, sanitizeTaskDraft } from '../../domain/views/form-choices';
 import { type FormError, formDate, formDateChange, formFromText, formGroups, formMembers, formOps, formUnseen, pickCandidate, type TaskForm, validateForm } from '../../domain/views/task-form';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { useA11yFocus, useClosedPanel } from '../../ui/a11y';
 import { AskPanel } from '../../ui/AskPanel';
 import { BackButton, Body, Button, ErrorText, Field, Screen, Segmented, Title, useFormError } from '../../ui/components';
@@ -73,6 +74,7 @@ export function AddTaskScreen({ route, navigation }: Props) {
   useAnnounce(p.kindSwitch ? strings['form.newTitle'] : null);
   const groups = formGroups(tables, userId);
   const { scopeOf } = useMyScope();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   const unseen = formUnseen(tables, userId, form, scopeOf(form.groupId));
   const members = formMembers(tables, form.groupId);
   const [initialEmpty] = useState(() => form.title === '');
@@ -80,7 +82,9 @@ export function AddTaskScreen({ route, navigation }: Props) {
   const save = () => {
     const e = validateForm(tables, userId, form);
     if (e) return setError(e);
+    if (!checkCanCreateOrShowPaywall()) return;
     draft.saved();
+    void recordCreation();
     // D189: nowe zadanie z formularza — „Dodano … · Cofnij”.
     const g = groups.find((x) => x.id === form.groupId);
     added(strings['form.added'](form.title.trim(), g?.kind === 'personal' ? strings['groups.personal'] : (g?.name ?? '')), formOps(tables, userId, form, newId).ops);

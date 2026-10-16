@@ -16,6 +16,7 @@ import { choicesError, sanitizeListDraft } from '../../domain/views/form-choices
 import { startGroup } from '../../domain/views/default-group';
 import { useDefaultGroup } from '../../app/default-group';
 import { strings } from '../../i18n/strings.pl';
+import { useAppAccess } from '../monetization';
 import { tripAdults, tripLacksAddressee, tripRequired } from '../../domain/views/shopping-trip';
 import { BackButton, Button, ErrorText, Field, Screen, SectionTitle, Segmented, Title, useFormError } from '../../ui/components';
 import { readTrip, type TripDraft, TripEditor } from './TripEditor';
@@ -25,6 +26,7 @@ type Props = NativeStackScreenProps<RootStackParams, 'NewList'>;
 export function NewListScreen({ route, navigation }: Props) {
   const { userId, newId } = useServices();
   const { tables, today } = useAppData();
+  const { checkCanCreateOrShowPaywall, recordCreation } = useAppAccess();
   // Audyt 2 (P-71, R-12): bez grup, w których jestem dzieckiem — serwer odrzuca nową listę (forbidden:child).
   const groups = useMemo(() => formGroups(tables, userId), [tables, userId]);
   const added = useAdded();
@@ -59,8 +61,10 @@ export function NewListScreen({ route, navigation }: Props) {
     const responsible = shopping && 'trip' in trip ? trip.trip.responsibleId : null;
     const gone = choicesError(tables, userId, { groupId, adults: responsible ? [responsible] : [] });
     if (gone) return setError(gone.error === 'group' ? strings['form.error.groupGone'] : strings['form.error.peopleGone'](gone.names));
+    if (!checkCanCreateOrShowPaywall()) return;
     const id = newId();
     saved.saved();
+    void recordCreation();
     defaultGroup.remember(groupId);
     // D189: „Dodano listę: … · Cofnij”.
     added(strings['form.addedList'](name.trim(), personal ? strings['groups.personal'] : (group?.name ?? '')), [createList({ id, groupId, kind, name: name.trim(), visibility: personal ? 'group' : visibility, trip: shopping && 'trip' in trip ? trip.trip : undefined })]);

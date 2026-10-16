@@ -15,6 +15,7 @@ console.error = (...args) => {
 };
 beforeEach(() => {
   found = [];
+  globalThis.__mockSecureStore?.clear();
 });
 afterEach(() => {
   const seen = found;

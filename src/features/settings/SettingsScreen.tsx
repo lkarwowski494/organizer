@@ -28,6 +28,7 @@ import { LAST_USED } from '../../domain/views/default-group';
 import { quickGroups } from '../../domain/views/quick-target';
 import { pendingCount } from '../../domain/sync-engine/client';
 import { accountErrorCode } from '../../sync/account';
+import { useAppAccess } from '../monetization';
 
 type Props = NativeStackScreenProps<RootStackParams, 'Settings'>;
 const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appearance', 'adding', 'account'];
@@ -35,6 +36,7 @@ const SECTIONS: readonly SettingsSection[] = ['notifications', 'calendar', 'appe
 export function SettingsScreen({ navigation, route }: Props) {
   const section = route.params?.section;
   const { account, nowIso, nowMs, displayName, resetLocal, signInAgain, userId, emailOnly, prefs } = useServices();
+  const access = useAppAccess();
   const [resetting, setResetting] = useState(false);
   const { appearance, setAppearance } = useAppearance();
   const reminders = useReminderSettings();
@@ -131,6 +133,22 @@ export function SettingsScreen({ navigation, route }: Props) {
         {SECTIONS.filter((s) => s !== 'adding' || defaultGroup.available).map((s) => (
           <NavRow key={s} title={strings[`settings.section.${s}`]} onPress={() => open(s)} testID={`settings-${s}`} />
         ))}
+        <NavRow
+          title={strings['settings.subscription']}
+          subtitle={
+            access.state.plan === 'lifetime'
+              ? strings['paywall.planLifetime']
+              : access.state.plan === 'yearly'
+                ? strings['paywall.planYearly']
+                : access.state.plan === 'monthly'
+                  ? strings['paywall.planMonthly']
+                  : access.isTrial
+                    ? strings['settings.subscriptionTrial'](access.trialDaysLeft)
+                    : strings['settings.subscriptionExpired']
+          }
+          onPress={() => access.setShowPaywall(true)}
+          testID="open-subscription"
+        />
         <NavRow title={strings['feedback.open']} onPress={() => navigation.navigate('Feedback')} testID="open-feedback" />
         <NavRow title={strings['licenses.title']} onPress={() => navigation.navigate('Licenses')} testID="open-licenses" />
         <Button kind="secondary" label={strings['welcome.again']} testID="welcome-again" onPress={() => navigation.navigate('Welcome')} />

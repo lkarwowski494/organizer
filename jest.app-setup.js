@@ -28,3 +28,21 @@ jest.mock('expo-keep-awake', () => ({
   activateKeepAwakeAsync: jest.fn(),
   deactivateKeepAwakeAsync: jest.fn(),
 }));
+
+const mockSecureStore = new Map();
+globalThis.__mockSecureStore = mockSecureStore;
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(async (key) => mockSecureStore.get(key) ?? null),
+  setItemAsync: jest.fn(async (key, val) => {
+    mockSecureStore.set(key, String(val));
+  }),
+  deleteItemAsync: jest.fn(async (key) => {
+    mockSecureStore.delete(key);
+  }),
+  getItem: jest.fn((key) => mockSecureStore.get(key) ?? null),
+  setItem: jest.fn((key, val) => {
+    mockSecureStore.set(key, String(val));
+  }),
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 1,
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 2,
+}));
