@@ -44,7 +44,7 @@ Poniższa tabela przedstawia mapowanie modułów i wymagań biznesowych (02 BRD,
 | **KOSZ: Bezpieczne usuwanie** | Z-005, Z-006 | [`TrashScreen`](src/features/groups/TrashScreen.tsx), [`RecentScreen`](src/features/groups/RecentScreen.tsx), [`undo`](src/ui/undo.tsx) | ✅ **100% Wdrożone** | Osobny ekran kosza, retencja 30 dni, historia ostatnich zmian (90 dni), natychmiastowe cofanie akcji (*Undo*) |
 | **DANE: Eksport i kopia JSON** | Z-013, ZP-11, NIGDY-04 | [`SettingsScreen`](src/features/settings/SettingsScreen.tsx) | ✅ **100% Wdrożone** | Eksport wszystkich danych użytkownika do otwartego pliku JSON (prawo do danych, brak paywalla) |
 | **I18N: Wielojęzyczność (PL / EN)** | Złoty Standard Studio | [`strings.pl.ts`](src/i18n/strings.pl.ts), [`strings.en.ts`](src/i18n/strings.en.ts), [`check-i18n.mjs`](scripts/check-i18n.mjs) | ✅ **100% Wdrożone** | Kompletny słownik angielski (903 klucze), bramka CI `check:i18n`, weryfikacja symetrii i braku pustych stringów |
-| **MON: Monetyzacja i StoreKit** | Z-171…Z-174 | Warstwa subskrypcyjna | 🔜 **Etap 1.0 (Premiera)** | W fazie publicznej bety TestFlight cała funkcjonalność jest w 100% bezpłatna |
+| **MON: Monetyzacja i StoreKit** | Z-171…Z-174 | Warstwa subskrypcyjna, `useAppAccess()`, `PaywallModal` | ✅ **100% Wdrożone** | Model impulsowy „Cheaper than Espresso” ($0.99/msc, $4.99/rok, $14.99 Lifetime), 7-dniowy pełny trial, historia Read-Only po wygaśnięciu, SecureStore |
 
 ### Szczegółowy opis modułów:
 
@@ -86,6 +86,11 @@ Poniższa tabela przedstawia mapowanie modułów i wymagań biznesowych (02 BRD,
 9. **📦 Eksport Danych i Kopia Zapasowa (`buildUserExport`, `SettingsScreen`):**
    - 100% otwarty format JSON obejmujący wszystkie grupy użytkownika, listy zadań i zakupów, zadania hierarchiczne i wydarzenia (wymóg Z-013, ZP-11, NIGDY-04).
    - Natywne udostępnianie systemowym arkuszem iOS (`Share.share`) bez blokad i paywalla.
+10. **☕ Monetyzacja Impulsowa „Cheaper than Espresso” (`useAppAccess`, `PaywallModal`):**
+    - Spójny model monetyzacji ekosystemu Apps4Brew Studio: $0.99 USD / miesiąc, $4.99 USD / rok, $14.99 USD Lifetime.
+    - Zero podziału na wersje Free i Pro: 100% funkcji odblokowane w okresie próbnym (7 dni lub 15 utworzonych elementów).
+    - Wieczna ochrona ocen 4.9★: po wygaśnięciu trialu cała dotychczasowa historia, listy, notatki i harmonogramy pozostają w 100% czytelne i możliwe do odhaczenia (tryb Read-Only dla archiwum). Blokowane jest wyłącznie tworzenie nowych wpisów z prezentacją Paywalla impulsowego.
+    - 100% Offline-First: stan licencji zabezpieczony w `expo-secure-store` bez telemetrycznych trackerów.
 
 
 ---
