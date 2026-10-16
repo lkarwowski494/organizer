@@ -5,7 +5,7 @@
 import { type RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Pressable, Text, type TextInput, View } from 'react-native';
+import { type TextInput, View } from 'react-native';
 
 import { quickAddOps } from '../../domain/views/quick-add-ops';
 import { quickEvent, quickEventOps, quickPreview } from '../../domain/views/quick-event';
@@ -44,17 +44,15 @@ import { HiddenDuplicates } from '../calendar/HiddenDuplicates';
 import { type MyEntry, myDays, onlyGroups, type RangeMode, rangeOf, shiftAnchor } from '../../domain/views/my-days';
 import { strings } from '../../i18n/strings.pl';
 import { useAppAccess } from '../monetization';
-import { Body, Button, Collapsible, EventRow, GapRow, PeriodArrow, PeriodBar, PeriodTitle, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
+import { Body, Button, Collapsible, EventRow, GapRow, QuickAddField, Screen, SectionTitle, Segmented, StationRow, SwipeRow, Title } from '../../ui/components';
 import { TabHeader, usePullRefresh } from '../../app/TabHeader';
 import { GroupFilterBar, useGroupFilter } from '../../app/group-filter';
 import { useMyScope } from '../../app/my-scope';
 import { type RowTask, useRowMeta } from '../../app/row-meta';
-import { AskPanel } from '../../ui/AskPanel';
 import { QuickAddExtras } from '../../ui/QuickAddExtras';
 import { announce, useA11yFocus } from '../../ui/a11y';
-import { useTheme } from '../../ui/theme';
-
-const MODES: RangeMode[] = ['day', 'week', 'month'];
+import { TodayAskPanels } from './TodayAskPanels';
+import { TodayPeriodNav } from './TodayPeriodNav';
 
 export function TodayScreen() {
   const { userId, store, now, newId, prefs, needsName } = useServices();
@@ -65,7 +63,6 @@ export function TodayScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const route = useRoute<RouteProp<TabParams, 'Today'>>();
   const focusHandoffId = route.params?.handoffId;
-  const { c, font, size } = useTheme();
   const [text, setText] = useState('');
   const [ignore, setIgnore] = useState<{ start: number; end: number }[]>([]);
   // Pytanie pod polem przed dodaniem: kilka osób albo grup pasuje do „@…”/„#…” (D91), żadna (audyt 2, M-169, M-24).
@@ -412,72 +409,20 @@ export function TodayScreen() {
           clear();
         }}
       />
-      {ask?.r.kind === 'many' ? (
-        <AskPanel
-          testID="mention-choices"
-          title={strings['mention.ask'](ask.r.name)}
-          options={ask.r.targets.map((t) => ({ key: `${t.groupId}-${t.memberId}`, label: strings['mention.pick'](t.displayName, t.groupName), onPress: () => proceed({ ...ask.answers, person: t }) }))}
-          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
-        />
-      ) : ask?.r.kind === 'unknown' ? (
-        <AskPanel
-          testID="mention-unknown"
-          title={strings['mention.unknown'](ask.r.name)}
-          body={strings['mention.unknownInfo'](ask.r.name)}
-          options={[{ key: 'without', label: strings['mention.addWithout'], onPress: () => proceed({ ...ask.answers, skipMention: true }) }]}
-          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
-        />
-      ) : ask?.r.kind === 'manyGroups' ? (
-        <AskPanel
-          testID="tag-choices"
-          title={strings['tag.ask'](ask.r.name)}
-          options={ask.r.groups.map((g) => ({ key: g.id, label: g.name, onPress: () => proceed({ ...ask.answers, group: g.id }) }))}
-          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
-        />
-      ) : ask?.r.kind === 'childGroup' ? (
-        // Audyt 3 (N-44): „#Rodzina szampon” od dziecka — grupa jest, ale spraw tam nie dodaje (D34); produkt dopisze do
-        // listy zakupów tej grupy (Q6d A).
-        <AskPanel
-          testID="tag-child"
-          title={strings['tag.child'](ask.r.groups[0]!.name)}
-          body={strings[ask.r.groups.some((g) => g.list) ? 'tag.childInfo' : 'tag.childNoList']}
-          // Lista z nazwą grupy, jak podpowiedź listy innej grupy (Q14 B) — także przy kilku pasujących grupach.
-          options={ask.r.groups.flatMap((g) => {
-            const r = ask.r as Extract<QuickResolution, { kind: 'childGroup' }>;
-            return g.list ? [{ key: g.id, label: strings['quick.toShopping'](strings['quick.listInGroup'](g.list.name, g.name)), onPress: () => toShopping(null, r.body, g.list!) }] : [];
-          })}
-          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
-        />
-      ) : ask?.r.kind === 'unknownGroup' ? (
-        <AskPanel
-          testID="tag-unknown"
-          title={strings['tag.unknown'](ask.r.name)}
-          body={strings['tag.unknownInfo'](ask.r.name, ask.r.chip.name)}
-          options={[{ key: 'chip', label: strings['tag.addTo'](ask.r.chip.name), onPress: () => proceed({ ...ask.answers, skipTag: true }) }]}
-          onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
-        />
-      ) : null}
-      <Segmented label={strings['today.range']} value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m, label: strings[`today.range.${m}`] }))} />
-      <PeriodBar
-        prev={<PeriodArrow dir={-1} label={strings[`today.prev.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, -1))} />}
-        title={<PeriodTitle testID="today-range-label">{label}</PeriodTitle>}
-        next={<PeriodArrow dir={1} label={strings[`today.next.${mode}`]} onPress={() => setAnchor(shiftAnchor(mode, at, 1))} />}
-        extra={
-          <>
-          {/* Stałe miejsce (D101): na bieżącym okresie wyszarzony, więc strzałki i nazwa okresu się nie przesuwają. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={strings['common.today']}
-            accessibilityState={{ disabled: showsToday }}
-            disabled={showsToday}
-            testID="go-today"
-            onPress={() => setAnchor(null)}
-            style={{ minHeight: size.TOUCH_TARGET, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: c.control, opacity: showsToday ? 0.35 : 1 }}
-          >
-            <Text style={{ fontFamily: font.text700, fontSize: size.CONTROL, color: c.ink }}>{strings['common.today']}</Text>
-          </Pressable>
-          </>
-        }
+      <TodayAskPanels
+        ask={ask}
+        onProceed={proceed}
+        onCancel={() => (setAsk(null), setAskCancelled((k) => k + 1))}
+        toShopping={toShopping}
+      />
+      <TodayPeriodNav
+        mode={mode}
+        onModeChange={setMode}
+        label={label}
+        showsToday={showsToday}
+        onPrev={() => setAnchor(shiftAnchor(mode, at, -1))}
+        onNext={() => setAnchor(shiftAnchor(mode, at, 1))}
+        onGoToday={() => setAnchor(null)}
       />
       <WhatsNew />
       <PushPrompt />

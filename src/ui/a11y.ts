@@ -60,7 +60,7 @@ export function pinFocus(focus: (() => () => void) | null, nowMs: number = Date.
  */
 export function focusLater(ref: RefObject<unknown>): () => void {
   const t = setTimeout(() => {
-    if (ref.current) AccessibilityInfo.sendAccessibilityEvent(ref.current as Target, 'focus');
+    if (ref.current && AccessibilityInfo?.sendAccessibilityEvent) AccessibilityInfo.sendAccessibilityEvent(ref.current as Target, 'focus');
   }, config.a11y.FOCUS_DELAY_MS);
   return () => clearTimeout(t);
 }

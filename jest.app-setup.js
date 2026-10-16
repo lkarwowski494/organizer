@@ -46,3 +46,8 @@ jest.mock('expo-secure-store', () => ({
   AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 1,
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 2,
 }));
+
+const { AccessibilityInfo } = require('react-native');
+if (AccessibilityInfo && typeof AccessibilityInfo.sendAccessibilityEvent !== 'function') {
+  AccessibilityInfo.sendAccessibilityEvent = jest.fn();
+}
