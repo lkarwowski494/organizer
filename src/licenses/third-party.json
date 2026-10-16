@@ -302,6 +302,13 @@
    "text": "371567d5d899"
   },
   {
+   "name": "expo-keep-awake",
+   "version": "57.0.2",
+   "license": "MIT",
+   "kind": "js",
+   "text": "371567d5d899"
+  },
+  {
    "name": "expo-linking",
    "version": "57.0.12",
    "license": "MIT",

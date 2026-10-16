@@ -22,3 +22,9 @@ jest.mock('react-native-worklets', () => {
   globalThis.requestAnimationFrame = raf;
   return mock;
 });
+
+jest.mock('expo-keep-awake', () => ({
+  useKeepAwake: jest.fn(),
+  activateKeepAwakeAsync: jest.fn(),
+  deactivateKeepAwakeAsync: jest.fn(),
+}));

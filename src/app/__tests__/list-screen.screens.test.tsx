@@ -7,6 +7,7 @@
  * minione kopie zadania powtarzanego (M-283, PWD-14 A).
  */
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { Alert } from 'react-native';
 
 import { palettes } from '../../config/theme';
@@ -533,5 +534,29 @@ describe('kolejność zadań (Q37 B, N-130)', () => {
     expectOps(s.store, [{ kind: 'patch', entity: 'tasks', id: 's1', set: { sort_key: 'a1' } }]);
     await press(screen.getByLabelText('Gotowe'));
     expect(screen.getAllByTestId(/^sub-s\d$/).map((x) => x.props.testID)).toEqual(['sub-s2', 'sub-s1']);
+  });
+});
+
+describe('tryb sklepowy i ergonomiczne checkboxy (Z-063)', () => {
+  it('na liście zakupów aktywuje useKeepAwake oraz renderuje duże checkboxy 48 pt', async () => {
+    jest.mocked(useKeepAwake).mockClear();
+    await open();
+    await openList('lz');
+    expect(useKeepAwake).toHaveBeenCalled();
+    const chleb = screen.getByTestId('task-s-chleb');
+    const checkbox = within(chleb).getByLabelText(/Włóż do koszyka: Chleb żytni/);
+    expect(checkbox.props.style.width).toBe(48);
+    expect(checkbox.props.style.height).toBe(48);
+  });
+
+  it('na zwykłej liście zadań nie aktywuje useKeepAwake i zachowuje standardowe checkboxy 44 pt', async () => {
+    jest.mocked(useKeepAwake).mockClear();
+    await open();
+    await openList('lp');
+    expect(useKeepAwake).not.toHaveBeenCalled();
+    const books = screen.getByTestId('task-t-books');
+    const checkbox = within(books).getByLabelText(/Oznacz jako zrobione: Oddać książki/);
+    expect(checkbox.props.style.width).toBe(44);
+    expect(checkbox.props.style.height).toBe(44);
   });
 });

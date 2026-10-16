@@ -114,7 +114,8 @@ export function build(sources) {
 function bundleSources() {
   const out = mkdtempSync(join(tmpdir(), 'organizer-licenses-'));
   try {
-    execFileSync('npx', ['expo', 'export', '--platform', 'ios', '--source-maps', '--output-dir', out], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CI: '1' } });
+    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    execFileSync(npxCmd, ['expo', 'export', '--platform', 'ios', '--source-maps', '--output-dir', out], { cwd: root, shell: process.platform === 'win32', stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CI: '1' } });
     const dir = join(out, '_expo/static/js/ios');
     const map = readdirSync(dir).find((f) => f.endsWith('.map'));
     return JSON.parse(readFileSync(join(dir, map), 'utf8')).sources;
@@ -131,8 +132,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     writeFileSync(OUT, next);
     console.log(`Zapisano ${OUT}: ${JSON.parse(next).packages.length} pozycji.`);
   } else {
-    const now = existsSync(OUT) ? readFileSync(OUT, 'utf8') : '';
-    if (now !== next) {
+    const now = existsSync(OUT) ? readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
+    const normalizedNext = next.replace(/\r\n/g, '\n');
+    if (now !== normalizedNext) {
       console.error('src/licenses/third-party.json nie zgadza się z paczką aplikacji — uruchom: node scripts/licenses/gen-licenses.mjs --write');
       process.exit(1);
     }
