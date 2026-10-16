@@ -11,10 +11,11 @@ import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
-import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
+import { defaultDatabaseDirectory, deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 import { AppState } from 'react-native';
 
 import { config } from '../config';
+import { dbDirectory } from '../data/db/db-path';
 import { expoAdapter } from '../data/db/expo-adapter';
 import { uuidv7 } from '../domain/ids';
 import { coldStartGate } from '../domain/intro';
@@ -190,13 +191,15 @@ export function realDeps(): RootDeps {
     // Stan nieznany (null) traktujemy jak sieć — o braku połączenia i tak powie nieudane żądanie (captive portal).
     network: { subscribe: (fn) => NetInfo.addEventListener((state) => fn(state.isConnected !== false)) },
     // Jedno połączenie na plik: odświeżenie w tle (background.ts) i ekrany w tym samym procesie piszą przez nie po kolei.
+    // SEC-09: prywatna baza w /Library/SQLite zamiast publicznego Documents/SQLite.
     openDb: (userId) => {
-      const db = openDbs.get(userId) ?? openDatabaseSync(dbName(userId));
+      const safeDir = dbDirectory(defaultDatabaseDirectory);
+      const db = openDbs.get(userId) ?? (safeDir ? openDatabaseSync(dbName(userId), undefined, safeDir) : openDatabaseSync(dbName(userId)));
       openDbs.set(userId, db);
       return expoAdapter(db);
     },
     // expo-sqlite SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/): closeSync — „Close the database.”,
-    // deleteDatabaseSync(databaseName) — „Delete a database file.”
+    // deleteDatabaseSync(databaseName, directory?) — „Delete a database file.”
     removeDb: (userId) => {
       // Audyt 3 (N-77): identyfikator instalacji usuniętego konta nie zostaje w pęku kluczy (pęk kluczy przeżywa nawet
       // usunięcie aplikacji). deleteItemAsync — SDK 57 (https://docs.expo.dev/versions/v57.0.0/sdk/securestore/).
@@ -204,7 +207,12 @@ export function realDeps(): RootDeps {
       try {
         openDbs.get(userId)?.closeSync();
         openDbs.delete(userId);
-        deleteDatabaseSync(dbName(userId));
+        const safeDir = dbDirectory(defaultDatabaseDirectory);
+        if (safeDir) {
+          deleteDatabaseSync(dbName(userId), safeDir);
+        } else {
+          deleteDatabaseSync(dbName(userId));
+        }
       } catch {
         // Plik zostaje — dane i tak nie są już dostępne bez konta; następne usunięcie aplikacji go zabierze.
       }
