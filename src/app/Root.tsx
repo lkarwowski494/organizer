@@ -35,6 +35,8 @@ import type { DeviceCalendar } from './device-calendar';
 import { adoptMirrorOwned, removeMirrorCalendars } from './calendar-mirror';
 import type { TravelService } from './travel-service';
 import type { DevicePush } from './push';
+import type { WidgetBridge } from './widget-bridge';
+import { updateWidgetSnapshot } from './widget-updater';
 import { AppNavigation } from './navigation';
 
 /** `needsName` i `emailName` — D100 (konto bez imienia; dawne imię zastępcze z adresu e-mail). */
@@ -71,6 +73,8 @@ export type RootDeps = {
   /** Czas dojazdu z Map Apple (D116); brak = bez tej funkcji. */
   travel?: TravelService;
   push?: DevicePush;
+  /** Widżet iOS (D17, BRD B4); brak = bez aktualizacji widżetu (testy, środowiska inne niż iOS). */
+  widget?: WidgetBridge;
   /** Ustawienia telefonu, nie konta (pęk kluczy; np. samosprawdzenie). Ustawienia konta są w jego bazie (D175, account-prefs). */
   prefs?: Prefs;
   /** Dawne ustawienia konta w pęku kluczy (sprzed D175) — przejmuje je pierwsze zalogowane konto. */
@@ -231,12 +235,28 @@ function SignedInApp({ deps, session, db, pendingUrl, onDeleted }: SignedInProps
         userId: session.userId,
         refresh: async () => {
           await runtime.refreshNow();
+          updateWidgetSnapshot(deps.widget, runtime.getSnapshot().state, session.userId, nowMs());
           if (!deps.push || (await deps.push.status()) !== 'granted') return;
           await deps.push.replaceReminders(await storedReminderPlan(materialize(runtime.getSnapshot().state), session.userId, nowMs(), prefs, local));
         },
       }),
     [runtime, deps, session.userId, nowMs, prefs, local],
   );
+
+  // D17 (BRD B4): aktualizacja zrzutu widżetu iOS (WidgetKit) w App Group przy starcie, zmianie stanu i wyjściu w tło.
+  useEffect(() => {
+    if (!deps.widget) return;
+    const update = () => updateWidgetSnapshot(deps.widget, runtime.getSnapshot().state, session.userId, nowMs());
+    update();
+    const unsub = runtime.subscribe(update);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'background' || s === 'active') update();
+    });
+    return () => {
+      unsub();
+      sub.remove();
+    };
+  }, [deps.widget, runtime, session.userId, nowMs]);
 
   // M-10: sieć z NetInfo — „Offline · N zmian czeka” i natychmiastowa próba po powrocie sieci.
   useEffect(() => deps.network?.subscribe((online) => runtime.event({ t: 'network', online })), [deps, runtime]);
@@ -446,6 +466,7 @@ export function Root({ deps, fontsLoaded }: { deps: RootDeps; fontsLoaded: boole
       // N-109: także pokazane już powiadomienia (ekran blokady, Centrum powiadomień).
       void deps.push?.dismissShown().catch(() => {});
       void removeMirrorCalendars(deps.calendar, deps.prefs).catch(() => {});
+      deps.widget?.clearSnapshot();
     }
     shownFor.current = who;
   }, [session, deps]);

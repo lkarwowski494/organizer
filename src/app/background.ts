@@ -27,6 +27,7 @@ import { adoptDevice, type ClientState, materialize } from '../domain/sync-engin
 import { pullStep, type Timer } from '../sync/runtime';
 import { accountPrefs, adoptLegacyPrefs } from './account-prefs';
 import { storedReminderPlan } from './reminders';
+import { updateWidgetSnapshot } from './widget-updater';
 import type { RootDeps } from './Root';
 
 export const WAKE_TASK = 'organizer-reminders-refresh';
@@ -66,7 +67,7 @@ const claimed = (userId: string) => writer?.userId === userId;
 /** Zapis z tła po zajęciu bazy przez ekrany — przerywa pobieranie, nic nie zapisuje. */
 class Superseded extends Error {}
 
-export type BackgroundDeps = Pick<RootDeps, 'session' | 'transport' | 'openDb' | 'newId' | 'push' | 'legacyPrefs' | 'nowMs' | 'deviceClientId'>;
+export type BackgroundDeps = Pick<RootDeps, 'session' | 'transport' | 'openDb' | 'newId' | 'push' | 'legacyPrefs' | 'nowMs' | 'deviceClientId' | 'widget'>;
 export type RefreshResult = 'new' | 'none' | 'failed';
 
 const defaultTimer: Timer = (fn, ms) => {
@@ -117,6 +118,7 @@ export async function refreshInBackground(deps: BackgroundDeps, timer: Timer = d
     }
     // Baza przeszła do ekranów w trakcie: ich pętla pobiera i planuje przypomnienia ze swojego stanu.
     if (claimed(s.userId)) return 'new';
+    updateWidgetSnapshot(deps.widget, state, s.userId, now());
     if (!deps.push || (await deps.push.status()) !== 'granted') return 'new';
     const local = { load: (k: string) => loadLocal(db, k), save: (k: string, v: string | null) => saveLocal(db, k, v) };
     const prefs = accountPrefs(local, adoptLegacyPrefs(deps.legacyPrefs, local));

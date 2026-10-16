@@ -643,3 +643,33 @@ describe('odczyt zapisanej sesji kończy się błędem (pęk kluczy niedostępny
     expect(screen.queryByText('Sprawy rodziny i znajomych w jednym miejscu.')).toBeNull();
   });
 });
+
+describe('widżet iOS (D17, BRD B4)', () => {
+  it('gdy podano widget w deps, aktualizuje zrzut danych przy starcie oraz czyści po wylogowaniu', async () => {
+    const updateSnapshot = jest.fn();
+    const clearSnapshot = jest.fn();
+    const widget = { updateSnapshot, clearSnapshot };
+    const sessionListeners = new Set<(s: Session | null) => void>();
+    const t = makeDeps({
+      session: {
+        current: jest.fn(async () => ({ userId: ME, displayName: 'Ala' })),
+        onChange: (fn) => (sessionListeners.add(fn), () => void sessionListeners.delete(fn)),
+      },
+      widget,
+    });
+
+    await render(<Root deps={t.deps} fontsLoaded />);
+    expect(await screen.findByText(/^(Zsynchronizowano|Przed chwilą)$/)).toBeTruthy();
+
+    expect(updateSnapshot).toHaveBeenCalled();
+    const payload = JSON.parse(updateSnapshot.mock.calls[0][0]);
+    expect(payload.version).toBe(1);
+
+    await act(async () => {
+      sessionListeners.forEach((fn) => fn(null));
+    });
+
+    expect(clearSnapshot).toHaveBeenCalled();
+  });
+});
+

@@ -25,6 +25,7 @@ import { expoDeviceCalendar } from './device-calendar';
 import { e2eDeps } from './e2e';
 import { expoDevicePush, showWhileOpen } from './push';
 import { expoTravel } from './travel-service';
+import { expoWidgetBridge } from './widget-bridge';
 import type { AppleCredentialState, RootDeps, Session } from './Root';
 
 type User = {
@@ -163,6 +164,7 @@ export function realDeps(): RootDeps {
     calendar: expoDeviceCalendar,
     travel: expoTravel,
     push: expoDevicePush,
+    widget: expoWidgetBridge,
     prefs: { get: (k) => SecureStore.getItemAsync(`pref.${k}`), set: (k, v) => SecureStore.setItemAsync(`pref.${k}`, v) },
     legacyPrefs: { get: (k) => SecureStore.getItemAsync(k), remove: (k) => SecureStore.deleteItemAsync(k) },
     appearance: { load: () => SecureStore.getItemAsync('appearance'), save: (a) => SecureStore.setItemAsync('appearance', a) },

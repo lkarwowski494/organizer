@@ -280,9 +280,9 @@ describe('pamięć działów i podpowiedzi po zakupach (audyt 2, M-110)', () => 
 describe('korpus działów (audyt 3, N-168)', () => {
   // Oczekiwania spisane niezależnie od słownika (plik korpusu); dopuszczalnych pomyłek: zero.
   const lines = readFileSync(join(__dirname, 'fixtures', 'shopping-departments.pl.txt'), 'utf8')
-    .split('\n')
+    .split(/\r?\n/)
     .filter((l) => l.trim() !== '' && !l.startsWith('#'))
-    .map((l) => l.split('|') as [string, string]);
+    .map((l) => l.trim().split('|') as [string, string]);
 
   it('korpus ma typowe nazwy z każdego działu (poza „Inne”) i znane klucze działów', () => {
     expect(lines.length).toBeGreaterThan(350);
