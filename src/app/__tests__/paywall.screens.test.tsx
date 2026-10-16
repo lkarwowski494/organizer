@@ -158,4 +158,30 @@ describe('Monetyzacja i model dostępu Apps4Brew („Cheaper than Espresso”)',
     await press(within(paywall).getByTestId('paywall-cancel'));
     expect(screen.queryByTestId('modal-paywall')).toBeNull();
   });
+
+  it('próba dodania podzadania na ekranie zadania po wygaśnięciu trialu otwiera Paywall', async () => {
+    const expiredAccess: AccessState = {
+      plan: 'free_trial',
+      trialStartedAt: '2026-09-01T00:00:00.000Z',
+      expiresAt: null,
+      createdCount: 20,
+    };
+
+    const { store } = await openApp(expiredAccess);
+
+    await press(screen.getByLabelText('Listy'));
+    await press(await screen.findByTestId('list-lf'));
+    await press(await screen.findByLabelText(/^Kupić kwiaty/));
+    await screen.findByTestId('screen-task');
+
+    await fireEvent.changeText(screen.getByPlaceholderText('Dodaj podzadanie'), 'Wybrać róże');
+    await fireEvent(screen.getByPlaceholderText('Dodaj podzadanie'), 'submitEditing');
+
+    const subtask = store.dispatched.find((o) => o.kind === 'create' && o.entity === 'tasks' && o.set?.title === 'Wybrać róże');
+    expect(subtask).toBeUndefined();
+
+    const paywall = await screen.findByTestId('modal-paywall');
+    expect(paywall).toBeTruthy();
+  });
 });
+
