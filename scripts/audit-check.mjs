@@ -7,8 +7,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const BASELINE = new URL('./audit-baseline.json', import.meta.url);
 let raw;
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 try {
-  raw = execFileSync('npm', ['audit', '--json'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  raw = execFileSync(npmCmd, ['audit', '--json'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, shell: true });
 } catch (e) {
   raw = e.stdout; // npm audit zwraca kod ≠ 0, gdy są jakiekolwiek zgłoszenia
 }
